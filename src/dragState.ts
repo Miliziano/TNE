@@ -1,0 +1,1 @@
+export const dragState = { type: null as string | null }

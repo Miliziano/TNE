@@ -1,0 +1,634 @@
+/**
+ * src/monitoring/MonitorPanel.tsx
+ *
+ * Pannello UI per il monitoring in tempo reale nell'interfaccia Tauri.
+ * Si aggancia al MonitoringBus come UIReporter e riceve eventi via callback.
+ *
+ * Caratteristiche:
+ * - Grafico heap in tempo reale (ultimi 60 campioni)
+ * - Tabella nodi con timing e throughput, aggiornata live
+ * - Lista connessioni aperte / chiuse / in errore
+ * - Avvisi loitering objects con crescita
+ * - Riepilogo run corrente / ultimo run
+ * - Toggle enable/disable monitoring
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { monitor } from '../monitoring/MonitoringBus'
+import type {
+  Reporter, MonitorEvent, ExecutionSummary,
+  MemorySnapshot, NodeTiming, ConnectionEvent, LoiteringObject,
+} from '../monitoring/MonitoringBus'
+
+// ─── Costanti ─────────────────────────────────────────────────────
+
+const MAX_MEMORY_SAMPLES = 60
+const ACCENT = '#a78bfa'
+const GREEN  = '#3ddc84'
+const RED    = '#ff5f57'
+const ORANGE = '#ffb347'
+const BLUE   = '#4a9eff'
+
+// ─── Stili base ───────────────────────────────────────────────────
+
+const card: React.CSSProperties = {
+  background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349',
+  overflow: 'hidden',
+}
+
+const sectionTitle = (color = ACCENT): React.CSSProperties => ({
+  fontSize: 9, fontWeight: 700, color, textTransform: 'uppercase',
+  letterSpacing: '.08em', padding: '5px 10px',
+  background: '#161b27', borderBottom: '0.5px solid #2a3349',
+})
+
+function mb(bytes: number): string {
+  return `${Math.round(bytes / 1024 / 1024 * 10) / 10} MB`
+}
+
+function ms(n: number | undefined): string {
+  if (n === undefined) return '—'
+  if (n < 1000) return `${Math.round(n)} ms`
+  return `${(n / 1000).toFixed(2)} s`
+}
+
+// ─── Mini grafico heap (SVG) ──────────────────────────────────────
+
+// ─── Mini grafico singola serie ──────────────────────────────────
+function MiniChart({ values, color, label, unit = 'MB' }: {
+  values: number[]; color: string; label: string; unit?: string
+}) {
+  if (values.length < 2) {
+    return (
+      <div style={{ height: 52, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', color: '#2a3349', fontSize: 9 }}>
+        In attesa…
+      </div>
+    )
+  }
+  const W = 300, H = 52, PAD = 3
+  const max   = Math.max(...values, 1)
+  const min   = 0
+  const last  = values[values.length - 1]
+  const peak  = Math.max(...values)
+  const trend = values.length > 5 ? values[values.length - 1] - values[values.length - 6] : 0
+  const tc    = trend > 0 ? (color === GREEN ? ORANGE : RED) : color
+
+  const toMb = (b: number) => Math.round(b / 1024 / 1024)
+
+  const points = values.map((v, i) => {
+    const x = PAD + (i / (values.length - 1)) * (W - PAD * 2)
+    const y = H - PAD - ((v - min) / (max - min || 1)) * (H - PAD * 2)
+    return `${x},${y}`
+  }).join(' ')
+
+  return (
+    <div style={{ padding: '5px 10px 4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, alignItems: 'baseline' }}>
+        <span style={{ fontSize: 10, color: '#c8d4f0' }}>
+          {label}: <strong style={{ color: tc }}>{toMb(last)} {unit}</strong>
+        </span>
+        <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+          peak {toMb(peak)} {unit}
+          {trend !== 0 && (
+            <span style={{ color: tc, marginLeft: 5 }}>
+              {trend > 0 ? '↑' : '↓'}{toMb(Math.abs(trend))}
+            </span>
+          )}
+        </span>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+        <polyline points={`${PAD},${H} ${points} ${W - PAD},${H}`}
+          fill={color} fillOpacity={0.08} stroke="none" />
+        <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+        <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
+          stroke="#1e2535" strokeWidth={0.5} />
+      </svg>
+    </div>
+  )
+}
+
+// ─── ProcessTable — dettaglio per processo ───────────────────────
+function ProcessTable({ processes }: { processes: NonNullable<MemorySnapshot['processes']> }) {
+  const ROLE_COLOR: Record<string, string> = {
+    Main: GREEN, WebKitWeb: '#a78bfa', WebKitNetwork: BLUE, WebKitGpu: ORANGE, Other: '#4a5a7a',
+  }
+  const ROLE_LABEL: Record<string, string> = {
+    Main: 'Tauri (Rust)', WebKitWeb: 'WebKit — Render', WebKitNetwork: 'WebKit — Network',
+    WebKitGpu: 'WebKit — GPU', Other: 'Altro',
+  }
+  const sorted = [...processes].sort((a, b) => b.rss - a.rss)
+
+  return (
+    <div style={{ padding: '0 10px 6px' }}>
+      {sorted.map(p => (
+        <div key={p.pid} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', fontSize: 9 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: ROLE_COLOR[p.role] ?? '#4a5a7a', flexShrink: 0 }} />
+          <span style={{ color: '#9a9aaa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {ROLE_LABEL[p.role] ?? p.role} <span style={{ color: '#4a5a7a' }}>· pid {p.pid}</span>
+          </span>
+          <span style={{ color: ROLE_COLOR[p.role] ?? '#9a9aaa', fontFamily: 'monospace', textAlign: 'right' }}>
+            {Math.round(p.rss / 1024 / 1024)} MB
+            {p.private > 0 && (
+              <span style={{ color: '#4a5a7a', marginLeft: 4 }}>
+                ({Math.round(p.private / 1024 / 1024)} priv)
+              </span>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── HeapChart — pannelli separati + PSS quando disponibile ──────
+function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
+  if (samples.length < 2) {
+    return (
+      <div style={{ padding: '10px', textAlign: 'center', color: '#2a3349', fontSize: 10 }}>
+        In attesa di dati…
+      </div>
+    )
+  }
+
+  const hasWebkit      = samples.some(s => (s.rssWebkit ?? 0) > 0)
+  const hasPss         = samples.some(s => s.pssAvailable && (s.totalPss ?? 0) > 0)
+  const lastSample     = samples[samples.length - 1]
+
+  const valuesMain     = samples.map(s => s.heapUsed)
+  const valuesWebkit   = hasWebkit ? samples.map(s => s.rssWebkit ?? 0) : []
+  const valuesTotalRss = samples.map(s => s.totalRss ?? s.heapUsed)
+  const valuesTotalPss = hasPss ? samples.map(s => s.totalPss ?? 0) : []
+  const valuesPrivate  = hasPss ? samples.map(s => s.totalPrivate ?? 0) : []
+  const valuesShared   = hasPss ? samples.map(s => s.totalShared ?? 0) : []
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+      {/* Private — la metrica migliore per i memory leak: solo memoria
+          esclusiva dell'app, non cresce per via di librerie condivise */}
+      {hasPss && (
+        <div style={{ borderBottom: '0.5px solid #1e2535', background: 'color-mix(in srgb, #3ddc84 4%, transparent)' }}>
+          <div style={{ fontSize: 9, color: GREEN, padding: '4px 10px 0',
+            textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <i className="ti ti-certificate" style={{ fontSize: 10 }} />
+            Memoria privata (Private) — la metrica migliore per i leak
+          </div>
+          <MiniChart values={valuesPrivate} color={GREEN} label="Private" />
+        </div>
+      )}
+
+      {/* PSS totale */}
+      {hasPss && (
+        <div style={{ borderBottom: '0.5px solid #1e2535' }}>
+          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+            textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+            PSS totale (proportional set size)
+          </div>
+          <MiniChart values={valuesTotalPss} color={BLUE} label="PSS totale" />
+        </div>
+      )}
+
+      {/* Shared — pagine condivise, dovrebbe restare stabile */}
+      {hasPss && (
+        <div style={{ borderBottom: '0.5px solid #1e2535' }}>
+          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+            textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+            Memoria condivisa (Shared) — librerie, mmap
+          </div>
+          <MiniChart values={valuesShared} color="#4a5a7a" label="Shared" />
+        </div>
+      )}
+
+      {/* RSS totale — somma semplice, può sovrastimare per pagine condivise */}
+      <div style={{ borderBottom: '0.5px solid #1e2535' }}>
+        <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+          textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+          RSS totale app {hasPss && <span style={{ fontStyle: 'italic' }}>(può sovrastimare — vedi PSS sopra)</span>}
+        </div>
+        <MiniChart values={valuesTotalRss} color={hasPss ? '#4a5a7a' : BLUE} label="RSS totale" />
+      </div>
+
+      {/* Processo principale */}
+      <div style={{ borderBottom: '0.5px solid #1e2535' }}>
+        <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+          textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+          Processo principale (Tauri/Rust)
+        </div>
+        <MiniChart values={valuesMain} color={GREEN} label="RSS main" />
+      </div>
+
+      {/* WebKit — solo se misurabile (Linux) */}
+      {hasWebkit && valuesWebkit.some(v => v > 0) && (
+        <div style={{ borderBottom: '0.5px solid #1e2535' }}>
+          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+            textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+            WebKit (renderer JS/React)
+          </div>
+          <MiniChart values={valuesWebkit} color="#a78bfa" label="RSS WebKit" />
+        </div>
+      )}
+
+      {/* Dettaglio per processo */}
+      {lastSample.processes && lastSample.processes.length > 0 && (
+        <div>
+          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '6px 10px 3px',
+            textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+            Dettaglio processi ({lastSample.processes.length})
+          </div>
+          <ProcessTable processes={lastSample.processes} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Tabella nodi ─────────────────────────────────────────────────
+
+function NodeTable({ timings }: { timings: NodeTiming[] }) {
+  if (timings.length === 0) {
+    return <div style={{ padding: '10px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>Nessun nodo eseguito</div>
+  }
+
+  const sorted = [...timings].sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+        <thead>
+          <tr style={{ background: '#161b27' }}>
+            {['Nodo', 'Tipo', 'Durata', 'Righe in', 'Righe out', 'Scartate', 'Stato'].map(h => (
+              <th key={h} style={{ padding: '4px 8px', textAlign: 'left', color: '#4a5a7a', fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '0.5px solid #2a3349', whiteSpace: 'nowrap' }}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((t, i) => {
+            const isRunning = !t.endAt
+            const hasError  = !!t.error
+            const color     = hasError ? RED : isRunning ? ORANGE : '#c8d4f0'
+            return (
+              <tr key={t.nodeId} style={{ borderBottom: '0.5px solid #1e2535', background: i % 2 === 0 ? '#1a2030' : 'transparent' }}>
+                <td style={{ padding: '4px 8px', color, fontFamily: 'monospace', fontSize: 10 }} title={t.error}>
+                  {t.nodeLabel}
+                </td>
+                <td style={{ padding: '4px 8px', color: '#4a5a7a', fontSize: 9 }}>{t.nodeType}</td>
+                <td style={{ padding: '4px 8px', color: t.durationMs && t.durationMs > 5000 ? ORANGE : '#9a9aaa', fontFamily: 'monospace' }}>
+                  {isRunning ? <span style={{ color: ORANGE }}>⏳ running</span> : ms(t.durationMs)}
+                </td>
+                <td style={{ padding: '4px 8px', color: '#9a9aaa', fontFamily: 'monospace' }}>{t.rowsIn.toLocaleString()}</td>
+                <td style={{ padding: '4px 8px', color: GREEN, fontFamily: 'monospace' }}>{t.rowsOut.toLocaleString()}</td>
+                <td style={{ padding: '4px 8px', color: t.rowsRejected > 0 ? ORANGE : '#4a5a7a', fontFamily: 'monospace' }}>
+                  {t.rowsRejected > 0 ? t.rowsRejected.toLocaleString() : '—'}
+                </td>
+                <td style={{ padding: '4px 8px' }}>
+                  {hasError
+                    ? <span style={{ color: RED, fontSize: 9 }}>✗ errore</span>
+                    : isRunning
+                    ? <span style={{ color: ORANGE, fontSize: 9 }}>● running</span>
+                    : <span style={{ color: GREEN, fontSize: 9 }}>✓ ok</span>
+                  }
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ─── Lista connessioni ────────────────────────────────────────────
+
+function ConnectionList({ connections }: { connections: ConnectionEvent[] }) {
+  const grouped = connections.reduce((acc, c) => {
+    const key = `${c.resource}::${c.type}`
+    if (!acc[key]) acc[key] = { resource: c.resource, type: c.type, events: [] }
+    acc[key].events.push(c)
+    return acc
+  }, {} as Record<string, { resource: string; type: string; events: ConnectionEvent[] }>)
+
+  if (Object.keys(grouped).length === 0) {
+    return <div style={{ padding: '10px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>Nessuna connessione</div>
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {(Object.values(grouped) as { resource: string; type: string; events: ConnectionEvent[] }[]).map(({ resource, type, events }) => {
+        const opens    = events.filter(e => e.action === 'open').length
+        const closes   = events.filter(e => e.action === 'close').length
+        const errors   = events.filter(e => e.action === 'error').length
+        const queries  = events.filter(e => e.action === 'query').length
+        const isLeaked = opens > closes
+        const avgQuery = queries > 0
+          ? Math.round(events.filter(e => e.action === 'query').reduce((s, e) => s + (e.durationMs ?? 0), 0) / queries)
+          : null
+
+        return (
+          <div key={`${resource}::${type}`}
+            style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '0.5px solid #1e2535' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: isLeaked ? RED : GREEN, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: '#c8d4f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {resource}
+                <span style={{ fontSize: 9, color: '#4a5a7a', marginLeft: 6 }}>{type}</span>
+              </div>
+              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 1 }}>
+                {opens} aperture · {closes} chiusure · {queries} query
+                {avgQuery !== null && <span style={{ marginLeft: 4 }}>· avg {avgQuery}ms</span>}
+                {errors > 0 && <span style={{ color: RED, marginLeft: 4 }}>· {errors} errori</span>}
+              </div>
+            </div>
+            {isLeaked && (
+              <span style={{ fontSize: 9, color: RED, fontWeight: 600, flexShrink: 0 }}>⚠ leak</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Lista loitering ──────────────────────────────────────────────
+
+function LoiteringList({ objects }: { objects: LoiteringObject[] }) {
+  if (objects.length === 0) {
+    return <div style={{ padding: '10px', fontSize: 10, color: GREEN, textAlign: 'center' }}>✓ Nessun loitering object rilevato</div>
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {objects.map(obj => {
+        const growth   = obj.sizeCurrent - obj.sizeAtStart
+        const severity = growth > 1000 ? RED : growth > 100 ? ORANGE : ORANGE
+        return (
+          <div key={obj.id} style={{ padding: '6px 10px', borderBottom: '0.5px solid #1e2535', display: 'flex', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: severity, flexShrink: 0, marginTop: 3 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: severity }}>{obj.label}</div>
+              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 2 }}>
+                {obj.type} · {obj.sizeAtStart} → {obj.sizeCurrent} entries
+                (+{growth} · {obj.growthRate > 0 ? `${obj.growthRate}/s` : 'stabile'})
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Componente principale ────────────────────────────────────────
+
+interface MonitorPanelProps {
+  /** Posizione del pannello — default: 'bottom' */
+  position?: 'bottom' | 'right' | 'float'
+  /** Larghezza in px per position='right' — default: 420 */
+  width?: number
+  /** Altezza in px per position='bottom' — default: 320 */
+  height?: number
+}
+
+export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }: MonitorPanelProps) {
+  const [enabled,     setEnabled]     = useState(monitor.enabled)
+  const [activeTab,   setActiveTab]   = useState<'memory' | 'nodes' | 'connections' | 'loitering'>('memory')
+  const [memorySamples, setMemorySamples] = useState<MemorySnapshot[]>([])
+  const [nodeTimings, setNodeTimings] = useState<NodeTiming[]>([])
+  const [connections, setConnections] = useState<ConnectionEvent[]>([])
+  const [loitering,   setLoitering]   = useState<LoiteringObject[]>([])
+  const [lastSummary, setLastSummary] = useState<ExecutionSummary | null>(null)
+  const [isRunning,   setIsRunning]   = useState(false)
+  const reporterRef = useRef<Reporter | null>(null)
+
+  useEffect(() => {
+    // Fetch immediato memoria — prova Tauri invoke, fallback a performance.memory
+    import('@tauri-apps/api/core').then(({ invoke }) => {
+      return invoke('get_memory_info') as Promise<any>
+    }).then(m => {
+      const snap = {
+        heapUsed:     m.main_rss,
+        heapTotal:    m.total_ram,
+        rss:          m.main_rss,
+        rssWebkit:    m.webkit_rss,
+        totalRss:     m.total_rss,
+        totalPss:     m.total_pss,
+        totalPrivate: m.total_private,
+        totalShared:  m.total_shared,
+        pssAvailable: m.pss_available,
+        processes:    (m.processes ?? []).map((p: any) => ({
+          pid: p.pid, name: p.name, role: p.role, rss: p.rss, pss: p.pss,
+          private: p.private, shared: p.shared,
+        })),
+        totalRam:     m.total_ram,
+        usedRam:      m.used_ram,
+        timestamp:    m.timestamp,
+      }
+      setMemorySamples([snap])
+    }).catch(() => {
+      // Browser o Tauri senza comando: prova performance.memory
+      const pm = (performance as any).memory
+      if (pm?.usedJSHeapSize > 0) {
+        setMemorySamples([{
+          heapUsed:  pm.usedJSHeapSize,
+          heapTotal: pm.totalJSHeapSize,
+          timestamp: Date.now(),
+        }])
+      }
+    })
+
+    // Avvia il polling memoria — anche senza run attivo
+    if (monitor.enabled) {
+      monitor.startIdlePolling()
+    } else {
+      monitor.enable(2000)
+      monitor.startIdlePolling()
+    }
+
+    // UIReporter inline — aggiorna lo stato React ad ogni evento
+    const reporter: Reporter = {
+      onEvent(event: MonitorEvent) {
+        switch (event.type) {
+          case 'memory': {
+            const snap = event.payload as MemorySnapshot
+            // Scarta campioni vuoti (heapUsed=0 e rss assente/0)
+            if (snap.heapUsed === 0 && (!snap.rss || snap.rss === 0)) break
+            setMemorySamples(prev => {
+              const next = [...prev, snap]
+              return next.slice(-MAX_MEMORY_SAMPLES)
+            })
+            break
+          }
+          case 'node_start':
+            setIsRunning(true)
+            setNodeTimings(prev => {
+              const t = event.payload as NodeTiming
+              return [...prev.filter(n => n.nodeId !== t.nodeId), t]
+            })
+            break
+          case 'node_end':
+            setNodeTimings(prev => {
+              const t = event.payload as NodeTiming
+              return prev.map(n => n.nodeId === t.nodeId ? t : n)
+            })
+            break
+          case 'connection':
+            setConnections(prev => [...prev, event.payload as ConnectionEvent])
+            break
+          case 'loitering':
+            setLoitering(prev => {
+              const l = event.payload as LoiteringObject
+              return [...prev.filter(o => o.id !== l.id), l]
+            })
+            break
+          case 'run_start':
+            setNodeTimings([])
+            setConnections([])
+            setLoitering([])
+            setIsRunning(true)
+            break
+          case 'run_end':
+            setIsRunning(false)
+            break
+        }
+      },
+      onRunEnd(summary: ExecutionSummary) {
+        setLastSummary(summary)
+        setLoitering(summary.loitering)
+        setIsRunning(false)
+      },
+    }
+    reporterRef.current = reporter
+    monitor.addReporter(reporter)
+    return () => {
+      if (reporterRef.current) monitor.removeReporter(reporterRef.current)
+      monitor.stopIdlePolling()
+    }
+  }, [])
+
+  const toggleMonitor = useCallback(() => {
+    if (enabled) {
+      monitor.disable()
+      setEnabled(false)
+    } else {
+      monitor.enable(2000)
+      setEnabled(true)
+    }
+  }, [enabled])
+
+  const TABS = [
+    { id: 'memory' as const,      label: 'Memoria',      badge: null },
+    { id: 'nodes' as const,       label: 'Nodi',         badge: nodeTimings.length || null },
+    { id: 'connections' as const, label: 'Connessioni',  badge: connections.filter(c => c.action === 'open').length || null },
+    { id: 'loitering' as const,   label: 'Loitering',    badge: loitering.length || null },
+  ]
+
+  const panelStyle: React.CSSProperties = position === 'right'
+    ? { width, height: '100%', borderLeft: '1px solid #2a3349' }
+    : position === 'float'
+    ? { width: 480, position: 'fixed', bottom: 16, right: 16, boxShadow: '0 8px 32px rgba(0,0,0,.7)', borderRadius: 8 }
+    : { width: '100%', height, borderTop: '1px solid #2a3349' }
+
+  return (
+    <div style={{ ...panelStyle, background: '#0f1117', display: 'flex', flexDirection: 'column', fontSize: 11, overflow: 'hidden', zIndex: position === 'float' ? 9000 : undefined }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#161b27', borderBottom: '0.5px solid #2a3349', flexShrink: 0 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: enabled ? (isRunning ? ORANGE : GREEN) : '#2a3349', flexShrink: 0, boxShadow: enabled && isRunning ? `0 0 6px ${ORANGE}` : undefined }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
+          FlowPilot Monitor
+          {isRunning && <span style={{ fontSize: 9, color: ORANGE, marginLeft: 8 }}>● running</span>}
+        </span>
+
+        {lastSummary && !isRunning && (
+          <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+            Ultimo run: {ms(lastSummary.totalDurationMs)} · {Math.round(lastSummary.peakHeapMb)}MB peak
+          </span>
+        )}
+
+        <button onClick={toggleMonitor}
+          style={{ padding: '2px 10px', fontSize: 9, borderRadius: 4, cursor: 'pointer', fontWeight: 600, border: `1px solid ${enabled ? RED + '60' : GREEN + '60'}`, background: enabled ? `${RED}15` : `${GREEN}15`, color: enabled ? RED : GREEN }}>
+          {enabled ? 'Disabilita' : 'Abilita'}
+        </button>
+      </div>
+
+      {/* ── Tabs ── */}
+      <div style={{ display: 'flex', borderBottom: '0.5px solid #2a3349', flexShrink: 0, background: '#161b27' }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            style={{ padding: '5px 12px', fontSize: 10, background: 'none', border: 'none', borderBottom: activeTab === tab.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === tab.id ? ACCENT : '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+            {tab.label}
+            {tab.badge !== null && tab.badge > 0 && (
+              <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 8, background: tab.id === 'loitering' ? `${RED}30` : tab.id === 'connections' ? `${ORANGE}30` : `${ACCENT}30`, color: tab.id === 'loitering' ? RED : tab.id === 'connections' ? ORANGE : ACCENT, fontWeight: 700 }}>
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Contenuto ── */}
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        {!enabled ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11 }}>
+            <i className="ti ti-chart-line" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
+            Monitor disabilitato — premi Abilita per iniziare
+          </div>
+        ) : (
+          <>
+            {activeTab === 'memory' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+                <div style={card}>
+                  <div style={sectionTitle()}>Memoria</div>
+                  <HeapChart samples={memorySamples} />
+                </div>
+                {lastSummary && (
+                  <div style={card}>
+                    <div style={sectionTitle('#4a5a7a')}>Ultimo run</div>
+                    <div style={{ padding: '8px 10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      {[
+                        ['Durata',      ms(lastSummary.totalDurationMs)],
+                        ['Peak heap',   `${Math.round(lastSummary.peakHeapMb)} MB`],
+                        ['Avg heap',    `${Math.round(lastSummary.avgHeapMb)} MB`],
+                        ['Righe in',    lastSummary.totalRowsIn.toLocaleString()],
+                        ['Righe out',   lastSummary.totalRowsOut.toLocaleString()],
+                        ['Scartate',    lastSummary.totalRejected.toLocaleString()],
+                      ].map(([k, v]) => (
+                        <div key={k}>
+                          <div style={{ fontSize: 9, color: '#4a5a7a' }}>{k}</div>
+                          <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: 'monospace' }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'nodes' && (
+              <div style={card}>
+                <div style={sectionTitle(BLUE)}>Nodi — timing e throughput</div>
+                <NodeTable timings={nodeTimings} />
+              </div>
+            )}
+
+            {activeTab === 'connections' && (
+              <div style={card}>
+                <div style={sectionTitle(ORANGE)}>Connessioni risorse</div>
+                <ConnectionList connections={connections} />
+              </div>
+            )}
+
+            {activeTab === 'loitering' && (
+              <div style={card}>
+                <div style={sectionTitle(RED)}>Loitering objects</div>
+                <LoiteringList objects={loitering} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

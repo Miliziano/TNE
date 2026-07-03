@@ -1,0 +1,507 @@
+// ─── src-tauri/src/engine/executor.rs (v6 — wiring edge-based) ─────
+//
+// CAMBIO ARCHITETTURALE rispetto al v5:
+// I canali NON sono più costruiti tra nodi adiacenti nell'ordine
+// dell'array (catena lineare), ma seguono gli EDGES del piano.
+//
+//   - un canale mpsc per ogni coppia (target_node, target_handle)
+//   - fan-out: se un handle di uscita ha più edges, un task dedicato
+//     clona le righe su tutti i destinatari
+//   - fan-in: più edges sullo stesso handle di ingresso condividono
+//     lo stesso sender (mpsc::Sender è Clone)
+//   - uscite richieste ma non collegate → drain (consuma e scarta),
+//     così i nodi non si bloccano mai su un send
+//   - input lookup del TMap: ora sono semplici edges
+//     lookup_node.output → tmap.input_xyz. L'hack _tmap_lookup_for
+//     e il riordino dei lookup in fondo all'array SPARISCONO.
+//
+// Richiede che il frontend popoli lanes[].edges (EdgePlan) invece
+// di mandare edges: [] — vedi buildRustPlan in Toolbar.tsx.
+
+use std::collections::HashMap;
+use std::time::Instant;
+use tokio::sync::mpsc;
+use crate::engine::types::*;
+use crate::engine::events::EngineEvent;
+use crate::engine::bus::push_event;
+
+const CHANNEL_BUFFER: usize = 1000;
+
+pub type RowSender   = mpsc::Sender<Row>;
+pub type RowReceiver = mpsc::Receiver<Row>;
+
+// ─── NodeContext ──────────────────────────────────────────────────
+
+pub struct NodeContext {
+    pub run_id:    RunId,
+    pub lane_id:   LaneId,
+    pub node_id:   NodeId,
+    pub label:     String,
+    pub config:    serde_json::Value,
+    pub variables: HashMap<String, Value>,
+}
+
+impl NodeContext {
+    pub fn emit_progress(&self, rows_in: u64, rows_out: u64, rows_rejected: u64, rps: f64) {
+        push_event(EngineEvent::NodeProgress {
+            run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
+            node_id: self.node_id.clone(), rows_in, rows_out, rows_rejected,
+            throughput_rps: rps,
+        });
+    }
+    pub fn emit_started(&self) {
+        push_event(EngineEvent::NodeStarted {
+            run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
+            node_id: self.node_id.clone(), label: self.label.clone(),
+        });
+    }
+    pub fn emit_completed(&self, stats: NodeStats) {
+        push_event(EngineEvent::NodeCompleted {
+            run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
+            node_id: self.node_id.clone(), stats,
+        });
+    }
+    pub fn emit_failed(&self, error: String) {
+        push_event(EngineEvent::NodeFailed {
+            run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
+            node_id: self.node_id.clone(), error,
+        });
+    }
+}
+
+// ─── Helpers config TMap ──────────────────────────────────────────
+
+fn tmap_lookup_input_ids(config: &serde_json::Value) -> Vec<String> {
+    config.get("lookups")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter()
+            .filter_map(|l| l.get("input_id")?.as_str().map(String::from))
+            .collect())
+        .unwrap_or_default()
+}
+
+fn tmap_output_ids(config: &serde_json::Value) -> Vec<String> {
+    config.get("outputs")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter()
+            .filter_map(|o| o.get("output_id")?.as_str().map(String::from))
+            .collect())
+        .unwrap_or_default()
+}
+
+// ─── Helpers canali ───────────────────────────────────────────────
+
+/// Sender verso il nulla: consuma e scarta. Serve per le uscite
+/// obbligatorie dei nodi (es. filter richiede tx) quando nessun
+/// edge le consuma — senza, il nodo si bloccherebbe sul send o
+/// fallirebbe per tx mancante.
+fn make_drain() -> RowSender {
+    let (tx, mut rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
+    tokio::spawn(async move {
+        while rx.recv().await.is_some() {}
+    });
+    tx
+}
+
+/// Receiver già chiuso: recv() restituisce subito None. Serve per
+/// gli input lookup del TMap non collegati (lookup vuoto).
+fn closed_receiver() -> RowReceiver {
+    let (_tx, rx) = mpsc::channel::<Row>(1);
+    rx
+}
+
+/// Estrae l'input "principale" di un nodo semplice: preferisce
+/// l'handle 'input', altrimenti l'unico rimasto.
+fn take_single_input(inputs: &mut HashMap<String, RowReceiver>) -> Option<RowReceiver> {
+    if let Some(rx) = inputs.remove("input") { return Some(rx); }
+    let key = inputs.keys().next().cloned()?;
+    inputs.remove(&key)
+}
+
+/// Estrae l'uscita "principale" di un nodo semplice: preferisce
+/// l'handle 'output', poi il primo handle non-reject/non-catch.
+fn take_primary_output(outputs: &mut HashMap<String, RowSender>) -> Option<RowSender> {
+    if let Some(tx) = outputs.remove("output") { return Some(tx); }
+    let key = outputs.keys()
+        .find(|k| k.as_str() != "reject" && k.as_str() != "catch")
+        .cloned()
+        .or_else(|| outputs.keys().next().cloned())?;
+    outputs.remove(&key)
+}
+
+// ─── execute_lane ─────────────────────────────────────────────────
+
+pub async fn execute_lane(
+    run_id:               RunId,
+    lane_plan:            LanePlan,
+    mut bridge_senders:   HashMap<String, RowSender>,
+    mut bridge_receivers: HashMap<String, RowReceiver>,
+) -> Result<HashMap<String, NodeStats>, String> {
+
+    let lane_id    = lane_plan.lane_id.clone();
+    let variables  = lane_plan.variables.clone();
+    let nodes      = lane_plan.nodes;
+    let plan_edges = lane_plan.edges;
+
+    if nodes.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    // ── 1. Un canale per ogni (target_node, target_handle) ────────
+    // Se più edges puntano allo STESSO handle di ingresso (fan-in),
+    // condividono il canale: ogni sorgente riceve un clone del tx.
+    // node_id → (handle → rx)
+    let mut input_rx: HashMap<String, HashMap<String, RowReceiver>> = HashMap::new();
+    // (target_node, target_handle) → tx del canale
+    let mut target_tx: HashMap<(String, String), RowSender> = HashMap::new();
+
+    for e in &plan_edges {
+        let key = (e.target_node.0.clone(), e.target_handle.clone());
+        if !target_tx.contains_key(&key) {
+            let (tx, rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
+            input_rx.entry(key.0.clone()).or_default().insert(key.1.clone(), rx);
+            target_tx.insert(key, tx);
+        }
+    }
+
+    // ── 2. Sender per ogni (source_node, source_handle) ───────────
+    // Raggruppa gli edges in uscita dallo stesso handle.
+    let mut out_groups: HashMap<(String, String), Vec<RowSender>> = HashMap::new();
+    for e in &plan_edges {
+        let skey = (e.source_node.0.clone(), e.source_handle.clone());
+        let tkey = (e.target_node.0.clone(), e.target_handle.clone());
+        if let Some(tx) = target_tx.get(&tkey) {
+            out_groups.entry(skey).or_default().push(tx.clone());
+        }
+    }
+    // IMPORTANTE: rilascia i tx originali. Restano vivi solo i clone
+    // nelle mani dei nodi sorgente — quando il sorgente termina, il
+    // canale si chiude e il target vede la fine dello stream.
+    drop(target_tx);
+
+    // node_id → (handle → tx), con fan-out dove serve
+    let mut output_tx: HashMap<String, HashMap<String, RowSender>> = HashMap::new();
+    for ((node, handle), mut senders) in out_groups {
+        let tx = if senders.len() == 1 {
+            senders.pop().unwrap()
+        } else {
+            // Fan-out: un task clona ogni riga su tutti i destinatari
+            // (l'originale va all'ultimo, senza clone superfluo).
+            // Un destinatario chiuso viene ignorato: gli altri
+            // continuano a ricevere.
+            let (fan_tx, mut fan_rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
+            tokio::spawn(async move {
+                while let Some(row) = fan_rx.recv().await {
+                    let n = senders.len();
+                    for tx in senders.iter().take(n - 1) {
+                        let _ = tx.send(row.clone()).await;
+                    }
+                    if let Some(last) = senders.last() {
+                        let _ = last.send(row).await;
+                    }
+                }
+            });
+            fan_tx
+        };
+        output_tx.entry(node).or_default().insert(handle, tx);
+    }
+
+    // ── 3. Spawn dei nodi ─────────────────────────────────────────
+    let mut handles = Vec::new();
+
+    for node_plan in nodes.into_iter() {
+        let node_id_str = node_plan.node_id.0.clone();
+        let node_type   = node_plan.node_type.clone();
+
+        let ctx = NodeContext {
+            run_id:    run_id.clone(),
+            lane_id:   lane_id.clone(),
+            node_id:   node_plan.node_id.clone(),
+            label:     node_plan.label.clone(),
+            config:    node_plan.config.clone(),
+            variables: variables.clone(),
+        };
+
+        let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
+        let outputs = output_tx.remove(&node_id_str).unwrap_or_default();
+
+        let bridge_id = node_plan.config
+            .get("bridge_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let bridge_tx = bridge_id.as_deref().and_then(|id| bridge_senders.remove(id));
+        let bridge_rx = bridge_id.as_deref().and_then(|id| bridge_receivers.remove(id));
+
+        eprintln!("[executor] spawn nodo={} type={} inputs={:?} outputs={:?}",
+            node_id_str, node_type,
+            inputs.keys().collect::<Vec<_>>(),
+            outputs.keys().collect::<Vec<_>>());
+
+        let handle = tokio::spawn(async move {
+            run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await
+        });
+
+        handles.push((node_id_str, handle));
+    }
+
+    // ── 4. Attendi completamento ──────────────────────────────────
+    let mut stats_map = HashMap::new();
+    for (node_id_str, handle) in handles {
+        match handle.await {
+            Ok(Ok(stats)) => {
+                eprintln!("[executor] nodo {} completato ok", node_id_str);
+                stats_map.insert(node_id_str, stats);
+            }
+            Ok(Err(e)) => {
+                eprintln!("[executor] nodo {} fallito: {}", node_id_str, e);
+                return Err(format!("Nodo {} fallito: {}", node_id_str, e));
+            }
+            Err(e) => {
+                eprintln!("[executor] panic nodo {}: {}", node_id_str, e);
+                return Err(format!("Panic nel nodo {}: {}", node_id_str, e));
+            }
+        }
+    }
+
+    Ok(stats_map)
+}
+
+// ─── run_node ─────────────────────────────────────────────────────
+//
+// Riceve mappe handle → canale invece di Option singoli:
+//   inputs:  handle di ingresso → receiver
+//   outputs: handle di uscita   → sender (già con fan-out applicato)
+//
+// I nodi semplici prendono input/output "principale" con gli helper;
+// il TMap ricostruisce i suoi vettori nell'ordine della config;
+// union/join/data_quality (multi-input) per ora concatenano gli
+// ingressi in sequenza — le implementazioni vere si innestano qui.
+
+async fn run_node(
+    ctx:         NodeContext,
+    node_type:   String,
+    mut inputs:  HashMap<String, RowReceiver>,
+    mut outputs: HashMap<String, RowSender>,
+    bridge_tx:   Option<RowSender>,
+    bridge_rx:   Option<RowReceiver>,
+) -> Result<NodeStats, String> {
+
+    ctx.emit_started();
+
+    match node_type.as_str() {
+
+        "source_file" => {
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::source_file::run(ctx, tx).await
+        }
+
+        "source_db" => {
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::source_db::run(ctx, tx).await
+        }
+
+        "filter" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("filter {} richiede un input collegato", ctx.node_id.0))?;
+            // NOTA: filter.rs è a uscita singola — i reject vengono
+            // contati ma non instradati. L'eventuale edge sull'handle
+            // 'reject' resta in outputs e riceve 0 righe (chiude a
+            // fine nodo). Routing reale del reject: upgrade futuro.
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::filter::run(ctx, rx, tx).await
+        }
+
+        "sink_file" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("sink_file {} richiede un input collegato", ctx.node_id.0))?;
+            super::nodes::sink_file::run(ctx, rx).await
+        }
+
+        "sink_db" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("sink_db {} richiede un input collegato", ctx.node_id.0))?;
+            super::nodes::sink_db::run(ctx, rx).await
+        }
+
+        "bridge_out" => {
+            let rx  = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("bridge_out {} richiede un input collegato", ctx.node_id.0))?;
+            let btx = bridge_tx.ok_or_else(|| format!("bridge_out {}: bridge_id non trovato", ctx.node_id.0))?;
+            super::bridge::run_bridge_out(ctx, rx, btx).await
+        }
+
+        "bridge_in" => {
+            let brx = bridge_rx.ok_or_else(|| format!("bridge_in {}: bridge_id non trovato", ctx.node_id.0))?;
+            let tx  = take_primary_output(&mut outputs);
+            super::bridge::run_bridge_in(ctx, brx, tx).await
+        }
+
+        "tmap" => {
+            // Lookup: PRIMA di estrarre il main, rimuovi gli input
+            // lookup per id (ordine della config = ordine del Vec
+            // che tmap::run si aspetta). Lookup non collegato →
+            // receiver chiuso → lookup vuoto.
+            let lookup_ids = tmap_lookup_input_ids(&ctx.config);
+            let mut lookup_rxs: Vec<RowReceiver> = Vec::with_capacity(lookup_ids.len());
+            for id in &lookup_ids {
+                lookup_rxs.push(inputs.remove(id).unwrap_or_else(closed_receiver));
+            }
+
+            let main_rx = inputs.remove("input_main")
+                .or_else(|| take_single_input(&mut inputs))
+                .ok_or_else(|| format!("tmap {} richiede input main collegato", ctx.node_id.0))?;
+
+            // Uscite: nell'ordine della config (main per primo).
+            // Uscita non collegata → drain, così il TMap non si
+            // blocca mai scrivendo su un canale senza consumatore.
+            let output_ids = tmap_output_ids(&ctx.config);
+            let mut output_txs: Vec<RowSender> = Vec::with_capacity(output_ids.len().max(1));
+            for id in &output_ids {
+                output_txs.push(outputs.remove(id).unwrap_or_else(make_drain));
+            }
+            if output_txs.is_empty() {
+                output_txs.push(take_primary_output(&mut outputs).unwrap_or_else(make_drain));
+            }
+
+            super::nodes::tmap::run(ctx, main_rx, lookup_rxs, output_txs).await
+        }
+
+        // ── Nodi core — dispatch reale ─────────────────────────────
+
+        "log" => {
+            match take_single_input(&mut inputs) {
+                Some(rx) => {
+                    let tx = take_primary_output(&mut outputs);
+                    super::nodes::log::run(ctx, rx, tx).await
+                }
+                None => {
+                    let stats = NodeStats::default();
+                    ctx.emit_completed(stats.clone());
+                    Ok(stats)
+                }
+            }
+        }
+
+        "sequencer" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("sequencer {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::sequencer::run(ctx, rx, tx).await
+        }
+
+        "transform" | "transform_fields" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("transform {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::transform::run(ctx, rx, tx).await
+        }
+
+        "aggregate" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("aggregate {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::aggregate::run(ctx, rx, tx).await
+        }
+
+        "explode" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("explode {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::explode::run(ctx, rx, tx).await
+        }
+
+        "materialize" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("materialize {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::materialize::run(ctx, rx, tx).await
+        }
+
+        "json_serializer" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("json_serializer {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::json_serializer::run(ctx, rx, tx).await
+        }
+
+        "json_parser" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("json_parser {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::json_parser::run(ctx, rx, tx).await
+        }
+
+        "xml_serializer" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("xml_serializer {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::xml_serializer::run(ctx, rx, tx).await
+        }
+
+        "xml_parser" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("xml_parser {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::xml_parser::run(ctx, rx, tx).await
+        }
+
+        "pivot" | "unpivot" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("pivot {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::pivot::run(ctx, rx, tx).await
+        }
+
+        "window" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("window {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::window::run(ctx, rx, tx).await
+        }
+
+        // ── Passthrough residui (multi-input consapevole) ──────────
+        // union/join/data_quality: ora RICEVONO tutti i loro input
+        // (il wiring edge-based li supporta), ma in attesa delle
+        // implementazioni vere concatenano gli ingressi in sequenza
+        // sull'uscita primaria. Per union è già semanticamente una
+        // concat; join e data_quality vanno implementati.
+        "union" | "join" | "data_quality" | "script" | "watchdog" |
+        "source_http" | "source_ftp" | "source_mqtt" |
+        "source_activemq" | "source_kafka" |
+        "sink_kafka" | "sink_ftp" | "sink_mqtt" |
+        "sink_activemq" | "sink_http" |
+        "http_request" | "webhook_responder" | "report_generator" |
+        "error_handler" => {
+            let start = Instant::now();
+            let tx = take_primary_output(&mut outputs);
+            let mut rows_in  = 0u64;
+            let mut rows_out = 0u64;
+
+            // Ordina gli handle per nome per un ordine deterministico
+            let mut handle_names: Vec<String> = inputs.keys().cloned().collect();
+            handle_names.sort();
+
+            for h in handle_names {
+                if let Some(mut rx) = inputs.remove(&h) {
+                    while let Some(row) = rx.recv().await {
+                        rows_in += 1;
+                        if let Some(tx) = &tx {
+                            if tx.send(row).await.is_ok() { rows_out += 1; }
+                        }
+                    }
+                }
+            }
+
+            let stats = NodeStats {
+                rows_in, rows_out, rows_rejected: 0,
+                elapsed_ms: start.elapsed().as_millis() as u64, error: None,
+            };
+            // OBBLIGATORIO anche per i passthrough — senza, il
+            // frontend non chiude mai pulse e contatori del nodo.
+            ctx.emit_completed(stats.clone());
+            Ok(stats)
+        }
+
+        other => Err(format!("Tipo nodo non supportato: {}", other))
+    }
+}

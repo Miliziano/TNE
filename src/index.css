@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #0f1117;
+  color: #c8d4f0;
+}
+
+/* React Flow overrides */
+.react-flow__edge-path { stroke-width: 2 !important; }
+.react-flow__handle { cursor: crosshair !important; }
+.react-flow__controls button {
+  background: #1e2535 !important;
+  border-color: #2a3349 !important;
+  color: #9a9aaa !important;
+  fill: #9a9aaa !important;
+}
+.react-flow__controls button:hover {
+  background: #252d3d !important;
+  color: #c8d4f0 !important;
+  fill: #c8d4f0 !important;
+}
+.react-flow__minimap-mask { fill: rgba(15,17,23,0.7) !important; }
+
+.react-flow__handle.handle-buffered {
+  box-shadow: 0 0 0 1px #0f1117, 0 0 0 2px #3ddc84 !important;
+}
+/* Animazione pulsante nodo in esecuzione */
+@keyframes nodePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 1s linear infinite; }
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3349; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a4a6a; }
+
+/* Input e select globali */
+input, select, textarea {
+  background: #1e2535;
+  border: 1px solid #2a3349;
+  border-radius: 4px;
+  color: #c8d4f0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: #4a9eff; }
+select option { background: #1e2535; }
+
+@keyframes fp-dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.5; transform: scale(1.5); }
+}
