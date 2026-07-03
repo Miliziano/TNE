@@ -314,7 +314,9 @@ async fn run_node(
         "sink_file" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("sink_file {} richiede un input collegato", ctx.node_id.0))?;
-            super::nodes::sink_file::run(ctx, rx).await
+            // signal/replay: il sink può emettere a valle DOPO la scrittura
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::sink_file::run(ctx, rx, tx).await
         }
 
         "sink_db" => {
@@ -418,10 +420,9 @@ async fn run_node(
         }
 
         "json_serializer" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("json_serializer {} richiede un input collegato", ctx.node_id.0))?;
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::json_serializer::run(ctx, rx, tx).await
+            // Assemblatore documenti: riceve TUTTI gli handle di
+            // ingresso e gli output 'output'/'reject'
+            super::nodes::json_serializer::run(ctx, inputs, outputs).await
         }
 
         "json_parser" => {

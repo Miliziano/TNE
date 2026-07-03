@@ -285,10 +285,53 @@ function buildRustPlan(
 
         case 'sink_file': {
           config = {
-            path:         props['path']      ?? '/tmp/output.csv',
-            delimiter:    props['delimiter'] ?? ',',
-            write_header: props['write_header'] !== 'false',
-            mode:         props['mode']      ?? 'overwrite',
+            path:           props['path']       ?? '/tmp/output.csv',
+            format:         props['format']     ?? 'csv',
+            mode:           props['mode']       ?? 'overwrite',
+            write_mode:     props['writeMode2'] ?? 'rows',
+            raw_field:      props['rawField']   ?? 'content',
+            raw_encoding:   props['rawEncoding'] ?? 'text',
+            output_mode:    props['outputMode'] ?? 'signal',
+            delimiter:      props['delimiter']  ?? (props['format'] === 'tsv' ? '\\t' : ','),
+            quote_char:     props['quoteChar']  ?? '"',
+            write_header:   props['writeHeader'] !== 'false',
+            line_ending:    props['lineEnding'] ?? 'lf',
+            json_indent:    props['jsonIndent'] ?? 'none',
+            json_structure: props['jsonStructure'] ?? 'array',
+            encoding:       props['encoding']   ?? 'utf-8',
+            partition:      props['partition']  ?? 'none',
+            post_command:   props['postCommand'] ?? '',
+            webhook_url:    props['webhookUrl'] ?? '',
+          }
+          break
+        }
+
+        case 'json_serializer': {
+          const ser = (node.data.config as any)?.jsonSerializer ?? {}
+          config = {
+            output_field: props['outputField'] ?? 'content',
+            pretty:       props['pretty'] === 'true',
+            envelope:     props['envelope'] ?? '',
+            null_default: props['nullDefault'] ?? 'null',
+            on_error:     props['onError'] ?? 'reject',
+            tree:     (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })(),
+            mappings: ser.mappings ?? {},
+            inputs:   ser.inputs ?? {},
+          }
+          break
+        }
+
+        case 'xml_serializer': {
+          config = {
+            output_field:    props['outputField']    ?? 'xml_output',
+            pretty:          props['pretty'] === 'true',
+            root_element:    props['rootElement']    ?? 'record',
+            xml_declaration: props['xmlDeclaration'] !== 'false',
+            encoding:        props['encoding']       ?? 'utf-8',
+            root_namespace:  props['rootNamespace']  ?? '',
+            root_ns_prefix:  props['rootNsPrefix']   ?? '',
+            namespaces: (() => { try { return JSON.parse(props['namespaces'] ?? '[]') } catch { return [] } })(),
+            tree:       (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })(),
           }
           break
         }
