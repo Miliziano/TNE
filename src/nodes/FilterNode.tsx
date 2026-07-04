@@ -4,7 +4,7 @@
  */
 import { memo, useCallback } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { NodeRuntimeBadges } from './RuntimeBadges'
+import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import type { FilterConfig } from './types/filter/filterTypes'
@@ -183,6 +183,8 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
             <Handle id={cond.id} type="source" position={Position.Right}
               style={{ top: pct, background: cond.color, border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
               title={`#${idx + 1} ${cond.label} — ${cond.mode}`} />
+            {/* Fase 8: conteggio righe per questa uscita */}
+            <HandleCount nodeId={id} handleId={cond.id} top={pct} color={cond.color} />
           </div>
         )
       })}
@@ -192,6 +194,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
       <Handle id="reject" type="source" position={Position.Right}
         style={{ top: `${getPct(conditions.length)}%`, background: '#ff5f57', border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
         title={`#${conditions.length + 1} reject`} />
+      <HandleCount nodeId={id} handleId="reject" top={`${getPct(conditions.length)}%`} color="#ff5f57" />
     {/* Fase 8: contatori runtime */}
       <NodeRuntimeBadges nodeId={id} />
     </div>

@@ -74,6 +74,7 @@ export interface NodeRunStats {
   rowsIn:     number
   rowsOut:    number
   elapsedMs?: number
+  perOutput?: Record<string, number>   // handle → righe (nodi multi-uscita)
 }
 
 

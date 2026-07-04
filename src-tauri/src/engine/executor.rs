@@ -67,6 +67,12 @@ impl NodeContext {
             node_id: self.node_id.clone(), error,
         });
     }
+    pub fn emit_output_stats(&self, counts: std::collections::HashMap<String, u64>) {
+        push_event(EngineEvent::NodeOutputStats {
+            run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
+            node_id: self.node_id.clone(), counts,
+        });
+    }
 }
 
 // ─── Helpers config TMap ──────────────────────────────────────────

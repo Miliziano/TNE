@@ -101,3 +101,26 @@ export function NodeRuntimeBadges({ nodeId }: { nodeId: string }) {
   if (!stats) return null
   return <CounterBadge stats={stats} />
 }
+
+// ─── Conteggio per handle di uscita ────────────────────────────────
+// Pillolina accanto a un handle di uscita nei nodi multi-output.
+// Legge perOutput[handleId] dalle stats runtime (NodeOutputStats).
+export function HandleCount({ nodeId, handleId, top, color }: {
+  nodeId: string; handleId: string; top: string; color?: string
+}) {
+  const stats = useNodeRunStats(nodeId)
+  const n = stats?.perOutput?.[handleId]
+  if (n == null) return null
+  const c = color ?? '#9a9aaa'
+  return (
+    <div style={{
+      position: 'absolute', right: -10, top, transform: 'translate(100%, -50%)',
+      fontSize: 9, fontFamily: 'monospace', fontWeight: 600, color: c,
+      background: '#0f1117', border: `0.5px solid ${c}60`, borderRadius: 6,
+      padding: '0 5px', pointerEvents: 'none', userSelect: 'none',
+      whiteSpace: 'nowrap', zIndex: 9,
+    }}>
+      {fmtRows(n)}
+    </div>
+  )
+}

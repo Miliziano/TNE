@@ -103,6 +103,9 @@ function startPolling() {
             stopPolling()
             break
           }
+          case 'NodeOutputStats':
+            store.setNodeStats(p.node_id, { perOutput: p.counts })
+            break
         }
       }
     } catch (err) {
@@ -339,7 +342,7 @@ function buildRustPlan(
           }
           break
         }
-        
+
         case 'sink_db': {
           const resourceId = node.data.config?.resourceId as string | undefined
           const resource   = laneConfig?.resources.find(r => r.id === resourceId)

@@ -21,6 +21,7 @@
 
 use serde::{Deserialize, Serialize};
 use crate::engine::types::{RunId, LaneId, NodeId, EdgeId, NodeStats, RunStats, Row};
+use std::collections::HashMap;
 
 // ─── EngineEvent — tutti gli eventi possibili ─────────────────────
 
@@ -77,6 +78,15 @@ pub enum EngineEvent {
         stats:   NodeStats,
     },
 
+    /// Conteggi per handle di uscita — nodi multi-output (filter,
+    /// tmap, ...). Emesso a fine nodo, prima di NodeCompleted.
+    NodeOutputStats {
+        run_id:  RunId,
+        lane_id: LaneId,
+        node_id: NodeId,
+        counts:  HashMap<String, u64>,   // handle id → righe emesse
+    },
+    
     NodeFailed {
         run_id:  RunId,
         lane_id: LaneId,

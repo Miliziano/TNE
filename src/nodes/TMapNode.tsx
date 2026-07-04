@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { NodeRuntimeBadges } from './RuntimeBadges'
+import { NodeRuntimeBadges, useNodeRunStats, fmtRows } from './RuntimeBadges'
 import type { NodeData, TMapConfig } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import { TMapModal } from './types/tmap/TMapModal'
@@ -10,6 +10,8 @@ const OUTPUT_COLORS = [
 ]
 
 export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
+  // Fase 8: stats runtime per i conteggi per uscita
+  const runStats = useNodeRunStats(id)
   const nodeData   = data as NodeData
   const selectNode = useFlowStore((s) => s.selectNode)
   const [showModal, setShowModal] = useState(false)
@@ -209,6 +211,12 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
               }}>
                 {out.label}
               </span>
+              {runStats?.perOutput?.[out.id] != null && (
+                <span style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 700,
+                  color: out.color ?? OUTPUT_COLORS[idx % OUTPUT_COLORS.length] }}>
+                  {fmtRows(runStats.perOutput[out.id])}
+                </span>
+              )}
               <span style={{ fontSize: 9, color: '#4a5a7a' }}>
                 {out.fields.length}
               </span>
