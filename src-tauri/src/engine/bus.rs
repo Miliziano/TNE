@@ -152,6 +152,8 @@ pub fn global_bus() -> Arc<Mutex<EventBus>> {
 /// Shortcut per pushare un evento senza dover gestire il lock manualmente.
 /// Usato dall'Engine: push_event(EngineEvent::NodeStarted { ... })
 pub fn push_event(event: EngineEvent) {
+    crate::engine::reporter::forward(&event);
+
     if let Ok(mut bus) = global_bus().lock() {
         bus.push(event);
     }

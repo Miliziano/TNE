@@ -28,6 +28,7 @@ pub mod bridge;
 pub mod nodes;
 pub mod expr;
 pub mod monitor;
+pub mod reporter;
 
 use std::time::Instant;
 use std::collections::HashMap;
@@ -107,6 +108,7 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
 
     let run_id     = plan.run_id.clone();
     let run_id_str = run_id.0.clone();
+    reporter::start(&run_id_str);
 
     push_event(EngineEvent::RunStarted {
         run_id:     run_id.clone(),
@@ -246,6 +248,7 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                 elapsed_ms,
             });
         }
+        reporter::stop();
     });
 
     Ok(run_id_str)
