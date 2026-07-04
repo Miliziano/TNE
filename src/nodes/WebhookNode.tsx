@@ -18,6 +18,7 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData } from '../types'
+import { NodeRuntimeBadges } from './RuntimeBadges'
 
 // ─── Stili comuni ─────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ const baseNode: React.CSSProperties = {
   fontFamily: "'JetBrains Mono', monospace",
   boxShadow: '0 4px 16px rgba(0,0,0,.5)',
   userSelect: 'none',
+  position: 'relative',
 }
 
 function StatusDot({ status }: { status: string }) {
@@ -67,7 +69,7 @@ function NodeBadge({ label, color }: { label: string; color: string }) {
 
 const RECV_COLOR = '#3ddc84'
 
-export const WebhookReceiverNode = memo(({ data }: NodeProps) => {
+export const WebhookReceiverNode = memo(({ id, data }: NodeProps) => {
   const nodeData  = data as NodeData
   const props     = nodeData.props ?? {}
   const path      = String(props['path'] ?? '/webhook')
@@ -146,6 +148,8 @@ export const WebhookReceiverNode = memo(({ data }: NodeProps) => {
         id="output"
         style={{ background: RECV_COLOR, border: '2px solid #161b27', width: 10, height: 10 }}
       />
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })
@@ -156,7 +160,7 @@ WebhookReceiverNode.displayName = 'WebhookReceiverNode'
 
 const RESP_COLOR = '#4a9eff'
 
-export const WebhookResponderNode = memo(({ data }: NodeProps) => {
+export const WebhookResponderNode = memo(({ id, data }: NodeProps) => {
   const nodeData = data as NodeData
   const props   = nodeData.props ?? {}
   const path    = String(props['path'] ?? '/status')
@@ -240,6 +244,8 @@ export const WebhookResponderNode = memo(({ data }: NodeProps) => {
         id="output"
         style={{ background: RESP_COLOR, border: '2px solid #161b27', width: 10, height: 10 }}
       />
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })
@@ -250,7 +256,7 @@ WebhookResponderNode.displayName = 'WebhookResponderNode'
 
 const WD_COLOR = '#ffb347'
 
-export const WatchdogNode = memo(({ data }: NodeProps) => {
+export const WatchdogNode = memo(({ id, data }: NodeProps) => {
   const nodeData   = data as NodeData
   const props      = nodeData.props ?? {}
   const url        = String(props['url'] ?? '')
@@ -352,6 +358,8 @@ export const WatchdogNode = memo(({ data }: NodeProps) => {
         id="output"
         style={{ background: WD_COLOR, border: '2px solid #161b27', width: 10, height: 10 }}
       />
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })

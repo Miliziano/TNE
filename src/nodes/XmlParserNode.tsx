@@ -4,6 +4,7 @@ import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import type { XmlParserConfig } from './types/xml_parser/xmlParserTypes'
 import { XmlParserModal } from './types/xml_parser/XmlParserModal'
+import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 
 const FLOW_COLORS = [
   '#4a9eff', '#3ddc84', '#ffb347', '#a78bfa', '#f97316',
@@ -29,7 +30,7 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
 
   const displayName = nodeData.config?.displayName || 'XML Parser'
   const sourceField = config?.sourceField || '—'
-  const nsCount     = config?.namespaces?.length ?? 0
+  const nsIgnored    = config?.ignoreNamespaces ?? false
 
   const handleCount = flows.length + (hasReject ? 1 : 0)
   const minHeight   = Math.max(80, handleCount * 24 + 64)
@@ -128,8 +129,8 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
           <code style={{ fontSize: 9, color: '#9a9aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {sourceField}
           </code>
-          {nsCount > 0 && (
-            <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>·{nsCount}ns</span>
+          {nsIgnored && (
+            <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }} title="Namespace ignorati">·ns off</span>
           )}
         </div>
 
@@ -141,7 +142,7 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
                 <span style={{ fontSize: 9, fontFamily: 'monospace', color: flow.color ?? FLOW_COLORS[idx % FLOW_COLORS.length], flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {flow.label}
                 </span>
-                {flow.isArray   && <span style={{ fontSize: 7, color: '#4a5a7a' }}>[ ]</span>}
+                {flow.isRepeating && <span style={{ fontSize: 7, color: '#4a5a7a' }}>[ ]</span>}
                 {flow.streaming && <i className="ti ti-wave-sine" style={{ fontSize: 7, color: '#ffb347' }} />}
               </div>
             ))}
@@ -168,7 +169,7 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
         return (
           <Handle key={flow.id} id={flow.id} type="source" position={Position.Right}
             style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
-            title={`${flow.label} — ${flow.contextXPath}`} />
+            title={`${flow.label} — ${flow.xpath}`} />
         )
       })}
 
@@ -182,6 +183,20 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
             title="Flusso reject" />
         )
       })()}
+
+      {/* Fase 8: conteggio righe per ciascun flusso + reject */}
+      {flows.map((flow, idx) => {
+        const total = flows.length + (hasReject ? 1 : 0)
+        const pct   = total <= 1 ? 50 : 10 + (idx / (total - 1)) * 80
+        const color = flow.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
+        return <HandleCount key={`count_${flow.id}`} nodeId={id} handleId={flow.id} top={`${pct}%`} color={color} />
+      })}
+      {hasReject && (() => {
+        const total = flows.length + 1
+        const pct   = total <= 1 ? 80 : 10 + (flows.length / (total - 1)) * 80
+        return <HandleCount nodeId={id} handleId="reject" top={`${pct}%`} color="#ff5f57" />
+      })()}
+      <NodeRuntimeBadges nodeId={id} />
 
       {showModal && <XmlParserModal nodeId={id} onClose={() => setShowModal(false)} />}
     </div>

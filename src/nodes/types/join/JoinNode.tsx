@@ -3,6 +3,7 @@
  */
 import { memo, useCallback, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { NodeRuntimeBadges } from '../../RuntimeBadges'
 import type { NodeData, NodeStatus } from '../../../types'
 import { useFlowStore } from '../../../store/flowStore'
 
@@ -162,6 +163,8 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Handle uscita */}
       <Handle id="output" type="source" position={Position.Right}
         style={{ background: '#ffb347', border: '2px solid #0f1117', width: 10, height: 10 }} />
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })

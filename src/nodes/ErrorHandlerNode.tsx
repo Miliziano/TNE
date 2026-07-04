@@ -17,6 +17,7 @@
 
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { NodeRuntimeBadges } from './RuntimeBadges'
 import type { NodeData, NodeStatus } from '../types'
 import { useFlowStore } from '../store/flowStore'
 
@@ -112,6 +113,8 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
       }}>
         error_out
       </div>
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })

@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { NodeRuntimeBadges, useNodeRunStats, fmtRows } from './RuntimeBadges'
+import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 import type { NodeData, TMapConfig } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import { TMapModal } from './types/tmap/TMapModal'
@@ -10,8 +10,6 @@ const OUTPUT_COLORS = [
 ]
 
 export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
-  // Fase 8: stats runtime per i conteggi per uscita
-  const runStats = useNodeRunStats(id)
   const nodeData   = data as NodeData
   const selectNode = useFlowStore((s) => s.selectNode)
   const [showModal, setShowModal] = useState(false)
@@ -211,12 +209,6 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
               }}>
                 {out.label}
               </span>
-              {runStats?.perOutput?.[out.id] != null && (
-                <span style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 700,
-                  color: out.color ?? OUTPUT_COLORS[idx % OUTPUT_COLORS.length] }}>
-                  {fmtRows(runStats.perOutput[out.id])}
-                </span>
-              )}
               <span style={{ fontSize: 9, color: '#4a5a7a' }}>
                 {out.fields.length}
               </span>
@@ -260,6 +252,17 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
             title={out.label}
             isConnectable={true}
           />
+        )
+      })}
+
+      {/* Fase 8: conteggio righe per handle — stesso layout del Filter */}
+      {outputs.map((out, idx) => {
+        const total = outputs.length
+        const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
+        const color = out.color ?? OUTPUT_COLORS[idx % OUTPUT_COLORS.length]
+        return (
+          <HandleCount key={`count_${out.id}`} nodeId={id} handleId={out.id}
+            top={`${pct}%`} color={color} />
         )
       })}
 

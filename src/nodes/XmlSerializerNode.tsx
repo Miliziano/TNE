@@ -4,6 +4,7 @@
  */
 import { memo, useCallback, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import { XmlSerializerModal } from './types/xml_serializer/XmlSerializerModal'
@@ -141,6 +142,11 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
       <Handle id="reject" type="source" position={Position.Right}
         style={{ top: '65%', background: '#ff5f57', border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
         title="reject" />
+
+      {/* Fase 8: conteggio righe output/reject */}
+      <HandleCount nodeId={id} handleId="output" top="35%" color={ACCENT} />
+      <HandleCount nodeId={id} handleId="reject" top="65%" color="#ff5f57" />
+      <NodeRuntimeBadges nodeId={id} />
 
       {showModal && <XmlSerializerModal nodeId={id} onClose={() => setShowModal(false)} />}
     </div>

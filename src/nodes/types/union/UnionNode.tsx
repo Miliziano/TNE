@@ -11,6 +11,7 @@
 
 import { memo, useCallback } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { NodeRuntimeBadges } from '../../RuntimeBadges'
 import type { NodeData } from '../../../types'
 import { useFlowStore } from '../../../store/flowStore'
 
@@ -217,6 +218,9 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
         title="output"
         isConnectable={true}
       />
+
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
 
     </div>
   )

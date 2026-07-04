@@ -142,6 +142,8 @@ pub async fn run(
     let mut rows_in:       u64 = 0;
     let mut rows_out:      u64 = 0;   // totale righe emesse (somma su tutti gli output)
     let mut rows_rejected: u64 = 0;   // righe main senza combinazioni valide
+    // Fase 8: conteggi per handle di uscita (output_id → righe)
+    let mut per_out: HashMap<String, u64> = HashMap::new();
 
     // Variabili di lane mutabili
     let mut lane_vars: HashMap<String, Value> = variables
@@ -220,6 +222,7 @@ pub async fn run(
                     let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars);
                     let _ = tx.send(out_row).await;
                     rows_out += 1;
+                    *per_out.entry("output_rejected".to_string()).or_insert(0) += 1;
                 }
             }
             continue;
@@ -259,6 +262,7 @@ pub async fn run(
                         let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars);
                         if tx.send(out_row).await.is_err() { continue; }
                         rows_out += 1;
+                        *per_out.entry(output.output_id.clone()).or_insert(0) += 1;
                     }
                 }
             }
@@ -276,6 +280,7 @@ pub async fn run(
         rows_rejected,
         elapsed_ms, error: None,
     };
+    ctx.emit_output_stats(per_out.clone());
     ctx.emit_completed(stats.clone());
     Ok(stats)
 }

@@ -5,6 +5,7 @@
 
 import { memo, useCallback } from 'react'
 import { Handle, Position, type NodeProps, useReactFlow } from '@xyflow/react'
+import { NodeRuntimeBadges } from './RuntimeBadges'
 import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 
@@ -230,6 +231,8 @@ export const SequencerNode = memo(({ id, data, selected }: NodeProps) => {
           {nodeData.statusMessage}
         </div>
       )}
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })

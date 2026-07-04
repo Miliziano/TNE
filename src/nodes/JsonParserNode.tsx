@@ -4,6 +4,7 @@ import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import type { JsonParserConfig } from './types/json_parser/jsonParserTypes'
 import { JsonParserModal } from './types/json_parser/JsonParserModal'
+import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 
 const FLOW_COLORS = [
   '#4a9eff', '#3ddc84', '#ffb347', '#a78bfa', '#22d3ee',
@@ -194,6 +195,20 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
           />
         )
       })()}
+
+      {/* Fase 8: conteggio righe per ciascun flusso + reject */}
+      {flows.map((flow, idx) => {
+        const total = flows.length + (hasReject ? 1 : 0)
+        const pct   = total <= 1 ? 50 : 10 + (idx / (total - 1)) * 80
+        const color = flow.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
+        return <HandleCount key={`count_${flow.id}`} nodeId={id} handleId={flow.id} top={`${pct}%`} color={color} />
+      })}
+      {hasReject && (() => {
+        const total = flows.length + 1
+        const pct   = total <= 1 ? 80 : 10 + (flows.length / (total - 1)) * 80
+        return <HandleCount nodeId={id} handleId="reject" top={`${pct}%`} color="#ff5f57" />
+      })()}
+      <NodeRuntimeBadges nodeId={id} />
 
       {showModal && <JsonParserModal nodeId={id} onClose={() => setShowModal(false)} />}
     </div>

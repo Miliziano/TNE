@@ -141,7 +141,7 @@ pub async fn run(
                 }
                 // Anche se l'uscita non è collegata la riga è "piazzata":
                 // il first-match consuma la riga alla prima condizione vera
-                *per_cond.entry(cond.label.clone()).or_insert(0) += 1;
+                *per_cond.entry(cond.id.clone()).or_insert(0) += 1;
                 placed = true;
                 break;
             }
@@ -161,9 +161,14 @@ pub async fn run(
     }
 
     let stats_str = plan.conditions.iter()
-        .map(|c| format!("{}:{}", c.label, per_cond.get(&c.label).copied().unwrap_or(0)))
+        .map(|c| format!("{}:{}", c.label, per_cond.get(&c.id).copied().unwrap_or(0)))
         .collect::<Vec<_>>().join(" ");
     eprintln!("[filter {}] {} | reject:{}", ctx.node_id.0, stats_str, rows_rejected);
+
+    // Fase 8: conteggi per handle di uscita → badge sul canvas
+    let mut per_out = per_cond.clone();
+    per_out.insert("reject".to_string(), rows_rejected);
+    ctx.emit_output_stats(per_out);
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let stats = NodeStats { rows_in, rows_out, rows_rejected, elapsed_ms, error: None };

@@ -6,6 +6,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import { BridgeInModal } from './types/bridge/BridgeModal'
+import { NodeRuntimeBadges } from './RuntimeBadges'
 
 // ─── BridgeOut ────────────────────────────────────────────────────
 export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
@@ -76,6 +77,8 @@ export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
           height:     outputMode !== 'none' ? 10 : 1,
           right: -5, opacity: outputMode !== 'none' ? 1 : 0,
         }} />
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })
@@ -167,6 +170,8 @@ export const BridgeInNode = memo(({ id, data, selected }: NodeProps) => {
         style={{ background: channelColor, border: '2px solid #0f1117', width: 10, height: 10, right: -5 }} />
 
       {showModal && <BridgeInModal nodeId={id} onClose={() => setShowModal(false)} />}
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })
