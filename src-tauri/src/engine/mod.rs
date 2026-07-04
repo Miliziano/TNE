@@ -27,6 +27,7 @@ pub mod executor;
 pub mod bridge;
 pub mod nodes;
 pub mod expr;
+pub mod monitor;
 
 use std::time::Instant;
 use std::collections::HashMap;
@@ -115,6 +116,15 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
 
     tokio::spawn(async move {
         let start = Instant::now();
+        // ── Sampler di memoria (Fase 9) ────────────────────────────
+        // Thread OS dedicato, indipendente da WebKit: campiona la
+        // memoria a cadenza fissa per tutta la durata del run e spinge
+        // MemorySample nel bus. Scoped al run: parte qui, si ferma
+        // sotto (stop() prima di emettere RunCompleted/RunFailed).
+        // Il Drop di RunningSampler è la rete di sicurezza in caso di
+        // panic di una lane.
+        let mut sampler = monitor::MemorySampler::start(Some(run_id.clone()));
+
 
         // ── Crea i canali bridge PRIMA di avviare le lane ──────────
         // Ogni bridge genera un (Sender, Receiver) che viene distribuito
@@ -213,6 +223,9 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         }
 
         let elapsed_ms = start.elapsed().as_millis() as u64;
+        // Ferma il sampler: nessun MemorySample deve arrivare DOPO
+        // l'evento terminale del run. stop() ritorna entro ~20ms.
+        sampler.stop();
 
         if lanes_failed > 0 && lanes_ok == 0 {
             push_event(EngineEvent::RunFailed {

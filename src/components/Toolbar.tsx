@@ -32,6 +32,9 @@ function startPolling() {
       const store = useFlowStore.getState()
       for (const ev of result.events) {
         const p = ev.event.payload ?? {}
+        if (ev.event.type === 'MemorySample')
++    console.log('[mem]', new Date().toISOString().slice(11, 23), 'rss', ev.event.payload?.rss)
+console.log('[evt]', ev.event.type)
         // Ignora eventi di run precedenti: il bus è append-only e
         // può contenere code di run passati — processarli riaccende
         // pallini a caso e, peggio, un vecchio RunCompleted ferma

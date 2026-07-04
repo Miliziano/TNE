@@ -135,11 +135,11 @@ pub enum EngineEvent {
     // ── Sistema (memoria, connessioni) ───────────────────────────
 
     MemorySample {
-        run_id:    Option<RunId>,  // None se monitor idle senza run attivo
-        rss:       u64,
-        rss_webkit: u64,
-        total_pss: u64,
-        timestamp: u64,
+        run_id:    Option<RunId>,   // None se emesso fuori da un run
+        rss:       u64,             // bytes — RSS totale app (campo neutro)
+        timestamp: u64,             // Unix ms — preso al campionamento
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        detail:    Option<crate::memory_monitor::AppMemoryInfo>,
     },
 
     ConnectionOpened {

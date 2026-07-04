@@ -23,9 +23,9 @@
 //       Ok(memory_monitor::get_app_memory_info())
 //   }
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProcessMemoryInfo {
     pub pid:      u32,
     pub name:     String,
@@ -36,7 +36,7 @@ pub struct ProcessMemoryInfo {
     pub shared:   u64,   // bytes — pagine condivise con altri processi (Shared_Clean + Shared_Dirty)
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ProcessRole {
     Main,             // processo Tauri/Rust principale
     WebKitWeb,        // renderer JS/React/DOM
@@ -45,7 +45,7 @@ pub enum ProcessRole {
     Other,            // altri processi figli non classificati
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppMemoryInfo {
     /// Dettaglio per processo — utile per debug e per il pannello "Nodi" esteso
     pub processes:      Vec<ProcessMemoryInfo>,
