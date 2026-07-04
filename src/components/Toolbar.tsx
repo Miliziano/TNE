@@ -322,20 +322,24 @@ function buildRustPlan(
         }
 
         case 'xml_serializer': {
+          const ser = (node.data.config as any)?.xmlSerializer ?? {}
           config = {
             output_field:    props['outputField']    ?? 'xml_output',
             pretty:          props['pretty'] === 'true',
             root_element:    props['rootElement']    ?? 'record',
-            xml_declaration: props['xmlDeclaration'] !== 'false',
-            encoding:        props['encoding']       ?? 'utf-8',
-            root_namespace:  props['rootNamespace']  ?? '',
             root_ns_prefix:  props['rootNsPrefix']   ?? '',
-            namespaces: (() => { try { return JSON.parse(props['namespaces'] ?? '[]') } catch { return [] } })(),
-            tree:       (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })(),
+            root_namespace:  props['rootNamespace']  ?? '',
+            namespaces:      props['namespaces']     ?? '',   // ← STRINGA "prefix=uri" per riga, NON JSON.parse
+            xml_declaration: (props['xmlDeclaration'] ?? 'true') === 'true',
+            encoding:        props['encoding']       ?? 'UTF-8',
+            on_error:        props['onError']        ?? 'reject',
+            tree:   (() => { try { return JSON.parse(props['_treeNodes']   ?? '[]') } catch { return [] } })(),
+            legacy: (() => { try { return JSON.parse(props['xmlStructure'] ?? '[]') } catch { return [] } })(),
+            mappings: ser.mappings ?? {},
           }
           break
         }
-
+        
         case 'sink_db': {
           const resourceId = node.data.config?.resourceId as string | undefined
           const resource   = laneConfig?.resources.find(r => r.id === resourceId)
@@ -355,15 +359,10 @@ function buildRustPlan(
         }
 
         case 'filter': {
-          // Usa ExprNode se presente, altrimenti FilterCondition legacy
-          const filterCfg = node.data.config?.filter as any
-          if (filterCfg?.expr) {
-            config = { expr: filterCfg.expr }
-          } else if (filterCfg?.conditions?.length > 0) {
-            // Prima condizione come expr (supporto base)
-            config = { expr: filterCfg.conditions[0].expr ?? null }
-          } else {
-            config = {}
+          const f = (node.data.config as any)?.filter ?? {}
+          config = {
+            conditions:    f.conditions ?? [],
+            null_behavior: f.nullBehavior ?? 'exclude',
           }
           break
         }

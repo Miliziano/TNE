@@ -300,17 +300,6 @@ async fn run_node(
             super::nodes::source_db::run(ctx, tx).await
         }
 
-        "filter" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("filter {} richiede un input collegato", ctx.node_id.0))?;
-            // NOTA: filter.rs è a uscita singola — i reject vengono
-            // contati ma non instradati. L'eventuale edge sull'handle
-            // 'reject' resta in outputs e riceve 0 righe (chiude a
-            // fine nodo). Routing reale del reject: upgrade futuro.
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::filter::run(ctx, rx, tx).await
-        }
-
         "sink_file" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("sink_file {} richiede un input collegato", ctx.node_id.0))?;
@@ -432,11 +421,16 @@ async fn run_node(
             super::nodes::json_parser::run(ctx, rx, tx).await
         }
 
-        "xml_serializer" => {
+        "filter" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("xml_serializer {} richiede un input collegato", ctx.node_id.0))?;
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::xml_serializer::run(ctx, rx, tx).await
+                .ok_or_else(|| format!("filter {} richiede un input collegato", ctx.node_id.0))?;
+            // First-match multi-uscita: riceve tutti gli handle (cond_* + reject)
+            super::nodes::filter::run(ctx, rx, outputs).await
+        }
+
+        "xml_serializer" => {
+            // Assemblatore documenti: tutti gli handle di ingresso + output/reject
+            super::nodes::xml_serializer::run(ctx, inputs, outputs).await
         }
 
         "xml_parser" => {

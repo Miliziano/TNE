@@ -1,5 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { NodeRuntimeBadges } from './RuntimeBadges'
 import type { NodeData, TMapConfig } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import { TMapModal } from './types/tmap/TMapModal'
@@ -255,6 +256,8 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
       })}
 
       {showModal && <TMapModal nodeId={id} onClose={() => setShowModal(false)} />}
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })

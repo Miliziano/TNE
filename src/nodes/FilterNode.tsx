@@ -4,6 +4,7 @@
  */
 import { memo, useCallback } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { NodeRuntimeBadges } from './RuntimeBadges'
 import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import type { FilterConfig } from './types/filter/filterTypes'
@@ -191,6 +192,8 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
       <Handle id="reject" type="source" position={Position.Right}
         style={{ top: `${getPct(conditions.length)}%`, background: '#ff5f57', border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
         title={`#${conditions.length + 1} reject`} />
+    {/* Fase 8: contatori runtime */}
+      <NodeRuntimeBadges nodeId={id} />
     </div>
   )
 })
