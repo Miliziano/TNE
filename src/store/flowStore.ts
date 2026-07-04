@@ -70,11 +70,13 @@ const mapUid  = () => `map_${Date.now()}_${Math.random().toString(36).slice(2, 6
 
 // ── Fase 8: statistiche runtime nodi ──────────────────────────
 export interface NodeRunStats {
-  status:     NodeStatus
-  rowsIn:     number
-  rowsOut:    number
-  elapsedMs?: number
-  perOutput?: Record<string, number>   // handle → righe (nodi multi-uscita)
+  status:        NodeStatus
+  rowsIn:        number
+  rowsOut:       number
+  rowsRejected?: number
+  throughputRps?: number
+  elapsedMs?:    number
+  perOutput?:    Record<string, number>   // handle → righe (nodi multi-uscita)
 }
 
 

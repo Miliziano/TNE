@@ -53,6 +53,8 @@ console.log('[evt]', ev.event.type)
               status:    p.stats?.error ? 'error' : 'done',
               rowsIn:    p.stats?.rows_in  ?? 0,
               rowsOut:   p.stats?.rows_out ?? 0,
+              rowsRejected: p.stats?.rows_rejected ?? 0,
+              throughputRps: 0,
               elapsedMs: p.stats?.elapsed_ms,
             })
             store.addLog('ok',
@@ -74,6 +76,8 @@ console.log('[evt]', ev.event.type)
               status:  'running',
               rowsIn:  p.rows_in  ?? 0,
               rowsOut: p.rows_out ?? 0,
+              rowsRejected:  p.rows_rejected  ?? 0,
+              throughputRps: p.throughput_rps ?? 0,
             })
             break
           case 'RunCompleted': {

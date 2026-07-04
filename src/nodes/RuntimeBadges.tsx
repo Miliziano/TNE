@@ -59,6 +59,13 @@ export function fmtElapsed(ms: number): string {
   if (ms >= 1_000)  return `${(ms / 1_000).toFixed(1)}s`
   return `${ms}ms`
 }
+// Throughput in righe/secondo per il badge: intero quando ≥ 10,
+// una cifra decimale sotto, per non mostrare "0" su nodi lenti.
+export function fmtRps(n: number): string {
+  if (n >= 10_000) return `${Math.round(n / 1_000)}k`
+  if (n >= 10)     return String(Math.round(n))
+  return n.toFixed(1)
+}
 
 // ─── CounterBadge ──────────────────────────────────────────────────
 // Badge contatori sotto il nodo: righe in ingresso / uscita + tempo.
@@ -79,6 +86,16 @@ export function CounterBadge({ stats }: { stats: NodeRunStats }) {
     }}>
       <span title="righe in ingresso">↓ {fmtRows(stats.rowsIn)}</span>
       <span title="righe in uscita">↑ {fmtRows(stats.rowsOut)}</span>
+           {stats.rowsRejected != null && stats.rowsRejected > 0 && (
+        <span title="righe rigettate" style={{ color: '#ff7a6b' }}>
+          ⊘ {fmtRows(stats.rowsRejected)}
+        </span>
+      )}
+      {stats.status === 'running' && stats.throughputRps != null && stats.throughputRps >= 1 && (
+        <span title="righe/secondo" style={{ opacity: 0.75 }}>
+          {fmtRps(stats.throughputRps)}/s
+        </span>
+      )}
       {stats.elapsedMs != null && stats.elapsedMs > 0 && (
         <span style={{ opacity: 0.75 }}>{fmtElapsed(stats.elapsedMs)}</span>
       )}
