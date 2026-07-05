@@ -274,7 +274,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
                 <td style={{ padding: '4px 8px', color, fontFamily: 'monospace', fontSize: 10 }} title={t.error}>
                   {t.nodeLabel}
                 </td>
-                <td style={{ padding: '4px 8px', color: '#4a5a7a', fontSize: 9 }}>{t.nodeType}</td>
+                <td style={{ padding: '4px 8px', color: '#7a86a4', fontSize: 10 }}>{t.nodeType}</td>
                 <td style={{ padding: '4px 8px', color: t.durationMs && t.durationMs > 5000 ? ORANGE : '#9a9aaa', fontFamily: 'monospace' }}>
                   {isRunning ? <span style={{ color: ORANGE }}>⏳ running</span> : ms(t.durationMs)}
                 </td>
@@ -391,9 +391,144 @@ interface MonitorPanelProps {
   height?: number
 }
 
+// ─── Tab Run/Overview ─────────────────────────────────────────────
+// Vista aggregata del run: totali, colli di bottiglia, scarti per nodo.
+// Legge i dati live durante il run (nodeTimings) e il summary a fine run.
+function RunOverview({ timings, summary, isRunning }: {
+  timings: NodeTiming[]; summary: ExecutionSummary | null; isRunning: boolean
+}) {
+  if (timings.length === 0 && !summary) {
+    return <div style={{ padding: 16, color: '#4a5a7a', fontSize: 11 }}>
+      Nessun run ancora — lancia un flusso.
+    </div>
+  }
+
+  const useLive  = isRunning || !summary
+  const totalIn  = useLive ? timings.reduce((s, t) => s + t.rowsIn, 0)       : summary!.totalRowsIn
+  const totalOut = useLive ? timings.reduce((s, t) => s + t.rowsOut, 0)      : summary!.totalRowsOut
+  const totalRej = useLive ? timings.reduce((s, t) => s + t.rowsRejected, 0) : summary!.totalRejected
+  const duration = !isRunning && summary ? summary.totalDurationMs : undefined
+
+  const slowest   = [...timings].filter(t => t.durationMs != null)
+    .sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0)).slice(0, 3)
+  const rejecting = timings.filter(t => t.rowsRejected > 0)
+    .sort((a, b) => b.rowsRejected - a.rowsRejected)
+
+  const stat = (label: string, value: string, color = '#c8d4f0') => (
+    <div>
+      <div style={{ fontSize: 9, color: '#4a5a7a' }}>{label}</div>
+      <div style={{ fontSize: 15, color, fontFamily: 'monospace', fontWeight: 600 }}>{value}</div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+      <div style={card}>
+        <div style={sectionTitle()}>{isRunning ? '● Run in corso' : 'Ultimo run'}</div>
+        <div style={{ padding: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          {stat('Stato', isRunning ? 'in corso' : 'completato', isRunning ? ORANGE : GREEN)}
+          {stat('Durata', duration != null ? ms(duration) : '—')}
+          {stat('Nodi', String(timings.length))}
+          {stat('Righe in', totalIn.toLocaleString())}
+          {stat('Righe out', totalOut.toLocaleString())}
+          {stat('Scartate', totalRej.toLocaleString(), totalRej > 0 ? RED : '#c8d4f0')}
+        </div>
+      </div>
+
+      {slowest.length > 0 && (
+        <div style={card}>
+          <div style={sectionTitle(BLUE)}>Colli di bottiglia</div>
+          <div style={{ padding: '4px 10px 8px' }}>
+            {slowest.map(t => (
+              <div key={t.nodeId} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 11 }}>
+                <span style={{ color: '#c8d4f0' }}>{t.nodeLabel}</span>
+                <span style={{ color: '#8a96b4', fontFamily: 'monospace' }}>{ms(t.durationMs ?? 0)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rejecting.length > 0 && (
+        <div style={card}>
+          <div style={sectionTitle(RED)}>Scarti per nodo</div>
+          <div style={{ padding: '4px 10px 8px' }}>
+            {rejecting.map(t => (
+              <div key={t.nodeId} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 11 }}>
+                <span style={{ color: '#c8d4f0' }}>{t.nodeLabel}</span>
+                <span style={{ color: RED, fontFamily: 'monospace' }}>
+                  {t.rowsRejected.toLocaleString()} / {t.rowsIn.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Tab Timeline/Profilo ─────────────────────────────────────────
+// Gantt dei nodi con la curva di memoria sovrapposta sullo stesso asse
+// temporale: mostra QUALE nodo era attivo quando la memoria è salita.
+// È la "memoria per nodo" onesta (correlazione, non attribuzione RSS).
+function TimelineProfile({ timings, samples }: {
+  timings: NodeTiming[]; samples: MemorySnapshot[]
+}) {
+  const done = timings.filter(t => t.endAt != null)
+  if (done.length === 0) {
+    return <div style={{ padding: 16, color: '#4a5a7a', fontSize: 11 }}>
+      Timeline disponibile a run completato.
+    </div>
+  }
+
+  const memTs = samples.map(s => s.timestamp)
+  const t0 = Math.min(...done.map(t => t.startAt),        ...(memTs.length ? memTs : [Infinity]))
+  const t1 = Math.max(...done.map(t => t.endAt ?? t.startAt), ...(memTs.length ? memTs : [-Infinity]))
+  const span = Math.max(1, t1 - t0)
+
+  const W = 320, rowH = 17, padL = 88, padR = 8, chartH = 46
+  const x = (t: number) => padL + ((t - t0) / span) * (W - padL - padR)
+
+  const mem = samples.map(s => ({ t: s.timestamp, v: (s.totalRss ?? s.heapUsed) / 1024 / 1024 }))
+  const memMax = Math.max(1, ...mem.map(m => m.v))
+  const memPath = mem
+    .map((m, i) => `${i === 0 ? 'M' : 'L'} ${x(m.t).toFixed(1)} ${(chartH - (m.v / memMax) * chartH + 2).toFixed(1)}`)
+    .join(' ')
+
+  const rows = [...done].sort((a, b) => a.startAt - b.startAt)
+  const H = chartH + 8 + rows.length * rowH + 6
+
+  return (
+    <div style={card}>
+      <div style={sectionTitle(BLUE)}>Timeline — nodi × memoria</div>
+      <div style={{ padding: 8, overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          {mem.length > 0 && <path d={memPath} fill="none" stroke={ACCENT} strokeWidth={1.2} opacity={0.85} />}
+          <text x={padL} y={9} fontSize={9} fill="#4a5a7a">memoria — picco {Math.round(memMax)}MB</text>
+          {rows.map((t, i) => {
+            const y  = chartH + 8 + i * rowH
+            const bx = x(t.startAt)
+            const bw = Math.max(2, x(t.endAt ?? t.startAt) - bx)
+            const col = t.error ? RED : t.rowsRejected > 0 ? ORANGE : GREEN
+            return (
+              <g key={t.nodeId}>
+                <text x={0} y={y + rowH - 5} fontSize={10} fill="#8a96b4">{t.nodeLabel.slice(0, 15)}</text>
+                <rect x={bx} y={y + 1} width={bw} height={rowH - 5} rx={2} fill={col} opacity={0.8}>
+                  <title>{t.nodeLabel}: {ms(t.durationMs ?? 0)}</title>
+                </rect>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }: MonitorPanelProps) {
   const [enabled,     setEnabled]     = useState(monitor.enabled)
-  const [activeTab,   setActiveTab]   = useState<'memory' | 'nodes' | 'connections' | 'loitering'>('memory')
+  const [activeTab,   setActiveTab]   = useState<'run' | 'memory' | 'nodes' | 'timeline' | 'connections' | 'loitering'>('run')
   const [memorySamples, setMemorySamples] = useState<MemorySnapshot[]>([])
   const [nodeTimings, setNodeTimings] = useState<NodeTiming[]>([])
   const [connections, setConnections] = useState<ConnectionEvent[]>([])
@@ -518,8 +653,10 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
   }, [enabled])
 
   const TABS = [
+    { id: 'run' as const,         label: 'Run',          badge: null },
     { id: 'memory' as const,      label: 'Memoria',      badge: null },
     { id: 'nodes' as const,       label: 'Nodi',         badge: nodeTimings.length || null },
+    { id: 'timeline' as const,    label: 'Timeline',     badge: null },
     { id: 'connections' as const, label: 'Connessioni',  badge: connections.filter(c => c.action === 'open').length || null },
     { id: 'loitering' as const,   label: 'Loitering',    badge: loitering.length || null },
   ]
@@ -577,6 +714,14 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
           </div>
         ) : (
           <>
+            {activeTab === 'run' && (
+              <RunOverview timings={nodeTimings} summary={lastSummary} isRunning={isRunning} />
+            )}
+
+            {activeTab === 'timeline' && (
+              <TimelineProfile timings={nodeTimings} samples={memorySamples} />
+            )}
+
             {activeTab === 'memory' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
                 <div style={card}>

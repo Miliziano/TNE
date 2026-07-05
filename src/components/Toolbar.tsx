@@ -12,6 +12,7 @@ import { buildTMapPlan } from '../ir/tmapExprConverter'
 import type { TMapConfig } from '../types'
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
+import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 
 let abortFlag = false
 
@@ -20,6 +21,10 @@ let abortFlag = false
 let _pollCursor   = 0
 let _currentRunId = ''
 let _pollInterval: ReturnType<typeof setInterval> | null = null
+// Fase 9: ponte tra NodeStarted e NodeCompleted per il MonitoringBus.
+// nodeStart() restituisce un NodeTiming che nodeEnd() completa per
+// riferimento; lo teniamo qui in attesa del completamento del nodo.
+const _nodeTimings = new Map<string, ReturnType<typeof monitor.nodeStart>>()
 
 function startPolling() {
   if (_pollInterval !== null) return
@@ -41,10 +46,32 @@ console.log('[evt]', ev.event.type)
         // il polling a metà del run corrente.
         if (p.run_id && _currentRunId && p.run_id !== _currentRunId) continue
         switch (ev.event.type) {
+
+          case 'RunStarted':
+            _nodeTimings.clear()
+            monitor.runStart(p.run_id)
+            break
+          case 'MemorySample':
+            monitor.memorySample(
+              p.detail
+                ? snapshotFromAppMemory(p.detail)
+                : { heapUsed: p.rss, heapTotal: 0, totalRss: p.rss, timestamp: p.timestamp },
+            )
+            break
+
           case 'NodeStarted':
             store.setNodeStatus(p.node_id, 'running')
             // Fase 8: inizializza le stats — pulse giallo + contatori a 0
             store.setNodeStats(p.node_id, { status: 'running', rowsIn: 0, rowsOut: 0 })
+            // Fase 9: apre il timing del nodo sul MonitoringBus (tab Nodi).
+            _nodeTimings.set(
+              p.node_id,
+              monitor.nodeStart(
+                p.node_id,
+                p.label ?? p.node_id,
+                store.nodes.find(n => n.id === p.node_id)?.data.type ?? 'unknown',
+              ),
+            )
             break
           case 'NodeCompleted':
             store.setNodeStatus(p.node_id, 'done')
@@ -60,6 +87,19 @@ console.log('[evt]', ev.event.type)
             store.addLog('ok',
             `${p.node_id} — ${p.stats?.rows_in ?? 0} in → ${p.stats?.rows_out ?? 0} out, ${p.stats?.elapsed_ms ?? 0}ms`,
             p.node_id)
+            {
+              const timing = _nodeTimings.get(p.node_id)
+              if (timing) {
+                monitor.nodeEnd(timing, {
+                  rowsIn:       p.stats?.rows_in,
+                  rowsOut:      p.stats?.rows_out,
+                  rowsRejected: p.stats?.rows_rejected,
+                  error:        p.stats?.error ?? undefined,
+                })
+                if (p.stats?.elapsed_ms != null) timing.durationMs = p.stats.elapsed_ms
+                _nodeTimings.delete(p.node_id)
+              }
+            }
             break
           case 'NodeFailed':
             store.setNodeStatus(p.node_id, 'error', p.error)
@@ -96,6 +136,7 @@ console.log('[evt]', ev.event.type)
             }
             store.setRunning(false)
             store.addLog('ok', `✓ Run completato in ${p.elapsed_ms}ms`)
+            monitor.runEnd()
             stopPolling()
             break
           }
@@ -107,6 +148,7 @@ console.log('[evt]', ev.event.type)
             })
             store.setRunning(false)
             store.addLog('error', `❌ Run fallito: ${p.error}`)
+            monitor.runEnd()
             stopPolling()
             break
           }

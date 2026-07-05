@@ -122,28 +122,36 @@ import('@tauri-apps/api/core')
 // Ultimo snapshot Tauri — aggiornato async, usato sync nel polling
 let _lastTauriSnapshot: MemorySnapshot | null = null
 
+/** Mappa il payload memoria del Rust (AppMemoryInfo — il `detail` di
+ *  MemorySample, stessa forma di get_memory_info) in MemorySnapshot.
+ *  Usato sia dal fetch Tauri interno sia dall'instradamento del
+ *  sampler Rust nel polling (Toolbar). */
+export function snapshotFromAppMemory(m: any): MemorySnapshot {
+  return {
+    heapUsed:     m.main_rss,
+    heapTotal:    m.total_ram,
+    rss:          m.main_rss,
+    rssWebkit:    m.webkit_rss,
+    totalRss:     m.total_rss,
+    totalPss:     m.total_pss,
+    totalPrivate: m.total_private,
+    totalShared:  m.total_shared,
+    pssAvailable: m.pss_available,
+    processes:    (m.processes ?? []).map((p: any) => ({
+      pid: p.pid, name: p.name, role: p.role, rss: p.rss, pss: p.pss,
+      private: p.private, shared: p.shared,
+    })),
+    totalRam:     m.total_ram,
+    usedRam:      m.used_ram,
+    timestamp:    m.timestamp,
+  }
+}
+
 async function fetchTauriMemory(): Promise<MemorySnapshot | null> {
   if (!_tauriInvoke) return null
   try {
     const m = await _tauriInvoke('get_memory_info') as any
-    const snap: MemorySnapshot = {
-      heapUsed:     m.main_rss,
-      heapTotal:    m.total_ram,
-      rss:          m.main_rss,
-      rssWebkit:    m.webkit_rss,
-      totalRss:     m.total_rss,
-      totalPss:     m.total_pss,
-      totalPrivate: m.total_private,
-      totalShared:  m.total_shared,
-      pssAvailable: m.pss_available,
-      processes:    (m.processes ?? []).map((p: any) => ({
-        pid: p.pid, name: p.name, role: p.role, rss: p.rss, pss: p.pss,
-        private: p.private, shared: p.shared,
-      })),
-      totalRam:     m.total_ram,
-      usedRam:      m.used_ram,
-      timestamp:    m.timestamp,
-    }
+    const snap = snapshotFromAppMemory(m)
     _lastTauriSnapshot = snap
     return snap
   } catch {
@@ -189,6 +197,9 @@ class MonitoringBusClass {
   private openConnections: Map<string, ConnectionEvent> = new Map()
   private _enabled:       boolean           = false
   private intervalMs:     number            = 2000
+  /** Quando true, la memoria arriva dall'esterno (sampler Rust) e il
+   *  timer JS interno NON parte. Impostato da useExternalMemory(). */
+  private externalMemory: boolean           = false
 
   // ── Configurazione ──────────────────────────────────────────────
 
@@ -200,6 +211,28 @@ class MonitoringBusClass {
   disable() {
     this._enabled = false
     this.stopMemoryPolling()
+  }
+
+  /** Passa la sorgente memoria all'esterno (sampler Rust). Spegne il
+   *  timer JS interno WebKit-bound: da qui in poi i campioni arrivano
+   *  solo via memorySample(). Chiamato in UI Tauri (vedi setup.ts). */
+  useExternalMemory() {
+    this.externalMemory = true
+    this.stopMemoryPolling()
+  }
+
+  /** Riceve un campione di memoria dall'esterno (sampler Rust) e lo
+   *  tratta come farebbe il timer interno: lo aggiunge alla timeline
+   *  del run e lo emette ai reporter. */
+  memorySample(snap: MemorySnapshot) {
+    if (this.activeRun) {
+      this.activeRun.memoryTimeline.push(snap)
+    }
+    this.emit({
+      type:    'memory',
+      payload: snap,
+      runId:   this.activeRun?.runId ?? 'idle',
+    })
   }
 
   get enabled() { return this._enabled }
@@ -428,6 +461,7 @@ class MonitoringBusClass {
   // ── Polling memoria ─────────────────────────────────────────────
 
   private startMemoryPolling() {
+    if (this.externalMemory) return   // memoria dal sampler Rust: niente timer JS
     if (this.memoryTimer) return
     this.memoryTimer = setInterval(async () => {
       // Fetch Tauri prima di emettere — aspetta il risultato

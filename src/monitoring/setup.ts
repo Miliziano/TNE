@@ -80,7 +80,11 @@ export function setupMonitoring(options: MonitoringSetupOptions = {}) {
 
   // Abilita il bus
   monitor.enable(intervalMs)
-
+  // In UI (Tauri) la memoria arriva dal sampler Rust: spegni il timer
+  // JS interno. In modalità silent/both (artifact Node) resta il
+  // campionamento locale via process.memoryUsage.
+  if (mode === 'ui') monitor.useExternalMemory()
+    
   // Registra gli oggetti messi in coda prima dell'abilitazione
   flushPendingRegistrations()
 
