@@ -14,6 +14,21 @@ use std::time::Instant;
 use crate::engine::types::*;
 use crate::engine::executor::{RowReceiver, NodeContext};
 
+fn default_true() -> bool { true }
+
+/// Definizione di una colonna per il CREATE TABLE, dal mapping frontend.
+#[derive(serde::Deserialize)]
+struct ColumnDdl {
+    name:     String,
+    db_type:  String,          // tipo nativo dal mapping (es. "int8", "text")
+    #[serde(default = "default_true")]
+    nullable: bool,
+    #[serde(default)]
+    is_pk:    bool,
+    #[serde(default)]
+    source:   String,          // campo sorgente nella riga (per la scrittura)
+}
+
 #[derive(serde::Deserialize)]
 struct SinkDbConfig {
     // Connessione — stessa struttura di SourceDbConfig
@@ -47,6 +62,13 @@ struct SinkDbConfig {
     // Monitoraggio: id della risorsa connessione (per eventi Connection*)
     #[serde(default)]
     resource_id:      Option<String>,
+    // DDL (Fase 11): creazione/ricreazione tabella dal mapping frontend
+    #[serde(default)]
+    create_if_not_exists: bool,
+    #[serde(default)]
+    drop_and_create:      bool,
+    #[serde(default)]
+    columns_ddl:          Vec<ColumnDdl>,
 }
 
 const PROGRESS_EVERY_ROWS: u64 = 1000;
@@ -78,6 +100,23 @@ pub async fn run(
     ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
     let mut query_count = 0u32;
 
+    // DDL (Fase 11): DROP + CREATE TABLE dal mapping, prima di scrivere.
+    // Solo PostgreSQL per ora (i tipi del mapping sono nativi PG); su
+    // altri dialetti la DDL viene saltata con un avviso.
+    if config.drop_and_create || config.create_if_not_exists {
+        if config.dialect == "postgresql" {
+            if config.drop_and_create {
+                let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(&config));
+                exec_pre_post(&conn_str, &config.dialect, &drop, "DROP TABLE").await?;
+            }
+            if let Some(ddl) = build_create_table(&config) {
+                exec_pre_post(&conn_str, &config.dialect, &ddl, "CREATE TABLE").await?;
+            }
+        } else {
+            eprintln!("[sink_db] DDL creazione tabella saltata: dialetto '{}' non ancora supportato", config.dialect);
+        }
+    }
+
     // Pre-SQL — eseguito una volta prima di iniziare a scrivere
     if let Some(pre) = &config.pre_sql {
         if !pre.trim().is_empty() {
@@ -88,9 +127,15 @@ pub async fn run(
     while let Some(row) = rx.recv().await {
         rows_in += 1;
 
-        // Converti Row Engine → serde_json::Value per riusare pg_write/mysql_write
-        // che già gestiscono tutti i dialetti, mode, key_fields, ecc.
-        let json_row = row.to_json_object();
+        // Applica il mapping del sink: per ogni colonna mappata prende
+        // riga[sourceField] → colonna dbColumn. Così l'INSERT usa solo
+        // le colonne mappate, con i nomi della tabella (come la Preview).
+        // Se non c'è mapping (columns_ddl vuoto), scrive la riga grezza.
+        let json_row = if config.columns_ddl.is_empty() {
+            row.to_json_object()
+        } else {
+            map_row(&row, &config.columns_ddl)
+        };
         batch.push(json_row);
 
         if batch.len() >= batch_size {
@@ -117,6 +162,7 @@ pub async fn run(
         let result = flush_batch(&conn_str, &config, &batch).await?;
         written += result.0;
         errors  += result.1;
+        query_count += 1;
     }
 
     // Post-SQL
@@ -170,6 +216,65 @@ async fn flush_batch(
     };
 
     Ok((result.rows_written as u64, result.rows_errors as u64))
+}
+
+// ─── Scrittura: applica il mapping sorgente → colonna ─────────────
+
+/// Costruisce l'oggetto JSON da scrivere prendendo, per ogni colonna
+/// mappata, il valore di `source` (sourceField) dalla riga e mettendolo
+/// sotto `name` (dbColumn). Filtra alle sole colonne mappate e rinomina.
+fn map_row(row: &Row, cols: &[ColumnDdl]) -> serde_json::Value {
+    let mut obj = serde_json::Map::new();
+    for c in cols {
+        let src = if c.source.is_empty() { c.name.as_str() } else { c.source.as_str() };
+        let val = row.get(src).map(|v| v.to_json()).unwrap_or(serde_json::Value::Null);
+        obj.insert(c.name.clone(), val);
+    }
+    serde_json::Value::Object(obj)
+}
+
+// ─── DDL: generazione CREATE TABLE dal mapping (Fase 11) ──────────
+/// Nome tabella qualificato e quotato per la DDL PostgreSQL.
+fn qualified_ddl_table(config: &SinkDbConfig) -> String {
+    match &config.schema_name {
+        Some(s) if !s.is_empty() => format!("{}.{}", s, config.table),
+        _                        => config.table.clone(),
+    }
+}
+
+/// Genera il CREATE TABLE da columns_ddl. Ritorna None se non ci sono
+/// colonne (in quel caso non si crea niente). Usa `IF NOT EXISTS` solo
+/// in modalità create-if-not-exists pura (dopo un DROP la tabella è
+/// sicuramente assente, quindi non serve).
+fn build_create_table(config: &SinkDbConfig) -> Option<String> {
+    if config.columns_ddl.is_empty() {
+        return None;
+    }
+    let cols: Vec<String> = config.columns_ddl.iter().map(|c| {
+        let null = if c.nullable { "" } else { " NOT NULL" };
+        format!("  {} {}{}", c.name, c.db_type, null)
+    }).collect();
+
+     let pk: Vec<String> = config.columns_ddl.iter()
+        .filter(|c| c.is_pk)
+        .map(|c| c.name.clone())
+        .collect();
+
+    let mut body = cols.join(",\n");
+    if !pk.is_empty() {
+        body.push_str(&format!(",\n  PRIMARY KEY ({})", pk.join(", ")));
+    }
+
+    let if_not_exists = if config.create_if_not_exists && !config.drop_and_create {
+        "IF NOT EXISTS "
+    } else {
+        ""
+    };
+
+    Some(format!(
+        "CREATE TABLE {}{} (\n{}\n)",
+        if_not_exists, qualified_ddl_table(config), body
+    ))
 }
 
 // ─── Helper connessione ───────────────────────────────────────────

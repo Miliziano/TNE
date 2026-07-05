@@ -446,6 +446,10 @@ function buildRustPlan(
           const resourceId = node.data.config?.resourceId as string | undefined
           const resource   = laneConfig?.resources.find(r => r.id === resourceId)
           const rc = resource?.config ?? {}
+         // Colonne per la DDL, dal mapping del sink (props.sinkColumns)
+          const sinkCols = (() => {
+            try { return JSON.parse((props['sinkColumns'] as string) ?? '[]') } catch { return [] }
+          })() as Array<{ dbColumn: string; dbType: string; nullable?: boolean; isPk?: boolean; enabled?: boolean }>
           config = {
             dialect:  rc['dialect']  ?? 'postgresql',
             host:     rc['host']     ?? 'localhost',
@@ -457,6 +461,17 @@ function buildRustPlan(
             table:    props['table'] ?? '',
             mode:     props['mode']  ?? 'insert',
             resource_id: resourceId ?? '',
+            onConstraintError: props['onConstraintError'] ?? 'stop',
+            create_if_not_exists: props['createIfNotExists'] === 'true',
+            drop_and_create:      props['dropAndCreate'] === 'true',
+            columns_ddl: sinkCols
+              .filter(c => c.enabled !== false)
+              .map(c => ({
+                name:     c.dbColumn,
+                db_type:  c.dbType,
+                nullable: c.nullable !== false,
+                is_pk:    !!c.isPk,
+              })),
           }
           break
         }
