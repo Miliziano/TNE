@@ -31,7 +31,7 @@ pub type RowSender   = mpsc::Sender<Row>;
 pub type RowReceiver = mpsc::Receiver<Row>;
 
 // ─── NodeContext ──────────────────────────────────────────────────
-
+#[derive(Clone)]
 pub struct NodeContext {
     pub run_id:    RunId,
     pub lane_id:   LaneId,
@@ -71,6 +71,24 @@ impl NodeContext {
         push_event(EngineEvent::NodeOutputStats {
             run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
             node_id: self.node_id.clone(), counts,
+        });
+    }
+    pub fn emit_connection_opened(&self, resource_id: &str, conn_type: &str) {
+        push_event(EngineEvent::ConnectionOpened {
+            run_id: self.run_id.clone(), node_id: self.node_id.clone(),
+            resource_id: resource_id.to_string(), conn_type: conn_type.to_string(),
+        });
+    }
+    pub fn emit_connection_closed(&self, resource_id: &str, query_count: u32, elapsed_ms: u64) {
+        push_event(EngineEvent::ConnectionClosed {
+            run_id: self.run_id.clone(), node_id: self.node_id.clone(),
+            resource_id: resource_id.to_string(), query_count, elapsed_ms,
+        });
+    }
+    pub fn emit_connection_error(&self, resource_id: &str, error: String) {
+        push_event(EngineEvent::ConnectionError {
+            run_id: self.run_id.clone(), node_id: self.node_id.clone(),
+            resource_id: resource_id.to_string(), error,
         });
     }
 }

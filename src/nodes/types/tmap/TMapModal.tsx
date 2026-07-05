@@ -2057,15 +2057,16 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler); return () => document.removeEventListener('keydown', handler)
   }, [onClose])
-useEffect(() => {
-  return () => {
-    inputHandleRefs.clear()
-    outputHandleRefs.clear()
-    joinHandleRefs.clear()
-    transformInputHandleRefs.clear()
-    transformOutputHandleRefs.clear()
-  }
-}, [])
+  
+  useEffect(() => {
+    return () => {
+      inputHandleRefs.clear()
+      outputHandleRefs.clear()
+      joinHandleRefs.clear()
+      transformInputHandleRefs.clear()
+      transformOutputHandleRefs.clear()
+    }
+  }, [])
   const TABS: { id: Tab; label: string; icon: string }[] = [
     { id: 'general',  label: 'Generale',      icon: 'ti-info-circle' },
     { id: 'mapping',  label: 'Configurazione', icon: 'ti-adjustments' },

@@ -303,47 +303,56 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
 // ─── Lista connessioni ────────────────────────────────────────────
 
 function ConnectionList({ connections }: { connections: ConnectionEvent[] }) {
-  const grouped = connections.reduce((acc, c) => {
-    const key = `${c.resource}::${c.type}`
-    if (!acc[key]) acc[key] = { resource: c.resource, type: c.type, events: [] }
-    acc[key].events.push(c)
-    return acc
-  }, {} as Record<string, { resource: string; type: string; events: ConnectionEvent[] }>)
+  // Albero: risorsa → connessioni (una per nodo, matchando open↔close/error
+  // per id). Il nodo arriva in `detail` (impostato all'apertura).
+  type Conn = { node: string; status: 'open' | 'closed' | 'error'; durationMs?: number }
+  const byResource = new Map<string, { resource: string; type: string; conns: Map<string, Conn> }>()
 
-  if (Object.keys(grouped).length === 0) {
+  for (const c of connections) {
+    const key = `${c.resource}::${c.type}`
+    if (!byResource.has(key)) byResource.set(key, { resource: c.resource, type: c.type, conns: new Map() })
+    const grp = byResource.get(key)!
+    const cur: Conn = grp.conns.get(c.id) ?? { node: c.detail ?? c.id, status: 'open' }
+    if (c.detail) cur.node = c.detail
+    if (c.action === 'close') { cur.status = 'closed'; cur.durationMs = c.durationMs }
+    if (c.action === 'error') { cur.status = 'error';  cur.durationMs = c.durationMs }
+    grp.conns.set(c.id, cur)
+  }
+
+  if (byResource.size === 0) {
     return <div style={{ padding: '10px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>Nessuna connessione</div>
   }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {(Object.values(grouped) as { resource: string; type: string; events: ConnectionEvent[] }[]).map(({ resource, type, events }) => {
-        const opens    = events.filter(e => e.action === 'open').length
-        const closes   = events.filter(e => e.action === 'close').length
-        const errors   = events.filter(e => e.action === 'error').length
-        const queries  = events.filter(e => e.action === 'query').length
-        const isLeaked = opens > closes
-        const avgQuery = queries > 0
-          ? Math.round(events.filter(e => e.action === 'query').reduce((s, e) => s + (e.durationMs ?? 0), 0) / queries)
-          : null
+  const statusColor = (s: Conn['status']) => s === 'error' ? RED : s === 'open' ? ORANGE : GREEN
+  const statusLabel = (s: Conn['status']) => s === 'error' ? '✗ errore' : s === 'open' ? '● aperta' : '✓ chiusa'
 
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {[...byResource.values()].map(({ resource, type, conns }) => {
+        const list      = [...conns.values()]
+        const openCount = list.filter(c => c.status === 'open').length
         return (
-          <div key={`${resource}::${type}`}
-            style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '0.5px solid #1e2535' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: isLeaked ? RED : GREEN, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 10, color: '#c8d4f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {resource}
-                <span style={{ fontSize: 9, color: '#4a5a7a', marginLeft: 6 }}>{type}</span>
-              </div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 1 }}>
-                {opens} aperture · {closes} chiusure · {queries} query
-                {avgQuery !== null && <span style={{ marginLeft: 4 }}>· avg {avgQuery}ms</span>}
-                {errors > 0 && <span style={{ color: RED, marginLeft: 4 }}>· {errors} errori</span>}
-              </div>
+          <div key={`${resource}::${type}`} style={{ borderBottom: '0.5px solid #1e2535' }}>
+            {/* Header risorsa */}
+            <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, background: '#161b27' }}>
+              <i className="ti ti-plug-connected" style={{ fontSize: 12, color: ORANGE }} />
+              <span style={{ fontSize: 11, color: '#c8d4f0', fontWeight: 600 }}>{resource}</span>
+              <span style={{ fontSize: 9, color: '#4a5a7a' }}>{type}</span>
+              <span style={{ fontSize: 9, color: '#4a5a7a', marginLeft: 'auto' }}>
+                {list.length} {list.length === 1 ? 'connessione' : 'connessioni'}
+              </span>
+              {openCount > 0 && <span style={{ fontSize: 9, color: ORANGE, fontWeight: 600 }}>⚠ {openCount} aperte</span>}
             </div>
-            {isLeaked && (
-              <span style={{ fontSize: 9, color: RED, fontWeight: 600, flexShrink: 0 }}>⚠ leak</span>
-            )}
+            {/* Nodi che usano la risorsa */}
+            {list.map((c, i) => (
+              <div key={i} style={{ padding: '4px 10px 4px 26px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#2a3349', flexShrink: 0 }}>{i === list.length - 1 ? '└' : '├'}</span>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(c.status), flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: '#c8d4f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.node}</span>
+                <span style={{ fontSize: 9, color: statusColor(c.status) }}>{statusLabel(c.status)}</span>
+                {c.durationMs != null && <span style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace' }}>{ms(c.durationMs)}</span>}
+              </div>
+            ))}
           </div>
         )
       })}
@@ -513,7 +522,7 @@ function TimelineProfile({ timings, samples }: {
             const col = t.error ? RED : t.rowsRejected > 0 ? ORANGE : GREEN
             return (
               <g key={t.nodeId}>
-                <text x={0} y={y + rowH - 5} fontSize={10} fill="#8a96b4">{t.nodeLabel.slice(0, 15)}</text>
+                <text x={0} y={y + rowH - 5} fontSize={10} fill="#8a96b4">{t.nodeLabel.slice(0, 13)}</text>
                 <rect x={bx} y={y + 1} width={bw} height={rowH - 5} rx={2} fill={col} opacity={0.8}>
                   <title>{t.nodeLabel}: {ms(t.durationMs ?? 0)}</title>
                 </rect>

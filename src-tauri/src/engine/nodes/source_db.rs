@@ -48,6 +48,9 @@ struct SourceDbConfig {
     // Query
     query:            String,
     timeout:          Option<u64>,
+    // Monitoraggio: id della risorsa connessione (per eventi Connection*)
+    #[serde(default)]
+    resource_id:      Option<String>,
 }
 
 impl SourceDbConfig {
@@ -116,21 +119,31 @@ pub async fn run(
     eprintln!("[source_db] node={} query={}", ctx.node_id.0,
     ctx.config.get("query").and_then(|v| v.as_str()).unwrap_or("NESSUNA"));
     
-    match dialect.as_str() {
+    let resource_id = config.resource_id.clone().unwrap_or_default();
+    let conn_type   = format!("db_{}", dialect);
+    ctx.emit_connection_opened(&resource_id, &conn_type);
+
+    let result = match dialect.as_str() {
         "postgresql" => {
-            run_pg(ctx, tx, &conn_str, &query, timeout,
-                   &mut rows_out, &start, &mut last_prog).await?;
+            run_pg(ctx.clone(), tx, &conn_str, &query, timeout,
+                   &mut rows_out, &start, &mut last_prog).await
         }
         "mysql" => {
-            run_mysql(ctx, tx, &conn_str, &query, timeout,
-                      &mut rows_out, &start, &mut last_prog).await?;
+            run_mysql(ctx.clone(), tx, &conn_str, &query, timeout,
+                      &mut rows_out, &start, &mut last_prog).await
         }
         "sqlite" => {
-            run_sqlite(ctx, tx, &conn_str, &query, timeout,
-                       &mut rows_out, &start, &mut last_prog).await?;
+            run_sqlite(ctx.clone(), tx, &conn_str, &query, timeout,
+                       &mut rows_out, &start, &mut last_prog).await
         }
-        d => return Err(format!("Dialetto '{}' non supportato", d)),
+        d => Err(format!("Dialetto '{}' non supportato", d)),
+    };
+
+    match &result {
+        Ok(())  => ctx.emit_connection_closed(&resource_id, 1, start.elapsed().as_millis() as u64),
+        Err(e)  => ctx.emit_connection_error(&resource_id, e.clone()),
     }
+    result?;
 
     Ok(NodeStats {
         rows_in:       0,

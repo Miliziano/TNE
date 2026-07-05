@@ -44,6 +44,9 @@ struct SinkDbConfig {
     pre_sql:          Option<String>,
     #[serde(rename = "postSql")]
     post_sql:         Option<String>,
+    // Monitoraggio: id della risorsa connessione (per eventi Connection*)
+    #[serde(default)]
+    resource_id:      Option<String>,
 }
 
 const PROGRESS_EVERY_ROWS: u64 = 1000;
@@ -70,6 +73,11 @@ pub async fn run(
     // Le righe vengono aggiunte/sostituite a ogni batch.
     let conn_str = build_conn_str(&config)?;
 
+    // Monitoraggio connessione (Fase 10): sessione a livello di nodo.
+    let resource_id = config.resource_id.clone().unwrap_or_default();
+    ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
+    let mut query_count = 0u32;
+
     // Pre-SQL — eseguito una volta prima di iniziare a scrivere
     if let Some(pre) = &config.pre_sql {
         if !pre.trim().is_empty() {
@@ -91,6 +99,7 @@ pub async fn run(
             ).await?;
             written += result.0;
             errors  += result.1;
+            query_count += 1;
             batch.clear();
 
             let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
@@ -118,6 +127,7 @@ pub async fn run(
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
+    ctx.emit_connection_closed(&resource_id, query_count, elapsed_ms);
     let stats = NodeStats { rows_in, rows_out: written, rows_rejected: errors, elapsed_ms, error: None };
     ctx.emit_completed(stats.clone());
     Ok(stats)

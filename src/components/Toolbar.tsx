@@ -26,6 +26,37 @@ let _pollInterval: ReturnType<typeof setInterval> | null = null
 // riferimento; lo teniamo qui in attesa del completamento del nodo.
 const _nodeTimings = new Map<string, ReturnType<typeof monitor.nodeStart>>()
 
+// Fase 10: ponte tra ConnectionOpened e Closed/Error per il MonitoringBus.
+// connectionOpen() restituisce un id interno che serve a close/error.
+const _connIds = new Map<string, string>()   // node_id → id connessione nel bus
+
+// Risolve il nome leggibile della risorsa dall'id; se l'id è vuoto
+// (es. nodo con risorsa non configurata) ripiega sull'etichetta del nodo.
+function resourceLabel(
+  store: ReturnType<typeof useFlowStore.getState>,
+  resourceId: string, nodeId: string,
+): string {
+  if (resourceId) {
+    for (const lane of store.pool.lanes) {
+      const r = lane.resources.find(r => r.id === resourceId)
+      if (r) return r.label
+    }
+    return resourceId
+  }
+  return store.nodes.find(n => n.id === nodeId)?.data.label ?? nodeId
+}
+
+// Mappa conn_type Rust ("db_postgresql", "ftp", …) → tipo del bus.
+function connType(ct: string | undefined): 'db' | 'ftp' | 'http' | 'kafka' | 'mqtt' | 'other' {
+  const t = ct ?? ''
+  if (t.startsWith('db'))    return 'db'
+  if (t.startsWith('ftp'))   return 'ftp'
+  if (t.startsWith('http'))  return 'http'
+  if (t.startsWith('kafka')) return 'kafka'
+  if (t.startsWith('mqtt'))  return 'mqtt'
+  return 'other'
+}
+
 function startPolling() {
   if (_pollInterval !== null) return
   _pollInterval = setInterval(async () => {
@@ -58,7 +89,25 @@ console.log('[evt]', ev.event.type)
                 : { heapUsed: p.rss, heapTotal: 0, totalRss: p.rss, timestamp: p.timestamp },
             )
             break
-
+          case 'ConnectionOpened': {
+            const id = monitor.connectionOpen(
+              resourceLabel(store, p.resource_id ?? '', p.node_id),
+              connType(p.conn_type),
+              store.nodes.find(n => n.id === p.node_id)?.data.label ?? p.node_id,
+            )
+            _connIds.set(p.node_id, id)
+            break
+          }
+          case 'ConnectionClosed': {
+            const id = _connIds.get(p.node_id)
+            if (id) { monitor.connectionClose(id, p.elapsed_ms); _connIds.delete(p.node_id) }
+            break
+          }
+          case 'ConnectionError': {
+            const id = _connIds.get(p.node_id)
+            if (id) { monitor.connectionError(id, p.error); _connIds.delete(p.node_id) }
+            break
+          }     
           case 'NodeStarted':
             store.setNodeStatus(p.node_id, 'running')
             // Fase 8: inizializza le stats — pulse giallo + contatori a 0
@@ -322,6 +371,7 @@ function buildRustPlan(
             password: rc['password'] ?? '',
             ssl:      rc['ssl']      ?? 'false',
             query,
+            resource_id: resourceId ?? '',
           }
           break
         }
@@ -406,6 +456,7 @@ function buildRustPlan(
             ssl:      rc['ssl']      ?? 'false',
             table:    props['table'] ?? '',
             mode:     props['mode']  ?? 'insert',
+            resource_id: resourceId ?? '',
           }
           break
         }
