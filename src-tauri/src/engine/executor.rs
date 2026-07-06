@@ -40,6 +40,9 @@ pub struct NodeContext {
     pub config:    serde_json::Value,
     pub spec:      serde_json::Value,
     pub variables: HashMap<String, Value>,
+    /// Registro connessioni per-lane (design L1). Condiviso tra tutti
+    /// i nodi della lane; i nodi DB chiedono qui il pool della risorsa.
+    pub lane_resources: std::sync::Arc<super::pool::LaneResources>,
 }
 
 impl NodeContext {
@@ -182,7 +185,10 @@ pub async fn execute_lane(
     let variables  = lane_plan.variables.clone();
     let nodes      = lane_plan.nodes;
     let plan_edges = lane_plan.edges;
-
+// Registro connessioni della lane (L1). Vive per tutta la lane;
+    // chiuso in ogni ramo di uscita (invariante 2).
+    let lane_resources = super::pool::LaneResources::new();
+    
     if nodes.is_empty() {
         return Ok(HashMap::new());
     }
@@ -261,6 +267,7 @@ pub async fn execute_lane(
             config:    node_plan.config.clone(),
             spec:      node_plan.spec.clone(),
             variables: variables.clone(),
+            lane_resources: lane_resources.clone(),
         };
 
         let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
@@ -286,7 +293,12 @@ pub async fn execute_lane(
     }
 
     // ── 4. Attendi completamento ──────────────────────────────────
+    // Raccoglie l'esito SENZA return immediato: la chiusura delle
+    // connessioni (invariante 2) deve avvenire in OGNI caso, quindi
+    // prima si determina l'esito, poi si chiude, poi si ritorna.
     let mut stats_map = HashMap::new();
+    let mut lane_result: Result<(), String> = Ok(());
+
     for (node_id_str, handle) in handles {
         match handle.await {
             Ok(Ok(stats)) => {
@@ -295,18 +307,24 @@ pub async fn execute_lane(
             }
             Ok(Err(e)) => {
                 eprintln!("[executor] nodo {} fallito: {}", node_id_str, e);
-                return Err(format!("Nodo {} fallito: {}", node_id_str, e));
+                if lane_result.is_ok() {
+                    lane_result = Err(format!("Nodo {} fallito: {}", node_id_str, e));
+                }
             }
             Err(e) => {
                 eprintln!("[executor] panic nodo {}: {}", node_id_str, e);
-                return Err(format!("Panic nel nodo {}: {}", node_id_str, e));
+                if lane_result.is_ok() {
+                    lane_result = Err(format!("Panic nel nodo {}: {}", node_id_str, e));
+                }
             }
         }
     }
 
-    Ok(stats_map)
-}
+    // Chiusura garantita delle connessioni della lane — in ogni caso.
+    lane_resources.close_all().await;
 
+    lane_result.map(|_| stats_map)
+}
 // ─── run_node ─────────────────────────────────────────────────────
 //
 // Riceve mappe handle → canale invece di Option singoli:

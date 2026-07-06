@@ -30,6 +30,7 @@ pub mod expr;
 pub mod monitor;
 pub mod reporter;
 pub mod spec;
+pub mod pool;
 
 use std::time::Instant;
 use std::collections::HashMap;

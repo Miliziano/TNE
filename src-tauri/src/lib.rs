@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::io::Read;
 use sysinfo::{System, Pid};
+use chrono::{NaiveDate, NaiveDateTime};
 
 use engine::{
       engine_ping, engine_ping_parallel, engine_validate_plan,
@@ -660,21 +661,35 @@ fn pg_row_to_json_value(row: &sqlx::postgres::PgRow, idx: usize) -> serde_json::
     serde_json::Value::Null
 }
 // ─── pg_write con RETURNING ───────────────────────────────────────
+// Wrapper legacy: apre un pool usa-e-getta e delega. Usato dai comandi
+// Tauri che passano una connection string (Preview, test-write). I nodi
+// del motore usano invece pg_write_pool con il pool condiviso di lane.
 pub async fn pg_write(
     conn_str: &str,
     req:      &DbWriteRequest,
     start:    std::time::Instant,
 ) -> Result<DbWriteResult, String> {
     use sqlx::postgres::PgPoolOptions;
-    use sqlx::Row as SqlxRow;
-
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(conn_str).await
         .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
+    let result = pg_write_pool(&pool, req, start).await;
+    pool.close().await;
+    result
+}
+
+pub async fn pg_write_pool(
+    pool:  &sqlx::postgres::PgPool,
+    req:   &DbWriteRequest,
+    start: std::time::Instant,
+) -> Result<DbWriteResult, String> {
+    use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
+
+
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -686,14 +701,14 @@ pub async fn pg_write(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&pool).await
+                sqlx::query(stmt).execute(pool).await
                     .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
             }
         }
     }
 
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("TRUNCATE TABLE {}", tbl)).execute(&pool).await
+        sqlx::query(&format!("TRUNCATE TABLE {}", tbl)).execute(pool).await
             .map_err(|e| format!("TRUNCATE fallito: {}", e))?;
     }
 
@@ -776,7 +791,7 @@ pub async fn pg_write(
                 // fetch_one per catturare la chiave generata
                 let mut q = sqlx::query(&sql);
                 for v in &bind_list { q = bind_pg_value(q, v); }
-                match q.fetch_one(&pool).await {
+                match q.fetch_one(pool).await {
                     Ok(row) => {
                         written += 1;
                         // Legge il valore della colonna returning
@@ -785,7 +800,7 @@ pub async fn pg_write(
                     }
                     Err(e) => match req.on_constraint_error.as_str() {
                         "skip" => { skipped += 1; }
-                        "stop" => { pool.close().await; return Err(format!("SinkDB errore riga: {}", e)); }
+                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
                         _ => { errors += 1; }
                     }
                 }
@@ -793,11 +808,11 @@ pub async fn pg_write(
                 // execute standard (nessun RETURNING)
                 let mut q = sqlx::query(&sql);
                 for v in &bind_list { q = bind_pg_value(q, v); }
-                match q.execute(&pool).await {
+                match q.execute(pool).await {
                     Ok(_) => { written += 1; }
                     Err(e) => match req.on_constraint_error.as_str() {
                         "skip" => { skipped += 1; }
-                        "stop" => { pool.close().await; return Err(format!("SinkDB errore riga: {}", e)); }
+                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
                         _ => { errors += 1; }
                     }
                 }
@@ -808,13 +823,13 @@ pub async fn pg_write(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&pool).await
+                sqlx::query(stmt).execute(pool).await
                     .map_err(|e| format!("Post-SQL fallito: {}", e))?;
             }
         }
     }
 
-    pool.close().await;
+   
     Ok(DbWriteResult {
         rows_written: written,
         rows_skipped: skipped,
@@ -843,6 +858,9 @@ pub(crate) fn bind_pg_value<'q>(
 }
 
 // ─── mysql_write con LAST_INSERT_ID ───────────────────────────────
+// Wrapper legacy: apre un pool usa-e-getta e delega. Usato dai comandi
+// Tauri che passano una connection string (Preview, test-write). I nodi
+// del motore usano invece pg_write_pool con il pool condiviso di lane.
 
 pub async fn mysql_write(
     conn_str: &str,
@@ -858,7 +876,24 @@ pub async fn mysql_write(
         .connect(conn_str).await
         .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
 
-    let tbl = req.table.clone();
+     let result = mysql_write_pool(&pool, req, start).await;
+    pool.close().await;
+    result
+}
+
+
+
+pub async fn mysql_write_pool(
+    pool:  &sqlx::mysql::MySqlPool,
+    req:   &DbWriteRequest,
+    start: std::time::Instant,
+) -> Result<DbWriteResult, String> {
+    use sqlx::Row as SqlxRow;
+
+    let tbl = qualified_table(req);
+
+
+   
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -871,13 +906,13 @@ pub async fn mysql_write(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&pool).await
+                sqlx::query(stmt).execute(pool).await
                     .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("TRUNCATE TABLE `{}`", tbl)).execute(&pool).await
+        sqlx::query(&format!("TRUNCATE TABLE `{}`", tbl)).execute(pool).await
             .map_err(|e| format!("TRUNCATE fallito: {}", e))?;
     }
 
@@ -947,7 +982,7 @@ pub async fn mysql_write(
                 };
             }
 
-            match q.execute(&pool).await {
+            match q.execute(pool).await {
                 Ok(result) => {
                     written += 1;
                     // Recupera la chiave generata se configurato e modalità è insert/upsert
@@ -959,7 +994,7 @@ pub async fn mysql_write(
                         } else {
                             // Fallback: SELECT LAST_INSERT_ID()
                             if let Ok(id_row) = sqlx::query("SELECT LAST_INSERT_ID() AS gid")
-                                .fetch_one(&pool).await
+                                .fetch_one(pool).await
                             {
                                 let gid: u64 = id_row.try_get("gid").unwrap_or(0);
                                 if gid > 0 { generated_keys.push(serde_json::json!(gid)); }
@@ -979,13 +1014,13 @@ pub async fn mysql_write(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&pool).await
+                sqlx::query(stmt).execute(pool).await
                     .map_err(|e| format!("Post-SQL fallito: {}", e))?;
             }
         }
     }
 
-    pool.close().await;
+   
     Ok(DbWriteResult {
         rows_written: written,
         rows_skipped: skipped,
@@ -1013,7 +1048,23 @@ pub async fn sqlite_write(
         .connect(conn_str).await
         .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
 
-    let tbl = req.table.clone();
+      let result = sqlite_write_pool(&pool, req, start).await;
+    pool.close().await;
+    result
+}
+
+
+
+pub async fn sqlite_write_pool(
+    pool:  &sqlx::sqlite::SqlitePool,
+    req:   &DbWriteRequest,
+    start: std::time::Instant,
+) -> Result<DbWriteResult, String> {
+    use sqlx::Row as SqlxRow;
+
+    let tbl = qualified_table(req);
+
+
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -1026,13 +1077,13 @@ pub async fn sqlite_write(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&pool).await
+                sqlx::query(stmt).execute(pool).await
                     .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("DELETE FROM {}", tbl)).execute(&pool).await
+        sqlx::query(&format!("DELETE FROM {}", tbl)).execute(pool).await
             .map_err(|e| format!("DELETE fallito: {}", e))?;
     }
 
@@ -1097,7 +1148,7 @@ pub async fn sqlite_write(
                 };
             }
 
-            match q.execute(&pool).await {
+            match q.execute(pool).await {
                 Ok(result) => {
                     written += 1;
                     if use_returning && needs_plan {
@@ -1120,13 +1171,13 @@ pub async fn sqlite_write(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&pool).await
+                sqlx::query(stmt).execute(pool).await
                     .map_err(|e| format!("Post-SQL fallito: {}", e))?;
             }
         }
     }
 
-    pool.close().await;
+ 
     Ok(DbWriteResult {
         rows_written: written,
         rows_skipped: skipped,
