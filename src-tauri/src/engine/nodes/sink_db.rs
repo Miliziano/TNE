@@ -183,7 +183,7 @@ const PROGRESS_EVERY_MS:   u64 = 500;
 
 pub async fn run(
     ctx:    NodeContext,
-    mut rx: RowReceiver,
+    rx:     RowReceiver,
 ) -> Result<NodeStats, String> {
 
     let spec = Spec::from_ctx(&ctx.spec)
@@ -191,57 +191,87 @@ pub async fn run(
     let config = config_from_spec(&spec)
         .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
 
-    // Telemetria dei drop: props configurate ma non ancora
-    // implementate qui (commitInterval, txTimeout, customSql, …).
     spec.log_unconsumed("sink_db", &ctx.node_id.0);
 
+    let resource_id = config.resource_id.clone();
+
+    // Pool condiviso della lane (L1): stessa risorsa → stessa connessione
+    // delle altre source/sink della lane. Creato qui, chiuso dalla lane.
+    let conn_str = build_conn_str(&config)?;
+    let pool = ctx.lane_resources.pool(
+        &resource_id,
+        crate::engine::pool::PoolParams {
+            dialect:         config.dialect.clone(),
+            conn_str,
+            max_connections: 1,   // L1: una connessione per risorsa
+            connect_timeout: config.connect_timeout,
+        },
+    ).await
+        .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
+
+    ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
+
+    let start = Instant::now();
+
+    // Corpo che può fallire, isolato: qualunque sia l'esito,
+    // emettiamo SEMPRE connection_closed dopo (evento garantito anche
+    // su errore — era il bug del monitor "aperta" dopo il fallimento).
+    let outcome = write_all(&ctx, &pool, &config, rx, &start).await;
+
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    match &outcome {
+        Ok((_, _, query_count)) => ctx.emit_connection_closed(&resource_id, *query_count, elapsed_ms),
+        Err(_)                  => ctx.emit_connection_closed(&resource_id, 0, elapsed_ms),
+    }
+
+    let (rows_in, written, _qc) = outcome?;
+
+    let stats = NodeStats {
+        rows_in, rows_out: written, rows_rejected: 0, elapsed_ms, error: None,
+    };
+    ctx.emit_completed(stats.clone());
+    Ok(stats)
+}
+
+// Corpo di scrittura: DDL + pre-SQL + batch + post-SQL sul pool condiviso.
+// Ritorna (rows_in, written, query_count). Il ? qui NON salta la chiusura
+// dell'evento: la gestisce run() dopo aver ricevuto l'outcome.
+async fn write_all(
+    ctx:    &NodeContext,
+    pool:   &crate::engine::pool::DbPool,
+    config: &SinkDbConfig,
+    mut rx: RowReceiver,
+    start:  &Instant,
+) -> Result<(u64, u64, u32), String> {
+
     let batch_size  = config.batch_size;
-    let start       = Instant::now();
     let mut rows_in = 0u64;
     let mut written = 0u64;
-    let mut errors  = 0u64;
     let mut last_prog = Instant::now();
+    let mut query_count = 0u32;
     let mut batch: Vec<serde_json::Value> = Vec::with_capacity(batch_size);
 
-    // Costruisce la DbWriteRequest (il formato che pg_write/mysql_write
-    // si aspettano) una volta sola, poi riusa per ogni batch.
-    // Le righe vengono aggiunte/sostituite a ogni batch.
-    let conn_str = build_conn_str(&config)?;
-
-    // Monitoraggio connessione (Fase 10): sessione a livello di nodo.
-    let resource_id = config.resource_id.clone();
-    ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
-    let mut query_count = 0u32;
-
-    // DDL (Fase 11): DROP + CREATE TABLE dal mapping, prima di scrivere.
-    // Solo PostgreSQL per ora (i tipi del mapping sono nativi PG); su
-    // altri dialetti la DDL viene saltata con un avviso.
+    // DDL
     if config.drop_and_create || config.create_if_not_exists {
         if config.dialect == "postgresql" {
             if config.drop_and_create {
-                let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(&config));
-                exec_pre_post(&conn_str, &config.dialect, &drop, "DROP TABLE").await?;
+                let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
+                exec_pre_post(pool, &drop, "DROP TABLE").await?;
             }
-            if let Some(ddl) = build_create_table(&config) {
-                exec_pre_post(&conn_str, &config.dialect, &ddl, "CREATE TABLE").await?;
+            if let Some(ddl) = build_create_table(config) {
+                exec_pre_post(pool, &ddl, "CREATE TABLE").await?;
             }
         } else {
-            eprintln!("[sink_db] DDL creazione tabella saltata: dialetto '{}' non ancora supportato", config.dialect);
+            eprintln!("[sink_db] DDL saltata: dialetto '{}' non ancora supportato", config.dialect);
         }
     }
 
-    // Pre-SQL — eseguito una volta prima di iniziare a scrivere
     if !config.pre_sql.trim().is_empty() {
-        exec_pre_post(&conn_str, &config.dialect, &config.pre_sql, "Pre-SQL").await?;
+        exec_pre_post(pool, &config.pre_sql, "Pre-SQL").await?;
     }
 
     while let Some(row) = rx.recv().await {
         rows_in += 1;
-
-        // Applica il mapping del sink: per ogni colonna mappata prende
-        // riga[sourceField] → colonna dbColumn. Così l'INSERT usa solo
-        // le colonne mappate, con i nomi della tabella (come la Preview).
-        // Se non c'è mapping (columns_ddl vuoto), scrive la riga grezza.
         let json_row = if config.columns_ddl.is_empty() {
             row.to_json_object()
         } else {
@@ -250,11 +280,8 @@ pub async fn run(
         batch.push(json_row);
 
         if batch.len() >= batch_size {
-            let result = flush_batch(
-                &conn_str, &config, &batch,
-            ).await?;
-            written += result.0;
-            errors  += result.1;
+            let (w, _e) = flush_batch(pool, config, &batch).await?;
+            written += w;
             query_count += 1;
             batch.clear();
 
@@ -268,41 +295,30 @@ pub async fn run(
         }
     }
 
-    // Flush del batch finale (righe residue non ancora scritte)
     if !batch.is_empty() {
-        let result = flush_batch(&conn_str, &config, &batch).await?;
-        written += result.0;
-        errors  += result.1;
+        let (w, _e) = flush_batch(pool, config, &batch).await?;
+        written += w;
         query_count += 1;
     }
 
-    // Post-SQL
     if !config.post_sql.trim().is_empty() {
-        exec_pre_post(&conn_str, &config.dialect, &config.post_sql, "Post-SQL").await?;
+        exec_pre_post(pool, &config.post_sql, "Post-SQL").await?;
     }
 
-    // §5.6 handoff: un fallimento totale non deve essere
-    // indistinguibile dal successo (con onConstraintError=skip gli
-    // errori vengono ingoiati riga per riga).
     if rows_in > 0 && written == 0 {
         eprintln!(
-            "[sink_db][WARN] {}: {} righe ricevute, 0 scritte \
-             (onConstraintError={}) — possibile fallimento totale",
+            "[sink_db][WARN] {}: {} righe ricevute, 0 scritte (onConstraintError={}) — possibile fallimento totale",
             ctx.node_id.0, rows_in, config.on_constraint_error
         );
     }
 
-    let elapsed_ms = start.elapsed().as_millis() as u64;
-    ctx.emit_connection_closed(&resource_id, query_count, elapsed_ms);
-    let stats = NodeStats { rows_in, rows_out: written, rows_rejected: errors, elapsed_ms, error: None };
-    ctx.emit_completed(stats.clone());
-    Ok(stats)
+    Ok((rows_in, written, query_count))
 }
 
 // ─── Flush un batch di righe usando le funzioni esistenti di lib.rs ──
 
 async fn flush_batch(
-    conn_str: &str,
+    pool:   &crate::engine::pool::DbPool,
     config:   &SinkDbConfig,
     batch:    &[serde_json::Value],
 ) -> Result<(u64, u64), String> {
@@ -328,11 +344,11 @@ async fn flush_batch(
     };
 
     let start = Instant::now();
-    let result = match config.dialect.as_str() {
-        "postgresql" => crate::pg_write(conn_str, &req, start).await?,
-        "mysql"      => crate::mysql_write(conn_str, &req, start).await?,
-        "sqlite"     => crate::sqlite_write(conn_str, &req, start).await?,
-        d            => return Err(format!("Dialetto '{}' non supportato", d)),
+      use crate::engine::pool::DbPool;
+    let result = match pool {
+        DbPool::Pg(p)     => crate::pg_write_pool(p, &req, start).await?,
+        DbPool::My(p)     => crate::mysql_write_pool(p, &req, start).await?,
+        DbPool::Sqlite(p) => crate::sqlite_write_pool(p, &req, start).await?,
     };
 
     Ok((result.rows_written as u64, result.rows_errors as u64))
@@ -436,47 +452,19 @@ fn build_db_connection_params(config: &SinkDbConfig) -> crate::DbConnectionParam
 }
 
 async fn exec_pre_post(
-    conn_str: &str,
-    dialect:  &str,
-    sql:      &str,
-    label:    &str,
+    pool:  &crate::engine::pool::DbPool,
+    sql:   &str,
+    label: &str,
 ) -> Result<(), String> {
+    use crate::engine::pool::DbPool;
     let stmts: Vec<&str> = sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-    match dialect {
-        "postgresql" => {
-            use sqlx::postgres::PgPoolOptions;
-            let pool = PgPoolOptions::new().max_connections(1)
-                .connect(conn_str).await
-                .map_err(|e| format!("{} connessione: {}", label, e))?;
-            for stmt in stmts {
-                sqlx::query(stmt).execute(&pool).await
-                    .map_err(|e| format!("{} fallito: {}", label, e))?;
-            }
-            pool.close().await;
-        }
-        "mysql" => {
-            use sqlx::mysql::MySqlPoolOptions;
-            let pool = MySqlPoolOptions::new().max_connections(1)
-                .connect(conn_str).await
-                .map_err(|e| format!("{} connessione: {}", label, e))?;
-            for stmt in stmts {
-                sqlx::query(stmt).execute(&pool).await
-                    .map_err(|e| format!("{} fallito: {}", label, e))?;
-            }
-            pool.close().await;
-        }
-        "sqlite" => {
-            use sqlx::sqlite::SqlitePoolOptions;
-            let pool = SqlitePoolOptions::new().max_connections(1)
-                .connect(conn_str).await
-                .map_err(|e| format!("{} connessione: {}", label, e))?;
-            for stmt in stmts {
-                sqlx::query(stmt).execute(&pool).await
-                    .map_err(|e| format!("{} fallito: {}", label, e))?;
-            }
-            pool.close().await;
-        }
-        _ => {}
+    for stmt in stmts {
+        let res = match pool {
+            DbPool::Pg(p)     => sqlx::query(stmt).execute(p).await.map(|_| ()),
+            DbPool::My(p)     => sqlx::query(stmt).execute(p).await.map(|_| ()),
+            DbPool::Sqlite(p) => sqlx::query(stmt).execute(p).await.map(|_| ()),
+        };
+        res.map_err(|e| format!("{} fallito: {}", label, e))?;
     }
     Ok(())
 }

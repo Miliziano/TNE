@@ -841,20 +841,36 @@ pub async fn pg_write_pool(
 }
 
 pub(crate) fn bind_pg_value<'q>(
-  q: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
-  v: &'q serde_json::Value,
-) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {
-  match v {
-    serde_json::Value::Null      => q.bind(None::<String>),
-    serde_json::Value::Bool(b)   => q.bind(*b),
-    serde_json::Value::Number(n) => {
-      if let Some(i) = n.as_i64() { q.bind(i) }
-      else if let Some(f) = n.as_f64() { q.bind(f) }
-      else { q.bind(n.to_string()) }
+    q: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
+    v: &'q serde_json::Value,
+    ) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {  
+    match v {
+        serde_json::Value::Null      => q.bind(None::<String>),
+        serde_json::Value::Bool(b)   => q.bind(*b),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() { q.bind(i) }
+            else if let Some(f) = n.as_f64() { q.bind(f) }
+            else { q.bind(n.to_string()) }
+        }
+        serde_json::Value::String(s) => {
+        // Date/timestamp viaggiano come stringhe ISO: se la stringa è una
+        // data/timestamp valida, bind come tipo temporale (Postgres non fa
+        // il cast implicito text→date/timestamp sui parametri).
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
+            q.bind(dt)
+        } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
+            q.bind(dt)
+        } else if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            q.bind(d)
+        } else {
+            q.bind(s.as_str())
+        }
+        }
+        // Array e oggetti → bind come JSON/JSONB. Senza questo, to_string()
+        // li manda come text e il cast text→jsonb fallisce.
+        v @ serde_json::Value::Array(_)  => q.bind(v.clone()),
+        v @ serde_json::Value::Object(_) => q.bind(v.clone()),
     }
-    serde_json::Value::String(s) => q.bind(s.as_str()),
-    other                        => q.bind(other.to_string()),
-  }
 }
 
 // ─── mysql_write con LAST_INSERT_ID ───────────────────────────────
@@ -866,7 +882,7 @@ pub async fn mysql_write(
     conn_str: &str,
     req:      &DbWriteRequest,
     start:    std::time::Instant,
-) -> Result<DbWriteResult, String> {
+    ) -> Result<DbWriteResult, String> {
     use sqlx::mysql::MySqlPoolOptions;
     use sqlx::Row as SqlxRow;
 
@@ -887,7 +903,7 @@ pub async fn mysql_write_pool(
     pool:  &sqlx::mysql::MySqlPool,
     req:   &DbWriteRequest,
     start: std::time::Instant,
-) -> Result<DbWriteResult, String> {
+    ) -> Result<DbWriteResult, String> {
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
@@ -977,7 +993,20 @@ pub async fn mysql_write_pool(
                         else if let Some(f) = n.as_f64() { q.bind(f) }
                         else { q.bind(n.to_string()) }
                     }
-                    serde_json::Value::String(s) => q.bind(s.as_str()),
+                    serde_json::Value::String(s) => {
+                    // Date/timestamp viaggiano come stringhe ISO nel JSON. Postgres
+                    // non fa il cast implicito text→date sui parametri bindati: se la
+                    // stringa è una data/timestamp valida, bind come tipo temporale.
+                    if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
+                        q.bind(dt)
+                    } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
+                        q.bind(dt)
+                    } else if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                        q.bind(d)
+                    } else {
+                        q.bind(s.as_str())
+                    }
+                }
                     other => q.bind(other.to_string()),
                 };
             }
