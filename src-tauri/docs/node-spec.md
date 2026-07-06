@@ -327,3 +327,28 @@ cliente del futuro monitor memoria per-lane.
   SENZA match (soli campi sx); `semi` = righe sinistre CON match, una
   volta, soli campi sx; `right`/`full` = a fine sinistro emettono le
   righe destre rimaste senza corrispondenza (campi dx prefissati).
+  
+  **Il prefisso è deciso a livello di SCHEMA, non di singola riga.** Un
+  campo del lato destro riceve `rightPrefix` se il suo nome esiste tra i
+  nomi di colonna del lato SINISTRO (raccolti durante lo streaming),
+  indipendentemente dalla riga corrente. Conseguenza: le righe fuse
+  (match) e le righe right-only (right/full senza corrispondenza) hanno
+  **lo stesso schema di uscita** per i campi destra. Un campo destra che
+  non collide resta col nome nudo in tutte le righe; uno che collide è
+  prefissato in tutte.
+  - Esempio: film (con `language_id`, `last_update`) RIGHT JOIN language
+    (con `language_id`, `name`, `last_update`) → in output i campi
+    language collidenti diventano `r_language_id`, `r_last_update`;
+    `name` (non presente in film) resta `name`. Vale identico per le
+    righe delle lingue senza film.
+
+- **Caso-limite (dichiarato):** se il lato sinistro è completamente
+  vuoto (0 righe, possibile in un RIGHT join), lo schema sinistro è
+  vuoto → nessuna collisione → le righe right-only escono con i campi
+  destra col nome nudo. Semanticamente corretto: senza righe sinistre
+  non esiste collisione da disambiguare.
+
+- **Nota implementativa (superato bug legacy):** il runner JS legacy
+  decideva il prefisso per-riga (collisione tra la singola riga sx e la
+  singola dx), producendo schemi incoerenti tra righe fuse e right-only.
+  Il motore Rust decide per-schema: coerenza garantita.

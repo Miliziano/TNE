@@ -117,31 +117,35 @@ fn is_null_key(key: &str) -> bool {
 }
 
 // ─── Merge di due righe con prefisso anti-collisione ──────────────
+// Il prefisso è deciso a livello di SCHEMA, non di singola riga:
+// un campo destra riceve `prefix` se il suo nome esiste tra i nomi
+// del lato sinistro (left_names), a prescindere dalla riga corrente.
+// Così le righe fuse e le righe right-only hanno lo stesso schema.
 
-fn apply_right_prefix(right: &Row, left: &Row, prefix: &str) -> Vec<(String, Value)> {
+fn apply_right_prefix(right: &Row, left_names: &std::collections::HashSet<String>, prefix: &str) -> Vec<(String, Value)> {
     right.fields().map(|(k, v)| {
-        let key = if left.has(k) { format!("{}{}", prefix, k) } else { k.clone() };
+        let key = if left_names.contains(k) { format!("{}{}", prefix, k) } else { k.clone() };
         (key, v.clone())
     }).collect()
 }
 
-fn merge(left: &Row, right: &Row, prefix: &str) -> Row {
+fn merge(left: &Row, right: &Row, left_names: &std::collections::HashSet<String>, prefix: &str) -> Row {
     let mut out = left.clone();
-    for (k, v) in apply_right_prefix(right, left, prefix) {
+    for (k, v) in apply_right_prefix(right, left_names, prefix) {
         out.set(k, v);
     }
     out
 }
 
-/// Riga destra senza corrispondenza (right/full): campi destra
-/// prefissati come se collidessero con un lato sinistro vuoto.
-fn right_only(right: &Row, prefix: &str) -> Row {
-    let empty = Row::new();
+/// Riga destra senza corrispondenza (right/full): stesso schema delle
+/// righe fuse — i campi destra collidenti con lo schema sinistro sono
+/// prefissati, gli altri restano col nome nudo. I campi sinistri sono
+/// assenti (nessuna riga sinistra da affiancare).
+fn right_only(right: &Row, left_names: &std::collections::HashSet<String>, prefix: &str) -> Row {
     let mut out = Row::new();
-    for (k, v) in apply_right_prefix(right, &empty, prefix) {
+    for (k, v) in apply_right_prefix(right, left_names, prefix) {
         out.set(k, v);
     }
-    let _ = prefix;
     out
 }
 
@@ -219,13 +223,15 @@ pub async fn run(
 
     // ── 3. Streaming del lato sinistro ────────────────────────────
     let jt = cfg.join_type.as_str();
+    let mut left_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     if let Some(mut rx) = left_rx {
         while let Some(lr) = rx.recv().await {
             rows_in += 1;
+            for (k, _) in lr.fields() { left_names.insert(k.clone()); }
 
             if cross {
                 for rr in &right_rows {
-                    if tx.send(merge(&lr, rr, &cfg.right_prefix)).await.is_err() { break; }
+                    if tx.send(merge(&lr, rr, &left_names, &cfg.right_prefix)).await.is_err() { break; }
                     rows_out += 1;
                 }
                 continue;
@@ -282,7 +288,7 @@ pub async fn run(
             };
 
             for i in selected {
-                if tx.send(merge(&lr, &right_rows[i], &cfg.right_prefix)).await.is_err() { break; }
+                if tx.send(merge(&lr, &right_rows[i], &left_names, &cfg.right_prefix)).await.is_err() { break; }
                 rows_out += 1;
                 matched_right[i] = true;
             }
@@ -293,7 +299,7 @@ pub async fn run(
     if jt == "right" || jt == "full" {
         for (i, rr) in right_rows.iter().enumerate() {
             if !matched_right[i] {
-                if tx.send(right_only(rr, &cfg.right_prefix)).await.is_err() { break; }
+                if tx.send(right_only(rr, &left_names, &cfg.right_prefix)).await.is_err() { break; }
                 rows_out += 1;
             }
         }

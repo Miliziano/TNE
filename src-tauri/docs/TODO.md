@@ -65,3 +65,39 @@ Ogni voce dice: cos'è, perché è rimandata, dove si manifesta.
   però, li degraderebbe a Float.
 - **Da valutare:** se/quando servirà, preservare i decimali anche in
   from_json (serde_json ha `arbitrary_precision`).
+
+## union — semantica del merge schema (by-name con null)
+
+- **Cos'è:** l'Union di FlowPilot non è la union SQL classica (per
+  posizione, stessa struttura). È un **merge di schema per nome**: fonde
+  flussi anche con colonne diverse, produce in uscita l'unione di tutti
+  i campi di tutti gli ingressi (omonimi non duplicati) e riempie di
+  `null` le colonne che una riga non possiede. Impila le righe: stesso
+  valore di chiave in due input → DUE righe (una per input), non una
+  (è ciò che la distingue dal Join).
+
+- **Perché va normato:** il merge per nome ha due decisioni di semantica
+  che oggi sono implicite e possono creare bug muti — divergerebbero tra
+  motore live e codegen (Java/Python coerciscono i tipi diversamente):
+
+  1. **Collisione di nome con tipo diverso.** Input A ha `codice` intero,
+     input B ha `codice` stringa. La colonna fusa `codice` che tipo
+     prende? Opzioni: coercizione a tipo comune / colonne distinte /
+     errore. Da decidere e dichiarare.
+
+  2. **Omonimia non voluta.** Due input hanno entrambi `id` ma con
+     significato diverso (id-cliente vs id-ordine). Il merge by-name le
+     fonde in una sola colonna, mescolando semantiche diverse senza che
+     nessuno se ne accorga. Speculare al punto 1.
+
+- **Da fare:** alla migrazione dell'union alla spec, fissare in
+  node-spec.md le regole per (1) e (2) — con eventuale opzione utente
+  nel pannello (es. "allinea per nome" vs "per posizione", policy sui
+  conflitti di tipo). Emettere warning quando un merge fonde colonne
+  con tipi incompatibili.
+
+- **Contesto:** emerso confrontando Join e Union. Non si sovrappongono:
+  Join fonde orizzontalmente (affianca colonne correlando righe per
+  chiave), Union fonde verticalmente (impila righe unendo lo schema).
+  Possono produrre lo stesso schema di uscita ma popolano le righe in
+  modo opposto.
