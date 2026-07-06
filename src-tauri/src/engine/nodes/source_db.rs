@@ -3,10 +3,17 @@
 // Legge righe da un DB (PostgreSQL, MySQL, SQLite) in streaming
 // e le invia nel canale della pipeline.
 //
-// Riusa la logica di connessione e conversione tipi già presente
-// in db_stream.rs e lib.rs — non duplichiamo la logica SQL,
-// duplichiamo solo il punto di arrivo delle righe (canale invece
-// di app.emit).
+// MIGRATO ALLA SPEC (fondazione §6.0 — contratto docs/node-spec.md §3):
+// - la connessione arriva da spec.resource (risorsa di lane risolta
+//   dallo studio), non più da campi selezionati a mano nel plan;
+// - la query è costruita QUI dall'esecutore a partire dalle props
+//   verbatim del pannello (query custom → verbatim; altrimenti
+//   SELECT * FROM [querySchema.]table [ORDER BY][LIMIT][OFFSET]).
+//   Chiude il bug 'schema' vs 'querySchema' (lo schema era sempre
+//   'public') e attiva orderBy/offset che prima cadevano a terra;
+// - fetchSize e queryTimeout restano dichiarati nel contratto ma non
+//   ancora implementati (🕐): compariranno nel log delle props non
+//   consumate — è il comportamento voluto.
 //
 // CONCETTI RUST NUOVI:
 //
@@ -19,7 +26,7 @@
 //
 // 2. `while let Some(result) = stream.next().await` — lo stesso
 //    pattern di source_file ma su uno stream asincrono DB invece
-//    che su un canale. Quando il DB non ha più righe, next() 
+//    che su un canale. Quando il DB non ha più righe, next()
 //    restituisce None e il loop termina naturalmente.
 
 use std::time::Instant;
@@ -28,63 +35,113 @@ use sqlx::Column;
 use sqlx::TypeInfo;
 use crate::engine::types::*;
 use crate::engine::executor::{RowSender, NodeContext};
+use crate::engine::spec::Spec;
 
-// Config del nodo source_db — deserializzata da node.config
-// Rispecchia DbConnectionParams già in lib.rs ma semplificata
-// per l'Engine (i campi non usati vengono ignorati da serde).
-#[derive(serde::Deserialize)]
+// Config interna del nodo, costruita dalla Spec (niente più serde
+// diretto sul blob config: parse lassista con default del contratto).
 struct SourceDbConfig {
-    // Connessione
-    dialect:          String,
-    host:             Option<String>,
-    port:             Option<u16>,
-    database:         Option<String>,
-    user:             Option<String>,
-    password:         Option<String>,
-    schema:           Option<String>,
-    ssl:              Option<String>,
-    #[serde(rename = "connectTimeout")]
-    connect_timeout:  Option<u64>,
-    // Query
-    query:            String,
-    timeout:          Option<u64>,
-    // Monitoraggio: id della risorsa connessione (per eventi Connection*)
-    #[serde(default)]
-    resource_id:      Option<String>,
+    // Connessione (da spec.resource)
+    dialect:         String,
+    host:            String,
+    port:            u16,
+    database:        String,
+    user:            String,
+    password:        String,
+    ssl:             String,
+    connect_timeout: u64,
+    // Query costruita (da spec.props)
+    query:           String,
+    // Monitoraggio (eventi Connection*)
+    resource_id:     String,
+}
+
+fn default_port(dialect: &str) -> u16 {
+    match dialect {
+        "mysql" => 3306,
+        _       => 5432,
+    }
+}
+
+fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
+    if !spec.has_resource() {
+        return Err("nessuna risorsa DB collegata (selezionare una \
+                    connessione nel pannello del nodo)".to_string());
+    }
+
+    let dialect = spec.res_str_or("dialect", "postgresql");
+    let port    = spec.res_u16_or("port", default_port(&dialect));
+    // Le risorse storiche usano 'user' oppure 'username'
+    let user = {
+        let u = spec.res_str_or("user", "");
+        if u.is_empty() { spec.res_str_or("username", "") } else { u }
+    };
+
+    // ── Query (contratto §3): custom verbatim se presente,
+    //    altrimenti costruita dall'esecutore ──────────────────────
+    let custom = spec.str_or("query", "");
+    let query = if !custom.is_empty() {
+        custom
+    } else {
+        let table = spec.str_req("table")
+            .map_err(|_| "specificare una tabella o una query SQL".to_string())?;
+        let schema = spec.str_or("querySchema", "public");
+        let qualified = if !schema.is_empty() && schema != "public" {
+            format!("{}.{}", schema, table)
+        } else {
+            table
+        };
+        let mut q = format!("SELECT * FROM {}", qualified);
+        let order_by = spec.str_or("orderBy", "");
+        if !order_by.is_empty() {
+            q.push_str(&format!(" ORDER BY {}", order_by));
+        }
+        let limit = spec.u64_or("limit", 0);
+        if limit > 0 {
+            q.push_str(&format!(" LIMIT {}", limit));
+        }
+        let offset = spec.u64_or("offset", 0);
+        if offset > 0 {
+            q.push_str(&format!(" OFFSET {}", offset));
+        }
+        q
+    };
+
+    Ok(SourceDbConfig {
+        host:            spec.res_str_or("host", "localhost"),
+        database:        spec.res_str_or("database", ""),
+        password:        spec.res_str_or("password", ""),
+        ssl:             spec.res_str_or("ssl", "false"),
+        connect_timeout: spec.res_u64_or("connectTimeout", 30),
+        resource_id:     spec.resource_id(),
+        dialect,
+        port,
+        user,
+        query,
+    })
 }
 
 impl SourceDbConfig {
     fn connection_string(&self) -> Result<String, String> {
-        let host     = self.host.as_deref().unwrap_or("localhost");
-        let database = self.database.as_deref().unwrap_or("");
-        let user     = self.user.as_deref().unwrap_or("");
-        let password = self.password.as_deref().unwrap_or("");
-        let port     = self.port.unwrap_or(match self.dialect.as_str() {
-            "postgresql" => 5432,
-            "mysql"      => 3306,
-            _            => 5432,
-        });
-
         match self.dialect.as_str() {
             "postgresql" => {
-                let ssl_mode = match self.ssl.as_deref().unwrap_or("false") {
+                let ssl_mode = match self.ssl.as_str() {
                     "true" | "require" => "require",
                     _                  => "disable",
                 };
                 Ok(format!(
                     "postgresql://{}:{}@{}:{}/{}?sslmode={}",
-                    urlencoding::encode(user),
-                    urlencoding::encode(password),
-                    host, port, database, ssl_mode
+                    urlencoding::encode(&self.user),
+                    urlencoding::encode(&self.password),
+                    self.host, self.port, self.database, ssl_mode
                 ))
             }
             "mysql" => Ok(format!(
                 "mysql://{}:{}@{}:{}/{}",
-                urlencoding::encode(user),
-                urlencoding::encode(password),
-                host, port, database
+                urlencoding::encode(&self.user),
+                urlencoding::encode(&self.password),
+                self.host, self.port, self.database
             )),
-            "sqlite" => Ok(format!("sqlite:{}", database)),
+            "sqlite" => Ok(format!("sqlite:{}", self.database)),
             d => Err(format!("Dialetto '{}' non supportato", d)),
         }
     }
@@ -98,8 +155,10 @@ pub async fn run(
     tx:  Option<RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let config: SourceDbConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("source_db config non valida: {}", e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;
+    let config = config_from_spec(&spec)
+        .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;
 
     let tx = match tx {
         Some(t) => t,
@@ -107,7 +166,7 @@ pub async fn run(
     };
 
     let conn_str = config.connection_string()?;
-    let timeout  = config.connect_timeout.unwrap_or(30);
+    let timeout  = config.connect_timeout;
     let dialect  = config.dialect.clone();
     let query    = config.query.clone();
 
@@ -115,11 +174,12 @@ pub async fn run(
     let mut rows_out  = 0u64;
     let mut last_prog = Instant::now();
 
+    eprintln!("[source_db] node={} query={}", ctx.node_id.0, query);
+    // Telemetria dei drop: props configurate nei pannelli ma non
+    // ancora implementate qui (es. fetchSize, queryTimeout).
+    spec.log_unconsumed("source_db", &ctx.node_id.0);
 
-    eprintln!("[source_db] node={} query={}", ctx.node_id.0,
-    ctx.config.get("query").and_then(|v| v.as_str()).unwrap_or("NESSUNA"));
-    
-    let resource_id = config.resource_id.clone().unwrap_or_default();
+    let resource_id = config.resource_id.clone();
     let conn_type   = format!("db_{}", dialect);
     ctx.emit_connection_opened(&resource_id, &conn_type);
 
@@ -170,6 +230,17 @@ fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value {
         if let Ok(v) = row.try_get::<i16, _>(idx) { return Value::Int(v as i64) }
     }
     if ["float4","float8","numeric","decimal"].contains(&type_name.as_str()) {
+        // float4/float8 sono binari nativi → Float
+        if type_name == "float4" || type_name == "float8" {
+            if let Ok(v) = row.try_get::<f64, _>(idx) { return Value::Float(v) }
+        }
+        // NUMERIC/DECIMAL: esatto, mai via f64 (regge Oracle NUMBER,
+        // Informix DECIMAL in futuro). Con feature rust_decimal sqlx
+        // li mappa su Decimal — era la causa dei Null su rental_rate.
+        if let Ok(v) = row.try_get::<rust_decimal::Decimal, _>(idx) {
+            return Value::Decimal(v)
+        }
+        // Fallback: alcuni driver danno comunque f64
         if let Ok(v) = row.try_get::<f64, _>(idx) { return Value::Float(v) }
     }
     if type_name == "bool" {
@@ -189,16 +260,71 @@ fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value {
         }
     }
     if let Ok(v) = row.try_get::<String, _>(idx) { return Value::String(v) }
+
+
+    // tsvector / altri tipi testuali interni: prova come stringa,
+    // ma NON cadere sui byte grezzi (che sarebbero binari corrotti).
+    if type_name == "tsvector" {
+        if let Ok(v) = row.try_get::<String, _>(idx) { return Value::String(v) }
+        return Value::Null;
+    }
+    // Array PostgreSQL. sqlx nomina il tipo array con le parentesi
+    // quadre ("text[]", "integer[]", …), non con l'underscore del
+    // catalogo pg. Confronto su type_name già in lowercase.
+    if type_name.ends_with("[]") {
+        let inner = type_name.trim_end_matches("[]");
+        if ["text","varchar","character varying","bpchar","char","name"].contains(&inner) {
+            match row.try_get::<Vec<Option<String>>, _>(idx) {
+                Ok(v)  => return Value::from_json(serde_json::json!(v)),
+                Err(e) => eprintln!("[pg_array] col idx={} type='{}' fallita Vec<Option<String>>: {}", idx, type_name, e),
+            }
+        }
+        match inner {
+            "text" | "varchar" | "character varying" | "bpchar" | "char" | "name" => {
+                if let Ok(v) = row.try_get::<Vec<String>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+                if let Ok(v) = row.try_get::<Vec<Option<String>>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+            }
+            "int2" | "smallint" | "int4" | "integer" | "int8" | "bigint" => {
+                if let Ok(v) = row.try_get::<Vec<i64>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+                if let Ok(v) = row.try_get::<Vec<i32>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+                if let Ok(v) = row.try_get::<Vec<i16>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+            }
+            "float4" | "real" | "float8" | "double precision" => {
+                if let Ok(v) = row.try_get::<Vec<f64>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+            }
+            "bool" | "boolean" => {
+                if let Ok(v) = row.try_get::<Vec<bool>, _>(idx) {
+                    return Value::from_json(serde_json::json!(v));
+                }
+            }
+            _ => {}
+        }
+    }
     // Fallback per tipi personalizzati (enum PostgreSQL, domini, ecc.)
     // sqlx non riesce a decodificare tipi enum personalizzati nei tipi Rust nativi.
     // Usiamo try_get_raw per accedere ai bytes grezzi e decodificarli come UTF-8.
     if let Ok(raw) = row.try_get_raw(idx) {
         use sqlx::ValueRef;
         if !raw.is_null() {
-            // I valori enum PostgreSQL sono trasportati come stringhe UTF-8 nel protocollo wire
             if let Ok(bytes) = raw.as_bytes() {
                 if let Ok(s) = std::str::from_utf8(bytes) {
-                    return Value::String(s.to_string());
+                    // Se contiene NUL, è quasi certamente un tipo binario
+                    // (array/tsvector/ecc.) mal interpretato: non è testo.
+                    if !s.contains('\u{0}') {
+                        return Value::String(s.to_string());
+                    }
                 }
             }
         }

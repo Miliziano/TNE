@@ -78,6 +78,22 @@ pub enum EngineEvent {
         stats:   NodeStats,
     },
 
+    /// Riga di log emessa dal nodo `log` (una per riga campionata).
+    /// Il messaggio è già formattato (prefix + template risolto +
+    /// troncamento); la UI si limita a instradarlo secondo `target`.
+    /// `lane_id` è la chiave per le viste per-lane (le lane sono
+    /// sandbox: una riga appartiene sempre a una sola lane).
+    NodeLog {
+        run_id:     RunId,
+        lane_id:    LaneId,
+        node_id:    NodeId,
+        node_label: String,
+        level:      String,   // "info" | "ok" | "warn" | "error" | "debug"
+        row_num:    u64,      // 0 = senza numero riga
+        message:    String,
+        target:     String,   // "panel" | "window" | "both_window"
+    },
+    
     /// Conteggi per handle di uscita — nodi multi-output (filter,
     /// tmap, ...). Emesso a fine nodo, prima di NodeCompleted.
     NodeOutputStats {

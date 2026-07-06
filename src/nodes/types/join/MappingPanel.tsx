@@ -4,7 +4,7 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchemaFromHandle } from '../../useIncomingSchema'
-import { useIncomingSchema } from '../../useIncomingSchema'
+
 
 const LEFT_COLOR   = '#4a9eff'
 const LOOKUP_COLOR = '#22d3ee'
@@ -23,7 +23,7 @@ export function JoinMappingPanel({ nodeId }: { nodeId: string }) {
   const rightPrefix = p('rightPrefix', 'r_')
 
   // Schema sinistro — da incomingSchema o dal nodo sorgente
-const leftFields = useIncomingSchema(nodeId)
+const leftFields = useIncomingSchemaFromHandle(nodeId, 'input_left')
 
   // Schema destro — da rightSchema
 const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')

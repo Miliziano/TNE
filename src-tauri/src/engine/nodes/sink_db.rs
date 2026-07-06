@@ -4,71 +4,178 @@
 // Riusa la logica SQL di pg_write/mysql_write/sqlite_write da lib.rs
 // tramite le funzioni già esposte come pub — non duplichiamo il SQL.
 //
-// La differenza rispetto a db_write (il comando Tauri esistente):
-// - Riceve righe da un RowReceiver (stream della pipeline) invece
-//   che da un Vec<serde_json::Value> passato dal frontend
-// - Accumula righe in un buffer locale e le scrive in batch
-// - Emette NodeProgress durante la scrittura
+// MIGRATO ALLA SPEC (fondazione §6.0 — contratto docs/node-spec.md §4):
+// - connessione da spec.resource (risorsa risolta), non più da campi
+//   selezionati a mano nel plan;
+// - props lette verbatim con le chiavi dei pannelli. Diventano ATTIVI
+//   i campi che prima cadevano a terra: batchSize (default 1000 come
+//   il pannello — prima il fallback era 500), keyFields, preSql,
+//   postSql, querySchema, mergeCondition, deadLetterTable,
+//   excludeColumns;
+// - sinkColumns letto direttamente dalla prop JSON del MappingPanel,
+//   INCLUSO sourceField: chiude il drop per cui map_row ripiegava
+//   sempre sul nome colonna (il mapping riga[sourceField] → dbColumn
+//   funzionava solo con nomi coincidenti);
+// - warning esplicito su fallimento totale (N ricevute, 0 scritte):
+//   §5.6 handoff — non deve essere indistinguibile dal successo.
+//
+// Restano 🕐 (dichiarati nel contratto, visibili nel log unconsumed):
+// commitInterval, parallelConnections, txTimeout, customSql/
+// customQueryMode, storedProcMode, ddlPrimaryKey,
+// passthroughMasterDetail, generatedKeyConfig, identityMap*.
 
 use std::time::Instant;
 use crate::engine::types::*;
 use crate::engine::executor::{RowReceiver, NodeContext};
+use crate::engine::spec::Spec;
 
 fn default_true() -> bool { true }
 
-/// Definizione di una colonna per il CREATE TABLE, dal mapping frontend.
+/// Elemento della prop `sinkColumns` (JSON del MappingPanel).
+/// I campi UI non elencati (dbFunction, isKey, keyOperator, …)
+/// vengono ignorati da serde.
 #[derive(serde::Deserialize)]
-struct ColumnDdl {
-    name:     String,
-    db_type:  String,          // tipo nativo dal mapping (es. "int8", "text")
+struct SinkColumn {
+    #[serde(rename = "dbColumn")]
+    db_column:    String,
+    #[serde(rename = "dbType", default)]
+    db_type:      String,
     #[serde(default = "default_true")]
-    nullable: bool,
-    #[serde(default)]
-    is_pk:    bool,
-    #[serde(default)]
-    source:   String,          // campo sorgente nella riga (per la scrittura)
+    nullable:     bool,
+    #[serde(rename = "isPk", default)]
+    is_pk:        bool,
+    #[serde(default = "default_true")]
+    enabled:      bool,
+    #[serde(rename = "sourceField", default)]
+    source_field: String,
 }
 
-#[derive(serde::Deserialize)]
+/// Definizione di una colonna per DDL e scrittura (interna al nodo).
+struct ColumnDdl {
+    name:     String,
+    db_type:  String,   // tipo nativo dal mapping (es. "int8", "text")
+    nullable: bool,
+    is_pk:    bool,
+    source:   String,   // campo sorgente nella riga (per la scrittura)
+}
+
+// Config interna, costruita dalla Spec (default del contratto §4).
 struct SinkDbConfig {
-    // Connessione — stessa struttura di SourceDbConfig
-    dialect:          String,
-    host:             Option<String>,
-    port:             Option<u16>,
-    database:         Option<String>,
-    #[serde(rename = "schemaName")]
-    schema_name:      Option<String>,
-    user:             Option<String>,
-    password:         Option<String>,
-    ssl:              Option<String>,
-    #[serde(rename = "connectTimeout")]
-    connect_timeout:  Option<u64>,
-    // Scrittura
-    table:            String,
-    mode:             String,   // "insert" | "upsert" | "update" | "delete" | "truncate_insert"
-    #[serde(rename = "keyFields")]
-    key_fields:       Option<Vec<String>>,
-    columns:          Option<Vec<String>>,
-    #[serde(rename = "excludeColumns")]
-    exclude_columns:  Option<Vec<String>>,
-    #[serde(rename = "batchSize")]
-    batch_size:       Option<usize>,
-    #[serde(rename = "onConstraintError")]
-    on_constraint_error: Option<String>,
-    #[serde(rename = "preSql")]
-    pre_sql:          Option<String>,
-    #[serde(rename = "postSql")]
-    post_sql:         Option<String>,
+    // Connessione (da spec.resource)
+    dialect:              String,
+    host:                 String,
+    port:                 u16,
+    database:             String,
+    schema_name:          Option<String>,
+    user:                 String,
+    password:             String,
+    ssl:                  String,
+    connect_timeout:      u64,
+    // Scrittura (da spec.props)
+    table:                String,
+    mode:                 String,   // "insert" | "upsert" | "update" | "delete" | "truncate_insert" | "merge"
+    key_fields:           Option<Vec<String>>,
+    exclude_columns:      Option<Vec<String>>,
+    batch_size:           usize,
+    on_constraint_error:  String,
+    pre_sql:              String,
+    post_sql:             String,
+    merge_condition:      Option<String>,
+    dead_letter_table:    Option<String>,
     // Monitoraggio: id della risorsa connessione (per eventi Connection*)
-    #[serde(default)]
-    resource_id:      Option<String>,
-    // DDL (Fase 11): creazione/ricreazione tabella dal mapping frontend
-    #[serde(default)]
+    resource_id:          String,
+    // DDL (Fase 11): creazione/ricreazione tabella dal mapping
     create_if_not_exists: bool,
-    #[serde(default)]
     drop_and_create:      bool,
-    #[serde(default)]
     columns_ddl:          Vec<ColumnDdl>,
+}
+
+fn default_port(dialect: &str) -> u16 {
+    match dialect {
+        "mysql" => 3306,
+        _       => 5432,
+    }
+}
+
+fn opt_nonempty(s: String) -> Option<String> {
+    if s.trim().is_empty() { None } else { Some(s) }
+}
+
+fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
+    if !spec.has_resource() {
+        return Err("nessuna risorsa DB collegata (selezionare una \
+                    connessione nel pannello del nodo)".to_string());
+    }
+
+    let dialect = spec.res_str_or("dialect", "postgresql");
+    let port    = spec.res_u16_or("port", default_port(&dialect));
+    let user = {
+        let u = spec.res_str_or("user", "");
+        if u.is_empty() { spec.res_str_or("username", "") } else { u }
+    };
+
+    let table = spec.str_req("table")
+        .map_err(|e| e.to_string())?;
+
+    // 'public' equivale a nessun prefisso: mantiene l'SQL identico
+    // al comportamento pre-migrazione (e alla Preview).
+    let schema = spec.str_or("querySchema", "");
+    let schema_name = if schema.is_empty() || schema == "public" {
+        None
+    } else {
+        Some(schema)
+    };
+
+    let key_fields = {
+        let v = spec.str_list("keyFields");
+        if v.is_empty() { None } else { Some(v) }
+    };
+    let exclude_columns = {
+        let v = spec.str_list("excludeColumns");
+        if v.is_empty() { None } else { Some(v) }
+    };
+
+    // Mapping colonne dal MappingPanel — filtrate alle sole enabled,
+    // con sourceField preservato (prima veniva scartato dal builder TS).
+    let sink_cols: Vec<SinkColumn> = spec.json_or("sinkColumns", Vec::new());
+    let columns_ddl: Vec<ColumnDdl> = sink_cols.into_iter()
+        .filter(|c| c.enabled)
+        .map(|c| ColumnDdl {
+            name:     c.db_column,
+            db_type:  c.db_type,
+            nullable: c.nullable,
+            is_pk:    c.is_pk,
+            source:   c.source_field,
+        })
+        .collect();
+
+    Ok(SinkDbConfig {
+        host:                 spec.res_str_or("host", "localhost"),
+        database:             spec.res_str_or("database", ""),
+        password:             spec.res_str_or("password", ""),
+        ssl:                  spec.res_str_or("ssl", "false"),
+        connect_timeout:      spec.res_u64_or("connectTimeout", 30),
+        mode:                 spec.str_or("mode", "insert"),
+        // Default 1000 come il pannello (contratto §4) — prima il
+        // fallback del motore era 500, disallineato dalla UI.
+        batch_size:           spec.usize_or("batchSize", 1000).max(1),
+        on_constraint_error:  spec.str_or("onConstraintError", "stop"),
+        pre_sql:              spec.str_or("preSql", ""),
+        post_sql:             spec.str_or("postSql", ""),
+        merge_condition:      opt_nonempty(spec.str_or("mergeCondition", "")),
+        dead_letter_table:    opt_nonempty(spec.str_or("deadLetterTable", "")),
+        create_if_not_exists: spec.bool_or("createIfNotExists", false),
+        drop_and_create:      spec.bool_or("dropAndCreate", false),
+        resource_id:          spec.resource_id(),
+        dialect,
+        port,
+        user,
+        table,
+        schema_name,
+        key_fields,
+        exclude_columns,
+        columns_ddl,
+    })
 }
 
 const PROGRESS_EVERY_ROWS: u64 = 1000;
@@ -79,10 +186,16 @@ pub async fn run(
     mut rx: RowReceiver,
 ) -> Result<NodeStats, String> {
 
-    let config: SinkDbConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("sink_db config non valida: {}", e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
+    let config = config_from_spec(&spec)
+        .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
 
-    let batch_size  = config.batch_size.unwrap_or(500).max(1);
+    // Telemetria dei drop: props configurate ma non ancora
+    // implementate qui (commitInterval, txTimeout, customSql, …).
+    spec.log_unconsumed("sink_db", &ctx.node_id.0);
+
+    let batch_size  = config.batch_size;
     let start       = Instant::now();
     let mut rows_in = 0u64;
     let mut written = 0u64;
@@ -96,7 +209,7 @@ pub async fn run(
     let conn_str = build_conn_str(&config)?;
 
     // Monitoraggio connessione (Fase 10): sessione a livello di nodo.
-    let resource_id = config.resource_id.clone().unwrap_or_default();
+    let resource_id = config.resource_id.clone();
     ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
     let mut query_count = 0u32;
 
@@ -118,10 +231,8 @@ pub async fn run(
     }
 
     // Pre-SQL — eseguito una volta prima di iniziare a scrivere
-    if let Some(pre) = &config.pre_sql {
-        if !pre.trim().is_empty() {
-            exec_pre_post(&conn_str, &config.dialect, pre, "Pre-SQL").await?;
-        }
+    if !config.pre_sql.trim().is_empty() {
+        exec_pre_post(&conn_str, &config.dialect, &config.pre_sql, "Pre-SQL").await?;
     }
 
     while let Some(row) = rx.recv().await {
@@ -166,10 +277,19 @@ pub async fn run(
     }
 
     // Post-SQL
-    if let Some(post) = &config.post_sql {
-        if !post.trim().is_empty() {
-            exec_pre_post(&conn_str, &config.dialect, post, "Post-SQL").await?;
-        }
+    if !config.post_sql.trim().is_empty() {
+        exec_pre_post(&conn_str, &config.dialect, &config.post_sql, "Post-SQL").await?;
+    }
+
+    // §5.6 handoff: un fallimento totale non deve essere
+    // indistinguibile dal successo (con onConstraintError=skip gli
+    // errori vengono ingoiati riga per riga).
+    if rows_in > 0 && written == 0 {
+        eprintln!(
+            "[sink_db][WARN] {}: {} righe ricevute, 0 scritte \
+             (onConstraintError={}) — possibile fallimento totale",
+            ctx.node_id.0, rows_in, config.on_constraint_error
+        );
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -195,15 +315,15 @@ async fn flush_batch(
         mode:                config.mode.clone(),
         rows:                batch.to_vec(),
         key_fields:          config.key_fields.clone(),
-        columns:             config.columns.clone(),
+        columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
         column_functions:    None,
-        merge_condition:     None,
+        merge_condition:     config.merge_condition.clone(),
         pre_sql:             None,   // già eseguito una volta sopra
         post_sql:            None,
         batch_size:          batch.len(),
-        on_constraint_error: config.on_constraint_error.clone().unwrap_or_else(|| "skip".to_string()),
-        dead_letter_table:   None,
+        on_constraint_error: config.on_constraint_error.clone(),
+        dead_letter_table:   config.dead_letter_table.clone(),
         returning_column:    None,
     };
 
@@ -234,7 +354,8 @@ fn map_row(row: &Row, cols: &[ColumnDdl]) -> serde_json::Value {
 }
 
 // ─── DDL: generazione CREATE TABLE dal mapping (Fase 11) ──────────
-/// Nome tabella qualificato e quotato per la DDL PostgreSQL.
+/// Nome tabella qualificato per la DDL — stessa politica di quoting
+/// dell'INSERT (nessun quoting), v. node-spec.md §4.
 fn qualified_ddl_table(config: &SinkDbConfig) -> String {
     match &config.schema_name {
         Some(s) if !s.is_empty() => format!("{}.{}", s, config.table),
@@ -280,27 +401,19 @@ fn build_create_table(config: &SinkDbConfig) -> Option<String> {
 // ─── Helper connessione ───────────────────────────────────────────
 
 fn build_conn_str(config: &SinkDbConfig) -> Result<String, String> {
-    let host     = config.host.as_deref().unwrap_or("localhost");
-    let database = config.database.as_deref().unwrap_or("");
-    let user     = config.user.as_deref().unwrap_or("");
-    let password = config.password.as_deref().unwrap_or("");
-    let port     = config.port.unwrap_or(match config.dialect.as_str() {
-        "postgresql" => 5432, "mysql" => 3306, _ => 5432,
-    });
-
     match config.dialect.as_str() {
         "postgresql" => {
-            let ssl = match config.ssl.as_deref().unwrap_or("false") {
+            let ssl = match config.ssl.as_str() {
                 "true" | "require" => "require", _ => "disable",
             };
             Ok(format!("postgresql://{}:{}@{}:{}/{}?sslmode={}",
-                urlencoding::encode(user), urlencoding::encode(password),
-                host, port, database, ssl))
+                urlencoding::encode(&config.user), urlencoding::encode(&config.password),
+                config.host, config.port, config.database, ssl))
         }
         "mysql"  => Ok(format!("mysql://{}:{}@{}:{}/{}",
-            urlencoding::encode(user), urlencoding::encode(password),
-            host, port, database)),
-        "sqlite" => Ok(format!("sqlite:{}", database)),
+            urlencoding::encode(&config.user), urlencoding::encode(&config.password),
+            config.host, config.port, config.database)),
+        "sqlite" => Ok(format!("sqlite:{}", config.database)),
         d => Err(format!("Dialetto '{}' non supportato", d)),
     }
 }
@@ -308,17 +421,17 @@ fn build_conn_str(config: &SinkDbConfig) -> Result<String, String> {
 fn build_db_connection_params(config: &SinkDbConfig) -> crate::DbConnectionParams {
     crate::DbConnectionParams {
         dialect:         config.dialect.clone(),
-        host:            config.host.clone(),
-        port:            config.port,
-        database:        config.database.clone(),
-        user:            config.user.clone(),
-        password:        config.password.clone(),
+        host:            Some(config.host.clone()),
+        port:            Some(config.port),
+        database:        Some(config.database.clone()),
+        user:            Some(config.user.clone()),
+        password:        Some(config.password.clone()),
         schema:          config.schema_name.clone(),
         service_name:    None,
         db_server_name:  None,
         charset:         None,
-        ssl:             config.ssl.clone(),
-        connect_timeout: config.connect_timeout,
+        ssl:             Some(config.ssl.clone()),
+        connect_timeout: Some(config.connect_timeout),
     }
 }
 

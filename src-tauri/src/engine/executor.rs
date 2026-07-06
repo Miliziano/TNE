@@ -38,6 +38,7 @@ pub struct NodeContext {
     pub node_id:   NodeId,
     pub label:     String,
     pub config:    serde_json::Value,
+    pub spec:      serde_json::Value,
     pub variables: HashMap<String, Value>,
 }
 
@@ -61,6 +62,21 @@ impl NodeContext {
             node_id: self.node_id.clone(), stats,
         });
     }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn emit_log(&self, node_label: &str, level: &str, row_num: u64, message: String, target: &str) {
+        push_event(EngineEvent::NodeLog {
+            run_id:     self.run_id.clone(),
+            lane_id:    self.lane_id.clone(),
+            node_id:    self.node_id.clone(),
+            node_label: node_label.to_string(),
+            level:      level.to_string(),
+            row_num,
+            message,
+            target:     target.to_string(),
+        });
+    }
+
     pub fn emit_failed(&self, error: String) {
         push_event(EngineEvent::NodeFailed {
             run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
@@ -243,6 +259,7 @@ pub async fn execute_lane(
             node_id:   node_plan.node_id.clone(),
             label:     node_plan.label.clone(),
             config:    node_plan.config.clone(),
+            spec:      node_plan.spec.clone(),
             variables: variables.clone(),
         };
 
@@ -396,7 +413,12 @@ async fn run_node(
                 }
             }
         }
-
+        "join" => {
+            let tx = take_primary_output(&mut outputs);
+            // Il join legge input_left e input_right da canali separati:
+            // passa l'intera mappa, il nodo la smista.
+            super::nodes::join::run(ctx, inputs, tx).await
+        }
         "sequencer" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("sequencer {} richiede un input collegato", ctx.node_id.0))?;
@@ -483,8 +505,8 @@ async fn run_node(
         // (il wiring edge-based li supporta), ma in attesa delle
         // implementazioni vere concatenano gli ingressi in sequenza
         // sull'uscita primaria. Per union è già semanticamente una
-        // concat; join e data_quality vanno implementati.
-        "union" | "join" | "data_quality" | "script" | "watchdog" |
+        // concat; data_quality va implementato.
+        "union" | "data_quality" | "script" | "watchdog" |
         "source_http" | "source_ftp" | "source_mqtt" |
         "source_activemq" | "source_kafka" |
         "sink_kafka" | "sink_ftp" | "sink_mqtt" |

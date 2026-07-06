@@ -3,9 +3,9 @@
  */
 import { useMemo, useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
-import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { useIncomingSchemaFromHandle } from '../../useIncomingSchema'
 
 const ACCESS_OPTIONS = [
   { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
@@ -170,8 +170,11 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
     return (lane?.variables ?? []).filter((v) => v.type === 'materialize')
   }, [pool, laneId])
 
-// Schema sinistro — dal flusso principale in ingresso
-  const leftFields = useIncomingSchema(nodeId)
+
+    // Schema sinistro — da incomingSchema o dal nodo sorgente
+  const leftFields = useIncomingSchemaFromHandle(nodeId, 'input_left')
+  
+  
 
   // Schema destro — dal Materialize, dal flusso connesso (rightSchema), o vuoto
   const materializeFields = useMaterializeSchema(nodeId, matName)

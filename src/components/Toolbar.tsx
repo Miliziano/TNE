@@ -157,6 +157,7 @@ console.log('[evt]', ev.event.type)
             store.setNodeStats(p.node_id, { status: 'error' })
             store.addLog('error', `${p.node_id}: ${p.error}`, p.node_id)
             break
+
           case 'NodeProgress':
             // Fase 8: aggiorna i badge contatori in tempo reale.
             // Il payload arriva da emit_progress: rows_in, rows_out,
@@ -169,6 +170,29 @@ console.log('[evt]', ev.event.type)
               throughputRps: p.throughput_rps ?? 0,
             })
             break
+
+          case 'NodeLog': {
+            // Riga di log dal nodo Rust (contratto: EngineEvent::NodeLog).
+            // target instrada verso LogPanel in-app e/o finestra viewer.
+            // p.lane_id disponibile per future viste per-lane.
+            const prefixNum = p.row_num > 0 ? `[${p.row_num}] ` : ''
+            if (p.target !== 'window') {
+              store.addLog(p.level, `${prefixNum}${p.message}`, p.node_id, p.lane_id)
+            }
+            if (p.target === 'window' || p.target === 'both_window') {
+              const { useLogViewerStore } = await import('../store/useLogViewerStore')
+              useLogViewerStore.getState().addRow({
+                timestamp: new Date(),
+                nodeId:    p.node_id,
+                nodeLabel: p.node_label,
+                rowNum:    p.row_num,
+                message:   p.message,
+                level:     p.level,
+              })
+            }
+            break
+          }
+
           case 'RunCompleted': {
             // Scopa: chiude i nodi rimasti 'running' e logga chi era —
             // se compare il warn, c'è un emettitore mancante lato Rust
@@ -219,6 +243,25 @@ function stopPolling() {
   // rileggerebbe tutta la storia — vecchi NodeStarted che riaccendono
   // i nodi e un vecchio RunCompleted che ferma il polling subito.
   // Il cursore resta monotono per l'intera vita dell'app.
+}
+
+// ─── Sanitizzazione log ───────────────────────────────────────────
+// Il plan ora contiene le risorse risolte (password incluse): mai
+// stamparle in chiaro in console.
+const SECRET_KEY_RE = /password|passwd|secret|token|api[_-]?key/i
+
+function sanitizeForLog(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeForLog)
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SECRET_KEY_RE.test(k) && typeof v === 'string' && v !== ''
+        ? '***'
+        : sanitizeForLog(v)
+    }
+    return out
+  }
+  return value
 }
 
 // ─── buildRustPlan ────────────────────────────────────────────────
@@ -333,48 +376,17 @@ function buildRustPlan(
       // Legge la config dai props (come fanno i test manuali)
       const props = node.data.props ?? {}
 
+      // ── Spec (fondazione §6.0): risorsa risolta genericamente ──
+      // Qualunque nodo che referenzia una risorsa di lane tramite
+      // config.resourceId la riceve INTERA nella spec — vale anche
+      // per i connettori futuri, senza selezione di campi.
+      const specResourceId = node.data.config?.resourceId as string | undefined
+      const specResource   = specResourceId
+        ? (laneConfig?.resources.find(r => r.id === specResourceId)?.config ?? null)
+        : null
       switch (node.data.type) {
 
-        case 'source_db': {
-         
-          console.log('[source_db debug_JSON]', node.id, node.data.label, 
-            JSON.stringify({ props, config: node.data.config }, null, 2))
-          // Trova la risorsa DB collegata
-          const resourceId = node.data.config?.resourceId as string | undefined
-          const resource   = laneConfig?.resources.find(r => r.id === resourceId)
-          const rc = resource?.config ?? {}
-
-  // query: usa custom query se non vuota, altrimenti SELECT * FROM table
-          // limit: se > 0 aggiunge LIMIT
-          const customQuery = (props['query'] ?? '').trim()
-          const table       = (props['table'] ?? '').trim()
-          const limit       = parseInt(props['limit'] ?? '0', 10)
-          const schema      = (props['schema'] ?? 'public').trim()
-          const tableFull   = schema && schema !== 'public' ? `${schema}.${table}` : table
-
-          let query: string
-          if (customQuery) {
-            query = customQuery
-          } else if (tableFull) {
-            query = `SELECT * FROM ${tableFull}`
-            if (limit > 0) query += ` LIMIT ${limit}`
-          } else {
-            query = 'SELECT 1'
-          }
-
-          config = {
-            dialect:  rc['dialect']  ?? 'postgresql',
-            host:     rc['host']     ?? 'localhost',
-            port:     parseInt(rc['port'] ?? '5432', 10),
-            database: rc['database'] ?? '',
-            user:     rc['user'] ?? rc['username'] ?? '',
-            password: rc['password'] ?? '',
-            ssl:      rc['ssl']      ?? 'false',
-            query,
-            resource_id: resourceId ?? '',
-          }
-          break
-        }
+     
 
         case 'source_file': {
           config = {
@@ -442,39 +454,8 @@ function buildRustPlan(
           break
         }
 
-        case 'sink_db': {
-          const resourceId = node.data.config?.resourceId as string | undefined
-          const resource   = laneConfig?.resources.find(r => r.id === resourceId)
-          const rc = resource?.config ?? {}
-         // Colonne per la DDL, dal mapping del sink (props.sinkColumns)
-          const sinkCols = (() => {
-            try { return JSON.parse((props['sinkColumns'] as string) ?? '[]') } catch { return [] }
-          })() as Array<{ dbColumn: string; dbType: string; nullable?: boolean; isPk?: boolean; enabled?: boolean }>
-          config = {
-            dialect:  rc['dialect']  ?? 'postgresql',
-            host:     rc['host']     ?? 'localhost',
-            port:     parseInt(rc['port'] ?? '5432', 10),
-            database: rc['database'] ?? '',
-            user:     rc['user'] ?? rc['username'] ?? '',
-            password: rc['password'] ?? '',
-            ssl:      rc['ssl']      ?? 'false',
-            table:    props['table'] ?? '',
-            mode:     props['mode']  ?? 'insert',
-            resource_id: resourceId ?? '',
-            onConstraintError: props['onConstraintError'] ?? 'stop',
-            create_if_not_exists: props['createIfNotExists'] === 'true',
-            drop_and_create:      props['dropAndCreate'] === 'true',
-            columns_ddl: sinkCols
-              .filter(c => c.enabled !== false)
-              .map(c => ({
-                name:     c.dbColumn,
-                db_type:  c.dbType,
-                nullable: c.nullable !== false,
-                is_pk:    !!c.isPk,
-              })),
-          }
-          break
-        }
+        
+        
 
         case 'filter': {
           const f = (node.data.config as any)?.filter ?? {}
@@ -534,7 +515,20 @@ function buildRustPlan(
         node_id:   node.id,
         node_type: node.data.type,
         label:     node.data.config?.displayName || node.data.label || node.data.type,
-        config,
+        config,    // LEGACY: selezione per-tipo — sarà rimossa a fine migrazione
+        // ── Spec completa (contratto: docs/node-spec.md) ──────────
+        // Fotografia integrale dei tab Configurazione+Avanzate:
+        // props verbatim (chiavi camelCase dei pannelli, valori
+        // stringa), config strutturata, risorsa risolta. Il motore
+        // Rust attuale la ignora (serde tollera i campi extra);
+        // verrà consumata dal Passo 2 (engine/spec.rs).
+        spec: {
+          version:    1,
+          props:      { ...props },
+          config:     node.data.config ?? {},
+          resource:   specResource,
+          resourceId: specResourceId ?? '',
+        },
       }
     })
 
@@ -627,7 +621,7 @@ export function Toolbar() {
     // Costruisce il Plan JSON per Rust
     const plan = buildRustPlan(nodes, edges, pool, runId)
  // ← AGGIUNGI QUI
-    console.log('[buildRustPlan] plan:', JSON.stringify(plan, null, 2))
+    console.log('[buildRustPlan] plan:', JSON.stringify(sanitizeForLog(plan), null, 2))
     // Avvia il polling degli eventi Rust → aggiorna UI
     startPolling()
 

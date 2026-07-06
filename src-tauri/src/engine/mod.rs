@@ -29,6 +29,7 @@ pub mod nodes;
 pub mod expr;
 pub mod monitor;
 pub mod reporter;
+pub mod spec;
 
 use std::time::Instant;
 use std::collections::HashMap;

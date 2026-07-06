@@ -227,3 +227,24 @@ Configurazione+Avanzate, il motore la esegue'."
 Prima azione consigliata: leggere `buildRustPlan` per intero (il `switch` sui
 `node.data.type`) e i pannelli `Panel.tsx` di 2-3 nodi rappresentativi per
 capire quali props producono e quali arrivano/non arrivano al motore.
+
+---
+
+## 8. Feat(engine): fondazione spec + nodi DB/log/join + tipi DB corretti
+Migrato i nodi alla "busta spec" completa (docs/node-spec.md): studio
+manda l'intera config dei tab Configurazione+Avanzate, il motore la
+esegue. Niente più selezione a mano dei campi in buildRustPlan.
+
+- spec.rs: accessor tipizzati lassisti + tracking chiavi non consumate
+  (i drop diventano telemetria, non silenzio)
+- source_db/sink_db: migrati a spec; risolti bug querySchema (schema
+  sempre 'public') e hasHeader; attivati batchSize/keyFields/pre-postSql
+- log: nuovo evento NodeLog (con lane_id), risolve i log che non
+  arrivavano alla UI; semantica allineata al runner legacy
+- join: hash join reale (era passthrough); input_left/right su canali
+  separati; 7 tipi. customCondition e rightSource=materialize rimandati
+- tipi DB → Value: NUMERIC/DECIMAL ora esatti via Value::Decimal (mai
+  f64: reggerà Oracle NUMBER, Informix DECIMAL); array PG → array JSON;
+  tsvector → null. Risolti rental_rate/replacement_cost che davano null
+
+TODO tracciati in docs/TODO.md (Fase B decimal-aware, custom join, ecc.)

@@ -43,6 +43,11 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Float(f64),
+     /// Decimale a precisione arbitraria (NUMERIC/DECIMAL di Postgres,
+    /// NUMBER di Oracle, DECIMAL/MONEY di Informix). Esatto: non passa
+    /// mai per f64. I nodi di calcolo che non lo gestiscono ancora lo
+    /// trattano come Float (v. as_f64_lossy).
+    Decimal(rust_decimal::Decimal),
     String(String),
     // Date e DateTime sono stringhe ISO 8601 a livello di trasporto —
     // l'interprete le converte quando serve fare operazioni su date
@@ -61,6 +66,7 @@ impl Value {
             Value::Bool(b)       => b.to_string(),
             Value::Int(i)        => i.to_string(),
             Value::Float(f)      => f.to_string(),
+            Value::Decimal(d)    => d.to_string(),
             Value::String(s)     => s.clone(),
             Value::Date(s)       => s.clone(),
             Value::DateTime(s)   => s.clone(),
@@ -91,13 +97,31 @@ impl Value {
             Value::Bool(b)       => serde_json::json!(b),
             Value::Int(i)        => serde_json::json!(i),
             Value::Float(f)      => serde_json::json!(f),
+            Value::Decimal(d)    => {
+                // Numero JSON esatto se possibile, altrimenti stringa.
+                serde_json::to_value(d).unwrap_or_else(|_| serde_json::json!(d.to_string()))
+            }
             Value::String(s)     => serde_json::json!(s),
             Value::Date(s)       => serde_json::json!(s),
             Value::DateTime(s)   => serde_json::json!(s),
             Value::Object(v)     => v.clone(),
         }
     }
-}
+    /// Valore numerico come f64 quando serve un calcolo che non è
+    /// ancora decimal-aware. Lossy sul Decimal — da sostituire con
+    /// aritmetica esatta nei nodi di calcolo (Fase B).
+    pub fn as_f64_lossy(&self) -> Option<f64> {
+        use rust_decimal::prelude::ToPrimitive;
+        match self {
+            Value::Int(i)     => Some(*i as f64),
+            Value::Float(f)   => Some(*f),
+            Value::Decimal(d) => d.to_f64(),
+            Value::String(s)  => s.parse().ok(),
+            _                 => None,
+        }
+    }
+}   // ← questa chiude impl Value
+
 
 // ─── Row — una singola riga dati ─────────────────────────────────
 //
@@ -135,7 +159,17 @@ impl Row {
             .collect();
         serde_json::Value::Object(map)
     }
-
+    /// Come to_json_object ma con le chiavi ordinate: output stabile
+    /// per log, serializer e file (HashMap ha ordine non deterministico).
+    pub fn to_json_object_sorted(&self) -> serde_json::Value {
+        let mut keys: Vec<&String> = self.0.keys().collect();
+        keys.sort();
+        let map: serde_json::Map<String, serde_json::Value> = keys.into_iter()
+            .map(|k| (k.clone(), self.0.get(k).unwrap().to_json()))
+            .collect();
+        serde_json::Value::Object(map)
+    }
+    
     /// Proietta solo le colonne richieste (column pruning a runtime).
     /// Restituisce una nuova Row con solo i campi specificati.
     pub fn project(&self, columns: &[String]) -> Self {
@@ -236,6 +270,10 @@ pub struct NodePlan {
     pub node_type: String,
     pub label:     String,
     pub config:    serde_json::Value,  // deserializzato specificamente in ogni handler
+    /// Spec completa dei tab Configurazione+Avanzate (contratto:
+    /// docs/node-spec.md). Default Null per plan senza busta.
+    #[serde(default)]
+    pub spec:      serde_json::Value,
 }
 
 // ─── BridgePlan — coppia BridgeOut/BridgeIn ──────────────────────

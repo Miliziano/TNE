@@ -1,94 +1,312 @@
-// src-tauri/src/engine/nodes/join.rs
-// Join tra due stream (tipo SQL).
-// Il join materializza lo stream secondario (right) in memoria
-// e fa lo streaming dello stream principale (left).
-// Config:
-//   join_type:  "inner" | "left" | "right" | "full"
-//   left_key:   "id"        — campo chiave left
-//   right_key:  "left_id"   — campo chiave right
-//   prefix_right: "r_"      — prefisso campi right (evita collisioni)
+// ─── src-tauri/src/engine/nodes/join.rs ────────────────────────────
+//
+// Join di due flussi su chiave (hash join). Primo nodo BLOCCANTE del
+// motore: per sapere se una riga sinistra ha match deve aver già visto
+// tutte le righe destre. Strategia:
+//   1. drena INTERAMENTE input_right in un Vec (materializza il lato dx);
+//   2. costruisce la hashtable  chiave → Vec<Row>  sul lato destro;
+//   3. itera input_left in streaming, emettendo i match;
+//   4. per right/full, a fine sinistro emette le righe destre rimaste
+//      senza corrispondenza.
+// I due lati arrivano su CANALI SEPARATI (input_left / input_right):
+// niente ricostruzione della provenienza (il vecchio runner JS univa
+// tutto in un array e indovinava con __sourceHandle — qui non serve).
+//
+// Semantica replicata da src/runner/joinExecutor.ts (legacy):
+//   tipi: inner | left | right | full | cross | anti | semi
+//   + chiavi composite, caseSensitive, rightPrefix anti-collisione,
+//     duplicates (all|first|last|error), nullKeys (exclude|error).
+//
+// NON ANCORA SUPPORTATO (v. docs/node-spec.md §join, docs/TODO.md):
+//   - customCondition: il legacy eseguiva JS arbitrario (new Function);
+//     in Rust serve un interprete → rimandata. Se valorizzata, il nodo
+//     EMETTE UN WARNING e la ignora (niente drop muto).
+//   - rightSource=materialize: dipende dal nodo materialize non ancora
+//     migrato → per ora il lato destro è sempre lo stream input_right.
+//
+// MEMORIA (modello a lane): il buffer del lato destro (ed eventualmente
+// del sinistro per right/full) è un picco di RAM DELLA LANE che contiene
+// il join. Sarà il primo cliente del monitor memoria per-lane.
 
-use std::time::Instant;
 use std::collections::HashMap;
+use std::time::Instant;
 use crate::engine::types::*;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::spec::Spec;
+
+struct CompositeKey {
+    left:  String,
+    right: String,
+}
+
+struct JoinConfig {
+    join_type:      String,
+    left_key:       String,
+    right_key:      String,
+    composite_keys: Vec<CompositeKey>,
+    case_sensitive: bool,
+    right_prefix:   String,
+    duplicates:     String,   // all | first | last | error
+    null_keys:      String,   // exclude | error
+    right_source:   String,   // stream | materialize (🕐)
+    custom_cond:    String,   // 🕐 ignorata con warning
+}
+
+#[derive(serde::Deserialize)]
+struct CompositeKeyRaw {
+    #[serde(default)]
+    left:  String,
+    #[serde(default)]
+    right: String,
+}
+
+fn config_from_spec(spec: &Spec) -> JoinConfig {
+    let raw: Vec<CompositeKeyRaw> = spec.json_or("compositeKeys", Vec::new());
+    let composite_keys = raw.into_iter()
+        .filter(|c| !c.left.is_empty() || !c.right.is_empty())
+        .map(|c| CompositeKey { left: c.left, right: c.right })
+        .collect();
+
+    JoinConfig {
+        join_type:      spec.str_or("join_type", "inner"),
+        left_key:       spec.str_or("leftKey", ""),
+        right_key:      spec.str_or("rightKey", ""),
+        case_sensitive: spec.bool_or("caseSensitive", true),
+        right_prefix:   spec.str_or("rightPrefix", "r_"),
+        duplicates:     spec.str_or("duplicates", "all"),
+        null_keys:      spec.str_or("nullKeys", "exclude"),
+        right_source:   spec.str_or("rightSource", "stream"),
+        custom_cond:    spec.str_or("customCondition", ""),
+        composite_keys,
+    }
+}
+
+const NULL_KEY: &str = "\u{0}__null__";
+
+// ─── Costruzione chiave (primaria + composite) ────────────────────
+
+fn normalize(v: Option<&Value>, case_sensitive: bool) -> String {
+    match v {
+        None => NULL_KEY.to_string(),
+        Some(Value::Null) => NULL_KEY.to_string(),
+        Some(val) => {
+            let s = val.as_str_repr();
+            if case_sensitive { s } else { s.to_lowercase() }
+        }
+    }
+}
+
+fn build_key(row: &Row, primary: &str, comps: &[CompositeKey], side_left: bool, cs: bool) -> String {
+    let mut parts: Vec<String> = Vec::with_capacity(1 + comps.len());
+    if !primary.is_empty() {
+        parts.push(normalize(row.get(primary), cs));
+    }
+    for ck in comps {
+        let field = if side_left { &ck.left } else { &ck.right };
+        if !field.is_empty() {
+            parts.push(normalize(row.get(field), cs));
+        }
+    }
+    parts.join("\u{0}")
+}
+
+fn is_null_key(key: &str) -> bool {
+    // La chiave è "null" se ogni sua componente è la sentinella.
+    !key.is_empty() && key.split('\u{0}').all(|p| p == "__null__" || p.is_empty())
+        || key == NULL_KEY
+}
+
+// ─── Merge di due righe con prefisso anti-collisione ──────────────
+
+fn apply_right_prefix(right: &Row, left: &Row, prefix: &str) -> Vec<(String, Value)> {
+    right.fields().map(|(k, v)| {
+        let key = if left.has(k) { format!("{}{}", prefix, k) } else { k.clone() };
+        (key, v.clone())
+    }).collect()
+}
+
+fn merge(left: &Row, right: &Row, prefix: &str) -> Row {
+    let mut out = left.clone();
+    for (k, v) in apply_right_prefix(right, left, prefix) {
+        out.set(k, v);
+    }
+    out
+}
+
+/// Riga destra senza corrispondenza (right/full): campi destra
+/// prefissati come se collidessero con un lato sinistro vuoto.
+fn right_only(right: &Row, prefix: &str) -> Row {
+    let empty = Row::new();
+    let mut out = Row::new();
+    for (k, v) in apply_right_prefix(right, &empty, prefix) {
+        out.set(k, v);
+    }
+    let _ = prefix;
+    out
+}
 
 pub async fn run(
-    ctx:       NodeContext,
-    mut left:  RowReceiver,
-    mut right: RowReceiver,
-    tx:        RowSender,
+    ctx:        NodeContext,
+    mut inputs: HashMap<String, RowReceiver>,
+    tx:         Option<RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let join_type     = ctx.config.get("join_type")
-        .and_then(|v| v.as_str()).unwrap_or("inner").to_string();
-    let left_key      = ctx.config.get("left_key")
-        .and_then(|v| v.as_str()).unwrap_or("id").to_string();
-    let right_key     = ctx.config.get("right_key")
-        .and_then(|v| v.as_str()).unwrap_or("id").to_string();
-    let prefix_right  = ctx.config.get("prefix_right")
-        .and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("join {}: {}", ctx.node_id.0, e))?;
+    let cfg = config_from_spec(&spec);
+    spec.log_unconsumed("join", &ctx.node_id.0);
+
+    // Feature rimandate: avvisa invece di fallire in silenzio.
+    if !cfg.custom_cond.trim().is_empty() {
+        ctx.emit_log(&ctx.label, "warn", 0,
+            "[join] condizione custom ignorata: non ancora supportata dal motore \
+             (v. docs/TODO.md)".to_string(), "panel");
+    }
+    if cfg.right_source == "materialize" {
+        ctx.emit_log(&ctx.label, "warn", 0,
+            "[join] rightSource=materialize non ancora supportato: uso lo stream \
+             input_right".to_string(), "panel");
+    }
+
+    let tx = tx.unwrap_or_else(|| {
+        // Nessuna uscita collegata: drain (il join non deve bloccarsi).
+        let (t, mut r) = tokio::sync::mpsc::channel::<Row>(1);
+        tokio::spawn(async move { while r.recv().await.is_some() {} });
+        t
+    });
+
+    let mut left_rx  = inputs.remove("input_left");
+    let mut right_rx = inputs.remove("input_right");
+
+    // Fallback difensivo: se gli handle non hanno i nomi canonici
+    // (es. un solo input collegato), assegna per ordine.
+    if left_rx.is_none() || right_rx.is_none() {
+        let mut keys: Vec<String> = inputs.keys().cloned().collect();
+        keys.sort();
+        for k in keys {
+            if let Some(rx) = inputs.remove(&k) {
+                if left_rx.is_none() { left_rx = Some(rx); }
+                else if right_rx.is_none() { right_rx = Some(rx); }
+            }
+        }
+    }
 
     let start = Instant::now();
     let mut rows_in  = 0u64;
     let mut rows_out = 0u64;
+    let cross = cfg.join_type == "cross";
 
-    // Materializza il right stream
-    let mut right_index: HashMap<String, Vec<Row>> = HashMap::new();
-    while let Some(row) = right.recv().await {
-        let key = row.get(&right_key)
-            .map(|v| v.as_str_repr()).unwrap_or_default();
-        right_index.entry(key).or_default().push(row);
+    // ── 1. Materializza il lato destro (drain completo) ───────────
+    let mut right_rows: Vec<Row> = Vec::new();
+    if let Some(mut rx) = right_rx {
+        while let Some(r) = rx.recv().await {
+            rows_in += 1;
+            right_rows.push(r);
+        }
     }
 
-    // Stream del left
-    while let Some(left_row) = left.recv().await {
-        rows_in += 1;
-        let key = left_row.get(&left_key)
-            .map(|v| v.as_str_repr()).unwrap_or_default();
+    // ── 2. Hashtable  chiave → indici in right_rows  ──────────────
+    // (indici, non cloni: right_rows è la sola copia del lato destro)
+    let mut table: HashMap<String, Vec<usize>> = HashMap::new();
+    if !cross {
+        for (i, rr) in right_rows.iter().enumerate() {
+            let k = build_key(rr, &cfg.right_key, &cfg.composite_keys, false, cfg.case_sensitive);
+            if is_null_key(&k) && cfg.null_keys == "exclude" { continue; }
+            table.entry(k).or_default().push(i);
+        }
+    }
+    let mut matched_right: Vec<bool> = vec![false; right_rows.len()];
 
-        match right_index.get(&key) {
-            Some(right_rows) => {
-                for right_row in right_rows {
-                    let out = merge_rows(&left_row, right_row, &prefix_right);
-                    if tx.send(out).await.is_err() { break; }
+    // ── 3. Streaming del lato sinistro ────────────────────────────
+    let jt = cfg.join_type.as_str();
+    if let Some(mut rx) = left_rx {
+        while let Some(lr) = rx.recv().await {
+            rows_in += 1;
+
+            if cross {
+                for rr in &right_rows {
+                    if tx.send(merge(&lr, rr, &cfg.right_prefix)).await.is_err() { break; }
                     rows_out += 1;
                 }
+                continue;
             }
-            None => {
-                // Nessun match
-                match join_type.as_str() {
-                    "left" | "full" => {
-                        // Emette la riga left con campi right null
-                        if tx.send(left_row).await.is_err() { break; }
-                        rows_out += 1;
-                    }
-                    _ => {} // inner: scarta
+
+            let lk = build_key(&lr, &cfg.left_key, &cfg.composite_keys, true, cfg.case_sensitive);
+
+            if is_null_key(&lk) {
+                if cfg.null_keys == "error" {
+                    return Err(format!("join {}: chiave null nel flusso sinistro (campo '{}')",
+                        ctx.node_id.0, cfg.left_key));
                 }
+                // exclude: nessun match possibile
+                if jt == "left" || jt == "full" {
+                    if tx.send(lr.clone()).await.is_err() { break; }
+                    rows_out += 1;
+                }
+                continue;
+            }
+
+            let match_idx: Vec<usize> = table.get(&lk).cloned().unwrap_or_default();
+
+            if match_idx.is_empty() {
+                match jt {
+                    "inner" | "semi" => {}
+                    "anti" => { if tx.send(lr.clone()).await.is_err() { break; } rows_out += 1; }
+                    "left" | "full" => { if tx.send(lr.clone()).await.is_err() { break; } rows_out += 1; }
+                    _ => {}
+                }
+                continue;
+            }
+
+            // Ha match
+            match jt {
+                "anti" => continue,                       // escludi righe con match
+                "semi" => {                               // solo campi sinistri, una volta
+                    if tx.send(lr.clone()).await.is_err() { break; }
+                    rows_out += 1;
+                    for &i in &match_idx { matched_right[i] = true; }
+                    continue;
+                }
+                _ => {}
+            }
+
+            // Selezione duplicati
+            let selected: Vec<usize> = match cfg.duplicates.as_str() {
+                "first" => vec![match_idx[0]],
+                "last"  => vec![*match_idx.last().unwrap()],
+                "error" if match_idx.len() > 1 => {
+                    return Err(format!("join {}: corrispondenze multiple per chiave '{}' (duplicates=error)",
+                        ctx.node_id.0, lk));
+                }
+                _ => match_idx,
+            };
+
+            for i in selected {
+                if tx.send(merge(&lr, &right_rows[i], &cfg.right_prefix)).await.is_err() { break; }
+                rows_out += 1;
+                matched_right[i] = true;
             }
         }
+    }
 
-        if rows_in % 1000 == 0 {
-            ctx.emit_progress(rows_in, rows_out, rows_in - rows_out,
-                rows_in as f64 / start.elapsed().as_secs_f64().max(0.001));
+    // ── 4. right / full: righe destre senza corrispondenza ────────
+    if jt == "right" || jt == "full" {
+        for (i, rr) in right_rows.iter().enumerate() {
+            if !matched_right[i] {
+                if tx.send(right_only(rr, &cfg.right_prefix)).await.is_err() { break; }
+                rows_out += 1;
+            }
         }
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
+    ctx.emit_log(&ctx.label, "info", 0,
+        format!("[join] {}: {} righe in ingresso, {} in uscita",
+            jt.to_uppercase(), rows_in, rows_out), "panel");
+
     let stats = NodeStats {
-        rows_in, rows_out,
-        rows_rejected: rows_in.saturating_sub(rows_out),
-        elapsed_ms, error: None,
+        rows_in, rows_out, rows_rejected: 0, elapsed_ms, error: None,
     };
     ctx.emit_completed(stats.clone());
     Ok(stats)
-}
-
-fn merge_rows(left: &Row, right: &Row, prefix: &str) -> Row {
-    let mut out = left.clone();
-    for (k, v) in right.fields() {
-        let key = if prefix.is_empty() { k.to_string() } else { format!("{}{}", prefix, k) };
-        out.set(key, v.clone());
-    }
-    out
 }

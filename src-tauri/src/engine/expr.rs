@@ -565,6 +565,7 @@ pub fn is_truthy(v: &Value) -> bool {
         Value::Bool(b)   => *b,
         Value::Int(i)    => *i != 0,
         Value::Float(f)  => *f != 0.0,
+        Value::Decimal(d) => !d.is_zero(),
         Value::String(s) => !s.is_empty() && s != "false" && s != "0",
         Value::Object(_) => true,
         Value::Date(_) | Value::DateTime(_) => true,
@@ -581,6 +582,7 @@ fn to_int(v: &Value) -> Option<i64> {
         Value::Float(f) => Some(*f as i64),
         Value::Bool(b)  => Some(if *b { 1 } else { 0 }),
         Value::String(s) => s.trim().parse().ok(),
+        Value::Decimal(d) => { use rust_decimal::prelude::ToPrimitive; d.to_i64() },
         _ => None,
     }
 }
