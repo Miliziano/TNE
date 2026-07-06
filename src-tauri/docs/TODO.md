@@ -101,3 +101,33 @@ Ogni voce dice: cos'è, perché è rimandata, dove si manifesta.
   chiave), Union fonde verticalmente (impila righe unendo lo schema).
   Possono produrre lo stesso schema di uscita ma popolano le righe in
   modo opposto.
+
+  
+## Nota per node-spec.md §3 — tipi non scalari (tsvector, tipi custom)
+- **Aggiungere alla tabella di conversione tipi / note del source_db:
+
+  1. **tsvector e altri tipi non direttamente decodificabili. Alcuni tipi
+    PostgreSQL non hanno un decoder testuale nativo in sqlx e con SELECT *
+    il source li rende Null (era: byte binari corrotti). Esempi: tsvector
+    (indice full-text). Questo è VOLUTO: sono indici/strutture interne, non
+    dati di contenuto (il testo originale è nelle colonne sorgente, es.
+    description).
+
+  2. **Soluzione universale — query custom con cast. Chi ha bisogno del
+    contenuto lo ottiene scrivendo una query custom nel pannello con un cast
+    esplicito a text:
+
+    SELECT film_id, title, ..., fulltext::text AS fulltext
+    FROM film
+
+    Il meccanismo funziona end-to-end senza modifiche al motore:
+
+    "Rileva schema dalla query" usa pool.describe() → Postgres riporta
+    il tipo castato come text → il mapping si allinea automaticamente.
+    Al run, il source legge la colonna come text (già castata da PG) →
+    contenuto disponibile (es. 'academi':1 'battl':15 ...).
+    Il sink la scrive come stringa, coerente.
+
+  3. **Principio: i tipi esotici si risolvono in SQL (linguaggio universale per
+    questi casi), non con decoder binari fragili nel motore. Vale per
+    qualunque tipo che l'utente sappia castare a un tipo scalare.

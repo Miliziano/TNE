@@ -69,6 +69,7 @@ impl LaneResources {
             // Fast path: già presente.
             let guard = self.pools.lock().await;
             if let Some(p) = guard.get(resource_id) {
+                eprintln!("[pool] RIUSO connessione esistente per risorsa '{}'", resource_id);
                 return Ok(p.clone());
             }
         }
@@ -79,6 +80,7 @@ impl LaneResources {
         if let Some(p) = guard.get(resource_id) {
             return Ok(p.clone());
         }
+        eprintln!("[pool] CREO nuova connessione per risorsa '{}'", resource_id);
         guard.insert(resource_id.to_string(), pool.clone());
         Ok(pool)
     }

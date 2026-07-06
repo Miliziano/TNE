@@ -1,0 +1,747 @@
+{
+  "version": "1.0",
+  "savedAt": "2026-07-06T15:45:24.253Z",
+  "pool": {
+    "id": "pool_main",
+    "label": "Main Pool",
+    "variables": [],
+    "lanes": [
+      {
+        "id": "lane_a",
+        "label": "Lane A",
+        "color": "#185FA5",
+        "order": 0,
+        "collapsed": false,
+        "height": 700,
+        "variables": [],
+        "resources": [
+          {
+            "kind": "db",
+            "label": "Nuovo DB",
+            "config": {
+              "dialect": "postgresql",
+              "host": "localhost",
+              "port": "5432",
+              "database": "dvdrental",
+              "user": "postgres",
+              "password": "postgresql"
+            },
+            "actions": [
+              {
+                "id": "in",
+                "label": "Aggiungi come input",
+                "nodeType": "source_db",
+                "propsOverride": {}
+              },
+              {
+                "id": "out",
+                "label": "Aggiungi come output",
+                "nodeType": "sink_db",
+                "propsOverride": {}
+              }
+            ],
+            "id": "res_1783324818570_8pe7",
+            "status": "ok"
+          }
+        ]
+      },
+      {
+        "id": "lane_b",
+        "label": "Lane B",
+        "color": "#993C1D",
+        "order": 1,
+        "collapsed": false,
+        "height": 200,
+        "variables": [],
+        "resources": []
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "start_lane_a",
+      "type": "startNode",
+      "position": {
+        "x": 40,
+        "y": 60
+      },
+      "data": {
+        "type": "lane_start",
+        "label": "Start",
+        "props": {
+          "label": "Start"
+        },
+        "config": {
+          "displayName": "",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "idle",
+        "laneId": "lane_a"
+      },
+      "deletable": false
+    },
+    {
+      "id": "end_lane_a",
+      "type": "endNode",
+      "position": {
+        "x": 818.3243243243244,
+        "y": 311.9530583214794
+      },
+      "data": {
+        "type": "lane_end",
+        "label": "End",
+        "props": {
+          "label": "End",
+          "incomingSchema": "[{\"id\":\"join_l_language_id\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"join_l_last_update\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"},{\"id\":\"join_l_film_id\",\"name\":\"film_id\",\"type\":\"integer\",\"physicalName\":\"film_id\"},{\"id\":\"join_l_title\",\"name\":\"title\",\"type\":\"string\",\"physicalName\":\"title\"},{\"id\":\"join_l_description\",\"name\":\"description\",\"type\":\"string\",\"physicalName\":\"description\"},{\"id\":\"join_l_release_year\",\"name\":\"release_year\",\"type\":\"integer\",\"physicalName\":\"release_year\"},{\"id\":\"join_l_rental_duration\",\"name\":\"rental_duration\",\"type\":\"integer\",\"physicalName\":\"rental_duration\"},{\"id\":\"join_l_rental_rate\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"physicalName\":\"rental_rate\"},{\"id\":\"join_l_length\",\"name\":\"length\",\"type\":\"integer\",\"physicalName\":\"length\"},{\"id\":\"join_l_replacement_cost\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"physicalName\":\"replacement_cost\"},{\"id\":\"join_l_rating\",\"name\":\"rating\",\"type\":\"string\",\"physicalName\":\"rating\"},{\"id\":\"join_l_special_features\",\"name\":\"special_features\",\"type\":\"object\",\"physicalName\":\"special_features\"},{\"id\":\"join_l_fulltext\",\"name\":\"fulltext\",\"type\":\"string\",\"physicalName\":\"fulltext\"}]",
+          "_propagatedIds": "[\"join_l_film_id\",\"join_l_title\",\"join_l_description\",\"join_l_release_year\",\"join_l_language_id\",\"join_l_rental_duration\",\"join_l_rental_rate\",\"join_l_length\",\"join_l_replacement_cost\",\"join_l_rating\",\"join_l_last_update\",\"join_l_special_features\",\"join_l_fulltext\"]"
+        },
+        "config": {
+          "displayName": "",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "idle",
+        "laneId": "lane_a"
+      },
+      "deletable": false,
+      "dragging": false
+    },
+    {
+      "id": "error_handler_lane_a",
+      "type": "errorHandlerNode",
+      "position": {
+        "x": 58.9132290184921,
+        "y": 288.11095305832146
+      },
+      "data": {
+        "type": "error_handler",
+        "label": "Error Handler",
+        "props": {
+          "defaultOnError": "stop",
+          "logAll": "true",
+          "rules": "[]",
+          "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"}]"
+        },
+        "config": {
+          "displayName": "",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "idle",
+        "laneId": "lane_a"
+      },
+      "deletable": false,
+      "dragging": false
+    },
+    {
+      "id": "start_lane_b",
+      "type": "startNode",
+      "position": {
+        "x": 40,
+        "y": 60
+      },
+      "data": {
+        "type": "lane_start",
+        "label": "Start",
+        "props": {
+          "label": "Start"
+        },
+        "config": {
+          "displayName": "",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "idle",
+        "laneId": "lane_b"
+      },
+      "deletable": false
+    },
+    {
+      "id": "end_lane_b",
+      "type": "endNode",
+      "position": {
+        "x": 500,
+        "y": 60
+      },
+      "data": {
+        "type": "lane_end",
+        "label": "End",
+        "props": {
+          "label": "End"
+        },
+        "config": {
+          "displayName": "",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "idle",
+        "laneId": "lane_b"
+      },
+      "deletable": false
+    },
+    {
+      "id": "error_handler_lane_b",
+      "type": "errorHandlerNode",
+      "position": {
+        "x": 760,
+        "y": 60
+      },
+      "data": {
+        "type": "error_handler",
+        "label": "Error Handler",
+        "props": {
+          "defaultOnError": "stop",
+          "logAll": "true",
+          "rules": "[]",
+          "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"}]"
+        },
+        "config": {
+          "displayName": "",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "idle",
+        "laneId": "lane_b"
+      },
+      "deletable": false
+    },
+    {
+      "id": "node_1",
+      "type": "flowNode",
+      "position": {
+        "x": 164.714538507582,
+        "y": 60
+      },
+      "data": {
+        "type": "source_db",
+        "label": "DB Source",
+        "props": {
+          "schema": "public",
+          "table": "film",
+          "limit": "0",
+          "orderBy": "",
+          "query": "",
+          "dialect": "postgresql",
+          "host": "localhost",
+          "port": "5432",
+          "database": "dvdrental",
+          "user": "postgres",
+          "password": "postgresql",
+          "outputFields": "[{\"id\":\"df_1783325009998_0\",\"name\":\"film_id\",\"type\":\"integer\",\"dbType\":\"INT4\",\"nullable\":false},{\"id\":\"df_1783325009999_1\",\"name\":\"title\",\"type\":\"string\",\"dbType\":\"VARCHAR\",\"nullable\":false},{\"id\":\"df_1783325009999_2\",\"name\":\"description\",\"type\":\"string\",\"dbType\":\"TEXT\",\"nullable\":true},{\"id\":\"df_1783325009999_3\",\"name\":\"release_year\",\"type\":\"integer\",\"dbType\":\"INT4\",\"nullable\":true},{\"id\":\"df_1783325009999_4\",\"name\":\"language_id\",\"type\":\"integer\",\"dbType\":\"INT2\",\"nullable\":false},{\"id\":\"df_1783325009999_5\",\"name\":\"rental_duration\",\"type\":\"integer\",\"dbType\":\"INT2\",\"nullable\":false},{\"id\":\"df_1783325009999_6\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"dbType\":\"NUMERIC\",\"nullable\":false},{\"id\":\"df_1783325009999_7\",\"name\":\"length\",\"type\":\"integer\",\"dbType\":\"INT2\",\"nullable\":true},{\"id\":\"df_1783325009999_8\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"dbType\":\"NUMERIC\",\"nullable\":false},{\"id\":\"df_1783325009999_9\",\"name\":\"rating\",\"type\":\"string\",\"dbType\":\"mpaa_rating\",\"nullable\":true},{\"id\":\"df_1783325009999_10\",\"name\":\"last_update\",\"type\":\"date\",\"dbType\":\"TIMESTAMP\",\"nullable\":false},{\"id\":\"df_1783325009999_11\",\"name\":\"special_features\",\"type\":\"object\",\"dbType\":\"TEXT[]\",\"nullable\":true},{\"id\":\"df_1783325010000_12\",\"name\":\"fulltext\",\"type\":\"string\",\"dbType\":\"tsvector\",\"nullable\":false}]",
+          "outputSchema": "[{\"id\":\"df_1783325009998_0\",\"name\":\"film_id\",\"type\":\"integer\",\"physicalName\":\"film_id\"},{\"id\":\"df_1783325009999_1\",\"name\":\"title\",\"type\":\"string\",\"physicalName\":\"title\"},{\"id\":\"df_1783325009999_2\",\"name\":\"description\",\"type\":\"string\",\"physicalName\":\"description\"},{\"id\":\"df_1783325009999_3\",\"name\":\"release_year\",\"type\":\"integer\",\"physicalName\":\"release_year\"},{\"id\":\"df_1783325009999_4\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"df_1783325009999_5\",\"name\":\"rental_duration\",\"type\":\"integer\",\"physicalName\":\"rental_duration\"},{\"id\":\"df_1783325009999_6\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"physicalName\":\"rental_rate\"},{\"id\":\"df_1783325009999_7\",\"name\":\"length\",\"type\":\"integer\",\"physicalName\":\"length\"},{\"id\":\"df_1783325009999_8\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"physicalName\":\"replacement_cost\"},{\"id\":\"df_1783325009999_9\",\"name\":\"rating\",\"type\":\"string\",\"physicalName\":\"rating\"},{\"id\":\"df_1783325009999_10\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"},{\"id\":\"df_1783325009999_11\",\"name\":\"special_features\",\"type\":\"object\",\"physicalName\":\"special_features\"},{\"id\":\"df_1783325010000_12\",\"name\":\"fulltext\",\"type\":\"string\",\"physicalName\":\"fulltext\"}]"
+        },
+        "config": {
+          "displayName": "DB Source",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "res_1783324818570_8pe7",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "done",
+        "laneId": "lane_a"
+      }
+    },
+    {
+      "id": "node_2",
+      "type": "flowNode",
+      "position": {
+        "x": 164.56988916101702,
+        "y": 163.42318634423896
+      },
+      "data": {
+        "type": "source_db",
+        "label": "DB Source",
+        "props": {
+          "schema": "public",
+          "table": "language",
+          "limit": "0",
+          "orderBy": "",
+          "query": "",
+          "dialect": "postgresql",
+          "host": "localhost",
+          "port": "5432",
+          "database": "dvdrental",
+          "user": "postgres",
+          "password": "postgresql",
+          "outputFields": "[{\"id\":\"df_1783325020304_0\",\"name\":\"language_id\",\"type\":\"integer\",\"dbType\":\"INT4\",\"nullable\":false},{\"id\":\"df_1783325020304_1\",\"name\":\"name\",\"type\":\"string\",\"dbType\":\"CHAR\",\"nullable\":false},{\"id\":\"df_1783325020304_2\",\"name\":\"last_update\",\"type\":\"date\",\"dbType\":\"TIMESTAMP\",\"nullable\":false}]",
+          "outputSchema": "[{\"id\":\"df_1783325020304_0\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"df_1783325020304_1\",\"name\":\"name\",\"type\":\"string\",\"physicalName\":\"name\"},{\"id\":\"df_1783325020304_2\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"}]"
+        },
+        "config": {
+          "displayName": "DB Source",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "res_1783324818570_8pe7",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "done",
+        "laneId": "lane_a"
+      },
+      "dragging": false
+    },
+    {
+      "id": "node_3",
+      "type": "joinNode",
+      "position": {
+        "x": 374.149359886202,
+        "y": 64.11806543385491
+      },
+      "data": {
+        "type": "join",
+        "label": "Join",
+        "props": {
+          "join_type": "semi",
+          "key": "user_id",
+          "incomingSchema": "[{\"id\":\"df_1783325020304_0\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"df_1783325020304_1\",\"name\":\"name\",\"type\":\"string\",\"physicalName\":\"name\"},{\"id\":\"df_1783325020304_2\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"}]",
+          "_propagatedIds": "[\"df_1783325009998_0\",\"df_1783325009999_1\",\"df_1783325009999_2\",\"df_1783325009999_3\",\"df_1783325009999_4\",\"df_1783325009999_5\",\"df_1783325009999_6\",\"df_1783325009999_7\",\"df_1783325009999_8\",\"df_1783325009999_9\",\"df_1783325009999_10\",\"df_1783325009999_11\",\"df_1783325010000_12\"]",
+          "rightSchema": "[{\"id\":\"df_1783325020304_0\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"df_1783325020304_1\",\"name\":\"name\",\"type\":\"string\",\"physicalName\":\"name\"},{\"id\":\"df_1783325020304_2\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"}]",
+          "outputSchema": "[{\"id\":\"join_l_film_id\",\"name\":\"film_id\",\"type\":\"integer\",\"physicalName\":\"film_id\",\"side\":\"left\"},{\"id\":\"join_l_title\",\"name\":\"title\",\"type\":\"string\",\"physicalName\":\"title\",\"side\":\"left\"},{\"id\":\"join_l_description\",\"name\":\"description\",\"type\":\"string\",\"physicalName\":\"description\",\"side\":\"left\"},{\"id\":\"join_l_release_year\",\"name\":\"release_year\",\"type\":\"integer\",\"physicalName\":\"release_year\",\"side\":\"left\"},{\"id\":\"join_l_language_id\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\",\"side\":\"left\"},{\"id\":\"join_l_rental_duration\",\"name\":\"rental_duration\",\"type\":\"integer\",\"physicalName\":\"rental_duration\",\"side\":\"left\"},{\"id\":\"join_l_rental_rate\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"physicalName\":\"rental_rate\",\"side\":\"left\"},{\"id\":\"join_l_length\",\"name\":\"length\",\"type\":\"integer\",\"physicalName\":\"length\",\"side\":\"left\"},{\"id\":\"join_l_replacement_cost\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"physicalName\":\"replacement_cost\",\"side\":\"left\"},{\"id\":\"join_l_rating\",\"name\":\"rating\",\"type\":\"string\",\"physicalName\":\"rating\",\"side\":\"left\"},{\"id\":\"join_l_last_update\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\",\"side\":\"left\"},{\"id\":\"join_l_special_features\",\"name\":\"special_features\",\"type\":\"object\",\"physicalName\":\"special_features\",\"side\":\"left\"},{\"id\":\"join_l_fulltext\",\"name\":\"fulltext\",\"type\":\"string\",\"physicalName\":\"fulltext\",\"side\":\"left\"}]",
+          "leftKey": "language_id",
+          "rightKey": "language_id"
+        },
+        "config": {
+          "displayName": "Join",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "done",
+        "laneId": "lane_a"
+      },
+      "dragging": false
+    },
+    {
+      "id": "node_4",
+      "type": "flowNode",
+      "position": {
+        "x": 627.9729729729731,
+        "y": 199.2247510668563
+      },
+      "data": {
+        "type": "log",
+        "label": "Log",
+        "props": {
+          "logTarget": "window",
+          "incomingSchema": "[{\"id\":\"join_l_language_id\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"join_l_last_update\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"},{\"id\":\"join_l_film_id\",\"name\":\"film_id\",\"type\":\"integer\",\"physicalName\":\"film_id\"},{\"id\":\"join_l_title\",\"name\":\"title\",\"type\":\"string\",\"physicalName\":\"title\"},{\"id\":\"join_l_description\",\"name\":\"description\",\"type\":\"string\",\"physicalName\":\"description\"},{\"id\":\"join_l_release_year\",\"name\":\"release_year\",\"type\":\"integer\",\"physicalName\":\"release_year\"},{\"id\":\"join_l_rental_duration\",\"name\":\"rental_duration\",\"type\":\"integer\",\"physicalName\":\"rental_duration\"},{\"id\":\"join_l_rental_rate\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"physicalName\":\"rental_rate\"},{\"id\":\"join_l_length\",\"name\":\"length\",\"type\":\"integer\",\"physicalName\":\"length\"},{\"id\":\"join_l_replacement_cost\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"physicalName\":\"replacement_cost\"},{\"id\":\"join_l_rating\",\"name\":\"rating\",\"type\":\"string\",\"physicalName\":\"rating\"},{\"id\":\"join_l_special_features\",\"name\":\"special_features\",\"type\":\"object\",\"physicalName\":\"special_features\"},{\"id\":\"join_l_fulltext\",\"name\":\"fulltext\",\"type\":\"string\",\"physicalName\":\"fulltext\"}]",
+          "_propagatedIds": "[\"join_l_film_id\",\"join_l_title\",\"join_l_description\",\"join_l_release_year\",\"join_l_language_id\",\"join_l_rental_duration\",\"join_l_rental_rate\",\"join_l_length\",\"join_l_replacement_cost\",\"join_l_rating\",\"join_l_last_update\",\"join_l_special_features\",\"join_l_fulltext\"]",
+          "outputSchema": "[{\"id\":\"join_l_film_id\",\"name\":\"film_id\",\"type\":\"integer\",\"physicalName\":\"film_id\"},{\"id\":\"join_l_title\",\"name\":\"title\",\"type\":\"string\",\"physicalName\":\"title\"},{\"id\":\"join_l_description\",\"name\":\"description\",\"type\":\"string\",\"physicalName\":\"description\"},{\"id\":\"join_l_release_year\",\"name\":\"release_year\",\"type\":\"integer\",\"physicalName\":\"release_year\"},{\"id\":\"join_l_language_id\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"join_l_rental_duration\",\"name\":\"rental_duration\",\"type\":\"integer\",\"physicalName\":\"rental_duration\"},{\"id\":\"join_l_rental_rate\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"physicalName\":\"rental_rate\"},{\"id\":\"join_l_length\",\"name\":\"length\",\"type\":\"integer\",\"physicalName\":\"length\"},{\"id\":\"join_l_replacement_cost\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"physicalName\":\"replacement_cost\"},{\"id\":\"join_l_rating\",\"name\":\"rating\",\"type\":\"string\",\"physicalName\":\"rating\"},{\"id\":\"join_l_last_update\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"},{\"id\":\"join_l_special_features\",\"name\":\"special_features\",\"type\":\"object\",\"physicalName\":\"special_features\"},{\"id\":\"join_l_fulltext\",\"name\":\"fulltext\",\"type\":\"string\",\"physicalName\":\"fulltext\"}]",
+          "maxChars": "2000"
+        },
+        "config": {
+          "displayName": "Log",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "done",
+        "laneId": "lane_a"
+      },
+      "dragging": false
+    },
+    {
+      "id": "node_5",
+      "type": "flowNode",
+      "position": {
+        "x": 303,
+        "y": 265
+      },
+      "data": {
+        "type": "log",
+        "label": "LogError",
+        "props": {
+          "incomingSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"}]",
+          "_propagatedIds": "[\"catch_error_message\",\"catch_error_code\",\"catch_error_node_id\",\"catch_error_node_type\",\"catch_error_at\",\"catch_error_row\",\"error_lane_id\",\"error_source\",\"tx_group_id\",\"tx_mode\",\"tx_participants\"]",
+          "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"}]",
+          "maxChars": "2000"
+        },
+        "config": {
+          "displayName": "LogError",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "false"
+          }
+        },
+        "status": "done",
+        "laneId": "lane_a"
+      }
+    },
+    {
+      "id": "node_6",
+      "type": "flowNode",
+      "position": {
+        "x": 660.25829516951,
+        "y": 56.13371266002845
+      },
+      "data": {
+        "type": "sink_db",
+        "label": "DB Sink",
+        "props": {
+          "schema": "public",
+          "table": "test_sink",
+          "mode": "insert",
+          "keyFields": "id",
+          "batchSize": "1000",
+          "dialect": "postgresql",
+          "host": "localhost",
+          "port": "5432",
+          "database": "dvdrental",
+          "user": "postgres",
+          "password": "postgresql",
+          "incomingSchema": "[{\"id\":\"join_l_film_id\",\"name\":\"film_id\",\"type\":\"integer\",\"physicalName\":\"film_id\"},{\"id\":\"join_l_title\",\"name\":\"title\",\"type\":\"string\",\"physicalName\":\"title\"},{\"id\":\"join_l_description\",\"name\":\"description\",\"type\":\"string\",\"physicalName\":\"description\"},{\"id\":\"join_l_release_year\",\"name\":\"release_year\",\"type\":\"integer\",\"physicalName\":\"release_year\"},{\"id\":\"join_l_language_id\",\"name\":\"language_id\",\"type\":\"integer\",\"physicalName\":\"language_id\"},{\"id\":\"join_l_rental_duration\",\"name\":\"rental_duration\",\"type\":\"integer\",\"physicalName\":\"rental_duration\"},{\"id\":\"join_l_rental_rate\",\"name\":\"rental_rate\",\"type\":\"decimal\",\"physicalName\":\"rental_rate\"},{\"id\":\"join_l_length\",\"name\":\"length\",\"type\":\"integer\",\"physicalName\":\"length\"},{\"id\":\"join_l_replacement_cost\",\"name\":\"replacement_cost\",\"type\":\"decimal\",\"physicalName\":\"replacement_cost\"},{\"id\":\"join_l_rating\",\"name\":\"rating\",\"type\":\"string\",\"physicalName\":\"rating\"},{\"id\":\"join_l_last_update\",\"name\":\"last_update\",\"type\":\"date\",\"physicalName\":\"last_update\"},{\"id\":\"join_l_special_features\",\"name\":\"special_features\",\"type\":\"object\",\"physicalName\":\"special_features\"},{\"id\":\"join_l_fulltext\",\"name\":\"fulltext\",\"type\":\"string\",\"physicalName\":\"fulltext\"}]",
+          "_propagatedIds": "[\"join_l_film_id\",\"join_l_title\",\"join_l_description\",\"join_l_release_year\",\"join_l_language_id\",\"join_l_rental_duration\",\"join_l_rental_rate\",\"join_l_length\",\"join_l_replacement_cost\",\"join_l_rating\",\"join_l_last_update\",\"join_l_special_features\",\"join_l_fulltext\"]",
+          "createIfNotExists": "true",
+          "dropAndCreate": "true",
+          "sinkColumns": "[{\"dbColumn\":\"film_id\",\"dbType\":\"int8\",\"nullable\":true,\"isPk\":true,\"enabled\":true,\"sourceField\":\"film_id\",\"dbFunction\":\"\"},{\"dbColumn\":\"title\",\"dbType\":\"text\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"title\",\"dbFunction\":\"\"},{\"dbColumn\":\"description\",\"dbType\":\"text\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"description\",\"dbFunction\":\"\"},{\"dbColumn\":\"release_year\",\"dbType\":\"int8\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"release_year\",\"dbFunction\":\"\"},{\"dbColumn\":\"language_id\",\"dbType\":\"int8\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"language_id\",\"dbFunction\":\"\"},{\"dbColumn\":\"rental_duration\",\"dbType\":\"int8\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"rental_duration\",\"dbFunction\":\"\"},{\"dbColumn\":\"rental_rate\",\"dbType\":\"numeric\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"rental_rate\",\"dbFunction\":\"\"},{\"dbColumn\":\"length\",\"dbType\":\"int8\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"length\",\"dbFunction\":\"\"},{\"dbColumn\":\"replacement_cost\",\"dbType\":\"numeric\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"replacement_cost\",\"dbFunction\":\"\"},{\"dbColumn\":\"rating\",\"dbType\":\"text\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"rating\",\"dbFunction\":\"\"},{\"dbColumn\":\"last_update\",\"dbType\":\"date\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"last_update\",\"dbFunction\":\"\"},{\"dbColumn\":\"special_features\",\"dbType\":\"jsonb\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"special_features\",\"dbFunction\":\"\"},{\"dbColumn\":\"fulltext\",\"dbType\":\"text\",\"nullable\":true,\"isPk\":false,\"enabled\":true,\"sourceField\":\"fulltext\",\"dbFunction\":\"\"}]",
+          "sinkColumnsSnapshot": "[{\"id\":\"join_l_film_id\",\"name\":\"film_id\",\"type\":\"integer\"},{\"id\":\"join_l_title\",\"name\":\"title\",\"type\":\"string\"},{\"id\":\"join_l_description\",\"name\":\"description\",\"type\":\"string\"},{\"id\":\"join_l_release_year\",\"name\":\"release_year\",\"type\":\"integer\"},{\"id\":\"join_l_language_id\",\"name\":\"language_id\",\"type\":\"integer\"},{\"id\":\"join_l_rental_duration\",\"name\":\"rental_duration\",\"type\":\"integer\"},{\"id\":\"join_l_rental_rate\",\"name\":\"rental_rate\",\"type\":\"decimal\"},{\"id\":\"join_l_length\",\"name\":\"length\",\"type\":\"integer\"},{\"id\":\"join_l_replacement_cost\",\"name\":\"replacement_cost\",\"type\":\"decimal\"},{\"id\":\"join_l_rating\",\"name\":\"rating\",\"type\":\"string\"},{\"id\":\"join_l_last_update\",\"name\":\"last_update\",\"type\":\"date\"},{\"id\":\"join_l_special_features\",\"name\":\"special_features\",\"type\":\"object\"},{\"id\":\"join_l_fulltext\",\"name\":\"fulltext\",\"type\":\"string\"}]"
+        },
+        "config": {
+          "displayName": "DB Sink",
+          "shortLabel": "",
+          "description": "",
+          "notes": "",
+          "enabled": "true",
+          "resourceId": "res_1783324818570_8pe7",
+          "mappings": [],
+          "advanced": {
+            "timeoutSec": "30",
+            "retryCount": "0",
+            "retryDelaySec": "5",
+            "onError": "stop",
+            "batchSize": "1000",
+            "parallel": "false",
+            "excludeFromErrorLog": "false",
+            "critical": "true"
+          }
+        },
+        "status": "running",
+        "laneId": "lane_a"
+      },
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_start_lane_a_output_node_1_input_1783324840978",
+      "source": "start_lane_a",
+      "target": "node_1",
+      "sourceHandle": "output",
+      "targetHandle": "input",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    },
+    {
+      "id": "e_node_1_output_node_3_input_left_1783324985244",
+      "source": "node_1",
+      "target": "node_3",
+      "sourceHandle": "output",
+      "targetHandle": "input_left",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "label": "principale",
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    },
+    {
+      "id": "e_node_2_output_node_3_input_right_1783324987798",
+      "source": "node_2",
+      "target": "node_3",
+      "sourceHandle": "output",
+      "targetHandle": "input_right",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "label": "lookup",
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    },
+    {
+      "id": "e_node_3_output_node_4_input_1783325096030",
+      "source": "node_3",
+      "target": "node_4",
+      "sourceHandle": "output",
+      "targetHandle": "input",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    },
+    {
+      "id": "e_node_4_output_end_lane_a_input_1783325098853",
+      "source": "node_4",
+      "target": "end_lane_a",
+      "sourceHandle": "output",
+      "targetHandle": "input",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    },
+    {
+      "id": "e_error_handler_lane_a_error_out_node_5_input_1783328933038",
+      "source": "error_handler_lane_a",
+      "target": "node_5",
+      "sourceHandle": "error_out",
+      "targetHandle": "input",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    },
+    {
+      "id": "e_node_3_output_node_6_input_1783350067533",
+      "source": "node_3",
+      "target": "node_6",
+      "sourceHandle": "output",
+      "targetHandle": "input",
+      "style": {
+        "stroke": "#185FA5",
+        "strokeWidth": 2,
+        "opacity": 0.7
+      },
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#185FA5"
+      },
+      "labelStyle": {
+        "fontSize": 10,
+        "fill": "#9a9aaa",
+        "fontFamily": "monospace"
+      },
+      "labelBgStyle": {
+        "fill": "#161b27",
+        "fillOpacity": 0.8
+      }
+    }
+  ]
+}
