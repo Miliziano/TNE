@@ -44,6 +44,8 @@ struct SinkColumn {
     nullable:     bool,
     #[serde(rename = "isPk", default)]
     is_pk:        bool,
+    #[serde(rename = "isKey", default)]
+    is_key:       bool,
     #[serde(default = "default_true")]
     enabled:      bool,
     #[serde(rename = "sourceField", default)]
@@ -126,10 +128,33 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         Some(schema)
     };
 
+    let sink_cols: Vec<SinkColumn> = spec.json_or("sinkColumns", Vec::new());
+    
+    // Le chiavi per update/upsert/delete vengono dal mapping (colonne
+    // marcate 'chiave'), UNICA fonte di verità. Fallback alla prop
+    // keyFields (legacy) se il mapping non ne ha.
     let key_fields = {
-        let v = spec.str_list("keyFields");
-        if v.is_empty() { None } else { Some(v) }
+        let from_mapping: Vec<String> = sink_cols.iter()
+            .filter(|c| c.is_key && c.enabled)
+            .map(|c| c.db_column.clone())
+            .collect();
+        if !from_mapping.is_empty() {
+            Some(from_mapping)
+        } else {
+            let v = spec.str_list("keyFields");
+            if v.is_empty() { None } else { Some(v) }
+        }
     };
+    // update/upsert/delete richiedono chiavi esplicite: mai inventare
+    // 'id' (colpirebbe righe sbagliate o darebbe errori oscuri).
+    let mode = spec.str_or("mode", "insert");
+    if matches!(mode.as_str(), "update" | "upsert" | "delete") && key_fields.is_none() {
+        return Err(format!(
+            "modalità '{}' richiede almeno un campo chiave: nel mapping del sink \
+             marca una o più colonne come 'chiave' (badge blu), non come PK",
+            mode
+        ));
+    }
     let exclude_columns = {
         let v = spec.str_list("excludeColumns");
         if v.is_empty() { None } else { Some(v) }
@@ -137,7 +162,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
 
     // Mapping colonne dal MappingPanel — filtrate alle sole enabled,
     // con sourceField preservato (prima veniva scartato dal builder TS).
-    let sink_cols: Vec<SinkColumn> = spec.json_or("sinkColumns", Vec::new());
+   
     let columns_ddl: Vec<ColumnDdl> = sink_cols.into_iter()
         .filter(|c| c.enabled)
         .map(|c| ColumnDdl {

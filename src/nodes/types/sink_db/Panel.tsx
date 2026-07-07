@@ -245,7 +245,24 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         {WRITE_MODES.map(m => {
           const isActive = writeMode === m.value
           return (
-            <button key={m.value} onClick={() => updateProp(nodeId, 'mode', m.value)}
+            <button key={m.value} onClick={() => {
+              updateProp(nodeId, 'mode', m.value)
+              // Passando a UPSERT le condizioni WHERE non hanno senso (il match
+              // avviene via vincolo ON CONFLICT): azzera isKey su tutte le colonne
+              // così non restano selezioni fantasma né vengono lette dal motore.
+              if (m.value === 'upsert') {
+                try {
+                  const raw = node.data.props?.['sinkColumns']
+                  if (raw) {
+                    const cols = JSON.parse(raw as string)
+                    const cleared = cols.map((c: any) => ({
+                      ...c, isKey: false, keyOperator: undefined, keyLogic: undefined,
+                    }))
+                    updateProp(nodeId, 'sinkColumns', JSON.stringify(cleared))
+                  }
+                } catch {}
+              }
+            }}
               title={m.disclaimer ?? undefined}
               style={{
                 padding: '9px 6px', fontSize: 10, borderRadius: 6, cursor: 'pointer',

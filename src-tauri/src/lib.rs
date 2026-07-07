@@ -718,7 +718,7 @@ pub async fn pg_write_pool(
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
             if fields.is_empty() { skipped += 1; continue; }
 
-            let default_keys = vec!["id".to_string()];
+            let default_keys = vec![];
             let keys = req.key_fields.as_deref().unwrap_or(default_keys.as_slice());
             let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
 
@@ -913,7 +913,7 @@ pub async fn mysql_write_pool(
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
-    let default_keys = vec!["id".to_string()];
+    let default_keys = vec![];
     let keys = req.key_fields.as_deref().unwrap_or(default_keys.as_slice());
 
     let use_returning = req.returning_column.is_some()
@@ -1097,7 +1097,7 @@ pub async fn sqlite_write_pool(
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
-    let default_keys = vec!["id".to_string()];
+    let default_keys = vec![];
     let keys = req.key_fields.as_deref().unwrap_or(default_keys.as_slice());
 
     let use_returning = req.returning_column.is_some()
