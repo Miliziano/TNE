@@ -6,8 +6,9 @@ import type { Variable, VariableType } from '../types'
 import { BridgeTab } from './BridgeTab'
 import { NODE_SIDEBAR_PANELS } from '../nodes/registry'
 import { CustomSelect } from '../components/CustomSelect'
+import { TransactionsTab } from './TransactionsTab'
 
-type Tab = 'props' | 'lane-vars' | 'pool-vars' | 'bridge'
+type Tab = 'props' | 'lane-vars' | 'transactions' | 'bridge'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -47,7 +48,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'props',     label: 'Nodo',  icon: 'ti-settings' },
     { id: 'lane-vars', label: 'Lane',  icon: 'ti-variable' },
-    { id: 'pool-vars', label: 'Pool',  icon: 'ti-hexagon'  },
+    { id: 'transactions', label: 'Transazioni', icon: 'ti-arrows-exchange' },
     { id: 'bridge',    label: 'Bridge', icon: 'ti-arrows-transfer-up' },
   ]
   return (
@@ -510,25 +511,8 @@ export function PropertyPanel() {
         </>
       )}
 
-      {/* ── TAB: Variabili Pool ── */}
-      {activeTab === 'pool-vars' && (
-        <>
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8, background: '#1a2030' }}>
-            <i className="ti ti-hexagon" style={{ fontSize: 14, color: '#4a9eff' }} aria-hidden="true" />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#c8d4f0' }}>{pool.label}</span>
-            <span style={{ fontSize: 10, marginLeft: 'auto', padding: '1px 8px', borderRadius: 8, background: '#1e2535', color: '#4a5a7a', border: '0.5px solid #2a3349' }}>
-              {pool.variables.length} var
-            </span>
-          </div>
-          <VariableEditor
-            variables={pool.variables}
-            emptyMessage="Nessuna variabile condivisa nella pool."
-            onAdd={() => addVariable('pool', null, { name: 'shared_var', type: 'string', value: '' })}
-            onDelete={(id) => deleteVariable('pool', null, id)}
-            onUpdate={(id, key, value) => updateVariable('pool', null, id, { [key]: value } as Partial<Variable>)}
-          />
-        </>
-      )}
+     {/* ── TAB: Transazioni ── */}
+      {activeTab === 'transactions' && <TransactionsTab />}
 
       {activeTab === 'bridge' && <BridgeTab />}
     </aside>

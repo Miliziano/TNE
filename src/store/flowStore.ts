@@ -15,7 +15,7 @@ import {
 } from '@xyflow/react'
 import type {
   NodeData, LogEntry, NodeStatus,
-  Pool, Lane, LaneResource, Variable,
+  Pool, Lane, LaneResource, Variable,LaneTransaction,
   ResourceStatus, NodeConfig, NodeMapping,
   TMapInput, TMapOutput, TMapOutputField, TMapInputField, TMapConfig,
   TMapConnection,
@@ -142,12 +142,12 @@ const makeStartEnd = (laneId: string, startId: string, endId: string): FlowNode<
 const DEFAULT_LANE_A: Lane = {
   id: 'lane_a', label: 'Lane A', color: '#185FA5',
   order: 0, collapsed: false, height: 200,
-  variables: [], resources: [],
+  variables: [], resources: [],transactions: []
 }
 const DEFAULT_LANE_B: Lane = {
   id: 'lane_b', label: 'Lane B', color: '#993C1D',
   order: 1, collapsed: false, height: 200,
-  variables: [], resources: [],
+  variables: [], resources: [],transactions: []
 }
 const DEFAULT_POOL: Pool = {
   id: 'pool_main', label: 'Main Pool',
@@ -258,6 +258,9 @@ interface FlowState {
   deleteResource:       (laneId: string, resourceId: string) => void
   updateResource:       (laneId: string, resourceId: string, patch: Partial<LaneResource>) => void
   updateResourceConfig: (laneId: string, resourceId: string, key: string, value: string) => void
+  addTransaction:    (laneId: string, tx: Omit<LaneTransaction, 'id'>) => string
+  deleteTransaction: (laneId: string, txId: string) => void
+  updateTransaction: (laneId: string, txId: string, patch: Partial<LaneTransaction>) => void
   setResourceStatus:    (laneId: string, resourceId: string, status: ResourceStatus) => void
   selectResource:       (resourceId: string | null) => void
   testResource:         (laneId: string, resourceId: string) => Promise<void>
@@ -1332,6 +1335,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       height: 200,
       variables: [],
       resources: [],
+      transactions: [],   // ← aggiungi questa
     }
     set((s) => ({ pool: { ...s.pool, lanes: [...s.pool.lanes, newLane] } }))
     setTimeout(() => {
@@ -1427,6 +1431,30 @@ export const useFlowStore = create<FlowState>((set, get) => ({
             : l
         ),
       },
+    }))
+  },
+  addTransaction: (laneId, tx) => {
+    const id = `tx_${Date.now().toString(36).slice(-6)}`
+    const full: LaneTransaction = { ...tx, id }
+    set((s) => ({
+      pool: { ...s.pool, lanes: s.pool.lanes.map((l) =>
+        l.id === laneId ? { ...l, transactions: [...(l.transactions ?? []), full] } : l
+      )}
+    }))
+    return id
+  },
+  deleteTransaction: (laneId, txId) => {
+    set((s) => ({
+      pool: { ...s.pool, lanes: s.pool.lanes.map((l) =>
+        l.id === laneId ? { ...l, transactions: (l.transactions ?? []).filter((t) => t.id !== txId) } : l
+      )}
+    }))
+  },
+  updateTransaction: (laneId, txId, patch) => {
+    set((s) => ({
+      pool: { ...s.pool, lanes: s.pool.lanes.map((l) =>
+        l.id === laneId ? { ...l, transactions: (l.transactions ?? []).map((t) => t.id === txId ? { ...t, ...patch } : t) } : l
+      )}
     }))
   },
 

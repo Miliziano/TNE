@@ -233,21 +233,37 @@ impl EdgeId { pub fn as_str(&self) -> &str { &self.0 } }
 // qui. NON duplichiamo la logica di costruzione dell'IR — resta
 // tutta in TypeScript.
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct Plan {
     pub run_id:   RunId,
     pub lanes:    Vec<LanePlan>,
     pub bridges:  Vec<BridgePlan>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct TransactionPlan {
+    pub id:       String,
+    pub name:     String,
+    pub mode:     String,   // "native" | "xa"
+    #[serde(default = "default_tx_timeout")]
+    pub timeout:  u64,
+    #[serde(rename = "on_error", default)]
+    pub on_error: String,   // "rollback_all" | "rollback_self"
+}
+fn default_tx_timeout() -> u64 { 30 }
+
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct LanePlan {
     pub lane_id:   LaneId,
     pub label:     String,
     pub nodes:     Vec<NodePlan>,
     pub edges:     Vec<EdgePlan>,
     pub variables: HashMap<String, Value>,
+    #[serde(default)]
+    pub transactions: Vec<TransactionPlan>,
 }
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgePlan {

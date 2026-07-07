@@ -218,7 +218,14 @@ export interface LaneResource {
   config: Record<string, string>
   actions: ResourceAction[]
 }
-
+// ─── Transactions ─────────────────────────────────────────────────────
+export interface LaneTransaction {
+  id:      string
+  name:    string
+  mode:    'native' | 'xa'
+  timeout: number   // secondi
+  onError: 'rollback_all' | 'rollback_self'
+}
 // ─── Lane ────────────────────────────────────────────────────────
 export interface Lane {
   id: string
@@ -229,6 +236,7 @@ export interface Lane {
   height: number
   variables: Variable[]
   resources: LaneResource[]
+  transactions: LaneTransaction[]
 }
 
 // ─── Pool ────────────────────────────────────────────────────────

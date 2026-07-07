@@ -14,7 +14,7 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
-import { TransactionGroupEditor } from '../../../components/TransactionGroupEditor'
+
 import { DB_DIALECT_COLORS, DB_DIALECT_LABELS, type DbDialect } from '../../../nodes/resourceDefaults'
 
 // ─── Stili ────────────────────────────────────────────────────────
@@ -109,7 +109,10 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
     () => pool.lanes.find(l => l.id === laneId)?.resources.filter(r => r.kind === 'db') ?? [],
     [pool, laneId]
   )
-
+  const laneTransactions = useMemo(
+    () => pool.lanes.find(l => l.id === laneId)?.transactions ?? [],
+    [pool, laneId]
+  )
   const selectedResource = useMemo(
     () => resId ? pool.lanes.flatMap(l => l.resources).find(r => r.id === resId) as any : undefined,
     [pool, resId]
@@ -382,9 +385,79 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         <input style={iStyle} value={p('deadLetterTable', '')} onChange={u('deadLetterTable')} placeholder="errors.failed_rows" />
       </Field>
 
-      {/* ── Transazione ── */}
-      <SectionTitle label="Partecipazione alla transazione" color={color} />
-      <TransactionGroupEditor nodeId={nodeId} nodeType="sink_db" />
+     {/* ── Partecipazione a una transazione (oggetto di lane) ── */}
+      {(() => {
+        const txId       = p('transactionId', '')
+        const activeTx   = laneTransactions.find(t => t.id === txId)
+        const isActive   = !!activeTx
+        const TX_COLOR   = activeTx?.mode === 'xa' ? '#f59e0b' : '#34d399'
+        const NEUTRAL    = '#34d399'  // colore sezione a riposo
+        return (
+          <>
+            <SectionTitle label="Transazione" color={isActive ? TX_COLOR : NEUTRAL} />
+
+            <div style={{ background: '#0f1117', borderRadius: 6,
+                          border: `1px solid ${isActive ? TX_COLOR + '60' : '#2a3349'}`,
+                          overflow: 'hidden', transition: 'border-color .15s' }}>
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <i className="ti ti-arrows-exchange"
+                     style={{ fontSize: 14, color: isActive ? TX_COLOR : '#4a5a7a' }} />
+                  <span style={{ fontSize: 12, fontWeight: 600,
+                                 color: isActive ? TX_COLOR : '#c8d4f0' }}>
+                    {isActive ? `In transazione: ${activeTx!.name}` : 'Autocommit (nessuna transazione)'}
+                  </span>
+                  {isActive && (
+                    <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700,
+                                   letterSpacing: 0.5, padding: '2px 7px', borderRadius: 4,
+                                   background: `${TX_COLOR}20`, color: TX_COLOR,
+                                   border: `0.5px solid ${TX_COLOR}50` }}>
+                      {activeTx!.mode.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ fontSize: 10, color: '#9a9aaa', lineHeight: 1.5, marginBottom: 10 }}>
+                  {isActive
+                    ? 'Le scritture di questo nodo fanno parte della transazione: commit o rollback insieme agli altri membri.'
+                    : 'Senza transazione il nodo scrive in autocommit (ogni batch committato indipendentemente). Associa una transazione per la scrittura atomica di gruppo.'}
+                </div>
+
+                <CustomSelect style={iStyle}
+                  value={txId}
+                  onChange={u('transactionId')}>
+                  <option value="">— nessuna (autocommit) —</option>
+                  {laneTransactions.map(tx => (
+                    <option key={tx.id} value={tx.id}>
+                      {tx.name} ({tx.mode})
+                    </option>
+                  ))}
+                </CustomSelect>
+
+                {isActive && (
+                  <div style={{ marginTop: 8, padding: '6px 8px', background: `${TX_COLOR}10`,
+                                borderRadius: 4, border: `0.5px solid ${TX_COLOR}30`,
+                                fontSize: 10, color: TX_COLOR, display: 'flex', gap: 5, alignItems: 'center' }}>
+                    <i className="ti ti-info-circle" style={{ fontSize: 10 }} />
+                    <span>
+                      {activeTx!.onError === 'rollback_all'
+                        ? 'Su errore: rollback dell\u2019intero gruppo.'
+                        : 'Su errore: rollback solo di questo nodo.'}
+                      {' '}Timeout {activeTx!.timeout}s. Configura nel tab Transazioni.
+                    </span>
+                  </div>
+                )}
+
+                {laneTransactions.length === 0 && (
+                  <div style={{ marginTop: 8, fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+                    Nessuna transazione nella lane. Creane una dal tab "Transazioni" del pannello proprietà.
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
     </div>
   )

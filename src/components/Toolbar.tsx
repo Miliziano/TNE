@@ -342,6 +342,14 @@ function buildRustPlan(
     for (const v of laneConfig?.variables ?? []) {
       variables[v.name] = v.value
     }
+    // Transazioni della lane (oggetti dichiarati — design v2)
+    const transactions = (laneConfig?.transactions ?? []).map(tx => ({
+      id:       tx.id,
+      name:     tx.name,
+      mode:     tx.mode,
+      timeout:  tx.timeout,
+      on_error: tx.onError,
+    }))
 
     // Nodi della lane — skip lane_start, lane_end, error_handler
     const SKIP_TYPES = new Set(['lane_start', 'lane_end', 'error_handler'])
@@ -538,6 +546,7 @@ function buildRustPlan(
       nodes:     rustNodes,
       edges:     laneEdges,   // v6: il wiring dell'executor segue gli edges
       variables,
+      transactions,   // ← aggiungi
     }
   })
 
