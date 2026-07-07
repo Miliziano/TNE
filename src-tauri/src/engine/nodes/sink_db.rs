@@ -26,7 +26,7 @@
 
 use std::time::Instant;
 use crate::engine::types::*;
-use crate::engine::executor::{RowReceiver, NodeContext};
+use crate::engine::executor::{RowReceiver,RowSender, NodeContext};
 use crate::engine::spec::Spec;
 
 fn default_true() -> bool { true }
@@ -90,6 +90,10 @@ struct SinkDbConfig {
     create_if_not_exists: bool,
     drop_and_create:      bool,
     columns_ddl:          Vec<ColumnDdl>,
+     // Master-detail (pass-through chiave generata)
+    passthrough_md:       bool,
+    md_output_field:      String,   // nome sotto cui iniettare la chiave nella riga
+    md_source_column:     String,   // colonna DB del RETURNING (es. "id")
 }
 
 fn default_port(dialect: &str) -> u16 {
@@ -129,7 +133,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
     };
 
     let sink_cols: Vec<SinkColumn> = spec.json_or("sinkColumns", Vec::new());
-    
+
     // Le chiavi per update/upsert/delete vengono dal mapping (colonne
     // marcate 'chiave'), UNICA fonte di verità. Fallback alla prop
     // keyFields (legacy) se il mapping non ne ha.
@@ -173,6 +177,19 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
             source:   c.source_field,
         })
         .collect();
+    
+    // Master-detail: legge passthroughMasterDetail + generatedKeyConfig.
+    #[derive(serde::Deserialize, Default)]
+    struct GenKeyCfg {
+        #[serde(rename = "outputFieldName", default)]
+        output_field_name: String,
+        #[serde(rename = "sourceDbColumn", default)]
+        source_db_column:  String,
+    }
+    let passthrough_md = spec.bool_or("passthroughMasterDetail", false);
+    let gk: GenKeyCfg = spec.json_or("generatedKeyConfig", GenKeyCfg::default());
+    let md_output_field  = if gk.output_field_name.is_empty() { "__generated_id".to_string() } else { gk.output_field_name };
+    let md_source_column = if gk.source_db_column.is_empty()  { "id".to_string() } else { gk.source_db_column };
 
     Ok(SinkDbConfig {
         host:                 spec.res_str_or("host", "localhost"),
@@ -200,6 +217,10 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         key_fields,
         exclude_columns,
         columns_ddl,
+        // Master-detail (pass-through chiave generata)
+        passthrough_md,
+        md_output_field,
+        md_source_column,
     })
 }
 
@@ -209,7 +230,8 @@ const PROGRESS_EVERY_MS:   u64 = 500;
 pub async fn run(
     ctx:    NodeContext,
     rx:     RowReceiver,
-) -> Result<NodeStats, String> {
+    tx:     Option<RowSender>,
+    ) -> Result<NodeStats, String> {
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
@@ -218,17 +240,31 @@ pub async fn run(
 
     spec.log_unconsumed("sink_db", &ctx.node_id.0);
 
-    let resource_id = config.resource_id.clone();
+    // Master-detail richiede insert/upsert (serve una chiave generata).
+    if config.passthrough_md && !matches!(config.mode.as_str(), "insert" | "upsert" | "truncate_insert") {
+        return Err(format!(
+            "sink_db {}: master-detail richiede modalità insert/upsert (non '{}')",
+            ctx.node_id.0, config.mode
+        ));
+    }
+    if config.passthrough_md && tx.is_none() {
+        ctx.emit_log(&ctx.label, "warn", 0,
+            "[sink_db] master-detail attivo ma nessun nodo a valle: le righe \
+             arricchite non vanno da nessuna parte".to_string(), "panel");
+    }
+    if config.passthrough_md {
+        ctx.emit_log(&ctx.label, "info", 0,
+            "[sink_db] master-detail: scrittura riga-per-riga (performance ridotta)".to_string(), "panel");
+    }
 
-    // Pool condiviso della lane (L1): stessa risorsa → stessa connessione
-    // delle altre source/sink della lane. Creato qui, chiuso dalla lane.
+    let resource_id = config.resource_id.clone();
     let conn_str = build_conn_str(&config)?;
     let pool = ctx.lane_resources.pool(
         &resource_id,
         crate::engine::pool::PoolParams {
             dialect:         config.dialect.clone(),
             conn_str,
-            max_connections: 1,   // L1: una connessione per risorsa
+            max_connections: 1,
             connect_timeout: config.connect_timeout,
         },
     ).await
@@ -238,10 +274,12 @@ pub async fn run(
 
     let start = Instant::now();
 
-    // Corpo che può fallire, isolato: qualunque sia l'esito,
-    // emettiamo SEMPRE connection_closed dopo (evento garantito anche
-    // su errore — era il bug del monitor "aperta" dopo il fallimento).
-    let outcome = write_all(&ctx, &pool, &config, rx, &start).await;
+    // Biforcazione: master-detail (riga-per-riga, inoltra) vs batch (default).
+    let outcome = if config.passthrough_md {
+        write_master_detail(&ctx, &pool, &config, rx, tx, &start).await
+    } else {
+        write_all(&ctx, &pool, &config, rx, &start).await
+    };
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     match &outcome {
@@ -339,7 +377,115 @@ async fn write_all(
 
     Ok((rows_in, written, query_count))
 }
+// Master-detail: scrive UNA riga alla volta con RETURNING, inietta la
+// chiave generata nella riga sotto md_output_field, e la inoltra su tx.
+// Batch=1 obbligatorio: serve la corrispondenza 1:1 riga↔chiave.
+async fn write_master_detail(
+    ctx:    &NodeContext,
+    pool:   &crate::engine::pool::DbPool,
+    config: &SinkDbConfig,
+    mut rx: RowReceiver,
+    tx:     Option<RowSender>,
+    start:  &Instant,
+) -> Result<(u64, u64, u32), String> {
 
+    let mut rows_in = 0u64;
+    let mut written = 0u64;
+    let mut last_prog = Instant::now();
+
+    // DDL + pre-SQL come nel percorso batch.
+    if config.drop_and_create || config.create_if_not_exists {
+        if config.dialect == "postgresql" {
+            if config.drop_and_create {
+                let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
+                exec_pre_post(pool, &drop, "DROP TABLE").await?;
+            }
+            if let Some(ddl) = build_create_table(config) {
+                exec_pre_post(pool, &ddl, "CREATE TABLE").await?;
+            }
+        }
+    }
+    if !config.pre_sql.trim().is_empty() {
+        exec_pre_post(pool, &config.pre_sql, "Pre-SQL").await?;
+    }
+
+    while let Some(row) = rx.recv().await {
+        rows_in += 1;
+
+        let json_row = if config.columns_ddl.is_empty() {
+            row.to_json_object()
+        } else {
+            map_row(&row, &config.columns_ddl)
+        };
+
+        // Scrive questa singola riga con RETURNING della colonna chiave.
+        let key = flush_one_returning(pool, config, &json_row, &config.md_source_column).await?;
+        // eprintln!("[md] chiave catturata: {:?}", key);
+        written += 1;
+
+        // Inietta la chiave nella riga originale e inoltra.
+        if let Some(ref tx) = tx {
+            //eprintln!("[md-inject] campo='{}' = {:?}", config.md_output_field, key);
+            let mut enriched = row.clone();
+            enriched.set(config.md_output_field.clone(), key.unwrap_or(Value::Null));
+           
+            if tx.send(enriched).await.is_err() { break; }
+        }
+
+        let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
+            || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
+        if should_prog {
+            let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+            ctx.emit_progress(rows_in, written, 0, rps);
+            last_prog = Instant::now();
+        }
+    }
+
+    if !config.post_sql.trim().is_empty() {
+        exec_pre_post(pool, &config.post_sql, "Post-SQL").await?;
+    }
+
+    Ok((rows_in, written, written as u32))
+}
+
+// Scrive una riga con RETURNING e restituisce la chiave generata.
+async fn flush_one_returning(
+    pool:    &crate::engine::pool::DbPool,
+    config:  &SinkDbConfig,
+    row:     &serde_json::Value,
+    ret_col: &str,
+) -> Result<Option<Value>, String> {
+    let req = crate::DbWriteRequest {
+        connection:          build_db_connection_params(config),
+        table:               config.table.clone(),
+        schema:              config.schema_name.clone(),
+        mode:                config.mode.clone(),
+        rows:                vec![row.clone()],
+        key_fields:          config.key_fields.clone(),
+        columns:             None,
+        exclude_columns:     config.exclude_columns.clone(),
+        column_functions:    None,
+        merge_condition:     config.merge_condition.clone(),
+        pre_sql:             None,
+        post_sql:            None,
+        batch_size:          1,
+        on_constraint_error: config.on_constraint_error.clone(),
+        dead_letter_table:   config.dead_letter_table.clone(),
+        returning_column:    Some(ret_col.to_string()),
+    };
+
+    let start = Instant::now();
+    use crate::engine::pool::DbPool;
+    let result = match pool {
+        DbPool::Pg(p)     => crate::pg_write_pool(p, &req, start).await?,
+        DbPool::My(p)     => crate::mysql_write_pool(p, &req, start).await?,
+        DbPool::Sqlite(p) => crate::sqlite_write_pool(p, &req, start).await?,
+    };
+    // generated_keys[0] è la chiave di questa riga (batch=1).
+    let key = result.generated_keys.into_iter().next()
+        .map(Value::from_json);
+    Ok(key)
+}
 // ─── Flush un batch di righe usando le funzioni esistenti di lib.rs ──
 
 async fn flush_batch(
@@ -389,6 +535,7 @@ fn map_row(row: &Row, cols: &[ColumnDdl]) -> serde_json::Value {
     for c in cols {
         let src = if c.source.is_empty() { c.name.as_str() } else { c.source.as_str() };
         let val = row.get(src).map(|v| v.to_json()).unwrap_or(serde_json::Value::Null);
+        //eprintln!("[md-write] col='{}' src='{}' val={:?}", c.name, src, val);
         obj.insert(c.name.clone(), val);
     }
     serde_json::Value::Object(obj)

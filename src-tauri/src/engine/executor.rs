@@ -370,7 +370,10 @@ async fn run_node(
         "sink_db" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("sink_db {} richiede un input collegato", ctx.node_id.0))?;
-            super::nodes::sink_db::run(ctx, rx).await
+            // Output opzionale: presente solo in master-detail (righe
+            // arricchite inoltrate); None per sink terminale.
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::sink_db::run(ctx, rx, tx).await
         }
 
         "bridge_out" => {

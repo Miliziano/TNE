@@ -259,6 +259,49 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
     } catch { return {} }
   }, [node.data.props?.['incomingSchema']])
 
+// ── Passo B master-detail: espone outputSchema = ingresso + chiave generata.
+  // Solo quando il pass-through è attivo (altrimenti il sink è terminale
+  // e non propaga nulla). Da qui la propagazione a cascata dello store
+  // raggiunge automaticamente il sink detail a valle.
+  
+  useEffect(() => {
+    if (!passthroughActive) {
+      // Sink terminale: nessuno schema di uscita.
+      if (node.data.props?.['outputSchema'] && node.data.props['outputSchema'] !== '[]') {
+        updateProp(nodeId, 'outputSchema', '[]')
+      }
+      return
+    }
+    // Schema d'ingresso (i campi che il sink riceve e propaga così com'è).
+    const inFields = incomingFields.map((name) => ({
+      id: name,
+      name,
+      type: incomingFieldTypes[name] ?? 'string',
+      physicalName: name,
+    }))
+    // + la chiave generata iniettata dal motore.
+    const keyField = {
+      id:   generatedKeyCfg.outputFieldName,
+      name: generatedKeyCfg.outputFieldName,
+      type: 'integer',
+      physicalName: generatedKeyCfg.outputFieldName,
+    }
+    const outSchema = [...inFields, keyField]
+    updateProp(nodeId, 'outputSchema', JSON.stringify(outSchema))
+  }, [passthroughActive, incomingFields, incomingFieldTypes, generatedKeyCfg.outputFieldName, generatedKeyCfg.dbType, nodeId])
+
+  // Master-detail: persiste generatedKeyConfig appena attivo, così il
+  // motore riceve outputFieldName/sourceDbColumn invece di usare i suoi
+  // default (che divergono da quelli dello studio).
+  useEffect(() => {
+    if (!passthroughActive) return
+    const raw = node.data.props?.['generatedKeyConfig']
+    if (!raw || raw === '{}') {
+      updateProp(nodeId, 'generatedKeyConfig', JSON.stringify(generatedKeyCfg))
+    }
+  }, [passthroughActive, nodeId])
+
+
   // liveSchema per SchemaDriftBanner — campi propagati dal TMap
   const liveSchema = useMemo((): SchemaField[] => {
     try {
