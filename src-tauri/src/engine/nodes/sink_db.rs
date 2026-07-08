@@ -94,6 +94,7 @@ struct SinkDbConfig {
     passthrough_md:       bool,
     md_output_field:      String,   // nome sotto cui iniettare la chiave nella riga
     md_source_column:     String,   // colonna DB del RETURNING (es. "id")
+    transaction_id:       String,
 }
 
 fn default_port(dialect: &str) -> u16 {
@@ -209,6 +210,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         create_if_not_exists: spec.bool_or("createIfNotExists", false),
         drop_and_create:      spec.bool_or("dropAndCreate", false),
         resource_id:          spec.resource_id(),
+        transaction_id:       spec.str_or("transactionId", ""),
         dialect,
         port,
         user,
@@ -264,7 +266,7 @@ pub async fn run(
         crate::engine::pool::PoolParams {
             dialect:         config.dialect.clone(),
             conn_str,
-            max_connections: 1,
+            max_connections: 5,
             connect_timeout: config.connect_timeout,
         },
     ).await
@@ -275,7 +277,21 @@ pub async fn run(
     let start = Instant::now();
 
     // Biforcazione: master-detail (riga-per-riga, inoltra) vs batch (default).
-    let outcome = if config.passthrough_md {
+    let start = Instant::now();
+
+    // Transazione: se il nodo appartiene a un gruppo, scrive sulla
+    // connessione condivisa (BEGIN aperto dal registro); altrimenti
+    // percorso normale (autocommit sul pool).
+    let tx_group = config.transaction_id.clone();
+
+    let outcome = if !tx_group.is_empty() {
+        // Percorso transazionale (native, PostgreSQL). Master-detail in
+        // transazione: TODO — per ora il ramo transazionale usa write_all_tx.
+        if config.dialect != "postgresql" {
+            return Err(format!("sink_db {}: transazioni supportate solo su PostgreSQL (per ora)", ctx.node_id.0));
+        }
+        write_all_tx(&ctx, &pool, &config, rx, &tx_group, &start).await
+    } else if config.passthrough_md {
         write_master_detail(&ctx, &pool, &config, rx, tx, &start).await
     } else {
         write_all(&ctx, &pool, &config, rx, &start).await
@@ -305,7 +321,7 @@ async fn write_all(
     config: &SinkDbConfig,
     mut rx: RowReceiver,
     start:  &Instant,
-) -> Result<(u64, u64, u32), String> {
+    ) -> Result<(u64, u64, u32), String> {
 
     let batch_size  = config.batch_size;
     let mut rows_in = 0u64;
@@ -377,6 +393,119 @@ async fn write_all(
 
     Ok((rows_in, written, query_count))
 }
+
+// Scrittura DENTRO una transazione di gruppo (L3 native, PostgreSQL).
+// Ottiene la connessione condivisa dal registro (BEGIN già aperto),
+// scrive le righe su di essa, poi segnala done/failure e tenta la
+// finalizzazione (commit/rollback se è l'ultimo membro).
+
+async fn write_all_tx(
+    ctx:      &NodeContext,
+    pool:     &crate::engine::pool::DbPool,
+    config:   &SinkDbConfig,
+    mut rx:   RowReceiver,
+    group_id: &str,
+    start:    &Instant,
+    ) -> Result<(u64, u64, u32), String> {
+    use crate::engine::pool::DbPool;
+
+    // Estrae il PgPool concreto dalla risorsa condivisa.
+    let pg_pool = match pool {
+        DbPool::Pg(p) => p,
+        _ => return Err("transazioni solo su PostgreSQL (per ora)".to_string()),
+    };
+
+    // Connessione condivisa del gruppo (apre BEGIN alla prima chiamata).
+    let conn = ctx.lane_txns.get_pg_conn(group_id, pg_pool).await?;
+
+    let batch_size  = config.batch_size;
+    let mut rows_in = 0u64;
+    let mut written = 0u64;
+    let mut last_prog = Instant::now();
+    let mut query_count = 0u32;
+    let mut batch: Vec<serde_json::Value> = Vec::with_capacity(batch_size);
+
+    // NB: DDL / pre-SQL / post-SQL non gestiti nel ramo transazionale
+    // per ora (andrebbero coordinati a livello di gruppo, non per-nodo).
+    // Se servono, il nodo deve NON essere in transazione o si estende qui.
+
+    // Corpo di scrittura, isolato per intercettare l'errore e segnalare
+    // il fallimento al gruppo (che deciderà il rollback).
+    let write_result: Result<(), String> = async {
+        while let Some(row) = rx.recv().await {
+            rows_in += 1;
+            let json_row = if config.columns_ddl.is_empty() {
+                row.to_json_object()
+            } else {
+                map_row(&row, &config.columns_ddl)
+            };
+            batch.push(json_row);
+
+            if batch.len() >= batch_size {
+                let w = flush_batch_tx(&conn, config, &batch).await?;
+                written += w;
+                query_count += 1;
+                batch.clear();
+
+                let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
+                    || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
+                if should_prog {
+                    let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+                    ctx.emit_progress(rows_in, written, 0, rps);
+                    last_prog = Instant::now();
+                }
+            }
+        }
+        if !batch.is_empty() {
+            let w = flush_batch_tx(&conn, config, &batch).await?;
+            written += w;
+            query_count += 1;
+        }
+        Ok(())
+    }.await;
+
+    // Segnala l'esito al gruppo, poi tenta la finalizzazione.
+    match &write_result {
+        Ok(()) => ctx.lane_txns.report_done(group_id).await,
+        Err(_) => ctx.lane_txns.report_failure(group_id).await,
+    }
+    // Se questo è l'ultimo membro (o abort con rollback_all), finalizza.
+    ctx.lane_txns.maybe_finalize(group_id).await?;
+
+    write_result?;
+    Ok((rows_in, written, query_count))
+}
+
+// Scrive un batch sulla connessione condivisa della transazione.
+async fn flush_batch_tx(
+    conn:   &std::sync::Arc<tokio::sync::Mutex<sqlx::pool::PoolConnection<sqlx::Postgres>>>,
+    config: &SinkDbConfig,
+    batch:  &[serde_json::Value],
+) -> Result<u64, String> {
+    let req = crate::DbWriteRequest {
+        connection:          build_db_connection_params(config),
+        table:               config.table.clone(),
+        schema:              config.schema_name.clone(),
+        mode:                config.mode.clone(),
+        rows:                batch.to_vec(),
+        key_fields:          config.key_fields.clone(),
+        columns:             None,
+        exclude_columns:     config.exclude_columns.clone(),
+        column_functions:    None,
+        merge_condition:     config.merge_condition.clone(),
+        pre_sql:             None,
+        post_sql:            None,
+        batch_size:          batch.len(),
+        on_constraint_error: config.on_constraint_error.clone(),
+        dead_letter_table:   config.dead_letter_table.clone(),
+        returning_column:    None,
+    };
+    let start = Instant::now();
+    let mut guard = conn.lock().await;
+    let result = crate::pg_write_conn(&mut *guard, &req, start).await?;
+    Ok(result.rows_written as u64)
+}
+
 // Master-detail: scrive UNA riga alla volta con RETURNING, inietta la
 // chiave generata nella riga sotto md_output_field, e la inoltra su tx.
 // Batch=1 obbligatorio: serve la corrispondenza 1:1 riga↔chiave.

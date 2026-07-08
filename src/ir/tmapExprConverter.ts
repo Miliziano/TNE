@@ -383,12 +383,16 @@ function parseOutputFieldExpression(
 
   if (!expr) return { kind: 'Literal', value: null }
 
-  // Caso 1: "label.campo" o "main.campo"
-  const dotMatch = expr.match(/^(\w+)\.(\w+)$/)
-  if (dotMatch) {
-    const [, label, fieldName] = dotMatch
+ // Caso 1: "label.campo" — il label può contenere spazi, quindi invece
+  // di una regex rigida (\w+) cerchiamo il nome sorgente noto prendendo
+  // tutto ciò che precede l'ULTIMO punto, e verificando che sia un input
+  // conosciuto in labelToInputId.
+  if (expr.includes('.')) {
+    const lastDot = expr.lastIndexOf('.')
+    const label = expr.slice(0, lastDot)
+    const fieldName = expr.slice(lastDot + 1)
     const inputId = labelToInputId.get(label)
-    if (inputId) {
+    if (inputId && /^\w+$/.test(fieldName)) {
       return { kind: 'FieldRef', input: inputId, field: fieldName }
     }
   }

@@ -43,6 +43,7 @@ pub struct NodeContext {
     /// Registro connessioni per-lane (design L1). Condiviso tra tutti
     /// i nodi della lane; i nodi DB chiedono qui il pool della risorsa.
     pub lane_resources: std::sync::Arc<super::pool::LaneResources>,
+    pub lane_txns: std::sync::Arc<super::txregistry::LaneTransactions>,
 }
 
 impl NodeContext {
@@ -183,12 +184,32 @@ pub async fn execute_lane(
 
     let lane_id    = lane_plan.lane_id.clone();
     let variables  = lane_plan.variables.clone();
+
+    // Registro transazioni della lane (L3 native): gruppi dichiarati +
+    // conteggio membri (nodi con quel transactionId).
+    let declared_txns: Vec<(String, String, String, u64, usize)> = lane_plan.transactions.iter()
+        .map(|t| {
+            let members = lane_plan.nodes.iter()
+                .filter(|n| n.spec.get("props")
+                    .and_then(|p| p.get("transactionId"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s == t.id).unwrap_or(false))
+                .count();
+            (t.id.clone(), t.mode.clone(), t.on_error.clone(), t.timeout, members)
+        })
+        .collect();
+    let lane_txns = super::txregistry::LaneTransactions::new(declared_txns);
+
+
     let nodes      = lane_plan.nodes;
     let plan_edges = lane_plan.edges;
 // Registro connessioni della lane (L1). Vive per tutta la lane;
     // chiuso in ogni ramo di uscita (invariante 2).
     let lane_resources = super::pool::LaneResources::new();
     
+    
+
+
     if nodes.is_empty() {
         return Ok(HashMap::new());
     }
@@ -268,6 +289,7 @@ pub async fn execute_lane(
             spec:      node_plan.spec.clone(),
             variables: variables.clone(),
             lane_resources: lane_resources.clone(),
+            lane_txns: lane_txns.clone(),
         };
 
         let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
@@ -319,6 +341,9 @@ pub async fn execute_lane(
             }
         }
     }
+    // Finalizzazione garantita
+    lane_txns.finalize_pending().await;
+  
 
     // Chiusura garantita delle connessioni della lane — in ogni caso.
     lane_resources.close_all().await;

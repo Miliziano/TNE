@@ -156,7 +156,7 @@ pub async fn run(
         PoolParams {
             dialect:         dialect.clone(),
             conn_str,
-            max_connections: 1,
+            max_connections: 5,
             connect_timeout: config.connect_timeout,
         },
     ).await

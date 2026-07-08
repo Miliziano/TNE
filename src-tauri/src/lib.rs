@@ -668,7 +668,7 @@ pub async fn pg_write(
     conn_str: &str,
     req:      &DbWriteRequest,
     start:    std::time::Instant,
-) -> Result<DbWriteResult, String> {
+    ) -> Result<DbWriteResult, String> {
     use sqlx::postgres::PgPoolOptions;
     let pool = PgPoolOptions::new()
         .max_connections(1)
@@ -684,7 +684,7 @@ pub async fn pg_write_pool(
     pool:  &sqlx::postgres::PgPool,
     req:   &DbWriteRequest,
     start: std::time::Instant,
-) -> Result<DbWriteResult, String> {
+    ) -> Result<DbWriteResult, String> {
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
@@ -840,6 +840,118 @@ pub async fn pg_write_pool(
     })
 }
 
+// Variante transazionale: scrive su una connessione condivisa (dentro
+// un BEGIN già aperto dal registro), invece che sul pool in autocommit.
+// È pg_write_pool con `pool` → `&mut PgConnection`. NON gestisce
+// pre/post-SQL né BEGIN/COMMIT: quelli sono responsabilità del gruppo.
+pub async fn pg_write_conn(
+    conn:  &mut sqlx::postgres::PgConnection,
+    req:   &DbWriteRequest,
+    start: std::time::Instant,
+) -> Result<DbWriteResult, String> {
+    use sqlx::Row as SqlxRow;
+
+    let tbl = qualified_table(req);
+    let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
+    let mut generated_keys: Vec<serde_json::Value> = Vec::new();
+
+    let ret_col = req.returning_column.as_deref();
+    let use_returning = ret_col.is_some()
+        && matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
+
+    // NB: pre_sql / truncate / post_sql NON qui — la transazione è
+    // gestita dal gruppo. (Se servono in transazione, andranno inseriti
+    // nel coordinamento di gruppo, non per-nodo.)
+
+    for chunk in req.rows.chunks(req.batch_size.max(1)) {
+        batches += 1;
+        for row in chunk {
+            let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            if fields.is_empty() { skipped += 1; continue; }
+
+            let default_keys = vec![];
+            let keys = req.key_fields.as_deref().unwrap_or(default_keys.as_slice());
+            let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
+
+            let set_fields: Vec<(String, serde_json::Value)> = fields.iter()
+                .filter(|(k, _)| !keys.contains(k)).cloned().collect();
+
+            let sql: String;
+            let mut bind_list: Vec<&serde_json::Value>;
+
+            if needs_plan {
+                let plan = build_column_plan(&fields, &req.column_functions, PlaceholderStyle::Dollar, 1);
+                let cols = plan.iter().map(|p| p.column_sql.as_str()).collect::<Vec<_>>().join(", ");
+                let vals = plan.iter().map(|p| p.value_sql.as_str()).collect::<Vec<_>>().join(", ");
+                bind_list = plan.iter().filter_map(|p| p.bind_value).collect();
+
+                let base_sql = match req.mode.as_str() {
+                    "upsert" => {
+                        let updates = plan.iter()
+                            .filter(|p| !keys.contains(&p.column_sql))
+                            .map(|p| format!("{} = EXCLUDED.{}", p.column_sql, p.column_sql))
+                            .collect::<Vec<_>>().join(", ");
+                        let conflict = keys.join(", ");
+                        if updates.is_empty() {
+                            format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING", tbl, cols, vals, conflict)
+                        } else {
+                            format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {}", tbl, cols, vals, conflict, updates)
+                        }
+                    }
+                    _ => format!("INSERT INTO {} ({}) VALUES ({})", tbl, cols, vals),
+                };
+                sql = if use_returning { format!("{} RETURNING \"{}\"", base_sql, ret_col.unwrap()) } else { base_sql };
+            } else if req.mode == "update" {
+                let set_plan = build_column_plan(&set_fields, &req.column_functions, PlaceholderStyle::Dollar, 1);
+                let sets = set_plan.iter().map(|p| format!("{} = {}", p.column_sql, p.value_sql)).collect::<Vec<_>>().join(", ");
+                let where_start = count_consumed_placeholders(&set_plan) + 1;
+                let where_c = keys.iter().enumerate().map(|(i, k)| format!("{} = ${}", k, where_start + i)).collect::<Vec<_>>().join(" AND ");
+                sql = format!("UPDATE {} SET {} WHERE {}", tbl, sets, where_c);
+                bind_list = set_plan.iter().filter_map(|p| p.bind_value).collect();
+                for k in keys {
+                    if let Some((_, v)) = fields.iter().find(|(fk, _)| fk == k) { bind_list.push(v); }
+                }
+            } else {
+                let where_c = keys.iter().enumerate().map(|(i, k)| format!("{} = ${}", k, i + 1)).collect::<Vec<_>>().join(" AND ");
+                sql = format!("DELETE FROM {} WHERE {}", tbl, where_c);
+                bind_list = keys.iter().filter_map(|k| fields.iter().find(|(fk, _)| fk == k).map(|(_, v)| v)).collect();
+            }
+
+            if use_returning && needs_plan {
+                let mut q = sqlx::query(&sql);
+                for v in &bind_list { q = bind_pg_value(q, v); }
+                match q.fetch_one(&mut *conn).await {
+                    Ok(row) => { written += 1; generated_keys.push(pg_row_to_json_value(&row, 0)); }
+                    Err(e) => match req.on_constraint_error.as_str() {
+                        "skip" => { skipped += 1; }
+                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
+                        _ => { errors += 1; }
+                    }
+                }
+            } else {
+                let mut q = sqlx::query(&sql);
+                for v in &bind_list { q = bind_pg_value(q, v); }
+                match q.execute(&mut *conn).await {
+                    Ok(_) => { written += 1; }
+                    Err(e) => match req.on_constraint_error.as_str() {
+                        "skip" => { skipped += 1; }
+                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
+                        _ => { errors += 1; }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(DbWriteResult {
+        rows_written: written,
+        rows_skipped: skipped,
+        rows_errors:  errors,
+        batches,
+        elapsed_ms:   start.elapsed().as_millis(),
+        generated_keys,
+    })
+}
 pub(crate) fn bind_pg_value<'q>(
     q: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
     v: &'q serde_json::Value,
