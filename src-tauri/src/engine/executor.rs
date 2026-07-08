@@ -203,9 +203,37 @@ pub async fn execute_lane(
 
     let nodes      = lane_plan.nodes;
     let plan_edges = lane_plan.edges;
-// Registro connessioni della lane (L1). Vive per tutta la lane;
+
+    // Registro connessioni della lane (L1). Vive per tutta la lane;
     // chiuso in ogni ramo di uscita (invariante 2).
-    let lane_resources = super::pool::LaneResources::new();
+    // Dimensionamento pool per risorsa (auto): conta i nodi che usano
+    // ogni resource_id; +1 per la connessione esclusiva se la risorsa
+    // ha una transazione. Elimina il "pool timed out" e garantisce
+    // l'isolamento dentro/fuori (la tx ha la sua connessione, i nodi
+    // liberi le altre).
+    let mut sizing: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    let mut tx_resources: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for n in &nodes {
+        // resource_id del nodo (dalla spec/config)
+        if let Some(rid) = n.spec.get("props").and_then(|p| p.get("resourceId")).and_then(|v| v.as_str()) {
+            if !rid.is_empty() {
+                *sizing.entry(rid.to_string()).or_insert(0) += 1;
+                // se il nodo è in una transazione, la sua risorsa ha bisogno
+                // della connessione esclusiva del gruppo
+                if let Some(txid) = n.spec.get("props").and_then(|p| p.get("transactionId")).and_then(|v| v.as_str()) {
+                    if !txid.is_empty() { tx_resources.insert(rid.to_string()); }
+                }
+            }
+        }
+    }
+    // +1 connessione per la transazione esclusiva, + margine di sicurezza.
+    for rid in &tx_resources {
+        *sizing.entry(rid.clone()).or_insert(0) += 1;
+    }
+    // margine: almeno 2 connessioni per risorsa, per sicurezza.
+    for v in sizing.values_mut() { *v = (*v).max(2) + 1; }
+
+    let lane_resources = super::pool::LaneResources::new(sizing);
     
     
 

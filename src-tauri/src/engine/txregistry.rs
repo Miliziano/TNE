@@ -110,12 +110,12 @@ impl LaneTransactions {
         for (id, g) in groups.iter_mut() {
             if g.finalized { continue; }
             g.finalized = true;
-            let do_commit = lane_ok && !g.aborted;
+            let do_commit = !g.aborted;
             if let Some(conn) = g.pg_conn.take() {
                 let mut guard = conn.lock().await;
                 let sql = if do_commit { "COMMIT" } else { "ROLLBACK" };
                 match sqlx::query(sql).execute(&mut **guard).await {
-                    Ok(_)  => eprintln!("[tx] gruppo '{}': {} (lane_ok={}, aborted={})", id, sql, lane_ok, g.aborted),
+                    Ok(_)  => eprintln!("[tx] gruppo '{}': {} (aborted={})", id, sql, g.aborted),
                     Err(e) => eprintln!("[tx] gruppo '{}': {} FALLITO: {}", id, sql, e),
                 }
             }

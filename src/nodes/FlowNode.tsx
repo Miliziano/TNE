@@ -160,11 +160,15 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
 
   const isBuffered = nodeData.type === 'sink_file' && nodeData.props?.['passthrough'] === 'true'
 
+  // Badge transazione: il nodo porta solo transactionId; mode/nome
+  // vivono sull'oggetto-transazione della lane (design v2).
+  const pool = useFlowStore((s) => s.pool)
   const txConfig = (() => {
-    try {
-      const raw = nodeData.props?.['transactionGroup']
-      return raw ? JSON.parse(raw) : null
-    } catch { return null }
+    const txId = nodeData.props?.['transactionId']
+    if (!txId) return null
+    const lane = pool.lanes.find((l) => l.id === nodeData.laneId)
+    const tx = (lane?.transactions ?? []).find((t) => t.id === txId)
+    return tx ? { mode: tx.mode, name: tx.name } : null
   })()
   const txColor = txConfig?.mode === 'xa' ? '#ffb347' : '#3ddc84'
 
@@ -304,9 +308,9 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Badge transazione */}
       {txConfig && (
         <div
-          title={`Transazione ${txConfig.mode === 'xa' ? 'XA' : 'nativa'} · gruppo "${txConfig.id}" · timeout ${txConfig.timeout}s`}
+          title={`Transazione ${txConfig.mode === 'xa' ? 'XA' : 'nativa'} · gruppo "${txConfig.name}"}s`}
           style={{
-            position: 'absolute', bottom: -8, left: -8,
+            position: 'absolute', bottom: -11, left: -11,
             display: 'flex', alignItems: 'center', gap: 3,
             padding: '1px 7px 1px 5px', borderRadius: 8,
             background: `color-mix(in srgb, ${txColor} 15%, #0f1117)`,
@@ -316,7 +320,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
           }}>
           <i className="ti ti-lock" style={{ fontSize: 9, color: txColor }} />
           <span style={{ fontSize: 9, color: txColor, fontFamily: 'monospace', fontWeight: 600 }}>
-            {txConfig.mode === 'xa' ? 'XA' : 'TX'} {txConfig.id}
+            {txConfig.mode === 'xa' ? 'XA' : 'TX'} {txConfig.mode}
           </span>
         </div>
       )}

@@ -49,15 +49,22 @@ pub struct PoolParams {
     pub connect_timeout: u64,
 }
 
+// 1. LaneResources acquisisce una mappa di dimensionamenti per risorsa.
 pub struct LaneResources {
-    // resource_id → pool. Mutex perché la creazione è pigra e concorrente
-    // (più nodi possono chiedere lo stesso pool insieme).
     pools: Mutex<HashMap<String, DbPool>>,
+    // resource_id → n. connessioni da allocare (calcolato dall'executor:
+    // n. nodi che usano la risorsa + 1 se c'è una transazione, per la
+    // connessione esclusiva del gruppo). Default 5 se non presente.
+    sizing: HashMap<String, u32>,
 }
 
+// 2. new() accetta il dimensionamento.
 impl LaneResources {
-    pub fn new() -> Arc<LaneResources> {
-        Arc::new(LaneResources { pools: Mutex::new(HashMap::new()) })
+    pub fn new(sizing: HashMap<String, u32>) -> Arc<LaneResources> {
+        Arc::new(LaneResources {
+            pools:  Mutex::new(HashMap::new()),
+            sizing,
+        })
     }
 
     /// Restituisce il pool per la risorsa, creandolo al primo uso.
