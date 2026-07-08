@@ -464,13 +464,9 @@ async fn write_all_tx(
         Ok(())
     }.await;
 
-    // Segnala l'esito al gruppo, poi tenta la finalizzazione.
-    match &write_result {
-        Ok(()) => ctx.lane_txns.report_done(group_id).await,
-        Err(_) => ctx.lane_txns.report_failure(group_id).await,
-    }
-    // Se questo è l'ultimo membro (o abort con rollback_all), finalizza.
-    ctx.lane_txns.maybe_finalize(group_id).await?;
+    // Segnala solo l'esito: la finalizzazione (commit/rollback) avviene
+    // a fine lane, quando l'esito complessivo è noto. Il sink NON committa.
+    ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
 
     write_result?;
     Ok((rows_in, written, query_count))

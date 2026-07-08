@@ -76,6 +76,11 @@ console.log('[evt]', ev.event.type)
         // pallini a caso e, peggio, un vecchio RunCompleted ferma
         // il polling a metà del run corrente.
         if (p.run_id && _currentRunId && p.run_id !== _currentRunId) continue
+
+        if (ev.event.type === 'NodeFailed') {
+          console.log('[NodeFailed DOPO filtro] node_id:', JSON.stringify(p.node_id), 'run_id match:', p.run_id, '===', _currentRunId)
+        }
+
         switch (ev.event.type) {
 
           case 'RunStarted':
@@ -150,13 +155,21 @@ console.log('[evt]', ev.event.type)
               }
             }
             break
-          case 'NodeFailed':
+            
+          case 'NodeFailed': {
             store.setNodeStatus(p.node_id, 'error', p.error)
-            // Fase 8: pallino e badge rossi — i contatori restano
-            // all'ultimo valore di progress, utile per capire dove si è fermato
             store.setNodeStats(p.node_id, { status: 'error' })
             store.addLog('error', `${p.node_id}: ${p.error}`, p.node_id)
+            // Chiude il timing nel MonitoringBus anche su errore: senza
+            // questo il nodo resta 'running' (giallo) nel pannello Monitor,
+            // che si alimenta dal bus e non dallo store.
+            const timing = _nodeTimings.get(p.node_id)
+            if (timing) {
+              monitor.nodeEnd(timing, { error: p.error })
+              _nodeTimings.delete(p.node_id)
+            }
             break
+          }
 
           case 'NodeProgress':
             // Fase 8: aggiorna i badge contatori in tempo reale.

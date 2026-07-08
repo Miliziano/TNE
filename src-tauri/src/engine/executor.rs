@@ -329,20 +329,37 @@ pub async fn execute_lane(
             }
             Ok(Err(e)) => {
                 eprintln!("[executor] nodo {} fallito: {}", node_id_str, e);
+                // Emette lo stato terminale al monitor: senza questo il
+                // nodo resta 'running' (giallo) perché nessun nodo emette
+                // emit_failed sul proprio percorso d'errore.
+                push_event(crate::engine::events::EngineEvent::NodeFailed {
+                    run_id:  run_id.clone(),
+                    lane_id: lane_id.clone(),
+                    node_id: crate::engine::types::NodeId(node_id_str.clone()),
+                    error:   e.clone(),
+                });
                 if lane_result.is_ok() {
                     lane_result = Err(format!("Nodo {} fallito: {}", node_id_str, e));
                 }
             }
             Err(e) => {
                 eprintln!("[executor] panic nodo {}: {}", node_id_str, e);
+                push_event(crate::engine::events::EngineEvent::NodeFailed {
+                    run_id:  run_id.clone(),
+                    lane_id: lane_id.clone(),
+                    node_id: crate::engine::types::NodeId(node_id_str.clone()),
+                    error:   format!("panic: {}", e),
+                });
                 if lane_result.is_ok() {
                     lane_result = Err(format!("Panic nel nodo {}: {}", node_id_str, e));
                 }
             }
         }
     }
-    // Finalizzazione garantita
-    lane_txns.finalize_pending().await;
+    // Finalizza le transazioni di gruppo in base all'esito COMPLETO
+    // della lane (source e non-membri inclusi): commit solo se tutto ok.
+    lane_txns.finalize_with_outcome(lane_result.is_ok()).await;
+    lane_resources.close_all().await;
   
 
     // Chiusura garantita delle connessioni della lane — in ogni caso.

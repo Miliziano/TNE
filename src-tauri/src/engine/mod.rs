@@ -232,7 +232,7 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         // l'evento terminale del run. stop() ritorna entro ~20ms.
         sampler.stop();
 
-        if lanes_failed > 0 && lanes_ok == 0 {
+        if lanes_failed > 0 {
             push_event(EngineEvent::RunFailed {
                 run_id,
                 error: first_error.unwrap_or("Errore sconosciuto".to_string()),

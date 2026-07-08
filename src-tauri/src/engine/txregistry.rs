@@ -87,62 +87,37 @@ impl LaneTransactions {
         Ok(shared)
     }
 
-    /// Un membro segnala di aver finito con successo.
-    pub async fn report_done(&self, group_id: &str) {
+   /// Un membro ha finito. NON finalizza più qui: la decisione
+    /// commit/rollback è rimandata a fine lane (finalize_with_outcome),
+    /// quando si conosce l'esito COMPLETO della lane (source inclusi).
+    /// Elimina la race del commit prematuro.
+    pub async fn report_member_end(&self, group_id: &str, ok: bool) {
         let mut groups = self.groups.lock().await;
         if let Some(g) = groups.get_mut(group_id) {
             g.members_done += 1;
+            if !ok { g.aborted = true; }
         }
     }
 
-    /// Un membro segnala un errore: il gruppo va in abort.
-    pub async fn report_failure(&self, group_id: &str) {
-        let mut groups = self.groups.lock().await;
-        if let Some(g) = groups.get_mut(group_id) {
-            g.aborted = true;
-        }
-    }
-
-    /// Finalizza un gruppo se tutti i membri hanno concluso.
-    /// Chiamato da ogni membro a fine scrittura; solo l'ultimo (o il
-    /// primo su abort con rollback_all) esegue COMMIT/ROLLBACK.
-    pub async fn maybe_finalize(&self, group_id: &str) -> Result<(), String> {
-        let (conn, do_commit) = {
-            let mut groups = self.groups.lock().await;
-            let g = match groups.get_mut(group_id) {
-                Some(g) => g,
-                None => return Ok(()),
-            };
-            if g.finalized { return Ok(()); }
-            let all_done = g.members_done >= g.members_total;
-            let should_finalize = all_done || (g.aborted && g.on_error == "rollback_all");
-            if !should_finalize { return Ok(()); }
-            g.finalized = true;
-            let conn = g.pg_conn.take();
-            (conn, !g.aborted)
-        };
-
-        if let Some(conn) = conn {
-            let mut guard = conn.lock().await;
-            let sql = if do_commit { "COMMIT" } else { "ROLLBACK" };
-            sqlx::query(sql).execute(&mut **guard).await
-                .map_err(|e| format!("tx '{}': {} fallito: {}", group_id, sql, e))?;
-            eprintln!("[tx] gruppo '{}': {}", group_id, sql);
-        }
-        Ok(())
-    }
-
-    /// Chiusura garantita a fine lane: ogni gruppo non ancora finalizzato
-    /// viene chiuso con ROLLBACK (nessuna transazione appesa).
-    pub async fn finalize_pending(&self) {
+  
+    /// Finalizza TUTTI i gruppi a fine lane, guidata dall'esito globale.
+    /// - lane_ok && gruppo non aborted → COMMIT
+    /// - altrimenti → ROLLBACK
+    /// Chiamata da execute_lane DOPO aver atteso tutti i nodi, quindi
+    /// conosce l'esito reale (source e non-membri inclusi).
+    pub async fn finalize_with_outcome(&self, lane_ok: bool) {
         let mut groups = self.groups.lock().await;
         for (id, g) in groups.iter_mut() {
             if g.finalized { continue; }
             g.finalized = true;
+            let do_commit = lane_ok && !g.aborted;
             if let Some(conn) = g.pg_conn.take() {
                 let mut guard = conn.lock().await;
-                let _ = sqlx::query("ROLLBACK").execute(&mut **guard).await;
-                eprintln!("[tx] gruppo '{}': ROLLBACK (finalize_pending — transazione non conclusa)", id);
+                let sql = if do_commit { "COMMIT" } else { "ROLLBACK" };
+                match sqlx::query(sql).execute(&mut **guard).await {
+                    Ok(_)  => eprintln!("[tx] gruppo '{}': {} (lane_ok={}, aborted={})", id, sql, lane_ok, g.aborted),
+                    Err(e) => eprintln!("[tx] gruppo '{}': {} FALLITO: {}", id, sql, e),
+                }
             }
         }
     }
