@@ -17,7 +17,7 @@
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
 import type { Lane } from '../types'
-import type { TransactionGroupState } from './transactionCoordinator'
+import type { TransactionGroupState } from '../runner/transactionCoordinator'
 
 export type Row = Record<string, unknown>
 

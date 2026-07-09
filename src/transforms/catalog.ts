@@ -1,3 +1,18 @@
+/**
+ * src/transforms/catalog.ts
+ *
+ * Catalogo dei template di trasformazione, per il pannello Transform.
+ *
+ * Le `expression` sono scritte in FPEL (FlowPilot Expression Language),
+ * non più in JavaScript: vedi docs/design-linguaggio-espressioni.md.
+ * Vengono compilate in ExprNode dal parser (src/ir/exprParser.ts) e
+ * valutate dal motore Rust — o, in futuro, tradotte in Rust/Java/Python
+ * dal codegen.
+ *
+ * Segnaposto:
+ *   $value        il valore del campo sorgente
+ *   $param_<key>  un parametro del template (vedi `params`)
+ */
 export type { TransformCategory, FieldType } from '../types/fieldTypes'
   import type { FieldType } from '../types/fieldTypes'
   type TransformCategory = FieldType  // alias locale per il catalogo
@@ -19,7 +34,7 @@ export interface TransformTemplate {
   description: string
   // Tipo del valore di uscita (se diverso dall'input)
   outputType?: TransformCategory
-  // Espressione — $value = valore input, $param_key = parametro
+  /** Espressione FPEL. $value = valore input, $param_<key> = parametro */
   expression:  string
   params?:     TransformParam[]
 }
@@ -40,22 +55,22 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_trim_left', label: 'Trim sinistra',
       description: 'Rimuove spazi solo a sinistra',
-      expression: 'trimLeft($value)',
+      expression: 'ltrim($value)',
     },
     {
       id: 'str_trim_right', label: 'Trim destra',
       description: 'Rimuove spazi solo a destra',
-      expression: 'trimRight($value)',
+      expression: 'rtrim($value)',
     },
     {
       id: 'str_upper', label: 'MAIUSCOLO',
       description: 'Converti in uppercase',
-      expression: 'toUpperCase($value)',
+      expression: 'upper($value)',
     },
     {
       id: 'str_lower', label: 'minuscolo',
       description: 'Converti in lowercase',
-      expression: 'toLowerCase($value)',
+      expression: 'lower($value)',
     },
     {
       id: 'str_capitalize', label: 'Capitalize',
@@ -65,18 +80,18 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_title_case', label: 'Title Case',
       description: 'Prima lettera maiuscola per ogni parola',
-      expression: 'titleCase($value)',
+      expression: 'title_case($value)',
     },
     {
       id: 'str_slug', label: 'Slug',
       description: 'Converti in formato url-friendly',
       outputType: 'string',
-      expression: 'toSlug($value)',
+      expression: 'to_slug($value)',
     },
     {
       id: 'str_pad_left', label: 'Pad sinistra',
       description: 'Padding a sinistra con carattere',
-      expression: 'padLeft($value, $param_length, $param_char)',
+      expression: 'pad_left($value, $param_length, $param_char)',
       params: [
         { key: 'length', label: 'Lunghezza totale', type: 'number', default: '10' },
         { key: 'char',   label: 'Carattere fill',  type: 'text',   default: '0'  },
@@ -85,7 +100,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_pad_right', label: 'Pad destra',
       description: 'Padding a destra con carattere',
-      expression: 'padRight($value, $param_length, $param_char)',
+      expression: 'pad_right($value, $param_length, $param_char)',
       params: [
         { key: 'length', label: 'Lunghezza totale', type: 'number', default: '10' },
         { key: 'char',   label: 'Carattere fill',  type: 'text',   default: ' '  },
@@ -94,7 +109,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_substr', label: 'Sottostringa',
       description: 'Estrae una porzione della stringa',
-      expression: 'substr($value, $param_start, $param_length)',
+      expression: 'substring($value, $param_start, $param_length)',
       params: [
         { key: 'start',  label: 'Inizio (0-based)', type: 'number', default: '0'  },
         { key: 'length', label: 'Lunghezza',        type: 'number', default: '10' },
@@ -112,7 +127,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_replace_regex', label: 'Sostituisci regex',
       description: 'Sostituisce con espressione regolare',
-      expression: 'replaceRegex($value, $param_pattern, $param_to)',
+      expression: 'replace_regex($value, $param_pattern, $param_to)',
       params: [
         { key: 'pattern', label: 'Pattern regex', type: 'text', default: '[^\\d]' },
         { key: 'to',      label: 'Sostituzione',  type: 'text', default: ''       },
@@ -121,12 +136,12 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_null_if_empty', label: 'Vuoto → null',
       description: 'Restituisce null se la stringa è vuota',
-      expression: 'nullIfEmpty($value)',
+      expression: 'iif($value == "" or $value is null, null, $value)',
     },
     {
       id: 'str_default', label: 'Default se null',
       description: 'Usa un valore di default se null o vuoto',
-      expression: 'ifNull($value, $param_default)',
+      expression: 'coalesce($value, $param_default)',
       params: [
         { key: 'default', label: 'Valore default', type: 'text', default: 'N/A' },
       ],
@@ -151,17 +166,17 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_remove_accents', label: 'Rimuovi accenti',
       description: 'Normalizza caratteri accentati (è→e, à→a)',
-      expression: 'removeAccents($value)',
+      expression: 'remove_accents($value)',
     },
     {
       id: 'str_only_digits', label: 'Solo cifre',
       description: 'Rimuove tutto tranne le cifre',
-      expression: 'replaceRegex($value, "[^\\\\d]", "")',
+      expression: 'replace_regex($value, "[^\\\\d]", "")',
     },
     {
       id: 'str_only_alpha', label: 'Solo lettere',
       description: 'Rimuove tutto tranne le lettere',
-      expression: 'replaceRegex($value, "[^a-zA-Z]", "")',
+      expression: 'replace_regex($value, "[^a-zA-Z]", "")',
     },
     {
       id: 'str_len', label: 'Lunghezza',
@@ -173,25 +188,25 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'str_to_int', label: '→ intero',
       description: 'Converte la stringa in intero',
       outputType: 'integer',
-      expression: 'toInt($value)',
+      expression: 'to_int($value)',
     },
     {
       id: 'str_to_decimal', label: '→ decimale',
       description: 'Converte la stringa in decimale',
       outputType: 'decimal',
-      expression: 'toDecimal($value)',
+      expression: 'to_float($value)',
     },
     {
       id: 'str_to_bool', label: '→ boolean',
       description: 'Converte true/false/1/0 in booleano',
       outputType: 'boolean',
-      expression: 'toBool($value)',
+      expression: 'to_bool($value)',
     },
     {
       id: 'str_to_date', label: '→ data',
       description: 'Parsa una stringa come data',
       outputType: 'date',
-      expression: 'parseDate($value, $param_format)',
+      expression: 'parse_date($value, $param_format)',
       params: [
         { key: 'format', label: 'Formato input', type: 'select',
           options: ['DD/MM/YYYY', 'YYYY-MM-DD', 'MM/DD/YYYY', 'DD-MM-YYYY', 'YYYYMMDD'],
@@ -201,37 +216,45 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'str_mask_email', label: 'Maschera email',
       description: 'Oscura la parte locale della email (ab***@domain.com)',
-      expression: 'maskEmail($value)',
+      expression: 'mask_email($value)',
     },
     {
       id: 'str_mask_card', label: 'Maschera carta',
       description: 'Oscura le prime cifre della carta (**** **** **** 1234)',
-      expression: 'maskCard($value)',
+      expression: 'mask_card($value)',
     },
-    {
-      id: 'str_hash_md5', label: 'Hash MD5',
-      description: 'Calcola hash MD5 della stringa',
-      expression: 'hashMd5($value)',
-    },
+    
     {
       id: 'str_hash_sha256', label: 'Hash SHA-256',
       description: 'Calcola hash SHA-256 della stringa',
-      expression: 'hashSha256($value)',
+      expression: 'hash_sha256($value)',
+    },
+    {
+      id: 'str_hash_sha512', label: 'Hash SHA-512',
+      description: 'Calcola hash SHA-512 della stringa',
+      outputType: 'string',
+      expression: 'hash_sha512($value)',
+    },
+    {
+      id: 'str_hash_sha1', label: 'Hash SHA-1 (deprecato)',
+      description: 'Calcola hash SHA-1 — solo per compatibilità con sistemi legacy',
+      outputType: 'string',
+      expression: 'hash_sha1($value)',
     },
     {
       id: 'str_base64_encode', label: 'Base64 encode',
       description: 'Codifica in Base64',
-      expression: 'base64Encode($value)',
+      expression: 'base64_encode($value)',
     },
     {
       id: 'str_base64_decode', label: 'Base64 decode',
       description: 'Decodifica da Base64',
-      expression: 'base64Decode($value)',
+      expression: 'base64_decode($value)',
     },
     {
       id: 'str_url_encode', label: 'URL encode',
       description: 'Codifica per uso in URL',
-      expression: 'urlEncode($value)',
+      expression: 'url_encode($value)',
     },
     {
       id: 'str_contains', label: 'Contiene?',
@@ -246,7 +269,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'str_starts_with', label: 'Inizia con?',
       description: 'Verifica se inizia con un prefisso',
       outputType: 'boolean',
-      expression: 'startsWith($value, $param_prefix)',
+      expression: 'starts_with($value, $param_prefix)',
       params: [
         { key: 'prefix', label: 'Prefisso', type: 'text', default: '' },
       ],
@@ -255,7 +278,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'str_ends_with', label: 'Finisce con?',
       description: 'Verifica se finisce con un suffisso',
       outputType: 'boolean',
-      expression: 'endsWith($value, $param_suffix)',
+      expression: 'ends_with($value, $param_suffix)',
       params: [
         { key: 'suffix', label: 'Suffisso', type: 'text', default: '' },
       ],
@@ -264,7 +287,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'str_matches', label: 'Corrisponde a regex?',
       description: 'Testa la stringa contro un pattern regex',
       outputType: 'boolean',
-      expression: 'matches($value, $param_pattern)',
+      expression: 'regex_match($value, $param_pattern)',
       params: [
         { key: 'pattern', label: 'Pattern regex', type: 'text', default: '^\\d+$' },
       ],
@@ -355,26 +378,26 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'num_null_zero', label: 'Null → 0',
       description: 'Restituisce 0 se il valore è null',
-      expression: 'ifNull($value, 0)',
+      expression: 'coalesce($value, 0)',
     },
     {
       id: 'num_to_str', label: '→ stringa',
       description: 'Converte il numero in stringa',
       outputType: 'string',
-      expression: 'toString($value)',
+      expression: 'to_string($value)',
     },
     {
       id: 'num_format_eu', label: 'Formato EU',
       description: 'Formatta con separatori europei (1.234,56)',
       outputType: 'string',
-      expression: 'formatNumber($value, $param_decimals, ",", ".")',
+      expression: 'format_number($value, $param_decimals, ",", ".")',
       params: [{ key: 'decimals', label: 'Decimali', type: 'number', default: '2' }],
     },
     {
       id: 'num_format_us', label: 'Formato US',
       description: 'Formatta con separatori americani (1,234.56)',
       outputType: 'string',
-      expression: 'formatNumber($value, $param_decimals, ".", ",")',
+      expression: 'format_number($value, $param_decimals, ".", ",")',
       params: [{ key: 'decimals', label: 'Decimali', type: 'number', default: '2' }],
     },
     {
@@ -409,7 +432,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'num_is_zero', label: 'È zero?',
       description: 'Verifica se il numero è zero',
       outputType: 'boolean',
-      expression: '$value === 0',
+      expression: '$value == 0',
     },
     {
       id: 'num_sign', label: 'Segno',
@@ -427,26 +450,26 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'int_to_str', label: '→ stringa',
       description: 'Converte in stringa',
       outputType: 'string',
-      expression: 'toString($value)',
+      expression: 'to_string($value)',
     },
     {
       id: 'int_pad', label: 'Pad zero',
       description: 'Formatta con padding di zeri (es: 007)',
       outputType: 'string',
-      expression: 'padLeft(toString($value), $param_length, "0")',
+      expression: 'pad_left(to_string($value), $param_length, "0")',
       params: [{ key: 'length', label: 'Lunghezza', type: 'number', default: '3' }],
     },
     {
       id: 'int_to_bool', label: '→ boolean',
       description: 'Converte 0/1 in false/true',
       outputType: 'boolean',
-      expression: '$value !== 0',
+      expression: '$value != 0',
     },
     {
       id: 'int_to_decimal', label: '→ decimale',
       description: 'Converte in numero decimale',
       outputType: 'decimal',
-      expression: 'toDecimal($value)',
+      expression: 'to_float($value)',
     },
     {
       id: 'int_mod', label: 'Modulo',
@@ -458,7 +481,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'int_null_zero', label: 'Null → 0',
       description: 'Restituisce 0 se null',
-      expression: 'ifNull($value, 0)',
+      expression: 'coalesce($value, 0)',
     },
     {
       id: 'int_abs', label: 'Valore assoluto',
@@ -481,13 +504,13 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'int_is_even', label: 'È pari?',
       description: 'Verifica se il numero è pari',
       outputType: 'boolean',
-      expression: '$value % 2 === 0',
+      expression: '$value % 2 == 0',
     },
     {
       id: 'int_is_odd', label: 'È dispari?',
       description: 'Verifica se il numero è dispari',
       outputType: 'boolean',
-      expression: '$value % 2 !== 0',
+      expression: '$value % 2 != 0',
     },
   ],
 
@@ -526,13 +549,13 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'dec_format_eu', label: 'Formato EU',
       description: '1.234,56',
       outputType: 'string',
-      expression: 'formatNumber($value, 2, ",", ".")',
+      expression: 'format_number($value, 2, ",", ".")',
     },
     {
       id: 'dec_format_us', label: 'Formato US',
       description: '1,234.56',
       outputType: 'string',
-      expression: 'formatNumber($value, 2, ".", ",")',
+      expression: 'format_number($value, 2, ".", ",")',
     },
     {
       id: 'dec_pct', label: '× 100',
@@ -543,18 +566,18 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'dec_to_int', label: '→ intero',
       description: 'Tronca i decimali',
       outputType: 'integer',
-      expression: 'toInt($value)',
+      expression: 'to_int($value)',
     },
     {
       id: 'dec_to_str', label: '→ stringa',
       description: 'Converti in stringa',
       outputType: 'string',
-      expression: 'toString($value)',
+      expression: 'to_string($value)',
     },
     {
       id: 'dec_null_zero', label: 'Null → 0.0',
       description: 'Restituisce 0.0 se null',
-      expression: 'ifNull($value, 0.0)',
+      expression: 'coalesce($value, 0.0)',
     },
   ],
 
@@ -572,7 +595,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'bool_to_str', label: '→ stringa',
       description: '"true" / "false"',
       outputType: 'string',
-      expression: 'toString($value)',
+      expression: 'to_string($value)',
     },
     {
       id: 'bool_to_int', label: '→ intero',
@@ -600,7 +623,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'bool_null_false', label: 'Null → false',
       description: 'Restituisce false se null',
-      expression: 'ifNull($value, false)',
+      expression: 'coalesce($value, false)',
     },
     {
       id: 'bool_and', label: 'AND',
@@ -624,7 +647,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'date_format', label: 'Formatta',
       description: 'Formatta la data nel formato scelto',
       outputType: 'string',
-      expression: 'formatDate($value, $param_format)',
+      expression: 'date_format($value, $param_format)',
       params: [
         { key: 'format', label: 'Formato', type: 'select',
           options: ['DD/MM/YYYY', 'YYYY-MM-DD', 'MM/DD/YYYY', 'DD MMMM YYYY',
@@ -636,100 +659,100 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'date_to_ts', label: '→ Timestamp unix',
       description: 'Secondi da epoch (1970-01-01)',
       outputType: 'integer',
-      expression: 'toUnixTimestamp($value)',
+      expression: 'to_unix_timestamp($value)',
     },
     {
       id: 'date_to_ts_ms', label: '→ Timestamp ms',
       description: 'Millisecondi da epoch',
       outputType: 'integer',
-      expression: 'toUnixTimestampMs($value)',
+      expression: 'to_unix_timestamp_ms($value)',
     },
     {
       id: 'date_year', label: 'Anno',
       description: 'Estrae l\'anno (YYYY)',
       outputType: 'integer',
-      expression: 'getYear($value)',
+      expression: 'year($value)',
     },
     {
       id: 'date_month', label: 'Mese',
       description: 'Estrae il mese (1-12)',
       outputType: 'integer',
-      expression: 'getMonth($value)',
+      expression: 'month($value)',
     },
     {
       id: 'date_day', label: 'Giorno',
       description: 'Estrae il giorno del mese (1-31)',
       outputType: 'integer',
-      expression: 'getDay($value)',
+      expression: 'day($value)',
     },
     {
       id: 'date_day_of_week', label: 'Giorno settimana',
       description: 'Giorno della settimana (0=dom, 6=sab)',
       outputType: 'integer',
-      expression: 'getDayOfWeek($value)',
+      expression: 'day_of_week($value)',
     },
     {
       id: 'date_quarter', label: 'Trimestre',
       description: 'Trimestre (1-4)',
       outputType: 'integer',
-      expression: 'getQuarter($value)',
+      expression: 'quarter($value)',
     },
     {
       id: 'date_add_days', label: 'Aggiungi giorni',
       description: 'Aggiunge N giorni alla data',
-      expression: 'addDays($value, $param_days)',
+      expression: 'add_days($value, $param_days)',
       params: [{ key: 'days', label: 'Giorni', type: 'number', default: '1' }],
     },
     {
       id: 'date_add_months', label: 'Aggiungi mesi',
       description: 'Aggiunge N mesi alla data',
-      expression: 'addMonths($value, $param_months)',
+      expression: 'add_months($value, $param_months)',
       params: [{ key: 'months', label: 'Mesi', type: 'number', default: '1' }],
     },
     {
       id: 'date_add_years', label: 'Aggiungi anni',
       description: 'Aggiunge N anni alla data',
-      expression: 'addYears($value, $param_years)',
+      expression: 'add_years($value, $param_years)',
       params: [{ key: 'years', label: 'Anni', type: 'number', default: '1' }],
     },
     {
       id: 'date_diff_days', label: 'Giorni da oggi',
       description: 'Differenza in giorni dalla data corrente',
       outputType: 'integer',
-      expression: 'diffDays($value, now())',
+      expression: 'diff_days($value, now())',
     },
     {
       id: 'date_start_of_month', label: 'Inizio mese',
       description: 'Primo giorno del mese della data',
-      expression: 'startOfMonth($value)',
+      expression: 'start_of_month($value)',
     },
     {
       id: 'date_end_of_month', label: 'Fine mese',
       description: 'Ultimo giorno del mese della data',
-      expression: 'endOfMonth($value)',
+      expression: 'end_of_month($value)',
     },
     {
       id: 'date_start_of_year', label: 'Inizio anno',
       description: 'Primo giorno dell\'anno della data',
-      expression: 'startOfYear($value)',
+      expression: 'start_of_year($value)',
     },
     {
       id: 'date_is_past', label: 'È nel passato?',
       description: 'Verifica se la data è precedente ad oggi',
       outputType: 'boolean',
-      expression: 'isBefore($value, now())',
+      expression: 'is_before($value, now())',
     },
     {
       id: 'date_is_future', label: 'È nel futuro?',
       description: 'Verifica se la data è successiva ad oggi',
       outputType: 'boolean',
-      expression: 'isAfter($value, now())',
+      expression: 'is_after($value, now())',
     },
     {
       id: 'date_is_weekend', label: 'È weekend?',
       description: 'Verifica se la data cade di sabato o domenica',
       outputType: 'boolean',
-      expression: 'isWeekend($value)',
+      expression: 'is_weekend($value)',
     },
     {
       id: 'date_now', label: 'Data corrente',
@@ -740,18 +763,18 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'date_today', label: 'Oggi (solo data)',
       description: 'Data corrente senza ora',
       outputType: 'string',
-      expression: 'formatDate(now(), "YYYY-MM-DD")',
+      expression: 'date_format(now(), "YYYY-MM-DD")',
     },
     {
       id: 'date_null_now', label: 'Null → ora',
       description: 'Usa la data corrente se null',
-      expression: 'ifNull($value, now())',
+      expression: 'coalesce($value, now())',
     },
     {
       id: 'date_to_str', label: '→ stringa ISO',
       description: 'Converti in stringa ISO 8601',
       outputType: 'string',
-      expression: 'formatDate($value, "YYYY-MM-DD")',
+      expression: 'date_format($value, "YYYY-MM-DD")',
     },
   ],
 
@@ -763,7 +786,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'obj_to_json', label: '→ JSON stringa',
       description: 'Serializza l\'oggetto in stringa JSON',
       outputType: 'string',
-      expression: 'toJson($value)',
+      expression: 'to_json($value)',
     },
     {
       id: 'obj_get', label: 'Leggi proprietà',
@@ -774,7 +797,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'obj_get_nested', label: 'Proprietà annidata',
       description: 'Ottieni una proprietà annidata con path (es: a.b.c)',
-      expression: 'getPath($value, $param_path)',
+      expression: 'get_path($value, $param_path)',
       params: [{ key: 'path', label: 'Path (dot notation)', type: 'text', default: 'data.id' }],
     },
     {
@@ -797,14 +820,9 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'obj_is_null', label: 'È null?',
       description: 'Verifica se l\'oggetto è null',
       outputType: 'boolean',
-      expression: 'isNull($value)',
+      expression: '$value is null',
     },
-    {
-      id: 'obj_null_empty', label: 'Null → {}',
-      description: 'Restituisce oggetto vuoto se null',
-      expression: 'ifNull($value, {})',
-    },
-  ],
+    ],
 
   // ══════════════════════════════════════════════════════════════
   // ANY
@@ -814,37 +832,37 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       id: 'any_to_str', label: '→ stringa',
       description: 'Converti qualsiasi valore in stringa',
       outputType: 'string',
-      expression: 'toString($value)',
+      expression: 'to_string($value)',
     },
     {
       id: 'any_to_int', label: '→ intero',
       description: 'Converti in intero',
       outputType: 'integer',
-      expression: 'toInt($value)',
+      expression: 'to_int($value)',
     },
     {
       id: 'any_to_decimal', label: '→ decimale',
       description: 'Converti in decimale',
       outputType: 'decimal',
-      expression: 'toDecimal($value)',
+      expression: 'to_float($value)',
     },
     {
       id: 'any_to_bool', label: '→ boolean',
       description: 'Converti in boolean',
       outputType: 'boolean',
-      expression: 'toBool($value)',
+      expression: 'to_bool($value)',
     },
     {
       id: 'any_is_null', label: 'È null?',
       description: 'Verifica se il valore è null',
       outputType: 'boolean',
-      expression: 'isNull($value)',
+      expression: '$value is null',
     },
     {
       id: 'any_is_not_null', label: 'Non è null?',
       description: 'Verifica se il valore non è null',
       outputType: 'boolean',
-      expression: '!isNull($value)',
+      expression: '$value is not null',
     },
     {
       id: 'any_coalesce', label: 'Coalesce',
@@ -855,7 +873,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
     {
       id: 'any_default', label: 'Default se null',
       description: 'Usa un valore di default se null',
-      expression: 'ifNull($value, $param_default)',
+      expression: 'coalesce($value, $param_default)',
       params: [{ key: 'default', label: 'Default', type: 'text', default: '' }],
     },
     {

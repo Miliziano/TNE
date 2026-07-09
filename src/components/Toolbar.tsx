@@ -13,6 +13,7 @@ import type { TMapConfig } from '../types'
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
+import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 
 let abortFlag = false
 
@@ -502,7 +503,35 @@ function buildRustPlan(
           }
           break
         }
+        case 'transform': {
+          // Compila i template/espressioni in ExprNode (FPEL → IR).
+          // A differenza del tmap, un errore NON degrada a config vuota:
+          // il nodo produrrebbe dati sbagliati in silenzio. Blocca il run.
+          const raw = node.data.props?.['transformFields']
+          if (raw) {
+            let fields: TransformFieldSpec[]
+            try { fields = JSON.parse(raw as string) }
+            catch { throw new Error(`Transform "${node.data.label}": configurazione campi illeggibile`) }
 
+            const { compiled, errors } = compileTransformFields(fields)
+            if (errors.length > 0) {
+              const dettagli = errors.map(e => `  • ${e.message}`).join('\n')
+              throw new Error(`Transform "${node.data.label}" — ${errors.length} errore/i:\n${dettagli}`)
+            }
+
+            // Traduzione della scelta utente nel `mode` del motore.
+            // Il pannello dice `unmappedFields` (default 'drop'), il motore
+            // dice `mode` (default 'add'): DEFAULT OPPOSTI, va esplicitato.
+            //   drop        → 'select'  (solo i campi configurati)
+            //   passthrough → 'add'     (campi calcolati + quelli originali)
+            const unmapped = (node.data.props?.['unmappedFields'] as string) ?? 'drop'
+            config = {
+              mode:   unmapped === 'passthrough' ? 'add' : 'select',
+              fields: compiled,
+            }
+          }
+          break
+        }
         case 'bridge_out': {
           const bridgeId = props['channelName'] ?? node.data.config?.['channelName'] ?? ''
           config = { bridge_id: bridgeId }
@@ -641,9 +670,18 @@ export function Toolbar() {
     // Registra il run corrente: il polling scarterà eventi di run passati
     _currentRunId = runId
 
-    // Costruisce il Plan JSON per Rust
-    const plan = buildRustPlan(nodes, edges, pool, runId)
- // ← AGGIUNGI QUI
+    // Costruisce il Plan JSON per Rust. Un errore di compilazione
+    // (espressione invalida, template sconosciuto…) blocca il run:
+    // meglio non partire che produrre dati sbagliati.
+    let plan
+    try {
+      plan = buildRustPlan(nodes, edges, pool, runId)
+    } catch (e) {
+      addLog('error', `Compilazione del flusso fallita:\n${(e as Error).message}`)
+      setRunning(false)   // ← adatta al nome reale dello stato "in corso"
+      return
+    }
+    // ← AGGIUNGI QUI
     console.log('[buildRustPlan] plan:', JSON.stringify(sanitizeForLog(plan), null, 2))
     // Avvia il polling degli eventi Rust → aggiorna UI
     startPolling()

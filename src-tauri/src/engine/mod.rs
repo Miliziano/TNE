@@ -32,6 +32,8 @@ pub mod reporter;
 pub mod spec;
 pub mod pool;
 pub mod txregistry;
+pub mod expr_functions;
+
 
 use std::time::Instant;
 use std::collections::HashMap;

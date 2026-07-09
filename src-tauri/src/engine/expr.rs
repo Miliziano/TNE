@@ -237,6 +237,13 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
         }
 
         ExprNode::FunctionCall { name, args } => {
+            if name.eq_ignore_ascii_case("var") {
+                let var_name = match args.first() {
+                    Some(a) => to_string(&eval(a, ctx)),
+                    None    => return Value::Null,
+                };
+                return ctx.variables.get(&var_name).cloned().unwrap_or(Value::Null);
+            }
             let evaluated: Vec<Value> = args.iter().map(|a| eval(a, ctx)).collect();
             eval_function(name, evaluated)
         }
@@ -290,25 +297,34 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
 // ─── Operatori binari ─────────────────────────────────────────────
 
 fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
-    //eprintln!("[expr] op={:?} l={:?} r={:?}", op, l, r);
     match op {
-        // Aritmetici
-        BinaryOperator::Add => numeric_op(l.clone(), r.clone(), |a, b| a + b, |a, b| a + b)
-            .unwrap_or_else(|| {
-                // Fallback: concatenazione stringa se uno dei due è stringa
+        // Add: se ALMENO UNO è stringa → concatena (come JS: "Ordine " + 42).
+        // Altrimenti aritmetica (Int/Float/Decimal esatto). Se l'aritmetica
+        // non è possibile (Null o tipi non numerici) → Null (semantica SQL).
+        // Un valore numerico NON diventa mai una stringa per sbaglio.
+        BinaryOperator::Add => {
+            if matches!(l, Value::String(_)) || matches!(r, Value::String(_)) {
                 Value::String(format!("{}{}", l_str(&l), l_str(&r)))
-            }),
-        BinaryOperator::Sub  => numeric_op(l, r, |a, b| a - b, |a, b| a - b).unwrap_or(Value::Null),
-        BinaryOperator::Mul  => numeric_op(l, r, |a, b| a * b, |a, b| a * b).unwrap_or(Value::Null),
-        BinaryOperator::Div  => {
-            match (&l, &r) {
-                (_, Value::Int(0))   => Value::Null,   // divisione per zero → Null
-                (_, Value::Float(f)) if *f == 0.0 => Value::Null,
-                _ => numeric_op(l, r, |a, b| a / b, |a, b| a / b).unwrap_or(Value::Null),
+            } else {
+                numeric_op(l, r, |a,b| a+b, |a,b| a+b, |a,b| a+b).unwrap_or(Value::Null)
             }
         }
-        BinaryOperator::Mod  => numeric_op(l, r, |a, b| a % b, |a, b| a % b).unwrap_or(Value::Null),
+        BinaryOperator::Sub => numeric_op(l, r, |a,b| a-b, |a,b| a-b, |a,b| a-b).unwrap_or(Value::Null),
+        BinaryOperator::Mul => numeric_op(l, r, |a,b| a*b, |a,b| a*b, |a,b| a*b).unwrap_or(Value::Null),
+        BinaryOperator::Div => {
+            match (&l, &r) {
+                (_, Value::Int(0))                    => Value::Null,
+                (_, Value::Float(f)) if *f == 0.0     => Value::Null,
+                (_, Value::Decimal(d)) if d.is_zero() => Value::Null,
+                _ => numeric_op(l, r, |a,b| a/b, |a,b| a/b, |a,b| a/b).unwrap_or(Value::Null),
+            }
+        }
+        BinaryOperator::Mod => numeric_op(l, r, |a,b| a%b, |a,b| a%b, |a,b| a%b).unwrap_or(Value::Null),
 
+      
+
+        // ... il resto invariato
+    
         // Confronto
         BinaryOperator::Eq  => Value::Bool(values_equal(&l, &r)),
         BinaryOperator::Ne  => Value::Bool(!values_equal(&l, &r)),
@@ -334,6 +350,10 @@ fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
 
 fn eval_function(name: &str, args: Vec<Value>) -> Value {
     let name_lower = name.to_lowercase();
+     // Funzioni aggiuntive (date, encoding, hash, …)
+    if let Some(v) = super::expr_functions::eval_extra(&name_lower, &args) {
+        return v;
+    }
     match name_lower.as_str() {
         // ── Stringa ──────────────────────────────────────────────
         "trim" | "ltrim" | "rtrim" => {
@@ -493,24 +513,7 @@ fn eval_function(name: &str, args: Vec<Value>) -> Value {
         "today" | "current_date" => {
             Value::Date(chrono::Utc::now().format("%Y-%m-%d").to_string())
         }
-        "date_format" => {
-            let dt  = to_string(args.first().unwrap_or(&Value::Null));
-            let fmt = to_string(args.get(1).unwrap_or(&Value::Null));
-            // Conversione formato SQL → chrono: %Y %m %d %H %M %S
-            Value::String(dt)  // TODO: parsing date completo in Fase 6b
-        }
-        "year" | "month" | "day" | "hour" | "minute" | "second" => {
-            let dt = to_string(args.first().unwrap_or(&Value::Null));
-            // Parsing date semplificato
-            if let Ok(parsed) = chrono::NaiveDate::parse_from_str(&dt, "%Y-%m-%d") {
-                match name_lower.as_str() {
-                    "year"  => Value::Int(parsed.format("%Y").to_string().parse().unwrap_or(0)),
-                    "month" => Value::Int(parsed.format("%-m").to_string().parse().unwrap_or(0)),
-                    "day"   => Value::Int(parsed.format("%-d").to_string().parse().unwrap_or(0)),
-                    _       => Value::Null,
-                }
-            } else { Value::Null }
-        }
+      
 
         // Funzione sconosciuta → Null con warning in eprintln
         unknown => {
@@ -629,12 +632,25 @@ fn numeric_op(
     l: Value, r: Value,
     int_op:   impl Fn(i64, i64) -> i64,
     float_op: impl Fn(f64, f64) -> f64,
+    dec_op:   impl Fn(rust_decimal::Decimal, rust_decimal::Decimal) -> rust_decimal::Decimal,
 ) -> Option<Value> {
+    use rust_decimal::Decimal;
+    use rust_decimal::prelude::ToPrimitive;
     match (&l, &r) {
         (Value::Int(a),   Value::Int(b))   => Some(Value::Int(int_op(*a, *b))),
         (Value::Float(a), Value::Float(b)) => Some(Value::Float(float_op(*a, *b))),
         (Value::Int(a),   Value::Float(b)) => Some(Value::Float(float_op(*a as f64, *b))),
         (Value::Float(a), Value::Int(b))   => Some(Value::Float(float_op(*a, *b as f64))),
+
+        // Decimal: aritmetica ESATTA, mai via f64 (NUMERIC, Oracle NUMBER).
+        (Value::Decimal(a), Value::Decimal(b)) => Some(Value::Decimal(dec_op(*a, *b))),
+        (Value::Decimal(a), Value::Int(b))     => Some(Value::Decimal(dec_op(*a, Decimal::from(*b)))),
+        (Value::Int(a),     Value::Decimal(b)) => Some(Value::Decimal(dec_op(Decimal::from(*a), *b))),
+
+        // Decimal con Float: il float è già inesatto, si degrada a float.
+        (Value::Decimal(a), Value::Float(b)) => a.to_f64().map(|af| Value::Float(float_op(af, *b))),
+        (Value::Float(a), Value::Decimal(b)) => b.to_f64().map(|bf| Value::Float(float_op(*a, bf))),
+
         _ => None,
     }
 }

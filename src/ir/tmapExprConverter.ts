@@ -18,6 +18,7 @@
 
 import type { TMapConfig, TMapInput, TMapOutput, TMapOutputField } from '../types'
 import type { JoinPair, JoinFieldExpr } from '../nodes/types/tmap/TMapModal'
+import { parseExpression, ExprParseError } from './exprParser'
 
 // ─── Tipi del Plan ────────────────────────────────────────────────
 // Questi tipi vengono serializzati in JSON e letti da Rust.
@@ -547,50 +548,11 @@ function buildBinaryTree(nodes: ExprNode[]): ExprNode {
 function parseExpressionString(
   expr:           string,
   labelToInputId: Map<string, string>,
-  inputFields:    Map<string, Map<string, string>>,
-): ExprNode {
-  const s = expr.trim()
-
-  if (s === 'null' || s === '') return { kind: 'Literal', value: null }
-  if (s === 'true')  return { kind: 'Literal', value: true }
-  if (s === 'false') return { kind: 'Literal', value: false }
-
-  const num = Number(s)
-  if (!isNaN(num) && s !== '') return { kind: 'Literal', value: num }
-
-  if ((s.startsWith('"') && s.endsWith('"')) ||
-      (s.startsWith("'") && s.endsWith("'"))) {
-    return { kind: 'Literal', value: s.slice(1, -1) }
-  }
-
-  const dollarDot = s.match(/^\$(\w+)\.(\w+)$/)
-  if (dollarDot) {
-    const inputId = labelToInputId.get(dollarDot[1])
-    if (inputId) return { kind: 'FieldRef', input: inputId, field: dollarDot[2] }
-  }
-
-  const labelDot = s.match(/^(\w+)\.(\w+)$/)
-  if (labelDot) {
-    const inputId = labelToInputId.get(labelDot[1])
-    if (inputId) return { kind: 'FieldRef', input: inputId, field: labelDot[2] }
-  }
-
-  // ← FIX: usa oggetto invece di tupla per evitare "possibly undefined"
-  const split = splitByOperator(s)
-  if (split !== null) {
-    const leftExpr  = parseExpressionString(split.left.trim(),  labelToInputId, inputFields)
-    const rightExpr = parseExpressionString(split.right.trim(), labelToInputId, inputFields)
-    return { kind: 'BinaryOp', op: jsOpToRustOp(split.op), left: leftExpr, right: rightExpr }
-  }
-
-  if (/^\w+$/.test(s)) {
-    return { kind: 'DirectFieldRef', field: s }
-  }
-
-  console.warn(`[tmapExprConverter] espressione non parsabile: "${s}" — trattata come literal`)
-  return { kind: 'Literal', value: s }
+  _inputFields:   Map<string, Map<string, string>>,
+  ): ExprNode {
+    return parseExpression(expr, { labelToInputId })
 }
-
+/*
 // ← FIX: restituisce oggetto o null invece di tuple
 function splitByOperator(
   expr: string,
@@ -608,8 +570,8 @@ function splitByOperator(
   }
   return null
 }
-
-
+*/
+/*
 // E sostituisci anche findOperatorOutsideQuotes con questa versione
 // che gestisce correttamente sia ' che ":
 function findOperatorOutsideQuotes(s: string, op: string): number {
@@ -646,6 +608,8 @@ function findOperatorOutsideQuotes(s: string, op: string): number {
   }
   return -1
 }
+*/
+/*
 function jsOpToRustOp(op: string): string {
   const MAP: Record<string, string> = {
     '+': 'ADD', '-': 'SUB', '*': 'MUL', '/': 'DIV',
@@ -654,7 +618,7 @@ function jsOpToRustOp(op: string): string {
   }
   return MAP[op] ?? 'CONCAT'
 }
-
+*/
 // ─── Inferenza dei tipi ───────────────────────────────────────────
 // Risolve il problema di propagazione: il tipo del campo output
 // non è più impostato a mano ma derivato dall'espressione.

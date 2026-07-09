@@ -3,7 +3,7 @@ import { useFlowStore } from '../../../store/flowStore'
 import type { TMapInputField, TMapFieldType } from '../../../types'
 import { FIXED_SCHEMA, isFixedFormat, FIXED_FORMAT_HINT } from '../../fileSchema'
 import { readFile } from '../../../lib/tauri'
-import { readFileContent } from '../../../runner/readers'
+import { readFileContent } from '../../../io/readers'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { readBinaryFile } from '../../../lib/tauri'
 

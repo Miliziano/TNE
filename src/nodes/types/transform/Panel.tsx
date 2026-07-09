@@ -262,7 +262,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
           value={field.presetId}
           onChange={e => onChange({ presetId: e.target.value, params: {}, expression: '' })}>
           {presets.map(p => (
-            <option key={p.id} value={p.id} title={p.desc}>{p.label}</option>
+            <option key={p.id} value={p.id} title={p.description}>{p.label}</option>
           ))}
         </CustomSelect>
 
@@ -320,7 +320,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
           <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: outMeta.bg, color: outMeta.color, fontWeight: 600 }}>
             → {outMeta.label}
           </span>
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>{selectedP.desc}</span>
+          <span style={{ fontSize: 9, color: '#4a5a7a' }}>{selectedP.description}</span>
         </div>
       )}
 
