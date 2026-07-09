@@ -131,3 +131,42 @@ Ogni voce dice: cos'è, perché è rimandata, dove si manifesta.
   3. **Principio: i tipi esotici si risolvono in SQL (linguaggio universale per
     questi casi), non con decoder binari fragili nel motore. Vale per
     qualunque tipo che l'utente sappia castare a un tipo scalare.
+
+## Da aggiungere a docs/TODO.md
+
+  ### Semantica `Add` nel motore espressioni (bug latente, dati sbagliati silenziosi)
+  `eval_binary` in src-tauri/src/engine/expr.rs:
+  ```rust
+  BinaryOperator::Add => numeric_op(...).unwrap_or_else(|| {
+      Value::String(format!("{}{}", l_str(&l), l_str(&r)))   // fallback: concatena
+  }),
+  ```
+  Se la somma numerica fallisce, il motore **concatena come stringhe**, in
+  silenzio. Conseguenze:
+  - `"" + Null`  → `Value::String("")`
+  - `null + 5`   → stringa `"5"` (invece di Null o 5)
+  Un valore stringa così prodotto finisce su una colonna numerica → errore
+  DB criptico (`la colonna "id" è di tipo bigint ma l'espressione è di tipo
+  text`), oppure — peggio — passa silenziosamente dove la colonna è testo.
+
+  Stessa famiglia dei "default silenziosi" già eliminati altrove
+  (keyFields='id' inventato, badge di stato residuo).
+
+  **Da normare:**
+  - `null` in un'operazione aritmetica dovrebbe propagare `Null` (semantica SQL).
+  - La concatenazione dovrebbe avere un operatore dedicato (`||` o `concat()`),
+    non essere il fallback di `+`.
+  - `Sub/Mul/Div/Mod` già ritornano `Null` sul fallimento: `Add` è l'eccezione
+    incoerente.
+
+  Priorità: media-alta. Produce dati errati senza errore quando la
+  destinazione è testuale.
+
+  ### DDL / pre-SQL / post-SQL nel ramo transazionale (in corso)
+  `write_all_tx` e `write_master_detail_tx` NON eseguono DDL né pre/post-SQL:
+  un sink con "crea tabella se non esiste" dentro una transazione fallisce
+  con "la relazione non esiste".
+  Nota dialetti: in PostgreSQL la DDL è transazionale (rollback annulla il
+  CREATE) → si può eseguire dentro il gruppo. In Oracle/MySQL la DDL fa
+  **commit implicito** e spezzerebbe la transazione → servirà una variante
+  che la esegue fuori, su connessione autocommit.

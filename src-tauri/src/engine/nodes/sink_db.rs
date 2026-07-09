@@ -434,6 +434,13 @@ async fn write_all_tx(
     let batch_size = config.batch_size.max(1);
     let sp_name    = savepoint_name(&ctx.node_id.0);
 
+    // DDL + pre-SQL. Se falliscono, il membro è fallito: segnalalo al gruppo
+    // (altrimenti il gruppo non lo saprebbe e potrebbe committare).
+    if let Err(e) = tx_ddl_and_presql(&conn, config).await {
+        ctx.lane_txns.report_member_end(group_id, false).await;
+        return Err(e);
+    }
+
     let mut rows_in = 0u64;
     let mut written = 0u64;
     let mut query_count = 0u32;
@@ -500,7 +507,12 @@ async fn write_all_tx(
             last_prog = Instant::now();
         }
     }
-
+// Post-SQL dentro la transazione (solo se le scritture sono riuscite).
+    if write_result.is_ok() {
+        if let Err(e) = tx_postsql(&conn, config).await {
+            write_result = Err(e);
+        }
+    }
     ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
     write_result?;
     Ok((rows_in, written, query_count))
@@ -530,6 +542,12 @@ async fn write_master_detail_tx(
 
     let batch_size = config.batch_size.max(1);
     let sp_name    = savepoint_name(&ctx.node_id.0);
+    // DDL + pre-SQL. Se falliscono, il membro è fallito: segnalalo al gruppo
+    // (altrimenti il gruppo non lo saprebbe e potrebbe committare).
+    if let Err(e) = tx_ddl_and_presql(&conn, config).await {
+        ctx.lane_txns.report_member_end(group_id, false).await;
+        return Err(e);
+    }
 
     let mut rows_in = 0u64;
     let mut written = 0u64;
@@ -619,7 +637,11 @@ async fn write_master_detail_tx(
             last_prog = Instant::now();
         }
     }
-
+    if write_result.is_ok() {
+        if let Err(e) = tx_postsql(&conn, config).await {
+            write_result = Err(e);
+        }
+    }
     ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
     write_result?;
     Ok((rows_in, written, query_count))
@@ -629,6 +651,58 @@ async fn write_master_detail_tx(
 fn savepoint_name(node_id: &str) -> String {
     format!("sp_{}", node_id.replace(|c: char| !c.is_alphanumeric() && c != '_', "_"))
 }
+
+// DDL + pre-SQL di un membro, eseguiti sulla SUA connessione transazionale.
+// In PostgreSQL la DDL è transazionale: se il gruppo fa rollback, la tabella
+// creata sparisce (coerente con la regola tutto-o-niente).
+// NB: Oracle/MySQL fanno commit implicito sulla DDL → servirà una variante
+// che la esegue fuori transazione (vedi TODO).
+async fn tx_ddl_and_presql(
+    conn:   &std::sync::Arc<tokio::sync::Mutex<sqlx::pool::PoolConnection<sqlx::Postgres>>>,
+    config: &SinkDbConfig,
+    ) -> Result<(), String> {
+    let needs_ddl = config.drop_and_create || config.create_if_not_exists;
+    if !needs_ddl && config.pre_sql.trim().is_empty() {
+        return Ok(());
+    }
+    let mut guard = conn.lock().await;
+
+    if config.drop_and_create {
+        let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
+        eprintln!("[tx][ddl] {}", drop);
+        sqlx::query(&drop).execute(&mut **guard).await
+            .map_err(|e| format!("DROP TABLE fallito: {}", e))?;
+    }
+    if needs_ddl {
+        if let Some(ddl) = build_create_table(config) {
+            eprintln!("[tx][ddl] CREATE TABLE {}", qualified_ddl_table(config));
+            sqlx::query(&ddl).execute(&mut **guard).await
+                .map_err(|e| format!("CREATE TABLE fallito: {}", e))?;
+        }
+    }
+    if !config.pre_sql.trim().is_empty() {
+        for stmt in config.pre_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            sqlx::query(stmt).execute(&mut **guard).await
+                .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
+        }
+    }
+    Ok(())
+}
+
+// Post-SQL di un membro, dentro la transazione, a fine scritture.
+async fn tx_postsql(
+    conn:   &std::sync::Arc<tokio::sync::Mutex<sqlx::pool::PoolConnection<sqlx::Postgres>>>,
+    config: &SinkDbConfig,
+) -> Result<(), String> {
+    if config.post_sql.trim().is_empty() { return Ok(()); }
+    let mut guard = conn.lock().await;
+    for stmt in config.post_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        sqlx::query(stmt).execute(&mut **guard).await
+            .map_err(|e| format!("Post-SQL fallito: {}", e))?;
+    }
+    Ok(())
+}
+
 // Costruisce la DbWriteRequest per un batch transazionale.
 fn build_tx_req(config: &SinkDbConfig, batch: &[serde_json::Value]) -> crate::DbWriteRequest {
     crate::DbWriteRequest {
@@ -840,9 +914,9 @@ fn map_row(row: &Row, cols: &[ColumnDdl]) -> serde_json::Value {
     for c in cols {
         let src = if c.source.is_empty() { c.name.as_str() } else { c.source.as_str() };
         let val = row.get(src).map(|v| v.to_json()).unwrap_or(serde_json::Value::Null);
-        if c.name == "id" {
-            eprintln!("[diag] col='id' src='{}' val={:?}", src, val);
-        }
+        //if c.name == "id" {
+        //    eprintln!("[diag] col='id' src='{}' val={:?}", src, val);
+        //}
         obj.insert(c.name.clone(), val);
     }
     serde_json::Value::Object(obj)

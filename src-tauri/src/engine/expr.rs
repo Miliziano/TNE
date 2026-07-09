@@ -290,7 +290,7 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
 // ─── Operatori binari ─────────────────────────────────────────────
 
 fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
-    eprintln!("[expr] op={:?} l={:?} r={:?}", op, l, r);
+    //eprintln!("[expr] op={:?} l={:?} r={:?}", op, l, r);
     match op {
         // Aritmetici
         BinaryOperator::Add => numeric_op(l.clone(), r.clone(), |a, b| a + b, |a, b| a + b)
