@@ -585,7 +585,10 @@ fn to_int(v: &Value) -> Option<i64> {
         Value::Float(f) => Some(*f as i64),
         Value::Bool(b)  => Some(if *b { 1 } else { 0 }),
         Value::String(s) => s.trim().parse().ok(),
+        
+        // to_int
         Value::Decimal(d) => { use rust_decimal::prelude::ToPrimitive; d.to_i64() },
+
         _ => None,
     }
 }
@@ -596,6 +599,9 @@ fn to_float(v: &Value) -> Option<f64> {
         Value::Float(f)  => Some(*f),
         Value::Bool(b)   => Some(if *b { 1.0 } else { 0.0 }),
         Value::String(s) => s.trim().parse().ok(),
+        // to_float
+        Value::Decimal(d) => { use rust_decimal::prelude::ToPrimitive; d.to_f64() },
+
         _ => None,
     }
 }

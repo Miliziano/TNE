@@ -40,10 +40,22 @@ use crate::engine::types::*;
 use crate::engine::executor::{RowSender, NodeContext};
 
 #[derive(serde::Deserialize)]
+struct FieldType {
+    name: String,
+    #[serde(rename = "type")]
+    ty:   String,
+}
+
+#[derive(serde::Deserialize)]
 struct SourceFileConfig {
     path:       String,
     delimiter:  Option<char>,
     has_header: Option<bool>,
+    /// Tipi dichiarati nel mapping. Un CSV è tutto testo: senza questi,
+    /// `età: integer` resterebbe Value::String("45") e `età * 5` darebbe
+    /// null (numeric_op non converte implicitamente).
+    #[serde(default)]
+    fields:     Vec<FieldType>,
 }
 
 const PROGRESS_EVERY_ROWS: u64 = 500;
@@ -60,6 +72,9 @@ pub async fn run(
     let delimiter  = config.delimiter.unwrap_or(',') as u8;
     let has_header = config.has_header.unwrap_or(true);
     let path       = config.path.clone();
+    let type_of: std::collections::HashMap<&str, &str> = config.fields.iter()
+        .map(|f| (f.name.as_str(), f.ty.as_str()))
+        .collect();
 
     let tx = match tx {
         Some(t) => t,
@@ -143,8 +158,14 @@ pub async fn run(
                 // Costruisci la Row dalla lista [key, val, key, val, ...]
                 let mut row = Row::new();
                 let mut i = 0;
-                while i + 1 < keyed.len() {
-                    row.set(keyed[i].clone(), Value::String(keyed[i + 1].clone()));
+                 while i + 1 < keyed.len() {
+                    let name = &keyed[i];
+                    let raw  = &keyed[i + 1];
+                    let value = match type_of.get(name.as_str()) {
+                        Some(t) => coerce(raw, t),
+                        None    => Value::String(raw.clone()),  // tipo non dichiarato
+                    };
+                    row.set(name.clone(), value);
                     i += 2;
                 }
 
@@ -199,4 +220,27 @@ fn parse_csv_line(line: &str, delimiter: u8) -> Vec<String> {
     }
     fields.push(current.trim().to_string());
     fields
+}
+
+/// Converte il testo di una cella CSV nel Value corrispondente al tipo
+/// dichiarato nel mapping. Un valore non convertibile diventa Null:
+/// meglio un null visibile che uno zero silenzioso.
+fn coerce(raw: &str, ty: &str) -> Value {
+    let t = raw.trim();
+    if t.is_empty() { return Value::Null }
+
+    match ty {
+        "integer" => t.parse::<i64>().map(Value::Int).unwrap_or(Value::Null),
+        "float"   => t.parse::<f64>().map(Value::Float).unwrap_or(Value::Null),
+        "decimal" => t.parse::<rust_decimal::Decimal>().map(Value::Decimal).unwrap_or(Value::Null),
+        "boolean" => match t.to_lowercase().as_str() {
+            "true"  | "1" | "si" | "sì" | "yes" | "y" | "t" => Value::Bool(true),
+            "false" | "0" | "no" | "n"  | "f"               => Value::Bool(false),
+            _ => Value::Null,
+        },
+        "date" | "datetime" => Value::String(t.to_string()),  // il motore parsa on-demand
+        "object" => serde_json::from_str::<serde_json::Value>(t)
+            .map(Value::Object).unwrap_or(Value::String(t.to_string())),
+        _ => Value::String(t.to_string()),   // string, any, sconosciuto
+    }
 }

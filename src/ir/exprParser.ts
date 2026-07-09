@@ -60,6 +60,8 @@ interface Token {
   pos:  number
   /** per 'num' */ num?: number
   /** per 'str' */ str?: string
+  /** per 'ident': era racchiuso in backtick → mai una parola chiave */
+  quoted?: boolean
 }
 
 /** Operatori multi-carattere, ordinati per lunghezza decrescente. */
@@ -69,13 +71,31 @@ function tokenize(src: string): Token[] {
   const toks: Token[] = []
   let i = 0
 
-  const isIdentStart = (c: string) => /[A-Za-z_]/.test(c)
-  const isIdentChar  = (c: string) => /[A-Za-z0-9_]/.test(c)
+  // Identificatori Unicode: i nomi dei campi possono contenere accenti
+  // (età, città), lettere non latine, ecc. `\p{L}` = qualsiasi lettera,
+  // `\p{N}` = qualsiasi cifra. Il flag `u` abilita le proprietà Unicode.
+  const isIdentStart = (c: string) => /[\p{L}_$]/u.test(c)
+  const isIdentChar  = (c: string) => /[\p{L}\p{N}_$]/u.test(c)
 
   while (i < src.length) {
     const c = src[i]
 
     if (/\s/.test(c)) { i++; continue }
+
+    // Identificatore quotato: `data ordine`, `costo/unità`
+    // Distinto dalle stringhe: serve per i nomi di campo che contengono
+    // spazi o punteggiatura, come in SQL ("nome") o MySQL (`nome`).
+    if (c === '`') {
+      const start = i
+      i++
+      let name = ''
+      while (i < src.length && src[i] !== '`') { name += src[i]; i++ }
+      if (i >= src.length) throw new ExprParseError('identificatore non chiuso: manca `', start, src)
+      i++
+      if (!name) throw new ExprParseError('identificatore vuoto: ``', start, src)
+      toks.push({ kind: 'ident', text: name, pos: start, quoted: true })
+      continue
+    }
 
     // Stringa: "..." o '...' con escape \" \' \\ \n \t
     if (c === '"' || c === "'") {
@@ -273,6 +293,17 @@ class Parser {
     }
 
     if (t.kind === 'ident') {
+      // Identificatore quotato: sempre un campo, mai parola chiave o funzione.
+      if (t.quoted) {
+        this.next()
+        if (this.at('dot')) {
+          this.next()
+          const f = this.expect('ident', 'atteso nome campo dopo "."')
+          return this.qualifiedField(t.text, f.text, t.pos)
+        }
+        return { kind: 'DirectFieldRef', field: t.text }
+      }
+
       const lower = t.text.toLowerCase()
 
       if (lower === 'true')  { this.next(); return { kind: 'Literal', value: true } }
