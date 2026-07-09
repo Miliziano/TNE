@@ -19,6 +19,7 @@ import type {
   Reporter, MonitorEvent, ExecutionSummary,
   MemorySnapshot, NodeTiming, ConnectionEvent, LoiteringObject,
 } from '../monitoring/MonitoringBus'
+import { useFlowStore } from '../store/flowStore'
 
 // ─── Costanti ─────────────────────────────────────────────────────
 
@@ -300,20 +301,37 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
   )
 }
 
-// ─── Lista connessioni ────────────────────────────────────────────
 
-function ConnectionList({ connections }: { connections: ConnectionEvent[] }) {
-  // Albero: risorsa → connessioni (una per nodo, matchando open↔close/error
-  // per id). Il nodo arriva in `detail` (impostato all'apertura).
-  type Conn = { node: string; status: 'open' | 'closed' | 'error'; durationMs?: number }
+
+// ─── Lista connessioni (raggruppata per contesto di connessione) ────
+//
+// ONESTÀ DEI DATI (requisito esplicito):
+// - I numeri mostrati sono OSSERVATI dagli eventi: quali nodi hanno usato
+//   una risorsa, per quanto, con che esito. Mai dedotti.
+// - Il RAGGRUPPAMENTO riflette la CONFIGURAZIONE dichiarata (il nodo ha o
+//   non ha un transactionId): è un fatto verificabile, non un'ipotesi
+//   sulle connessioni fisiche, che il monitor NON osserva.
+// - Non affermiamo mai "N connessioni fisiche": mostriamo "N nodi", che è
+//   ciò che gli eventi dicono davvero.
+// - Un nodo senza evento di chiusura a run terminato è "stato ignoto",
+//   non "aperta": a run finito la lane ha chiuso tutto (close_all), quindi
+//   dire "aperta" sarebbe falso.
+
+function ConnectionList({ connections, runEnded }: { connections: ConnectionEvent[]; runEnded: boolean }) {
+  const pool  = useFlowStore((s) => s.pool)
+  const nodes = useFlowStore((s) => s.nodes)
+
+  type Conn = { node: string; nodeId?: string; status: 'open' | 'closed' | 'error'; durationMs?: number }
+
+  // 1. Raccoglie gli usi OSSERVATI, per risorsa.
   const byResource = new Map<string, { resource: string; type: string; conns: Map<string, Conn> }>()
-
   for (const c of connections) {
     const key = `${c.resource}::${c.type}`
     if (!byResource.has(key)) byResource.set(key, { resource: c.resource, type: c.type, conns: new Map() })
     const grp = byResource.get(key)!
-    const cur: Conn = grp.conns.get(c.id) ?? { node: c.detail ?? c.id, status: 'open' }
+    const cur: Conn = grp.conns.get(c.id) ?? { node: c.detail ?? c.id, nodeId: c.nodeId, status: 'open' }
     if (c.detail) cur.node = c.detail
+    if (c.nodeId) cur.nodeId = c.nodeId
     if (c.action === 'close') { cur.status = 'closed'; cur.durationMs = c.durationMs }
     if (c.action === 'error') { cur.status = 'error';  cur.durationMs = c.durationMs }
     grp.conns.set(c.id, cur)
@@ -323,36 +341,91 @@ function ConnectionList({ connections }: { connections: ConnectionEvent[] }) {
     return <div style={{ padding: '10px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>Nessuna connessione</div>
   }
 
-  const statusColor = (s: Conn['status']) => s === 'error' ? RED : s === 'open' ? ORANGE : GREEN
-  const statusLabel = (s: Conn['status']) => s === 'error' ? '✗ errore' : s === 'open' ? '● aperta' : '✓ chiusa'
+  // 2. Per ogni nodo, il contesto di connessione DICHIARATO (config, non dedotto).
+  const txOfNode = (nodeId?: string): { id: string; name: string; mode: string } | null => {
+    if (!nodeId) return null
+    const n = nodes.find((x) => x.id === nodeId)
+    const txId = n?.data.props?.['transactionId']
+    if (!txId) return null
+    const lane = pool.lanes.find((l) => l.id === n?.data.laneId)
+    const tx = (lane?.transactions ?? []).find((t) => t.id === txId)
+    return tx ? { id: tx.id, name: tx.name, mode: tx.mode } : null
+  }
+
+  const statusColor = (s: Conn['status']) =>
+    s === 'error' ? RED : s === 'open' ? (runEnded ? '#6b7280' : ORANGE) : GREEN
+  const statusLabel = (s: Conn['status']) =>
+    s === 'error' ? '✗ errore'
+    : s === 'open' ? (runEnded ? '? stato ignoto' : '● in uso')
+    : '✓ chiusa'
+
+  const fmt = (ms?: number) => ms === undefined ? '—' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)} s`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {[...byResource.values()].map(({ resource, type, conns }) => {
-        const list      = [...conns.values()]
-        const openCount = list.filter(c => c.status === 'open').length
+        const list = [...conns.values()]
+
+        // Raggruppa per contesto dichiarato: transazione X, oppure autocommit.
+        const groups = new Map<string, { label: string; mode?: string; items: Conn[] }>()
+        for (const c of list) {
+          const tx = txOfNode(c.nodeId)
+          const key = tx ? `tx:${tx.id}` : 'autocommit'
+          if (!groups.has(key)) {
+            groups.set(key, tx
+              ? { label: tx.name, mode: tx.mode, items: [] }
+              : { label: 'Autocommit', items: [] })
+          }
+          groups.get(key)!.items.push(c)
+        }
+
         return (
-          <div key={`${resource}::${type}`} style={{ borderBottom: '0.5px solid #1e2535' }}>
-            {/* Header risorsa */}
-            <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8, background: '#161b27' }}>
+          <div key={`${resource}::${type}`} style={{ borderBottom: '1px solid #1e2535' }}>
+            {/* Intestazione risorsa — conteggio OSSERVATO: nodi, non connessioni */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', background: '#161b27' }}>
               <i className="ti ti-plug-connected" style={{ fontSize: 12, color: ORANGE }} />
-              <span style={{ fontSize: 11, color: '#c8d4f0', fontWeight: 600 }}>{resource}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>{resource}</span>
               <span style={{ fontSize: 9, color: '#4a5a7a' }}>{type}</span>
-              <span style={{ fontSize: 9, color: '#4a5a7a', marginLeft: 'auto' }}>
-                {list.length} {list.length === 1 ? 'connessione' : 'connessioni'}
+              <span style={{ fontSize: 9, marginLeft: 'auto', color: '#4a5a7a' }}>
+                {list.length} {list.length === 1 ? 'nodo' : 'nodi'}
               </span>
-              {openCount > 0 && <span style={{ fontSize: 9, color: ORANGE, fontWeight: 600 }}>⚠ {openCount} aperte</span>}
             </div>
-            {/* Nodi che usano la risorsa */}
-            {list.map((c, i) => (
-              <div key={i} style={{ padding: '4px 10px 4px 26px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: '#2a3349', flexShrink: 0 }}>{i === list.length - 1 ? '└' : '├'}</span>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(c.status), flexShrink: 0 }} />
-                <span style={{ fontSize: 10, color: '#c8d4f0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.node}</span>
-                <span style={{ fontSize: 9, color: statusColor(c.status) }}>{statusLabel(c.status)}</span>
-                {c.durationMs != null && <span style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace' }}>{ms(c.durationMs)}</span>}
-              </div>
-            ))}
+
+            {[...groups.entries()].map(([key, grp]) => {
+              const isTx    = key.startsWith('tx:')
+              const txColor = grp.mode === 'xa' ? '#f59e0b' : '#34d399'
+              return (
+                <div key={key}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px 4px 22px',
+                                background: '#12161f' }}>
+                    <i className={isTx ? 'ti ti-arrows-exchange' : 'ti ti-circle-dot'}
+                       style={{ fontSize: 10, color: isTx ? txColor : '#4a5a7a' }} />
+                    <span style={{ fontSize: 10, fontWeight: 600, color: isTx ? txColor : '#9a9aaa' }}>
+                      {grp.label}
+                    </span>
+                    {isTx && (
+                      <span style={{ fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                                     background: `${txColor}20`, color: txColor, border: `0.5px solid ${txColor}50` }}>
+                        {grp.mode?.toUpperCase()}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 9, marginLeft: 'auto', color: '#4a5a7a' }}>
+                      {grp.items.length} {grp.items.length === 1 ? 'nodo' : 'nodi'}
+                    </span>
+                  </div>
+
+                  {grp.items.map((c, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                                          padding: '4px 10px 4px 38px', fontSize: 10 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(c.status) }} />
+                      <span style={{ color: '#c8d4f0' }}>{c.node}</span>
+                      <span style={{ marginLeft: 'auto', color: statusColor(c.status) }}>{statusLabel(c.status)}</span>
+                      <span style={{ color: '#4a5a7a', minWidth: 52, textAlign: 'right' }}>{fmt(c.durationMs)}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         )
       })}
@@ -770,7 +843,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
             {activeTab === 'connections' && (
               <div style={card}>
                 <div style={sectionTitle(ORANGE)}>Connessioni risorse</div>
-                <ConnectionList connections={connections} />
+                <ConnectionList connections={connections} runEnded={isRunning} />
               </div>
             )}
 

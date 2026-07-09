@@ -59,6 +59,7 @@ export interface NodeTiming {
 
 export interface ConnectionEvent {
   id:          string   // uuid generato
+  nodeId?:     string   // ← id del nodo che ha usato la risorsa (per raggruppare)
   resource:    string   // label della risorsa
   type:        'db' | 'ftp' | 'http' | 'kafka' | 'mqtt' | 'other'
   action:      'open' | 'close' | 'error' | 'query'
@@ -342,11 +343,11 @@ class MonitoringBusClass {
 
   // ── Connessioni ─────────────────────────────────────────────────
 
-  connectionOpen(resource: string, type: ConnectionEvent['type'], detail?: string): string {
+  connectionOpen(resource: string, type: ConnectionEvent['type'], detail?: string, nodeId?: string): string {
     if (!this._enabled) return ''
     const id = generateId()
     const event: ConnectionEvent = {
-      id, resource, type, action: 'open',
+      id, nodeId, resource, type, action: 'open',
       timestamp: Date.now(), detail,
     }
     this.openConnections.set(id, event)

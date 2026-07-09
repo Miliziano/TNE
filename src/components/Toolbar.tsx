@@ -99,6 +99,7 @@ console.log('[evt]', ev.event.type)
               resourceLabel(store, p.resource_id ?? '', p.node_id),
               connType(p.conn_type),
               store.nodes.find(n => n.id === p.node_id)?.data.label ?? p.node_id,
+              p.node_id,   // ← nodeId, per il raggruppamento onesto nel monitor
             )
             _connIds.set(p.node_id, id)
             break

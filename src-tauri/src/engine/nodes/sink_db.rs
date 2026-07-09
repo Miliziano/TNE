@@ -284,13 +284,17 @@ pub async fn run(
     // percorso normale (autocommit sul pool).
     let tx_group = config.transaction_id.clone();
 
-    let outcome = if !tx_group.is_empty() {
-        // Percorso transazionale (native, PostgreSQL). Master-detail in
-        // transazione: TODO — per ora il ramo transazionale usa write_all_tx.
+   let outcome = if !tx_group.is_empty() {
         if config.dialect != "postgresql" {
             return Err(format!("sink_db {}: transazioni supportate solo su PostgreSQL (per ora)", ctx.node_id.0));
         }
-        write_all_tx(&ctx, &pool, &config, rx, &tx_group, &start).await
+        if config.passthrough_md {
+            // Master-detail DENTRO transazione: riga-per-riga con RETURNING,
+            // chunked, lock rilasciato prima di inoltrare (no deadlock col detail).
+            write_master_detail_tx(&ctx, &pool, &config, rx, tx, &tx_group, &start).await
+        } else {
+            write_all_tx(&ctx, &pool, &config, rx, &tx_group, &start).await
+        }
     } else if config.passthrough_md {
         write_master_detail(&ctx, &pool, &config, rx, tx, &start).await
     } else {
@@ -394,16 +398,23 @@ async fn write_all(
     Ok((rows_in, written, query_count))
 }
 
-// Scrittura DENTRO una transazione di gruppo (L3 native, PostgreSQL).
-// Ottiene la connessione condivisa dal registro (BEGIN già aperto),
-// scrive le righe su di essa, poi segnala done/failure e tenta la
-// finalizzazione (commit/rollback se è l'ultimo membro).
+// ═══ SOSTITUISCE write_all_tx E AGGIUNGE write_master_detail_tx ═══
+// in src-tauri/src/engine/nodes/sink_db.rs
+//
+// MODELLO (deciso con l'utente):
+// - Streaming a CHUNK, mai "tutto in memoria": si bufferizzano al più
+//   `batch_size` righe, poi si scrive.
+// - Per ogni chunk: lock → SAVEPOINT → scrivi → RELEASE/ROLLBACK TO → unlock.
+//   Lo stack savepoint è SEMPRE pulito quando il lock viene rilasciato:
+//   i membri non intrecciano mai i loro savepoint (era il bug
+//   "il punto di salvataggio non esiste").
+// - Il lock è rilasciato PRIMA di inoltrare le righe a valle: un master e
+//   il suo detail possono stare nello stesso gruppo senza deadlock.
+// - Regola tutto-o-niente: se un membro fallisce, il gruppo fa ROLLBACK
+//   totale a fine lane. Il savepoint per-chunk serve a non avvelenare la
+//   connessione, così ogni membro riporta il SUO vero esito.
 
-// Serializza il membro: prende il lock sulla connessione UNA volta e lo
-// tiene per savepoint + scritture + release. Così i savepoint di membri
-// diversi non si intrecciano (lo stack resta ordinato) e la connessione
-// non viene avvelenata (ROLLBACK TO ripulisce prima che il prossimo entri).
-
+// ── Scrittura transazionale a batch (nessun master-detail) ────────
 async fn write_all_tx(
     ctx:      &NodeContext,
     pool:     &crate::engine::pool::DbPool,
@@ -411,87 +422,212 @@ async fn write_all_tx(
     mut rx:   RowReceiver,
     group_id: &str,
     start:    &Instant,
-    ) -> Result<(u64, u64, u32), String> {
+) -> Result<(u64, u64, u32), String> {
     use crate::engine::pool::DbPool;
 
     let pg_pool = match pool {
         DbPool::Pg(p) => p,
-        _ => return Err("transazioni solo su PostgreSQL (per ora)".to_string()),
+        _ => return Err("transazioni supportate solo su PostgreSQL (per ora)".to_string()),
     };
+    let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
 
-    let conn = ctx.lane_txns.get_pg_conn(group_id, pg_pool).await?;
+    let batch_size = config.batch_size.max(1);
+    let sp_name    = savepoint_name(&ctx.node_id.0);
 
-    let batch_size  = config.batch_size;
     let mut rows_in = 0u64;
     let mut written = 0u64;
-    let mut last_prog = Instant::now();
     let mut query_count = 0u32;
+    let mut last_prog = Instant::now();
+    let mut buf: Vec<serde_json::Value> = Vec::with_capacity(batch_size);
 
-    // PRIMA raccoglie TUTTE le righe dal canale (senza tenere il lock:
-    // la lettura dal canale può attendere, e non vogliamo bloccare la
-    // connessione mentre aspettiamo dati). Poi scrive tutto in un colpo
-    // tenendo il lock per l'intero ciclo del membro.
-    let mut all_rows: Vec<serde_json::Value> = Vec::new();
-    while let Some(row) = rx.recv().await {
-        rows_in += 1;
-        let json_row = if config.columns_ddl.is_empty() {
-            row.to_json_object()
-        } else {
-            map_row(&row, &config.columns_ddl)
-        };
-        all_rows.push(json_row);
-    }
+    let mut write_result: Result<(), String> = Ok(());
 
-    let sp_name = format!("sp_{}", ctx.node_id.0.replace(|c: char| !c.is_alphanumeric() && c != '_', "_"));
-
-    // Prende il lock UNA volta: il membro è atomico rispetto agli altri
-    // membri del gruppo (serializzazione a livello di membro, non di query).
-    let write_result: Result<(), String> = {
-        let mut guard = conn.lock().await;
-
-        // SAVEPOINT del membro
-        if let Err(e) = sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
-            return Err(format!("SAVEPOINT fallito: {}", e));
-        }
-
-        // Scrive tutti i batch sulla connessione bloccata.
-        let mut res: Result<(), String> = Ok(());
-        for chunk in all_rows.chunks(batch_size.max(1)) {
-            let req = build_tx_req(config, chunk);
-            match crate::pg_write_conn(&mut **guard, &req, Instant::now()).await {
-                Ok(r) => {
-                    written += r.rows_written as u64;
-                    query_count += 1;
-                    let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
-                        || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
-                    if should_prog {
-                        let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
-                        ctx.emit_progress(rows_in, written, 0, rps);
-                        last_prog = Instant::now();
-                    }
+    'outer: loop {
+        // 1. Bufferizza fino a batch_size righe (SENZA lock).
+        buf.clear();
+        while buf.len() < batch_size {
+            match rx.recv().await {
+                Some(row) => {
+                    rows_in += 1;
+                    buf.push(if config.columns_ddl.is_empty() {
+                        row.to_json_object()
+                    } else {
+                        map_row(&row, &config.columns_ddl)
+                    });
                 }
-                Err(e) => { res = Err(e); break; }
+                None => break, // canale chiuso
+            }
+        }
+        if buf.is_empty() { break 'outer; }
+
+        // 2. Scrive il chunk sotto lock, dentro un savepoint che apre e
+        //    chiude nello stesso lock: stack sempre pulito all'uscita.
+        let chunk_res: Result<u64, String> = {
+            let mut guard = conn.lock().await;
+            match sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
+                Ok(_) => {}
+                Err(e) => { write_result = Err(format!("SAVEPOINT fallito: {}", e)); break 'outer; }
+            }
+            let req = build_tx_req(config, &buf);
+            let r = crate::pg_write_conn(&mut **guard, &req, Instant::now()).await
+                .map(|res| res.rows_written as u64);
+
+            let sp_sql = if r.is_ok() {
+                format!("RELEASE SAVEPOINT {}", sp_name)
+            } else {
+                format!("ROLLBACK TO SAVEPOINT {}", sp_name)
+            };
+            if let Err(e) = sqlx::query(&sp_sql).execute(&mut **guard).await {
+                eprintln!("[tx] {} fallito: {}", sp_sql, e);
+            }
+            r
+        }; // lock rilasciato
+
+        match chunk_res {
+            Ok(w) => { written += w; query_count += 1; }
+            Err(e) => {
+                eprintln!("[tx] membro {} fallito (chunk annullato, connessione pulita)", ctx.node_id.0);
+                write_result = Err(e);
+                break 'outer;
             }
         }
 
-        // Chiude il savepoint secondo l'esito, ancora sotto lock.
-        let sp_sql = if res.is_ok() {
-            format!("RELEASE SAVEPOINT {}", sp_name)
-        } else {
-            format!("ROLLBACK TO SAVEPOINT {}", sp_name)
-        };
-        if let Err(e) = sqlx::query(&sp_sql).execute(&mut **guard).await {
-            eprintln!("[tx] {} fallito: {}", sp_sql, e);
-        } else if res.is_err() {
-            eprintln!("[tx] membro {} fallito: ROLLBACK TO {} (isolato)", ctx.node_id.0, sp_name);
+        let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
+            || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
+        if should_prog {
+            let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+            ctx.emit_progress(rows_in, written, 0, rps);
+            last_prog = Instant::now();
         }
-        res
-    }; // il lock viene rilasciato qui: il membro successivo può entrare
+    }
 
     ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
-
     write_result?;
     Ok((rows_in, written, query_count))
+}
+
+// ── Master-detail DENTRO una transazione ──────────────────────────
+// Scrive riga-per-riga con RETURNING (serve la corrispondenza 1:1
+// riga↔chiave), bufferizzando a chunk: il lock è preso per il chunk,
+// rilasciato prima di inoltrare al detail (che può essere membro dello
+// stesso gruppo → senza rilascio ci sarebbe deadlock).
+async fn write_master_detail_tx(
+    ctx:      &NodeContext,
+    pool:     &crate::engine::pool::DbPool,
+    config:   &SinkDbConfig,
+    mut rx:   RowReceiver,
+    tx:       Option<RowSender>,
+    group_id: &str,
+    start:    &Instant,
+) -> Result<(u64, u64, u32), String> {
+    use crate::engine::pool::DbPool;
+
+    let pg_pool = match pool {
+        DbPool::Pg(p) => p,
+        _ => return Err("master-detail transazionale: solo PostgreSQL (per ora)".to_string()),
+    };
+    let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
+
+    let batch_size = config.batch_size.max(1);
+    let sp_name    = savepoint_name(&ctx.node_id.0);
+
+    let mut rows_in = 0u64;
+    let mut written = 0u64;
+    let mut query_count = 0u32;
+    let mut last_prog = Instant::now();
+
+    // Buffer: righe ORIGINALI (per l'inoltro) + JSON mappato (per la scrittura).
+    let mut buf: Vec<(Row, serde_json::Value)> = Vec::with_capacity(batch_size);
+    let mut write_result: Result<(), String> = Ok(());
+
+    'outer: loop {
+        buf.clear();
+        while buf.len() < batch_size {
+            match rx.recv().await {
+                Some(row) => {
+                    rows_in += 1;
+                    let json_row = if config.columns_ddl.is_empty() {
+                        row.to_json_object()
+                    } else {
+                        map_row(&row, &config.columns_ddl)
+                    };
+                    buf.push((row, json_row));
+                }
+                None => break,
+            }
+        }
+        if buf.is_empty() { break 'outer; }
+
+        // Scrive il chunk riga-per-riga con RETURNING, sotto lock.
+        // Le righe arricchite vengono accumulate e inoltrate DOPO il rilascio.
+        let mut enriched_batch: Vec<Row> = Vec::with_capacity(buf.len());
+        let chunk_res: Result<(), String> = {
+            let mut guard = conn.lock().await;
+            if let Err(e) = sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
+                write_result = Err(format!("SAVEPOINT fallito: {}", e));
+                break 'outer;
+            }
+
+            let mut res: Result<(), String> = Ok(());
+            for (orig_row, json_row) in &buf {
+                let mut req = build_tx_req(config, std::slice::from_ref(json_row));
+                req.batch_size       = 1;
+                req.returning_column = Some(config.md_source_column.clone());
+
+                match crate::pg_write_conn(&mut **guard, &req, Instant::now()).await {
+                    Ok(r) => {
+                        written += r.rows_written as u64;
+                        query_count += 1;
+                        let key = r.generated_keys.into_iter().next().map(Value::from_json);
+                        let mut enriched = orig_row.clone();
+                        enriched.set(config.md_output_field.clone(), key.unwrap_or(Value::Null));
+                        enriched_batch.push(enriched);
+                    }
+                    Err(e) => { res = Err(e); break; }
+                }
+            }
+
+            let sp_sql = if res.is_ok() {
+                format!("RELEASE SAVEPOINT {}", sp_name)
+            } else {
+                format!("ROLLBACK TO SAVEPOINT {}", sp_name)
+            };
+            if let Err(e) = sqlx::query(&sp_sql).execute(&mut **guard).await {
+                eprintln!("[tx] {} fallito: {}", sp_sql, e);
+            }
+            res
+        }; // lock RILASCIATO: ora il detail può scrivere
+
+        if let Err(e) = chunk_res {
+            eprintln!("[tx] master-detail {} fallito (chunk annullato)", ctx.node_id.0);
+            write_result = Err(e);
+            break 'outer;
+        }
+
+        // Inoltra le righe arricchite al nodo a valle (fuori dal lock).
+        if let Some(ref tx) = tx {
+            for enriched in enriched_batch {
+                if tx.send(enriched).await.is_err() { break 'outer; }
+            }
+        }
+
+        let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
+            || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
+        if should_prog {
+            let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+            ctx.emit_progress(rows_in, written, 0, rps);
+            last_prog = Instant::now();
+        }
+    }
+
+    ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
+    write_result?;
+    Ok((rows_in, written, query_count))
+}
+
+// Nome savepoint valido come identificatore SQL.
+fn savepoint_name(node_id: &str) -> String {
+    format!("sp_{}", node_id.replace(|c: char| !c.is_alphanumeric() && c != '_', "_"))
 }
 // Costruisce la DbWriteRequest per un batch transazionale.
 fn build_tx_req(config: &SinkDbConfig, batch: &[serde_json::Value]) -> crate::DbWriteRequest {
@@ -704,7 +840,9 @@ fn map_row(row: &Row, cols: &[ColumnDdl]) -> serde_json::Value {
     for c in cols {
         let src = if c.source.is_empty() { c.name.as_str() } else { c.source.as_str() };
         let val = row.get(src).map(|v| v.to_json()).unwrap_or(serde_json::Value::Null);
-        //eprintln!("[md-write] col='{}' src='{}' val={:?}", c.name, src, val);
+        if c.name == "id" {
+            eprintln!("[diag] col='id' src='{}' val={:?}", src, val);
+        }
         obj.insert(c.name.clone(), val);
     }
     serde_json::Value::Object(obj)
