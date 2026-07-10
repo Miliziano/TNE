@@ -590,6 +590,48 @@ async fn run_node(
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::window::run(ctx, rx, tx).await
         }
+        "union" => {
+            let tx = take_primary_output(&mut outputs)
+                .ok_or_else(|| format!("union {} richiede un output collegato", ctx.node_id.0))?;
+
+            // L'ordine degli input determina l'ordine di `concat`.
+            // Non si può usare l'ordine del HashMap (non deterministico):
+            // si ricostruisce da config.union_inputs, che il pannello
+            // popola nell'ordine di collegamento.
+            //   input_main → primo
+            //   union_input_<id> → nell'ordine dichiarato
+            let mut ordered: Vec<(String, RowReceiver)> = Vec::new();
+
+            if let Some(rx) = inputs.remove("input_main") {
+                ordered.push(("input_main".to_string(), rx));
+            }
+
+            if let Some(list) = ctx.config.get("union_inputs").and_then(|v| v.as_array()) {
+                for item in list {
+                    if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                        if let Some(rx) = inputs.remove(id) {
+                            ordered.push((id.to_string(), rx));
+                        }
+                    }
+                }
+            }
+
+            // Handle collegati ma non dichiarati in union_inputs: li accodiamo
+            // in ordine alfabetico, per determinismo.
+            let mut leftover: Vec<String> = inputs.keys().cloned().collect();
+            leftover.sort();
+            for h in leftover {
+                if let Some(rx) = inputs.remove(&h) {
+                    ordered.push((h, rx));
+                }
+            }
+
+            if ordered.is_empty() {
+                return Err(format!("union {}: nessun flusso collegato", ctx.node_id.0));
+            }
+
+            super::nodes::union::run(ctx, ordered, tx).await
+        }
 
         // ── Passthrough residui (multi-input consapevole) ──────────
         // union/join/data_quality: ora RICEVONO tutti i loro input
@@ -597,7 +639,7 @@ async fn run_node(
         // implementazioni vere concatenano gli ingressi in sequenza
         // sull'uscita primaria. Per union è già semanticamente una
         // concat; data_quality va implementato.
-        "union" | "data_quality" | "script" | "watchdog" |
+         "data_quality" | "script" | "watchdog" |
         "source_http" | "source_ftp" | "source_mqtt" |
         "source_activemq" | "source_kafka" |
         "sink_kafka" | "sink_ftp" | "sink_mqtt" |

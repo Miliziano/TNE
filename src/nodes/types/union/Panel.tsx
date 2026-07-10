@@ -159,22 +159,7 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
         </Field>
       )}
 
-      {/* Ordinamento output */}
-      {unionMode !== 'zip' && (
-        <Field label="Ordinamento output" hint="Solo per modalità concat e interleave">
-          <CustomSelect style={inputStyle} value={p('outputOrder', 'natural')} onChange={u('outputOrder')}>
-            <option value="natural">Naturale — ordine di arrivo</option>
-            <option value="field_asc">Per campo ASC (specifica sotto)</option>
-            <option value="field_desc">Per campo DESC (specifica sotto)</option>
-          </CustomSelect>
-        </Field>
-      )}
-      {(p('outputOrder') === 'field_asc' || p('outputOrder') === 'field_desc') && (
-        <Field label="Campo di ordinamento">
-          <input style={inputStyle} value={p('orderField')} onChange={u('orderField')} placeholder="data_creazione" />
-        </Field>
-      )}
-
+      
       {/* Output */}
       <SectionTitle label="Output del nodo" color="#4a5a7a" />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.8 }}>

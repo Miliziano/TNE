@@ -409,13 +409,28 @@ function buildRustPlan(
         : null
       switch (node.data.type) {
 
-     
-
         case 'source_file': {
+          // I tipi dichiarati nel mapping servono al motore per convertire
+          // i valori: un CSV è tutto testo, ma `età: integer` deve produrre
+          // Value::Int(45), non Value::String("45") — altrimenti `età * 5`
+          // dà null (numeric_op non fa conversioni implicite).
+          //
+          // La chiave è il physicalName (il nome nell'header del CSV), non
+          // il nome logico: source_file legge l'header e non rinomina.
+          let fields: Array<{ name: string; type: string }> = []
+          try {
+            const raw = props['outputSchema']
+            if (raw) {
+              fields = (JSON.parse(raw) as Array<{ name: string; type: string; physicalName?: string }>)
+                .map(f => ({ name: f.physicalName ?? f.name, type: f.type }))
+            }
+          } catch { /* schema assente o illeggibile: nessuna conversione */ }
+
           config = {
             path:       props['path']       ?? '',
             delimiter:  props['delimiter']  ?? ',',
             has_header: props['has_header'] !== 'false',
+            fields,
           }
           break
         }
@@ -555,6 +570,39 @@ function buildRustPlan(
         case 'bridge_in': {
           const bridgeId = props['channelName'] ?? node.data.config?.['channelName'] ?? ''
           config = { bridge_id: bridgeId }
+          break
+        }
+
+        case 'union': {
+          // Lo schema di uscita è deciso a design-time dal MappingPanel,
+          // che salva la mappatura in props['unionMapping'].
+          // Il motore la applica: nessuna inferenza a runtime.
+          let fields: unknown[] = []
+          try {
+            const raw = props['unionMapping']
+            if (raw) fields = JSON.parse(raw as string)
+          } catch {
+            throw new Error(`Union "${node.data.label}": mappatura campi illeggibile`)
+          }
+
+          // Etichette leggibili degli handle, per il campo _union_source
+          const unionInputs = (node.data.config as any)?.unionInputs ?? []
+          const handleLabels: Record<string, string> = { input_main: 'flusso 1' }
+          for (const inp of unionInputs) {
+            handleLabels[inp.id] = inp.label ?? inp.id
+          }
+
+          config = {
+            mode:              props['unionMode']       ?? 'concat',
+            fields,
+            missing_field:     props['missingField']    ?? 'null',
+            add_source_field:  props['addSourceField']  === 'true',
+            source_field_name: props['sourceFieldName'] ?? '_union_source',
+            zip_mismatch:      props['zipMismatch']     ?? 'truncate',
+            handle_labels:     handleLabels,
+            // serve all'executor per ordinare gli input (concat)
+            union_inputs:      unionInputs,
+          }
           break
         }
 

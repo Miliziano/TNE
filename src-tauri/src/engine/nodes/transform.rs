@@ -49,12 +49,12 @@ pub async fn run(
             .map(|f| (f.name.as_str(), eval(&f.expr, &eval_ctx)))
             .collect();
 // TRACCIA TEMPORANEA — rimuovere dopo la diagnosi
-        if rows_in == 1 {
-            eprintln!("[transform] riga in ingresso: {:?}", row);
-            for (name, val) in &computed {
-                eprintln!("[transform]   {} = {:?}", name, val);
-            }
-        }
+ //       if rows_in == 1 {
+ //           eprintln!("[transform] riga in ingresso: {:?}", row);
+  //          for (name, val) in &computed {
+   //             eprintln!("[transform]   {} = {:?}", name, val);
+   //         }
+   //     }
         let out_row = match mode.as_str() {
             "select" => {
                 // Solo i campi calcolati

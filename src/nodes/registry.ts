@@ -64,6 +64,7 @@ import { SequencerPanel } from './types/sequencer/Panel'
 import { ShellExecPanel, SshExecPanel } from './types/shell_exec/Panel'
 import { ErrorHandlerPanel } from './types/error_handler/Panel'
 import { ErrorHandlerNodesPanel } from './types/error_handler/MappingPanel'
+import { UnionPreviewPanel } from './types/union/PreviewPanel'
 
 export const NODE_DEFS: Record<string, NodeDef> = {
   
@@ -468,15 +469,15 @@ export const NODE_DEFS: Record<string, NodeDef> = {
 
 
   transform: {
-    type: 'map',
+    type: 'transform',
     label: 'Transform fields',
     category: 'transform',
     icon: '↦',
     color: '#ffb347',
-    description: 'Trasforma, rinomina e converte i campi di ogni riga.',
+    description: 'Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.',
+
     fields: [
-      { key: 'mapping',    label: 'Mapping (JSON)', type: 'code',   default: '{"id": "user_id"}' },
-      { key: 'drop_nulls', label: 'Scarta null',    type: 'select', default: 'false', options: ['true','false'] },
+    
     ],
   },
   webhook_receiver: {
@@ -628,6 +629,8 @@ export const NODE_QUERY_PANELS: Record<string, ComponentType<{ nodeId: string }>
 
 export const NODE_PREVIEW_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
   sink_db: SinkDbPreviewPanel,
+  union:   UnionPreviewPanel,
+  
 }
 export const NODE_SIDEBAR_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
   source_file: SourceFileSidebarPanel,
