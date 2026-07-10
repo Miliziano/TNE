@@ -250,6 +250,17 @@ pub struct TransactionPlan {
     #[serde(rename = "on_error", default)]
     pub on_error: String,   // "rollback_all" | "rollback_self"
 }
+
+/// Un dataset materializzato, dichiarato dall'utente nella lane.
+/// Il nodo `materialize` con questo `node_id` lo pubblicherà con `name`;
+/// gli altri nodi lo leggono per nome, senza arco.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetPlan {
+    pub name:    String,
+    pub node_id: String,
+}
+
+
 fn default_tx_timeout() -> u64 { 30 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -261,6 +272,11 @@ pub struct LanePlan {
     pub variables: HashMap<String, Value>,
     #[serde(default)]
     pub transactions: Vec<TransactionPlan>,
+     /// Dataset che i nodi `materialize` di questa lane pubblicheranno.
+    /// Serve a precalcolare gli slot del registro: un consumer che chiede
+    /// un nome non dichiarato riceve un errore, invece di attendere per sempre.
+    #[serde(default)]
+    pub datasets: Vec<DatasetPlan>,
 }
 
 

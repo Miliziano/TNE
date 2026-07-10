@@ -14,6 +14,7 @@ import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
+ import { parseExpression, ExprParseError } from '../ir/exprParser'
 
 let abortFlag = false
 
@@ -352,11 +353,21 @@ function buildRustPlan(
   const lanes = laneIds.map(laneId => {
     const laneConfig = pool.lanes.find(l => l.id === laneId)
 
-    // Variabili della lane
+    // Variabili della lane — solo scalari.
+    // Le variabili di tipo 'materialize' NON sono valori: dichiarano che
+    // un nodo pubblica un dataset con quel nome. Vanno in `datasets`, così
+    // il motore può precalcolare gli slot del registro.
     const variables: Record<string, unknown> = {}
+    const datasets: Array<{ name: string; node_id: string }> = []
+
     for (const v of laneConfig?.variables ?? []) {
-      variables[v.name] = v.value
+      if (v.type === 'materialize') {
+        datasets.push({ name: v.name, node_id: v.value })
+      } else {
+        variables[v.name] = v.value
+      }
     }
+
     // Transazioni della lane (oggetti dichiarati — design v2)
     const transactions = (laneConfig?.transactions ?? []).map(tx => ({
       id:       tx.id,
@@ -605,6 +616,263 @@ function buildRustPlan(
           }
           break
         }
+        case 'materialize': {
+          // `matName` non vuoto ⇒ il dataset è pubblicato nella lane
+          // (l'utente ha premuto "Pubblica nella lane" nel tab Configurazione).
+          // Vuoto ⇒ il nodo è solo un buffer/barriera.
+          config = {
+            mode:        props['matMode']  ?? 'passthrough',
+            name:        props['matName']  ?? '',
+            key_field:   props['keyField'] ?? '',
+            max_rows:    Number(props['maxRows'] ?? 0),
+            on_overflow: props['onOverflow'] ?? 'error',
+          }
+          break
+        }
+
+         case 'pivot': {
+          const mode = props['pivotMode'] ?? 'pivot'
+
+          // `nullValue` è una stringa nel pannello. Il motore la mette nelle
+          // celle vuote: se resta stringa, un "0" finirebbe come testo in una
+          // colonna numerica e romperebbe le operazioni a valle.
+          // La tipizziamo qui, come fa source_file con i tipi dichiarati.
+          const rawNull = String(props['nullValue'] ?? '').trim()
+          let nullValue: unknown = null
+          if (rawNull !== '') {
+            if (/^-?\d+$/.test(rawNull))              nullValue = parseInt(rawNull, 10)
+            else if (/^-?\d*\.\d+$/.test(rawNull))    nullValue = parseFloat(rawNull)
+            else if (rawNull === 'true')              nullValue = true
+            else if (rawNull === 'false')             nullValue = false
+            else                                      nullValue = rawNull
+          }
+
+          const parseJson = <T,>(key: string, fallback: T): T => {
+            try { const r = props[key]; return r ? JSON.parse(r as string) : fallback }
+            catch { return fallback }
+          }
+
+          config = {
+            mode,
+            data_source:      props['dataSource']      ?? 'flow',
+            materialize_name: props['materializeName'] ?? '',
+
+            // pivot
+            identity_field: String(props['identityField'] ?? '')
+                              .split(',').map((s) => s.trim()).filter(Boolean),
+            pivot_field:    props['pivotField'] ?? '',
+            value_field:    props['valueField'] ?? '',
+            agg_fn:         props['aggFn']      ?? 'sum',
+            pivot_type:     props['pivotType']  ?? 'static',
+            pivot_columns:  parseJson<Array<{ value: string; alias: string }>>('pivotColumns', []),
+            pivot_sort:     props['pivotSort']  ?? 'asc',
+            null_value:     nullValue,
+            add_row_total:  props['addRowTotal'] === 'true',
+
+            // unpivot
+            unpivot_columns:     parseJson<string[]>('unpivotColumns', []),
+            unpivot_key_field:   props['unpivotKeyField']   ?? 'chiave',
+            unpivot_value_field: props['unpivotValueField'] ?? 'valore',
+            unpivot_null_mode:   props['unpivotNullMode']   ?? 'include',
+            unpivot_order:       props['unpivotOrder']      ?? 'identity_first',
+          }
+
+          if (mode === 'pivot' && (!config.pivot_field || !config.value_field)) {
+            throw new Error(
+              `Pivot "${node.data.label}": campo pivot e campo valore sono obbligatori.`)
+          }
+          if (mode === 'unpivot' && (config.unpivot_columns as string[]).length === 0) {
+            throw new Error(
+              `Pivot "${node.data.label}": seleziona almeno una colonna da ruotare (unpivot).`)
+          }
+          break
+        }
+
+        // Il pannello salva tutto in props['dqConfig'] (camelCase).
+// Il motore legge snake_case, e vuole le espressioni già compilate in ExprNode.
+
+        case 'data_quality': {
+          interface DQRuleRaw {
+            id: string; field: string; label?: string
+            dimension: string; severity?: string; enabled?: boolean
+            checkType: string
+            pattern?: string; min?: string; max?: string; list?: string
+            matName?: string; refField?: string
+            compareField?: string; compareOp?: string
+            expression?: string
+            repair?: string
+            repairDefault?: string; repairField?: string
+            repairFields?: string; repairSeparator?: string
+            repairExpression?: string
+          }
+
+          let raw: {
+            rules?: DQRuleRaw[]
+            weights?: Record<string, number>
+            thresholds?: Record<string, number>
+            outputField?: string
+            showOriginal?: boolean
+            scoreBeforeRepair?: boolean
+          } = {}
+
+          try {
+            const s = props['dqConfig']
+            if (s) raw = JSON.parse(s as string)
+          } catch {
+            throw new Error(`Data Quality "${node.data.label}": configurazione illeggibile`)
+          }
+
+          const rules = (raw.rules ?? []).map((r) => {
+            const out: Record<string, unknown> = {
+              id:         r.id,
+              field:      r.field,
+              label:      r.label ?? '',
+              dimension:  r.dimension,
+              severity:   r.severity ?? 'error',
+              enabled:    r.enabled !== false,
+              check_type: r.checkType,
+              pattern:       r.pattern       ?? '',
+              min:           r.min           ?? '',
+              max:           r.max           ?? '',
+              list:          r.list          ?? '',
+              mat_name:      r.matName       ?? '',
+              ref_field:     r.refField      ?? '',
+              compare_field: r.compareField  ?? '',
+              compare_op:    r.compareOp     ?? '',
+              repair:           r.repair          ?? 'none',
+              repair_default:   r.repairDefault   ?? '',
+              repair_field:     r.repairField     ?? '',
+              repair_fields:    r.repairFields    ?? '',
+              repair_separator: r.repairSeparator ?? ' ',
+            }
+
+            // `custom` e il repair `expression` sono FPEL, non JavaScript:
+            // il motore non esegue JS, e il codegen deve poterli tradurre.
+            const compile = (src: string | undefined, what: string) => {
+              if (!src?.trim()) {
+                throw new Error(
+                  `Data Quality "${node.data.label}", regola "${r.label || r.id}": ` +
+                  `${what} richiede un'espressione.`)
+              }
+              try { return parseExpression(src) }
+              catch (e) {
+                const detail = e instanceof ExprParseError ? e.pretty() : String(e)
+                throw new Error(
+                  `Data Quality "${node.data.label}", regola "${r.label || r.id}":\n${detail}`)
+              }
+            }
+
+            if (r.checkType === 'custom') out.expression = compile(r.expression, "il check 'custom'")
+            if (r.repair === 'expression') out.repair_expression = compile(r.repairExpression, "il repair 'expression'")
+
+            if (r.repair === 'lookup_from_file') {
+              throw new Error(
+                `Data Quality "${node.data.label}", regola "${r.label || r.id}": ` +
+                `il lookup da file non è supportato. Carica il file con ` +
+                `source_file → materialize("tabella") e usa "lookup_from_materialize".`)
+            }
+
+            return out
+          })
+
+          const w = raw.weights ?? {}
+          const t = raw.thresholds ?? {}
+
+          config = {
+            rules,
+            weights: {
+              completeness: w.completeness ?? 0.30,
+              conformity:   w.conformity   ?? 0.30,
+              consistency:  w.consistency  ?? 0.20,
+              accuracy:     w.accuracy     ?? 0.20,
+            },
+            thresholds: {
+              valid:   t.valid   ?? 0.80,
+              warning: t.warning ?? 0.60,
+            },
+            output_field:        raw.outputField ?? '_dq',
+            show_original:       raw.showOriginal === true,
+            score_before_repair: raw.scoreBeforeRepair === true,
+          }
+          break
+        }
+        
+// Il nodo window non riceveva NESSUNA config: girava con i default e
+// produceva risultati sbagliati in silenzio.
+
+        case 'window': {
+          interface WindowDefRaw {
+            id: string; fn: string; field?: string
+            offset?: number; n?: number; expr?: string
+            outputField: string; nullDefault?: string
+          }
+
+          let defs: WindowDefRaw[] = []
+          try {
+            const raw = props['windows']
+            if (raw) defs = JSON.parse(raw as string)
+          } catch {
+            throw new Error(`Window "${node.data.label}": configurazione funzioni illeggibile`)
+          }
+
+          if (defs.length === 0) {
+            throw new Error(
+              `Window "${node.data.label}": nessuna funzione configurata. ` +
+              `Apri il tab Mapping e aggiungine almeno una.`)
+          }
+
+          // `streak` prende una condizione, che l'utente scrive in FPEL
+          // (es. "amount > 0"). Va compilata in ExprNode: il motore non
+          // esegue JavaScript, e il codegen deve poterla tradurre.
+          const windows = defs.map((d) => {
+            const out: Record<string, unknown> = {
+              fn:           d.fn,
+              field:        d.field ?? '',
+              output_field: d.outputField || `win_${d.fn}`,
+            }
+            if (d.offset      !== undefined) out.offset       = d.offset
+            if (d.n           !== undefined) out.n            = d.n
+            if (d.nullDefault !== undefined && d.nullDefault !== '') {
+              out.null_default = d.nullDefault
+            }
+
+            if (d.fn === 'streak') {
+              if (!d.expr?.trim()) {
+                throw new Error(
+                  `Window "${node.data.label}", campo "${d.outputField}": ` +
+                  `la funzione streak richiede una condizione (es. amount > 0)`)
+              }
+              try {
+                out.expr = parseExpression(d.expr)
+              } catch (e) {
+                const detail = e instanceof ExprParseError ? e.pretty() : String(e)
+                throw new Error(
+                  `Window "${node.data.label}", condizione di "${d.outputField}":\n${detail}`)
+              }
+            }
+            return out
+          })
+
+          // Il pannello salva partitionBy come stringa "campo1, campo2"
+          const partitionBy = String(props['partitionBy'] ?? '')
+            .split(',').map((s) => s.trim()).filter(Boolean)
+
+          config = {
+            // 'flow' (default) — le righe arrivano dall'input
+            // 'materialize'    — si leggono da un dataset della lane; l'input,
+            //                    se collegato, è solo un trigger
+            data_source:      props['dataSource']      ?? 'flow',
+            materialize_name: props['materializeName'] ?? '',
+            partition_by:     partitionBy,
+            order_by:         props['orderBy']  ?? '',
+            order_dir:        props['orderDir'] ?? 'asc',
+            windows,
+          }
+          break
+        }
+
+
+
 
         default:
           config = {}
@@ -638,6 +906,7 @@ function buildRustPlan(
       edges:     laneEdges,   // v6: il wiring dell'executor segue gli edges
       variables,
       transactions,   // ← aggiungi
+      datasets,      // ← aggiungi
     }
   })
 

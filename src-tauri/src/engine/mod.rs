@@ -33,7 +33,7 @@ pub mod spec;
 pub mod pool;
 pub mod txregistry;
 pub mod expr_functions;
-
+pub mod datasets;
 
 use std::time::Instant;
 use std::collections::HashMap;

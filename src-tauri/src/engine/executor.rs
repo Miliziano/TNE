@@ -44,6 +44,10 @@ pub struct NodeContext {
     /// i nodi della lane; i nodi DB chiedono qui il pool della risorsa.
     pub lane_resources: std::sync::Arc<super::pool::LaneResources>,
     pub lane_txns: std::sync::Arc<super::txregistry::LaneTransactions>,
+      /// Registro dei dataset materializzati, per-lane. Condiviso tra chi
+    /// pubblica (materialize) e chi legge (window, aggregate, pivot,
+    /// explode, join).
+    pub lane_datasets:  std::sync::Arc<super::datasets::LaneDatasets>,
 }
 
 impl NodeContext {
@@ -235,7 +239,11 @@ pub async fn execute_lane(
 
     let lane_resources = super::pool::LaneResources::new(sizing);
     
-    
+    // Registro dataset: uno slot Pending per ogni dataset dichiarato.
+    let declared_datasets: Vec<String> = lane_plan.datasets.iter()
+        .map(|d| d.name.clone())
+        .collect();
+    let lane_datasets = super::datasets::LaneDatasets::new(&declared_datasets);
 
 
     if nodes.is_empty() {
@@ -318,6 +326,7 @@ pub async fn execute_lane(
             variables: variables.clone(),
             lane_resources: lane_resources.clone(),
             lane_txns: lane_txns.clone(),
+            lane_datasets:  lane_datasets.clone(),
         };
 
         let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
@@ -577,16 +586,28 @@ async fn run_node(
             super::nodes::xml_parser::run(ctx, rx, tx).await
         }
 
-        "pivot" | "unpivot" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("pivot {} richiede un input collegato", ctx.node_id.0))?;
+        "pivot" => {
+            // Input opzionale: con dataSource='materialize' il nodo può non
+            // avere archi, e si sblocca quando il dataset è pubblicato.
+            let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::pivot::run(ctx, rx, tx).await
         }
 
-        "window" => {
+        "data_quality" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("window {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("data_quality {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::data_quality::run(ctx, rx, tx).await
+        }
+
+
+        "window" => {
+            // Input OPZIONALE.
+            //   caso 1: buffer_signal → window   (la riga è il trigger)
+            //   caso 2: nessun arco               (si sblocca col get())
+            //   caso 3: un flusso qualunque       (bufferizza da sé)
+            let rx = take_single_input(&mut inputs);   // ← era .ok_or_else(...)
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::window::run(ctx, rx, tx).await
         }

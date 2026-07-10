@@ -270,7 +270,8 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
             </Field>
           )}
           {checkDef?.params.includes('expression') && (
-            <Field label="Espressione JS" hint="Deve restituire true/false. Usa row.campo per accedere ai valori.">
+            <Field label="Espressione FPEL"
+              hint="Deve restituire true (la riga passa) o false. Usa i nomi dei campi: età > 18 && email is not null">
               <input style={{ ...inputStyle, color: '#f97316' }} value={rule.expression ?? ''}
                 onChange={(e) => onChange(rule.id, { expression: e.target.value })}
                 placeholder="row.eta >= 18 && row.eta <= 120" />
@@ -354,7 +355,8 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
             </div>
           )}
           {rule.repair === 'expression' && (
-            <Field label="Espressione JS" hint="Deve restituire il nuovo valore. Usa row.campo e prev.campo.">
+            <Field label="Espressione FPEL"
+              hint="Deve restituire il nuovo valore. Usa i nomi dei campi: coalesce(email, nome + '@azienda.it')">
               <input style={{ ...inputStyle, color: '#f97316' }} value={rule.repairExpression ?? ''}
                 onChange={(e) => onChange(rule.id, { repairExpression: e.target.value })}
                 placeholder="row.nome + ' ' + row.cognome" />
