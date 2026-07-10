@@ -797,6 +797,118 @@ function buildRustPlan(
           break
         }
         
+        case 'explode': {
+          const source = props['explodeSource'] ?? 'materialize'
+
+          // `json_path` navigava strutture annidate: è mestiere di json_parser.
+          // Il valore resta nel pannello finché non lo si toglie, ma qui lo
+          // rifiutiamo invece di ignorarlo silenziosamente.
+          const st = props['structureType'] ?? 'array'
+          if (st === 'json_path') {
+            throw new Error(
+              `Explode "${node.data.label}": il tipo "json_path" non è supportato. ` +
+              `Per navigare una struttura annidata usa un nodo JSON Parser a monte, ` +
+              `poi esplodi il campo array che ne risulta.`)
+          }
+
+          if (source === 'lane_var') {
+            throw new Error(
+              `Explode "${node.data.label}": la sorgente "variabile di lane" non è ` +
+              `supportata. Carica i dati in un Materialize e leggilo da lì.`)
+          }
+
+          config = {
+            source,
+            materialize_name: props['materializeName'] ?? '',
+            field:            props['flowField']       ?? '',
+            structure_type:   st,
+            include_parent:   props['includeParent'] === 'true',
+            on_empty:         props['onEmpty']     ?? 'skip',
+            on_primitive:     props['onPrimitive'] ?? 'wrap',
+            limit:            Number(props['limit'] ?? 0),
+          }
+
+          if (source === 'materialize' && !config.materialize_name) {
+            throw new Error(`Explode "${node.data.label}": seleziona il dataset Materialize.`)
+          }
+          if (source === 'flow_field' && !config.field) {
+            throw new Error(`Explode "${node.data.label}": seleziona il campo da esplodere.`)
+          }
+          break
+        }
+       // Il nodo girava con config vuota: group_by e aggregations assenti.
+
+        case 'aggregate': {
+          interface AggFnRaw {
+            id: string; field: string; fn: string; alias: string
+            filter?: string; separator?: string
+          }
+
+          let fns: AggFnRaw[] = []
+          try {
+            const raw = props['aggFunctions']
+            if (raw) fns = JSON.parse(raw as string)
+          } catch {
+            throw new Error(`Aggregate "${node.data.label}": configurazione funzioni illeggibile`)
+          }
+
+          if (fns.length === 0) {
+            throw new Error(
+              `Aggregate "${node.data.label}": nessuna funzione di aggregazione. ` +
+              `Apri il tab Mapping e aggiungine almeno una.`)
+          }
+
+          // Le finestre temporali hanno un modello di esecuzione opposto
+          // (streaming, emettono a finestra chiusa). Non stanno in aggregate.
+          const win = props['window'] ?? 'none'
+          if (win !== 'none' && win !== '') {
+            throw new Error(
+              `Aggregate "${node.data.label}": le finestre temporali non sono ` +
+              `supportate da questo nodo. Aggregate collassa le righe in gruppi ` +
+              `(GROUP BY) e materializza. Per le finestre serve un nodo dedicato.`)
+          }
+
+          // `having` e i `filter` sono FPEL: il runner JS traduceva SQL in
+          // JavaScript con delle regex e poi faceva new Function().
+          const compile = (src: string, what: string) => {
+            try { return parseExpression(src) }
+            catch (e) {
+              const detail = e instanceof ExprParseError ? e.pretty() : String(e)
+              throw new Error(`Aggregate "${node.data.label}", ${what}:\n${detail}`)
+            }
+          }
+
+          const functions = fns.map((f) => {
+            const out: Record<string, unknown> = {
+              field:     f.field ?? '',
+              fn:        f.fn,
+              alias:     f.alias || `${f.fn}_${f.field || 'all'}`,
+              separator: f.separator ?? ', ',
+            }
+            if (f.filter?.trim()) {
+              out.filter = compile(f.filter, `il filtro di "${f.alias || f.fn}"`)
+            }
+            return out
+          })
+
+          const havingSrc = String(props['having'] ?? '').trim()
+
+          config = {
+            data_source:      props['dataSource']      ?? 'flow',
+            materialize_name: props['materializeName'] ?? '',
+
+            group_by: String(props['group_by'] ?? '')
+                        .split(',').map((s) => s.trim()).filter(Boolean),
+            functions,
+            having:      havingSrc ? compile(havingSrc, 'la clausola HAVING') : undefined,
+            order_by:    props['orderBy']  ?? '',
+            order_dir:   props['orderDir'] ?? 'asc',
+            limit:       Number(props['limit'] ?? 0),
+            null_groups: props['nullGroups'] ?? 'include',
+          }
+          break
+        }
+ 
 // Il nodo window non riceveva NESSUNA config: girava con i default e
 // produceva risultati sbagliati in silenzio.
 

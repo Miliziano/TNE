@@ -534,18 +534,23 @@ async fn run_node(
         }
 
         "aggregate" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("aggregate {} richiede un input collegato", ctx.node_id.0))?;
+            // Input opzionale: con dataSource='materialize' il nodo può non
+            // avere archi, e si sblocca quando il dataset è pubblicato.
+            let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::aggregate::run(ctx, rx, tx).await
         }
 
+
+        
         "explode" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("explode {} richiede un input collegato", ctx.node_id.0))?;
+            // Input opzionale: con source='materialize' il nodo può non avere
+            // archi, e si sblocca quando il dataset è pubblicato.
+            let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::explode::run(ctx, rx, tx).await
         }
+
 
         "materialize" => {
             let rx = take_single_input(&mut inputs)

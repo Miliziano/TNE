@@ -345,35 +345,11 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
         )}
       </Field>
 
-      {/* Finestre temporali — solo in modalità flusso */}
-      {dataSource === 'flow' && (
-        <Field label="Finestra temporale" hint="Utile solo in modalità streaming">
-          <CustomSelect style={inputStyle} value={p('window', 'none')} onChange={u('window')}>
-            <option value="none">Nessuna — aggrega tutto il dataset</option>
-            <option value="tumbling">Tumbling — finestre fisse (es. ogni ora)</option>
-            <option value="sliding">Sliding — finestre scorrevoli</option>
-            <option value="session">Session — basata su inattività</option>
-          </CustomSelect>
-        </Field>
-      )}
-      {dataSource === 'flow' && p('window') !== 'none' && p('window') && (
-        <Row>
-          <Field label="Dimensione finestra">
-            <input type="text" style={inputStyle} value={p('windowSize', '1h')} onChange={u('windowSize')} placeholder="1h, 30m, 5s" />
-          </Field>
-          <Field label="Campo timestamp">
-            {activeFields.length > 0 ? (
-              <CustomSelect style={inputStyle} value={p('timestampField')} onChange={u('timestampField')}>
-                <option value="">— seleziona —</option>
-                {activeFields.filter((f) => f.type === 'date').map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
-                {activeFields.filter((f) => f.type !== 'date').map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
-              </CustomSelect>
-            ) : (
-              <input type="text" style={inputStyle} value={p('timestampField', 'created_at')} onChange={u('timestampField')} placeholder="created_at" />
-            )}
-          </Field>
-        </Row>
-      )}
+     <div style={{ fontSize: 11, color: '#9a9aaa', lineHeight: 1.5 }}>
+      <b>Aggregate</b> collassa le righe: un gruppo, una riga.
+      Se vuoi <b>tenere le righe</b> e aggiungere un totale accanto,
+      usa <b>Window</b> con una funzione di partizione.
+     </div>
 
       {/* Funzioni */}
       <SectionTitle label="Funzioni di aggregazione" color="#ffb347" />
