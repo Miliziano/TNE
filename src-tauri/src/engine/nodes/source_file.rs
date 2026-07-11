@@ -37,6 +37,7 @@ use std::io::{BufRead, BufReader};
 use std::fs::File;
 use std::time::Instant;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, NodeContext};
 
 #[derive(serde::Deserialize)]
@@ -46,16 +47,37 @@ struct FieldType {
     ty:   String,
 }
 
-#[derive(serde::Deserialize)]
+// Config migrata alla spec (Fase 12). Scalari verbatim dalle props;
+// `fields` è la PROIEZIONE per l'esecuzione dello schema (il builder
+// mappa nome logico → physicalName dell'header CSV), quindi è materiale
+// elaborato e viaggia in spec.config. V. node-spec §13.
 struct SourceFileConfig {
     path:       String,
-    delimiter:  Option<char>,
-    has_header: Option<bool>,
-    /// Tipi dichiarati nel mapping. Un CSV è tutto testo: senza questi,
-    /// `età: integer` resterebbe Value::String("45") e `età * 5` darebbe
-    /// null (numeric_op non converte implicitamente).
-    #[serde(default)]
+    delimiter:  char,
+    has_header: bool,
     fields:     Vec<FieldType>,
+}
+
+fn config_from_spec(spec: &Spec) -> Result<SourceFileConfig, String> {
+    // `fields`: schema-proiezione, elaborato dal builder → spec.config.
+    let fields: Vec<FieldType> =
+        serde_json::from_value(
+            spec.config().get("fields").cloned().unwrap_or(serde_json::json!([]))
+        ).map_err(|e| format!("schema campi non valido: {}", e))?;
+
+    // delimiter: prima char di una stringa (default ',').
+    let delim_str = spec.str_or("delimiter", ",");
+    let delimiter = delim_str.chars().next().unwrap_or(',');
+
+    Ok(SourceFileConfig {
+        path:       spec.str_or("path", ""),
+        delimiter,
+        // Il pannello salva `hasHeader` (camelCase). Il vecchio builder
+        // leggeva `has_header` — chiave mai prodotta → sempre true (bug).
+        // Leggendo la chiave vera, l'impostazione dell'utente ora conta.
+        has_header: spec.bool_or("hasHeader", true),
+        fields,
+    })
 }
 
 const PROGRESS_EVERY_ROWS: u64 = 500;
@@ -66,11 +88,14 @@ pub async fn run(
     tx:  Option<RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let config: SourceFileConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("source_file config non valida: {}", e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("source_file {}: {}", ctx.node_id.0, e))?;
+    let config = config_from_spec(&spec)
+        .map_err(|e| format!("source_file {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("source_file", &ctx.node_id.0);
 
-    let delimiter  = config.delimiter.unwrap_or(',') as u8;
-    let has_header = config.has_header.unwrap_or(true);
+    let delimiter  = config.delimiter as u8;
+    let has_header = config.has_header;
     let path       = config.path.clone();
     let type_of: std::collections::HashMap<&str, &str> = config.fields.iter()
         .map(|f| (f.name.as_str(), f.ty.as_str()))

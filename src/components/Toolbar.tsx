@@ -426,54 +426,26 @@ function buildRustPlan(
         : null
       switch (node.data.type) {
 
-        case 'source_file': {
-          // I tipi dichiarati nel mapping servono al motore per convertire
-          // i valori: un CSV è tutto testo, ma `età: integer` deve produrre
-          // Value::Int(45), non Value::String("45") — altrimenti `età * 5`
-          // dà null (numeric_op non fa conversioni implicite).
-          //
-          // La chiave è il physicalName (il nome nell'header del CSV), non
-          // il nome logico: source_file legge l'header e non rinomina.
-          let fields: Array<{ name: string; type: string }> = []
+       case 'source_file': {
+          // `fields` è la PROIEZIONE per l'esecuzione dello schema: il
+          // builder mappa nome logico → physicalName (l'header del CSV),
+          // quindi è materiale elaborato → va in spec.config (node-spec
+          // §13). Gli scalari (path, delimiter, hasHeader) restano props
+          // verbatim e li legge il motore via Spec.
           try {
             const raw = props['outputSchema']
             if (raw) {
-              fields = (JSON.parse(raw) as Array<{ name: string; type: string; physicalName?: string }>)
+              specConfig.fields = (JSON.parse(raw) as Array<{ name: string; type: string; physicalName?: string }>)
                 .map(f => ({ name: f.physicalName ?? f.name, type: f.type }))
             }
           } catch { /* schema assente o illeggibile: nessuna conversione */ }
-
-          config = {
-            path:       props['path']       ?? '',
-            delimiter:  props['delimiter']  ?? ',',
-            has_header: props['has_header'] !== 'false',
-            fields,
-          }
           break
         }
 
-        case 'sink_file': {
-          config = {
-            path:           props['path']       ?? '/tmp/output.csv',
-            format:         props['format']     ?? 'csv',
-            mode:           props['mode']       ?? 'overwrite',
-            write_mode:     props['writeMode2'] ?? 'rows',
-            raw_field:      props['rawField']   ?? 'content',
-            raw_encoding:   props['rawEncoding'] ?? 'text',
-            output_mode:    props['outputMode'] ?? 'signal',
-            delimiter:      props['delimiter']  ?? (props['format'] === 'tsv' ? '\\t' : ','),
-            quote_char:     props['quoteChar']  ?? '"',
-            write_header:   props['writeHeader'] !== 'false',
-            line_ending:    props['lineEnding'] ?? 'lf',
-            json_indent:    props['jsonIndent'] ?? 'none',
-            json_structure: props['jsonStructure'] ?? 'array',
-            encoding:       props['encoding']   ?? 'utf-8',
-            partition:      props['partition']  ?? 'none',
-            post_command:   props['postCommand'] ?? '',
-            webhook_url:    props['webhookUrl'] ?? '',
-          }
-          break
-        }
+        // sink_file: migrato alla spec (node-spec §14). Caso "tutto
+        // props": tutte le props vanno verbatim nella busta spec e le
+        // legge il motore via Spec (chiavi camelCase del pannello). Il
+        // case che le rinominava in snake_case è stato rimosso.
 
         case 'json_serializer': {
           const ser = (node.data.config as any)?.jsonSerializer ?? {}

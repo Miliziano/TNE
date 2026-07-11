@@ -27,9 +27,13 @@ use std::fs::File;
 use std::time::Instant;
 use base64::Engine as _;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
-#[derive(serde::Deserialize)]
+// Config migrata alla spec (Fase 12). Caso "tutto props": scalari
+// verbatim, nessuna struttura elaborata né FPEL. La struct resta con
+// Option per non toccare il corpo del run; è popolata dagli accessor
+// Spec invece che da ctx.config. V. node-spec §14.
 struct SinkFileConfig {
     path:           String,
     format:         Option<String>,
@@ -50,6 +54,37 @@ struct SinkFileConfig {
     webhook_url:    Option<String>,
 }
 
+/// `opt` — Some(valore) se la prop è presente e non vuota, altrimenti None.
+/// Preserva la semantica Option della struct: il corpo del run applica i
+/// propri default via unwrap_or, quindi qui non li ripetiamo.
+fn opt(spec: &Spec, key: &str) -> Option<String> {
+    let v = spec.str_or(key, "");
+    if v.is_empty() { None } else { Some(v) }
+}
+
+fn config_from_spec(spec: &Spec) -> SinkFileConfig {
+    SinkFileConfig {
+        path:           spec.str_or("path", ""),
+        format:         opt(spec, "format"),
+        mode:           opt(spec, "mode"),
+        write_mode:     opt(spec, "writeMode2"),
+        raw_field:      opt(spec, "rawField"),
+        raw_encoding:   opt(spec, "rawEncoding"),
+        output_mode:    opt(spec, "outputMode"),
+        delimiter:      opt(spec, "delimiter"),
+        quote_char:     opt(spec, "quoteChar"),
+        write_header:   match spec.str_or("writeHeader", "").as_str() {
+                            "false" => Some(false), "true" => Some(true), _ => None },
+        line_ending:    opt(spec, "lineEnding"),
+        json_indent:    opt(spec, "jsonIndent"),
+        json_structure: opt(spec, "jsonStructure"),
+        encoding:       opt(spec, "encoding"),
+        partition:      opt(spec, "partition"),
+        post_command:   opt(spec, "postCommand"),
+        webhook_url:    opt(spec, "webhookUrl"),
+    }
+}
+
 const PROGRESS_EVERY_ROWS: u64 = 500;
 const PROGRESS_EVERY_MS:   u64 = 500;
 
@@ -59,8 +94,15 @@ pub async fn run(
     tx: Option<RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let config: SinkFileConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("sink_file config non valida: {}", e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("sink_file {}: {}", ctx.node_id.0, e))?;
+    let config = config_from_spec(&spec);
+    spec.log_unconsumed("sink_file", &ctx.node_id.0);
+
+    if config.path.trim().is_empty() {
+        return Err(format!("sink_file {}: percorso del file di output non \
+                            specificato.", ctx.node_id.0));
+    }
 
     let format       = config.format.as_deref().unwrap_or("csv").to_string();
     let mode         = config.mode.as_deref().unwrap_or("overwrite").to_string();

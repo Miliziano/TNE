@@ -133,62 +133,6 @@ function serializeRows(
   }
 }
 
-// ─── SourceFile ───────────────────────────────────────────────────
-const sourceFileExecutor: NodeExecutor = {
-  handles: ['source_file'],
-  async execute(node, input, context) {
-    const pathSource = prop(node, 'pathSource', 'static')
-    const path = pathSource === 'flow'
-      ? String(input[0]?.[prop(node, 'pathField', 'path')] ?? '')
-      : prop(node, 'filePath') || prop(node, 'path')
-
-    const format    = prop(node, 'format', '')   // formato esplicito dal panel
-    const delimiter = prop(node, 'delimiter', ',')
-    const rootPath  = prop(node, 'xmlRootPath')
-    const sheetName = prop(node, 'sheetName')
-    const limit     = parseInt(prop(node, 'limit', '0'), 10)
-
-    if (!path) throw new Error('SourceFile: path non configurato')
-    context.callbacks.onLog('info', `Leggo file: ${path}`, node.id)
-
-    const filename = path.split('/').pop() ?? path
-    const ext      = filename.split('.').pop()?.toLowerCase() ?? ''
-
-    // Determina se il file va letto come binario (ArrayBuffer)
-    const binaryFormats = ['binary', 'bin', 'pdf_binary', 'pdf', 'xlsx', 'xls', 'excel']
-    const isBinary = binaryFormats.includes(format) || binaryFormats.includes(ext)
-
-    let content: string | ArrayBuffer
-    if (isBinary) {
-      content = await readBinaryFile(path)
-    } else {
-      content = await readFile(path)
-    }
-
-    let rows = await readFileContent(content, filename, {
-      delimiter: delimiter || ',',
-      rootPath:  rootPath  || undefined,
-      sheetName: sheetName || undefined,
-      format:    format    || undefined,   // passa il formato esplicito al reader
-    })
-
-    if (limit > 0) rows = rows.slice(0, limit)
-
-    // Applica schema solo per formati strutturati (non binari)
-    if (!isBinary) {
-      try {
-        const schema = JSON.parse(prop(node, 'outputSchema', '[]')) as Array<{
-          name: string; physicalName?: string; sourceField?: string; transform?: string
-        }>
-        if (schema.length > 0) rows = applySchema(rows, schema)
-      } catch {}
-    }
-
-    context.callbacks.onLog('info', `Lette ${rows.length} righe da ${filename}`, node.id)
-    return out(rows)
-  },
-}
-
 // ─── Filter ───────────────────────────────────────────────────────
 function evalFilterCode(row: Row, code: string): boolean {
   try {
@@ -434,88 +378,6 @@ const logExecutor: NodeExecutor = {
   },
 }
 
-// ─── SinkFile ─────────────────────────────────────────────────────
-const sinkFileExecutor: NodeExecutor = {
-  handles: ['sink_file'],
-  async execute(node, input, context) {
-    const rawPath     = prop(node, 'path') || prop(node, 'filePath')
-    const format      = prop(node, 'format', 'csv')
-    const outputMode  = prop(node, 'outputMode', 'signal')
-    const writeMode   = prop(node, 'mode', 'overwrite')
-    const writeHeader = prop(node, 'writeHeader', 'true')
-    const delimiter   = prop(node, 'delimiter', ',')
-    const lineEnding  = prop(node, 'lineEnding', 'lf')
-    const writeMode2  = prop(node, 'writeMode2', 'rows')
-    const rawField    = prop(node, 'rawField', 'content')
-    const rawEncoding = prop(node, 'rawEncoding', 'text')
-
-    if (!rawPath) throw new Error('SinkFile: path non configurato')
-
-    const eol = lineEnding === 'crlf' ? '\r\n' : '\n'
-    const { writeFile, readFile: readF } = await import('../lib/tauri')
-    let path = resolvePath(rawPath)
-
-    if (writeMode === 'error') {
-      try { await readF(path); throw new Error(`SinkFile: il file esiste già — ${path}`) }
-      catch (e) { if (String(e).includes('esiste già')) throw e }
-    }
-    if (writeMode === 'new') {
-      try {
-        await readF(path)
-        const dot = path.lastIndexOf('.'), ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)
-        path = dot >= 0 ? `${path.slice(0,dot)}_${ts}${path.slice(dot)}` : `${path}_${ts}`
-      } catch {}
-    }
-
-    context.callbacks.onLog('info', `Scrivo ${input.length} righe su: ${path}`, node.id)
-
-    const isRawField = writeMode2 === 'raw_field' || format === 'html' || format === 'excel_b64'
-
-    if (isRawField) {
-      if (input.length === 0) {
-        context.callbacks.onLog('warn', `SinkFile: nessuna riga in ingresso per raw_field`, node.id)
-      } else {
-        const row = input[0]
-        const val = row[rawField]
-        if (val === null || val === undefined) throw new Error(`SinkFile: campo '${rawField}' è null`)
-        const enc = rawEncoding === 'base64' || format === 'excel_b64' ? 'base64' : 'text'
-        if (enc === 'base64') {
-          const { writeFileBytes } = await import('../lib/tauri')
-          await writeFileBytes(path, String(val))
-          context.callbacks.onLog('ok', `SinkFile: file binario scritto su ${path}`, node.id)
-        } else {
-          await writeFile(path, String(val))
-          context.callbacks.onLog('ok', `SinkFile: file testo scritto su ${path}`, node.id)
-        }
-      }
-    } else {
-      const shouldWriteHeader = writeHeader !== 'false'
-      if (writeMode === 'append') {
-        let existing = ''; try { existing = await readF(path) } catch {}
-        const hasExisting = existing.trim().length > 0
-        const content = serializeRows(input, format, {
-          writeHeader: hasExisting ? false : shouldWriteHeader, delimiter, eol,
-        })
-        await writeFile(path, hasExisting ? existing + eol + content : content)
-      } else {
-        await writeFile(path, serializeRows(input, format, { writeHeader: shouldWriteHeader, delimiter, eol }))
-      }
-      context.callbacks.onLog('ok', `SinkFile: ${input.length} righe scritte su ${path}`, node.id)
-    }
-
-    if (outputMode === 'replay' || outputMode === 'buffer_replay') {
-      return out(input)
-    }
-    return out([{
-      _source:      path,
-      rows_written: isRawField ? 1 : input.length,
-      status:       'completed',
-      written_at:   new Date().toISOString(),
-      format,
-    }])
-  },
-}
-
 // ─── Lane Start / End ─────────────────────────────────────────────
 const laneStartEndExecutor: NodeExecutor = {
   handles: ['lane_start', 'lane_end'],
@@ -545,11 +407,9 @@ const materializeExecutor: NodeExecutor = {
 // IMPORTANTE: il tipo deve essere AnyExecutor[] (non NodeExecutor[])
 // altrimenti il type guard isStreamingExecutor nel runner non funziona.
 const EXECUTORS: AnyExecutor[] = [
-  sourceFileExecutor,
   filterExecutor,
   mapExecutor,
   logExecutor,
-  sinkFileExecutor,
 
   reportGeneratorExecutor,
   laneStartEndExecutor,

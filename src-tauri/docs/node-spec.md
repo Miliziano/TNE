@@ -679,3 +679,86 @@ Ultimo nodo del blocco "registro dataset" migrato alla spec. Caso "blob
 compilato": nessuna prop scalare verbatim, l'intero DqConfig va in
 spec.config. Il `case 'data_quality'` del builder scrive in `specConfig`
 e non costruisce più `config` legacy.
+
+## 13. `source_file` — lettura da file
+
+Legge un file (CSV oggi pienamente supportato dal motore; altri formati
+sono nel pannello ma non ancora nel motore) e produce righe tipizzate.
+Nodo sorgente (nessun input). Nessuna risorsa DB.
+
+### Props — scalari (verbatim via Spec)
+
+| Chiave       | Tipo   | Default | Semantica                                              | Live |
+|--------------|--------|---------|--------------------------------------------------------|------|
+| `path`       | string | `""`    | Percorso del file                                      | ✅   |
+| `delimiter`  | string | `","`   | Separatore (prima char); es. `;` `\t`                 | ✅   |
+| `hasHeader`  | bool   | `true`  | Prima riga = intestazione                              | ✅   |
+
+### `spec.config` — schema-proiezione
+
+| Chiave   | Tipo  | Semantica                                                     |
+|----------|-------|---------------------------------------------------------------|
+| `fields` | array | `[{name, type}]` — tipi per colonna. **Elaborato dal builder** |
+
+`fields` è la proiezione per l'esecuzione dello schema del pannello: il
+builder mappa il nome logico → `physicalName` (il nome nell'header del
+CSV, perché source_file legge l'header e non rinomina). Essendo materiale
+elaborato (non props verbatim), va in `spec.config`. Serve per tipizzare:
+un CSV è tutto testo, ma `età: integer` deve produrre `Value::Int(45)`,
+non `Value::String("45")` (altrimenti `età * 5` dà null).
+
+**Bug corretto in migrazione**: il vecchio builder leggeva `has_header`
+(chiave mai prodotta dal pannello, che salva `hasHeader`) → l'opzione era
+di fatto sempre `true`. Ora si legge la chiave vera.
+
+Le altre props del pannello (`skipRows`, `commentChar`, `quoteChar`,
+`jsonPath`, `pathSource`, `glob`, formati non-CSV…) non sono ancora
+gestite dal motore: `log_unconsumed` le segnala. Feature future.
+
+## 14. `sink_file` — scrittura su file
+
+Scrive le righe in un file (csv/tsv/json/jsonl/xml/html/excel_b64), o il
+contenuto raw di un campo. Nodo terminale. Nessuna risorsa DB.
+
+Caso **"tutto props"**: nessuna struttura elaborata né FPEL. Tutte le
+props vanno verbatim nella busta spec; il motore le legge via Spec con le
+**chiavi camelCase del pannello**. Il `case 'sink_file'` del builder (che
+le rinominava in snake_case) è stato **rimosso**.
+
+### Props (verbatim via Spec — chiavi del pannello)
+
+| Chiave (pannello) | Default      | Semantica                                          |
+|-------------------|--------------|----------------------------------------------------|
+| `path`            | — **required** | Percorso di output (vuoto → errore parlante)     |
+| `format`          | `"csv"`      | csv \| tsv \| json \| jsonl \| xml \| html \| excel_b64 |
+| `mode`            | `"overwrite"`| overwrite \| append                                |
+| `writeMode2`      | `"rows"`     | rows \| raw_field                                  |
+| `rawField`        | `"content"`  | campo sorgente in modalità raw_field               |
+| `rawEncoding`     | `"text"`     | text \| base64                                     |
+| `outputMode`      | `"signal"`   | modalità di uscita del nodo                        |
+| `delimiter`       | csv:`,` tsv:`\t` | separatore                                     |
+| `quoteChar`       | `"`          | carattere di quoting                               |
+| `writeHeader`     | `true`       | scrive la riga di intestazione                     |
+| `lineEnding`      | `"lf"`       | lf \| crlf                                         |
+| `jsonIndent`      | `"none"`     | none \| 2 \| 4                                     |
+| `jsonStructure`   | `"array"`    | array \| lines                                     |
+| `encoding`        | `"utf-8"`    |                                                    |
+| `partition`       | `"none"`     | ⚠ configurabile ma non ancora attivo (warning motore) |
+| `postCommand`     | `""`         | ⚠ configurabile ma non ancora attivo               |
+| `webhookUrl`      | `""`         | ⚠ configurabile ma non ancora attivo               |
+
+I default vivono nel corpo del motore (`unwrap_or`), non più nel builder.
+
+### Validazione (doppio strato)
+
+`path` obbligatorio: il vecchio builder aveva un default fantasma
+`/tmp/output.csv` che nascondeva l'errore; ora il motore dà un errore
+parlante su path vuoto. (Il builder può aggiungere il blocco a
+design-time quando il canale è pronto.)
+
+### Migrazione (Fase 12)
+
+`source_file` (misto leggero: scalari props + `fields` in config) e
+`sink_file` (tutto props) migrati in coppia. Executor JS di entrambi
+(erano **inline** in `src/runner/executors.ts`, non file separati)
+rimossi con le loro registrazioni.
