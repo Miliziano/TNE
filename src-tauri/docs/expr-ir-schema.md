@@ -114,10 +114,10 @@ ramo matcha; assente → `null`. Traduce a `if/elif/else` o a un
 
 ### `Cast` — conversione di tipo
 ```json
-{ "kind": "Cast", "expr": { …IR… }, "targetType": "integer" }
+{ "kind": "Cast", "expr": { …IR… }, "target_type": "integer" }
 ```
-`targetType` ∈ `string` | `integer` | `float` | `boolean` | `date`.
-Nota: il campo JSON è **`targetType`** (camelCase), non `target_type`.
+`target_type` ∈ `string` | `integer` | `float` | `boolean` | `date`.
+Nota: il campo JSON è **`target_type`** (snake_case, unica eccezione: ExprNode non ha rename_all).
 
 ### `FieldAccess` — accesso a campo annidato (oggetti/JSON)
 ```json
@@ -206,7 +206,7 @@ JSON.
 | `c ? a : b`       | `FunctionCall`   | `{kind:FunctionCall, name:"iif", args:[c,a,b]}`          |
 | `case when…end`   | `CaseWhen`       | `{kind:CaseWhen, branches:[…], default:…}`               |
 | `x is null`       | `IsNull`         | `{kind:IsNull, expr:…}`                                  |
-| `cast(x as t)`    | `Cast`           | `{kind:Cast, expr:…, targetType:"t"}`                    |
+| `cast(x as t)`    | `Cast`           | `{kind:Cast, expr:…, target_type:"t"}`                    |
 
 ---
 
