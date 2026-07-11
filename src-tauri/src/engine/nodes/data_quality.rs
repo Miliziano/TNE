@@ -29,6 +29,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
@@ -124,8 +125,16 @@ pub async fn run(
     tx:     RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg: DqConfig = serde_json::from_value(ctx.config.clone())
+    // Migrato alla spec (Fase 12). data_quality non ha props scalari
+    // verbatim: la sua config è un unico blob (`dqConfig`) che il builder
+    // elabora e compila (le rules contengono IR: expression,
+    // repair_expression). L'intero DqConfig compilato va quindi in
+    // spec.config — è "materiale compilato" come unità (Approccio A).
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("data_quality {}: {}", ctx.node_id.0, e))?;
+    let cfg: DqConfig = serde_json::from_value(spec.config().clone())
         .map_err(|e| format!("data_quality {}: config non valida: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("data_quality", &ctx.node_id.0);
 
     let rules: Vec<&Rule> = cfg.rules.iter().filter(|r| r.enabled).collect();
 

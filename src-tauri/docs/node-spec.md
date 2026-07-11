@@ -612,3 +612,70 @@ Migrato dopo pivot. Caso "misto": FPEL (come aggregate → `windows` in
 builder scrive `windows` in `specConfig` e non costruisce più `config`
 legacy. Ordinamento: v. TODO ORDER BY multi-campo (condiviso con
 aggregate/pivot); window ha `orderDir` esplicito nel pannello.
+
+## 12. `data_quality` — regole di qualità, score, riparazione
+
+Valuta ogni riga contro un insieme di regole raggruppate in quattro
+dimensioni (completeness, conformity, consistency, accuracy), calcola uno
+score pesato, classifica la riga (valid/warning/invalid secondo le
+soglie) e opzionalmente ripara i valori. Aggiunge un campo di esito
+(`output_field`, default `_dq`).
+
+Streaming (non bloccante): valuta riga per riga. Ha compilazione FPEL —
+le regole `custom` e i repair `expression` sono espressioni compilate
+in IR dallo studio.
+
+### Dove vive la config: `spec.config` (blob intero — Approccio A)
+
+A differenza di pivot/window, data_quality **non ha props scalari
+verbatim**: il pannello salva tutto in un'unica prop `dqConfig` (un JSON
+con rules + pesi + soglie + scalari) che il builder **elabora e compila**.
+L'intero DqConfig compilato va quindi in `spec.config` come unità — è
+"materiale compilato", non props grezze. Il motore legge tutto da
+`spec.config()`.
+
+| Chiave (in spec.config) | Tipo   | Default | Semantica                                          |
+|-------------------------|--------|---------|----------------------------------------------------|
+| `rules`                 | array  | `[]`    | Regole (v. sotto). Nessuna regola → ogni riga passa con score 1.0 |
+| `weights`               | object | 30/30/20/20 | Pesi delle 4 dimensioni (completeness, conformity, consistency, accuracy) |
+| `thresholds`            | object | 0.80 / 0.60 | Soglie `valid` / `warning`                     |
+| `output_field`          | string | `"_dq"` | Nome del campo di esito aggiunto                    |
+| `show_original`         | bool   | `false` | Mantiene i valori originali accanto ai riparati     |
+| `score_before_repair`   | bool   | `false` | Calcola lo score prima della riparazione            |
+
+Elemento di `rules`:
+
+```jsonc
+{
+  "id": "...", "field": "email", "label": "...", "dimension": "conformity",
+  "severity": "error",          // error | warn
+  "enabled": true,
+  "check_type": "custom",       // not_null|pattern|range|in_list|referential|
+                                // compare|custom|…
+  "pattern": "...", "min": "...", "max": "...", "list": "a,b,c",
+  "mat_name": "...", "ref_field": "...",       // referential / lookup materialize
+  "compare_field": "...", "compare_op": "...",
+  "expression": { …IR… },       // solo check_type=custom: FPEL compilata
+  "repair": "none",             // none|default|field|expression|…
+  "repair_default": "...", "repair_field": "...", "repair_fields": "a,b",
+  "repair_separator": " ",
+  "repair_expression": { …IR… } // solo repair=expression: FPEL compilata
+}
+```
+
+### Validazione (doppio strato)
+
+- `check_type=custom` richiede `expression` non vuota;
+- `repair=expression` richiede `repair_expression` non vuota;
+- `repair=lookup_from_file` **non supportato** → errore parlante che
+  indirizza a `source_file → materialize → lookup_from_materialize`.
+
+Errori a design-time nel builder (con dettaglio del parse FPEL) e
+ri-validati dal motore.
+
+### Migrazione (Fase 12)
+
+Ultimo nodo del blocco "registro dataset" migrato alla spec. Caso "blob
+compilato": nessuna prop scalare verbatim, l'intero DqConfig va in
+spec.config. Il `case 'data_quality'` del builder scrive in `specConfig`
+e non costruisce più `config` legacy.

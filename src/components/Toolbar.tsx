@@ -764,22 +764,24 @@ function buildRustPlan(
           const w = raw.weights ?? {}
           const t = raw.thresholds ?? {}
 
-          config = {
-            rules,
-            weights: {
-              completeness: w.completeness ?? 0.30,
-              conformity:   w.conformity   ?? 0.30,
-              consistency:  w.consistency  ?? 0.20,
-              accuracy:     w.accuracy     ?? 0.20,
-            },
-            thresholds: {
-              valid:   t.valid   ?? 0.80,
-              warning: t.warning ?? 0.60,
-            },
-            output_field:        raw.outputField ?? '_dq',
-            show_original:       raw.showOriginal === true,
-            score_before_repair: raw.scoreBeforeRepair === true,
+          // Approccio A: l'intero DqConfig (rules con IR + pesi/soglie +
+          // scalari) va in spec.config come unità — data_quality non ha
+          // props scalari verbatim, la sua config è un blob elaborato dal
+          // builder. Il motore legge tutto da spec.config().
+          specConfig.rules = rules
+          specConfig.weights = {
+            completeness: w.completeness ?? 0.30,
+            conformity:   w.conformity   ?? 0.30,
+            consistency:  w.consistency  ?? 0.20,
+            accuracy:     w.accuracy     ?? 0.20,
           }
+          specConfig.thresholds = {
+            valid:   t.valid   ?? 0.80,
+            warning: t.warning ?? 0.60,
+          }
+          specConfig.output_field        = raw.outputField ?? '_dq'
+          specConfig.show_original       = raw.showOriginal === true
+          specConfig.score_before_repair = raw.scoreBeforeRepair === true
           break
         }
         
