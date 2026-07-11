@@ -762,3 +762,62 @@ design-time quando il canale è pronto.)
 `sink_file` (tutto props) migrati in coppia. Executor JS di entrambi
 (erano **inline** in `src/runner/executors.ts`, non file separati)
 rimossi con le loro registrazioni.
+
+## 15. `transform` — calcola/rimappa campi (FPEL)
+
+Versione semplificata del TMap a un solo input: per ogni riga, calcola un
+insieme di campi tramite espressioni FPEL. Streaming (non bloccante).
+
+Ha compilazione FPEL → gli `expr` sono compilati in IR dallo studio; il
+motore valuta l'IR. Materiale elaborato → `spec.config`.
+
+### `spec.config`
+
+| Chiave   | Tipo   | Default   | Semantica                                              |
+|----------|--------|-----------|--------------------------------------------------------|
+| `mode`   | enum   | `"add"`   | `select` (solo campi calcolati) \| `add` (calcolati + originali) |
+| `fields` | array  | `[]`      | `[{name, expr}]` — `expr` è IR FPEL compilata          |
+
+**Default opposti da conoscere:** il pannello dice `unmappedFields`
+(default `drop`), il motore dice `mode` (default `add`). Il builder
+traduce: `drop → select`, `passthrough → add`. Questa traduzione è
+elaborazione → il `mode` risultante va in spec.config.
+
+### Validazione (doppio strato)
+
+Gli errori di compilazione FPEL bloccano il run a design-time nel builder
+(con dettaglio per campo). Un errore NON degrada a config vuota: il nodo
+produrrebbe dati sbagliati in silenzio.
+
+### Migrazione (Fase 12)
+
+Caso "misto con IR" (come aggregate/window): `fields` (IR) + `mode`
+(scalare derivato) in spec.config. Il `case 'transform'` scrive in
+specConfig; executor JS (`mapExecutor`, inline in executors.ts) rimosso.
+
+## 16. `filter` — filtra le righe
+
+Lascia passare o scarta le righe secondo una o più condizioni. Streaming.
+**Non usa FPEL**: le condizioni sono clausole strutturate o template
+predefiniti, non espressioni compilate.
+
+### `spec.config`
+
+| Chiave          | Tipo   | Default     | Semantica                                       |
+|-----------------|--------|-------------|-------------------------------------------------|
+| `conditions`    | array  | `[]`        | Condizioni (v. sotto)                            |
+| `null_behavior` | enum   | `"exclude"` | Come trattare i null: `exclude` \| `include`     |
+
+Elemento di `conditions` — tre modi (`mode`):
+- `visual` — clausole `[{field, operator, value, logic}]` (logic AND/OR
+  connette con la clausola precedente);
+- `template` — template predefinito (`template_id` + `template_params`),
+  es. `date_is_today`, `date_is_past`;
+- `code` — testo JS/Python **non eseguibile nel motore** (la condizione
+  ritorna false, con warning all'avvio). Predisposizione, non attivo.
+
+### Migrazione (Fase 12)
+
+Caso "struttura senza FPEL": tutto il FilterPlan (`conditions` +
+`null_behavior`) in spec.config. Il `case 'filter'` scrive in specConfig;
+executor JS (`filterExecutor`, inline) rimosso.

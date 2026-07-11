@@ -485,11 +485,12 @@ function buildRustPlan(
         
 
         case 'filter': {
+          // Le conditions (visual/template/code) sono una struttura
+          // elaborata dal builder → spec.config (node-spec §16). Filter
+          // non compila FPEL: sono clausole strutturate o template.
           const f = (node.data.config as any)?.filter ?? {}
-          config = {
-            conditions:    f.conditions ?? [],
-            null_behavior: f.nullBehavior ?? 'exclude',
-          }
+          specConfig.conditions    = f.conditions ?? []
+          specConfig.null_behavior = f.nullBehavior ?? 'exclude'
           break
         }
 
@@ -528,11 +529,11 @@ function buildRustPlan(
             // dice `mode` (default 'add'): DEFAULT OPPOSTI, va esplicitato.
             //   drop        → 'select'  (solo i campi configurati)
             //   passthrough → 'add'     (campi calcolati + quelli originali)
-            const unmapped = (node.data.props?.['unmappedFields'] as string) ?? 'drop'
-            config = {
-              mode:   unmapped === 'passthrough' ? 'add' : 'select',
-              fields: compiled,
-            }
+              const unmapped = (node.data.props?.['unmappedFields'] as string) ?? 'drop'
+            // mode e fields (fields con l'IR compilato) sono materiale
+            // elaborato → spec.config (node-spec §15).
+            specConfig.mode   = unmapped === 'passthrough' ? 'add' : 'select'
+            specConfig.fields = compiled
           }
           break
         }

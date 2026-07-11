@@ -86,8 +86,15 @@ pub async fn run(
     outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let plan: FilterPlan = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("filter config non valida: {}", e))?;
+    let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("filter {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("filter", &ctx.node_id.0);
+
+    // Le `conditions` (visual/template/code) sono una struttura elaborata
+    // dal builder → spec.config. Filter non usa FPEL: le condizioni sono
+    // clausole strutturate o template, non espressioni compilate.
+    let plan: FilterPlan = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("filter {}: config non valida: {}", ctx.node_id.0, e))?;
 
     let start = Instant::now();
     let mut rows_in       = 0u64;

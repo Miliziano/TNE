@@ -103,19 +103,31 @@ live (Fase 13) dovrà segnalare.
   artifact distinti coordinati via bridge). Gli eventi già portano
   lane_id: è lavoro di presentazione, non di trasporto. Da pianificare.
 
-## Value::Decimal — Fase B: nodi di calcolo decimal-aware
-- **Cos'è:** il tipo `Value::Decimal` (NUMERIC/DECIMAL esatti) esiste e
-  attraversa la pipeline, ma i nodi che *calcolano* non lo sfruttano
-  ancora: filter, aggregate (SUM/AVG), ed espressioni lo trattano come
-  Float tramite `Value::as_f64_lossy()` — che perde precisione.
-- **Perché rimandato:** far compilare la Fase A senza riscrivere subito
-  tutti i nodi di calcolo. `as_f64_lossy` è un ponte dichiarato tale.
-- **Da fare:** aritmetica esatta su Decimal in filter/aggregate/expr;
-  `expr.rs::to_int` copre già Decimal→i64, ma i confronti e le somme in
-  `aggregate.rs` e `filter.rs` vanno resi decimal-aware. Rimuovere gli
-  usi di `as_f64_lossy` nei nodi di calcolo man mano.
-- **Contesto:** introdotto migrando i NUMERIC (rental_rate,
-  replacement_cost davano Null perché letti come f64).
+## Value::Decimal — Fase B: nodi di calcolo decimal-aware — ✅ IN GRAN PARTE RISOLTA
+
+Stato aggiornato (Fase 12, verificato nel codice): il grosso è **fatto**.
+Questa voce era rimasta indietro rispetto al codice e induceva a credere
+che ci fosse un blocco davanti a filter/transform. Non c'è.
+
+- **Aritmetica delle espressioni (expr.rs):** `numeric_op` — che alimenta
+  Add/Sub/Mul/Div/Mod — è **decimal-aware**: Decimal×Decimal, Decimal×Int
+  restano Decimal esatti, senza passare per f64. Solo Decimal×Float
+  degrada a Float (corretto: il Float è già inesatto). Filter e transform,
+  che valutano espressioni via expr.rs, ereditano questo. → risolto.
+- **Bug `Add`:** il TODO storico diceva che `Add` concatena in silenzio
+  dove FPEL vuole `null`. Il codice attuale (`eval_binary`) è **corretto**:
+  concatena solo se un operando è stringa, altrimenti aritmetica, e su
+  null/tipi-non-numerici → `Null` (semantica SQL, come expr-ir-schema §3).
+  → risolto.
+- **`as_f64_lossy` residui:** restano SOLO in operazioni intrinsecamente
+  a virgola mobile — `median`/`std_dev`/`variance` (aggregate), moving
+  average (window), somma totali-riga (pivot), `is_numeric`/confronti
+  (data_quality). Qui f64 è **corretto per natura** (una deviazione
+  standard non ha forma Decimal esatta), non un degrado da sanare.
+- **Resta da valutare (minore):** se un domani si volessero SUM/AVG di
+  aggregate in Decimal esatto (oggi passano da f64 in riga ~254), sarebbe
+  un miglioramento di precisione per importi monetari aggregati. Non
+  blocca nulla; priorità bassa.
 
 ## Value::Decimal — preservazione dal JSON in ingresso
 - **Cos'è:** oggi `Value::from_json` mappa i numeri JSON con decimali su

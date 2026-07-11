@@ -19,15 +19,21 @@ pub async fn run(
     tx: RowSender,
 ) -> Result<NodeStats, String> {
 
+    let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("transform {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("transform", &ctx.node_id.0);
+
     #[derive(serde::Deserialize)]
     struct FieldExpr { name: String, expr: ExprNode }
 
-    let mode: String = ctx.config.get("mode")
+    // mode e fields sono materiale elaborato/compilato dal builder
+    // (fields contiene l'IR delle espressioni FPEL) → spec.config.
+    let mode: String = spec.config().get("mode")
         .and_then(|v| v.as_str())
         .unwrap_or("add")
         .to_string();
 
-    let fields: Vec<FieldExpr> = ctx.config.get("fields")
+    let fields: Vec<FieldExpr> = spec.config().get("fields")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
@@ -48,13 +54,7 @@ pub async fn run(
         let computed: Vec<(&str, Value)> = fields.iter()
             .map(|f| (f.name.as_str(), eval(&f.expr, &eval_ctx)))
             .collect();
-// TRACCIA TEMPORANEA — rimuovere dopo la diagnosi
- //       if rows_in == 1 {
- //           eprintln!("[transform] riga in ingresso: {:?}", row);
-  //          for (name, val) in &computed {
-   //             eprintln!("[transform]   {} = {:?}", name, val);
-   //         }
-   //     }
+
         let out_row = match mode.as_str() {
             "select" => {
                 // Solo i campi calcolati
