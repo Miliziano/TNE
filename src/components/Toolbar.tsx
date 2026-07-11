@@ -636,60 +636,40 @@ function buildRustPlan(
           break
         }
 
-         case 'pivot': {
+        case 'pivot': {
+          // Migrato alla spec (node-spec §10): tutte le props vanno alla
+          // busta spec verbatim (incluse pivotColumns/unpivotColumns, già
+          // JSON-string) e le legge il motore. `nullValue` non si tipizza
+          // più qui: lo fa il motore. Qui restano SOLO le validazioni a
+          // design-time (doppio strato — v. docs/design-validazione.md):
+          // il motore le ri-valida come errori parlanti a runtime.
           const mode = props['pivotMode'] ?? 'pivot'
 
-          // `nullValue` è una stringa nel pannello. Il motore la mette nelle
-          // celle vuote: se resta stringa, un "0" finirebbe come testo in una
-          // colonna numerica e romperebbe le operazioni a valle.
-          // La tipizziamo qui, come fa source_file con i tipi dichiarati.
-          const rawNull = String(props['nullValue'] ?? '').trim()
-          let nullValue: unknown = null
-          if (rawNull !== '') {
-            if (/^-?\d+$/.test(rawNull))              nullValue = parseInt(rawNull, 10)
-            else if (/^-?\d*\.\d+$/.test(rawNull))    nullValue = parseFloat(rawNull)
-            else if (rawNull === 'true')              nullValue = true
-            else if (rawNull === 'false')             nullValue = false
-            else                                      nullValue = rawNull
-          }
-
-          const parseJson = <T,>(key: string, fallback: T): T => {
-            try { const r = props[key]; return r ? JSON.parse(r as string) : fallback }
-            catch { return fallback }
-          }
-
-          config = {
-            mode,
-            data_source:      props['dataSource']      ?? 'flow',
-            materialize_name: props['materializeName'] ?? '',
-
-            // pivot
-            identity_field: String(props['identityField'] ?? '')
-                              .split(',').map((s) => s.trim()).filter(Boolean),
-            pivot_field:    props['pivotField'] ?? '',
-            value_field:    props['valueField'] ?? '',
-            agg_fn:         props['aggFn']      ?? 'sum',
-            pivot_type:     props['pivotType']  ?? 'static',
-            pivot_columns:  parseJson<Array<{ value: string; alias: string }>>('pivotColumns', []),
-            pivot_sort:     props['pivotSort']  ?? 'asc',
-            null_value:     nullValue,
-            add_row_total:  props['addRowTotal'] === 'true',
-
-            // unpivot
-            unpivot_columns:     parseJson<string[]>('unpivotColumns', []),
-            unpivot_key_field:   props['unpivotKeyField']   ?? 'chiave',
-            unpivot_value_field: props['unpivotValueField'] ?? 'valore',
-            unpivot_null_mode:   props['unpivotNullMode']   ?? 'include',
-            unpivot_order:       props['unpivotOrder']      ?? 'identity_first',
-          }
-
-          if (mode === 'pivot' && (!config.pivot_field || !config.value_field)) {
+          if (mode === 'pivot' && (!props['pivotField'] || !props['valueField'])) {
             throw new Error(
               `Pivot "${node.data.label}": campo pivot e campo valore sono obbligatori.`)
           }
-          if (mode === 'unpivot' && (config.unpivot_columns as string[]).length === 0) {
-            throw new Error(
-              `Pivot "${node.data.label}": seleziona almeno una colonna da ruotare (unpivot).`)
+          if (mode === 'unpivot') {
+            let cols: unknown[] = []
+            try { cols = JSON.parse(props['unpivotColumns'] ?? '[]') } catch { /* vuoto */ }
+            if (cols.length === 0) {
+              throw new Error(
+                `Pivot "${node.data.label}": seleziona almeno una colonna da ruotare (unpivot).`)
+            }
+          }
+
+          // Warning non bloccante: nullValue testuale che finirà in celle
+          // di una colonna probabilmente numerica. Legale (il motore lo
+          // terrà come stringa), ma spesso non è ciò che l'utente intende.
+          // TODO(validazione-live): emettere come ValidationIssue severity
+          // 'warning' quando il canale live sarà attivo (Fase 13). Per ora
+          // solo console, non blocca.
+          const rawNull = String(props['nullValue'] ?? '').trim()
+          if (mode === 'pivot' && rawNull !== '' &&
+              !/^-?\d+(\.\d+)?$/.test(rawNull) && rawNull !== 'true' && rawNull !== 'false') {
+            console.warn(
+              `[pivot "${node.data.label}"] valore celle vuote "${rawNull}" è testuale: ` +
+              `se le colonne pivot sono numeriche, le operazioni a valle potrebbero fallire.`)
           }
           break
         }

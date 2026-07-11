@@ -41,6 +41,28 @@ consumate le props `aggFunctions` e `having` (testo FPEL sorgente): è
 atteso e corretto — il loro compilato (IR) vive in `spec.config`, non
 nelle props. Non è un drop.
 
+## pivot — `distinctValuesMat` offerta ma ignorata dal motore
+
+Disallineamento pannello↔motore, **preesistente** alla migrazione di
+pivot (Fase 12), emerso migrandolo.
+
+Il pannello pivot, in modalità `dynamic`, espone una prop
+`distinctValuesMat` per fornire l'elenco dei valori-colonna da un
+**materialize esterno**. Ma il motore (`pivot.rs`, modalità dynamic)
+ricava i valori distinti **dalle righe stesse in ingresso**, e non legge
+`distinctValuesMat`. La prop è quindi offerta all'utente ma ignorata:
+l'utente può selezionare un materialize di valori distinti che non avrà
+alcun effetto.
+
+Rimandato: fuori scope dalla migrazione (che resta fedele all'esistente).
+Da decidere quando si affronta: o il motore impara a leggere i valori
+distinti da un dataset esterno (utile per colonne stabili tra run), o la
+prop si rimuove dal pannello (come fatto per `lane_var` di explode).
+
+Priorità: bassa. Non rompe (il dynamic funziona coi valori dalle righe),
+ma è una promessa UI non mantenuta — il tipo di cosa che la validazione
+live (Fase 13) dovrà segnalare.
+
 ## join — customCondition
 - **Cos'è:** condizione di match arbitraria nel nodo Join, oltre
   all'uguaglianza di chiave (es. `left.importo > right.soglia`).

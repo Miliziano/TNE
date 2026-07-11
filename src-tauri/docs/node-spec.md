@@ -480,3 +480,67 @@ strutture compilate (`functions`, `having`) in `spec.config` sotto chiave
 dedicata. È il pattern per tutti i nodi FPEL successivi (filter, transform,
 tmap). Il `case 'aggregate'` del builder ora scrive l'IR in `specConfig`,
 non più nel `config` legacy.
+
+## 10. `pivot` — righe ↔ colonne
+
+Due modalità in un nodo (`pivotMode`):
+- **pivot** (righe → colonne): raggruppa per identità; i valori distinti
+  di un campo diventano colonne, aggregando un campo valore.
+- **unpivot** (colonne → righe): l'inverso; le colonne scelte diventano
+  coppie chiave/valore, le altre restano fisse su ogni riga generata.
+
+Nodo **bloccante**: materializza (deve vedere tutte le righe per
+raggruppare, e in modalità dinamica per scoprire quali colonne creare).
+Nessuna compilazione FPEL → **tutto nelle props**, niente `spec.config`.
+
+**Sorgente** (`dataSource`), come `window`/`aggregate`: `flow` |
+`materialize` (l'input diventa trigger scartato; le righe dal dataset di
+lane).
+
+### Props (tab Configurazione + Mapping, verbatim via Spec)
+
+| Chiave              | Tipo   | Default            | Semantica                                                        | Live |
+|---------------------|--------|--------------------|-----------------------------------------------------------------|------|
+| `pivotMode`         | enum   | `"pivot"`          | `pivot` \| `unpivot`                                            | ✅   |
+| `dataSource`        | enum   | `"flow"`           | `flow` \| `materialize`                                         | ✅   |
+| `materializeName`   | string | `""`               | Nome dataset (se `materialize`)                                 | ✅   |
+| **pivot**           |        |                    |                                                                 |      |
+| `identityField`     | string | `""`               | Campi identità (GROUP BY), CSV                                  | ✅   |
+| `pivotField`        | string | `""`               | I suoi valori distinti diventano colonne. **Required (pivot)**  | ✅   |
+| `valueField`        | string | `""`               | Campo aggregato nelle celle. **Required (pivot)**              | ✅   |
+| `aggFn`             | enum   | `"sum"`            | Funzione di aggregazione delle celle                           | ✅   |
+| `pivotType`         | enum   | `"static"`         | `static` (colonne dichiarate) \| `dynamic` (dai valori a runtime) | ✅ |
+| `pivotColumns`      | json   | `[]`               | JSON-string: `[{value, alias}]` — colonne in modo static       | ✅   |
+| `pivotSort`         | enum   | `"asc"`            | Ordine colonne dinamiche: `asc` \| `desc` \| `natural`         | ✅   |
+| `nullValue`         | string | `""`               | Valore celle senza dati. **Tipizzato dal motore** (vuoto→Null, `42`→Int, `3.14`→Float, `true`/`false`→Bool, altro→String) | ✅ |
+| `addRowTotal`       | bool   | `false`            | Aggiunge colonna totale di riga                                | ✅   |
+| **unpivot**         |        |                    |                                                                 |      |
+| `unpivotColumns`    | json   | `[]`               | JSON-string: `string[]` colonne da ruotare. **Required (unpivot)** | ✅ |
+| `unpivotKeyField`   | string | `"chiave"`         | Nome colonna chiave in uscita                                  | ✅   |
+| `unpivotValueField` | string | `"valore"`         | Nome colonna valore in uscita                                  | ✅   |
+| `unpivotNullMode`   | enum   | `"include"`        | `include` \| `exclude` \| `zero` — celle null                  | ✅   |
+| `unpivotOrder`      | enum   | `"identity_first"` | `identity_first` \| `key_first`                                | ✅   |
+
+### Validazione (doppio strato — v. `design-validazione.md`)
+
+- **pivot**: `pivotField` e `valueField` obbligatori.
+- **unpivot**: almeno una colonna in `unpivotColumns`.
+
+Errori bloccanti nel builder a design-time **e** errori parlanti nel
+motore a runtime. Il builder emette inoltre un **warning non bloccante**
+se `nullValue` è testuale in una pivot (potrebbe rompere colonne
+numeriche a valle) — predisposto per la validazione live (Fase 13).
+
+### `nullValue`: chi tipizza
+
+Il pannello salva `nullValue` come stringa; **il motore la tipizza**
+(non più il builder). Coerente col principio "props verbatim, motore
+interpreta": lo studio manda testo, il motore deduce il tipo con parsing
+lassista. Vedi TODO ORDER BY multi-campo (condiviso con aggregate/window).
+
+### Migrazione (Fase 12)
+
+Migrato dopo aggregate. Caso "senza FPEL": nessun `spec.config`, tutte le
+props verbatim; le liste (`pivotColumns`, `unpivotColumns`) già
+JSON-string nel pannello, lette via `json_or`. Il `case 'pivot'` del
+builder si riduce alle sole validazioni (non costruisce più `config`).

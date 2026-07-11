@@ -24,9 +24,16 @@ use std::collections::HashMap;
 use std::time::Instant;
 use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
 // ─── Config ────────────────────────────────────────────────────────
+//
+// Migrato alla spec (Fase 12). Nessuna compilazione FPEL → tutto dalle
+// props (node-spec §10). Scalari via accessor; le liste strutturate
+// (pivot_columns, unpivot_columns) come JSON-string via json_or, il
+// pattern di compositeKeys del join. `nullValue` è tipizzato QUI dal
+// motore (non più dal builder): props verbatim, motore interpreta.
 
 #[derive(Deserialize)]
 struct PivotColumn {
@@ -37,46 +44,72 @@ struct PivotColumn {
     alias: String,
 }
 
-#[derive(Deserialize)]
 struct PivotConfig {
-    #[serde(default = "d_pivot")]      mode: String,          // pivot | unpivot
-    #[serde(default = "d_flow")]       data_source: String,   // flow | materialize
-    #[serde(default)]                  materialize_name: String,
+    mode: String,          // pivot | unpivot
+    data_source: String,   // flow | materialize
+    materialize_name: String,
 
     // ── pivot ──
-    /// campi identità: il GROUP BY
-    #[serde(default)]                  identity_field: Vec<String>,
-    /// i valori di questo campo diventano colonne
-    #[serde(default)]                  pivot_field: String,
-    /// il campo da aggregare nelle celle
-    #[serde(default)]                  value_field: String,
-    #[serde(default = "d_sum")]        agg_fn: String,
-    /// static: colonne dichiarate — dynamic: dai valori distinti a runtime
-    #[serde(default = "d_static")]     pivot_type: String,
-    #[serde(default)]                  pivot_columns: Vec<PivotColumn>,
-    /// ordine delle colonne dinamiche
-    #[serde(default = "d_asc")]        pivot_sort: String,    // asc | desc | natural
-    /// valore delle celle senza dati (già tipizzato dal builder)
-    #[serde(default)]                  null_value: serde_json::Value,
-    #[serde(default)]                  add_row_total: bool,
+    identity_field: Vec<String>,   // campi identità: il GROUP BY
+    pivot_field: String,           // i valori di questo campo diventano colonne
+    value_field: String,           // il campo da aggregare nelle celle
+    agg_fn: String,
+    pivot_type: String,            // static | dynamic
+    pivot_columns: Vec<PivotColumn>,
+    pivot_sort: String,            // asc | desc | natural
+    null_value: Value,             // valore delle celle senza dati (tipizzato qui)
+    add_row_total: bool,
 
     // ── unpivot ──
-    #[serde(default)]                  unpivot_columns: Vec<String>,
-    #[serde(default = "d_key")]        unpivot_key_field: String,
-    #[serde(default = "d_value")]      unpivot_value_field: String,
-    #[serde(default = "d_include")]    unpivot_null_mode: String,  // include | exclude | zero
-    #[serde(default = "d_identity")]   unpivot_order: String,      // identity_first | key_first
+    unpivot_columns: Vec<String>,
+    unpivot_key_field: String,
+    unpivot_value_field: String,
+    unpivot_null_mode: String,  // include | exclude | zero
+    unpivot_order: String,      // identity_first | key_first
 }
 
-fn d_pivot()    -> String { "pivot".into() }
-fn d_flow()     -> String { "flow".into() }
-fn d_sum()      -> String { "sum".into() }
-fn d_static()   -> String { "static".into() }
-fn d_asc()      -> String { "asc".into() }
-fn d_key()      -> String { "chiave".into() }
-fn d_value()    -> String { "valore".into() }
-fn d_include()  -> String { "include".into() }
-fn d_identity() -> String { "identity_first".into() }
+/// Tipizza il valore-cella-vuota: props lo porta come stringa verbatim,
+/// il motore deduce int/float/bool/stringa (parsing lassista, come fanno
+/// gli altri nodi migrati). Vuoto → Null.
+fn typed_null(raw: &str) -> Value {
+    let s = raw.trim();
+    if s.is_empty() { return Value::Null; }
+    if let Ok(i) = s.parse::<i64>()  { return Value::Int(i); }
+    if let Ok(f) = s.parse::<f64>()  { return Value::Float(f); }
+    match s {
+        "true"  => Value::Bool(true),
+        "false" => Value::Bool(false),
+        _       => Value::String(s.to_string()),
+    }
+}
+
+fn config_from_spec(spec: &Spec) -> Result<PivotConfig, String> {
+    // Liste strutturate: JSON-string nelle props → deserializza.
+    let pivot_columns: Vec<PivotColumn> = spec.json_or("pivotColumns", Vec::new());
+    let unpivot_columns: Vec<String>    = spec.json_or("unpivotColumns", Vec::new());
+
+    Ok(PivotConfig {
+        mode:             spec.str_or("pivotMode",  "pivot"),
+        data_source:      spec.str_or("dataSource", "flow"),
+        materialize_name: spec.str_or("materializeName", ""),
+
+        identity_field:   spec.str_list("identityField"),
+        pivot_field:      spec.str_or("pivotField", ""),
+        value_field:      spec.str_or("valueField", ""),
+        agg_fn:           spec.str_or("aggFn",      "sum"),
+        pivot_type:       spec.str_or("pivotType",  "static"),
+        pivot_columns,
+        pivot_sort:       spec.str_or("pivotSort",  "asc"),
+        null_value:       typed_null(&spec.str_or("nullValue", "")),
+        add_row_total:    spec.bool_or("addRowTotal", false),
+
+        unpivot_columns,
+        unpivot_key_field:   spec.str_or("unpivotKeyField",   "chiave"),
+        unpivot_value_field: spec.str_or("unpivotValueField", "valore"),
+        unpivot_null_mode:   spec.str_or("unpivotNullMode",   "include"),
+        unpivot_order:       spec.str_or("unpivotOrder",      "identity_first"),
+    })
+}
 
 // ─── Esecuzione ────────────────────────────────────────────────────
 
@@ -86,8 +119,22 @@ pub async fn run(
     tx:  RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg: PivotConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("pivot {}: config non valida: {}", ctx.node_id.0, e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("pivot {}: {}", ctx.node_id.0, e))?;
+    let cfg = config_from_spec(&spec)
+        .map_err(|e| format!("pivot {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("pivot", &ctx.node_id.0);
+
+    // Validazioni (doppio strato: il builder le fa a design-time, il
+    // motore le ri-valida come errori parlanti per l'esecuzione headless).
+    if cfg.mode == "pivot" && (cfg.pivot_field.is_empty() || cfg.value_field.is_empty()) {
+        return Err(format!("pivot {}: in modalità pivot, campo pivot e campo \
+                            valore sono obbligatori.", ctx.node_id.0));
+    }
+    if cfg.mode == "unpivot" && cfg.unpivot_columns.is_empty() {
+        return Err(format!("pivot {}: in modalità unpivot, seleziona almeno una \
+                            colonna da ruotare.", ctx.node_id.0));
+    }
 
     let start = Instant::now();
 
@@ -183,7 +230,7 @@ fn do_pivot(rows: &[Row], cfg: &PivotConfig) -> Result<Vec<Row>, String> {
             .collect()
     };
 
-    let null_value = Value::from_json(cfg.null_value.clone());
+    let null_value = cfg.null_value.clone();
     let mut result = Vec::with_capacity(order.len());
 
     for key in order {
