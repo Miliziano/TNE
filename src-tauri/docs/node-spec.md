@@ -821,3 +821,53 @@ Elemento di `conditions` — tre modi (`mode`):
 Caso "struttura senza FPEL": tutto il FilterPlan (`conditions` +
 `null_behavior`) in spec.config. Il `case 'filter'` scrive in specConfig;
 executor JS (`filterExecutor`, inline) rimosso.
+
+## 17. `union` — impila flussi (merge di schema per nome+tipo)
+
+Fonde N flussi **verticalmente**: impila le righe, unendo lo schema.
+Diversa dal Join (che fonde orizzontalmente correlando per chiave): stesso
+valore di chiave in due input → due righe (una per input), non una.
+
+**Modello di allineamento (deciso a design-time nel MappingPanel):**
+- campi con **stesso nome E stesso tipo** → si fondono in una colonna sola;
+- campo con nome già usato ma **tipo diverso** → il secondo prende un
+  suffisso automatico (`codice` → `codice_2`), NON si fonde;
+- l'utente può **separare** due campi fusi rinominandone uno (o
+  **fonderne** due dando lo stesso nome).
+
+Il MappingPanel produce `fields` (mappatura già risolta); il motore la
+applica **meccanicamente**, senza inferenze a runtime. Non c'è merge
+cieco by-name: l'allineamento è una decisione esplicita dell'utente,
+assistita dall'auto-fusione nome+tipo. Questo elimina by-design le due
+ambiguità classiche (omonimia non voluta, collisione di tipo): la prima
+si separa rinominando, la seconda non fonde in automatico.
+
+### `spec.config` (blob elaborato dal MappingPanel)
+
+| Chiave              | Tipo   | Default          | Semantica                                          |
+|---------------------|--------|------------------|----------------------------------------------------|
+| `mode`              | enum   | `"concat"`       | `concat` (impila) \| `zip` (affianca per posizione) |
+| `fields`            | array  | `[]`             | `[{name, type, from}]` — mappatura schema risolta. **Required** |
+| `missing_field`     | enum   | `"null"`         | Campo assente in un flusso: `null` \| `omit`        |
+| `add_source_field`  | bool   | `false`          | Aggiunge una colonna con la provenienza            |
+| `source_field_name` | string | `"_union_source"`| Nome di quella colonna                              |
+| `zip_mismatch`      | enum   | `"truncate"`     | mode=zip, lunghezze diverse: `truncate`\|`pad_null`\|`error` |
+| `handle_labels`     | object | `{}`             | handle → etichetta leggibile (per `_union_source`)  |
+
+`UnionField.from` è `handle → nome del campo IN QUEL FLUSSO`; un handle
+assente da `from` non alimenta il campo → null.
+
+### Tipi misti in una colonna
+
+Se l'utente forza la fusione di campi con tipo diverso (rinominandoli
+uguali), il motore **impila i valori verbatim, senza coercere**: una
+colonna può contenere Int in una riga e String in un'altra (Value li
+ospita entrambi). La coercizione, se serve, è un `transform` a valle. Un
+warning sui tipi incompatibili è compito del builder/validazione live.
+
+### Migrazione (Fase 12)
+
+Caso "blob elaborato" (come data_quality): tutta la config in
+spec.config. Nessun executor JS da rimuovere (union non ne aveva). Le due
+"decisioni di semantica" del vecchio TODO erano **già risolte** dal
+modello nome+tipo del MappingPanel.

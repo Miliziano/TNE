@@ -582,17 +582,18 @@ function buildRustPlan(
             handleLabels[inp.id] = inp.label ?? inp.id
           }
 
-          config = {
-            mode:              props['unionMode']       ?? 'concat',
-            fields,
-            missing_field:     props['missingField']    ?? 'null',
-            add_source_field:  props['addSourceField']  === 'true',
-            source_field_name: props['sourceFieldName'] ?? '_union_source',
-            zip_mismatch:      props['zipMismatch']     ?? 'truncate',
-            handle_labels:     handleLabels,
-            // serve all'executor per ordinare gli input (concat)
-            union_inputs:      unionInputs,
-          }
+          // Tutta la config di union (fields = mappatura schema risolta dal
+          // MappingPanel + scalari) è materiale elaborato → spec.config
+          // come unità (node-spec §17).
+          specConfig.mode              = props['unionMode']       ?? 'concat'
+          specConfig.fields            = fields
+          specConfig.missing_field     = props['missingField']    ?? 'null'
+          specConfig.add_source_field  = props['addSourceField']  === 'true'
+          specConfig.source_field_name = props['sourceFieldName'] ?? '_union_source'
+          specConfig.zip_mismatch      = props['zipMismatch']     ?? 'truncate'
+          specConfig.handle_labels     = handleLabels
+          // serve all'executor per ordinare gli input (concat)
+          specConfig.union_inputs      = unionInputs
           break
         }
         case 'materialize': {

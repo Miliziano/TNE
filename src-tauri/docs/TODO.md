@@ -138,41 +138,28 @@ che ci fosse un blocco davanti a filter/transform. Non c'è.
 - **Da valutare:** se/quando servirà, preservare i decimali anche in
   from_json (serde_json ha `arbitrary_precision`).
 
-## union — semantica del merge schema (by-name con null)
+## union — semantica del merge schema (by-name con null) — ✅ RISOLTA
 
-- **Cos'è:** l'Union di FlowPilot non è la union SQL classica (per
-  posizione, stessa struttura). È un **merge di schema per nome**: fonde
-  flussi anche con colonne diverse, produce in uscita l'unione di tutti
-  i campi di tutti gli ingressi (omonimi non duplicati) e riempie di
-  `null` le colonne che una riga non possiede. Impila le righe: stesso
-  valore di chiave in due input → DUE righe (una per input), non una
-  (è ciò che la distingue dal Join).
+Stato aggiornato (Fase 12): le due decisioni sotto erano **già decise e
+implementate** nel MappingPanel (`src/nodes/types/union/MappingPanel.tsx`).
+Il TODO era rimasto indietro rispetto al codice.
 
-- **Perché va normato:** il merge per nome ha due decisioni di semantica
-  che oggi sono implicite e possono creare bug muti — divergerebbero tra
-  motore live e codegen (Java/Python coerciscono i tipi diversamente):
+Il modello reale: allineamento su **nome + tipo**. Campi con stesso nome
+E stesso tipo si fondono; nome uguale ma tipo diverso → suffisso
+automatico (`codice_2`), niente fusione; l'utente separa/fonde
+rinominando. Il motore applica la mappatura risolta, non inferisce.
+Normato in `node-spec.md §17`.
 
-  1. **Collisione di nome con tipo diverso.** Input A ha `codice` intero,
-     input B ha `codice` stringa. La colonna fusa `codice` che tipo
-     prende? Opzioni: coercizione a tipo comune / colonne distinte /
-     errore. Da decidere e dichiarare.
+Come questo risolve le due ambiguità:
+  1. **Collisione di nome con tipo diverso** → non si fondono in
+     automatico (la fusione richiede tipo uguale); l'utente decide.
+     Se forza la fusione, il motore impila verbatim senza coercere
+     (tipi misti nella colonna; coercizione = transform a valle).
+  2. **Omonimia non voluta** → l'utente rinomina uno dei due nel pannello
+     per tenerli separati. Nessun merge cieco.
 
-  2. **Omonimia non voluta.** Due input hanno entrambi `id` ma con
-     significato diverso (id-cliente vs id-ordine). Il merge by-name le
-     fonde in una sola colonna, mescolando semantiche diverse senza che
-     nessuno se ne accorga. Speculare al punto 1.
-
-- **Da fare:** alla migrazione dell'union alla spec, fissare in
-  node-spec.md le regole per (1) e (2) — con eventuale opzione utente
-  nel pannello (es. "allinea per nome" vs "per posizione", policy sui
-  conflitti di tipo). Emettere warning quando un merge fonde colonne
-  con tipi incompatibili.
-
-- **Contesto:** emerso confrontando Join e Union. Non si sovrappongono:
-  Join fonde orizzontalmente (affianca colonne correlando righe per
-  chiave), Union fonde verticalmente (impila righe unendo lo schema).
-  Possono produrre lo stesso schema di uscita ma popolano le righe in
-  modo opposto.
+Resta (minore, per validazione live Fase 13): emettere un **warning**
+quando l'utente forza la fusione di colonne con tipi incompatibili.
 
   
 ## Nota per node-spec.md §3 — tipi non scalari (tsvector, tipi custom)

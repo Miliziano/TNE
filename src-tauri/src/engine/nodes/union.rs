@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
 // ─── Config (prodotta dal pannello) ────────────────────────────────
@@ -110,8 +111,15 @@ pub async fn run(
     tx:     RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg: UnionConfig = serde_json::from_value(ctx.config.clone())
+    // Migrato alla spec (Fase 12). La config di union è un blob elaborato
+    // dal MappingPanel (fields = mappatura schema già risolta: auto-fusione
+    // per nome+tipo, suffisso su tipo diverso, rinomina manuale) + scalari.
+    // Va in spec.config come unità. V. node-spec §17.
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("union {}: {}", ctx.node_id.0, e))?;
+    let cfg: UnionConfig = serde_json::from_value(spec.config().clone())
         .map_err(|e| format!("union {}: config non valida: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("union", &ctx.node_id.0);
 
     if inputs.is_empty() {
         return Err(format!("union {}: nessun flusso collegato", ctx.node_id.0));
