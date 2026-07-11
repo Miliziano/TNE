@@ -561,10 +561,10 @@ async fn run_node(
         }
 
         "json_parser" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("json_parser {} richiede un input collegato", ctx.node_id.0))?;
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::json_parser::run(ctx, rx, tx).await
+            let rx = take_single_input(&mut inputs);
+            // Multi-output: un handle per flow + reject. Passa l'intera
+            // mappa outputs (come i serializer).
+            super::nodes::json_parser::run(ctx, rx, outputs).await
         }
 
         "filter" => {

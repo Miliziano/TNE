@@ -446,7 +446,19 @@ function buildRustPlan(
         // props": tutte le props vanno verbatim nella busta spec e le
         // legge il motore via Spec (chiavi camelCase del pannello). Il
         // case che le rinominava in snake_case è stato rimosso.
-
+        
+        
+        case 'json_parser': {
+          // Config ricca (sourceField, flows con fields/jsonPath/
+          // mergeParent…) dall'editor → spec.config verbatim. Le chiavi
+          // sono già camelCase, la struct Rust le legge con rename_all.
+          // V. node-spec §20.
+          const jp = (node.data.config as any)?.jsonParser ?? {}
+          specConfig.sourceField = jp.sourceField ?? ''
+          specConfig.hasReject   = jp.hasReject === true
+          specConfig.flows       = jp.flows ?? []
+          break
+        }
         case 'json_serializer': {
           // Blob elaborato (tree/mappings/inputs dall'editor + scalari)
           // → spec.config (node-spec §18).

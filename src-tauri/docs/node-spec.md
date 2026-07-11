@@ -933,3 +933,72 @@ pienamente implementati nel motore Rust (580/619 righe). I due *parser*
 logica ricca (multi-flusso, master-detail) vive ancora nell'executor JS
 del runner e va **reimplementata in Rust** (porting dedicato, non
 semplice migrazione alla spec). V. sezioni future.
+
+## 20. `json_parser` — estrae flussi da JSON (multi-flusso, master-detail)
+
+**Porting vero, non migrazione.** Il motore precedente faceva solo un
+flatten basilare; la logica ricca viveva nell'executor JS del runner ed è
+stata **riscritta in Rust** (Fase 12) leggendo il JS come blueprint.
+
+Dato un campo che contiene JSON ad albero, estrae **entità parallele
+verso flussi di uscita distinti**, e costruisce **tuple master-detail**
+(le righe di dettaglio ereditano i campi del master).
+
+Nodo **multi-output**: un handle di uscita per ogni flow (per `flow.id`),
+più `reject` se `has_reject`. Il motore riceve l'intera mappa `outputs`.
+
+### `spec.config` (config ricca dall'editor)
+
+| Chiave        | Tipo   | Semantica                                              |
+|---------------|--------|--------------------------------------------------------|
+| `sourceField` | string | Campo in ingresso che contiene il JSON. **Required**   |
+| `hasReject`   | bool   | Abilita l'handle `reject`                              |
+| `flows`       | array  | Flussi di estrazione. **Required**, ≥ 1 (v. sotto)     |
+
+Elemento di `flows`:
+
+```jsonc
+{
+  "id":           "flow_1",     // = nome dell'handle di uscita
+  "label":        "Righe",
+  "jsonPath":     "$.righe",    // ramo da estrarre
+  "isArray":      true,          // true = una riga per elemento
+  "mergeParent":  true,          // true = eredita i campi del padre (master-detail)
+  "parentFields": [],            // quali campi del padre (vuoto = tutti tranne sourceField)
+  "filter":       null,          // ⚠ NON implementato (vedi sotto)
+  "fields": [
+    { "name": "prezzo", "jsonPath": "$.prezzo", "type": "decimal",
+      "transform": "to_decimal", "onMissing": "null", "defaultValue": null }
+  ]
+}
+```
+
+**Risoluzione campo:** `jsonPath` è relativo all'elemento del flusso, con
+**fallback assoluto** sul documento radice (permette `$.nome` anche quando
+il flusso è su `$.hobby`). JSONPath supportato: `$`, `$.a.b`, `a[*]`
+(wildcard finale), `key[idx]` — stesso sottoinsieme del JS, non JSONPath
+completo.
+
+**Trasformazioni per campo:** `none|trim|uppercase|lowercase|to_integer|
+to_decimal|to_boolean|to_date|to_string`.
+
+**onMissing:** `null` | `default` (usa `defaultValue`) | `skip` (salta la
+riga) | `error` (manda a `reject` con `_reject_reason` e `_source_flow`).
+
+**master-detail:** con `mergeParent`, la riga di dettaglio riceve i campi
+del padre (dalla riga in ingresso, meno `sourceField`, o solo
+`parentFields`); i campi del flusso hanno precedenza in caso di collisione.
+
+### Non implementato
+
+`flows[].filter` (es. `$.qty > 0`): presente nel pannello ma **mai
+implementato**, nemmeno nel JS originale. Ignorato a runtime. Se in futuro
+lo si vuole, va deciso il linguaggio (FPEL? sintassi JSONPath-like?) — v.
+TODO.
+
+### Reject
+
+Errori di sorgente (`source_field_missing`, `invalid_json`) → la riga
+originale va a `reject` con `_reject_reason`, se `has_reject`. Un campo
+`onMissing:error` mancante → la riga costruita va a `reject` con
+`_reject_reason=missing_required_field` e `_source_flow`.

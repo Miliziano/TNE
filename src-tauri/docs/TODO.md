@@ -229,3 +229,27 @@ quando l'utente forza la fusione di colonne con tipi incompatibili.
   CREATE) → si può eseguire dentro il gruppo. In Oracle/MySQL la DDL fa
   **commit implicito** e spezzerebbe la transazione → servirà una variante
   che la esegue fuori, su connessione autocommit.
+## json_parser / xml_parser — `filter` per-flow non implementato
+
+Il tipo `JsonParserFlow` (e l'equivalente XML) ha un campo `filter`
+(es. `$.qty > 0`) per filtrare gli elementi estratti da un flusso. **Mai
+implementato**: assente sia nel vecchio executor JS sia nel porting Rust
+(Fase 12). Il pannello lo espone ma non ha effetto.
+
+Da decidere se/quando implementarlo:
+- linguaggio: FPEL (coerente col resto) o una mini-sintassi JSONPath-like
+  come suggerisce l'esempio `$.qty > 0`?
+- se FPEL, il builder compilerebbe `filter` in IR (come le altre
+  espressioni) e il motore lo valuterebbe per elemento prima di produrre
+  la riga.
+
+Priorità: bassa. La feature non è mai stata attiva, quindi nessuna
+regressione; è un'aggiunta, non un fix.
+
+## Nota — porting parser vs migrazione
+
+I nodi migrati alla spec in Fase 12 erano già implementati nel motore: la
+migrazione spostava solo *come* leggono la config. I **parser** (json/xml)
+erano invece **abbozzi** nel motore (flatten basilare) con la logica vera
+nell'executor JS: json_parser è stato **riscritto** (porting), xml_parser
+resta da fare con lo stesso approccio (blueprint = xmlParserExecutor.ts).

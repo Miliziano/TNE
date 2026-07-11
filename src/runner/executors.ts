@@ -18,7 +18,6 @@ import { joinExecutor }            from './joinExecutor'
 import { dirWatcherExecutor }      from './dirWatcherExecutor'
 
 import { httpSourceExecutor } from './httpSourceExecutor'
-import { jsonParserExecutor } from './jsonParserExecutor'
 
 import { sourceFtpExecutor } from './sourceFtpExecutor'
 import { xmlParserExecutor } from './xmlParserExecutor'
@@ -242,7 +241,6 @@ const EXECUTORS: AnyExecutor[] = [
   dirWatcherExecutor,   // ← StreamingNodeExecutor — streaming: true
 
   httpSourceExecutor,   // ← aggiunge qui
-  jsonParserExecutor,
 
   sourceFtpExecutor,
   xmlParserExecutor,
