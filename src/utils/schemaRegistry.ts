@@ -106,7 +106,6 @@ const STATIC_NODE_HANDLES: Record<string, NodeHandleDefs> = {
   script:           { inputs: ['input'],        outputs: ['output'] },
   window:           { inputs: ['input'],        outputs: ['output'] },
   explode:          { inputs: ['input'],        outputs: ['output'] },
-  sequencer:        { inputs: ['input'],        outputs: ['output'] },
   shell_exec:       { inputs: ['input'],        outputs: ['output'] },
   ssh_exec:         { inputs: ['input'],        outputs: ['output'] },
   transform:        { inputs: ['input'],        outputs: ['output'] },

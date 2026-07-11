@@ -11,7 +11,7 @@
  * - Se un nodo ha catch/reject collegato altrove, l'errore segue quel
  *   percorso E arriva qui in copia per logging centralizzato
  *   (a meno che 'logAll' nel panel sia impostato a 'false').
- * - Un solo handle di uscita 'error_out' — collegabile a Sequencer/Filter
+ * - Un solo handle di uscita 'error_out' — collegabile a Filter
  *   per costruire pipeline di recovery/notifica.
  */
 
@@ -105,7 +105,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Output — verso pipeline di recovery */}
       <Handle id="error_out" type="source" position={Position.Right}
         style={{ background: ERR_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
-        title="error_out — collega un Sequencer/Filter per il recovery" />
+        title="error_out — collega un Filter per il recovery" />
       <div style={{
         position: 'absolute', right: 14, top: 'calc(50% - 7px)',
         fontSize: 9, color: ERR_COLOR, fontFamily: 'monospace', fontWeight: 600,

@@ -519,12 +519,7 @@ async fn run_node(
             // passa l'intera mappa, il nodo la smista.
             super::nodes::join::run(ctx, inputs, tx).await
         }
-        "sequencer" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("sequencer {} richiede un input collegato", ctx.node_id.0))?;
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::sequencer::run(ctx, rx, tx).await
-        }
+       
 
         "transform" | "transform_fields" => {
             let rx = take_single_input(&mut inputs)

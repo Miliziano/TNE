@@ -499,7 +499,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
                     type === 'join'        ? 'joinNode'       :
                     type === 'json_serializer'  ? 'jsonSerializerNode'  :
                     type === 'xml_serializer' ? 'xmlSerializerNode' :
-                    type === 'sequencer'        ? 'sequencerNode'        :
+                   
                     type === 'error_handler'    ? 'errorHandlerNode'     :  // ← aggiungere
                'flowNode'
 

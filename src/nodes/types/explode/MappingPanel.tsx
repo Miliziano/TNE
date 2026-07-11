@@ -175,8 +175,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
         <span style={{ fontSize: 14, color: ACCENT }}>⊕</span>
         <div>
           Sorgente: <strong style={{ color: '#c8d4f0' }}>
-            {source === 'materialize' ? `Materialize "${matName || '—'}"` :
-             source === 'lane_var'    ? 'Variabile Lane' : 'Campo Flusso'}
+            {source === 'materialize' ? `Materialize "${matName || '—'}"` : 'Campo Flusso'}
           </strong>
           {matNode && (
             <span style={{ marginLeft: 8, color: '#4a5a7a' }}>

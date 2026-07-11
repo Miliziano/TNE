@@ -22,36 +22,41 @@
 // Un nodo, una responsabilità.
 
 use std::time::Instant;
-use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
 // ─── Config ────────────────────────────────────────────────────────
+//
+// Migrato alla spec (Fase 12): le chiavi sono quelle del pannello,
+// verbatim in camelCase (v. docs/node-spec.md §8). Niente più rinomina
+// snake_case nel builder.
 
-#[derive(Deserialize)]
 struct ExplodeConfig {
-    #[serde(default = "d_mat")] source: String,        // materialize | flow_field
-    #[serde(default)] materialize_name: String,
-
-    /// flow_field: il campo collettivo da esplodere
-    #[serde(default)] field: String,
-    /// array | object_values | object_entries
-    #[serde(default = "d_array")] structure_type: String,
-
-    /// i campi della riga padre si ripetono su ogni riga generata
-    #[serde(default)] include_parent: bool,
-    /// skip (default) | null_row | error — campo null, o collezione vuota
-    #[serde(default = "d_skip")] on_empty: String,
-    /// wrap (default) | skip | error — il campo non è una collezione
-    #[serde(default = "d_wrap")] on_primitive: String,
-    /// massimo di righe generate per riga padre (0 = nessun limite)
-    #[serde(default)] limit: usize,
+    source:           String,   // materialize | flow_field
+    materialize_name: String,
+    field:            String,   // flow_field: campo collettivo da esplodere
+    structure_type:   String,   // array | object_values | object_entries
+    include_parent:   bool,     // i campi del padre si ripetono su ogni riga
+    on_empty:         String,   // skip | null_row | error
+    on_primitive:     String,   // wrap | skip | error
+    limit:            usize,    // max righe per riga padre (0 = nessun limite)
 }
 
-fn d_mat()   -> String { "materialize".into() }
-fn d_array() -> String { "array".into() }
-fn d_skip()  -> String { "skip".into() }
-fn d_wrap()  -> String { "wrap".into() }
+/// Legge la config dalle props del pannello (camelCase, verbatim).
+/// I default sono quelli dichiarati in docs/node-spec.md §8.
+fn config_from_spec(spec: &Spec) -> ExplodeConfig {
+    ExplodeConfig {
+        source:           spec.str_or("explodeSource",  "materialize"),
+        materialize_name: spec.str_or("materializeName", ""),
+        field:            spec.str_or("flowField",       ""),
+        structure_type:   spec.str_or("structureType",   "array"),
+        include_parent:   spec.bool_or("includeParent",  false),
+        on_empty:         spec.str_or("onEmpty",         "skip"),
+        on_primitive:     spec.str_or("onPrimitive",     "wrap"),
+        limit:            spec.usize_or("limit",         0),
+    }
+}
 
 // ─── Esecuzione ────────────────────────────────────────────────────
 
@@ -61,10 +66,26 @@ pub async fn run(
     tx:  RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg: ExplodeConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("explode {}: config non valida: {}", ctx.node_id.0, e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("explode {}: {}", ctx.node_id.0, e))?;
+    let cfg = config_from_spec(&spec);
+    spec.log_unconsumed("explode", &ctx.node_id.0);
 
     let start = Instant::now();
+
+    // Sorgenti rimosse dal contratto (§8): rifiuto parlante invece che
+    // silenzioso. `lane_var` non è mai stata implementata nel motore;
+    // `json_path` come structureType è mestiere di json_parser.
+    if cfg.source == "lane_var" {
+        return Err(format!("explode {}: la sorgente 'variabile di lane' non è \
+                            supportata. Carica i dati in un Materialize e leggilo da lì.",
+                           ctx.node_id.0));
+    }
+    if cfg.structure_type == "json_path" {
+        return Err(format!("explode {}: il tipo 'json_path' non è supportato. Per \
+                            navigare una struttura annidata usa un JSON Parser a monte, \
+                            poi esplodi il campo array che ne risulta.", ctx.node_id.0));
+    }
 
     match cfg.source.as_str() {
         "materialize" => from_materialize(ctx, rx, tx, cfg, start).await,
@@ -289,4 +310,3 @@ fn primitive(v: &Value, mode: &str) -> Result<Vec<Row>, String> {
         }
     }
 }
-

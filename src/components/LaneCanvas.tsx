@@ -13,7 +13,7 @@ import { JoinNode } from '../nodes/types/join/JoinNode'
 import { UnionNode } from '../nodes/types/union/UnionNode'
 import { flushSync } from 'react-dom'
 import { WebhookReceiverNode, WebhookResponderNode, WatchdogNode } from '../nodes/WebhookNode'
-import { SequencerNode } from '../nodes/SequencerNode'
+
 import { ErrorHandlerNode } from '../nodes/ErrorHandlerNode'
 
 import {
@@ -73,7 +73,7 @@ const nodeTypes = {
   webhookReceiverNode:  WebhookReceiverNode,
   webhookResponderNode: WebhookResponderNode,
   watchdogNode:         WatchdogNode,
-  sequencerNode: SequencerNode,
+
   errorHandlerNode: ErrorHandlerNode,   // ← aggiungere
 }
 

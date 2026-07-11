@@ -352,3 +352,65 @@ cliente del futuro monitor memoria per-lane.
   decideva il prefisso per-riga (collisione tra la singola riga sx e la
   singola dx), producendo schemi incoerenti tra righe fuse e right-only.
   Il motore Rust decide per-schema: coerenza garantita.
+
+## 8. `explode` — da collettivo a flusso di righe
+
+Da uno a molti: trasforma qualcosa di collettivo in un flusso di righe.
+Nessuna risorsa. Nodo di attraversamento (con `flow_field`) o generatore
+(con `materialize`).
+
+**Due sorgenti** (`explodeSource`):
+
+- `materialize` — legge un dataset pubblicato nella lane e lo emette
+  riga per riga: il buffer del `materialize` torna streaming. L'input,
+  se collegato, è solo un **trigger** (consumato e scartato); senza arco
+  il nodo si sblocca quando il dataset viene pubblicato. Legge dal
+  registro dataset per-lane (v. `docs/design-materialize-registry.md`).
+- `flow_field` — per ogni riga in ingresso, esplode un campo collettivo
+  (array o oggetto) in più righe.
+
+**Cosa NON fa, per scelta (una responsabilità per nodo):**
+- navigare strutture annidate (JSONPath) → mestiere di `json_parser`;
+- trasformare i valori (trim, upper…) → mestiere di `transform`;
+- leggere variabili di lane → caricale prima in un `materialize`.
+
+Le sorgenti `json_path` (ex tipo struttura) e `lane_var` sono state
+**rimosse**: se presenti in uno scenario vecchio, l'esecutore le rifiuta
+con un errore parlante invece di ignorarle in silenzio.
+
+### Props (tab Configurazione)
+
+| Chiave           | Tipo   | Default         | Semantica                                                                 | Live |
+|------------------|--------|-----------------|---------------------------------------------------------------------------|------|
+| `explodeSource`  | enum   | `"materialize"` | `materialize` \| `flow_field`. Altri valori → errore                     | ✅   |
+| `materializeName`| string | `""`            | Nome del dataset da leggere (required se `materialize`)                    | ✅   |
+| `flowField`      | string | `""`            | Campo collettivo da esplodere (required se `flow_field`)                  | ✅   |
+| `structureType`  | enum   | `"array"`       | `array` \| `object_values` \| `object_entries`. `json_path` → errore     | ✅   |
+| `includeParent`  | bool   | `false`         | Ripete i campi della riga padre (meno quello esploso) su ogni riga generata | ✅ |
+| `onEmpty`        | enum   | `"skip"`        | `skip` \| `null_row` \| `error` — campo null o collezione vuota            | ✅   |
+| `onPrimitive`    | enum   | `"wrap"`        | `wrap` \| `skip` \| `error` — il campo non è una collezione                | ✅   |
+| `limit`          | int    | `0`             | Massimo righe generate per riga padre (`0` = nessun limite)               | ✅   |
+
+**Semantica dell'esplosione** (invariata dal comportamento verificato):
+- `array` → una riga per elemento; se l'elemento è un oggetto i suoi
+  campi diventano la riga, se primitivo finisce in un campo `value`.
+- `object_values` → una riga per valore dell'oggetto.
+- `object_entries` → una riga `{key, value}` per coppia.
+
+Una stringa che *contiene* JSON (es. un campo `["a","b"]` letto da un CSV
+come testo) viene parsata come collezione. Se il parse fallisce o il
+valore non è una collezione, si applica `onPrimitive`.
+
+Con `flow_field` + `includeParent`, i campi del padre sono propagati
+**tranne** quello esploso (sarebbe ridondante e in conflitto con i campi
+generati).
+
+### Migrazione (Fase 12)
+
+Primo nodo migrato alla spec dopo la fondazione, insieme ad `aggregate`.
+Il `case 'explode'` di `buildRustPlan` — che rinominava le chiavi in
+snake_case (`flowField`→`field`, `explodeSource`→`source`, …) — è
+**rimosso**: l'esecutore legge le chiavi del pannello verbatim via
+`Spec`. Le validazioni che il builder faceva a design-time (rifiuto di
+`json_path`/`lane_var`, campi obbligatori) sono ora errori a runtime del
+motore.

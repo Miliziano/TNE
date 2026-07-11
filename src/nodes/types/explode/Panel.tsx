@@ -67,7 +67,6 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
   }, [pool, laneId])
 
   const materializeVars = laneVars.filter((v) => v.type === 'materialize')
-  const arrayVars       = laneVars.filter((v) => v.type === 'object' || v.type === 'string')
   const objectFields    = incomingFields.filter((f) => f.type === 'object' || f.type === 'any')
 
   // ── Schema derivato dal Materialize selezionato ───────────────
@@ -147,13 +146,6 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
             desc:         'Legge un dataset memorizzato nella lane da un nodo Materialize',
             disabled:     materializeVars.length === 0,
             disabledHint: 'Nessun Materialize pubblicato in questa lane',
-          },
-          {
-            value:        'lane_var',
-            label:        '◎ Da Variabile Lane',
-            desc:         'Legge una variabile di tipo array/object dalla lane',
-            disabled:     arrayVars.length === 0,
-            disabledHint: 'Nessuna variabile array/object in questa lane',
           },
           {
             value:        'flow_field',
@@ -240,25 +232,6 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
         </>
       )}
 
-      {/* ── Da Variabile Lane ── */}
-      {source === 'lane_var' && (
-        <>
-          <SectionTitle label="Variabile Lane" />
-          <Field label="Variabile" hint="Deve contenere un array o un oggetto JSON">
-            {arrayVars.length > 0 ? (
-              <CustomSelect style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')}>
-                <option value="">— seleziona —</option>
-                {arrayVars.map((v) => (
-                  <option key={v.id} value={v.name}>{v.name} ({v.type})</option>
-                ))}
-              </CustomSelect>
-            ) : (
-              <input style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')} placeholder="nome_variabile" />
-            )}
-          </Field>
-        </>
-      )}
-
       {/* ── Da campo flusso ── */}
       {source === 'flow_field' && (
         <>
@@ -296,17 +269,11 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
           <option value="array">Array di oggetti — [ &#123;...&#125;, &#123;...&#125; ]</option>
           <option value="object_values">Valori di oggetto — &#123; k1: &#123;...&#125;, k2: &#123;...&#125; &#125;</option>
           <option value="object_entries">Entries di oggetto — emette &#123; key, value &#125; per ogni campo</option>
-          <option value="json_path">JSONPath — estrae con percorso personalizzato</option>
         </CustomSelect>
       </Field>
-      {p('structureType') === 'json_path' && (
-        <Field label="JSONPath" hint="Es: $.items[*] o $.data.records">
-          <input style={inputStyle} value={p('jsonPath', '$[*]')} onChange={u('jsonPath')} placeholder="$[*]" />
-        </Field>
-      )}
 
-      {/* ── Schema output manuale (solo flow_field o lane_var) ── */}
-      {(source === 'flow_field' || source === 'lane_var') && (
+      {/* ── Schema output manuale (solo flow_field) ── */}
+      {source === 'flow_field' && (
         <>
           <SectionTitle label="Schema output" />
           <SchemaEditor

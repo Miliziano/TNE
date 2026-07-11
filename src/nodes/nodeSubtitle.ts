@@ -210,7 +210,6 @@ export function getNodeSubtitle(data: NodeData): string {
       const src = p('explodeSource', 'materialize')
       const mat = p('materializeName')
       if (src === 'materialize' && mat) return withCatch(`⊕ ◈${truncate(mat, 28)}`, data)
-      if (src === 'lane_var') return withCatch('⊕ var lane', data)
       return withCatch('⊕ campo flusso', data)
     }
 

@@ -13,7 +13,7 @@ pub mod tmap;
 
 // ── Nodi semplici ────────────────────────────────────────────────
 pub mod log;
-pub mod sequencer;
+
 //pub mod map;
 pub mod transform;
 pub mod union;

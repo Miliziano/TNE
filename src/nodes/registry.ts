@@ -60,7 +60,6 @@ import { TransformPanel } from './types/transform/Panel'
   import { WebhookReceiverPanel }  from './types/webhook/Panel'
 import { WebhookResponderPanel } from './types/webhook/Panel'
 import { WatchdogPanel_ as WatchdogPanel } from './types/webhook/Panel'
-import { SequencerPanel } from './types/sequencer/Panel'
 import { ShellExecPanel, SshExecPanel } from './types/shell_exec/Panel'
 import { ErrorHandlerPanel } from './types/error_handler/Panel'
 import { ErrorHandlerNodesPanel } from './types/error_handler/MappingPanel'
@@ -498,18 +497,6 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     description: 'Monitora servizi via HEAD — sblocca il flusso sull\'header atteso.',
     fields: [],
   },
-  sequencer: {
-    type:        'sequencer',
-    label:       'Sequencer',
-    icon:        '⬇',
-    color:       '#a78bfa',
-    category:    'transform' as const,
-    description: 'Avvia pipeline in sequenza — una dopo l\'altra con condizioni onOk/onError/always.',
-    fields: [
-      { key: 'seqCount', label: 'Sequenze', type: 'number', default: '2' },  // ← aggiungere
-    ],
-  },
- 
   shell_exec: {
     type:        'shell_exec',
     label:       'Shell',
@@ -545,7 +532,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
 
 export const PALETTE_SECTIONS = [
   { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
-  { label: 'Transform', types: [  'log','sequencer','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot'] },
+  { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot'] },
   { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
   { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
 ]
@@ -589,7 +576,6 @@ export const NODE_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
   webhook_receiver:  WebhookReceiverPanel,
   webhook_responder: WebhookResponderPanel,
   watchdog:          WatchdogPanel,
-  sequencer: SequencerPanel,
   shell_exec: ShellExecPanel,
   ssh_exec:   SshExecPanel,
   error_handler: ErrorHandlerPanel,

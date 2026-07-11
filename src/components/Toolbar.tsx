@@ -797,45 +797,7 @@ function buildRustPlan(
           break
         }
         
-        case 'explode': {
-          const source = props['explodeSource'] ?? 'materialize'
-
-          // `json_path` navigava strutture annidate: è mestiere di json_parser.
-          // Il valore resta nel pannello finché non lo si toglie, ma qui lo
-          // rifiutiamo invece di ignorarlo silenziosamente.
-          const st = props['structureType'] ?? 'array'
-          if (st === 'json_path') {
-            throw new Error(
-              `Explode "${node.data.label}": il tipo "json_path" non è supportato. ` +
-              `Per navigare una struttura annidata usa un nodo JSON Parser a monte, ` +
-              `poi esplodi il campo array che ne risulta.`)
-          }
-
-          if (source === 'lane_var') {
-            throw new Error(
-              `Explode "${node.data.label}": la sorgente "variabile di lane" non è ` +
-              `supportata. Carica i dati in un Materialize e leggilo da lì.`)
-          }
-
-          config = {
-            source,
-            materialize_name: props['materializeName'] ?? '',
-            field:            props['flowField']       ?? '',
-            structure_type:   st,
-            include_parent:   props['includeParent'] === 'true',
-            on_empty:         props['onEmpty']     ?? 'skip',
-            on_primitive:     props['onPrimitive'] ?? 'wrap',
-            limit:            Number(props['limit'] ?? 0),
-          }
-
-          if (source === 'materialize' && !config.materialize_name) {
-            throw new Error(`Explode "${node.data.label}": seleziona il dataset Materialize.`)
-          }
-          if (source === 'flow_field' && !config.field) {
-            throw new Error(`Explode "${node.data.label}": seleziona il campo da esplodere.`)
-          }
-          break
-        }
+  
        // Il nodo girava con config vuota: group_by e aggregations assenti.
 
         case 'aggregate': {
@@ -998,9 +960,10 @@ function buildRustPlan(
         // ── Spec completa (contratto: docs/node-spec.md) ──────────
         // Fotografia integrale dei tab Configurazione+Avanzate:
         // props verbatim (chiavi camelCase dei pannelli, valori
-        // stringa), config strutturata, risorsa risolta. Il motore
-        // Rust attuale la ignora (serde tollera i campi extra);
-        // verrà consumata dal Passo 2 (engine/spec.rs).
+        // stringa), config strutturata, risorsa risolta. I nodi
+        // migrati la consumano via engine/spec.rs (Spec::from_ctx);
+        // quelli non ancora migrati leggono la `config` legacy qui
+        // sopra. La `config` sparirà a fine migrazione.
         spec: {
           version:    1,
           props:      { ...props },
