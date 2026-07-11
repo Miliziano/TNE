@@ -35,6 +35,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
@@ -67,25 +68,36 @@ struct WindowDef {
 
 #[derive(Deserialize)]
 struct WindowConfig {
-    /// "flow" (default) — le righe arrivano dall'input
-    /// "materialize"    — le righe si leggono da un dataset della lane
-    #[serde(default = "default_flow")]
-    data_source: String,
-    /// nome del dataset, quando data_source = "materialize"
-    #[serde(default)]
-    materialize_name: String,
-    #[serde(default)]
-    partition_by: Vec<String>,
-    #[serde(default)]
-    order_by: String,
-    #[serde(default = "default_asc")]
-    order_dir: String,
     #[serde(default)]
     windows: Vec<WindowDef>,
 }
 
-fn default_asc()  -> String { "asc".to_string() }
-fn default_flow() -> String { "flow".to_string() }
+/// Config completa: scalari (props via Spec) + windows compilate (spec.config).
+struct WindowRun {
+    data_source:      String,
+    materialize_name: String,
+    partition_by:     Vec<String>,
+    order_by:         String,
+    order_dir:        String,
+    windows:          Vec<WindowDef>,
+}
+
+/// Legge scalari dalle props (camelCase, verbatim) e le `windows`
+/// compilate da spec.config (contengono l'IR di `streak`).
+/// Default: docs/node-spec.md §11.
+fn config_from_spec(spec: &Spec) -> Result<WindowRun, String> {
+    let st: WindowConfig = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("config strutturata non valida (windows): {}", e))?;
+
+    Ok(WindowRun {
+        data_source:      spec.str_or("dataSource",      "flow"),
+        materialize_name: spec.str_or("materializeName", ""),
+        partition_by:     spec.str_list("partitionBy"),
+        order_by:         spec.str_or("orderBy",  ""),
+        order_dir:        spec.str_or("orderDir", "asc"),
+        windows:          st.windows,
+    })
+}
 
 // ─── Esecuzione ────────────────────────────────────────────────────
 
@@ -97,8 +109,11 @@ pub async fn run(
     tx:  RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg: WindowConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("window {}: config non valida: {}", ctx.node_id.0, e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("window {}: {}", ctx.node_id.0, e))?;
+    let cfg = config_from_spec(&spec)
+        .map_err(|e| format!("window {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("window", &ctx.node_id.0);
 
     if cfg.windows.is_empty() {
         return Err(format!(

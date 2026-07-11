@@ -544,3 +544,71 @@ Migrato dopo aggregate. Caso "senza FPEL": nessun `spec.config`, tutte le
 props verbatim; le liste (`pivotColumns`, `unpivotColumns`) già
 JSON-string nel pannello, lette via `json_or`. Il `case 'pivot'` del
 builder si riduce alle sole validazioni (non costruisce più `config`).
+
+## 11. `window` — funzioni finestra (analitiche)
+
+Le righe restano (a differenza di aggregate che le collassa): affianca a
+ogni riga una o più colonne calcolate su una partizione ordinata —
+`row_number`, `rank`, `lag`/`lead`, `moving_avg`, `ntile`, `streak`,
+`sessionize`, ecc. `SELECT *, fn() OVER (PARTITION BY … ORDER BY …)`.
+
+Nodo **bloccante**: materializza (serve l'intera partizione ordinata).
+**Sorgente** (`dataSource`), come `pivot`/`aggregate`: `flow` |
+`materialize`.
+
+Ha compilazione FPEL (la funzione `streak` valuta una condizione): come
+aggregate, gli scalari vanno nelle props, le `windows` compilate in
+`spec.config`.
+
+### Props — scalari (tab Configurazione, verbatim via Spec)
+
+| Chiave            | Tipo   | Default   | Semantica                                                | Live |
+|-------------------|--------|-----------|----------------------------------------------------------|------|
+| `dataSource`      | enum   | `"flow"`  | `flow` \| `materialize`                                  | ✅   |
+| `materializeName` | string | `""`      | Nome dataset (se `materialize`)                          | ✅   |
+| `partitionBy`     | string | `""`      | Campi di partizione (PARTITION BY), CSV                  | ✅   |
+| `orderBy`         | string | `""`      | Campo di ordinamento nella partizione                    | ✅   |
+| `orderDir`        | enum   | `"asc"`   | `asc` \| `desc`                                         | ✅   |
+
+### `spec.config` — strutture compilate (IR)
+
+| Chiave    | Tipo  | Semantica                                    | Live |
+|-----------|-------|----------------------------------------------|------|
+| `windows` | array | Funzioni finestra. **Required**, ≥ 1        | ✅   |
+
+Elemento di `windows`:
+
+```jsonc
+{
+  "fn":           "lag",        // row_number|rank|dense_rank|lag|lead|
+                                // moving_avg|moving_sum|ntile|nth_value|
+                                // topn_flag|streak|sessionize|…
+  "field":        "importo",    // campo sorgente (se la fn opera su un campo)
+  "output_field": "prec",       // colonna calcolata (default: win_<fn>)
+  "offset":       1,            // lag/lead: righe di spostamento
+  "n":            3,            // ntile/nth_value/moving_*: dimensione/posizione;
+                                // sessionize: gap massimo in secondi
+  "expr":         { …IR… },     // solo streak: condizione FPEL compilata
+  "null_default": "0"           // lag/lead: valore se la riga non esiste
+}
+```
+
+`streak` richiede `expr` (condizione FPEL, compilata in IR dallo studio;
+il motore esegue l'IR). `null_default` è un valore grezzo dentro la
+struttura `windows`: viaggia in `spec.config` con il resto della sua
+struct (non si separa dall'unità che il builder produce).
+
+### Validazione (doppio strato)
+
+- almeno una funzione in `windows`;
+- `streak` richiede una condizione (`expr` non vuota) — errore a
+  design-time nel builder (con dettaglio del parse FPEL) e ri-validato
+  dal motore.
+
+### Migrazione (Fase 12)
+
+Migrato dopo pivot. Caso "misto": FPEL (come aggregate → `windows` in
+`spec.config`) + scalari (come pivot → props). Il `case 'window'` del
+builder scrive `windows` in `specConfig` e non costruisce più `config`
+legacy. Ordinamento: v. TODO ORDER BY multi-campo (condiviso con
+aggregate/pivot); window ha `orderDir` esplicito nel pannello.

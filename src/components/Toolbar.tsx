@@ -908,21 +908,12 @@ function buildRustPlan(
             return out
           })
 
-          // Il pannello salva partitionBy come stringa "campo1, campo2"
-          const partitionBy = String(props['partitionBy'] ?? '')
-            .split(',').map((s) => s.trim()).filter(Boolean)
-
-          config = {
-            // 'flow' (default) — le righe arrivano dall'input
-            // 'materialize'    — si leggono da un dataset della lane; l'input,
-            //                    se collegato, è solo un trigger
-            data_source:      props['dataSource']      ?? 'flow',
-            materialize_name: props['materializeName'] ?? '',
-            partition_by:     partitionBy,
-            order_by:         props['orderBy']  ?? '',
-            order_dir:        props['orderDir'] ?? 'asc',
-            windows,
-          }
+             // Il pannello salva partitionBy come stringa "campo1, campo2".
+          // Va nelle props (scalare), non qui. `windows` (con l'IR di
+          // streak) va in spec.config — Opzione 1, come aggregate.
+          // Scalari (dataSource, partitionBy, orderBy, orderDir) restano
+          // props verbatim e li legge il motore via Spec.
+          specConfig.windows = windows
           break
         }
 
