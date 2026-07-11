@@ -404,8 +404,14 @@ function buildRustPlan(
       }))
 
     const rustNodes = finalOrder.map(node => {
-      // Config base del nodo — viene da node.data.props
+     // Config base del nodo — viene da node.data.props
       let config: Record<string, unknown> = {}
+
+      // Busta spec.config: parte dalla config strutturata del nodo e,
+      // per i nodi con compilazione genuina (aggregate, tmap…), riceve
+      // l'IR compilato sotto chiave dedicata (contratto node-spec §2,
+      // docs/expr-ir-schema.md). Chi non compila la lascia invariata.
+      const specConfig: Record<string, unknown> = { ...(node.data.config ?? {}) }
 
       // Legge la config dai props (come fanno i test manuali)
       const props = node.data.props ?? {}
@@ -830,8 +836,8 @@ function buildRustPlan(
               `(GROUP BY) e materializza. Per le finestre serve un nodo dedicato.`)
           }
 
-          // `having` e i `filter` sono FPEL: il runner JS traduceva SQL in
-          // JavaScript con delle regex e poi faceva new Function().
+          // `having` e i `filter` sono FPEL: lo studio li compila in IR
+          // (ExprNode). Il motore non compila FPEL — esegue l'IR.
           const compile = (src: string, what: string) => {
             try { return parseExpression(src) }
             catch (e) {
@@ -855,18 +861,13 @@ function buildRustPlan(
 
           const havingSrc = String(props['having'] ?? '').trim()
 
-          config = {
-            data_source:      props['dataSource']      ?? 'flow',
-            materialize_name: props['materializeName'] ?? '',
-
-            group_by: String(props['group_by'] ?? '')
-                        .split(',').map((s) => s.trim()).filter(Boolean),
-            functions,
-            having:      havingSrc ? compile(havingSrc, 'la clausola HAVING') : undefined,
-            order_by:    props['orderBy']  ?? '',
-            order_dir:   props['orderDir'] ?? 'asc',
-            limit:       Number(props['limit'] ?? 0),
-            null_groups: props['nullGroups'] ?? 'include',
+          // Opzione 1 (node-spec §2): l'IR compilato va in spec.config,
+          // sotto chiave dedicata. Gli scalari (dataSource, group_by,
+          // orderBy, limit, nullGroups) restano props verbatim e li legge
+          // il motore via Spec. Niente più `config` legacy per aggregate.
+          specConfig.functions = functions
+          if (havingSrc) {
+            specConfig.having = compile(havingSrc, 'la clausola HAVING')
           }
           break
         }
@@ -958,16 +959,11 @@ function buildRustPlan(
         label:     node.data.config?.displayName || node.data.label || node.data.type,
         config,    // LEGACY: selezione per-tipo — sarà rimossa a fine migrazione
         // ── Spec completa (contratto: docs/node-spec.md) ──────────
-        // Fotografia integrale dei tab Configurazione+Avanzate:
-        // props verbatim (chiavi camelCase dei pannelli, valori
-        // stringa), config strutturata, risorsa risolta. I nodi
-        // migrati la consumano via engine/spec.rs (Spec::from_ctx);
-        // quelli non ancora migrati leggono la `config` legacy qui
-        // sopra. La `config` sparirà a fine migrazione.
+        //Il motore Rust attuale la ignora… Passo 2" 
         spec: {
           version:    1,
           props:      { ...props },
-          config:     node.data.config ?? {},
+          config:     specConfig,
           resource:   specResource,
           resourceId: specResourceId ?? '',
         },

@@ -28,10 +28,18 @@ use std::collections::HashMap;
 use std::time::Instant;
 use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
 // ─── Config ────────────────────────────────────────────────────────
+//
+// Migrato alla spec (Fase 12). Due fonti, per contratto (node-spec §2):
+//   - SCALARI (dataSource, group_by, orderBy…) → props verbatim, via Spec.
+//   - STRUTTURE COMPILATE (functions con i loro filter FPEL, having) →
+//     spec.config, dove lo studio mette l'IR già compilato (ExprNode).
+//     Il motore non compila FPEL: lo fa lo studio, una volta sola
+//     (v. docs/expr-ir-schema.md).
 
 #[derive(Deserialize)]
 struct AggFunction {
@@ -43,38 +51,55 @@ struct AggFunction {
     func: String,
     /// nome della colonna in uscita
     alias: String,
-    /// FILTER WHERE: espressione FPEL, valutata su ogni riga del gruppo.
+    /// FILTER WHERE: espressione FPEL già compilata in IR dallo studio.
     /// Solo le righe che passano contribuiscono a questa aggregazione.
     #[serde(default)] filter: Option<ExprNode>,
     /// separatore per string_agg
     #[serde(default = "d_sep")] separator: String,
 }
 
+/// Parte strutturata/compilata, letta da spec.config (non dalle props).
 #[derive(Deserialize)]
-struct AggConfig {
-    #[serde(default = "d_flow")] data_source: String,
-    #[serde(default)] materialize_name: String,
-
-    #[serde(default)] group_by: Vec<String>,
+struct AggConfigStruct {
     #[serde(default)] functions: Vec<AggFunction>,
-
-    /// Espressione FPEL sui valori aggregati: `totale > 1000 and n > 5`
+    /// Espressione FPEL sui valori aggregati, già compilata in IR.
     #[serde(default)] having: Option<ExprNode>,
-
-    /// Ordina i gruppi in uscita. Gratis: il nodo materializza comunque.
-    #[serde(default)] order_by: String,
-    #[serde(default = "d_asc")] order_dir: String,
-    /// 0 = nessun limite
-    #[serde(default)] limit: usize,
-
-    /// include (default) | exclude — scarta le righe con null nei group_by
-    #[serde(default = "d_include")] null_groups: String,
 }
 
-fn d_flow()    -> String { "flow".into() }
-fn d_asc()     -> String { "asc".into() }
-fn d_sep()     -> String { ", ".into() }
-fn d_include() -> String { "include".into() }
+/// Config completa: scalari + struttura compilata.
+struct AggConfig {
+    data_source:      String,
+    materialize_name: String,
+    group_by:         Vec<String>,
+    functions:        Vec<AggFunction>,
+    having:           Option<ExprNode>,
+    order_by:         String,
+    order_dir:        String,
+    limit:            usize,
+    null_groups:      String,
+}
+
+fn d_sep() -> String { ", ".into() }
+
+/// Legge scalari dalle props (camelCase, verbatim) e le strutture
+/// compilate da spec.config. Default: docs/node-spec.md §9.
+fn config_from_spec(spec: &Spec) -> Result<AggConfig, String> {
+    // Strutture compilate dalla busta config.
+    let st: AggConfigStruct = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("config strutturata non valida (functions/having): {}", e))?;
+
+    Ok(AggConfig {
+        data_source:      spec.str_or("dataSource",      "flow"),
+        materialize_name: spec.str_or("materializeName", ""),
+        group_by:         spec.str_list("group_by"),
+        functions:        st.functions,
+        having:           st.having,
+        order_by:         spec.str_or("orderBy",  ""),
+        order_dir:        spec.str_or("orderDir", "asc"),
+        limit:            spec.usize_or("limit",  0),
+        null_groups:      spec.str_or("nullGroups", "include"),
+    })
+}
 
 // ─── Esecuzione ────────────────────────────────────────────────────
 
@@ -84,8 +109,11 @@ pub async fn run(
     tx:  RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg: AggConfig = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("aggregate {}: config non valida: {}", ctx.node_id.0, e))?;
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("aggregate {}: {}", ctx.node_id.0, e))?;
+    let cfg = config_from_spec(&spec)
+        .map_err(|e| format!("aggregate {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("aggregate", &ctx.node_id.0);
 
     if cfg.functions.is_empty() {
         return Err(format!(

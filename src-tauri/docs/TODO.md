@@ -3,6 +3,44 @@
 Debiti noti e feature rimandate, tracciati per non perderli tra sessioni.
 Ogni voce dice: cos'è, perché è rimandata, dove si manifesta.
 
+## aggregate/window/pivot — semantica di ORDER BY (multi-campo)
+
+Disallineamento pannello↔motore, **preesistente** alla migrazione di
+aggregate (Fase 12), emerso migrandolo.
+
+- Il pannello aggregate espone `orderBy` come **testo libero** con le
+  direzioni inline, stile SQL: `"count DESC, region ASC"`. Non c'è un
+  `orderDir` separato.
+- Il motore (`aggregate.rs`, ~riga 225) tratta `order_by` come **un
+  singolo nome di campo** e legge `orderDir` (chiave che il pannello non
+  produce mai → sempre `"asc"`). Con un `orderBy` multi-campo, cerca un
+  campo chiamato letteralmente `"count DESC, region ASC"`, non lo trova,
+  e l'ordinamento non fa nulla di sensato.
+
+Conseguenza: l'ordinamento in uscita funziona solo nel caso banale di un
+singolo campo senza direzione. Multi-campo e `DESC` inline sono ignorati
+in silenzio.
+
+Rimandato perché la migrazione Fase 12 deve restare **fedele al
+comportamento pre-esistente** (scelta "A"), e perché la sintassi di
+ORDER BY va decisa **una volta per tutti i nodi che ordinano** — aggregate,
+window e pivot hanno lo stesso campo `orderBy`. Progettarla in mezzo alla
+migrazione di un singolo nodo mescola due lavori.
+
+Quando si affronta, due strade (da valutare allora):
+- **motore**: parser `campo [ASC|DESC], …` in aggregate/window/pivot,
+  `orderDir` deprecato;
+- **pannello**: selettore direzione esplicito + campo singolo (toglie il
+  multi-campo all'utente).
+
+Priorità: media. Non produce dati errati (le righe restano corrette),
+solo un ordine di uscita non rispettato senza segnalazione.
+
+Nota: la telemetria `log_unconsumed` di aggregate segnala come non
+consumate le props `aggFunctions` e `having` (testo FPEL sorgente): è
+atteso e corretto — il loro compilato (IR) vive in `spec.config`, non
+nelle props. Non è un drop.
+
 ## join — customCondition
 - **Cos'è:** condizione di match arbitraria nel nodo Join, oltre
   all'uguaglianza di chiave (es. `left.importo > right.soglia`).

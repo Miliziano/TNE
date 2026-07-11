@@ -414,3 +414,69 @@ snake_case (`flowField`→`field`, `explodeSource`→`source`, …) — è
 `Spec`. Le validazioni che il builder faceva a design-time (rifiuto di
 `json_path`/`lane_var`, campi obbligatori) sono ora errori a runtime del
 motore.
+
+## 9. `aggregate` — GROUP BY, collassa le righe
+
+Un gruppo, una riga: `SELECT group_by, fn(campo) FROM t GROUP BY group_by`.
+Nessuna risorsa. Nodo **bloccante**: materializza (non sa se arriverà
+un'altra riga del gruppo finché il flusso non finisce). Distinzione da
+`window` (che TIENE le righe e affianca un totale) e dalle finestre
+temporali (streaming, modello opposto — non stanno qui).
+
+**Sorgente** (`dataSource`), come `window`/`pivot`:
+- `flow` — bufferizza le righe dell'input;
+- `materialize` — l'input è un trigger (scartato); le righe vengono da un
+  dataset della lane (senza arco, si sblocca alla pubblicazione).
+
+### Props — scalari (tab Configurazione, verbatim via Spec)
+
+| Chiave            | Tipo   | Default     | Semantica                                                    | Live |
+|-------------------|--------|-------------|--------------------------------------------------------------|------|
+| `dataSource`      | enum   | `"flow"`    | `flow` \| `materialize`                                      | ✅   |
+| `materializeName` | string | `""`        | Nome dataset (required se `materialize`)                     | ✅   |
+| `group_by`        | string | `""`        | Campi di raggruppamento, CSV (`"region, category"`). Vuoto = un solo gruppo | ✅ |
+| `orderBy`         | string | `""`        | Campo di ordinamento dei gruppi in uscita (gratis: materializza comunque) | ✅ |
+| `orderDir`        | enum   | `"asc"`     | `asc` \| `desc`                                             | ✅   |
+| `limit`           | int    | `0`         | Max gruppi in uscita (`0` = nessun limite)                   | ✅   |
+| `nullGroups`      | enum   | `"include"` | `include` \| `exclude` — righe con null nei `group_by`      | ✅   |
+| `window`          | enum   | `"none"`    | Se ≠ `none` → **errore** (finestre temporali non supportate qui) | ✅ (rifiuto) |
+
+### `spec.config` — strutture compilate (IR)
+
+Le espressioni FPEL sono **compilate in IR dallo studio** e viaggiano in
+`spec.config`, non nelle props (contratto §2 + `docs/expr-ir-schema.md`).
+Il motore esegue l'IR, non compila.
+
+| Chiave      | Tipo             | Semantica                                                        | Live |
+|-------------|------------------|-----------------------------------------------------------------|------|
+| `functions` | array            | Funzioni di aggregazione (v. sotto). **Required**, ≥ 1          | ✅   |
+| `having`    | IR (ExprNode)    | Filtro sui valori aggregati (`totale > 1000 and n > 5`)         | ✅   |
+
+Elemento di `functions`:
+
+```jsonc
+{
+  "field":     "importo",     // campo su cui opera (ignorato da count(*))
+  "fn":        "sum",          // sum|avg|count|count_distinct|min|max|
+                               // first|last|median|std_dev|variance|
+                               // string_agg|array_agg|json_agg
+  "alias":     "totale",       // colonna in uscita (default: fn_field)
+  "separator": ", ",           // solo string_agg
+  "filter":    { …IR… }        // opzionale: FILTER WHERE, IR compilato.
+                               // Solo le righe che passano contribuiscono
+}
+```
+
+Semantica: `count` con `field` vuoto = `count(*)` (conta le righe, non i
+valori). `filter` per-funzione è un FILTER WHERE: valutato su ogni riga
+del gruppo, solo le passanti contribuiscono a *quell'*aggregazione.
+L'ordine di uscita è quello di prima apparizione dei gruppi (deterministico).
+
+### Migrazione (Fase 12)
+
+Migrato alla spec insieme a `explode`. Primo nodo con **compilazione
+genuina** portato alla spec: gli scalari vanno nelle props (verbatim), le
+strutture compilate (`functions`, `having`) in `spec.config` sotto chiave
+dedicata. È il pattern per tutti i nodi FPEL successivi (filter, transform,
+tmap). Il `case 'aggregate'` del builder ora scrive l'IR in `specConfig`,
+non più nel `config` legacy.

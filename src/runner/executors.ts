@@ -10,21 +10,19 @@ import type { NodeData } from '../types'
 import { readFile } from '../lib/tauri'
 import { readFileContent } from '../io/readers'
 import { readBinaryFile } from '../lib/tauri'
-import { dataQualityExecutor }     from './dataQualityExecutor'
-import { explodeExecutor }         from './explodeExecutor'
+
+
 import { reportGeneratorExecutor } from './reportGeneratorExecutor'
-import { aggregateExecutor }       from './aggregateExecutor'
+
 import { joinExecutor }            from './joinExecutor'
 import { dirWatcherExecutor }      from './dirWatcherExecutor'
-import { tmapExecutor } from './tmapExecutor'
+
 import { httpSourceExecutor } from './httpSourceExecutor'
 import { jsonParserExecutor } from './jsonParserExecutor'
-import { dbSourceExecutor } from './dbSourceExecutor'
-import { dbSinkExecutor } from './dbSinkExecutor'
-import { unionExecutor } from './unionExecutor'
+
 import { sourceFtpExecutor } from './sourceFtpExecutor'
 import { xmlParserExecutor } from './xmlParserExecutor'
-import { pivotExecutor } from './pivotExecutor'
+
 import { windowExecutor } from './windowExecutor'
 import { jsonSerializerExecutor } from './jsonSerializerExecutor'
 import { xmlSerializerExecutor }  from './xmlSerializerExecutor'
@@ -34,9 +32,9 @@ import { mailSinkExecutor } from './mailSinkExecutor'
 import { sourceMqttExecutor, sinkMqttExecutor } from './mqttExecutor'
 import { sourceKafkaExecutor,sinkKafkaExecutor } from './kafkaExecutor'
 import { sourceActiveMQExecutor, sinkActiveMQExecutor } from './activemqExecutor'
-import { transformExecutor } from './transformExecutor'
+
 import { webhookReceiverExecutor, webhookResponderExecutor,watchdogExecutor, } from './webhookExecutor'
-import { sequencerExecutor } from './sequencerExecutor'
+
 import { shellExecutor } from './shellExecutor'
 import { sshExecutor }   from './sshExecutor'
 import { errorHandlerExecutor } from './errorHandlerExecutor'
@@ -553,23 +551,20 @@ const EXECUTORS: AnyExecutor[] = [
   mapExecutor,
   logExecutor,
   sinkFileExecutor,
-  dataQualityExecutor,
-  explodeExecutor,
+
   reportGeneratorExecutor,
   laneStartEndExecutor,
   materializeExecutor,
-  aggregateExecutor,
+
   joinExecutor,
   dirWatcherExecutor,   // ← StreamingNodeExecutor — streaming: true
-  tmapExecutor,
+
   httpSourceExecutor,   // ← aggiunge qui
   jsonParserExecutor,
-  dbSourceExecutor,
-  dbSinkExecutor,
-  unionExecutor,
+
   sourceFtpExecutor,
   xmlParserExecutor,
-  pivotExecutor,
+
   windowExecutor,
   jsonSerializerExecutor,
   xmlSerializerExecutor,
@@ -583,11 +578,11 @@ const EXECUTORS: AnyExecutor[] = [
    sinkKafkaExecutor ,
    sourceActiveMQExecutor, 
    sinkActiveMQExecutor,
-   transformExecutor ,
+  
    webhookReceiverExecutor,
   webhookResponderExecutor,
   watchdogExecutor,
-  sequencerExecutor,
+
    shellExecutor, 
    sshExecutor,
     errorHandlerExecutor,   // ← aggiungere
