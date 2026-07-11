@@ -448,39 +448,38 @@ function buildRustPlan(
         // case che le rinominava in snake_case è stato rimosso.
 
         case 'json_serializer': {
+          // Blob elaborato (tree/mappings/inputs dall'editor + scalari)
+          // → spec.config (node-spec §18).
           const ser = (node.data.config as any)?.jsonSerializer ?? {}
-          config = {
-            output_field: props['outputField'] ?? 'content',
-            pretty:       props['pretty'] === 'true',
-            envelope:     props['envelope'] ?? '',
-            null_default: props['nullDefault'] ?? 'null',
-            on_error:     props['onError'] ?? 'reject',
-            tree:     (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })(),
-            mappings: ser.mappings ?? {},
-            inputs:   ser.inputs ?? {},
-          }
+          specConfig.output_field = props['outputField'] ?? 'content'
+          specConfig.pretty       = props['pretty'] === 'true'
+          specConfig.envelope     = props['envelope'] ?? ''
+          specConfig.null_default = props['nullDefault'] ?? 'null'
+          specConfig.on_error     = props['onError'] ?? 'reject'
+          specConfig.tree     = (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })()
+          specConfig.mappings = ser.mappings ?? {}
+          specConfig.inputs   = ser.inputs ?? {}
           break
         }
 
         case 'xml_serializer': {
+          // Blob elaborato (tree/legacy/mappings dall'editor + scalari)
+          // → spec.config (node-spec §19).
           const ser = (node.data.config as any)?.xmlSerializer ?? {}
-          config = {
-            output_field:    props['outputField']    ?? 'xml_output',
-            pretty:          props['pretty'] === 'true',
-            root_element:    props['rootElement']    ?? 'record',
-            root_ns_prefix:  props['rootNsPrefix']   ?? '',
-            root_namespace:  props['rootNamespace']  ?? '',
-            namespaces:      props['namespaces']     ?? '',   // ← STRINGA "prefix=uri" per riga, NON JSON.parse
-            xml_declaration: (props['xmlDeclaration'] ?? 'true') === 'true',
-            encoding:        props['encoding']       ?? 'UTF-8',
-            on_error:        props['onError']        ?? 'reject',
-            tree:   (() => { try { return JSON.parse(props['_treeNodes']   ?? '[]') } catch { return [] } })(),
-            legacy: (() => { try { return JSON.parse(props['xmlStructure'] ?? '[]') } catch { return [] } })(),
-            mappings: ser.mappings ?? {},
-          }
+          specConfig.output_field    = props['outputField']    ?? 'xml_output'
+          specConfig.pretty          = props['pretty'] === 'true'
+          specConfig.root_element    = props['rootElement']    ?? 'record'
+          specConfig.root_ns_prefix  = props['rootNsPrefix']   ?? ''
+          specConfig.root_namespace  = props['rootNamespace']  ?? ''
+          specConfig.namespaces      = props['namespaces']     ?? ''   // STRINGA "prefix=uri" per riga, NON JSON.parse
+          specConfig.xml_declaration = (props['xmlDeclaration'] ?? 'true') === 'true'
+          specConfig.encoding        = props['encoding']       ?? 'UTF-8'
+          specConfig.on_error        = props['onError']        ?? 'reject'
+          specConfig.tree   = (() => { try { return JSON.parse(props['_treeNodes']   ?? '[]') } catch { return [] } })()
+          specConfig.legacy = (() => { try { return JSON.parse(props['xmlStructure'] ?? '[]') } catch { return [] } })()
+          specConfig.mappings = ser.mappings ?? {}
           break
         }
-
         
         
 

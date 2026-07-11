@@ -23,8 +23,6 @@ import { jsonParserExecutor } from './jsonParserExecutor'
 import { sourceFtpExecutor } from './sourceFtpExecutor'
 import { xmlParserExecutor } from './xmlParserExecutor'
 
-import { jsonSerializerExecutor } from './jsonSerializerExecutor'
-import { xmlSerializerExecutor }  from './xmlSerializerExecutor'
 import { bridgeOutExecutor, bridgeInExecutor } from './bridgeExecutor'
 import { scriptExecutor } from './scriptExecutor'
 import { mailSinkExecutor } from './mailSinkExecutor'
@@ -249,8 +247,6 @@ const EXECUTORS: AnyExecutor[] = [
   sourceFtpExecutor,
   xmlParserExecutor,
 
-  jsonSerializerExecutor,
-  xmlSerializerExecutor,
   bridgeOutExecutor,   // ← aggiungi
   bridgeInExecutor,    // ← aggiungi
   scriptExecutor,

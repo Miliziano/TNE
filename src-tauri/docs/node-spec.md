@@ -871,3 +871,65 @@ Caso "blob elaborato" (come data_quality): tutta la config in
 spec.config. Nessun executor JS da rimuovere (union non ne aveva). Le due
 "decisioni di semantica" del vecchio TODO erano **già risolte** dal
 modello nome+tipo del MappingPanel.
+
+## 18. `json_serializer` — righe → JSON
+
+Serializza uno o più flussi in JSON, con supporto a strutture annidate
+**master-detail** (un flusso master con array di dettaglio innestati) via
+un albero di composizione definito nel pannello. Emette il JSON in un
+campo di uscita.
+
+Caso **"blob elaborato"**: la config è assemblata dal builder da un
+editor ad albero (`tree`, `mappings`, `inputs` da
+`node.data.config.jsonSerializer`) più scalari. Tutto va in `spec.config`.
+
+### `spec.config`
+
+| Chiave         | Tipo   | Default     | Semantica                                         |
+|----------------|--------|-------------|---------------------------------------------------|
+| `output_field` | string | `"content"` | Campo in cui scrivere il JSON                      |
+| `pretty`       | bool   | `false`     | Indentazione leggibile                             |
+| `envelope`     | string | `""`        | Wrapper esterno opzionale                          |
+| `null_default` | string | `"null"`    | Rappresentazione dei null                          |
+| `on_error`     | enum   | `"reject"`  | Comportamento su errore                            |
+| `tree`         | array  | `[]`        | Albero di composizione (master-detail). Dall'editor |
+| `mappings`     | object | `{}`        | handle → mappatura campi (`json_key`, `source_field`, `transform`, `nullable`) |
+| `inputs`       | object | `{}`        | metadati input                                     |
+
+## 19. `xml_serializer` — righe → XML
+
+Come json_serializer ma produce XML: elemento radice, namespace,
+dichiarazione XML, struttura annidata via albero di composizione.
+
+Caso **"blob elaborato"**: config assemblata dal builder (`tree`,
+`legacy`, `mappings` dall'editor + scalari) → `spec.config`.
+
+### `spec.config`
+
+| Chiave            | Tipo   | Default        | Semantica                                    |
+|-------------------|--------|----------------|----------------------------------------------|
+| `output_field`    | string | `"xml_output"` | Campo in cui scrivere l'XML                   |
+| `pretty`          | bool   | `false`        | Indentazione                                 |
+| `root_element`    | string | `"record"`     | Nome dell'elemento radice                     |
+| `root_ns_prefix`  | string | `""`           | Prefisso namespace della radice               |
+| `root_namespace`  | string | `""`           | URI namespace della radice                    |
+| `namespaces`      | string | `""`           | **Stringa** `prefix=uri` per riga (NON JSON)  |
+| `xml_declaration` | bool   | `true`         | Include `<?xml … ?>`                          |
+| `encoding`        | string | `"UTF-8"`      |                                              |
+| `on_error`        | enum   | `"reject"`     |                                              |
+| `tree`            | array  | `[]`           | Albero di composizione. Dall'editor           |
+| `legacy`          | array  | `[]`           | Struttura legacy (`xmlStructure`), compat      |
+| `mappings`        | object | `{}`           | handle → mappatura campi                       |
+
+### Migrazione (Fase 12)
+
+`json_serializer` e `xml_serializer` migrati in coppia. Casi "blob
+elaborato" (come union/data_quality): tutta la config in spec.config.
+Executor JS di entrambi (file separati in `src/runner/`) rimossi.
+
+**Nota — parser vs serializer:** i due *serializer* erano già
+pienamente implementati nel motore Rust (580/619 righe). I due *parser*
+(json/xml) invece hanno nel motore solo un flatten basilare: la loro
+logica ricca (multi-flusso, master-detail) vive ancora nell'executor JS
+del runner e va **reimplementata in Rust** (porting dedicato, non
+semplice migrazione alla spec). V. sezioni future.

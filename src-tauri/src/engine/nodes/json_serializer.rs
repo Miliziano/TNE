@@ -38,6 +38,7 @@ use std::time::Instant;
 use serde::Deserialize;
 use serde_json::Value as JVal;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
 // ─── Strutture config (mirroring dei tipi della modal) ────────────
@@ -125,8 +126,13 @@ pub async fn run(
     mut outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let plan: SerPlan = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("json_serializer config non valida: {}", e))?;
+    // Migrato alla spec (Fase 12). La config è un blob elaborato dal
+    // builder (tree/mappings/inputs dall'editor + scalari) → spec.config.
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("json_serializer {}: {}", ctx.node_id.0, e))?;
+    let plan: SerPlan = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("json_serializer {}: config non valida: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("json_serializer", &ctx.node_id.0);
 
     let start = Instant::now();
     let mut rows_in = 0u64;

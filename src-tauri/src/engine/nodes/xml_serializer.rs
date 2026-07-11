@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use serde::Deserialize;
 use crate::engine::types::*;
+use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 
 // ─── Strutture config ─────────────────────────────────────────────
@@ -135,8 +136,13 @@ pub async fn run(
     mut outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let plan: XmlPlan = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("xml_serializer config non valida: {}", e))?;
+    // Migrato alla spec (Fase 12). Config = blob elaborato (tree/legacy/
+    // mappings dall'editor + scalari) → spec.config.
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("xml_serializer {}: {}", ctx.node_id.0, e))?;
+    let plan: XmlPlan = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("xml_serializer {}: config non valida: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("xml_serializer", &ctx.node_id.0);
 
     let start = Instant::now();
     let mut rows_in = 0u64;
