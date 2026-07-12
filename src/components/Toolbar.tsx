@@ -337,15 +337,49 @@ function buildRustPlan(
   runId: string,
 ): object {
 
-  // ── Bridge tra lane
+ // ── Bridge tra lane — accoppiati per channelName condiviso.
+  // I bridge NON hanno un edge nel canvas: collegano lane diverse e
+  // l'accoppiamento è logico, per nome canale (stessa logica di
+  // BridgeTab.tsx). bridge_id = channelName. Si costruisce QUI, sui
+  // nodi globali, prima del filtro per-lane.
   const bridges: object[] = []
-  const bridgeEdges = edges.filter(e => {
-    const src = nodes.find(n => n.id === e.source)
-    const tgt = nodes.find(n => n.id === e.target)
-    return src?.data.type === 'bridge_out' || tgt?.data.type === 'bridge_in'
-  })
-  // I bridge vengono estratti dai nodi bridge_out/bridge_in
-  // già presenti nel plan — Rust li collega tramite bridge_id
+  {
+    const outNodes = nodes.filter(n => n.data.type === 'bridge_out')
+    const inNodes  = nodes.filter(n => n.data.type === 'bridge_in')
+    for (const out of outNodes) {
+      const name = (out.data.props?.['channelName'] as string) || ''
+      if (!name) {
+        throw new Error(`Bridge Out "${out.data.label}": canale senza nome`)
+      }
+      const inNode = inNodes.find(
+        n => ((n.data.props?.['channelName'] as string) || '') === name
+      )
+      if (!inNode) {
+        throw new Error(
+          `Bridge "${name}": manca il Bridge In corrispondente (canale incompleto)`
+        )
+      }
+      bridges.push({
+        bridge_id:   name,
+        source_lane: out.data.laneId,
+        source_node: out.id,
+        target_lane: inNode.data.laneId,
+        target_node: inNode.id,
+      })
+    }
+    // Bridge In orfani: canale dichiarato ma senza produttore.
+    for (const inn of inNodes) {
+      const name = (inn.data.props?.['channelName'] as string) || ''
+      if (!name) {
+        throw new Error(`Bridge In "${inn.data.label}": canale senza nome`)
+      }
+      if (!outNodes.some(n => ((n.data.props?.['channelName'] as string) || '') === name)) {
+        throw new Error(
+          `Bridge "${name}": manca il Bridge Out corrispondente (canale incompleto)`
+        )
+      }
+    }
+  }
 
   // ── Lane
   const laneIds = [...new Set(nodes.map(n => n.data.laneId).filter(Boolean))]
@@ -561,25 +595,14 @@ function buildRustPlan(
           break
         }
         case 'bridge_out': {
+          // bridges[] è già costruito globalmente (accoppiamento per
+          // channelName, in testa a buildRustPlan). Qui resta solo il
+          // config legacy che il routing usa per prelevare il canale.
           const bridgeId = props['channelName'] ?? node.data.config?.['channelName'] ?? ''
           config = { bridge_id: bridgeId }
-          // Registra il bridge
-          const tgtEdge = edges.find(e => e.source === node.id)
-          if (tgtEdge) {
-            const tgtNode = nodes.find(n => n.id === tgtEdge.target)
-            if (tgtNode?.data.type === 'bridge_in') {
-              bridges.push({
-                bridge_id:   bridgeId,
-                source_lane: laneId,
-                source_node: node.id,
-                target_lane: tgtNode.data.laneId,
-                target_node: tgtNode.id,
-              })
-            }
-          }
           break
         }
-
+        
         case 'bridge_in': {
           const bridgeId = props['channelName'] ?? node.data.config?.['channelName'] ?? ''
           config = { bridge_id: bridgeId }

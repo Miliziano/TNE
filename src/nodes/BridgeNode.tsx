@@ -19,6 +19,9 @@ export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
   const syncMode     = String(nodeData.props?.['syncMode']     || 'fire_and_forget')
   const transferMode = String(nodeData.props?.['transferMode'] || 'content')
   const outputMode   = String(nodeData.props?.['outputMode']   || 'none')
+  const schemaCount  = (() => {
+    try { return JSON.parse(String(nodeData.props?.['incomingSchema'] ?? '[]')).length } catch { return 0 }
+  })()
 
   const syncIcon    = syncMode === 'wait_for_ack' ? '⇄' : syncMode === 'gate' ? '⊟' : '→'
   const modeIcon    = transferMode === 'stream' ? '▶▶' : '⬛'
@@ -51,8 +54,20 @@ export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
           maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
           {channelName}
         </span>
-        {outputBadge && <span style={{ fontSize: 9, color: channelColor, opacity: 0.75 }}>{outputBadge}</span>}
+          {outputBadge && <span style={{ fontSize: 9, color: channelColor, opacity: 0.75 }}>{outputBadge}</span>}
       </div>
+
+      {/* Badge count campi trasferiti (da incomingSchema) */}
+      {schemaCount > 0 && (
+        <div style={{ position: 'absolute', bottom: -8, left: -8, minWidth: 18, height: 18,
+          borderRadius: 9, background: `color-mix(in srgb, ${channelColor} 20%, #1e2535)`,
+          border: `1.5px solid ${channelColor}`, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '0 4px', zIndex: 10, pointerEvents: 'none' }}>
+          <span style={{ fontSize: 9, color: channelColor, fontWeight: 700, fontFamily: 'monospace' }}>
+            {schemaCount}
+          </span>
+        </div>
+      )}
 
       {nodeData.status === 'running' && (
         <div style={{ position: 'absolute', top: -6, right: -6, width: 12, height: 12,

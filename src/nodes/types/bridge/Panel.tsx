@@ -5,6 +5,7 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { getHandleSchema } from '../../../utils/schemaRegistry'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -40,6 +41,7 @@ const BRIDGE_COLORS = [
 export function BridgePanel({ nodeId }: { nodeId: string }) {
   const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
   const allNodes   = useFlowStore((s) => s.nodes)
+  const edges      = useFlowStore((s) => s.edges)
   const pool       = useFlowStore((s) => s.pool)
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const selectNode = useFlowStore((s) => s.selectNode)
@@ -78,7 +80,30 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
   const counterLane = counterpart
     ? pool.lanes.find((l) => l.id === counterpart.data.laneId)
     : null
-  const thisLane = pool.lanes.find((l) => l.id === laneId)
+   const thisLane = pool.lanes.find((l) => l.id === laneId)
+
+  // Campi che il BridgeOut trasferirà sul canale: schema LIVE del nodo
+  // a monte (getHandleSchema — copre anche tmap/parser/serializer), con
+  // fallback sull'incomingSchema persistito dalla propagazione.
+  const transferFields = useMemo((): Array<{ id?: string; name: string; type: string }> => {
+    if (!isOut) return []
+    const inEdge = edges.find((e) => e.target === nodeId)
+    if (inEdge) {
+      const src = allNodes.find((n) => n.id === inEdge.source)
+      if (src) {
+        const live = getHandleSchema(src, inEdge.sourceHandle ?? 'output', false)
+        if (live.length > 0) return live
+      }
+    }
+    try {
+      const raw = node.data.props?.['incomingSchema']
+      if (raw) {
+        const parsed = JSON.parse(String(raw))
+        if (Array.isArray(parsed)) return parsed.filter((f) => f?.name)
+      }
+    } catch { /* schema illeggibile → lista vuota */ }
+    return []
+  }, [isOut, edges, allNodes, nodeId, node])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -148,9 +173,34 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         </div>
       </Field>
 
-      {/* ── Modalità di trasferimento (solo BridgeOut) ── */}
+ {/* ── Modalità di trasferimento (solo BridgeOut) ── */}
       {isOut && (
         <>
+          {/* ── Campi trasferiti ── */}
+          <SectionTitle label={`Campi trasferiti (${transferFields.length})`} color={ACCENT} />
+          {transferFields.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 180,
+              overflowY: 'auto', padding: '4px 2px', background: '#141a28',
+              borderRadius: 6, border: '0.5px solid #2a3349' }}>
+              {transferFields.map((f, i) => (
+                <div key={f.id ?? `${f.name}_${i}`}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 8,
+                    padding: '3px 8px', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span style={{ color: '#c8d4f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                  <span style={{ color: ACCENT, opacity: 0.7, flexShrink: 0 }}>{f.type}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 6,
+              border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a',
+              fontStyle: 'italic', lineHeight: 1.5 }}>
+              Nessuno schema rilevato a monte. Collega il BridgeOut a un nodo
+              con schema definito; se il collegamento c'è già, riapri o modifica
+              il nodo a monte per ripropagare lo schema.
+            </div>
+          )}
+
           <SectionTitle label="Trasferimento" color={ACCENT} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {([
