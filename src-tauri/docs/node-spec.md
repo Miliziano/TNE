@@ -1067,3 +1067,54 @@ nel JS). Namespace: gestiti solo come confronto localName vs tagName
 Ultimo del blocco parser/serializer. Executor JS (`xmlParserExecutor.ts`)
 rimosso; routing a multi-output; case builder aggiunto. Dipendenza
 `quick-xml = "0.40"` in Cargo.toml.
+
+## 22. `tmap` — trasformatore multi-input/output (il nodo più ricco)
+
+Il nodo di trasformazione centrale, ispirato al tMap di Talend. Un input
+main, N input lookup, M output. Per ogni riga main: applica lookup (join
+con dataset di riferimento), valuta trasformazioni intermedie, e per ogni
+output valuta un filtro e un insieme di campi calcolati. Tutto via FPEL.
+
+**Completo nel motore** (non era un abbozzo): `tmap.rs` implementa lookup
+(join_type inner/left, match per chiavi), output multipli con filtro,
+trasformazioni, campi calcolati — valutando `ExprNode`. Migrato alla spec
+(Fase 12), non portato.
+
+### Dove vive la config: `spec.config` (TMapPlan interamente compilato)
+
+Il builder compila `TMapConfig` (editor) → `TMapPlan` (con ExprNode
+ovunque) via `buildTMapPlan`, e lo mette in `spec.config` come blob
+(Approccio come data_quality/serializer). Il motore legge il TMapPlan da
+`spec.config()`.
+
+Struttura del TMapPlan (chiavi principali in spec.config):
+
+| Chiave       | Semantica                                                    |
+|--------------|--------------------------------------------------------------|
+| `lookups`    | `[{input_id, join_type, key_pairs:[{src_key_expr, dst_key_expr}], ...}]` |
+| `transforms` | trasformazioni intermedie `[{name, expr}]`                   |
+| `outputs`    | `[{output_id, filter_expr?, fields:[{name, expr}]}]`         |
+
+Tutti gli `*_expr` sono ExprNode FPEL compilati (contratto expr-ir-schema).
+
+### Routing multi-canale (executor.rs)
+
+tmap è l'unico nodo che usa la config **anche nel routing**, non solo nel
+run: gli helper `tmap_lookup_input_ids` / `tmap_output_ids` leggono
+`lookups`/`outputs` da `ctx.spec["config"]` per smistare i canali:
+- input lookup non collegato → receiver chiuso → lookup vuoto;
+- output non collegato → drain (il tmap non si blocca mai su un send).
+L'input main è `input_main` (o l'unico input). Gli output seguono
+l'ordine della config (main per primo).
+
+### Validazione (doppio strato)
+
+Gli errori di compilazione FPEL bloccano a design-time nel builder (con
+dettaglio per campo/output); il motore ri-valida deserializzando il plan.
+
+### Migrazione (Fase 12)
+
+Caso "blob compilato" con la complicazione del routing multi-canale.
+Il `case 'tmap'` scrive il TMapPlan in specConfig; i due helper di routing
+leggono da `ctx.spec["config"]`; nessun executor JS (tmap non ne aveva nel
+runner). Penultimo nodo della fase 12.

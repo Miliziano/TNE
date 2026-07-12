@@ -518,15 +518,15 @@ function buildRustPlan(
         }
 
         case 'tmap': {
-          // ← PUNTO CHIAVE: converti TMapConfig in TMapPlan con ExprNode
+          // Il TMapPlan (blob interamente compilato: ExprNode per lookup/
+          // join/output/transform) va in spec.config — node-spec §22.
           const tmapConfig = node.data.config?.tmap as TMapConfig | undefined
           if (tmapConfig) {
             try {
               const tmapPlan = buildTMapPlan(tmapConfig)
-              config = tmapPlan as unknown as Record<string, unknown>
+              Object.assign(specConfig, tmapPlan as unknown as Record<string, unknown>)
             } catch (e) {
               console.warn('[buildRustPlan] buildTMapPlan fallito:', e)
-              config = {}
             }
           }
           break

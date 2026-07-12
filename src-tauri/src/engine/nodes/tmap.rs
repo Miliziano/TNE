@@ -113,8 +113,14 @@ pub async fn run(
     output_txs:   Vec<RowSender>,
 ) -> Result<NodeStats, String> {
 
-    let plan: TMapPlan = serde_json::from_value(ctx.config.clone())
-        .map_err(|e| format!("tmap config non valida: {}", e))?;
+    // Migrato alla spec (Fase 12). Il TMapPlan è un blob interamente
+    // compilato dal builder (ExprNode per lookup/join/output/transform)
+    // → spec.config. V. node-spec §22.
+    let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("tmap {}: {}", ctx.node_id.0, e))?;
+    let plan: TMapPlan = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("tmap {}: config non valida: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("tmap", &ctx.node_id.0);
 
     let start     = Instant::now();
     let variables = ctx.variables.clone();

@@ -469,11 +469,16 @@ async fn run_node(
         }
 
         "tmap" => {
+            // tmap è migrato alla spec: la config vive in ctx.spec["config"]
+            // (v. tmap.rs). Gli helper di routing leggono di lì gli id di
+            // lookup/output per smistare i canali.
+            let tmap_cfg = ctx.spec.get("config").cloned().unwrap_or(serde_json::Value::Null);
+
             // Lookup: PRIMA di estrarre il main, rimuovi gli input
             // lookup per id (ordine della config = ordine del Vec
             // che tmap::run si aspetta). Lookup non collegato →
             // receiver chiuso → lookup vuoto.
-            let lookup_ids = tmap_lookup_input_ids(&ctx.config);
+            let lookup_ids = tmap_lookup_input_ids(&tmap_cfg);
             let mut lookup_rxs: Vec<RowReceiver> = Vec::with_capacity(lookup_ids.len());
             for id in &lookup_ids {
                 lookup_rxs.push(inputs.remove(id).unwrap_or_else(closed_receiver));
@@ -486,7 +491,7 @@ async fn run_node(
             // Uscite: nell'ordine della config (main per primo).
             // Uscita non collegata → drain, così il TMap non si
             // blocca mai scrivendo su un canale senza consumatore.
-            let output_ids = tmap_output_ids(&ctx.config);
+            let output_ids = tmap_output_ids(&tmap_cfg);
             let mut output_txs: Vec<RowSender> = Vec::with_capacity(output_ids.len().max(1));
             for id in &output_ids {
                 output_txs.push(outputs.remove(id).unwrap_or_else(make_drain));
