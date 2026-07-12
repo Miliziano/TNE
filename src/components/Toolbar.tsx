@@ -619,19 +619,12 @@ function buildRustPlan(
           specConfig.union_inputs      = unionInputs
           break
         }
-        case 'materialize': {
-          // `matName` non vuoto ⇒ il dataset è pubblicato nella lane
-          // (l'utente ha premuto "Pubblica nella lane" nel tab Configurazione).
-          // Vuoto ⇒ il nodo è solo un buffer/barriera.
-          config = {
-            mode:        props['matMode']  ?? 'passthrough',
-            name:        props['matName']  ?? '',
-            key_field:   props['keyField'] ?? '',
-            max_rows:    Number(props['maxRows'] ?? 0),
-            on_overflow: props['onOverflow'] ?? 'error',
-          }
-          break
-        }
+        
+        // materialize: migrato alla spec (node-spec §23). Caso "tutto
+        // props": tutte le props vanno verbatim nella busta spec e le
+        // legge il motore via Spec con le chiavi camelCase del pannello
+        // (matMode, matName, keyField, maxRows, onOverflow). Il case che
+        // le rinominava in snake_case è stato rimosso.
 
         case 'pivot': {
           // Migrato alla spec (node-spec §10): tutte le props vanno alla

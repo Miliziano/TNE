@@ -36,16 +36,25 @@ pub async fn run(
     tx:     RowSender,
 ) -> Result<NodeStats, String> {
 
-    let cfg = |k: &str| ctx.config.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    // Migrato alla spec (Fase 12). Caso "tutto props": scalari verbatim,
+    // niente FPEL né strutture compilate. Il motore legge le chiavi del
+    // pannello (camelCase) via Spec — il case builder che le rinominava
+    // in snake_case è stato rimosso. V. node-spec §23.
+    let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("materialize {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("materialize", &ctx.node_id.0);
 
-    let mode      = { let m = cfg("mode"); if m.is_empty() { "passthrough" } else { m } };
-    let name      = cfg("name").to_string();
-    let key_field = { let k = cfg("key_field"); if k.is_empty() { None } else { Some(k.to_string()) } };
+    let mode      = { let m = spec.str_or("matMode", "passthrough");
+                      if m.is_empty() { "passthrough".to_string() } else { m } };
+    let name      = spec.str_or("matName", "");
+    let key_field = { let k = spec.str_or("keyField", "");
+                      if k.is_empty() { None } else { Some(k) } };
     let publishes = !name.is_empty();
 
-    let max_rows = ctx.config.get("max_rows").and_then(|v| v.as_u64())
-        .filter(|&n| n > 0).unwrap_or(u64::MAX);
-    let on_overflow = { let o = cfg("on_overflow"); if o.is_empty() { "error" } else { o } }.to_string();
+    let max_rows = { let n = spec.usize_or("maxRows", 0);
+                     if n > 0 { n as u64 } else { u64::MAX } };
+    let on_overflow = { let o = spec.str_or("onOverflow", "error");
+                        if o.is_empty() { "error".to_string() } else { o } };
 
     let start = Instant::now();
     let mut buffer: Vec<Row> = Vec::new();
@@ -104,7 +113,7 @@ pub async fn run(
     }
 
     // ── Uscita ─────────────────────────────────────────────────────
-    match mode {
+    match mode.as_str() {
         "passthrough" => {
             // Le righe sono già state inoltrate durante l'accumulo.
         }

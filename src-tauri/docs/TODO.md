@@ -253,3 +253,23 @@ migrazione spostava solo *come* leggono la config. I **parser** (json/xml)
 erano invece **abbozzi** nel motore (flatten basilare) con la logica vera
 nell'executor JS: json_parser è stato **riscritto** (porting), xml_parser
 resta da fare con lo stesso approccio (blueprint = xmlParserExecutor.ts).
+## materialize / modello-esecuzione — «monte finito» vs «monte fallito»
+
+Un nodo Rust non distingue la chiusura di un canale per **completamento**
+da quella per **errore**: entrambe appaiono come fine dello stream.
+
+Conseguenza: se un source a monte muore a metà, `materialize` pubblica un
+dataset **parziale** credendolo completo (e window/aggregate a valle
+calcolano su dati incompleti), in silenzio.
+
+Mitigazione attuale: `finalize()` dà errore a chi non ha ancora letto il
+dataset; chi ha già letto non se ne accorge.
+
+Soluzione vera: propagare «chiusura per errore» lungo i canali
+(`RowSender`/`RowReceiver`). È un lavoro sul **modello di esecuzione**, non
+su un singolo nodo — lo stesso limite vale per le transazioni (un nodo
+transazionale non sa se il monte è fallito). Vanno affrontati insieme.
+
+Priorità: media. Non produce dati errati *nel* dataset (le righe presenti
+sono corrette), ma può far credere completo un dataset parziale. Da
+affrontare quando si mette mano all'infrastruttura dei canali.

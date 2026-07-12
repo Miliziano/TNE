@@ -1118,3 +1118,60 @@ Caso "blob compilato" con la complicazione del routing multi-canale.
 Il `case 'tmap'` scrive il TMapPlan in specConfig; i due helper di routing
 leggono da `ctx.spec["config"]`; nessun executor JS (tmap non ne aveva nel
 runner). Penultimo nodo della fase 12.
+
+## 23. `materialize` — barriera/buffer e produttore del registro dataset
+
+Accumula le righe in ingresso e, opzionalmente, le **pubblica come
+dataset** nel registro della lane (leggibile poi da altri nodi via
+`dataSource: materialize` — aggregate, window, pivot, lookup). È il
+produttore del registro dataset. Nodo bloccante (accumula) tranne in
+modalità passthrough.
+
+**Completo nel motore.** Migrato alla spec (Fase 12). Caso "tutto props":
+scalari verbatim, niente FPEL. Il motore legge le chiavi camelCase del
+pannello via Spec; il `case 'materialize'` del builder (che le rinominava
+in snake_case) è stato **rimosso**.
+
+### Props (verbatim via Spec — chiavi del pannello)
+
+| Chiave (pannello) | Default         | Semantica                                        |
+|-------------------|-----------------|--------------------------------------------------|
+| `matMode`         | `"passthrough"` | `passthrough` (streaming + copia nel dataset) \| `buffer_signal` (accumula, emette 1 riga di stato) \| `buffer`/`buffer_replay` (accumula e rilascia) |
+| `matName`         | `""`            | Nome del dataset. **Vuoto ⇒ non pubblica** (solo buffer/barriera) |
+| `keyField`        | `""`            | Campo chiave per il lookup sul dataset (opzionale) |
+| `maxRows`         | `0`             | Limite righe (0 = illimitato)                    |
+| `onOverflow`      | `"error"`       | Oltre `maxRows`: `error` (fallisce) \| `truncate` (scarta il resto) |
+
+### Modalità di uscita
+
+- `passthrough`: le righe scorrono subito a valle; una copia va nel
+  dataset. Streaming.
+- `buffer_signal`: accumula tutto, pubblica, poi emette **una** riga di
+  stato (`rows`, `name`, `elapsed_ms`, `truncated`) — il nodo a valle sa
+  che il dataset è pronto.
+- `buffer` / `buffer_replay`: accumula e poi rilascia tutte le righe
+  (compatibilità).
+
+### Fallimento e registro
+
+Se il nodo pubblica e fallisce, chiama `lane_datasets.fail(name)` su ogni
+ramo d'errore: chi attende il dataset riceve un errore invece di restare
+appeso.
+
+### ⚠ Limite noto (NON risolto — lavoro di modello-esecuzione)
+
+Un nodo non può distinguere «il monte ha finito» da «il monte è fallito»:
+in entrambi i casi il canale si chiude. Se un source a monte muore a metà,
+`materialize` pubblica un dataset **parziale** credendolo completo, in
+silenzio (e window/aggregate a valle calcolano su dati incompleti).
+
+Mitigazione attuale: se la lane fallisce, `finalize()` dà errore a chi non
+ha ancora letto; chi ha già letto non se ne accorge. La soluzione vera —
+propagare «chiusura per errore» lungo i canali — è un lavoro
+sull'infrastruttura di esecuzione, non su questo nodo (stesso limite delle
+transazioni). Tracciato in TODO.
+
+### Migrazione (Fase 12)
+
+**Ultimo nodo della fase 12.** Con materialize, tutti i nodi esecutori
+sono sulla spec. Caso "tutto props" (come sink_file); nessun executor JS.
