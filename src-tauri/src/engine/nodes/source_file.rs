@@ -53,6 +53,7 @@ struct FieldType {
 // elaborato e viaggia in spec.config. V. node-spec §13.
 struct SourceFileConfig {
     path:       String,
+    format:     String,
     delimiter:  char,
     has_header: bool,
     fields:     Vec<FieldType>,
@@ -71,6 +72,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceFileConfig, String> {
 
     Ok(SourceFileConfig {
         path:       spec.str_or("path", ""),
+        format:     spec.str_or("format", "csv"),
         delimiter,
         // Il pannello salva `hasHeader` (camelCase). Il vecchio builder
         // leggeva `has_header` — chiave mai prodotta → sempre true (bug).
@@ -105,6 +107,40 @@ pub async fn run(
         Some(t) => t,
         None => return Ok(NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: 0, error: None }),
     };
+
+    // ── Formati "documento intero" (xml, json) ──────────────────────
+    // Vanno letti come UN unico contenuto in un campo `content` (una sola
+    // riga in uscita), non spezzati per righe come il CSV. È ciò che i
+    // parser a valle (xml_parser, json_parser) si aspettano nel loro
+    // campo sorgente. jsonl resta riga-per-riga (una riga per record).
+    if config.format == "xml" || config.format == "json" {
+        let start = std::time::Instant::now();
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(e) => {
+                let msg = format!("source_file {}: impossibile leggere '{}': {}",
+                                  ctx.node_id.0, path, e);
+                ctx.emit_completed(NodeStats {
+                    rows_in: 0, rows_out: 0, rows_rejected: 0,
+                    elapsed_ms: start.elapsed().as_millis() as u64,
+                    error: Some(msg.clone()),
+                });
+                return Err(msg);
+            }
+        };
+
+        let mut row = Row(std::collections::HashMap::new());
+        row.0.insert("content".to_string(), Value::String(content));
+        let _ = tx.send(row).await;
+
+        let stats = NodeStats {
+            rows_in: 0, rows_out: 1, rows_rejected: 0,
+            elapsed_ms: start.elapsed().as_millis() as u64,
+            error: None,
+        };
+        ctx.emit_completed(stats.clone());
+        return Ok(stats);
+    }
 
     // Leggi tutte le righe in spawn_blocking (thread dedicato per I/O sincrono)
     // poi invia le righe parsed sul canale asincrono.

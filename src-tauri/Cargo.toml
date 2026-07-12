@@ -40,6 +40,7 @@ ssh2 = "0.9"
 futures = "0.3"
 sysinfo = "0.30"
 regex = "1"
+quick-xml = "0.40"
 
 # ── Database ───────────────────────────────────────────────────────
 sqlx = { version = "0.7", features = [

@@ -20,7 +20,6 @@ import { dirWatcherExecutor }      from './dirWatcherExecutor'
 import { httpSourceExecutor } from './httpSourceExecutor'
 
 import { sourceFtpExecutor } from './sourceFtpExecutor'
-import { xmlParserExecutor } from './xmlParserExecutor'
 
 import { bridgeOutExecutor, bridgeInExecutor } from './bridgeExecutor'
 import { scriptExecutor } from './scriptExecutor'
@@ -243,7 +242,6 @@ const EXECUTORS: AnyExecutor[] = [
   httpSourceExecutor,   // ← aggiunge qui
 
   sourceFtpExecutor,
-  xmlParserExecutor,
 
   bridgeOutExecutor,   // ← aggiungi
   bridgeInExecutor,    // ← aggiungi

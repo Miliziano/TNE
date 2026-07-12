@@ -1002,3 +1002,68 @@ Errori di sorgente (`source_field_missing`, `invalid_json`) → la riga
 originale va a `reject` con `_reject_reason`, se `has_reject`. Un campo
 `onMissing:error` mancante → la riga costruita va a `reject` con
 `_reject_reason=missing_required_field` e `_source_flow`.
+
+## 21. `xml_parser` — estrae flussi da XML (multi-flusso)
+
+**Porting vero, non migrazione** (come json_parser). Il motore precedente
+faceva solo un flatten basilare; la logica ricca viveva nell'executor JS
+ed è stata **riscritta in Rust** (Fase 12) leggendo il JS come blueprint.
+
+Introduce la **prima dipendenza XML del progetto**: `quick-xml` (0.40).
+Poiché quick-xml è uno stream parser mentre la logica JS assume un DOM
+navigabile, il porting costruisce un **mini-DOM in memoria** (arena di
+nodi con parent/children) e lo naviga come faceva il DOM del browser.
+
+Dato un campo che contiene XML, estrae **entità parallele verso flussi di
+uscita distinti**. Nodo **multi-output**: un handle per flow + `reject`.
+
+### `spec.config` (config ricca dall'editor)
+
+| Chiave             | Tipo   | Default | Semantica                                       |
+|--------------------|--------|---------|-------------------------------------------------|
+| `sourceField`      | string | `""`    | Campo che contiene l'XML. **Required**          |
+| `hasReject`        | bool   | `false` | Abilita l'handle `reject`                        |
+| `ignoreNamespaces` | bool   | `true`  | Confronta i nomi per localName (ignora prefissi) |
+| `trimText`         | bool   | `true`  | Trimma il testo estratto                         |
+| `flows`            | array  | `[]`    | Flussi di estrazione. **Required**, ≥ 1          |
+
+Elemento di `flows`:
+
+```jsonc
+{
+  "id":          "flow_1",       // = nome dell'handle di uscita
+  "label":       "Tracce",
+  "xpath":       "/railML/infrastructure/tracks/track",  // path base
+  "isRepeating": true,            // true = una riga per match
+  "fields": [
+    { "name": "id", "xpath": "@id", "isAttribute": true,
+      "transform": "none", "onMissing": "null", "defaultValue": null }
+  ]
+}
+```
+
+**XPath supportato (sottoinsieme, come il JS):** navigazione per nome
+(`/root/elem/child`), attributi (`@attr`, `.../@attr`), `text()`, path
+relativi. NON è XPath completo (niente predicati, funzioni, assi). I
+`[*]`/`[n]` sono normalizzati via.
+
+**Risoluzione campo:** `xpath` relativo all'elemento del flusso; un path
+assoluto **non** sotto il flusso viene risolto navigando dal documento e
+scegliendo il candidato che è **antenato** dell'elemento corrente — così
+un campo tipo `/…/train[*]/@trainNumber` letto da uno `stopActivity`
+annidato prende il valore del train che lo contiene (master-detail
+implicito).
+
+**Trasformazioni / onMissing / reject:** identiche a json_parser (§20).
+
+### Non implementato
+
+Come json_parser, un eventuale `filter` per-flow non è presente (né qui né
+nel JS). Namespace: gestiti solo come confronto localName vs tagName
+(`ignoreNamespaces`); nessuna risoluzione URI namespace.
+
+### Migrazione (Fase 12)
+
+Ultimo del blocco parser/serializer. Executor JS (`xmlParserExecutor.ts`)
+rimosso; routing a multi-output; case builder aggiunto. Dipendenza
+`quick-xml = "0.40"` in Cargo.toml.

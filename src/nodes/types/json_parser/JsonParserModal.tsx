@@ -11,7 +11,7 @@ import type {
   JsonParserFieldTransform, JsonParserFieldMissing,
 } from './jsonParserTypes'
 
-export type { XmlFieldType, FieldType, FIELD_TYPES } from '../../../types/fieldTypes'
+import { FIELD_TYPES } from '../../../types/fieldTypes'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -437,15 +437,25 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
   const updateConfig = useCallback((patch: Partial<JsonParserConfig>) =>
     saveConfig({ ...config, ...patch }), [config, saveConfig])
 
+  const pruneOrphanEdges = useCallback((validFlowIds: string[]) => {
+    const keep = new Set<string>([...validFlowIds, 'reject', 'output', 'catch'])
+    useFlowStore.setState((s) => ({
+      edges: s.edges.filter((e) =>
+        e.source !== nodeId || keep.has(e.sourceHandle ?? 'output')
+      ),
+    }))
+  }, [nodeId])
+
   const handleAnalyze = useCallback(() => {
     if (!rawJson) return
     try {
       const { flows, tree } = generateFlowsFromJson(rawJson)
       saveConfig({ ...config, flows, _sampleJson: rawJson })
+      pruneOrphanEdges(flows.map((f) => f.id))
       setJsonTree(tree); setParseError('')
       if (flows.length > 0) setSelectedFlowId(flows[0].id)
     } catch (e: any) { setParseError(e.message ?? 'JSON non valido') }
-  }, [rawJson, config, saveConfig])
+  }, [rawJson, config, saveConfig, pruneOrphanEdges])
 
   const toggleTreeNode = useCallback((id: string) => {
     function toggle(ns: JsonTreeNode[]): JsonTreeNode[] {

@@ -447,6 +447,18 @@ function buildRustPlan(
         // legge il motore via Spec (chiavi camelCase del pannello). Il
         // case che le rinominava in snake_case è stato rimosso.
         
+        case 'xml_parser': {
+          // Config ricca (sourceField, flows con fields/xpath, opzioni ns/
+          // trim) dall'editor → spec.config verbatim. Chiavi già camelCase,
+          // la struct Rust le legge con rename_all. V. node-spec §21.
+          const xp = (node.data.config as any)?.xmlParser ?? {}
+          specConfig.sourceField      = xp.sourceField ?? ''
+          specConfig.hasReject        = xp.hasReject === true
+          specConfig.flows            = xp.flows ?? []
+          specConfig.ignoreNamespaces = xp.ignoreNamespaces !== false
+          specConfig.trimText         = xp.trimText !== false
+          break
+        }
         
         case 'json_parser': {
           // Config ricca (sourceField, flows con fields/jsonPath/

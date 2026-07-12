@@ -580,10 +580,10 @@ async fn run_node(
         }
 
         "xml_parser" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("xml_parser {} richiede un input collegato", ctx.node_id.0))?;
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::xml_parser::run(ctx, rx, tx).await
+            let rx = take_single_input(&mut inputs);
+            // Multi-output: un handle per flow + reject. Passa l'intera
+            // mappa outputs (come json_parser e i serializer).
+            super::nodes::xml_parser::run(ctx, rx, outputs).await
         }
 
         "pivot" => {

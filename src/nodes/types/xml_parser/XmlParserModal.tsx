@@ -633,6 +633,20 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
   const updateConfig = useCallback((patch: Partial<XmlParserConfig>) =>
     saveConfig({ ...config, ...patch }), [config, saveConfig])
 
+  // Rimuove dallo store gli edge che partono da questo nodo il cui
+  // sourceHandle non è più tra i flussi validi (dopo una rigenerazione
+  // gli id dei flow cambiano — Date.now()). Senza questo, gli edge orfani
+  // restano agganciati ai nodi a valle e ne bloccano il ricollegamento
+  // (isConnectionValid rifiuta un target che ha già un edge in ingresso).
+  const pruneOrphanEdges = useCallback((validFlowIds: string[]) => {
+    const keep = new Set<string>([...validFlowIds, 'reject', 'output', 'catch'])
+    useFlowStore.setState((s) => ({
+      edges: s.edges.filter((e) =>
+        e.source !== nodeId || keep.has(e.sourceHandle ?? 'output')
+      ),
+    }))
+  }, [nodeId])
+
   const handleAnalyze = useCallback(() => {
     if (!rawInput) return
     try {
@@ -646,6 +660,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
         const { flows, tree } = generateFlowsFromXml(rawInput, config.ignoreNamespaces)
         if (tree.length === 0) { setParseError('XML non valido'); return }
         saveConfig({ ...config, flows, _sampleXml: rawInput, inputMode: 'xml' } as any)
+        pruneOrphanEdges(flows.map((f) => f.id))
         setXmlTree(tree)
         setParseError('')
         if (flows.length > 0) setSelectedFlowId(flows[0].id)
@@ -653,7 +668,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
     } catch (e: any) {
       setParseError(e.message ?? 'Parsing fallito')
     }
-  }, [rawInput, inputMode, config, saveConfig])
+  }, [rawInput, inputMode, config, saveConfig, pruneOrphanEdges])
 
   const toggleTreeNode = useCallback((id: string) => {
     function toggle(ns: XmlTreeNode[]): XmlTreeNode[] {
