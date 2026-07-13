@@ -72,14 +72,20 @@ function inferOutputSchema(
 ): SchemaField[] {
 
   const config = (node._uiRef?.config ?? {}) as any
+  // I dati grezzi del pannello (incl. outputSchema) vivono in props, NON in
+  // config: updateNodeProp scrive in node.data.props, e il lowering li porta
+  // come _uiRef.props (fratello di _uiRef.config). Leggere outputSchema da
+  // config dava sempre undefined → sorgenti "vuote" → cascata di falsi warning.
+  const props = (node._uiRef?.props ?? {}) as any
 
   switch (node.operation) {
 
-    case 'scan': {
-      // Lo schema viene dalla config del nodo sorgente
-      // Proviamo a leggerlo da props.outputSchema se disponibile
+     case 'scan': {
+      // Lo schema di una sorgente vive in props.outputSchema (scritto dal
+      // pannello via updateNodeProp). Fallback difensivo sui vecchi percorsi.
       try {
-        const raw = (config as any)?.props?.outputSchema
+        const raw = props?.outputSchema
+          ?? (config as any)?.props?.outputSchema
           ?? (config as any)?.outputSchema
         if (raw) {
           const parsed = JSON.parse(raw)
@@ -156,9 +162,9 @@ function inferOutputSchema(
     }
 
     case 'transform': {
-      // Script: schema dichiarato esplicitamente in outputSchema
+      // Script: schema dichiarato esplicitamente in props.outputSchema
       try {
-        const raw = config?.props?.outputSchema
+        const raw = props?.outputSchema ?? config?.props?.outputSchema
         if (raw) {
           const parsed = JSON.parse(raw)
           if (Array.isArray(parsed)) return normalizeSchema(parsed)
