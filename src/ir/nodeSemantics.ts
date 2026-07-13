@@ -295,7 +295,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     pushdownCapable:   [],
   },
 
-  xml_parser: {
+ xml_parser: {
     uiType:                 'xml_parser',
     operations:             ['parse', 'projection'],
     executionSemantics:     'row',
@@ -303,6 +303,72 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     acceptsMultipleInputs:  false,
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
+    pushdownCapable:   [],
+  },
+  union: {
+    uiType:                 'union',
+    operations:             ['union'],
+    // Tutte le modalità (concat, mix, zip) sono STREAMING — design-union.md:
+    // "Modalità — tutte streaming". Nessun buffering: zip legge una riga per
+    // input e la emette, non accumula. Quindi 'stream', non 'stateful'/'dataset'.
+    executionSemantics:     'stream',
+    producesMultipleOutputs: false,
+    // main + N flussi aggiuntivi (input_new, stessa meccanica di tmap).
+    // Il fallback generico lo trattava come mono-input → badge/porte errati.
+    acceptsMultipleInputs:  true,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['python_polars', 'typescript'],
+    pushdownCapable:   [],
+  },
+  pivot: {
+    uiType:                 'pivot',
+    // Pivot (righe→colonne) raggruppa e rimodella come un aggregate;
+    // Unpivot (colonne→righe) moltiplica le righe. Un solo nodo, due modi.
+    operations:             ['aggregate'],
+    // dataset: la modalità Pivot deve vedere tutte le righe di un gruppo prima
+    // di emettere le colonne. Scelta conservativa: copre il modo più esigente;
+    // per Unpivot è un over-materialize innocuo, non un errore.
+    executionSemantics:     'dataset',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['python_polars', 'java_beam'],
+    pushdownCapable:   [],
+  },
+  json_serializer: {
+    uiType:                 'json_serializer',
+    // Serializza le righe in JSON e le emette a valle in un campo (default
+    // 'content') — NON è un sink terminale: continua verso un sink_file, ecc.
+    operations:             ['transform'],
+    // dataset: l'executor Rust bufferizza tutte le righe per handle
+    // (HashMap<handle, Vec<Row>>) per costruire strutture annidate e groupBy
+    // master-detail prima di emettere — non è per-riga.
+    executionSemantics:     'dataset',
+    producesMultipleOutputs: false,
+    // Multi-handle: main + flussi aggiuntivi (input_new) annidati master-detail.
+    acceptsMultipleInputs:  true,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  xml_serializer: {
+    uiType:                 'xml_serializer',
+    // Stesso profilo del json_serializer: serializza a valle (campo content),
+    // bufferizza per costruire l'albero/nesting, accetta più handle.
+    operations:             ['transform'],
+    executionSemantics:     'dataset',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  true,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
   },
   dir_watcher: {
