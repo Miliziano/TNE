@@ -7,6 +7,7 @@ import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
 import { BridgeInModal } from './types/bridge/BridgeModal'
 import { NodeRuntimeBadges } from './RuntimeBadges'
+import { ValidationBadge } from './ValidationBadge'
 
 // ─── BridgeOut ────────────────────────────────────────────────────
 export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
@@ -34,6 +35,7 @@ export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
       title={`Bridge OUT — canale "${channelName}"`}
       style={{ width: 100, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
 
+      <ValidationBadge uiState={nodeData.uiState} corner="top-left" />
       <svg width="100" height="68" viewBox="0 0 100 68" style={{ display: 'block' }}>
         <path d="M4 4 L64 4 Q94 34 64 64 L4 64 Z" fill="none"
           stroke={channelColor} strokeWidth={selected ? 5 : 2.5} opacity={selected ? 0.35 : 0.18} />
@@ -122,6 +124,7 @@ export const BridgeInNode = memo(({ id, data, selected }: NodeProps) => {
       title={`Bridge IN — canale "${channelName}" (timeout ${timeoutSec}s)`}
       style={{ width: 100, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
 
+      <ValidationBadge uiState={nodeData.uiState} corner="bottom-left" />
       <svg width="100" height="68" viewBox="0 0 100 68" style={{ display: 'block' }}>
         <path d="M96 4 L36 4 Q6 34 36 64 L96 64 Z" fill="none"
           stroke={channelColor} strokeWidth={selected ? 5 : 2.5} opacity={selected ? 0.35 : 0.18} />

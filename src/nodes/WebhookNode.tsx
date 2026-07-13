@@ -19,6 +19,7 @@ import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { NodeRuntimeBadges } from './RuntimeBadges'
+import { ValidationBadge } from './ValidationBadge'
 
 // ─── Stili comuni ─────────────────────────────────────────────────
 
@@ -85,6 +86,7 @@ export const WebhookReceiverNode = memo(({ id, data }: NodeProps) => {
       background: '#161b27',
       border: `1.5px solid ${status === 'running' ? RECV_COLOR : '#2a3349'}`,
     }}>
+      <ValidationBadge uiState={nodeData.uiState} corner="top-left" />
       {/* Header */}
       <div style={{
         padding: '7px 10px',
@@ -183,6 +185,7 @@ export const WebhookResponderNode = memo(({ id, data }: NodeProps) => {
       background: '#161b27',
       border: `1.5px solid ${status === 'running' ? RESP_COLOR : '#2a3349'}`,
     }}>
+      <ValidationBadge uiState={nodeData.uiState} corner="top-left" />
       {/* Handle input — a sinistra */}
       <Handle
         type="target"
@@ -284,6 +287,7 @@ export const WatchdogNode = memo(({ id, data }: NodeProps) => {
       background: '#161b27',
       border: `1.5px solid ${status === 'running' ? WD_COLOR : '#2a3349'}`,
     }}>
+      <ValidationBadge uiState={nodeData.uiState} corner="top-left" />
       {/* Handle input — a sinistra (opzionale — può ricevere righe da passare a valle) */}
       <Handle
         type="target"

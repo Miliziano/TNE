@@ -18,6 +18,7 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges } from './RuntimeBadges'
+import { ValidationBadge } from './ValidationBadge'
 import type { NodeData, NodeStatus } from '../types'
 import { useFlowStore } from '../store/flowStore'
 
@@ -58,6 +59,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
         cursor: 'pointer', userSelect: 'none', position: 'relative',
       }}
     >
+      <ValidationBadge uiState={nodeData.uiState} corner="bottom-left" />
       {/* Pin — indica nodo fisso/non eliminabile */}
       <div
         title="Nodo fisso della lane — non può essere eliminato"

@@ -10,6 +10,7 @@
  */
 
 import { memo, useCallback } from 'react'
+import { ValidationBadge } from "../../ValidationBadge"
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges } from '../../RuntimeBadges'
 import type { NodeData } from '../../../types'
@@ -93,7 +94,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Badge errori/warning */}
       {uiState && (uiState.hasErrors || uiState.hasWarnings) && (
-        <UnionIRBadge uiState={uiState} />
+        <ValidationBadge uiState={uiState} />
       )}
 
       {/* Badge editor */}
@@ -229,30 +230,4 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
 UnionNode.displayName = 'UnionNode'
 
 // ─── Badge errori/warning ─────────────────────────────────────────
-interface UIState {
-  hasErrors?:    boolean
-  errorCount?:   number
-  hasWarnings?:  boolean
-  warningCount?: number
-  issues?:       Array<{ severity: string; message: string; code: string }>
-}
-
-function UnionIRBadge({ uiState }: { uiState: UIState }) {
-  const color = uiState.hasErrors ? '#ff5f57' : '#ffb347'
-  const count = uiState.hasErrors ? uiState.errorCount : uiState.warningCount
-  const icon  = uiState.hasErrors ? 'ti-alert-circle' : 'ti-alert-triangle'
-  return (
-    <div style={{ position: 'absolute', top: -8, left: -8, zIndex: 10 }}>
-      <div style={{ width: 18, height: 18, borderRadius: '50%', background: color, border: '2px solid #0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 6px ${color}80` }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 10, color: '#0f1117' }} />
-        {(count ?? 0) > 1 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>
-           {count}
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export { INPUT_COLORS as UNION_FLOW_COLORS }
