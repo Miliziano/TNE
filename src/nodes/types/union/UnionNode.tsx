@@ -76,7 +76,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
     <div
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      title="Union — doppio click per configurare"
+   
       style={{
         minWidth:      160,
         minHeight,
@@ -169,7 +169,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
           {displayName}
         </span>
         <span style={{
-          fontSize: 9, fontWeight: 700, color: modeColor,
+          fontSize: 10, fontWeight: 700, color: modeColor,
           padding: '1px 5px', borderRadius: 4,
           background: `color-mix(in srgb, ${modeColor} 12%, #0f1117)`,
           border: `0.5px solid ${modeColor}40`, flexShrink: 0,
@@ -244,10 +244,10 @@ function UnionIRBadge({ uiState }: { uiState: UIState }) {
   return (
     <div style={{ position: 'absolute', top: -8, left: -8, zIndex: 10 }}>
       <div style={{ width: 18, height: 18, borderRadius: '50%', background: color, border: '2px solid #0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 6px ${color}80` }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 9, color: '#0f1117' }} />
+        <i className={`ti ${icon}`} style={{ fontSize: 10, color: '#0f1117' }} />
         {(count ?? 0) > 1 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>
-            {count}
+          <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>
+           {count}
           </span>
         )}
       </div>

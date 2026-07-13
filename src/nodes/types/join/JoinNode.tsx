@@ -13,6 +13,7 @@ const STATUS_COLORS: Record<NodeStatus, string> = {
   done:    '#3ddc84',
   error:   '#ff5f57',
   warning: '#ffb347',
+  ok:      '#3ddc84',
 }
 
 const LEFT_COLOR   = '#4a9eff'
@@ -34,10 +35,11 @@ function IRBadge({ uiState }: { uiState: UIState }) {
     <div style={{ position: 'absolute', top: -8, left: -8, zIndex: 10 }}
       onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
       <div style={{ width: 18, height: 18, borderRadius: '50%', background: color, border: '2px solid #0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 6px ${color}80` }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 9, color: '#0f1117' }} />
+        <i className={`ti ${icon}`} style={{ fontSize: 10, color: '#0f1117' }} />
         {(count ?? 0) > 1 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>{count}</span>
-        )}
+        <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>
+          {count}</span>     
+         )}
       </div>
       {show && (uiState.issues?.length ?? 0) > 0 && (
         <div style={{ position: 'absolute', top: 22, left: 0, minWidth: 220, maxWidth: 280, background: '#1a2030', border: `1px solid ${color}60`, borderRadius: 6, padding: '4px 0', boxShadow: '0 8px 24px rgba(0,0,0,.7)', zIndex: 1000, pointerEvents: 'none' }}>
@@ -85,7 +87,7 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
 
   return (
     <div onClick={handleClick} onDoubleClick={handleDoubleClick}
-      title="Join — doppio click per configurare"
+     
       style={{
         minWidth: 170, minHeight: 120,
         borderRadius: 8, background: '#1e2535',
@@ -109,8 +111,8 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
         title="Flusso principale (sinistra)" />
 
       {/* Label handle sinistra */}
-      <div style={{ position: 'absolute', top: 'calc(22% - 5px)', left: 4, fontSize: 9, fontWeight: 700, color: LEFT_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
-        L
+      <div style={{ position: 'absolute', top: 'calc(22% - 5px)', left: 4, fontSize: 10, fontWeight: 700, color: LEFT_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
+          L
       </div>
 
       {/* ── Handle lookup — 78% — ciano ── */}
@@ -119,8 +121,8 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
         title="Lookup (destra)" />
 
       {/* Label handle destra */}
-      <div style={{ position: 'absolute', top: 'calc(78% - 5px)', left: 4, fontSize: 9, fontWeight: 700, color: LOOKUP_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
-        R
+      <div style={{ position: 'absolute', top: 'calc(78% - 5px)', left: 4, fontSize: 10, fontWeight: 700, color: LOOKUP_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
+          R
       </div>
 
       {/* Header */}

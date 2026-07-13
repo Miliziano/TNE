@@ -53,6 +53,7 @@ export function resyncNodeCounter(nodes: FlowNode<NodeData>[]): void {
   if (maxN > _nodeCounter) _nodeCounter = maxN
 }
 // ─── helper schedule validation ───────────────────────────────────
+
 function triggerValidation() {
   scheduleCanvasValidation(
     () => {
@@ -62,6 +63,50 @@ function triggerValidation() {
     (updatedNodes) => useFlowStore.setState({ nodes: updatedNodes }),
   )
 }
+
+// ─── firma strutturale del grafo ──────────────────────────────────
+// Riassume SOLO ciò che la validazione design-time osserva, così la
+// subscription (fondo file) rivalida quando il grafo cambia davvero e
+// NON quando cambia solo il layout o lo stato runtime.
+//
+// Esclusioni deliberate:
+//  • position del nodo → il drag non deve schedulare validazioni;
+//  • data.uiState → è l'OUTPUT della validazione (applyIssuesToCanvas):
+//    includerlo creerebbe un loop infinito di rivalidazione;
+//  • data.status / statusMessage / irRef → runtime/derivati, non input;
+//  • resource.status nella pool → runtime dei resource durante i run.
+// Le stats dei nodi vivono in `nodeStats` (fuori da nodes) → già escluse.
+function structuralSignature(
+  nodes: FlowNode<NodeData>[],
+  edges: Edge[],
+  pool:  Pool,
+): string {
+  const n = nodes.map((nd) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { uiState, status, statusMessage, irRef, ...restData } = nd.data
+    return { id: nd.id, type: nd.type, data: restData }
+  })
+  const e = edges.map((ed) => ({
+    id: ed.id, s: ed.source, t: ed.target,
+    sh: ed.sourceHandle ?? null, th: ed.targetHandle ?? null,
+  }))
+  const p = {
+    label: pool.label,
+    lanes: pool.lanes.map((l) => ({
+      id: l.id,
+      transactions: l.transactions,
+      variables:    l.variables,
+      // resource: si esclude `status` (runtime), si tiene config/kind
+      resources: l.resources.map((r) => ({
+        id: r.id, kind: r.kind, config: r.config,
+      })),
+    })),
+    variables: pool.variables,
+  }
+  return JSON.stringify({ n, e, p })
+}
+
+let _lastValidationSig = ''
 const resUid  = () => `res_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
 const varUid  = () => `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
 const logId   = () => `log_${Date.now()}_${Math.random()}`
@@ -1671,8 +1716,47 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const newNodes = makeStartEnd(laneId, uid(), uid())
     set((s) => ({ nodes: [...s.nodes, ...newNodes] }))
   },
-  _addLaneErrorHandler: (laneId) => {
+ _addLaneErrorHandler: (laneId) => {
     const errorHandlerId = `error_handler_${laneId}`
     set((s) => ({ nodes: [...s.nodes, makeErrorHandler(laneId, errorHandlerId)] }))
   },
 }))
+
+// ─── VALIDAZIONE LIVE — aggancio unico ────────────────────────────
+// Invece di chiamare triggerValidation() da ogni singola mutazione
+// (decine di call-site, facile dimenticarne qualcuna e nessuna copre
+// il caricamento progetto che rimpiazza lo stato direttamente), la
+// agganciamo una volta sola qui: la subscription osserva OGNI cambio
+// di stato e rivalida quando — e solo quando — la firma strutturale
+// del grafo cambia (vedi structuralSignature).
+//
+// • Fast-path: se le reference di nodes/edges/pool sono invariate, il
+//   grafo non può essere cambiato → nessun ricalcolo (le mutazioni
+//   puramente UI/runtime — select, log, stats, editor — passano di qui
+//   a costo zero).
+// • Loop-safe: la validazione riscrive solo data.uiState, escluso dalla
+//   firma → il write-back non ri-schedula nulla.
+// • Copre gratis anche load/import/clearCanvas, che sostituiscono nodes.
+let _prevNodesRef: FlowNode<NodeData>[] | null = null
+let _prevEdgesRef: Edge[] | null = null
+let _prevPoolRef:  Pool | null = null
+
+useFlowStore.subscribe((state) => {
+  if (
+    state.nodes === _prevNodesRef &&
+    state.edges === _prevEdgesRef &&
+    state.pool  === _prevPoolRef
+  ) return
+  _prevNodesRef = state.nodes
+  _prevEdgesRef = state.edges
+  _prevPoolRef  = state.pool
+
+  const sig = structuralSignature(state.nodes, state.edges, state.pool)
+  if (sig === _lastValidationSig) return
+  _lastValidationSig = sig
+  triggerValidation()
+})
+
+// Validazione iniziale: lo stato di partenza (o un progetto caricato
+// prima che la subscription fosse attiva) viene validato subito.
+triggerValidation()

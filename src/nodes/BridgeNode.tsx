@@ -119,7 +119,7 @@ export const BridgeInNode = memo(({ id, data, selected }: NodeProps) => {
     <div
       onClick={() => selectNode(id)}
       onDoubleClick={(e) => { e.stopPropagation(); setShowModal(true) }}
-      title={`Bridge IN — canale "${channelName}" (timeout ${timeoutSec}s) — doppio click per configurare`}
+      title={`Bridge IN — canale "${channelName}" (timeout ${timeoutSec}s)`}
       style={{ width: 100, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
 
       <svg width="100" height="68" viewBox="0 0 100 68" style={{ display: 'block' }}>

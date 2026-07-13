@@ -27,9 +27,8 @@ function IRBadge({ uiState }: { uiState: UIState }) {
     <div style={{ position: 'absolute', top: -8, left: -8, zIndex: 10 }}
       onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
       <div style={{ width: 18, height: 18, borderRadius: '50%', background: color, border: '2px solid #0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 6px ${color}80` }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 9, color: '#0f1117' }} />
-        {(count ?? 0) > 1 && <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>{count}</span>}
-      </div>
+        <i className={`ti ${icon}`} style={{ fontSize: 10, color: '#0f1117' }} />
+        {(count ?? 0) > 1 && <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>{count}</span>} </div>
       {show && (uiState.issues?.length ?? 0) > 0 && (
         <div style={{ position: 'absolute', top: 22, left: 0, minWidth: 220, maxWidth: 280, background: '#1a2030', border: `1px solid ${color}60`, borderRadius: 6, padding: '4px 0', boxShadow: '0 8px 24px rgba(0,0,0,.7)', zIndex: 1000, pointerEvents: 'none' }}>
           {uiState.issues!.map((issue, i) => (
@@ -65,7 +64,7 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
 
   return (
     <div onClick={handleClick} onDoubleClick={handleDoubleClick}
-      title="XML Serializer — doppio click per aprire l'editor"
+    
       style={{
         minWidth: 170, minHeight, borderRadius: 8,
         border: `1.5px solid ${selected ? ACCENT : '#4a1a00'}`,

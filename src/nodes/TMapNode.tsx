@@ -42,7 +42,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
     <div
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      title="TMap — doppio click per aprire l'editor"
+      
       style={{
         minWidth:     170,
         minHeight,
@@ -301,10 +301,10 @@ function IRBadge({ uiState }: { uiState: UIState }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: `0 0 6px ${color}80`,
       }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 9, color: '#0f1117' }} />
+        <i className={`ti ${icon}`} style={{ fontSize: 10, color: '#0f1117' }} />
         {(count ?? 0) > 1 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>
-            {count}
+          <span style={{ position: 'absolute', top: -4, right: -4, background: color, color: '#0f1117', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '0 3px', minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117' }}>  
+           {count}
           </span>
         )}
       </div>

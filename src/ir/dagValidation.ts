@@ -27,9 +27,10 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkBridgeJoinPattern(plan))
   issues.push(...checkMissingSinks(plan))
 
-  const { issues: schemaIssues } = propagateSchema(plan)
-  issues.push(...schemaIssues)
-
+  // NB: lo schema si assume GIÀ propagato dal chiamante (runValidation /
+  // runCompilation lo fanno prima di chiamare validateDAG). NON ri-propaghiamo
+  // qui: farlo raddoppierebbe ogni schema-issue (venivano emessi una volta dal
+  // chiamante e una seconda da questa funzione → tutti gli avvisi doppi).
   issues.push(...checkExecutionSemantics(plan))
   issues.push(...checkUnresolvedHandles(plan))
   issues.push(...checkDataContracts(plan))
@@ -668,9 +669,11 @@ export function scheduleValidation(
   const timer = setTimeout(() => {
     try {
       const plan    = getPlan()
-      const result  = validateDAG(plan)
+      // validateDAG richiede un piano già annotato con lo schema.
+      const { plan: withSchema, issues: schemaIssues } = propagateSchema(plan)
+      const result  = validateDAG(withSchema)
       const nodes   = getNodes()
-      const updated = applyIssuesToCanvas(result.issues, nodes)
+      const updated = applyIssuesToCanvas([...schemaIssues, ...result.issues], nodes)
       setNodes(updated)
     } catch (e) {
       console.warn('[FlowPilot] DAG validation error:', e)

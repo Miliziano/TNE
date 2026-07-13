@@ -103,8 +103,11 @@ export function runValidation(
   const plan = canvasToIR(nodes, edges, planId, planName, pool)
 
   const { plan: withSchema, issues: schemaIssues } = propagateSchema(plan)
-  const { issues, valid } = validateDAG(withSchema)
+  const { issues } = validateDAG(withSchema)
   const allIssues = [...schemaIssues, ...issues]
+  // validateDAG non ri-propaga più lo schema → il suo `valid` non vedrebbe
+  // gli errori di schema. Lo ricalcoliamo sull'insieme completo.
+  const valid = !allIssues.some((i) => i.severity === 'error')
 
   const updatedNodes = applyIssuesToCanvas(allIssues, nodes)
   return { issues: allIssues, valid, updatedNodes }
@@ -123,17 +126,19 @@ export function runCompilation(
   const plan = canvasToIR(nodes, edges, planId, planName, pool)
 
   const { plan: withSchema, issues: schemaIssues } = propagateSchema(plan)
-  const { valid, issues: validationIssues } = validateDAG(withSchema)
+  const { issues: validationIssues } = validateDAG(withSchema)
+  const allIssues = [...schemaIssues, ...validationIssues]
+  // valid sull'insieme completo: validateDAG non conteggia più lo schema.
+  const valid = !allIssues.some((i) => i.severity === 'error')
 
   if (!valid) {
     return {
       plan:             withSchema,
-      schemaIssues:     [...schemaIssues, ...validationIssues],
+      schemaIssues:     allIssues,
       optimizationLogs: [],
       valid:            false,
     }
   }
-
   const { plan: optimized, logs } = optimize(withSchema)
 
   // ── Fase column usage analysis ────────────────────────────────
@@ -143,7 +148,7 @@ export function runCompilation(
 
   return {
     plan:             withColumnUsage,
-    schemaIssues:     [...schemaIssues, ...validationIssues],
+    schemaIssues:     allIssues,
     optimizationLogs: logs,
     valid:            true,
   }

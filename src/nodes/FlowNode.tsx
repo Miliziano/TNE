@@ -105,11 +105,11 @@ function IRBadge({ uiState }: { uiState: UIState }) {
         border: '2px solid #0f1117', display: 'flex', alignItems: 'center',
         justifyContent: 'center', cursor: 'default', boxShadow: `0 0 6px ${color}80`, position: 'relative',
       }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 9, color: '#0f1117' }} />
+        <i className={`ti ${icon}`} style={{ fontSize: 10, color: '#0f1117' }} />
         {(count ?? 0) > 1 && (
           <span style={{
             position: 'absolute', top: -5, right: -5, background: color, color: '#0f1117',
-            fontSize: 9, fontWeight: 700, borderRadius: 8, padding: '0 3px',
+            fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '0 3px',
             minWidth: 12, textAlign: 'center', lineHeight: '12px', border: '1px solid #0f1117',
           }}>{count}</span>
         )}
@@ -198,7 +198,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
     <div
       onClick={() => selectNode(id)}
       onDoubleClick={() => { if (nodeData.type !== 'tmap' ) openNodeEditor(id) }}
-      title={`${displayName} — doppio click per configurare`}
+      
       style={{
         border: `1.5px solid ${borderColor}`,
         boxShadow: selected ? '0 0 0 2px rgba(74,158,255,0.4)' : undefined,
