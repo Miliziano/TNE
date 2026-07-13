@@ -95,7 +95,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>✓ Data Quality</span> — passthrough.
-        I campi transitano invariati. Le righe invalide escono dall'handle <code style={{ color: '#ff5f57' }}>reject</code> con il campo <code style={{ color: '#ff5f57' }}>{errorField}</code>.
+        I campi transitano completi e corretti secondo le regole applicate. 
       </div>
 
       {/* Stats regole */}
@@ -184,10 +184,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#0d3d20', color: ACCENT, border: `0.5px solid #1d6d40`, flexShrink: 0 }}>output</span>
           <span style={{ fontSize: 9 }}>Righe valide — schema identico all'ingresso</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#1a0000', color: '#ff5f57', border: '0.5px solid #3d1010', flexShrink: 0 }}>reject</span>
-          <span style={{ fontSize: 9 }}>Righe invalide + campo <code style={{ color: '#ff5f57' }}>{errorField}</code> con dettaglio errori</span>
-        </div>
+       
       </div>
 
       {/* Warning campi orfani */}

@@ -182,8 +182,8 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
-    preferredRuntimes: ['typescript', 'python_polars'],
-    pushdownCapable:   ['projection', 'limit'],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
   },
 
   source_http: {
@@ -195,6 +195,54 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  source_ftp: {
+    uiType:                 'source_ftp',
+    operations:             ['scan'],
+    executionSemantics:     'row',        // legge file (batch), come source_file
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   ['projection', 'limit'],
+  },
+  source_kafka: {
+    uiType:                 'source_kafka',
+    operations:             ['scan', 'parse'],   // consume  deserializza
+    executionSemantics:     'stream',            // consumer = flusso continuo
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
+  webhook_receiver: {
+    uiType:                 'webhook_receiver',
+    operations:             ['scan', 'parse'],   // riceve payload  parse
+    executionSemantics:     'stream',            // server in ascolto = continuo
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  watchdog: {
+    uiType:                 'watchdog',
+    operations:             ['scan'],     // monitora via HEAD, sblocca il flusso
+    executionSemantics:     'stream',     // monitoraggio continuo, come dir_watcher
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -295,7 +343,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     pushdownCapable:   [],
   },
 
- xml_parser: {
+  xml_parser: {
     uiType:                 'xml_parser',
     operations:             ['parse', 'projection'],
     executionSemantics:     'row',
@@ -385,141 +433,181 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       pushdownCapable:   [],
     },
 
-    window: {
-      uiType:                  'window',
-      operations:              ['window'],
-      executionSemantics:      'dataset',  // richiede visibilità sulla partizione
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'output', isReject: false },
-      ],
-      preferredRuntimes: ['python_polars', 'typescript'],
-      pushdownCapable:   [],
-    },
+  window: {
+    uiType:                  'window',
+    operations:              ['window'],
+    executionSemantics:      'dataset',  // richiede visibilità sulla partizione
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['python_polars', 'typescript'],
+    pushdownCapable:   [],
+  },
 
-    materialize: {
-      uiType:                  'materialize',
-      operations:              ['aggregate'],  // bufferizza
-      executionSemantics:      'dataset',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'output', isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
+  materialize: {
+    uiType:                  'materialize',
+    operations:              ['aggregate'],  // bufferizza
+    executionSemantics:      'dataset',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+      { id: 'reject', label: 'reject', isReject: true  },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
 
-    source_activemq: {
-      uiType:                  'source_activemq',
-      operations:              ['scan'],
-      executionSemantics:      'stream',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'output', isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
+  source_activemq: {
+    uiType:                  'source_activemq',
+    operations:              ['scan'],
+    executionSemantics:      'stream',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+      { id: 'reject', label: 'reject', isReject: true  },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
 
-    sink_activemq: {
-      uiType:                  'sink_activemq',
-      operations:              ['sink'],
-      executionSemantics:      'row',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'passthrough', isReject: false },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
+  sink_activemq: {
+    uiType:                  'sink_activemq',
+    operations:              ['sink'],
+    executionSemantics:      'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'passthrough', isReject: false },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
 
-    source_mqtt: {
-      uiType:                  'source_mqtt',
-      operations:              ['scan'],
-      executionSemantics:      'stream',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'output', isReject: false },
-      ],
-      preferredRuntimes: ['typescript'],
-      pushdownCapable:   [],
-    },
+  source_mqtt: {
+    uiType:                  'source_mqtt',
+    operations:              ['scan'],
+    executionSemantics:      'stream',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
 
-    sink_mqtt: {
-      uiType:                  'sink_mqtt',
-      operations:              ['sink'],
-      executionSemantics:      'row',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'passthrough', isReject: false },
-      ],
-      preferredRuntimes: ['typescript'],
-      pushdownCapable:   [],
-    },
-    
-    report_generator: {
-      uiType:                  'report_generator',
-      operations:              ['aggregate'],   // bufferizza tutto prima di emettere
-      executionSemantics:      'dataset',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'report', isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
+  sink_mqtt: {
+    uiType:                  'sink_mqtt',
+    operations:              ['sink'],
+    executionSemantics:      'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'passthrough', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  
+  report_generator: {
+    uiType:                  'report_generator',
+    operations:              ['aggregate'],   // bufferizza tutto prima di emettere
+    executionSemantics:      'dataset',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'report', isReject: false },
+      { id: 'reject', label: 'reject', isReject: true  },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
 
-    explode: {
-      uiType:                  'explode',
-      operations:              ['scan'],    // produce righe da struttura
-      executionSemantics:      'dataset',   // legge tutto prima di emettere
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'rows',   isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
+  explode: {
+    uiType:                  'explode',
+    operations:              ['scan'],    // produce righe da struttura
+    executionSemantics:      'dataset',   // legge tutto prima di emettere
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'rows',   isReject: false },
+      { id: 'reject', label: 'reject', isReject: true  },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
+  data_quality: {
+    uiType:                 'data_quality',
+    // Il motore ANNOTA ogni riga con campi _dq.valid/_dq.score e le passa TUTTE
+    // su un solo output; per scartare le invalide si mette un filter a valle
+    // (vedi data_quality.rs). NON instrada su valid/reject: è un transform che
+    // arricchisce lo schema, non un branch. (La HANDLE_MAP di schemaRegistry che
+    // dichiara valid/reject è stantia — allineare a ['output'] in un cleanup.)
+    operations:             ['transform'],
+    executionSemantics:     'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript', 'python_polars'],
+    pushdownCapable:   [],
+  },
+  shell_exec: {
+    uiType:                 'shell_exec',
+    operations:             ['transform'],  // esegue comando, output nel flusso
+    executionSemantics:     'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  ssh_exec: {
+    uiType:                 'ssh_exec',
+    operations:             ['transform'],  // come shell_exec, ma su host remoto
+    executionSemantics:     'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  mail_sink: {
+    uiType:                  'mail_sink',
+    operations:              ['sink'],
+    executionSemantics:      'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'passthrough', label: 'passthrough', isReject: false },
+      { id: 'reject',      label: 'reject',      isReject: true  },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
 
-    mail_sink: {
-      uiType:                  'mail_sink',
-      operations:              ['sink'],
-      executionSemantics:      'row',
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'passthrough', label: 'passthrough', isReject: false },
-        { id: 'reject',      label: 'reject',      isReject: true  },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
-
-    trigger: {
-      uiType:                  'trigger',
-      operations:              ['scan'],   // produce un singolo segnale come sorgente
-      executionSemantics:      'stream',   // attende evento esterno
-      producesMultipleOutputs: false,
-      acceptsMultipleInputs:   false,
-      staticOutputPorts: [
-        { id: 'output', label: 'signal', isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
-      ],
-      preferredRuntimes: ['typescript', 'java_beam'],
-      pushdownCapable:   [],
-    },
+  trigger: {
+    uiType:                  'trigger',
+    operations:              ['scan'],   // produce un singolo segnale come sorgente
+    executionSemantics:      'stream',   // attende evento esterno
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'signal', isReject: false },
+      { id: 'reject', label: 'reject', isReject: true  },
+    ],
+    preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
   // ── Destinazioni ──────────────────────────────────────────────
 
 
@@ -587,6 +675,46 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       { id: 'reject',      label: 'reject',      isReject: true  },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
+    pushdownCapable:   [],
+  },
+  sink_ftp: {
+    uiType:                 'sink_ftp',
+    operations:             ['sink'],
+    executionSemantics:     'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    // come gli altri sink: porta passthrough opzionale  reject
+    staticOutputPorts: [
+      { id: 'passthrough', label: 'passthrough', isReject: false },
+      { id: 'reject',      label: 'reject',      isReject: true  },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  webhook_responder: {
+    uiType:                 'webhook_responder',
+    operations:             ['sink'],   // risponde HTTP dalla riga corrente
+    executionSemantics:     'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    // terminale: consuma e risponde, nessun output a valle
+    staticOutputPorts:      [],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+  error_handler: {
+    uiType:                 'error_handler',
+    // Collettore centrale errori della lane: riceve righe-errore via handle
+    // 'catch' da N nodi e le inoltra su 'error_out' (verso log/sink).
+    operations:             ['transform'],
+    executionSemantics:     'row',
+    producesMultipleOutputs: false,
+    // riceve i catch da molti nodi della lane
+    acceptsMultipleInputs:  true,
+    staticOutputPorts: [
+      { id: 'error_out', label: 'error', isReject: false },
+    ],
+    preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
   },
 
