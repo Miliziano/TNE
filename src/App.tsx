@@ -3,7 +3,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { Toolbar }       from './components/Toolbar'
 import { Canvas }        from './components/Canvas'
 import { PropertyPanel } from './components/PropertyPanel'
-import { LogPanel }      from './components/LogPanel'
+import { BottomDock }     from './components/BottomDock'
 import { CodegenPanel }  from './components/CodegenPanel'
 import { NODE_DEFS, PALETTE_SECTIONS } from './nodes/registry'
 import { dragState }     from './dragState'
@@ -176,6 +176,7 @@ function SidePanel({
       maxWidth:      600,
       display:       'flex',
       flexDirection: 'column',
+      background:    'var(--color-background-secondary)',
       borderLeft:    '0.5px solid var(--color-border-tertiary)',
       flexShrink:    0,
       overflow:      'hidden',
@@ -271,7 +272,7 @@ function Layout() {
         )}
       </div>
 
-      <LogPanel />
+      <BottomDock />
       <NodeEditorModal />
     </div>
   )

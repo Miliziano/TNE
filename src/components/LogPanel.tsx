@@ -33,10 +33,9 @@ const COLORS: Record<LogEntry['level'], string> = {
 
 const ROW_HEIGHT = 20  // px — deve corrispondere all'altezza reale renderizzata
 
-export function LogPanel() {
+export function LogView() {
   // Selector specifico — evita re-render su cambi non correlati ai log
   const logs      = useFlowStore((s) => s.logs)
-  const clearLogs = useFlowStore((s) => s.clearLogs)
 
   const { containerRef, visibleRange, totalHeight, offsetY, scrollToBottom, isNearBottom } =
     useVirtualList({ itemCount: logs.length, itemHeight: ROW_HEIGHT, overscan: 10 })
@@ -60,51 +59,7 @@ export function LogPanel() {
   const expandedEntry = expandedId ? logs.find((e) => e.id === expandedId) : null
 
   return (
-    <div
-      style={{
-        height: 130,
-        background: '#161b27',
-        borderTop: '1px solid #2a3349',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        position: 'relative',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: '4px 12px',
-          borderBottom: '1px solid #2a3349',
-          fontSize: 10,
-          fontWeight: 600,
-          color: '#4a5a7a',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        Execution log
-        <span style={{ marginLeft: 8, fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#2a3349' }}>
-          {logs.length.toLocaleString()} righe
-        </span>
-        <button
-          onClick={clearLogs}
-          style={{
-            marginLeft: 'auto',
-            background: 'none',
-            border: 'none',
-            color: '#4a5a7a',
-            cursor: 'pointer',
-            fontSize: 10,
-            fontFamily: 'inherit',
-          }}
-        >
-          clear
-        </button>
-      </div>
-
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {/* Righe di log — virtualizzate */}
       <div
         ref={containerRef}
@@ -210,4 +165,18 @@ export function LogPanel() {
       )}
     </div>
   )
+}
+
+// ─── Helper export log (usati dal BottomDock) ─────────────────────
+const _fmt = (d: Date) => d.toTimeString().slice(0, 8)
+
+export function logsToText(logs: LogEntry[]): string {
+  return logs.map((e) => `${_fmt(e.timestamp)} [${e.level}] ${e.message}`).join('\n')
+}
+
+export function logsToNdjson(logs: LogEntry[]): string {
+  return logs.map((e) => JSON.stringify({
+    ts: e.timestamp instanceof Date ? e.timestamp.toISOString() : e.timestamp,
+    level: e.level, message: e.message,
+  })).join('\n')
 }

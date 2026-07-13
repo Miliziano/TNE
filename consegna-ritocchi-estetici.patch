@@ -1,0 +1,122 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index b3433f1..9d70e69 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -176,6 +176,7 @@ function SidePanel({
+       maxWidth:      600,
+       display:       'flex',
+       flexDirection: 'column',
++      background:    'var(--color-background-secondary)',
+       borderLeft:    '0.5px solid var(--color-border-tertiary)',
+       flexShrink:    0,
+       overflow:      'hidden',
+diff --git a/src/components/BottomDock.tsx b/src/components/BottomDock.tsx
+index c1c330c..690fe58 100644
+--- a/src/components/BottomDock.tsx
++++ b/src/components/BottomDock.tsx
+@@ -24,6 +24,21 @@ const ACCENT = '#4a9eff'
+ export function BottomDock() {
+   const logs      = useFlowStore((s) => s.logs)
+   const clearLogs = useFlowStore((s) => s.clearLogs)
++  const nodes     = useFlowStore((s) => s.nodes)
++
++  // ── Problemi aggregati da tutti i nodi (uiState.issues) ─────────
++  // La vista Problems (P2) userà la stessa raccolta.
++  const problems = nodes.flatMap((n) => {
++    const iss = (n.data as any)?.uiState?.issues as Array<{ severity: string; message: string; code: string }> | undefined
++    if (!iss?.length) return []
++    const label  = String((n.data as any)?.label ?? (n.data as any)?.config?.displayName ?? n.id)
++    const laneId = String((n.data as any)?.laneId ?? '')
++    return iss.map((i) => ({ nodeId: n.id, label, laneId, ...i }))
++  })
++  const problemsToText = () =>
++    problems.map((p) => `[${p.severity}] ${p.laneId ? p.laneId + ' · ' : ''}${p.label} — ${p.message}`).join('\n')
++  const problemsToNdjson = () =>
++    problems.map((p) => JSON.stringify({ severity: p.severity, lane: p.laneId, node: p.label, code: p.code, message: p.message })).join('\n')
+ 
+   const [tab, setTab]         = useState<DockTab>('log')
+   const [collapsed, setColl]  = useState(false)
+@@ -55,24 +70,24 @@ export function BottomDock() {
+     }
+   }, [collapsed])
+ 
+-  // ── Export log ──────────────────────────────────────────────────
+-  const download = (content: string, ext: string) => {
++  // ── Export (log e problems) ─────────────────────────────────────
++  const download = (content: string, name: string, ext: string) => {
+     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+     const url  = URL.createObjectURL(blob)
+     const a    = document.createElement('a')
+     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+     a.href = url
+-    a.download = `flowpilot-log-${stamp}.${ext}`
++    a.download = `flowpilot-${name}-${stamp}.${ext}`
+     document.body.appendChild(a)
+     a.click()
+     document.body.removeChild(a)
+     URL.revokeObjectURL(url)
+   }
+-  const exportTxt    = () => download(logsToText(logs), 'txt')
+-  const exportNdjson = () => download(logsToNdjson(logs), 'ndjson')
+-  const copyClipboard = async () => {
++  const exportTxt    = () => download(logsToText(logs), 'log', 'txt')
++  const exportNdjson = () => download(logsToNdjson(logs), 'log', 'ndjson')
++  const copyText = async (text: string) => {
+     try {
+-      await navigator.clipboard.writeText(logsToText(logs))
++      await navigator.clipboard.writeText(text)
+       setCopied(true)
+       setTimeout(() => setCopied(false), 1500)
+     } catch { /* clipboard non disponibile */ }
+@@ -130,7 +145,7 @@ export function BottomDock() {
+         paddingRight: 8, flexShrink: 0,
+       }}>
+         {tabBtn('log', 'Log', logs.length)}
+-        {tabBtn('problems', 'Problems')}
++        {tabBtn('problems', 'Problems', problems.length)}
+         {/* Validation: riservato al futuro cruscotto coverage/predizione */}
+ 
+         <div style={{ flex: 1 }} />
+@@ -140,7 +155,7 @@ export function BottomDock() {
+           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8 }}>
+             {iconBtn('ti-file-text', 'Esporta log come .txt', exportTxt)}
+             {iconBtn('ti-code', 'Esporta log come .ndjson', exportNdjson)}
+-            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia log negli appunti', copyClipboard, copied)}
++            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia log negli appunti', () => copyText(logsToText(logs)), copied)}
+             <button onClick={clearLogs} title="Svuota il log"
+               style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#4a5a7a', fontSize: 10, fontFamily: 'inherit' }}>
+               clear
+@@ -148,6 +163,16 @@ export function BottomDock() {
+           </div>
+         )}
+ 
++        {/* Azioni Problems — export come per il log (i problemi sono
++            derivati dalla validazione, quindi niente "clear") */}
++        {tab === 'problems' && !collapsed && (
++          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8 }}>
++            {iconBtn('ti-file-text', 'Esporta problemi come .txt', () => download(problemsToText(), 'problems', 'txt'))}
++            {iconBtn('ti-code', 'Esporta problemi come .ndjson', () => download(problemsToNdjson(), 'problems', 'ndjson'))}
++            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia problemi negli appunti', () => copyText(problemsToText()), copied)}
++          </div>
++        )}
++
+         {/* Collassa / espandi */}
+         {iconBtn(collapsed ? 'ti-chevron-up' : 'ti-chevron-down',
+                  collapsed ? 'Espandi pannello' : 'Riduci a barra',
+diff --git a/src/components/PropertyPanel.tsx b/src/components/PropertyPanel.tsx
+index 0fda0da..8c92e8e 100644
+--- a/src/components/PropertyPanel.tsx
++++ b/src/components/PropertyPanel.tsx
+@@ -466,9 +466,9 @@ export function PropertyPanel() {
+               {!isSpecial && (
+                 <div style={{ padding: '8px', borderTop: '1px solid #2a3349', flexShrink: 0, background: '#1a2030' }}>
+                   <button onClick={() => deleteNode(node.id)}
+-                    style={{ width: '100%', padding: '6px', background: 'transparent', border: '1px solid #3d1010', color: '#ff5f57', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a1010' }}
+-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
++                    style={{ width: '100%', padding: '6px', background: 'rgba(255,95,87,0.08)', border: '1px solid rgba(255,95,87,0.22)', color: '#ff5f57', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
++                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,95,87,0.16)' }}
++                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,95,87,0.08)' }}>
+                     <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
+                     Elimina nodo
+                   </button>

@@ -744,7 +744,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
   ]
 
   const panelStyle: React.CSSProperties = position === 'right'
-    ? { width, height: '100%', borderLeft: '1px solid #2a3349' }
+    ? { width, height: '100%', border: '0.5px solid #2a3349', borderRadius: 8 }
     : position === 'float'
     ? { width: 480, position: 'fixed', bottom: 16, right: 16, boxShadow: '0 8px 32px rgba(0,0,0,.7)', borderRadius: 8 }
     : { width: '100%', height, borderTop: '1px solid #2a3349' }

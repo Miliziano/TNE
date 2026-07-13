@@ -20,12 +20,12 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: '.08em', marginBottom: 4, fontWeight: 600,
 }
 const getPanelStyle = (expanded: boolean): React.CSSProperties => ({
-  width: expanded ? 360 : 240, background: '#161b27',
-  borderLeft: '1px solid #2a3349', display: 'flex',
+  width: expanded ? 360 : 240, background: '#161b27',border: '0.5px solid #2a3349', borderRadius: 8,
+  display: 'flex',
   flexDirection: 'column', flexShrink: 0, transition: 'width 0.2s ease',
 })
 const headerStyle: React.CSSProperties = {
-  padding: '8px 12px', borderBottom: '1px solid #2a3349',
+  padding: '8px 12px', borderTop: '1px solid #2a3349', borderRadius: 8,
   fontSize: 10, fontWeight: 600, color: '#4a9eff',
   textTransform: 'uppercase', letterSpacing: '0.1em',
   flexShrink: 0, background: '#1a2030',
@@ -52,7 +52,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
     { id: 'bridge',    label: 'Bridge', icon: 'ti-arrows-transfer-up' },
   ]
   return (
-    <div style={{ display: 'flex', borderBottom: '1px solid #2a3349', flexShrink: 0, background: '#161b27' }}>
+    <div style={{ display: 'flex', border: '1px solid #2a3349', flexShrink: 0, background: '#161b27' }}>
       {tabs.map((t) => (
         <button key={t.id} onClick={() => onChange(t.id)}
           style={{
@@ -466,9 +466,9 @@ export function PropertyPanel() {
               {!isSpecial && (
                 <div style={{ padding: '8px', borderTop: '1px solid #2a3349', flexShrink: 0, background: '#1a2030' }}>
                   <button onClick={() => deleteNode(node.id)}
-                    style={{ width: '100%', padding: '6px', background: 'transparent', border: '1px solid #3d1010', color: '#ff5f57', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a1010' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+                    style={{ width: '100%', padding: '6px', background: 'rgba(255,95,87,0.08)', border: '1px solid rgba(255,95,87,0.22)', color: '#ff5f57', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,95,87,0.16)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,95,87,0.08)' }}>
                     <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
                     Elimina nodo
                   </button>
