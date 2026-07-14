@@ -652,7 +652,7 @@ export function applyIssuesToCanvas(
           hasWarnings:  warnings.length > 0,
           warningCount: warnings.length,
           issues:       nodeIssues.map((i) => ({
-            severity: i.severity, message: i.message, code: i.code,
+            severity: i.severity, message: i.message, code: i.code, hint: i.hint,
           })),
         },
       },

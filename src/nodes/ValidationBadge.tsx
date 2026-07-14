@@ -8,7 +8,7 @@ export interface UIState {
   errorCount?:   number
   hasWarnings?:  boolean
   warningCount?: number
-  issues?:       Array<{ severity: string; message: string; code: string }>
+  issues?:       Array<{ severity: string; message: string; code: string; hint?: string }>
 }
 
 type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'

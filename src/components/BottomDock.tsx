@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFlowStore } from '../store/flowStore'
 import { LogView, logsToText, logsToNdjson } from './LogPanel'
+import { ProblemsView, collectProblems, problemsToText, problemsToNdjson } from './ProblemsPanel'
 
 type DockTab = 'log' | 'problems'
 
@@ -25,20 +26,10 @@ export function BottomDock() {
   const logs      = useFlowStore((s) => s.logs)
   const clearLogs = useFlowStore((s) => s.clearLogs)
   const nodes     = useFlowStore((s) => s.nodes)
+  const pool      = useFlowStore((s) => s.pool)
 
-  // ── Problemi aggregati da tutti i nodi (uiState.issues) ─────────
-  // La vista Problems (P2) userà la stessa raccolta.
-  const problems = nodes.flatMap((n) => {
-    const iss = (n.data as any)?.uiState?.issues as Array<{ severity: string; message: string; code: string }> | undefined
-    if (!iss?.length) return []
-    const label  = String((n.data as any)?.label ?? (n.data as any)?.config?.displayName ?? n.id)
-    const laneId = String((n.data as any)?.laneId ?? '')
-    return iss.map((i) => ({ nodeId: n.id, label, laneId, ...i }))
-  })
-  const problemsToText = () =>
-    problems.map((p) => `[${p.severity}] ${p.laneId ? p.laneId + ' · ' : ''}${p.label} — ${p.message}`).join('\n')
-  const problemsToNdjson = () =>
-    problems.map((p) => JSON.stringify({ severity: p.severity, lane: p.laneId, node: p.label, code: p.code, message: p.message })).join('\n')
+  // ── Problemi aggregati (raccolta condivisa con ProblemsView) ────
+  const problems = collectProblems(nodes, pool)
 
   const [tab, setTab]         = useState<DockTab>('log')
   const [collapsed, setColl]  = useState(false)
@@ -145,7 +136,7 @@ export function BottomDock() {
         paddingRight: 8, flexShrink: 0,
       }}>
         {tabBtn('log', 'Log', logs.length)}
-        {tabBtn('problems', 'Problems', problems.length)}
+        {tabBtn('problems', 'Validazione', problems.length)}
         {/* Validation: riservato al futuro cruscotto coverage/predizione */}
 
         <div style={{ flex: 1 }} />
@@ -167,9 +158,9 @@ export function BottomDock() {
             derivati dalla validazione, quindi niente "clear") */}
         {tab === 'problems' && !collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8 }}>
-            {iconBtn('ti-file-text', 'Esporta problemi come .txt', () => download(problemsToText(), 'problems', 'txt'))}
-            {iconBtn('ti-code', 'Esporta problemi come .ndjson', () => download(problemsToNdjson(), 'problems', 'ndjson'))}
-            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia problemi negli appunti', () => copyText(problemsToText()), copied)}
+            {iconBtn('ti-file-text', 'Esporta problemi come .txt', () => download(problemsToText(problems), 'problems', 'txt'))}
+            {iconBtn('ti-code', 'Esporta problemi come .ndjson', () => download(problemsToNdjson(problems), 'problems', 'ndjson'))}
+            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia problemi negli appunti', () => copyText(problemsToText(problems)), copied)}
           </div>
         )}
 
@@ -183,15 +174,7 @@ export function BottomDock() {
       {!collapsed && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {tab === 'log' && <LogView />}
-          {tab === 'problems' && (
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexDirection: 'column', gap: 6, color: '#4a5a7a', fontSize: 11,
-            }}>
-              <i className="ti ti-list-check" style={{ fontSize: 20, opacity: 0.5 }} />
-              Pannello Problems — in arrivo
-            </div>
-          )}
+          {tab === 'problems' && <ProblemsView />}
         </div>
       )}
     </div>

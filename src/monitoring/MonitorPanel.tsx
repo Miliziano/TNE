@@ -320,8 +320,9 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
 function ConnectionList({ connections, runEnded }: { connections: ConnectionEvent[]; runEnded: boolean }) {
   const pool  = useFlowStore((s) => s.pool)
   const nodes = useFlowStore((s) => s.nodes)
+  const [openErr, setOpenErr] = useState<string | null>(null)
 
-  type Conn = { node: string; nodeId?: string; status: 'open' | 'closed' | 'error'; durationMs?: number }
+  type Conn = { node: string; nodeId?: string; status: 'open' | 'closed' | 'error'; durationMs?: number; error?: string }
 
   // 1. Raccoglie gli usi OSSERVATI, per risorsa.
   const byResource = new Map<string, { resource: string; type: string; conns: Map<string, Conn> }>()
@@ -329,11 +330,16 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
     const key = `${c.resource}::${c.type}`
     if (!byResource.has(key)) byResource.set(key, { resource: c.resource, type: c.type, conns: new Map() })
     const grp = byResource.get(key)!
-    const cur: Conn = grp.conns.get(c.id) ?? { node: c.detail ?? c.id, nodeId: c.nodeId, status: 'open' }
-    if (c.detail) cur.node = c.detail
+    const cur: Conn = grp.conns.get(c.id) ?? { node: c.id, nodeId: c.nodeId, status: 'open' }
     if (c.nodeId) cur.nodeId = c.nodeId
-    if (c.action === 'close') { cur.status = 'closed'; cur.durationMs = c.durationMs }
-    if (c.action === 'error') { cur.status = 'error';  cur.durationMs = c.durationMs }
+    if (c.action === 'error') {
+      // detail = messaggio d'errore: NON sovrascrive il nome del nodo,
+      // lo teniamo a parte (mostrato su click).
+      cur.status = 'error'; cur.durationMs = c.durationMs; cur.error = c.detail
+    } else {
+      if (c.detail) cur.node = c.detail   // detail = etichetta nodo per open/close
+      if (c.action === 'close') { cur.status = 'closed'; cur.durationMs = c.durationMs }
+    }
     grp.conns.set(c.id, cur)
   }
 
@@ -414,15 +420,34 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
                     </span>
                   </div>
 
-                  {grp.items.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                                          padding: '4px 10px 4px 38px', fontSize: 10 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(c.status) }} />
-                      <span style={{ color: '#c8d4f0' }}>{c.node}</span>
-                      <span style={{ marginLeft: 'auto', color: statusColor(c.status) }}>{statusLabel(c.status)}</span>
-                      <span style={{ color: '#4a5a7a', minWidth: 52, textAlign: 'right' }}>{fmt(c.durationMs)}</span>
-                    </div>
-                  ))}
+                  {grp.items.map((c, i) => {
+                    const rowKey = `${resource}::${key}::${i}`
+                    const isOpen = openErr === rowKey
+                    return (
+                      <div key={i}>
+                        <div onClick={() => c.error && setOpenErr(isOpen ? null : rowKey)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8,
+                                   padding: '4px 10px 4px 38px', fontSize: 10,
+                                   cursor: c.error ? 'pointer' : 'default' }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusColor(c.status), flexShrink: 0 }} />
+                          <span style={{ color: '#c8d4f0' }}>{c.node}</span>
+                          {c.error && (
+                            <i className={`ti ${isOpen ? 'ti-chevron-down' : 'ti-chevron-right'}`}
+                               style={{ fontSize: 10, color: RED }} />
+                          )}
+                          <span style={{ marginLeft: 'auto', color: statusColor(c.status) }}>{statusLabel(c.status)}</span>
+                          <span style={{ color: '#4a5a7a', minWidth: 52, textAlign: 'right' }}>{fmt(c.durationMs)}</span>
+                        </div>
+                        {c.error && isOpen && (
+                          <div style={{ margin: '2px 10px 6px 52px', padding: '6px 8px', fontSize: 9,
+                                        color: '#ff8a86', fontFamily: 'monospace', whiteSpace: 'pre-wrap',
+                                        background: '#241417', border: `0.5px solid ${RED}40`, borderRadius: 4 }}>
+                            {c.error}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })}
