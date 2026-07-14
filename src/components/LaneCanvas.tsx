@@ -19,6 +19,7 @@ import { ErrorHandlerNode } from '../nodes/ErrorHandlerNode'
 import {
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   Background,
   BackgroundVariant,
   applyNodeChanges,
@@ -311,6 +312,25 @@ function LaneFlow({ lane }: { lane: Lane }) {
   )
   const [isOver, setIsOver] = useState(false)
 
+  // ── "Vai al nodo": centra il ReactFlow di QUESTA lane sul nodo
+  // richiesto (focusRequest), se il nodo appartiene alla lane. Il piccolo
+  // ritardo copre il caso lane appena espansa (ReactFlow non ancora misurato).
+  const focusRequest = useFlowStore((s) => s.focusRequest)
+  const rf = useReactFlow()
+  useEffect(() => {
+    if (!focusRequest) return
+    const target = allNodes.find((n) => n.id === focusRequest.nodeId)
+    if (!target || target.data.laneId !== lane.id) return
+    const t = setTimeout(() => {
+      const n = rf.getNode(focusRequest.nodeId)
+      if (!n) return
+      const w = n.measured?.width  ?? 100
+      const h = n.measured?.height ?? 50
+      rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom: 1, duration: 400 })
+    }, 60)
+    return () => clearTimeout(t)
+  }, [focusRequest, lane.id, rf])
+
   // ── Fase 8: edges animati sui nodi in esecuzione ────────────────
   // Deriva a render-time da nodeStats: un edge è animato se il suo
   // nodo sorgente è 'running'. Non tocca lo stato locale `edges`,
@@ -559,6 +579,22 @@ export function LaneCanvas({ lane }: { lane: Lane }) {
   const startYRef      = useRef(0)
   const startHeightRef = useRef(lane.height)
 
+  // ── "Vai al nodo": se il nodo richiesto è in questa lane, espandi la lane
+  // (se collassata) e portala in vista. Il centraggio interno lo fa LaneFlow.
+  const wrapperRef   = useRef<HTMLDivElement>(null)
+  const focusRequest = useFlowStore((s) => s.focusRequest)
+  const allNodes     = useFlowStore((s) => s.nodes)
+  useEffect(() => {
+    if (!focusRequest) return
+    const target = allNodes.find((n) => n.id === focusRequest.nodeId)
+    if (!target || target.data.laneId !== lane.id) return
+    if (lane.collapsed) updateLane(lane.id, { collapsed: false })
+    const t = setTimeout(() => {
+      wrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+    return () => clearTimeout(t)
+  }, [focusRequest, lane.id])
+
   const onResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     resizingRef.current = true; startYRef.current = e.clientY; startHeightRef.current = lane.height
@@ -579,7 +615,7 @@ export function LaneCanvas({ lane }: { lane: Lane }) {
   }, [allLanes, updateLane])
 
   return (
-    <div style={{ border: `2px solid ${lane.color}`, borderRadius: 8, overflow: 'visible', background: 'var(--color-background-primary)', boxShadow: `0 0 0 1px color-mix(in srgb, ${lane.color} 20%, transparent)` }}>
+    <div ref={wrapperRef} style={{ border: `2px solid ${lane.color}`, borderRadius: 8, overflow: 'visible', background: 'var(--color-background-primary)', boxShadow: `0 0 0 1px color-mix(in srgb, ${lane.color} 20%, transparent)` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: `color-mix(in srgb, ${lane.color} 8%, var(--color-background-primary))`, borderBottom: `1px solid color-mix(in srgb, ${lane.color} 30%, transparent)`, borderRadius: '6px 6px 0 0' }}>
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: lane.color, flexShrink: 0 }} />
         <input value={lane.label} onChange={(e) => updateLane(lane.id, { label: e.target.value })}

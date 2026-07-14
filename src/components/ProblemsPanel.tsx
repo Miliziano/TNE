@@ -68,7 +68,7 @@ type Filter = 'all' | 'error' | 'warning'
 export function ProblemsView() {
   const nodes      = useFlowStore((s) => s.nodes)
   const pool       = useFlowStore((s) => s.pool)
-  const selectNode = useFlowStore((s) => s.selectNode)
+  const focusNode = useFlowStore((s) => s.focusNode)
   const selectedId = useFlowStore((s) => s.selectedNodeId)
 
   const all = useMemo(() => collectProblems(nodes, pool), [nodes, pool])
@@ -142,7 +142,7 @@ export function ProblemsView() {
                 const active = p.nodeId === selectedId
                 return (
                   <div key={`${p.nodeId}-${p.code}-${i}`}
-                    onClick={() => selectNode(p.nodeId)}
+                    onClick={() => focusNode(p.nodeId)}
                     title={p.hint ?? ''}
                     style={{
                       display: 'flex', alignItems: 'flex-start', gap: 7, padding: '5px 10px 5px 24px',

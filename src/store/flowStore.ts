@@ -232,6 +232,8 @@ interface FlowState {
   nodes:              FlowNode<NodeData>[]
   edges:              Edge[]
   selectedNodeId:     string | null
+  // segnale "vai al nodo" (nonce per ritriggerare su click ripetuti)
+  focusRequest:       { nodeId: string; nonce: number } | null
   pool:               Pool
   selectedLaneId:     string | null
   selectedResourceId: string | null
@@ -264,6 +266,9 @@ interface FlowState {
   deleteNodeMapping:  (id: string, mappingId: string) => void
   setNodeStatus:      (id: string, status: NodeStatus, message?: string) => void
   selectNode:         (id: string | null) => void
+  // Richiesta di "vai al nodo": la ProblemsView la emette, il blocco-lane
+  // espande+scrolla la lane e il LaneFlow centra il proprio ReactFlow.
+  focusNode:          (id: string) => void
   openNodeEditor:     (id: string) => void
   closeNodeEditor:    () => void
 
@@ -391,6 +396,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   nodes:              DEFAULT_NODES,
   edges:              [],
   selectedNodeId:     null,
+  focusRequest:       null,
   pool:               DEFAULT_POOL,
   selectedLaneId:     null,
   selectedResourceId: null,
@@ -869,6 +875,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   },
 
   selectNode: (id) => set({ selectedNodeId: id }),
+  focusNode: (id) => set({ selectedNodeId: id, focusRequest: { nodeId: id, nonce: Date.now() } }),
   openNodeEditor:  (id) => set({ editingNodeId: id }),
   closeNodeEditor: ()  => set({ editingNodeId: null }),
 
