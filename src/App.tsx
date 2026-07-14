@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
+import { useFlowStore } from './store/flowStore'
 import { Toolbar }       from './components/Toolbar'
 import { Canvas }        from './components/Canvas'
 import { PropertyPanel } from './components/PropertyPanel'
@@ -227,6 +228,17 @@ function SidePanel({
 function Layout() {
   const [codegenOpen,  setCodegenOpen]  = useState(false)
   const [monitorOpen,  setMonitorOpen]  = useState(false)
+  const [propsOpen,    setPropsOpen]    = useState(false)
+
+  const selectedNodeId     = useFlowStore((s) => s.selectedNodeId)
+  const selectedLaneId     = useFlowStore((s) => s.selectedLaneId)
+  const selectedResourceId = useFlowStore((s) => s.selectedResourceId)
+
+  // Il pannello Proprietà è contestuale: si apre da solo alla selezione
+  // di nodo/lane/risorsa e si chiude alla deselezione totale.
+  useEffect(() => {
+    setPropsOpen(!!(selectedNodeId || selectedLaneId || selectedResourceId))
+  }, [selectedNodeId, selectedLaneId, selectedResourceId])
 
   return (
     <div style={{
@@ -243,7 +255,31 @@ function Layout() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Palette />
         <Canvas />
-        <PropertyPanel />
+
+        {/* ── Pannello Proprietà (contestuale, a scomparsa) ── */}
+        {propsOpen ? (
+          <div style={{ position: 'relative', flexShrink: 0, display: 'flex' }}>
+            <PropertyPanel />
+            <button
+              onClick={() => setPropsOpen(false)}
+              title="Chiudi pannello Proprietà"
+              style={{
+                position: 'absolute', top: 6, right: 6, zIndex: 5,
+                width: 20, height: 20, padding: 0,
+                background: 'transparent', border: 'none',
+                color: 'var(--color-text-tertiary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, lineHeight: 1,
+              }}
+            >
+              <i className="ti ti-x" />
+            </button>
+          </div>
+        ) : (
+          <SideTab
+            onClick={() => setPropsOpen(true)}
+            icon="ti-adjustments" label="Proprietà" color="#8a9ac0" />
+        )}
 
         {/* ── Pannello Codegen ── */}
         {codegenOpen ? (
