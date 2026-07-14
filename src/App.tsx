@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useFlowStore } from './store/flowStore'
 import { Toolbar }       from './components/Toolbar'
@@ -161,13 +161,15 @@ function SideTab({
 
 // ─── Pannello laterale generico con header e pulsante chiudi ──────
 function SidePanel({
-  icon, label, color, width = 420, onClose, children,
+  icon, label, color, width = 420, onClose, extraAction, children,
 }: {
   icon:     string
   label:    string
   color:    string
   width?:   number
   onClose:  () => void
+  /** Azione opzionale nell'header, accanto al pulsante chiudi (es. "stacca") */
+  extraAction?: { icon: string; title: string; onClick: () => void }
   children: React.ReactNode
 }) {
   return (
@@ -196,6 +198,26 @@ function SidePanel({
         <span style={{ fontSize: 11, fontWeight: 600, color, flex: 1 }}>
           {label}
         </span>
+        {extraAction && (
+          <button
+            onClick={extraAction.onClick}
+            title={extraAction.title}
+            style={{
+              background:   'none',
+              border:       '0.5px solid var(--color-border-tertiary)',
+              borderRadius: 4,
+              padding:      '2px 6px',
+              cursor:       'pointer',
+              color:        'var(--color-text-tertiary)',
+              display:      'flex',
+              alignItems:   'center',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)' }}
+          >
+            <i className={`ti ${extraAction.icon}`} style={{ fontSize: 12 }} />
+          </button>
+        )}
         <button
           onClick={onClose}
           title="Chiudi"
@@ -227,7 +249,56 @@ function SidePanel({
 // ─── Layout ───────────────────────────────────────────────────────
 function Layout() {
   const [codegenOpen,  setCodegenOpen]  = useState(false)
-  const [monitorOpen,  setMonitorOpen]  = useState(false)
+  const [monitorMode,  setMonitorMode]  = useState<'closed' | 'docked' | 'float'>('closed')
+
+  // Posizione del Monitor flottante: null = ancorato in basso a destra,
+  // valorizzata al primo trascinamento (persiste tra stacca/riaggancia).
+  const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(null)
+  const [floatSize, setFloatSize] = useState({ w: 480, h: 440 })
+  const floatRef = useRef<HTMLDivElement>(null)
+
+  const startFloatDrag = (e: React.PointerEvent) => {
+    const el = floatRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const offX = e.clientX - rect.left
+    const offY = e.clientY - rect.top
+    const onMove = (ev: PointerEvent) => {
+      const x = Math.min(Math.max(ev.clientX - offX, 0), window.innerWidth  - rect.width)
+      const y = Math.min(Math.max(ev.clientY - offY, 0), window.innerHeight - 40)
+      setFloatPos({ x, y })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup',   onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup',   onUp)
+    e.preventDefault()
+  }
+  const startFloatResize = (e: React.PointerEvent) => {
+    const el = floatRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // Se è ancorata in basso a destra, fissiamo la posizione: altrimenti
+    // allargando si sposterebbe il bordo sinistro sotto il puntatore.
+    if (!floatPos) setFloatPos({ x: rect.left, y: rect.top })
+    const onMove = (ev: PointerEvent) => {
+      setFloatSize({
+        w: Math.min(Math.max(ev.clientX - rect.left, 380), window.innerWidth  - rect.left - 8),
+        h: Math.min(Math.max(ev.clientY - rect.top - 26, 240), window.innerHeight - rect.top - 34),
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup',   onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup',   onUp)
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   const [propsOpen,    setPropsOpen]    = useState(false)
 
   const selectedNodeId     = useFlowStore((s) => s.selectedNodeId)
@@ -295,18 +366,92 @@ function Layout() {
         )}
 
         {/* ── Pannello Monitor ── */}
-        {monitorOpen ? (
+        {monitorMode === 'docked' ? (
           <SidePanel
             icon="ti-chart-line" label="Monitor" color="#a78bfa"
-            onClose={() => setMonitorOpen(false)}>
+            onClose={() => setMonitorMode('closed')}
+            extraAction={{
+              icon: 'ti-picture-in-picture-top',
+              title: 'Stacca in finestra flottante',
+              onClick: () => setMonitorMode('float'),
+            }}>
             <MonitorPanel position="right" />
           </SidePanel>
         ) : (
           <SideTab
-            onClick={() => setMonitorOpen(true)}
+            onClick={() => setMonitorMode('docked')}
             icon="ti-chart-line" label="Monitor" color="#a78bfa" />
         )}
       </div>
+
+      {/* ── Monitor flottante (staccato dal dock) ── */}
+      {monitorMode === 'float' && (
+        <div ref={floatRef} style={{
+          position:      'fixed',
+          ...(floatPos ? { left: floatPos.x, top: floatPos.y } : { bottom: 16, right: 16 }),
+          width:         floatSize.w,
+          zIndex:        9000,
+          display:       'flex',
+          flexDirection: 'column',
+          background:    '#0f1117',
+          border:        '0.5px solid #2a3349',
+          borderRadius:  8,
+          boxShadow:     '0 8px 32px rgba(0,0,0,.7)',
+          overflow:      'hidden',
+        }}>
+          <div
+            onPointerDown={startFloatDrag}
+            style={{
+              display:        'flex',
+              alignItems:     'center',
+              gap:            4,
+              padding:        '3px 6px',
+              background:     '#161b27',
+              cursor:         'grab',
+              userSelect:     'none',
+              touchAction:    'none',
+            }}>
+            <i className="ti ti-grip-horizontal" style={{ fontSize: 13, color: 'var(--color-text-tertiary)', flex: 1 }} />
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setMonitorMode('docked')}
+              title="Riaggancia al dock"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', padding: 2 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#a78bfa' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)' }}
+            >
+              <i className="ti ti-layout-sidebar-right-expand" style={{ fontSize: 13 }} />
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setMonitorMode('closed')}
+              title="Chiudi"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', padding: 2 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)' }}
+            >
+              <i className="ti ti-x" style={{ fontSize: 13 }} />
+            </button>
+          </div>
+          <MonitorPanel position="bottom" height={floatSize.h} />
+
+          {/* Maniglia di ridimensionamento */}
+          <div
+            onPointerDown={startFloatResize}
+            title="Ridimensiona"
+            style={{
+              position: 'absolute', bottom: 0, right: 0,
+              width: 16, height: 16,
+              cursor: 'nwse-resize', touchAction: 'none',
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
+              color: '#4a5a7a',
+            }}
+          >
+            <i className="ti ti-chevron-down-right" style={{ fontSize: 12 }} />
+          </div>
+        </div>
+      )}
+       
 
       <BottomDock />
       <NodeEditorModal />
