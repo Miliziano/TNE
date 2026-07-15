@@ -24,6 +24,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
 
   issues.push(...checkDisconnectedNodes(plan))
   issues.push(...checkBridgePairs(plan))
+  issues.push(...checkBridgeLaneCycles(plan))
   issues.push(...checkBridgeJoinPattern(plan))
   issues.push(...checkMissingSinks(plan))
 
@@ -237,6 +238,112 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
         hint: `Aggiungi un nodo BridgeOut con canale "${channelName}" nella lane sorgente`,
       })
     }
+  })
+
+  // ── Cardinalità del canale (1 OUT ↔ 1 IN) ──────────────────────
+  // Il motore crea UN canale per bridge_id (= nome canale) con UN
+  // sender e UN receiver, prelevati con take(): la seconda richiesta
+  // torna None. Oggi un canale duplicato esplode a runtime con
+  // "bridge_id non trovato", che indica la causa sbagliata. Lo diciamo
+  // qui, prima del Run.
+  const byChannel = (list: typeof outNodes) => {
+    const m = new Map<string, typeof outNodes>()
+    list.forEach((n) => {
+      const ch = (n._uiRef?.config as Record<string, unknown>)?.channelName as string
+      if (!ch) return
+      const arr = m.get(ch) ?? []
+      arr.push(n)
+      m.set(ch, arr)
+    })
+    return m
+  }
+
+  byChannel(outNodes).forEach((list, ch) => {
+    if (list.length < 2) return
+    list.forEach((n) => issues.push({
+      nodeId: canvasNodeId(n.id), code: 'BRIDGE_AMBIGUOUS_OUT',
+      message: `Il canale "${ch}" ha ${list.length} BridgeOut: il produttore è ambiguo`,
+      severity: 'error',
+      hint: 'Ogni canale deve avere un solo BridgeOut — usa nomi di canale distinti',
+    }))
+  })
+
+  byChannel(inNodes).forEach((list, ch) => {
+    if (list.length < 2) return
+    list.forEach((n) => issues.push({
+      nodeId: canvasNodeId(n.id), code: 'BRIDGE_DUPLICATE_IN',
+      message: `Il canale "${ch}" ha ${list.length} BridgeIn: il motore ne supporta uno solo`,
+      severity: 'error',
+      hint: 'Un canale alimenta un solo BridgeIn. Per più destinazioni servono canali distinti, uno per ogni coppia OUT/IN',
+    }))
+  })
+
+  return issues
+}
+
+// ─── CHECK 4a-bis — CICLI FRA LANE VIA BRIDGE ───────────────────
+// I canali creano archi lane→lane invisibili al DAG del canvas (i
+// bridge non hanno edge). Il modello deciso: da A si entra in B per
+// elaborazioni collaterali, da B NON si rientra in A. Senza questo
+// check un anello resterebbe muto qui e darebbe uno stallo o un
+// comportamento incomprensibile a runtime.
+function checkBridgeLaneCycles(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+
+  type Arc = { to: string; channel: string; outId: string }
+  const arcs = new Map<string, Arc[]>()
+
+  const outNodes = plan.nodes.filter((n) => n._uiRef?.type === 'bridge_out')
+  const inNodes  = plan.nodes.filter((n) => n._uiRef?.type === 'bridge_in')
+
+  outNodes.forEach((out) => {
+    const ch = (out._uiRef?.config as Record<string, unknown>)?.channelName as string
+    const fromLane = out._uiRef?.laneId
+    if (!ch || !fromLane) return
+    inNodes.forEach((inn) => {
+      const inCh   = (inn._uiRef?.config as Record<string, unknown>)?.channelName as string
+      const toLane = inn._uiRef?.laneId
+      if (inCh !== ch || !toLane || toLane === fromLane) return
+      const arr = arcs.get(fromLane) ?? []
+      arr.push({ to: toLane, channel: ch, outId: out.id })
+      arcs.set(fromLane, arr)
+    })
+  })
+
+  // DFS con stack esplicito dei canali attraversati
+  const state = new Map<string, 'visiting' | 'done'>()
+  const path:  Arc[] = []
+  const flagged = new Set<string>()
+
+  const visit = (lane: string): void => {
+    state.set(lane, 'visiting')
+    for (const arc of arcs.get(lane) ?? []) {
+      if (state.get(arc.to) === 'visiting') {
+        // Anello: nomina i canali del percorso, non solo l'ultimo
+        const loop = [...path, arc]
+        const names = loop.map((a) => `"${a.channel}"`).join(' → ')
+        loop.forEach((a) => {
+          if (flagged.has(a.outId)) return
+          flagged.add(a.outId)
+          issues.push({
+            nodeId: canvasNodeId(a.outId), code: 'BRIDGE_LANE_CYCLE',
+            message: `Ciclo fra lane attraverso i canali ${names}`,
+            severity: 'error',
+            hint: 'Le lane collegate dai bridge non possono formare un anello: da una lane collaterale non si rientra in quella di partenza',
+          })
+        })
+        continue
+      }
+      if (state.get(arc.to) === 'done') continue
+      path.push(arc)
+      visit(arc.to)
+      path.pop()
+    }
+    state.set(lane, 'done')
+  }
+
+  Array.from(arcs.keys()).forEach((lane) => {
+    if (!state.has(lane)) visit(lane)
   })
 
   return issues
