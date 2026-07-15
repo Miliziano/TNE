@@ -30,7 +30,34 @@ const _nodeTimings = new Map<string, ReturnType<typeof monitor.nodeStart>>()
 
 // Fase 10: ponte tra ConnectionOpened e Closed/Error per il MonitoringBus.
 // connectionOpen() restituisce un id interno che serve a close/error.
-const _connIds = new Map<string, string>()   // node_id → id connessione nel bus
+//
+// CODA, non un valore solo: il motore non manda un identificativo di
+// connessione (ConnectionOpened porta solo run_id/node_id/resource_id/
+// conn_type), quindi l'unico aggancio è il node_id — ma un nodo può
+// aprirne più d'una. Con una mappa a un posto la seconda apertura
+// cancellava la prima, la prima chiusura chiudeva la seconda e la
+// seconda non trovava più niente: risultato, una connessione "in uso"
+// per sempre anche a run finito.
+// Accoppiamento FIFO: la prima aperta è la prima chiusa. È un'ipotesi —
+// l'unica possibile finché il motore non identifica le connessioni — ma
+// conserva il CONTEO, che è ciò che rendeva l'errore visibile.
+const _connIds = new Map<string, string[]>()   // node_id → id connessioni nel bus
+
+/** Accoda l'id di una connessione appena aperta per quel nodo. */
+function pushConnId(nodeId: string, id: string) {
+  const q = _connIds.get(nodeId)
+  if (q) q.push(id)
+  else _connIds.set(nodeId, [id])
+}
+
+/** Preleva l'id della connessione più vecchia ancora aperta per quel nodo. */
+function shiftConnId(nodeId: string): string | undefined {
+  const q = _connIds.get(nodeId)
+  if (!q?.length) return undefined
+  const id = q.shift()
+  if (!q.length) _connIds.delete(nodeId)
+  return id
+}
 
 // Risolve il nome leggibile della risorsa dall'id; se l'id è vuoto
 // (es. nodo con risorsa non configurata) ripiega sull'etichetta del nodo.
@@ -103,17 +130,19 @@ console.log('[evt]', ev.event.type)
               store.nodes.find(n => n.id === p.node_id)?.data.label ?? p.node_id,
               p.node_id,   // ← nodeId, per il raggruppamento onesto nel monitor
             )
-            _connIds.set(p.node_id, id)
+            // Accodiamo anche l'id vuoto (monitor disabilitato all'apertura):
+            // serve a tenere la coda allineata con le chiusure.
+            pushConnId(p.node_id, id)
             break
           }
           case 'ConnectionClosed': {
-            const id = _connIds.get(p.node_id)
-            if (id) { monitor.connectionClose(id, p.elapsed_ms); _connIds.delete(p.node_id) }
+            const id = shiftConnId(p.node_id)
+            if (id) monitor.connectionClose(id, p.elapsed_ms)
             break
           }
           case 'ConnectionError': {
-            const id = _connIds.get(p.node_id)
-            if (id) { monitor.connectionError(id, p.error); _connIds.delete(p.node_id) }
+            const id = shiftConnId(p.node_id)
+            if (id) monitor.connectionError(id, p.error)
             break
           }     
           case 'NodeStarted':
