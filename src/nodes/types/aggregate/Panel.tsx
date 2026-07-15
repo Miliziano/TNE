@@ -2,6 +2,7 @@
  * src/nodes/types/aggregate/Panel.tsx
  */
 import { useState, useEffect, useMemo } from 'react'
+import { AGG_FUNCTIONS } from '../../../ir/aggFunctions'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
@@ -45,22 +46,7 @@ interface AggFunction {
   separator?: string
 }
 
-const AGG_FUNCTIONS: Array<{ value: string; label: string; needsField: boolean; outputType: string; desc: string }> = [
-  { value: 'count',          label: 'COUNT',          needsField: false, outputType: 'integer', desc: 'Conta le righe del gruppo'              },
-  { value: 'count_distinct', label: 'COUNT DISTINCT', needsField: true,  outputType: 'integer', desc: 'Conta i valori unici del campo'         },
-  { value: 'sum',            label: 'SUM',            needsField: true,  outputType: 'decimal', desc: 'Somma i valori del campo'               },
-  { value: 'avg',            label: 'AVG',            needsField: true,  outputType: 'decimal', desc: 'Calcola la media del campo'             },
-  { value: 'min',            label: 'MIN',            needsField: true,  outputType: 'any',     desc: 'Valore minimo del campo'                },
-  { value: 'max',            label: 'MAX',            needsField: true,  outputType: 'any',     desc: 'Valore massimo del campo'               },
-  { value: 'first',          label: 'FIRST',          needsField: true,  outputType: 'any',     desc: 'Primo valore incontrato'                },
-  { value: 'last',           label: 'LAST',           needsField: true,  outputType: 'any',     desc: 'Ultimo valore incontrato'               },
-  { value: 'std_dev',        label: 'STD DEV',        needsField: true,  outputType: 'decimal', desc: 'Deviazione standard'                   },
-  { value: 'variance',       label: 'VARIANCE',       needsField: true,  outputType: 'decimal', desc: 'Varianza del campo'                    },
-  { value: 'median',         label: 'MEDIAN',         needsField: true,  outputType: 'decimal', desc: 'Valore mediano'                        },
-  { value: 'array_agg',      label: 'ARRAY AGG',      needsField: true,  outputType: 'object',  desc: 'Raccoglie tutti i valori in un array'  },
-  { value: 'string_agg',     label: 'STRING AGG',     needsField: true,  outputType: 'string',  desc: 'Concatena i valori con separatore'     },
-  { value: 'json_agg',       label: 'JSON AGG',       needsField: true,  outputType: 'object',  desc: 'Raccoglie i valori in un array JSON'   },
-]
+// Catalogo unico: vedi src/ir/aggFunctions.ts
 
 const FN_COLOR: Record<string, string> = {
   count: '#4a9eff', count_distinct: '#4a9eff',

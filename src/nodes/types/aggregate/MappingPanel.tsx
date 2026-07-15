@@ -10,25 +10,24 @@ import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { AGG_FUNCTION_BY_VALUE } from '../../../ir/aggFunctions'
 
 const ACCENT = '#4a9eff'
 
-const AGG_FUNCTIONS: Record<string, { label: string; outputType: string; color: string }> = {
-  count:          { label: 'COUNT',          outputType: 'integer', color: '#4a9eff' },
-  count_distinct: { label: 'COUNT DISTINCT', outputType: 'integer', color: '#4a9eff' },
-  sum:            { label: 'SUM',            outputType: 'decimal', color: '#3ddc84' },
-  avg:            { label: 'AVG',            outputType: 'decimal', color: '#3ddc84' },
-  median:         { label: 'MEDIAN',         outputType: 'decimal', color: '#3ddc84' },
-  std_dev:        { label: 'STD DEV',        outputType: 'decimal', color: '#3ddc84' },
-  variance:       { label: 'VARIANCE',       outputType: 'decimal', color: '#3ddc84' },
-  min:            { label: 'MIN',            outputType: 'any',     color: '#ffb347' },
-  max:            { label: 'MAX',            outputType: 'any',     color: '#ffb347' },
-  first:          { label: 'FIRST',          outputType: 'any',     color: '#a78bfa' },
-  last:           { label: 'LAST',           outputType: 'any',     color: '#a78bfa' },
-  array_agg:      { label: 'ARRAY AGG',      outputType: 'object',  color: '#f97316' },
-  string_agg:     { label: 'STRING AGG',     outputType: 'string',  color: '#f97316' },
-  json_agg:       { label: 'JSON AGG',       outputType: 'object',  color: '#f97316' },
+// Semantica (label, tipo di ritorno) dal catalogo unico in ir/aggFunctions:
+// prima era ricopiata qui, e una copia che diverge è solo questione di tempo.
+// Il colore è l'unica cosa davvero grafica e resta di competenza del pannello.
+const AGG_COLORS: Record<string, string> = {
+  count: '#4a9eff', count_distinct: '#4a9eff',
+  sum: '#3ddc84', avg: '#3ddc84', median: '#3ddc84', std_dev: '#3ddc84', variance: '#3ddc84',
+  min: '#ffb347', max: '#ffb347',
+  first: '#a78bfa', last: '#a78bfa',
+  array_agg: '#f97316', string_agg: '#f97316', json_agg: '#f97316',
 }
+const AGG_FUNCTIONS: Record<string, { label: string; outputType: string; color: string }> =
+  Object.fromEntries(Object.entries(AGG_FUNCTION_BY_VALUE).map(([k, v]) => [
+    k, { label: v.label, outputType: v.outputType, color: AGG_COLORS[k] ?? '#9a9aaa' },
+  ]))
 
 export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
   const node  = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))

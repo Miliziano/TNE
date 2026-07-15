@@ -149,10 +149,11 @@ const filterLowerer: NodeLowerer = {
 const laneBoundaryLowerer: NodeLowerer = {
   uiType: 'lane_boundary',
   buildOutputPorts(node) {
-    // lane_start ha un'uscita, lane_end non ne ha
-    return node.data.type === 'lane_start'
-      ? [{ id: 'output', label: 'output', isReject: false }]
-      : []
+    // Le porte le dichiara il contratto (nodeSemantics): lane_start ha
+    // un'uscita di ruolo 'signal', lane_end non ne ha. Prima erano
+    // ricopiate qui a mano — e la copia, muta sul ruolo, scavalcava in
+    // silenzio la dichiarazione.
+    return getNodeSemantics(node.data.type).staticOutputPorts.map((p) => ({ ...p }))
   },
   buildExpressions() { return [] },
 }

@@ -100,8 +100,44 @@ export interface RawStringExpr {
 // PORT, LINEAGE, CONTRACT
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * Ruolo del payload che esce da una porta. Da qui — e SOLO da qui —
+ * discende la regola di schema applicata in schemaPropagation:
+ *   data   → lo schema in ingresso
+ *   signal → SIGNAL_SCHEMA (una riga di stato)
+ *   reject → ingresso + campi d'errore
+ *   catch  → riga d'errore per l'Error Handler
+ * Assente ⇒ 'reject' se isReject, altrimenti 'data'.
+ */
+export type PortRole = 'data' | 'signal' | 'reject' | 'catch'
+
+/**
+ * Condizione di esistenza di una porta, valutata sui props del nodo.
+ * Serve a dichiarare le porte che oggi sono CABLATE dentro FlowNode
+ * (catch se onError='propagate', reject dello script se hasReject,
+ * uscita di un sink se outputMode≠'none').
+ *
+ * Due porte con lo STESSO id e condizioni mutuamente esclusive sono
+ * legittime: è il modo di dire "questa porta cambia ruolo secondo la
+ * configurazione" — es. sink_file outputMode passthrough|signal.
+ */
+export interface PortCondition {
+  /** chiave in node.data.props */
+  prop:       string
+  /** la porta esiste se il valore è uno di questi */
+  equals?:    string[]
+  /** ...oppure se NON è uno di questi */
+  notEquals?: string[]
+  /** valore assunto quando la prop non è valorizzata */
+  fallback?:  string
+}
+
 export interface PortSpec {
   id: string; label: string; isReject: boolean; schema?: SchemaField[]
+  /** Vedi PortRole. Omesso ⇒ dedotto da isReject. */
+  role?: PortRole
+  /** Omesso ⇒ porta sempre presente. */
+  when?: PortCondition
 }
 
 export interface FieldLineageEntry {

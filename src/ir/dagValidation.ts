@@ -23,6 +23,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   if (cycleIssues.some((i) => i.severity === 'error')) return buildResult(issues)
 
   issues.push(...checkDisconnectedNodes(plan))
+  issues.push(...checkOrphanEdges(plan))
   issues.push(...checkBridgePairs(plan))
   issues.push(...checkBridgeLaneCycles(plan))
   issues.push(...checkBridgeJoinPattern(plan))
@@ -276,6 +277,53 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
       severity: 'error',
       hint: 'Un canale alimenta un solo BridgeIn. Per più destinazioni servono canali distinti, uno per ogni coppia OUT/IN',
     }))
+  })
+
+  return issues
+}
+
+// ─── CHECK — ARCHI CHE PARTONO DA PORTE INESISTENTI ─────────────
+// Il canvas (FlowNode) disegna l'handle di uscita su OGNI nodo, sempre:
+// `{ id: 'output', show: true }`, senza chiedere a nessuno quali porte
+// esistano davvero. Così si possono collegare a valle anche i nodi che
+// un'uscita non ce l'hanno — un bridge_out, un sink — e l'arco sembra
+// buono: il pannello a valle mostra pure i campi, perché li risale a
+// monte per conto suo. A runtime però non arriva niente, in silenzio.
+//
+// Qui confrontiamo gli archi con le porte DICHIARATE (node.outputs, che
+// il lowering costruisce dal contratto in nodeSemantics, catch incluso).
+//
+// severity 'warning' e non 'error' di proposito, per ora: finché il
+// canvas continua a disegnare handle fantasma, bloccare un flusso già
+// disegnato sarebbe punirlo per un difetto nostro. Diventerà 'error'
+// quando FlowNode leggerà le porte dal contratto e quegli archi non si
+// potranno più creare.
+function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const byId = new Map(plan.nodes.map((n) => [n.id, n]))
+
+  plan.edges.forEach((edge) => {
+    const src = byId.get(edge.source)
+    if (!src) return
+
+    const ports = src.outputs.map((p) => p.id)
+    if (ports.includes(edge.sourcePort)) return
+
+    const label = src._uiRef?.label ?? canvasNodeId(src.id)
+    const tgt   = byId.get(edge.target)
+    const tgtLabel = tgt?._uiRef?.label ?? edge.target
+
+    issues.push({
+      nodeId:   canvasNodeId(src.id),
+      code:     'EDGE_FROM_UNDECLARED_PORT',
+      message:  ports.length === 0
+        ? `"${label}" non ha porte di uscita, ma un arco lo collega a "${tgtLabel}"`
+        : `"${label}": l'arco verso "${tgtLabel}" parte dalla porta "${edge.sourcePort}", che il nodo non dichiara`,
+      severity: 'warning',
+      hint:     ports.length === 0
+        ? `${src._uiRef?.type ?? 'Il nodo'} consuma il flusso e non emette nulla verso la lane: a runtime "${tgtLabel}" non riceve righe. Scollega l'arco.`
+        : `Porte dichiarate: ${ports.join(', ')}. L'arco è rimasto attaccato a una porta che non esiste più.`,
+    })
   })
 
   return issues

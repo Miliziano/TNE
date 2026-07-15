@@ -1,0 +1,165 @@
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index a811a6c..851dfe3 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -23,6 +23,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
+   if (cycleIssues.some((i) => i.severity === 'error')) return buildResult(issues)
+ 
+   issues.push(...checkDisconnectedNodes(plan))
++  issues.push(...checkOrphanEdges(plan))
+   issues.push(...checkBridgePairs(plan))
+   issues.push(...checkBridgeLaneCycles(plan))
+   issues.push(...checkBridgeJoinPattern(plan))
+@@ -281,6 +282,53 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
+   return issues
+ }
+ 
++// ─── CHECK — ARCHI CHE PARTONO DA PORTE INESISTENTI ─────────────
++// Il canvas (FlowNode) disegna l'handle di uscita su OGNI nodo, sempre:
++// `{ id: 'output', show: true }`, senza chiedere a nessuno quali porte
++// esistano davvero. Così si possono collegare a valle anche i nodi che
++// un'uscita non ce l'hanno — un bridge_out, un sink — e l'arco sembra
++// buono: il pannello a valle mostra pure i campi, perché li risale a
++// monte per conto suo. A runtime però non arriva niente, in silenzio.
++//
++// Qui confrontiamo gli archi con le porte DICHIARATE (node.outputs, che
++// il lowering costruisce dal contratto in nodeSemantics, catch incluso).
++//
++// severity 'warning' e non 'error' di proposito, per ora: finché il
++// canvas continua a disegnare handle fantasma, bloccare un flusso già
++// disegnato sarebbe punirlo per un difetto nostro. Diventerà 'error'
++// quando FlowNode leggerà le porte dal contratto e quegli archi non si
++// potranno più creare.
++function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
++  const issues: ValidationIssue[] = []
++  const byId = new Map(plan.nodes.map((n) => [n.id, n]))
++
++  plan.edges.forEach((edge) => {
++    const src = byId.get(edge.source)
++    if (!src) return
++
++    const ports = src.outputs.map((p) => p.id)
++    if (ports.includes(edge.sourcePort)) return
++
++    const label = src._uiRef?.label ?? canvasNodeId(src.id)
++    const tgt   = byId.get(edge.target)
++    const tgtLabel = tgt?._uiRef?.label ?? edge.target
++
++    issues.push({
++      nodeId:   canvasNodeId(src.id),
++      code:     'EDGE_FROM_UNDECLARED_PORT',
++      message:  ports.length === 0
++        ? `"${label}" non ha porte di uscita, ma un arco lo collega a "${tgtLabel}"`
++        : `"${label}": l'arco verso "${tgtLabel}" parte dalla porta "${edge.sourcePort}", che il nodo non dichiara`,
++      severity: 'warning',
++      hint:     ports.length === 0
++        ? `${src._uiRef?.type ?? 'Il nodo'} consuma il flusso e non emette nulla verso la lane: a runtime "${tgtLabel}" non riceve righe. Scollega l'arco.`
++        : `Porte dichiarate: ${ports.join(', ')}. L'arco è rimasto attaccato a una porta che non esiste più.`,
++    })
++  })
++
++  return issues
++}
++
+ // ─── CHECK 4a-bis — CICLI FRA LANE VIA BRIDGE ───────────────────
+ // I canali creano archi lane→lane invisibili al DAG del canvas (i
+ // bridge non hanno edge). Il modello deciso: da A si entra in B per
+diff --git a/src/ir/nodeSemantics.ts b/src/ir/nodeSemantics.ts
+index b2b0c70..32ea6a9 100644
+--- a/src/ir/nodeSemantics.ts
++++ b/src/ir/nodeSemantics.ts
+@@ -433,6 +433,25 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
+       pushdownCapable:   [],
+     },
+ 
++  /**
++   * log — non modifica né filtra: lo schema di uscita è identico a
++   * quello d'ingresso. Mancava: lo copriva il fallback di
++   * getNodeSemantics fingendolo 'transform'. Dava la porta giusta,
++   * ma per caso.
++   */
++  log: {
++    uiType:                  'log',
++    operations:              ['transform'],
++    executionSemantics:      'row',
++    producesMultipleOutputs: false,
++    acceptsMultipleInputs:   false,
++    staticOutputPorts: [
++      { id: 'output', label: 'output', isReject: false, role: 'data' },
++    ],
++    preferredRuntimes: ['typescript', 'python_polars', 'python_pandas', 'java_beam'],
++    pushdownCapable:   [],
++  },
++
+   window: {
+     uiType:                  'window',
+     operations:              ['window'],
+@@ -595,19 +614,6 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
+     pushdownCapable:   [],
+   },
+ 
+-  trigger: {
+-    uiType:                  'trigger',
+-    operations:              ['scan'],   // produce un singolo segnale come sorgente
+-    executionSemantics:      'stream',   // attende evento esterno
+-    producesMultipleOutputs: false,
+-    acceptsMultipleInputs:   false,
+-    staticOutputPorts: [
+-      { id: 'output', label: 'signal', isReject: false },
+-      { id: 'reject', label: 'reject', isReject: true  },
+-    ],
+-    preferredRuntimes: ['typescript', 'java_beam'],
+-    pushdownCapable:   [],
+-  },
+   // ── Destinazioni ──────────────────────────────────────────────
+ 
+ 
+diff --git a/src/ir/types.ts b/src/ir/types.ts
+index 417f088..5ad552e 100644
+--- a/src/ir/types.ts
++++ b/src/ir/types.ts
+@@ -100,8 +100,44 @@ export interface RawStringExpr {
+ // PORT, LINEAGE, CONTRACT
+ // ─────────────────────────────────────────────────────────────────
+ 
++/**
++ * Ruolo del payload che esce da una porta. Da qui — e SOLO da qui —
++ * discende la regola di schema applicata in schemaPropagation:
++ *   data   → lo schema in ingresso
++ *   signal → SIGNAL_SCHEMA (una riga di stato)
++ *   reject → ingresso + campi d'errore
++ *   catch  → riga d'errore per l'Error Handler
++ * Assente ⇒ 'reject' se isReject, altrimenti 'data'.
++ */
++export type PortRole = 'data' | 'signal' | 'reject' | 'catch'
++
++/**
++ * Condizione di esistenza di una porta, valutata sui props del nodo.
++ * Serve a dichiarare le porte che oggi sono CABLATE dentro FlowNode
++ * (catch se onError='propagate', reject dello script se hasReject,
++ * uscita di un sink se outputMode≠'none').
++ *
++ * Due porte con lo STESSO id e condizioni mutuamente esclusive sono
++ * legittime: è il modo di dire "questa porta cambia ruolo secondo la
++ * configurazione" — es. sink_file outputMode passthrough|signal.
++ */
++export interface PortCondition {
++  /** chiave in node.data.props */
++  prop:       string
++  /** la porta esiste se il valore è uno di questi */
++  equals?:    string[]
++  /** ...oppure se NON è uno di questi */
++  notEquals?: string[]
++  /** valore assunto quando la prop non è valorizzata */
++  fallback?:  string
++}
++
+ export interface PortSpec {
+   id: string; label: string; isReject: boolean; schema?: SchemaField[]
++  /** Vedi PortRole. Omesso ⇒ dedotto da isReject. */
++  role?: PortRole
++  /** Omesso ⇒ porta sempre presente. */
++  when?: PortCondition
+ }
+ 
+ export interface FieldLineageEntry {

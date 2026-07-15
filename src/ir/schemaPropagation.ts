@@ -24,6 +24,7 @@
  */
 
 import type { Node as FlowNode, Edge } from '@xyflow/react'
+import { aggOutputType } from './aggFunctions'
 import type { NodeData, TMapConfig } from '../types'
 import type {
   LogicalPlan,
@@ -76,7 +77,8 @@ function inferOutputSchema(
   // config: updateNodeProp scrive in node.data.props, e il lowering li porta
   // come _uiRef.props (fratello di _uiRef.config). Leggere outputSchema da
   // config dava sempre undefined → sorgenti "vuote" → cascata di falsi warning.
-  const props = (node._uiRef?.props ?? {}) as any
+  const props  = (node._uiRef?.props ?? {}) as any
+  const uiType = node._uiRef?.type
 
   switch (node.operation) {
 
@@ -148,17 +150,68 @@ function inferOutputSchema(
     }
 
     case 'aggregate': {
-      // Schema derivato dalla config aggregate
-      // Per ora: placeholder — sarà implementato con Expression AST
-      return inputSchema.filter((f) =>
-        f.name.includes('count') ||
-        f.name.includes('sum')   ||
-        f.name.includes('avg')   ||
-        f.name.includes('min')   ||
-        f.name.includes('max')
-      ).length > 0
-        ? inputSchema
-        : []
+      // Tre nodi UI diversi finiscono qui — materialize, pivot e aggregate
+      // hanno tutti operations: ['aggregate'] — ma il loro schema di uscita
+      // si deriva in tre modi diversi. Smistare per operazione era troppo
+      // grosso: il vecchio placeholder tirava a indovinare sui NOMI dei
+      // campi in ingresso (cercava 'sum', 'count', 'avg'…) e con campi
+      // normali restituiva [], scatenando "non riceve campi" su tutta la
+      // catena a valle. La derivazione vera esisteva già — nei pannelli.
+
+      // materialize bufferizza e basta: lo schema esce com'è entrato.
+      if (uiType === 'materialize') return inputSchema
+
+      // pivot: lo schema lo calcola il suo pannello e lo persiste in
+      // props.outputSchema. Il marcatore __pivot_dynamic__ significa
+      // "colonne note solo a runtime": va propagato com'è, perché è una
+      // risposta ("non conoscibile"), non un vuoto — se lo appiattissimo
+      // a [] tornerebbe la cascata di falsi warning.
+      if (uiType === 'pivot') {
+        const raw = props['outputSchema']
+        if (raw) {
+          try {
+            const parsed = JSON.parse(String(raw))
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed as SchemaField[]
+          } catch { /* schema illeggibile → ricadi sull'ingresso */ }
+        }
+        return inputSchema
+      }
+
+      // aggregate: group_by + funzioni configurate. Stessa derivazione del
+      // suo MappingPanel, che era l'unico posto dove fosse scritta giusta.
+      const groupBy = String(props['group_by'] ?? '')
+        .split(',').map((x: string) => x.trim()).filter(Boolean)
+
+      let aggFns: Array<{ fn: string; field: string; alias: string }> = []
+      try {
+        const parsed = JSON.parse(String(props['aggFunctions'] ?? '[]'))
+        if (Array.isArray(parsed)) aggFns = parsed
+      } catch { /* config illeggibile */ }
+
+      // Non ancora configurato: meglio l'ingresso che il vuoto. Sbagliato
+      // per eccesso non genera allarmi; il vuoto sì, e a catena.
+      if (groupBy.length === 0 && aggFns.length === 0) return inputSchema
+
+      return [
+        ...groupBy.map((name: string): SchemaField => {
+          const incoming = inputSchema.find((f) => f.name === name)
+          return {
+            id:           incoming?.id ?? `agg_grp_${name}`,
+            name,
+            type:         incoming?.type ?? 'string',
+            physicalName: incoming?.physicalName ?? name,
+          }
+        }),
+        ...aggFns.map((a, i): SchemaField => {
+          const alias = a.alias || `${a.fn}_result`
+          return {
+            id:           `agg_fn_${i}_${alias}`,
+            name:         alias,
+            type:         aggOutputType(a.fn),
+            physicalName: alias,
+          }
+        }),
+      ]
     }
 
     case 'transform': {
@@ -176,6 +229,28 @@ function inferOutputSchema(
     case 'parse': {
       // json_parser / xml_parser: schema per flusso
       // Gestito dal buildOutputPortSchemas (multi-output)
+      return inputSchema
+    }
+
+    case 'lane_boundary': {
+      // Le lane comunicano SOLO via canale: un bridge_in non ha archi in
+      // ingresso, quindi nel `default` (return inputSchema) restituiva
+      // sempre il vuoto — e tutta la lane a valle risultava senza campi.
+      // Nella sua lane il bridge_in è a tutti gli effetti una SORGENTE:
+      // il suo schema è quello in props.outputSchema, che dallo Step 4
+      // è DERIVATO dal BridgeOut del canale.
+      if (uiType === 'bridge_in') {
+        try {
+          const raw = props['outputSchema']
+          if (raw) {
+            const parsed = JSON.parse(String(raw))
+            if (Array.isArray(parsed)) return normalizeSchema(parsed)
+          }
+        } catch { /* schema illeggibile */ }
+        return []
+      }
+      // bridge_out consuma il flusso e non emette verso la lane;
+      // lane_start/lane_end sono marcatori. Per tutti, l'ingresso.
       return inputSchema
     }
 
@@ -401,7 +476,15 @@ export function propagateSchema(plan: LogicalPlan): PropagationResult {
     })
 
     // ── 4. Validazione schema ─────────────────────────────────
-    validateNodeSchema(current, inputSchema, outputSchema, issues)
+    // Un arco può portare DATI o un SEGNALE di innesco (lane_start → …,
+    // Script → sorgente). Su un arco di segnale i campi non ci devono
+    // essere: pretenderli genera falsi allarmi su flussi corretti.
+    const dataInEdges = inEdges.filter((e) => {
+      const src = nodeMap.get(e.source) ?? plan.nodes.find((n) => n.id === e.source)
+      const port = src?.outputs.find((p) => p.id === e.sourcePort)
+      return (port?.role ?? 'data') !== 'signal'
+    })
+    validateNodeSchema(current, inputSchema, outputSchema, issues, dataInEdges.length)
   }
 
   // Ricostruisce il piano con nodi e edge aggiornati
@@ -423,6 +506,8 @@ function validateNodeSchema(
   inputSchema:  SchemaField[],
   outputSchema: SchemaField[],
   issues:       ValidationIssue[],
+  /** Quanti archi in ingresso portano DATI (non segnali di innesco). */
+  dataInEdgeCount: number = node.inputs.length,
 ): void {
 
   const canvasId = canvasNodeId(node.id)
@@ -438,8 +523,11 @@ function validateNodeSchema(
     })
   }
 
-  // Nodi con input ma senza schema in ingresso → warning
-  if (node.inputs.length > 0 && inputSchema.length === 0) {
+  // Nodi con input DATI ma senza schema in ingresso → warning.
+  // Escluse: le sorgenti (operation 'scan'), che i dati li prendono da
+  // fuori — un arco che le raggiunge è un innesco, non un flusso; e i
+  // nodi raggiunti solo da archi di segnale.
+  if (node.operation !== 'scan' && dataInEdgeCount > 0 && inputSchema.length === 0) {
     issues.push({
       nodeId:   canvasId,
       code:     'EMPTY_INPUT_SCHEMA',
@@ -618,4 +706,3 @@ function mergeSchemaFields(
 
   return [...updated, ...newFields]
 }
-

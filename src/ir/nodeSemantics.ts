@@ -433,6 +433,25 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       pushdownCapable:   [],
     },
 
+  /**
+   * log — non modifica né filtra: lo schema di uscita è identico a
+   * quello d'ingresso. Mancava: lo copriva il fallback di
+   * getNodeSemantics fingendolo 'transform'. Dava la porta giusta,
+   * ma per caso.
+   */
+  log: {
+    uiType:                  'log',
+    operations:              ['transform'],
+    executionSemantics:      'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    staticOutputPorts: [
+      { id: 'output', label: 'output', isReject: false, role: 'data' },
+    ],
+    preferredRuntimes: ['typescript', 'python_polars', 'python_pandas', 'java_beam'],
+    pushdownCapable:   [],
+  },
+
   window: {
     uiType:                  'window',
     operations:              ['window'],
@@ -595,19 +614,6 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     pushdownCapable:   [],
   },
 
-  trigger: {
-    uiType:                  'trigger',
-    operations:              ['scan'],   // produce un singolo segnale come sorgente
-    executionSemantics:      'stream',   // attende evento esterno
-    producesMultipleOutputs: false,
-    acceptsMultipleInputs:   false,
-    staticOutputPorts: [
-      { id: 'output', label: 'signal', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
-    ],
-    preferredRuntimes: ['typescript', 'java_beam'],
-    pushdownCapable:   [],
-  },
   // ── Destinazioni ──────────────────────────────────────────────
 
 
@@ -727,7 +733,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      // Il marcatore di avvio non emette righe: emette il "via". Chi lo
+      // riceve NON deve aspettarsi campi — è la differenza fra un arco
+      // di innesco e un arco di dati (vedi PortRole).
+      { id: 'output', label: 'start', isReject: false, role: 'signal' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
