@@ -634,14 +634,18 @@ function TimelineProfile({ timings, samples }: {
 }
 
 export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }: MonitorPanelProps) {
+  // Il pannello viene RIMONTATO ad ogni passaggio dock↔flottante e ad
+  // ogni chiudi→riapri: lo stato React andrebbe perso. Ci reidratiamo
+  // dallo stato ritenuto dal bus, che è la fonte di verità.
+  const [seed] = useState(() => monitor.viewState())
   const [enabled,     setEnabled]     = useState(monitor.enabled)
   const [activeTab,   setActiveTab]   = useState<'run' | 'memory' | 'nodes' | 'timeline' | 'connections' | 'loitering'>('run')
-  const [memorySamples, setMemorySamples] = useState<MemorySnapshot[]>([])
-  const [nodeTimings, setNodeTimings] = useState<NodeTiming[]>([])
-  const [connections, setConnections] = useState<ConnectionEvent[]>([])
-  const [loitering,   setLoitering]   = useState<LoiteringObject[]>([])
-  const [lastSummary, setLastSummary] = useState<ExecutionSummary | null>(null)
-  const [isRunning,   setIsRunning]   = useState(false)
+  const [memorySamples, setMemorySamples] = useState<MemorySnapshot[]>(() => seed.memorySamples.slice(-MAX_MEMORY_SAMPLES))
+  const [nodeTimings, setNodeTimings] = useState<NodeTiming[]>(() => seed.nodeTimings)
+  const [connections, setConnections] = useState<ConnectionEvent[]>(() => seed.connections)
+  const [loitering,   setLoitering]   = useState<LoiteringObject[]>(() => seed.loitering)
+  const [lastSummary, setLastSummary] = useState<ExecutionSummary | null>(() => seed.lastSummary)
+  const [isRunning,   setIsRunning]   = useState(() => seed.isRunning)
   const reporterRef = useRef<Reporter | null>(null)
 
   useEffect(() => {
@@ -667,16 +671,17 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
         usedRam:      m.used_ram,
         timestamp:    m.timestamp,
       }
-      setMemorySamples([snap])
+      // ACCODA: sostituire azzererebbe la storia reidratata dal bus
+      setMemorySamples(prev => [...prev, snap].slice(-MAX_MEMORY_SAMPLES))
     }).catch(() => {
       // Browser o Tauri senza comando: prova performance.memory
       const pm = (performance as any).memory
       if (pm?.usedJSHeapSize > 0) {
-        setMemorySamples([{
+        setMemorySamples(prev => [...prev, {
           heapUsed:  pm.usedJSHeapSize,
           heapTotal: pm.totalJSHeapSize,
           timestamp: Date.now(),
-        }])
+        }].slice(-MAX_MEMORY_SAMPLES))
       }
     })
 

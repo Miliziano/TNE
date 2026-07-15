@@ -193,11 +193,18 @@ function generateId(): string {
 class MonitoringBusClass {
   private reporters:      Reporter[]        = []
   private activeRun:      ExecutionSummary | null = null
+  /** Ultimo run concluso — RITENUTO, così il pannello può reidratarsi
+   *  quando viene rimontato (dock↔flottante, chiudi→riapri). */
+  private lastRun:        ExecutionSummary | null = null
+  /** Campioni memoria recenti (run + idle) — ritenuti per lo stesso
+   *  motivo: senza, ogni rimonto del pannello riparte da zero. */
+  private recentSamples:  MemorySnapshot[]  = []
   private memoryTimer:    ReturnType<typeof setInterval> | null = null
   private loiteringRefs:  Map<string, { label: string; type: string; getSize: () => number; firstSeen: number; lastSize: number; lastSeen: number }> = new Map()
   private openConnections: Map<string, ConnectionEvent> = new Map()
   private _enabled:       boolean           = false
   private intervalMs:     number            = 2000
+  private maxSamples:     number            = 120
   /** Quando true, la memoria arriva dall'esterno (sampler Rust) e il
    *  timer JS interno NON parte. Impostato da useExternalMemory(). */
   private externalMemory: boolean           = false
@@ -226,14 +233,46 @@ class MonitoringBusClass {
    *  tratta come farebbe il timer interno: lo aggiunge alla timeline
    *  del run e lo emette ai reporter. */
   memorySample(snap: MemorySnapshot) {
+    this.recordMemory(snap)
+  }
+
+  /** Punto UNICO di registrazione di un campione memoria: timeline del
+   *  run (se attivo), buffer ritenuto, emissione ai reporter. */
+  private recordMemory(snap: MemorySnapshot) {
     if (this.activeRun) {
       this.activeRun.memoryTimeline.push(snap)
+    }
+    this.recentSamples.push(snap)
+    if (this.recentSamples.length > this.maxSamples) {
+      this.recentSamples = this.recentSamples.slice(-this.maxSamples)
     }
     this.emit({
       type:    'memory',
       payload: snap,
       runId:   this.activeRun?.runId ?? 'idle',
     })
+  }
+
+  /** Stato corrente per reidratare un pannello appena montato.
+   *  Senza questo, ogni rimonto (dock↔flottante) azzera la vista.
+   *  NB distinto da snapshot(), che è il dump istantaneo per debug. */
+  viewState(): {
+    memorySamples: MemorySnapshot[]
+    nodeTimings:   NodeTiming[]
+    connections:   ConnectionEvent[]
+    loitering:     LoiteringObject[]
+    lastSummary:   ExecutionSummary | null
+    isRunning:     boolean
+  } {
+    const run = this.activeRun ?? this.lastRun
+    return {
+      memorySamples: [...this.recentSamples],
+      nodeTimings:   run ? [...run.nodeTimings] : [],
+      connections:   run ? [...run.connections] : [],
+      loitering:     this.getLoiteringSnapshot(),
+      lastSummary:   this.lastRun,
+      isRunning:     this.activeRun !== null,
+    }
   }
 
   get enabled() { return this._enabled }
@@ -305,6 +344,7 @@ class MonitoringBusClass {
     this.emit({ type: 'run_end', payload: run, runId: run.runId })
     this.reporters.forEach(r => r.onRunEnd(run))
 
+    this.lastRun   = run
     this.activeRun = null
     return run
   }
@@ -470,14 +510,7 @@ class MonitoringBusClass {
       const tauriSnap = await fetchTauriMemory()
       const snap = tauriSnap ?? getMemorySnapshot()
 
-      if (this.activeRun) {
-        this.activeRun.memoryTimeline.push(snap)
-      }
-      this.emit({
-        type:    'memory',
-        payload: snap,
-        runId:   this.activeRun?.runId ?? 'idle',
-      })
+      this.recordMemory(snap)
     }, this.intervalMs)
   }
 
