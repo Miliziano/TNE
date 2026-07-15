@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
-import { getHandleSchema } from '../../../utils/schemaRegistry'
+import { getBridgeOutFields } from './bridgeSchema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -87,23 +87,11 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
   // fallback sull'incomingSchema persistito dalla propagazione.
   const transferFields = useMemo((): Array<{ id?: string; name: string; type: string }> => {
     if (!isOut) return []
-    const inEdge = edges.find((e) => e.target === nodeId)
-    if (inEdge) {
-      const src = allNodes.find((n) => n.id === inEdge.source)
-      if (src) {
-        const live = getHandleSchema(src, inEdge.sourceHandle ?? 'output', false)
-        if (live.length > 0) return live
-      }
-    }
-    try {
-      const raw = node.data.props?.['incomingSchema']
-      if (raw) {
-        const parsed = JSON.parse(String(raw))
-        if (Array.isArray(parsed)) return parsed.filter((f) => f?.name)
-      }
-    } catch { /* schema illeggibile → lista vuota */ }
-    return []
-  }, [isOut, edges, allNodes, nodeId, node])
+    // Logica condivisa con la derivazione del BridgeIn (bridgeSchema.ts):
+    // due copie divergerebbero, e il BridgeIn mostrerebbe campi diversi
+    // da quelli che il BridgeOut dichiara di mandare.
+    return getBridgeOutFields(node, allNodes, edges)
+  }, [isOut, edges, allNodes, node])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

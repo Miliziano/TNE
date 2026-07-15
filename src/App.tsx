@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useFlowStore } from './store/flowStore'
+import { bridgeSyncSignature, syncBridgeInSchemas } from './nodes/types/bridge/bridgeSchema'
 import { Toolbar }       from './components/Toolbar'
 import { Canvas }        from './components/Canvas'
 import { PropertyPanel } from './components/PropertyPanel'
@@ -300,6 +301,14 @@ function Layout() {
   }
 
   const [propsOpen,    setPropsOpen]    = useState(false)
+
+  // Lo schema del BridgeIn è DERIVATO dal suo BridgeOut: qui lo teniamo
+  // allineato. La firma limita il lavoro ai cambi che contano davvero —
+  // senza, ogni trascinamento di nodo rieseguirebbe il sync.
+  const bridgeSig = useFlowStore((s) => bridgeSyncSignature(s.nodes, s.edges))
+  useEffect(() => {
+    syncBridgeInSchemas(useFlowStore.getState())
+  }, [bridgeSig])
 
   const selectedNodeId     = useFlowStore((s) => s.selectedNodeId)
   const selectedLaneId     = useFlowStore((s) => s.selectedLaneId)
