@@ -22,6 +22,7 @@
  */
 
 import type { Edge } from '@xyflow/react'
+import { getNodeSemantics } from '../ir/nodeSemantics'
 import type { TMapConfig, TMapInputField, TMapOutputField, FieldRenameEntry } from '../types'
 import type { StoreSnapshot } from './schemaUtils'
 
@@ -88,54 +89,19 @@ export function renameField(field: SchemaFieldDef, newName: string): SchemaField
   return { ...field, name: newName }
 }
 
-const STATIC_NODE_HANDLES: Record<string, NodeHandleDefs> = {
-  source_db:       { inputs: [],               outputs: ['output'] },
-  source_file:      { inputs: [],               outputs: ['output'] },
-  source_http:      { inputs: [],               outputs: ['output'] },
-  source_ftp:       { inputs: [],               outputs: ['output'] },
-  source_kafka:     { inputs: [],               outputs: ['output'] },
-  source_activemq:  { inputs: [],               outputs: ['output'] },
-  source_mqtt:      { inputs: [],               outputs: ['output'] },
-  dir_watcher:      { inputs: [],               outputs: ['output'] },
-  webhook_receiver: { inputs: [],               outputs: ['output'] },
-  watchdog:         { inputs: [],               outputs: ['output'] },
-  bridge_in:        { inputs: [],               outputs: ['output'] },
-  lane_start:       { inputs: [],               outputs: ['output'] },
-  log:              { inputs: ['input'],        outputs: ['output'] },
-  materialize:      { inputs: ['input'],        outputs: ['output'] },
-  script:           { inputs: ['input'],        outputs: ['output'] },
-  window:           { inputs: ['input'],        outputs: ['output'] },
-  explode:          { inputs: ['input'],        outputs: ['output'] },
-  shell_exec:       { inputs: ['input'],        outputs: ['output'] },
-  ssh_exec:         { inputs: ['input'],        outputs: ['output'] },
-  transform:        { inputs: ['input'],        outputs: ['output'] },
-  data_quality:     { inputs: ['input'],        outputs: ['valid', 'reject'] },
-  filter:           { inputs: ['input'],        outputs: ['output_1'] },
-  join:             { inputs: ['input_left', 'input_right'], outputs: ['output'] },
-  union:            { inputs: ['input_1', 'input_2'], outputs: ['output'] },
-  aggregate:        { inputs: ['input'],        outputs: ['output'] },
-  pivot:            { inputs: ['input'],        outputs: ['output'] },
-  json_parser:      { inputs: ['input'],        outputs: ['reject'] },
-  xml_parser:       { inputs: ['input'],        outputs: ['reject'] },
-  tmap:             { inputs: ['input_main'],   outputs: ['output_main', 'rejected'] },
-  error_handler:    { inputs: ['catch'],        outputs: ['error_out'] },
-  report_generator: { inputs: ['input'],        outputs: [] },
-  mail_sink:        { inputs: ['input'],        outputs: [] },
-  json_serializer:  { inputs: ['input'],        outputs: ['output'] },
-  xml_serializer:   { inputs: ['input'],        outputs: ['output'] },
-  sink_db:          { inputs: ['input'],        outputs: ['output'] },
-  sink_kafka:       { inputs: ['input'],        outputs: [] },
-  sink_file:        { inputs: ['input'],        outputs: [] },
-  sink_ftp:         { inputs: ['input'],        outputs: [] },
-  sink_activemq:    { inputs: ['input'],        outputs: [] },
-  sink_mqtt:        { inputs: ['input'],        outputs: [] },
-  webhook_responder:{ inputs: ['input'],        outputs: [] },
-  bridge_out:       { inputs: ['input'],        outputs: [] },
-  lane_end:         { inputs: ['input'],        outputs: [] },
-}
 
 export function getNodeHandles(node: { data: any }): NodeHandleDefs {
-  const fallback = STATIC_NODE_HANDLES[node.data.type] ?? { inputs: ['input'], outputs: ['output'] }
+  // Le porte le dichiara il CONTRATTO (src/ir/nodeSemantics). Qui c'era una
+  // seconda mappa, STATIC_NODE_HANDLES, che diceva la sua su 16 tipi su 43:
+  // due elenchi della stessa cosa divergono, e nessuno se ne accorge finché
+  // qualcosa non si scollega. Lo `switch` qui sotto resta: è il resolver
+  // delle porte DINAMICHE (tmap, filter, i due parser), quelle che il
+  // contratto dichiara come tali con producesMultipleOutputs.
+  const semantics = getNodeSemantics(node.data.type)
+  const fallback: NodeHandleDefs = {
+    inputs:  semantics.staticInputPorts.map((p) => p.id),
+    outputs: semantics.staticOutputPorts.map((p) => p.id),
+  }
 
   switch (node.data.type) {
     case 'tmap': {
@@ -571,5 +537,3 @@ export function propagateFromConnection(
 
   propagateHandle(sourceNodeId, sourceHandleId, store)
 }
-
-export { STATIC_NODE_HANDLES }

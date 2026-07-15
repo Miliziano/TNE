@@ -115,6 +115,15 @@ export interface NodeSemantics {
   executionSemantics: ExecutionSemantics
 
   /**
+   * Porte di INGRESSO dichiarate.
+   * Mancavano: le sapeva solo HANDLE_MAP (schemaRegistry), cioè l'altra
+   * metà — divergente — dello stesso contratto. Senza queste, "cancellare
+   * HANDLE_MAP" non era una cancellazione ma una perdita di informazione.
+   * Lista vuota = il nodo non ha ingressi (sorgenti, bridge_in, lane_start).
+   */
+  staticInputPorts: PortSpec[]
+
+  /**
    * true se il nodo produce N porte di output con schema diverso.
    * Il Lowerer deve creare N PortSpec distinti.
    * Esempi: tmap (N output), json_parser (N flussi), xml_parser (N flussi)
@@ -165,6 +174,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -179,6 +189,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -192,6 +203,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -205,6 +217,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',        // legge file (batch), come source_file
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -217,6 +230,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',            // consumer = flusso continuo
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -229,6 +243,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',            // server in ascolto = continuo
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -241,6 +256,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',     // monitoraggio continuo, come dir_watcher
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -255,6 +271,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: true,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts:       [],        // porte dinamiche — gestite dal lowerer
     preferredRuntimes:       ['typescript', 'python_polars'],
     pushdownCapable:         [],
@@ -266,6 +285,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -280,6 +302,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stateful',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  true,
+    staticInputPorts: [
+      { id: 'input_left', label: 'input_left', isReject: false },
+      { id: 'input_right', label: 'input_right', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output',          isReject: false },
       { id: 'reject', label: 'non-matched',     isReject: true  },
@@ -295,6 +321,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -311,6 +340,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // main + N lookup
     acceptsMultipleInputs:  true,
     // Porte dinamiche — generate dal Lowerer leggendo TMapConfig
+    staticInputPorts: [
+      { id: 'input_main', label: 'input_main', isReject: false },
+    ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
     pushdownCapable:   ['filter', 'projection'],
@@ -322,6 +354,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -338,6 +373,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // N flussi output con schema diverso — generati dal Lowerer
     producesMultipleOutputs: true,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
     pushdownCapable:   [],
@@ -349,6 +387,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: true,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
     pushdownCapable:   [],
@@ -364,6 +405,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // main + N flussi aggiuntivi (input_new, stessa meccanica di tmap).
     // Il fallback generico lo trattava come mono-input → badge/porte errati.
     acceptsMultipleInputs:  true,
+    staticInputPorts: [
+      { id: 'input_1', label: 'input_1', isReject: false },
+      { id: 'input_2', label: 'input_2', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -381,6 +426,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -399,6 +447,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     // Multi-handle: main + flussi aggiuntivi (input_new) annidati master-detail.
     acceptsMultipleInputs:  true,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -413,6 +464,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  true,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -425,6 +479,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       executionSemantics:      'stream',   // watch mode è stream continuo
       producesMultipleOutputs: false,
       acceptsMultipleInputs:   false,
+      staticInputPorts:        [],   // nessun ingresso: sorveglia una cartella
       staticOutputPorts: [
         { id: 'output', label: 'output', isReject: false },
         { id: 'reject', label: 'reject', isReject: true  },
@@ -445,6 +500,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false, role: 'data' },
     ],
@@ -458,6 +516,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',  // richiede visibilità sulla partizione
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -471,6 +532,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -485,6 +549,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -499,6 +564,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'passthrough', isReject: false },
     ],
@@ -512,6 +580,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -525,6 +594,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'passthrough', isReject: false },
     ],
@@ -538,6 +610,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'report', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -552,6 +627,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',   // legge tutto prima di emettere
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'rows',   isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -570,6 +648,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -582,6 +663,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -594,6 +678,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -606,8 +693,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
-      { id: 'passthrough', label: 'passthrough', isReject: false },
+      // id = nome del FILO: deve combaciare con l'handle disegnato dal
+      // canvas e con ciò che il motore cerca (take_primary_output prova
+      // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
+      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
       { id: 'reject',      label: 'reject',      isReject: true  },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -623,6 +716,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts:       [],           // nessuna uscita verso altri nodi della stessa lane
     preferredRuntimes:       ['typescript', 'java_beam'],
     pushdownCapable:         [],
@@ -634,6 +730,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',     // riceve dati asincroni dal canale
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -647,9 +744,15 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       // I sink hanno una porta output opzionale per il passthrough
-      { id: 'passthrough', label: 'passthrough', isReject: false },
+      // id = nome del FILO: deve combaciare con l'handle disegnato dal
+      // canvas e con ciò che il motore cerca (take_primary_output prova
+      // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
+      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
       { id: 'reject',      label: 'reject',      isReject: true  },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -662,8 +765,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
-      { id: 'passthrough', label: 'passthrough', isReject: false },
+      // id = nome del FILO: deve combaciare con l'handle disegnato dal
+      // canvas e con ciò che il motore cerca (take_primary_output prova
+      // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
+      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
       { id: 'reject',      label: 'reject',      isReject: true  },
     ],
     preferredRuntimes: ['typescript', 'python_polars'],
@@ -676,8 +785,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
-      { id: 'passthrough', label: 'passthrough', isReject: false },
+      // id = nome del FILO: deve combaciare con l'handle disegnato dal
+      // canvas e con ciò che il motore cerca (take_primary_output prova
+      // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
+      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
       { id: 'reject',      label: 'reject',      isReject: true  },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -690,8 +805,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     // come gli altri sink: porta passthrough opzionale  reject
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
-      { id: 'passthrough', label: 'passthrough', isReject: false },
+      // id = nome del FILO: deve combaciare con l'handle disegnato dal
+      // canvas e con ciò che il motore cerca (take_primary_output prova
+      // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
+      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
       { id: 'reject',      label: 'reject',      isReject: true  },
     ],
     preferredRuntimes: ['typescript'],
@@ -704,6 +825,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     // terminale: consuma e risponde, nessun output a valle
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -717,6 +841,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     // riceve i catch da molti nodi della lane
     acceptsMultipleInputs:  true,
+    staticInputPorts: [
+      { id: 'catch', label: 'catch', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'error_out', label: 'error', isReject: false },
     ],
@@ -732,6 +859,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       // Il marcatore di avvio non emette righe: emette il "via". Chi lo
       // riceve NON deve aspettarsi campi — è la differenza fra un arco
@@ -748,6 +876,9 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -770,6 +901,9 @@ export function getNodeSemantics(uiType: string): NodeSemantics {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', isReject: false },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
