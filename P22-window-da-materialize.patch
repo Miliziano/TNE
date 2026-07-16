@@ -1,0 +1,86 @@
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index 35ee976..5bc7608 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -549,6 +549,23 @@ function checkBridgeJoinPattern(plan: LogicalPlan): ValidationIssue[] {
+ 
+ // ─── CHECK 5 — SEMANTICA ──────────────────────────────────────────
+ 
++/**
++ * Tipi UI che senza righe non possono fare niente. Elencati per **tipo**,
++ * non per operazione: `operations` è come il nodo viene abbassato nell'IR,
++ * e più tipi condividono la stessa operazione (aggregate, pivot, materialize
++ * e report_generator si abbassano tutti a 'aggregate').
++ */
++const NEEDS_ROWS = new Set([
++  'window', 'aggregate', 'pivot', 'materialize', 'report_generator',
++])
++
++/**
++ * Di quelli, i tre che possono prendere le righe da un dataset di lane
++ * invece che da un arco (prop `dataSource`: 'flow' | 'materialize').
++ * Le chiavi sono identiche nei pannelli e nel motore (spec.str_or).
++ */
++const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
++
+ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
+   const issues: ValidationIssue[] = []
+ 
+@@ -565,11 +582,52 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
+     const canvasId = canvasNodeId(node.id)
+     const preds    = predecessors.get(node.id) ?? []
+ 
+-    if (['aggregate', 'sort', 'window'].includes(node.operation) && preds.length === 0) {
+-      issues.push({
+-        nodeId: canvasId, code: 'DATASET_OP_NO_INPUT',
+-        message: `L'operazione "${node.operation}" richiede dati in ingresso`, severity: 'error',
+-      })
++    // ── Nodi che hanno bisogno di righe da qualche parte ───────────
++    //
++    // Smistava su `node.operation` con la lista ['aggregate','sort','window'].
++    // Tre difetti, tutti dovuti al fatto che l'operazione NON è il tipo:
++    //   · 'aggregate' è prodotta da aggregate, pivot, materialize E
++    //     report_generator → il messaggio diceva «L'operazione "aggregate"
++    //     richiede dati in ingresso» anche stando su un pivot;
++    //   · 'sort' non la produce NESSUN tipo: stringa morta;
++    //   · non guardava `dataSource`, quindi accusava un window che legge
++    //     legittimamente da un materialize senza essere collegato.
++    // È lo stesso errore del `case 'aggregate'` in schemaPropagation: si
++    // smista per TIPO, non per operazione.
++    const uiType = node._uiRef?.type ?? ''
++    const label  = node._uiRef?.label ?? node.id
++
++    if (NEEDS_ROWS.has(uiType)) {
++      // dataSource='materialize' → le righe NON arrivano dall'arco: il nodo
++      // legge un dataset pubblicato da un materialize della lane. L'arco, se
++      // c'è, è solo un innesco e la sua riga viene scartata; se non c'è, il
++      // motore attende la pubblicazione (window.rs: `rx: Option<RowReceiver>`,
++      // "caso 2 — materialize senza trigger"). Vale per window/aggregate/pivot,
++      // le uniche tre che espongono la prop. V. contratto-porte.md R7.
++      const fromDataset = node._uiRef?.props?.['dataSource'] === 'materialize'
++
++      if (!fromDataset && preds.length === 0) {
++        issues.push({
++          nodeId: canvasId, code: 'DATASET_OP_NO_INPUT',
++          message: `Il nodo "${label}" (${uiType}) richiede dati in ingresso`,
++          severity: 'error',
++          hint: DATASET_SOURCED.has(uiType)
++            ? 'Collega un flusso, oppure imposta la sorgente su "Materialize" nel pannello'
++            : 'Collega un flusso in ingresso',
++        })
++      }
++
++      // Sorgente dichiarata ma dataset non scelto: il motore fallirebbe a
++      // runtime («sorgente 'Materialize' senza nome del dataset»). Lo diciamo
++      // prima di eseguire — è il mestiere del pre-compilatore.
++      if (fromDataset && !(node._uiRef?.props?.['materializeName'] ?? '').trim()) {
++        issues.push({
++          nodeId: canvasId, code: 'DATASET_OP_NO_SOURCE',
++          message: `Il nodo "${label}" legge da Materialize ma non ha scelto quale dataset`,
++          severity: 'error',
++          hint: 'Seleziona il dataset nel pannello, alla voce Sorgente',
++        })
++      }
+     }
+ 
+     if (node.operation === 'join' && preds.length < 2) {
