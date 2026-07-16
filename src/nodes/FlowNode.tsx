@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { getNodePorts } from '../utils/schemaRegistry'
+import { isRejectPort } from '../ir/types'
 import { ValidationBadge } from "./ValidationBadge"
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData, NodeStatus } from '../types'
@@ -131,7 +132,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
     id:    p.id,
     label: p.role === 'catch' ? '⚡ catch' : p.label,
     color: p.role === 'catch' ? CATCH_COLOR
-         : p.isReject         ? '#ff5f57'
+         : isRejectPort(p)    ? '#ff5f57'
          : def.color,
   }))
 

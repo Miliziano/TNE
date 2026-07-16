@@ -108,7 +108,7 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
   const base  = resolveStaticPorts(type, props)
 
   const dyn = (id: string, label?: string, isReject = false): PortSpec =>
-    ({ id, label: label ?? id, isReject, role: isReject ? 'reject' : 'data' })
+    ({ id, label: label ?? id, role: isReject ? 'reject' : 'data' })
 
   let ports: { inputs: PortSpec[]; outputs: PortSpec[] } = base
 
@@ -153,7 +153,7 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
   if ((node.data.config?.advanced?.onError ?? 'stop') === 'propagate') {
     ports = {
       ...ports,
-      outputs: [...ports.outputs, { id: 'catch', label: '⚡ catch', isReject: false, role: 'catch' }],
+      outputs: [...ports.outputs, { id: 'catch', label: '⚡ catch', role: 'catch' }],
     }
   }
 

@@ -32,12 +32,12 @@ const tmapLowerer: NodeLowerer = {
   buildOutputPorts(node) {
     const tmap = node.data.config?.tmap as TMapConfig | undefined
     if (!tmap) return [
-      { id: 'output_main',     label: 'main_out', isReject: false },
-      { id: 'output_rejected', label: 'rejected',  isReject: true  },
+      { id: 'output_main',     label: 'main_out', role: 'data'   },
+      { id: 'output_rejected', label: 'rejected',  role: 'reject' },
     ]
-    return tmap.outputs.map((out) => ({
+    return tmap.outputs.map((out): PortSpec => ({
       id: out.id, label: out.label,
-      isReject: out.id === 'output_rejected' || out.label === 'rejected',
+      role: (out.id === 'output_rejected' || out.label === 'rejected') ? 'reject' : 'data',
     }))
   },
   buildExpressions(node) {
@@ -55,12 +55,12 @@ const jsonParserLowerer: NodeLowerer = {
   uiType: 'json_parser',
   buildOutputPorts(node) {
     const cfg = node.data.config?.jsonParser as JsonParserConfig | undefined
-    if (!cfg?.flows?.length) return [{ id: 'output', label: 'output', isReject: false }]
+    if (!cfg?.flows?.length) return [{ id: 'output', label: 'output', role: 'data' }]
     const ports: PortSpec[] = cfg.flows.map((flow) => ({
-      id: flow.id, label: flow.label, isReject: false,
+      id: flow.id, label: flow.label, role: 'data',
       schema: flow.fields.map((f): SchemaField => ({ id: f.id, name: f.name, type: f.type as any })),
     }))
-    if (cfg.hasReject) ports.push({ id: 'reject', label: 'reject', isReject: true })
+    if (cfg.hasReject) ports.push({ id: 'reject', label: 'reject', role: 'reject' })
     return ports
   },
   buildExpressions() { return [] },
@@ -72,12 +72,12 @@ const xmlParserLowerer: NodeLowerer = {
   uiType: 'xml_parser',
   buildOutputPorts(node) {
     const cfg = node.data.config?.xmlParser as XmlParserConfig | undefined
-    if (!cfg?.flows?.length) return [{ id: 'output', label: 'output', isReject: false }]
+    if (!cfg?.flows?.length) return [{ id: 'output', label: 'output', role: 'data' }]
     const ports: PortSpec[] = cfg.flows.map((flow) => ({
-      id: flow.id, label: flow.label, isReject: false,
+      id: flow.id, label: flow.label, role: 'data',
       schema: flow.fields.map((f): SchemaField => ({ id: f.id, name: f.name, type: f.type as any })),
     }))
-    if (cfg.hasReject) ports.push({ id: 'reject', label: 'reject', isReject: true })
+    if (cfg.hasReject) ports.push({ id: 'reject', label: 'reject', role: 'reject' })
     return ports
   },
   buildExpressions() { return [] },
@@ -113,18 +113,18 @@ const filterLowerer: NodeLowerer = {
     if (conditions.length === 0) {
       // Nessuna condizione configurata — porte di default
       return [
-        { id: 'output', label: 'output', isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
+        { id: 'output', label: 'output', role: 'data'   },
+        { id: 'reject', label: 'reject', role: 'reject' },
       ]
     }
 
     return [
-      ...conditions.map((cond) => ({
-        id:       cond.id,
-        label:    cond.label,
-        isReject: false,
+      ...conditions.map((cond): PortSpec => ({
+        id:    cond.id,
+        label: cond.label,
+        role:  'data',
       })),
-      { id: 'reject', label: 'reject', isReject: true },
+      { id: 'reject', label: 'reject', role: 'reject' },
     ]
   },
 
@@ -193,20 +193,20 @@ function buildInputPorts(
 
   if (!semantics.acceptsMultipleInputs) {
     const handle = inEdges[0]?.targetHandle ?? 'input'
-    return [{ id: handle, label: 'input', isReject: false }]
+    return [{ id: handle, label: 'input', role: 'data' }]
   }
 
   const tmap = node.data.config?.tmap as TMapConfig | undefined
   if (tmap?.inputs?.length) {
-    return tmap.inputs.map((inp) => ({
-      id: inp.id, label: inp.label, isReject: false,
+    return tmap.inputs.map((inp): PortSpec => ({
+      id: inp.id, label: inp.label, role: 'data',
     }))
   }
 
-  return inEdges.map((e, idx) => ({
+  return inEdges.map((e, idx): PortSpec => ({
     id:    e.targetHandle ?? `input_${idx}`,
     label: `input_${idx}`,
-    isReject: false,
+    role:  'data',
   }))
 }
 
@@ -260,9 +260,9 @@ export function canvasToIR(
     const onError = (n.data.config?.advanced?.onError) ?? 'stop'
     if (onError === 'propagate') {
       outputPorts.push({
-        id:       'catch',
-        label:    'catch',
-        isReject: true,
+        id:    'catch',
+        label: 'catch',
+        role:  'catch',
         schema: [
           { id: 'catch_error_message',   name: '_error_message',   type: 'string'  as const, physicalName: '_error_message'   },
           { id: 'catch_error_code',      name: '_error_code',      type: 'string'  as const, physicalName: '_error_code'      },

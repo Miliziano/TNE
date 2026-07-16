@@ -101,13 +101,23 @@ export interface RawStringExpr {
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * Ruolo del payload che esce da una porta. Da qui — e SOLO da qui —
+ * Ruolo del payload che porta una porta. Da qui — e SOLO da qui —
  * discende la regola di schema applicata in schemaPropagation:
  *   data   → lo schema in ingresso
  *   signal → SIGNAL_SCHEMA (una riga di stato)
  *   reject → ingresso + campi d'errore
  *   catch  → riga d'errore per l'Error Handler
- * Assente ⇒ 'reject' se isReject, altrimenti 'data'.
+ *
+ * OBBLIGATORIO (P19a). Prima era opzionale e veniva dedotto da un
+ * secondo campo `isReject: boolean` che diceva la stessa cosa: due modi
+ * di dire un fatto solo, popolati in modo diverso (role era dichiarato
+ * su 10 porte su 43 in ingresso e 10 su 50 in uscita, mentre §6 del
+ * contratto dice che è da role che discende la regola di schema).
+ * Ora il fatto sta in un posto solo e il typecheck lo pretende da chi
+ * aggiunge un nodo. `isReject` non si dichiara più: si DERIVA, con
+ * l'helper isRejectPort() qui sotto.
+ *
+ * V. src-tauri/docs/contratto-porte.md §4 e §9.6.
  */
 export type PortRole = 'data' | 'signal' | 'reject' | 'catch'
 
@@ -132,13 +142,24 @@ export interface PortCondition {
   fallback?:  string
 }
 
+/**
+ * `id`    = il nome del filo: deve combaciare con l'handle disegnato e
+ *           con ciò che cerca il motore (take_primary_output prova
+ *           "output" per primo). Id sbagliato = archi scollegati.
+ * `label` = cosa esce (es. id `output`, label `passthrough`).
+ * `role`  = cosa porta la porta. Obbligatorio — v. PortRole.
+ */
 export interface PortSpec {
-  id: string; label: string; isReject: boolean; schema?: SchemaField[]
-  /** Vedi PortRole. Omesso ⇒ dedotto da isReject. */
-  role?: PortRole
+  id: string; label: string; role: PortRole; schema?: SchemaField[]
   /** Omesso ⇒ porta sempre presente. */
   when?: PortCondition
 }
+
+/**
+ * Una porta è di scarto se il suo ruolo lo dice. Un fatto, un posto:
+ * questo sostituisce il vecchio campo dichiarato `isReject`.
+ */
+export const isRejectPort = (p: { role: PortRole }): boolean => p.role === 'reject'
 
 export interface FieldLineageEntry {
   fieldId: string; fieldName: string; sourceNodeId: string

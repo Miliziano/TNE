@@ -178,10 +178,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'python_polars', 'java_beam'],
     // Il DB può ricevere WHERE, SELECT, ORDER BY, LIMIT
@@ -198,10 +198,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -217,11 +217,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
+      { id: 'output', label: 'output', role: 'data' },
+      { id: 'reject', label: 'reject', role: 'reject' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -236,10 +236,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   ['projection', 'limit'],
@@ -254,10 +254,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -272,10 +272,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -290,10 +290,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -307,7 +307,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: true,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts:       [],        // porte dinamiche — gestite dal lowerer
     preferredRuntimes:       ['typescript', 'python_polars'],
@@ -321,10 +321,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'python_polars'],
     pushdownCapable:   ['projection'],
@@ -338,12 +338,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  true,
     staticInputPorts: [
-      { id: 'input_left', label: 'input_left', isReject: false },
-      { id: 'input_right', label: 'input_right', isReject: false },
+      { id: 'input_left', label: 'input_left', role: 'data' },
+      { id: 'input_right', label: 'input_right', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output',          isReject: false },
-      { id: 'reject', label: 'non-matched',     isReject: true  },
+      { id: 'output', label: 'output',          role: 'data' },
+      { id: 'reject', label: 'non-matched',     role: 'reject' },
     ],
     preferredRuntimes: ['python_polars', 'java_beam'],
     pushdownCapable:   [],
@@ -357,10 +357,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['python_polars', 'java_beam'],
     pushdownCapable:   [],
@@ -376,7 +376,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     acceptsMultipleInputs:  true,
     // Porte dinamiche — generate dal Lowerer leggendo TMapConfig
     staticInputPorts: [
-      { id: 'input_main', label: 'input_main', isReject: false },
+      { id: 'input_main', label: 'input_main', role: 'data' },
     ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
@@ -390,7 +390,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
       // Due dichiarazioni per la STESSA porta, mutuamente esclusive: è il
@@ -399,14 +399,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // lane e limitarsi a dare il "via" al nodo dopo. Chi sta a valle deve
       // saperlo PRIMA: da un innesco non arrivano campi, e pretenderli
       // genera falsi allarmi. Stesso vocabolario dei sink (outputMode).
-      { id: 'output', label: 'output', isReject: false, role: 'data',
+      { id: 'output', label: 'output', role: 'data',
         when: { prop: 'outputMode', notEquals: ['signal', 'none'], fallback: 'passthrough' } },
-      { id: 'output', label: 'innesco', isReject: false, role: 'signal',
+      { id: 'output', label: 'innesco', role: 'signal',
         when: { prop: 'outputMode', equals: ['signal'] } },
       // Il reject dello script esiste solo se l'utente lo attiva. Prima
       // era il canvas a saperlo (hasReject cablato in FlowNode) mentre
       // l'IR lo dava per sempre presente: due opinioni sullo stesso nodo.
-      { id: 'reject', label: 'reject', isReject: true, role: 'reject',
+      { id: 'reject', label: 'reject', role: 'reject',
         when: { prop: 'hasReject', equals: ['true'], fallback: 'false' } },
     ],
     // Il runtime dipende dal linguaggio scelto (TypeScript o Java)
@@ -422,7 +422,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: true,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
@@ -436,7 +436,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: true,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript', 'python_polars'],
@@ -454,11 +454,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // Il fallback generico lo trattava come mono-input → badge/porte errati.
     acceptsMultipleInputs:  true,
     staticInputPorts: [
-      { id: 'input_1', label: 'input_1', isReject: false },
-      { id: 'input_2', label: 'input_2', isReject: false },
+      { id: 'input_1', label: 'input_1', role: 'data' },
+      { id: 'input_2', label: 'input_2', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['python_polars', 'typescript'],
     pushdownCapable:   [],
@@ -475,10 +475,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['python_polars', 'java_beam'],
     pushdownCapable:   [],
@@ -496,10 +496,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // Multi-handle: main + flussi aggiuntivi (input_new) annidati master-detail.
     acceptsMultipleInputs:  true,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -513,10 +513,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  true,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -531,11 +531,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
         // Una sorgente PUÒ ricevere: il path del file, la query da
         // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
         // mai stato verificato.
-        { id: 'input', label: 'input', isReject: false, role: 'data' },
+        { id: 'input', label: 'input', role: 'data' },
       ],
       staticOutputPorts: [
-        { id: 'output', label: 'output', isReject: false },
-        { id: 'reject', label: 'reject', isReject: true  },
+        { id: 'output', label: 'output', role: 'data' },
+        { id: 'reject', label: 'reject', role: 'reject' },
       ],
       preferredRuntimes: ['typescript'],
       pushdownCapable:   [],
@@ -554,10 +554,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false, role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'python_polars', 'python_pandas', 'java_beam'],
     pushdownCapable:   [],
@@ -570,10 +570,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['python_polars', 'typescript'],
     pushdownCapable:   [],
@@ -586,11 +586,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
+      { id: 'output', label: 'output', role: 'data' },
+      { id: 'reject', label: 'reject', role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -606,11 +606,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
+      { id: 'output', label: 'output', role: 'data' },
+      { id: 'reject', label: 'reject', role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -623,10 +623,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'passthrough', isReject: false },
+      { id: 'output', label: 'passthrough', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -642,10 +642,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', isReject: false, role: 'data' },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -658,10 +658,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'passthrough', isReject: false },
+      { id: 'output', label: 'passthrough', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -674,11 +674,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'report', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
+      { id: 'output', label: 'report', role: 'data' },
+      { id: 'reject', label: 'reject', role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -691,11 +691,11 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'rows',   isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
+      { id: 'output', label: 'rows',   role: 'data' },
+      { id: 'reject', label: 'reject', role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -712,10 +712,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'python_polars'],
     pushdownCapable:   [],
@@ -727,10 +727,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -742,10 +742,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -757,14 +757,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
-      { id: 'reject',      label: 'reject',      isReject: true  },
+      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -780,7 +780,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts:       [],           // nessuna uscita verso altri nodi della stessa lane
     preferredRuntimes:       ['typescript', 'java_beam'],
@@ -795,7 +795,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     acceptsMultipleInputs:   false,
     staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -808,15 +808,15 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
       // I sink hanno una porta output opzionale per il passthrough
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
-      { id: 'reject',      label: 'reject',      isReject: true  },
+      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -829,14 +829,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
-      { id: 'reject',      label: 'reject',      isReject: true  },
+      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'python_polars'],
     pushdownCapable:   [],
@@ -849,14 +849,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
-      { id: 'reject',      label: 'reject',      isReject: true  },
+      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -869,14 +869,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     acceptsMultipleInputs:  false,
     // come gli altri sink: porta passthrough opzionale  reject
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', isReject: false, role: 'data' },
-      { id: 'reject',      label: 'reject',      isReject: true  },
+      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -889,7 +889,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     acceptsMultipleInputs:  false,
     // terminale: consuma e risponde, nessun output a valle
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript'],
@@ -905,10 +905,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // riceve i catch da molti nodi della lane
     acceptsMultipleInputs:  true,
     staticInputPorts: [
-      { id: 'catch', label: 'catch', isReject: false },
+      { id: 'catch', label: 'catch', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'error_out', label: 'error', isReject: false },
+      { id: 'error_out', label: 'error', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -927,7 +927,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // Il marcatore di avvio non emette righe: emette il "via". Chi lo
       // riceve NON deve aspettarsi campi — è la differenza fra un arco
       // di innesco e un arco di dati (vedi PortRole).
-      { id: 'output', label: 'start', isReject: false, role: 'signal' },
+      { id: 'output', label: 'start', role: 'signal' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -940,7 +940,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts:      [],
     preferredRuntimes: ['typescript'],
@@ -993,10 +993,10 @@ export function getNodeSemantics(uiType: string): NodeSemantics {
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
     staticInputPorts: [
-      { id: 'input', label: 'input', isReject: false },
+      { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],

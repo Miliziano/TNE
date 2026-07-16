@@ -34,6 +34,7 @@ import type {
   PortSpec,
   ValidationIssue,
 } from './types'
+import { isRejectPort } from './types'
 import { topologicalSort, canvasNodeId } from './lowering'
 import { getNodeSemantics } from './nodeSemantics'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
@@ -293,7 +294,7 @@ function buildOutputPortSchemas(
   const tmap = config?.tmap as TMapConfig | undefined
   if (tmap?.outputs?.length && node.outputs.length > 0) {
     node.outputs.forEach((port) => {
-      if (port.isReject) {
+      if (isRejectPort(port)) {
         result.set(port.id, inputSchema)
         return
       }
@@ -349,7 +350,7 @@ function buildOutputPortSchemas(
   // ── Nodo generico: schema unico su tutte le porte output ─────
   const defaultSchema = inferOutputSchema(node, inputSchema)
   node.outputs.forEach((port) => {
-    result.set(port.id, port.isReject ? [] : defaultSchema)
+    result.set(port.id, isRejectPort(port) ? [] : defaultSchema)
   })
 
   return result
@@ -449,7 +450,7 @@ export function propagateSchema(plan: LogicalPlan): PropagationResult {
     let outputSchema: SchemaField[] = []
     portSchemas.forEach((schema, portId) => {
       const port = current.outputs.find((p) => p.id === portId)
-      if (!port?.isReject) {
+      if (port && !isRejectPort(port)) {
         outputSchema = mergeSchemas(outputSchema, schema)
       }
     })
