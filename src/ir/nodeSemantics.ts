@@ -358,8 +358,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       { id: 'input', label: 'input', isReject: false },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
+      { id: 'output', label: 'output', isReject: false, role: 'data' },
+      // Il reject dello script esiste solo se l'utente lo attiva. Prima
+      // era il canvas a saperlo (hasReject cablato in FlowNode) mentre
+      // l'IR lo dava per sempre presente: due opinioni sullo stesso nodo.
+      { id: 'reject', label: 'reject', isReject: true, role: 'reject',
+        when: { prop: 'hasReject', equals: ['true'], fallback: 'false' } },
     ],
     // Il runtime dipende dal linguaggio scelto (TypeScript o Java)
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -894,6 +898,34 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
  * Se il tipo non è registrato, restituisce una semantica generica
  * di tipo 'transform' per non bloccare il compilatore.
  */
+/**
+ * Una porta con `when` esiste solo se la configurazione lo dice.
+ * È l'unico posto in cui quella condizione si valuta: prima era cablata
+ * nei consumatori (FlowNode calcolava hasCatch/hasReject per conto suo,
+ * il lowering faceva il suo controllo su onError) e le due opinioni
+ * potevano divergere — e divergevano.
+ */
+export function portApplies(port: PortSpec, props: Record<string, unknown> | undefined): boolean {
+  const w = port.when
+  if (!w) return true
+  const value = String(props?.[w.prop] ?? w.fallback ?? '')
+  if (w.equals    && !w.equals.includes(value))    return false
+  if (w.notEquals &&  w.notEquals.includes(value)) return false
+  return true
+}
+
+/** Porte statiche di un nodo, con le condizioni già applicate. */
+export function resolveStaticPorts(
+  uiType: string,
+  props:  Record<string, unknown> | undefined,
+): { inputs: PortSpec[]; outputs: PortSpec[] } {
+  const s = getNodeSemantics(uiType)
+  return {
+    inputs:  s.staticInputPorts.filter((p) => portApplies(p, props)),
+    outputs: s.staticOutputPorts.filter((p) => portApplies(p, props)),
+  }
+}
+
 export function getNodeSemantics(uiType: string): NodeSemantics {
   return NODE_SEMANTICS[uiType] ?? {
     uiType,

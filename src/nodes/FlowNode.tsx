@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { getNodePorts } from '../utils/schemaRegistry'
 import { ValidationBadge } from "./ValidationBadge"
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData, NodeStatus } from '../types'
@@ -115,20 +116,24 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
   })()
   const txColor = txConfig?.mode === 'xa' ? '#ffb347' : '#3ddc84'
 
-  // ── onError: propagate → mostra handle catch ──────────────────
+  // ── onError: propagate → badge catch ──────────────────────────
   const onError    = (nodeData.config?.advanced?.onError) ?? 'stop'
   const hasCatch   = onError === 'propagate'
 
-  // Script con reject attivo
-  const hasReject  = nodeData.type === 'script' && nodeData.props?.['hasReject'] === 'true'
-
-  // Calcola posizione verticale handle output/catch/reject
-  // Se ci sono più handle uscita, li distribuiamo verticalmente
-  const outputHandles = [
-    { id: 'output', show: true,      color: def.color,    top: '50%', label: 'output' },
-    { id: 'catch',  show: hasCatch,  color: CATCH_COLOR,  top: null,  label: '⚡ catch' },
-    { id: 'reject', show: hasReject, color: '#ff5f57',    top: null,  label: 'reject' },
-  ].filter((h) => h.show)
+  // ── Handle di uscita ──────────────────────────────────────────
+  // Qui c'era `{ id: 'output', show: true, ... }`: il canvas disegnava
+  // un'uscita su OGNI nodo, sempre, senza chiedere a nessuno. Da un
+  // bridge_out o da un sink si poteva così tirare un arco che l'IR non
+  // conosceva e il motore non percorreva: a valle non arrivava niente,
+  // in silenzio. Ora le porte le dichiara il contratto e qui non si
+  // decide più nulla — catch e reject condizionale compresi.
+  const outputHandles = getNodePorts({ data: nodeData }).outputs.map((p) => ({
+    id:    p.id,
+    label: p.role === 'catch' ? '⚡ catch' : p.label,
+    color: p.role === 'catch' ? CATCH_COLOR
+         : p.isReject         ? '#ff5f57'
+         : def.color,
+  }))
 
   // Distribuisce gli handle visibili verticalmente
   const visibleCount = outputHandles.length

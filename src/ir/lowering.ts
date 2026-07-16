@@ -8,7 +8,7 @@ import type {
   LogicalPlan, LogicalNode, LogicalEdge,
   PortSpec, SchemaField, ExprNode, RawStringExpr,
 } from './types'
-import { getNodeSemantics } from './nodeSemantics'
+import { resolveStaticPorts, getNodeSemantics } from './nodeSemantics'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
 import type { XmlParserConfig  } from '../nodes/types/xml_parser/xmlParserTypes'
 
@@ -87,11 +87,12 @@ const xmlParserLowerer: NodeLowerer = {
 
 const scriptLowerer: NodeLowerer = {
   uiType: 'script',
-  buildOutputPorts() {
-    return [
-      { id: 'output', label: 'output', isReject: false },
-      { id: 'reject', label: 'reject', isReject: true  },
-    ]
+  buildOutputPorts(node) {
+    // Le porte le dichiara il contratto, reject condizionale compreso.
+    // Prima erano ricopiate qui e il reject risultava SEMPRE presente,
+    // mentre il canvas lo mostrava solo con hasReject: due opinioni sullo
+    // stesso nodo, e l'IR validava un grafo che l'utente non vedeva.
+    return resolveStaticPorts(node.data.type, node.data.props).outputs
   },
   buildExpressions(node) {
     const code = node.data.props['code']

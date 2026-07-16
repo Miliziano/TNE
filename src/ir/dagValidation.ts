@@ -293,11 +293,11 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
 // Qui confrontiamo gli archi con le porte DICHIARATE (node.outputs, che
 // il lowering costruisce dal contratto in nodeSemantics, catch incluso).
 //
-// severity 'warning' e non 'error' di proposito, per ora: finché il
-// canvas continua a disegnare handle fantasma, bloccare un flusso già
-// disegnato sarebbe punirlo per un difetto nostro. Diventerà 'error'
-// quando FlowNode leggerà le porte dal contratto e quegli archi non si
-// potranno più creare.
+// Era 'warning' finché il canvas disegnava handle fantasma: bloccare un
+// flusso allora sarebbe stato punirlo per un difetto nostro. Ora FlowNode
+// legge le porte dal contratto e un arco così non si può più creare — se
+// esiste, viene da un file salvato prima e a runtime non porta niente.
+// Dirlo prima del Run è il minimo: 'error'.
 function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const byId = new Map(plan.nodes.map((n) => [n.id, n]))
@@ -319,7 +319,7 @@ function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
       message:  ports.length === 0
         ? `"${label}" non ha porte di uscita, ma un arco lo collega a "${tgtLabel}"`
         : `"${label}": l'arco verso "${tgtLabel}" parte dalla porta "${edge.sourcePort}", che il nodo non dichiara`,
-      severity: 'warning',
+      severity: 'error',
       hint:     ports.length === 0
         ? `${src._uiRef?.type ?? 'Il nodo'} consuma il flusso e non emette nulla verso la lane: a runtime "${tgtLabel}" non riceve righe. Scollega l'arco.`
         : `Porte dichiarate: ${ports.join(', ')}. L'arco è rimasto attaccato a una porta che non esiste più.`,

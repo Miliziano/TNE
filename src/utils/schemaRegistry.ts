@@ -22,7 +22,8 @@
  */
 
 import type { Edge } from '@xyflow/react'
-import { getNodeSemantics } from '../ir/nodeSemantics'
+import { resolveStaticPorts } from '../ir/nodeSemantics'
+import type { PortSpec } from '../ir/types'
 import type { TMapConfig, TMapInputField, TMapOutputField, FieldRenameEntry } from '../types'
 import type { StoreSnapshot } from './schemaUtils'
 
@@ -90,51 +91,81 @@ export function renameField(field: SchemaFieldDef, newName: string): SchemaField
 }
 
 
-export function getNodeHandles(node: { data: any }): NodeHandleDefs {
-  // Le porte le dichiara il CONTRATTO (src/ir/nodeSemantics). Qui c'era una
-  // seconda mappa, STATIC_NODE_HANDLES, che diceva la sua su 16 tipi su 43:
-  // due elenchi della stessa cosa divergono, e nessuno se ne accorge finché
-  // qualcosa non si scollega. Lo `switch` qui sotto resta: è il resolver
-  // delle porte DINAMICHE (tmap, filter, i due parser), quelle che il
-  // contratto dichiara come tali con producesMultipleOutputs.
-  const semantics = getNodeSemantics(node.data.type)
-  const fallback: NodeHandleDefs = {
-    inputs:  semantics.staticInputPorts.map((p) => p.id),
-    outputs: semantics.staticOutputPorts.map((p) => p.id),
-  }
+/**
+ * Porte di un nodo, complete: id, etichetta, ruolo, isReject.
+ * FONTE UNICA per il canvas (FlowNode), per la propagazione e per chi
+ * deve sapere quali handle esistono davvero.
+ *
+ * Tre pezzi, in quest'ordine:
+ *   1. le porte STATICHE dal contratto, con le condizioni `when` applicate
+ *   2. le porte DINAMICHE, per i 4 tipi che il contratto dichiara tali
+ *      (producesMultipleOutputs): tmap, filter, json_parser, xml_parser
+ *   3. il `catch`, che è universale e condizionato da onError
+ */
+export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs: PortSpec[] } {
+  const type  = node.data.type
+  const props = node.data.props as Record<string, unknown> | undefined
+  const base  = resolveStaticPorts(type, props)
 
-  switch (node.data.type) {
+  const dyn = (id: string, label?: string, isReject = false): PortSpec =>
+    ({ id, label: label ?? id, isReject, role: isReject ? 'reject' : 'data' })
+
+  let ports: { inputs: PortSpec[]; outputs: PortSpec[] } = base
+
+  switch (type) {
     case 'tmap': {
       const tmap = node.data.config?.tmap as TMapConfig | undefined
-      if (!tmap) return fallback
-      return {
-        inputs:  tmap.inputs.map((i) => i.id),
-        outputs: tmap.outputs.map((o) => o.id),
+      if (tmap) {
+        ports = {
+          inputs:  tmap.inputs.map((i: any)  => dyn(i.id, i.name)),
+          outputs: tmap.outputs.map((o: any) => dyn(o.id, o.name, o.id === 'rejected')),
+        }
       }
+      break
     }
-    case 'union':
-      return fallback
     case 'filter': {
-      const rules = (node.data.config as any)?.filterRules as Array<{ id: string }> | undefined
+      const rules = (node.data.config as any)?.filterRules as Array<{ id: string; name?: string }> | undefined
       if (rules?.length) {
-        return { inputs: ['input'], outputs: [...rules.map((r) => r.id), 'default'] }
+        ports = {
+          inputs:  [dyn('input')],
+          outputs: [...rules.map((r) => dyn(r.id, r.name)), dyn('default')],
+        }
       }
-      return fallback
+      break
     }
     case 'json_parser':
     case 'xml_parser': {
-      const cfgKey = node.data.type === 'json_parser' ? 'jsonParser' : 'xmlParser'
-      const cfg = (node.data.config as any)?.[cfgKey]
-      const flows = cfg?.flows as Array<{ id: string }> | undefined
+      const cfgKey = type === 'json_parser' ? 'jsonParser' : 'xmlParser'
+      const flows  = (node.data.config as any)?.[cfgKey]?.flows as Array<{ id: string; name?: string }> | undefined
       if (flows?.length) {
-        return { inputs: ['input'], outputs: [...flows.map((f) => f.id), 'reject'] }
+        ports = {
+          inputs:  [dyn('input')],
+          outputs: [...flows.map((f) => dyn(f.id, f.name)), dyn('reject', 'reject', true)],
+        }
       }
-      return fallback
+      break
     }
-    default:
-      return fallback
   }
+
+  // Il catch non appartiene a un tipo: appartiene alla gestione errori, e
+  // vale per qualunque nodo con onError='propagate'. Prima lo calcolavano
+  // FlowNode e il lowering, ciascuno per conto proprio.
+  if ((node.data.config?.advanced?.onError ?? 'stop') === 'propagate') {
+    ports = {
+      ...ports,
+      outputs: [...ports.outputs, { id: 'catch', label: '⚡ catch', isReject: false, role: 'catch' }],
+    }
+  }
+
+  return ports
 }
+
+/** Vista per id — comodità per chi non ha bisogno di etichette e ruoli. */
+export function getNodeHandles(node: { data: any }): NodeHandleDefs {
+  const p = getNodePorts(node)
+  return { inputs: p.inputs.map((x) => x.id), outputs: p.outputs.map((x) => x.id) }
+}
+
 
 export function getHandleSchema(
   node:     { id: string; data: any },
