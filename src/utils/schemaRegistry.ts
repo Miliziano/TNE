@@ -142,6 +142,19 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
       break
     }
 
+    case 'json_serializer':
+    case 'xml_serializer': {
+      // Prima qui non c'era NIENTE: il contratto dichiarava un ingresso solo
+      // e il componente ne disegnava N, uno per arco. Il resolver non poteva
+      // dire il vero perché riceve il nodo e non gli archi — ed è esattamente
+      // per questo che le porte derivate dagli archi stanno fuori dal modello.
+      // Ora gli ingressi sono dichiarati in config.serializerInputs (li scrive
+      // connectionResolver, come per la union) e da qui si leggono.
+      const ser = (node.data.config as any)?.serializerInputs as Array<{ id: string; label?: string }> | undefined
+      if (ser?.length) ports = { ...ports, inputs: ser.map((i) => dyn(i.id, i.label)) }
+      break
+    }
+
     case 'union': {
       // main + N flussi dinamici, come li crea connectionResolver e come li
       // salva config.unionInputs. Il contratto dichiara la sola porta statica

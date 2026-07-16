@@ -6,6 +6,13 @@ import type { Node as FlowNode, Edge, Connection } from '@xyflow/react'
 import type { NodeData, TMapConfig, TMapInput, TMapInputField } from '../types'
 import { inferSchema, mergeSchema } from '../nodes/schemaInference'
 
+/** Ingresso dinamico dichiarato: id + etichetta + colore. NIENTE schema
+ *  qui dentro — lo schema si deriva, non si copia (era la trappola di
+ *  `SerInput`, che portava anche i `fields`). */
+export interface SerializerInput { id: string; label: string; color: string }
+
+const SERIALIZER_FLOW_COLORS = ['#4ec9b0', '#569cd6', '#c586c0', '#dcdcaa', '#ce9178', '#9cdcfe']
+
 const UNION_FLOW_COLORS = [
   '#a78bfa', '#4a9eff', '#3ddc84', '#ffb347',
   '#22d3ee', '#f97316', '#ff5f57', '#84cc16',
@@ -22,6 +29,17 @@ export interface ConnectionResolution {
     updateInput?: { inputId: string; fields: TMapInputField[] }
   }
   unionUpdate?: {
+    targetNodeId: string
+    newInputId:   string
+    newInputs:    Array<{ id: string; label: string; color: string }>
+  }
+  /**
+   * Stessa forma di unionUpdate, e non per pigrizia: union e serializer sono
+   * gli unici due nodi con ingressi dinamici dichiarati (acceptsDynamicInputs),
+   * e finora avevano due meccaniche diverse — la union scriveva la propria
+   * config, il serializer contava gli archi. Un pattern, non due.
+   */
+  serializerUpdate?: {
     targetNodeId: string
     newInputId:   string
     newInputs:    Array<{ id: string; label: string; color: string }>
@@ -350,19 +368,32 @@ export function resolveSerializerConnection(
   if (alreadyConnected)
     return { valid: false, rejectionReason: 'Questo flusso è già collegato al serializer', resolvedTargetHandle: '' }
 
-  // Conta ingressi esistenti
-  const existingInputs = edges.filter((e) => e.target === tgt.id)
-  const nextIdx        = existingInputs.length + 1
-  const handle         = nextIdx === 1 ? 'input' : `input_${nextIdx}`
+  // Le porte NASCEVANO qui, contando gli archi: `existingInputs.length + 1`.
+  // Era la dipendenza invertita — l'arco creava la porta invece di attaccarsi
+  // a una porta. La prova meccanica: `getNodePorts(node)` riceve solo il nodo,
+  // NON gli archi, quindi il resolver delle porte non poteva nemmeno esprimere
+  // questo comportamento. Ora la porta si DICHIARA in config, come per la
+  // union, e l'arco ci si attacca. V. contratto-porte.md §1 e §9.3.
+  const declared = (tgt.data.config as any)?.serializerInputs as SerializerInput[] | undefined ?? []
 
-  const srcLabel = connection.sourceHandle
-    ? `flusso ${nextIdx}`
-    : `ingresso ${nextIdx}`
+  // Primo id libero della serie storica ('input', 'input_2', 'input_3'…).
+  // Contare gli archi collideva dopo una cancellazione: tolto `input_2`, il
+  // successivo tornava `input_2` e si sovrapponeva a un `input_3` vivo.
+  // Qui si guarda cosa è DICHIARATO, quindi i buchi si riempiono e basta.
+  const taken = new Set(declared.map((i) => i.id))
+  let idx = 1
+  let handle = 'input'
+  while (taken.has(handle)) { idx += 1; handle = `input_${idx}` }
+
+  const color     = SERIALIZER_FLOW_COLORS[(idx - 1) % SERIALIZER_FLOW_COLORS.length]
+  const label     = `flusso ${idx}`
+  const newInputs = [...declared, { id: handle, label, color }]
 
   return {
     valid:                true,
     resolvedTargetHandle: handle,
-    edgeLabel:            existingInputs.length === 0 ? undefined : srcLabel,
+    edgeLabel:            idx === 1 ? undefined : label,
+    serializerUpdate: { targetNodeId: tgt.id, newInputId: handle, newInputs },
   }
 }
 

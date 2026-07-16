@@ -1,0 +1,357 @@
+diff --git a/src/components/LaneCanvas.tsx b/src/components/LaneCanvas.tsx
+index 26992df..cb29a0f 100644
+--- a/src/components/LaneCanvas.tsx
++++ b/src/components/LaneCanvas.tsx
+@@ -412,6 +412,19 @@ function LaneFlow({ lane }: { lane: Lane }) {
+           }
+           setTimeout(() => propagateUnionSchema(tgt.id, useFlowStore.getState()), 50)
+         }
++        // Un ingresso dichiarato senza più il suo arco è una porta fantasma:
++        // con le porte derivate dagli archi spariva da sola, ora va tolta a
++        // mano. È il prezzo di dichiararle, ed è lo stesso che paga la union.
++        if (tgt.data.type === 'json_serializer' || tgt.data.type === 'xml_serializer') {
++          const config   = (tgt.data.config as any) ?? {}
++          const declared = (config.serializerInputs ?? []) as Array<{ id: string }>
++          if (edge.targetHandle && declared.some((i) => i.id === edge.targetHandle)) {
++            useFlowStore.getState().updateNodeConfig(tgt.id, {
++              ...config,
++              serializerInputs: declared.filter((i) => i.id !== edge.targetHandle),
++            })
++          }
++        }
+         if (tgt.data.type === 'source_file' || tgt.data.type === 'sink_file') {
+           useFlowStore.getState().updateNodeProp(tgt.id, 'outputSchema', '')
+         }
+@@ -477,6 +490,26 @@ function LaneFlow({ lane }: { lane: Lane }) {
+       })
+     }
+ 
++    // ── Aggiornamenti strutturali Serializer — stessa meccanica della Union.
++    // Prima non esisteva: le porte del serializer nascevano contando gli archi
++    // e in config non finiva niente. V. contratto-porte.md §9.3.
++    if (resolution.serializerUpdate) {
++      const { targetNodeId, newInputs } = resolution.serializerUpdate
++      flushSync(() => {
++        useFlowStore.setState((s) => ({
++          nodes: updateNode(s.nodes, targetNodeId, (n) => ({
++            ...n,
++            data: { ...n.data, config: { ...n.data.config, serializerInputs: newInputs } },
++          })),
++        }))
++        setNodes((nds) => nds.map((n) =>
++          n.id === targetNodeId
++            ? { ...n, data: { ...n.data, config: { ...n.data.config, serializerInputs: newInputs } } }
++            : n
++        ))
++      })
++    }
++
+     // ── Aggiornamenti strutturali TMap — aggiunge/aggiorna input, non schema
+     if (resolution.tmapUpdate) {
+       const { targetNodeId, newInput, updateInput } = resolution.tmapUpdate
+diff --git a/src/ir/connectionResolver.ts b/src/ir/connectionResolver.ts
+index 9406317..35f2c43 100644
+--- a/src/ir/connectionResolver.ts
++++ b/src/ir/connectionResolver.ts
+@@ -6,6 +6,13 @@ import type { Node as FlowNode, Edge, Connection } from '@xyflow/react'
+ import type { NodeData, TMapConfig, TMapInput, TMapInputField } from '../types'
+ import { inferSchema, mergeSchema } from '../nodes/schemaInference'
+ 
++/** Ingresso dinamico dichiarato: id + etichetta + colore. NIENTE schema
++ *  qui dentro — lo schema si deriva, non si copia (era la trappola di
++ *  `SerInput`, che portava anche i `fields`). */
++export interface SerializerInput { id: string; label: string; color: string }
++
++const SERIALIZER_FLOW_COLORS = ['#4ec9b0', '#569cd6', '#c586c0', '#dcdcaa', '#ce9178', '#9cdcfe']
++
+ const UNION_FLOW_COLORS = [
+   '#a78bfa', '#4a9eff', '#3ddc84', '#ffb347',
+   '#22d3ee', '#f97316', '#ff5f57', '#84cc16',
+@@ -26,6 +33,17 @@ export interface ConnectionResolution {
+     newInputId:   string
+     newInputs:    Array<{ id: string; label: string; color: string }>
+   }
++  /**
++   * Stessa forma di unionUpdate, e non per pigrizia: union e serializer sono
++   * gli unici due nodi con ingressi dinamici dichiarati (acceptsDynamicInputs),
++   * e finora avevano due meccaniche diverse — la union scriveva la propria
++   * config, il serializer contava gli archi. Un pattern, non due.
++   */
++  serializerUpdate?: {
++    targetNodeId: string
++    newInputId:   string
++    newInputs:    Array<{ id: string; label: string; color: string }>
++  }
+ }
+ 
+ const NO_OUTPUT    = new Set<string>()
+@@ -350,19 +368,32 @@ export function resolveSerializerConnection(
+   if (alreadyConnected)
+     return { valid: false, rejectionReason: 'Questo flusso è già collegato al serializer', resolvedTargetHandle: '' }
+ 
+-  // Conta ingressi esistenti
+-  const existingInputs = edges.filter((e) => e.target === tgt.id)
+-  const nextIdx        = existingInputs.length + 1
+-  const handle         = nextIdx === 1 ? 'input' : `input_${nextIdx}`
+-
+-  const srcLabel = connection.sourceHandle
+-    ? `flusso ${nextIdx}`
+-    : `ingresso ${nextIdx}`
++  // Le porte NASCEVANO qui, contando gli archi: `existingInputs.length + 1`.
++  // Era la dipendenza invertita — l'arco creava la porta invece di attaccarsi
++  // a una porta. La prova meccanica: `getNodePorts(node)` riceve solo il nodo,
++  // NON gli archi, quindi il resolver delle porte non poteva nemmeno esprimere
++  // questo comportamento. Ora la porta si DICHIARA in config, come per la
++  // union, e l'arco ci si attacca. V. contratto-porte.md §1 e §9.3.
++  const declared = (tgt.data.config as any)?.serializerInputs as SerializerInput[] | undefined ?? []
++
++  // Primo id libero della serie storica ('input', 'input_2', 'input_3'…).
++  // Contare gli archi collideva dopo una cancellazione: tolto `input_2`, il
++  // successivo tornava `input_2` e si sovrapponeva a un `input_3` vivo.
++  // Qui si guarda cosa è DICHIARATO, quindi i buchi si riempiono e basta.
++  const taken = new Set(declared.map((i) => i.id))
++  let idx = 1
++  let handle = 'input'
++  while (taken.has(handle)) { idx += 1; handle = `input_${idx}` }
++
++  const color     = SERIALIZER_FLOW_COLORS[(idx - 1) % SERIALIZER_FLOW_COLORS.length]
++  const label     = `flusso ${idx}`
++  const newInputs = [...declared, { id: handle, label, color }]
+ 
+   return {
+     valid:                true,
+     resolvedTargetHandle: handle,
+-    edgeLabel:            existingInputs.length === 0 ? undefined : srcLabel,
++    edgeLabel:            idx === 1 ? undefined : label,
++    serializerUpdate: { targetNodeId: tgt.id, newInputId: handle, newInputs },
+   }
+ }
+ 
+diff --git a/src/nodes/JsonSerializerNode.tsx b/src/nodes/JsonSerializerNode.tsx
+index 89225cf..b49daed 100644
+--- a/src/nodes/JsonSerializerNode.tsx
++++ b/src/nodes/JsonSerializerNode.tsx
+@@ -4,6 +4,7 @@
+  */
+ import { memo, useCallback, useState } from 'react'
+ import { ValidationBadge } from "./ValidationBadge"
++import { getNodePorts } from '../utils/schemaRegistry'
+ import { Handle, Position, type NodeProps } from '@xyflow/react'
+ import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
+ import type { NodeData } from '../types'
+@@ -18,7 +19,6 @@ const FLOW_COLORS = ['#22d3ee','#3ddc84','#ffb347','#a78bfa','#f472b6','#84cc16'
+ export const JsonSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+   const nodeData   = data as NodeData
+   const selectNode = useFlowStore((s) => s.selectNode)
+-  const edges      = useFlowStore((s) => s.edges)
+   const [showModal, setShowModal] = useState(false)
+ 
+   const handleClick       = useCallback(() => selectNode(id), [id, selectNode])
+@@ -28,14 +28,17 @@ export const JsonSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+     setShowModal(true)
+   }, [])
+ 
+-  // Legge gli input dal config (salvati da onConnect in LaneCanvas)
+-  const serConfig = (nodeData.config as any)?.jsonSerializer ?? {}
+-  const configInputs: Array<{ id: string; label: string }> = Object.entries(serConfig.inputs ?? {}).map(([id, v]: any) => ({ id, label: v.label ?? id }))
+-
+-  // Ingressi dagli edge (per gli handle visivi)
+-  const incomingEdges = edges.filter((e) => e.target === id)
+-
+-  const minHandles = Math.max(incomingEdges.length, 1)
++  // Gli ingressi DICHIARATI: li scrive connectionResolver alla connessione e
++  // li ripulisce LaneCanvas alla cancellazione, come per la union.
++  // NB il commento qui sopra diceva "salvati da onConnect in LaneCanvas" e
++  // `configInputs` leggeva `jsonSerializer.inputs`: onConnect non salvava
++  // NULLA per i serializer e quella mappa non l'ha mai scritta nessuno —
++  // variabile morta sotto un commento che descriveva un meccanismo mai
++  // costruito. Ora esiste davvero. V. contratto-porte.md §9.3.
++  const declaredInputs = ((nodeData.config as any)?.serializerInputs ?? []) as Array<{ id: string; label: string; color: string }>
++  const inputPorts     = getNodePorts({ data: nodeData }).inputs
++
++  const minHandles = Math.max(inputPorts.length, 1)
+   const minHeight  = Math.max(100, minHandles * 28 + 60)
+   const displayName = String(nodeData.config?.displayName ?? 'JSON Serializer')
+   const outputField = String((nodeData.config as any)?.outputField ?? 'content')
+@@ -72,23 +75,21 @@ export const JsonSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+       </div>
+ 
+       {/* ── Handle ingressi — uno per ogni edge ── */}
+-      {incomingEdges.length === 0 ? (
+-        <Handle id="input" type="target" position={Position.Left}
+-          style={{ top: '50%', background: '#4a5a7a', border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }} />
+-      ) : (
+-        incomingEdges.map((edge, idx) => {
+-          const handle = edge.targetHandle ?? 'input'
+-          const total  = incomingEdges.length
+-          const pct    = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
+-          const color  = FLOW_COLORS[idx % FLOW_COLORS.length]
+-          const label  = (serConfig.inputs?.[handle] as any)?.label ?? handle
+-          return (
+-            <Handle key={handle} id={handle} type="target" position={Position.Left}
+-              style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
+-              title={label} />
+-          )
+-        })
+-      )}
++      {/* Ingressi — dal contratto (getNodePorts), non dagli archi.
++          Prima l'arco CREAVA la porta: `incomingEdges.map(...)`. Il colore
++          resta qui perché è presentazione, ma si prende per ID dal flusso
++          dichiarato, così non balla quando cambia l'ordine degli archi. */}
++      {inputPorts.map((port, idx) => {
++        const total = inputPorts.length
++        const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
++        const color = declaredInputs.find((i) => i.id === port.id)?.color
++                      ?? (total === 1 ? '#4a5a7a' : FLOW_COLORS[idx % FLOW_COLORS.length])
++        return (
++          <Handle key={port.id} id={port.id} type="target" position={Position.Left}
++            style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
++            title={port.label} />
++        )
++      })}
+ 
+       {/* ── Handle di servizio — identico a TMapNode ── */}
+       <Handle id="input_new" type="target" position={Position.Left}
+@@ -113,17 +114,15 @@ export const JsonSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+ 
+       {/* ── Body ── */}
+       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+-        {incomingEdges.length === 0 ? (
++        {declaredInputs.length === 0 ? (
+           <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>Collega un flusso</div>
+         ) : (
+-          incomingEdges.map((edge, idx) => {
+-            const handle = edge.targetHandle ?? 'input'
+-            const color  = FLOW_COLORS[idx % FLOW_COLORS.length]
+-            const label  = (serConfig.inputs?.[handle] as any)?.label ?? handle
++          declaredInputs.map((inp, idx) => {
++            const color = inp.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
+             return (
+-              <div key={handle} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
++              <div key={inp.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+-                <span style={{ fontSize: 10, fontFamily: 'monospace', color, flex: 1 }}>{label}</span>
++                <span style={{ fontSize: 10, fontFamily: 'monospace', color, flex: 1 }}>{inp.label}</span>
+               </div>
+             )
+           })
+diff --git a/src/nodes/XmlSerializerNode.tsx b/src/nodes/XmlSerializerNode.tsx
+index 1768ba0..e6accf6 100644
+--- a/src/nodes/XmlSerializerNode.tsx
++++ b/src/nodes/XmlSerializerNode.tsx
+@@ -4,6 +4,7 @@
+  */
+ import { memo, useCallback, useState } from 'react'
+ import { ValidationBadge, type UIState } from "./ValidationBadge"
++import { getNodePorts } from '../utils/schemaRegistry'
+ import { Handle, Position, type NodeProps } from '@xyflow/react'
+ import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
+ import type { NodeData } from '../types'
+@@ -18,7 +19,6 @@ const FLOW_COLORS = ['#f97316','#3ddc84','#ffb347','#a78bfa','#f472b6','#84cc16'
+ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+   const nodeData   = data as NodeData
+   const selectNode = useFlowStore((s) => s.selectNode)
+-  const edges      = useFlowStore((s) => s.edges)
+   const [showModal, setShowModal] = useState(false)
+ 
+   const handleClick       = useCallback(() => selectNode(id), [id, selectNode])
+@@ -26,9 +26,10 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+     e.stopPropagation(); setShowModal(true)
+   }, [])
+ 
+-  const serConfig     = (nodeData.config as any)?.xmlSerializer ?? {}
+-  const incomingEdges = edges.filter((e) => e.target === id)
+-  const minHeight     = Math.max(100, incomingEdges.length * 28 + 60)
++  // Ingressi DICHIARATI (v. JsonSerializerNode per la storia).
++  const declaredInputs = ((nodeData.config as any)?.serializerInputs ?? []) as Array<{ id: string; label: string; color: string }>
++  const inputPorts     = getNodePorts({ data: nodeData }).inputs
++  const minHeight      = Math.max(100, inputPorts.length * 28 + 60)
+   const displayName   = String(nodeData.config?.displayName ?? 'XML Serializer')
+   const outputField   = String((nodeData.props as any)?.outputField ?? 'xml_output')
+   const uiState       = nodeData.uiState as UIState | undefined
+@@ -53,23 +54,21 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+       </div>
+ 
+       {/* Handle ingressi */}
+-      {incomingEdges.length === 0 ? (
+-        <Handle id="input" type="target" position={Position.Left}
+-          style={{ top: '50%', background: '#4a5a7a', border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }} />
+-      ) : (
+-        incomingEdges.map((edge, idx) => {
+-          const handle = edge.targetHandle ?? 'input'
+-          const total  = incomingEdges.length
+-          const pct    = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
+-          const color  = FLOW_COLORS[idx % FLOW_COLORS.length]
+-          const label  = (serConfig.inputs?.[handle] as any)?.label ?? handle
+-          return (
+-            <Handle key={handle} id={handle} type="target" position={Position.Left}
+-              style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
+-              title={label} />
+-          )
+-        })
+-      )}
++      {/* Ingressi — dal contratto (getNodePorts), non dagli archi.
++          Prima l'arco CREAVA la porta: `incomingEdges.map(...)`. Il colore
++          resta qui perché è presentazione, ma si prende per ID dal flusso
++          dichiarato, così non balla quando cambia l'ordine degli archi. */}
++      {inputPorts.map((port, idx) => {
++        const total = inputPorts.length
++        const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
++        const color = declaredInputs.find((i) => i.id === port.id)?.color
++                      ?? (total === 1 ? '#4a5a7a' : FLOW_COLORS[idx % FLOW_COLORS.length])
++        return (
++          <Handle key={port.id} id={port.id} type="target" position={Position.Left}
++            style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
++            title={port.label} />
++        )
++      })}
+ 
+       {/* Handle servizio */}
+       <Handle id="input_new" type="target" position={Position.Left}
+@@ -85,17 +84,15 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
+ 
+       {/* Body */}
+       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+-        {incomingEdges.length === 0 ? (
++        {declaredInputs.length === 0 ? (
+           <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>Collega un flusso</div>
+         ) : (
+-          incomingEdges.map((edge, idx) => {
+-            const handle = edge.targetHandle ?? 'input'
+-            const color  = FLOW_COLORS[idx % FLOW_COLORS.length]
+-            const label  = (serConfig.inputs?.[handle] as any)?.label ?? handle
++          declaredInputs.map((inp, idx) => {
++            const color = inp.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
+             return (
+-              <div key={handle} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
++              <div key={inp.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+-                <span style={{ fontSize: 10, fontFamily: 'monospace', color, flex: 1 }}>{label}</span>
++                <span style={{ fontSize: 10, fontFamily: 'monospace', color, flex: 1 }}>{inp.label}</span>
+               </div>
+             )
+           })
+diff --git a/src/utils/schemaRegistry.ts b/src/utils/schemaRegistry.ts
+index 31247a0..26e180f 100644
+--- a/src/utils/schemaRegistry.ts
++++ b/src/utils/schemaRegistry.ts
+@@ -142,6 +142,19 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
+       break
+     }
+ 
++    case 'json_serializer':
++    case 'xml_serializer': {
++      // Prima qui non c'era NIENTE: il contratto dichiarava un ingresso solo
++      // e il componente ne disegnava N, uno per arco. Il resolver non poteva
++      // dire il vero perché riceve il nodo e non gli archi — ed è esattamente
++      // per questo che le porte derivate dagli archi stanno fuori dal modello.
++      // Ora gli ingressi sono dichiarati in config.serializerInputs (li scrive
++      // connectionResolver, come per la union) e da qui si leggono.
++      const ser = (node.data.config as any)?.serializerInputs as Array<{ id: string; label?: string }> | undefined
++      if (ser?.length) ports = { ...ports, inputs: ser.map((i) => dyn(i.id, i.label)) }
++      break
++    }
++
+     case 'union': {
+       // main + N flussi dinamici, come li crea connectionResolver e come li
+       // salva config.unionInputs. Il contratto dichiara la sola porta statica

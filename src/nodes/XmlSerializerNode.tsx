@@ -4,6 +4,7 @@
  */
 import { memo, useCallback, useState } from 'react'
 import { ValidationBadge, type UIState } from "./ValidationBadge"
+import { getNodePorts } from '../utils/schemaRegistry'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 import type { NodeData } from '../types'
@@ -18,7 +19,6 @@ const FLOW_COLORS = ['#f97316','#3ddc84','#ffb347','#a78bfa','#f472b6','#84cc16'
 export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData   = data as NodeData
   const selectNode = useFlowStore((s) => s.selectNode)
-  const edges      = useFlowStore((s) => s.edges)
   const [showModal, setShowModal] = useState(false)
 
   const handleClick       = useCallback(() => selectNode(id), [id, selectNode])
@@ -26,9 +26,10 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
     e.stopPropagation(); setShowModal(true)
   }, [])
 
-  const serConfig     = (nodeData.config as any)?.xmlSerializer ?? {}
-  const incomingEdges = edges.filter((e) => e.target === id)
-  const minHeight     = Math.max(100, incomingEdges.length * 28 + 60)
+  // Ingressi DICHIARATI (v. JsonSerializerNode per la storia).
+  const declaredInputs = ((nodeData.config as any)?.serializerInputs ?? []) as Array<{ id: string; label: string; color: string }>
+  const inputPorts     = getNodePorts({ data: nodeData }).inputs
+  const minHeight      = Math.max(100, inputPorts.length * 28 + 60)
   const displayName   = String(nodeData.config?.displayName ?? 'XML Serializer')
   const outputField   = String((nodeData.props as any)?.outputField ?? 'xml_output')
   const uiState       = nodeData.uiState as UIState | undefined
@@ -53,23 +54,21 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
       </div>
 
       {/* Handle ingressi */}
-      {incomingEdges.length === 0 ? (
-        <Handle id="input" type="target" position={Position.Left}
-          style={{ top: '50%', background: '#4a5a7a', border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }} />
-      ) : (
-        incomingEdges.map((edge, idx) => {
-          const handle = edge.targetHandle ?? 'input'
-          const total  = incomingEdges.length
-          const pct    = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
-          const color  = FLOW_COLORS[idx % FLOW_COLORS.length]
-          const label  = (serConfig.inputs?.[handle] as any)?.label ?? handle
-          return (
-            <Handle key={handle} id={handle} type="target" position={Position.Left}
-              style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
-              title={label} />
-          )
-        })
-      )}
+      {/* Ingressi — dal contratto (getNodePorts), non dagli archi.
+          Prima l'arco CREAVA la porta: `incomingEdges.map(...)`. Il colore
+          resta qui perché è presentazione, ma si prende per ID dal flusso
+          dichiarato, così non balla quando cambia l'ordine degli archi. */}
+      {inputPorts.map((port, idx) => {
+        const total = inputPorts.length
+        const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
+        const color = declaredInputs.find((i) => i.id === port.id)?.color
+                      ?? (total === 1 ? '#4a5a7a' : FLOW_COLORS[idx % FLOW_COLORS.length])
+        return (
+          <Handle key={port.id} id={port.id} type="target" position={Position.Left}
+            style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
+            title={port.label} />
+        )
+      })}
 
       {/* Handle servizio */}
       <Handle id="input_new" type="target" position={Position.Left}
@@ -85,17 +84,15 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Body */}
       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {incomingEdges.length === 0 ? (
+        {declaredInputs.length === 0 ? (
           <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>Collega un flusso</div>
         ) : (
-          incomingEdges.map((edge, idx) => {
-            const handle = edge.targetHandle ?? 'input'
-            const color  = FLOW_COLORS[idx % FLOW_COLORS.length]
-            const label  = (serConfig.inputs?.[handle] as any)?.label ?? handle
+          declaredInputs.map((inp, idx) => {
+            const color = inp.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
             return (
-              <div key={handle} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div key={inp.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: 10, fontFamily: 'monospace', color, flex: 1 }}>{label}</span>
+                <span style={{ fontSize: 10, fontFamily: 'monospace', color, flex: 1 }}>{inp.label}</span>
               </div>
             )
           })

@@ -412,6 +412,19 @@ function LaneFlow({ lane }: { lane: Lane }) {
           }
           setTimeout(() => propagateUnionSchema(tgt.id, useFlowStore.getState()), 50)
         }
+        // Un ingresso dichiarato senza più il suo arco è una porta fantasma:
+        // con le porte derivate dagli archi spariva da sola, ora va tolta a
+        // mano. È il prezzo di dichiararle, ed è lo stesso che paga la union.
+        if (tgt.data.type === 'json_serializer' || tgt.data.type === 'xml_serializer') {
+          const config   = (tgt.data.config as any) ?? {}
+          const declared = (config.serializerInputs ?? []) as Array<{ id: string }>
+          if (edge.targetHandle && declared.some((i) => i.id === edge.targetHandle)) {
+            useFlowStore.getState().updateNodeConfig(tgt.id, {
+              ...config,
+              serializerInputs: declared.filter((i) => i.id !== edge.targetHandle),
+            })
+          }
+        }
         if (tgt.data.type === 'source_file' || tgt.data.type === 'sink_file') {
           useFlowStore.getState().updateNodeProp(tgt.id, 'outputSchema', '')
         }
@@ -472,6 +485,26 @@ function LaneFlow({ lane }: { lane: Lane }) {
         setNodes((nds) => nds.map((n) =>
           n.id === targetNodeId
             ? { ...n, data: { ...n.data, config: { ...n.data.config, unionInputs: newInputs } } }
+            : n
+        ))
+      })
+    }
+
+    // ── Aggiornamenti strutturali Serializer — stessa meccanica della Union.
+    // Prima non esisteva: le porte del serializer nascevano contando gli archi
+    // e in config non finiva niente. V. contratto-porte.md §9.3.
+    if (resolution.serializerUpdate) {
+      const { targetNodeId, newInputs } = resolution.serializerUpdate
+      flushSync(() => {
+        useFlowStore.setState((s) => ({
+          nodes: updateNode(s.nodes, targetNodeId, (n) => ({
+            ...n,
+            data: { ...n.data, config: { ...n.data.config, serializerInputs: newInputs } },
+          })),
+        }))
+        setNodes((nds) => nds.map((n) =>
+          n.id === targetNodeId
+            ? { ...n, data: { ...n.data, config: { ...n.data.config, serializerInputs: newInputs } } }
             : n
         ))
       })
