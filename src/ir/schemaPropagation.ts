@@ -266,10 +266,46 @@ function inferOutputSchema(
       return inputSchema
     }
 
+    case 'window': {
+      // `window` stava nel gruppone qui sotto, con `return inputSchema`.
+      // Sbagliava due volte:
+      //
+      //  · PERDEVA I CAMPI CALCOLATI. Il window AGGIUNGE colonne — una per
+      //    funzione (row_number, rank, lead, last_value…). A valle non si
+      //    vedevano mai, pur arrivando a runtime.
+      //
+      //  · CON `dataSource='materialize'` IL VUOTO. Le righe non arrivano
+      //    dall'arco ma da un dataset della lane (window.rs: "caso 2 —
+      //    materialize senza trigger", `rx: Option<RowReceiver>`), quindi il
+      //    nodo può non avere archi entranti → inputSchema = [] → tutta la
+      //    catena a valle "non riceve campi". È la STESSA posizione del
+      //    bridge_in: nella propria lane è una SORGENTE (v. case
+      //    'lane_boundary'), non un anello di passaggio.
+      //
+      // La derivazione vera esiste già — nel pannello, che la persiste in
+      // props.outputSchema: i campi della sorgente ATTIVA (materialize o
+      // flusso, secondo dataSource) più un campo per funzione, con il tipo
+      // di ritorno della funzione. Stesso patto del pivot: il pannello
+      // calcola e persiste, qui si legge.
+      //
+      // NB schemaPropagation non può derivarlo da sé: il nome del dataset
+      // si risolve solo passando per `lane.variables` (nome → nodeId del
+      // materialize), e validateDAG riceve il piano, non le lane.
+      const raw = props['outputSchema']
+      if (raw) {
+        try {
+          const parsed = JSON.parse(String(raw))
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed as SchemaField[]
+        } catch { /* schema illeggibile → ricadi sull'ingresso */ }
+      }
+      // Non ancora configurato: meglio l'ingresso che il vuoto. Sbagliato
+      // per eccesso non genera allarmi; il vuoto sì, e a catena.
+      return inputSchema
+    }
+
     case 'union':
     case 'sort':
     case 'limit':
-    case 'window':
     case 'merge':
     default:
       return inputSchema
