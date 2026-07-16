@@ -128,6 +128,16 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
   // conosceva e il motore non percorreva: a valle non arrivava niente,
   // in silenzio. Ora le porte le dichiara il contratto e qui non si
   // decide più nulla — catch e reject condizionale compresi.
+  // ── INGRESSI — dal contratto (P20a) ────────────────────────────────
+  // Qui c'era un <Handle id="input" type="target"> cablato: disegnato
+  // sempre, su qualunque nodo, senza chiedere niente a nessuno. Era il
+  // gemello esatto del `show:true` che P17 ha tolto alle uscite.
+  // Le porte LOGICHE (connectable: false, R9) si dichiarano ma non si
+  // disegnano: il `catch` dell'error_handler è la ragione per cui esiste
+  // quel campo. V. contratto-porte.md R9 e §9.1.
+  const inputHandles = getNodePorts({ data: nodeData }).inputs
+    .filter((p) => p.connectable !== false)
+
   const outputHandles = getNodePorts({ data: nodeData }).outputs.map((p) => ({
     id:    p.id,
     label: p.role === 'catch' ? '⚡ catch' : p.label,
@@ -136,10 +146,17 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
          : def.color,
   }))
 
-  // Distribuisce gli handle visibili verticalmente
+  // Distribuisce gli handle verticalmente.
+  // Lo spread era 70% (→ 15%..85% con due porte): troppo largo, le porte
+  // finivano sotto il badge di modifica in alto e sotto le statistiche in
+  // basso. Ora 44% (→ 28%..72%), e il box ha un'altezza minima che tiene
+  // il fascio dentro il corpo del nodo.
+  const SPREAD = 44
+  const spreadTop = (idx: number, count: number) =>
+    count === 1 ? '50%' : `${(50 - SPREAD / 2) + (idx / (count - 1)) * SPREAD}%`
+
   const visibleCount = outputHandles.length
-  const handleTop = (idx: number) =>
-    visibleCount === 1 ? '50%' : `${15 + (idx / (visibleCount - 1)) * 70}%`
+  const handleTop = (idx: number) => spreadTop(idx, visibleCount)
 
   const uiState = nodeData.uiState
 
@@ -151,7 +168,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
       style={{
         border: `1.5px solid ${borderColor}`,
         boxShadow: selected ? '0 0 0 2px rgba(74,158,255,0.4)' : undefined,
-        minWidth: 130, borderRadius: 8, background: '#1e2535',
+        minWidth: 130, minHeight: 62, borderRadius: 8, background: '#1e2535',
         cursor: 'pointer', userSelect: 'none', position: 'relative',
       }}
     >
@@ -172,13 +189,23 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
         <i className="ti ti-edit" style={{ fontSize: 10, color: '#fff' }} aria-hidden="true" />
       </div>
 
-      {/* Handle ingresso */}
-      <Handle
-        id="input"
-        type="target"
-        position={Position.Left}
-        style={{ background: '#4a5a7a', border: '2px solid #0f1117', width: 10, height: 10 }}
-      />
+      {/* Handle ingresso — dal contratto (P20a) */}
+      {inputHandles.map((p, idx) => (
+        <Handle
+          key={p.id}
+          id={p.id}
+          type="target"
+          position={Position.Left}
+          style={{
+            background: '#4a5a7a', border: '2px solid #0f1117',
+            width: 10, height: 10,
+            top: spreadTop(idx, inputHandles.length),
+            left: -5,
+            transform: 'none',
+          } as React.CSSProperties}
+          title={p.label}
+        />
+      ))}
 
       {/* Header */}
       <div style={{
@@ -236,23 +263,12 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
         />
       ))}
 
-      {/* Etichette handle uscita — solo se più di uno */}
-      {visibleCount > 1 && outputHandles.map((h, idx) => (
-        <div key={`lbl_${h.id}`} style={{
-          position:   'absolute',
-          right:      14,
-          top:        `calc(${handleTop(idx)} - 7px)`,
-          fontSize:   8,
-          color:      h.color,
-          fontFamily: 'monospace',
-          fontWeight: 600,
-          pointerEvents: 'none',
-          userSelect: 'none',
-          textAlign:  'right',
-        }}>
-          {h.label}
-        </div>
-      ))}
+      {/* Le etichette delle porte di uscita stavano qui: scritte a 8px
+          sovrapposte all'header e al sottotitolo del nodo. Tolte su
+          richiesta — bastano i pallini, che il colore già distingue
+          (dati / reject / catch). Il nome della porta non si perde: sta
+          nel `title` dell'Handle, quindi esce come tooltip al passaggio
+          del mouse. */}
 
       {/* Badge transazione */}
       {txConfig && (

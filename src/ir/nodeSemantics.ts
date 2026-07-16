@@ -674,7 +674,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
     pushdownCapable:   [],
@@ -711,7 +711,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       { id: 'input', label: 'input', role: 'data' },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
     ],
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
@@ -819,7 +819,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
       { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -874,7 +874,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
       { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -895,7 +895,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
       { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'python_polars'],
@@ -916,7 +916,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
       { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript', 'java_beam'],
@@ -937,7 +937,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // id = nome del FILO: deve combaciare con l'handle disegnato dal
       // canvas e con ciò che il motore cerca (take_primary_output prova
       // "output" per primo). 'passthrough' è l'ETICHETTA, cioè cosa esce.
-      { id: 'output', label: 'passthrough', role: 'data' },
+      { id: 'output', label: 'output', role: 'data' },
       { id: 'reject',      label: 'reject',      role: 'reject' },
     ],
     preferredRuntimes: ['typescript'],
