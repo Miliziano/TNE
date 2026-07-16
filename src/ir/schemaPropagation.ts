@@ -524,10 +524,15 @@ function validateNodeSchema(
   }
 
   // Nodi con input DATI ma senza schema in ingresso → warning.
-  // Escluse: le sorgenti (operation 'scan'), che i dati li prendono da
-  // fuori — un arco che le raggiunge è un innesco, non un flusso; e i
-  // nodi raggiunti solo da archi di segnale.
-  if (node.operation !== 'scan' && dataInEdgeCount > 0 && inputSchema.length === 0) {
+  // Qui c'era anche `node.operation !== 'scan'`: facevo tacere TUTTE le
+  // sorgenti, sul presupposto che "i dati se li prendono da fuori".
+  // Presupposto sbagliato: un source_file può ricevere da monte il path
+  // del file, un source_db la query. Quell'eccezione zittiva un guasto
+  // vero (la sorgente aspetta il path e non arriva) per curare un falso
+  // positivo — cioè barattava un allarme di troppo con uno mancante, che
+  // è il peggiore dei due. La distinzione giusta non è nella sorgente:
+  // è nel PRODUTTORE, che ora dichiara se emette dati o un innesco.
+  if (dataInEdgeCount > 0 && inputSchema.length === 0) {
     issues.push({
       nodeId:   canvasId,
       code:     'EMPTY_INPUT_SCHEMA',

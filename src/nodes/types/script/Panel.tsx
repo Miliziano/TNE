@@ -199,6 +199,12 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   const lang      = p('lang')      || 'typescript'
   const execMode  = p('execMode')  || 'transform'
   const hasReject = p('hasReject') === 'true'
+  // Cosa esce verso il nodo a valle. Stesso vocabolario dei sink.
+  // Default 'passthrough' = il comportamento di sempre: dallo script
+  // escono righe. Va DICHIARATO perché chi sta a valle deve sapere se
+  // aspettarsi campi o solo il "via": prima lo studio tirava a indovinare
+  // e segnalava campi mancanti su flussi corretti.
+  const outputMode = p('outputMode') || 'passthrough'
 
   // ── Schema input ─────────────────────────────────────────────
   const schema: SchemaField[] = useMemo(() => {
@@ -318,6 +324,31 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
                   <span style={{ fontSize: 11, fontWeight: 600, color: execMode === m.value ? '#4a9eff' : '#4a5a7a' }}>{m.label}</span>
                 </div>
                 <span style={{ fontSize: 9, color: execMode === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
+          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Uscita verso valle</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { value: 'passthrough', label: 'Dati',    icon: 'ti-table-row',    desc: 'righe elaborate'   },
+              { value: 'signal',      label: 'Innesco', icon: 'ti-bolt',         desc: 'solo il "via"'     },
+              { value: 'none',        label: 'Niente',  icon: 'ti-player-stop',  desc: 'nessuna uscita'    },
+            ].map((m) => (
+              <button key={m.value} onClick={() => updateProp(nodeId, 'outputMode', m.value)}
+                style={{
+                  flex: 1, padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                  background: outputMode === m.value ? '#1a3a6a' : '#1a2030',
+                  border:     outputMode === m.value ? '1px solid #2a5a9a' : '1px solid #2a3349',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: outputMode === m.value ? '#4a9eff' : '#4a5a7a' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? '#4a9eff' : '#4a5a7a' }}>{m.label}</span>
+                </div>
+                <span style={{ fontSize: 9, color: outputMode === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
               </button>
             ))}
           </div>

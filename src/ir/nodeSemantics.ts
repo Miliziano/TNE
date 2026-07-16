@@ -174,7 +174,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -189,7 +194,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -203,7 +213,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -217,7 +232,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',        // legge file (batch), come source_file
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -230,7 +250,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',            // consumer = flusso continuo
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -243,7 +268,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',            // server in ascolto = continuo
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -256,7 +286,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',     // monitoraggio continuo, come dir_watcher
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
@@ -358,7 +393,16 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       { id: 'input', label: 'input', isReject: false },
     ],
     staticOutputPorts: [
-      { id: 'output', label: 'output', isReject: false, role: 'data' },
+      // Due dichiarazioni per la STESSA porta, mutuamente esclusive: è il
+      // modo di dire "cambia natura secondo la configurazione".
+      // Uno script può elaborare righe, oppure preparare una variabile di
+      // lane e limitarsi a dare il "via" al nodo dopo. Chi sta a valle deve
+      // saperlo PRIMA: da un innesco non arrivano campi, e pretenderli
+      // genera falsi allarmi. Stesso vocabolario dei sink (outputMode).
+      { id: 'output', label: 'output', isReject: false, role: 'data',
+        when: { prop: 'outputMode', notEquals: ['signal', 'none'], fallback: 'passthrough' } },
+      { id: 'output', label: 'innesco', isReject: false, role: 'signal',
+        when: { prop: 'outputMode', equals: ['signal'] } },
       // Il reject dello script esiste solo se l'utente lo attiva. Prima
       // era il canvas a saperlo (hasReject cablato in FlowNode) mentre
       // l'IR lo dava per sempre presente: due opinioni sullo stesso nodo.
@@ -483,7 +527,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       executionSemantics:      'stream',   // watch mode è stream continuo
       producesMultipleOutputs: false,
       acceptsMultipleInputs:   false,
-      staticInputPorts:        [],   // nessun ingresso: sorveglia una cartella
+      staticInputPorts: [
+        // Una sorgente PUÒ ricevere: il path del file, la query da
+        // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+        // mai stato verificato.
+        { id: 'input', label: 'input', isReject: false, role: 'data' },
+      ],
       staticOutputPorts: [
         { id: 'output', label: 'output', isReject: false },
         { id: 'reject', label: 'reject', isReject: true  },
@@ -553,7 +602,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
       { id: 'reject', label: 'reject', isReject: true  },
@@ -584,7 +638,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
-    staticInputPorts:        [],   // nessun ingresso
+    staticInputPorts: [
+      // Una sorgente PUÒ ricevere: il path del file, la query da
+      // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
+      // mai stato verificato.
+      { id: 'input', label: 'input', isReject: false, role: 'data' },
+    ],
     staticOutputPorts: [
       { id: 'output', label: 'output', isReject: false },
     ],
