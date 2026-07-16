@@ -178,8 +178,33 @@ function inferOutputSchema(
         return inputSchema
       }
 
-      // aggregate: group_by + funzioni configurate. Stessa derivazione del
-      // suo MappingPanel, che era l'unico posto dove fosse scritta giusta.
+      // aggregate: lo schema lo calcola il suo pannello e lo persiste in
+      // props.outputSchema — esattamente come pivot e window. Leggerlo è la
+      // fonte unica; la derivazione qui sotto resta solo come rete di
+      // sicurezza per i progetti in cui il pannello non ha mai girato.
+      //
+      // Perché il pannello vince, e non è una preferenza:
+      //  · con `dataSource='materialize'` le righe NON arrivano dall'arco →
+      //    qui inputSchema = [] → i campi group_by perdevano il TIPO vero e
+      //    cadevano sul default 'string'. Il pannello usa `activeFields`,
+      //    che segue dataSource, e il tipo giusto ce l'ha;
+      //  · risolvere il nome del dataset richiede `lane.variables` (nome →
+      //    nodeId del materialize), e qui arriva il piano, non le lane.
+      //
+      // E le due derivazioni DIVERGEVANO già, in silenzio, sugli id:
+      //    group_by  → pannello `agg_gb_<name>`  · qui `agg_grp_<name>`
+      //    funzione  → pannello `agg_fn_<a.id>`  · qui `agg_fn_<i>_<alias>`
+      // Lo stesso campo aveva due identità secondo chi lo calcolava.
+      {
+        const rawAgg = props['outputSchema']
+        if (rawAgg) {
+          try {
+            const parsed = JSON.parse(String(rawAgg))
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed as SchemaField[]
+          } catch { /* schema illeggibile → deriva qui sotto */ }
+        }
+      }
+
       const groupBy = String(props['group_by'] ?? '')
         .split(',').map((x: string) => x.trim()).filter(Boolean)
 
