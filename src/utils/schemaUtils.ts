@@ -230,9 +230,12 @@ export function propagateUnionSchema(
     }
     if (!rawSchema) continue
 
-    const handleSuffix = edge.targetHandle === 'input_1' ? '_1'
-                       : edge.targetHandle === 'input_2' ? '_2'
-                       : `_${edgeIdx + 1}`
+    // Qui c'erano due rami per 'input_1'/'input_2': gli handle che il
+    // contratto della union dichiarava e che NESSUNO ha mai prodotto (i veri
+    // sono 'input_main' e i dinamici 'union_input_<ts>'). Non scattavano mai:
+    // funzionava per caso, grazie al fallback posizionale — che è la sola
+    // regola vera e resta. V. contratto-porte.md §9.2.
+    const handleSuffix = `_${edgeIdx + 1}`
 
     try {
       const fields = JSON.parse(rawSchema) as Array<{ id?: string; name: string; type?: string; physicalName?: string }>

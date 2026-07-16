@@ -131,11 +131,28 @@ export interface NodeSemantics {
   producesMultipleOutputs: boolean
 
   /**
-   * true se il nodo accetta N porte di input con schema diverso.
-   * Il Lowerer deve gestire ogni input come PortSpec distinto.
-   * Esempi: tmap (main + N lookup), merge
+   * true se il nodo ha PIÙ DI UNA porta di ingresso.
+   * NON dice da dove vengono: il join ne ha due e sono statiche.
+   * Esempi: join (left+right), tmap (main + N lookup), union.
    */
   acceptsMultipleInputs: boolean
+
+  /**
+   * true se le porte di INGRESSO le calcola il resolver leggendo la config,
+   * invece di prenderle da staticInputPorts. È il gemello esatto di
+   * producesMultipleOutputs, che mancava: senza un modo di DIRE "i miei
+   * ingressi sono dinamici", union e i serializer hanno dichiarato una
+   * bugia (input_1/input_2 e un ingresso solo) — v. contratto-porte.md §9.4.
+   *
+   * Distinto da acceptsMultipleInputs: il join ha ingressi MULTIPLI ma non
+   * DINAMICI. Non confonderli — è lo stesso errore di `case 'aggregate'`,
+   * che smistava per operazione invece che per tipo.
+   *
+   * ⚠️ true implica anche che l'interfaccia disegna l'handle di servizio
+   * `input_new` (il "+" per attaccare un flusso nuovo). Era una convenzione
+   * UI non dichiarata da nessuna parte: ora deriva da qui.
+   */
+  acceptsDynamicInputs: boolean
 
   /**
    * Porte di output fisse — definite staticamente dalla semantica del nodo.
@@ -174,11 +191,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -194,11 +212,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -213,11 +232,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -232,11 +252,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',        // legge file (batch), come source_file
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -250,11 +271,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',            // consumer = flusso continuo
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -268,11 +290,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',            // server in ascolto = continuo
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -286,11 +309,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stream',     // monitoraggio continuo, come dir_watcher
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -306,6 +330,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: true,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -320,6 +345,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -337,9 +363,10 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'stateful',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  true,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
-      { id: 'input_left', label: 'input_left', role: 'data' },
-      { id: 'input_right', label: 'input_right', role: 'data' },
+      { id: 'input_left',  label: 'input_left',  role: 'data', maxEdges: 1 },
+      { id: 'input_right', label: 'input_right', role: 'data', maxEdges: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output',          role: 'data' },
@@ -356,6 +383,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -374,6 +402,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: true,
     // main + N lookup
     acceptsMultipleInputs:  true,
+    acceptsDynamicInputs:   true,
     // Porte dinamiche — generate dal Lowerer leggendo TMapConfig
     staticInputPorts: [
       { id: 'input_main', label: 'input_main', role: 'data' },
@@ -389,6 +418,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -421,6 +451,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // N flussi output con schema diverso — generati dal Lowerer
     producesMultipleOutputs: true,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -435,6 +466,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: true,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -453,9 +485,16 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     // main + N flussi aggiuntivi (input_new, stessa meccanica di tmap).
     // Il fallback generico lo trattava come mono-input → badge/porte errati.
     acceptsMultipleInputs:  true,
+    acceptsDynamicInputs:   true,
+    // input_1/input_2 NON SONO MAI ESISTITI: il contratto li dichiarava e
+    // nessuno li produceva. La realtà è `input_main` + N handle dinamici
+    // `union_input_<ts>` creati da connectionResolver e salvati in
+    // config.unionInputs. schemaUtils.ts cercava input_1/input_2 e non li
+    // trovava mai: funzionava per caso, grazie a un fallback posizionale.
+    // Qui resta la sola porta statica; le altre le calcola il resolver
+    // (acceptsDynamicInputs). V. contratto-porte.md §9.2.
     staticInputPorts: [
-      { id: 'input_1', label: 'input_1', role: 'data' },
-      { id: 'input_2', label: 'input_2', role: 'data' },
+      { id: 'input_main', label: 'flusso 1', role: 'data', maxEdges: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -474,6 +513,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -495,6 +535,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     producesMultipleOutputs: false,
     // Multi-handle: main + flussi aggiuntivi (input_new) annidati master-detail.
     acceptsMultipleInputs:  true,
+    acceptsDynamicInputs:   true,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -512,6 +553,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  true,
+    acceptsDynamicInputs:   true,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -527,11 +569,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       executionSemantics:      'stream',   // watch mode è stream continuo
       producesMultipleOutputs: false,
       acceptsMultipleInputs:   false,
+      acceptsDynamicInputs:    false,
       staticInputPorts: [
         // Una sorgente PUÒ ricevere: il path del file, la query da
         // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
         // mai stato verificato.
-        { id: 'input', label: 'input', role: 'data' },
+        { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
       ],
       staticOutputPorts: [
         { id: 'output', label: 'output', role: 'data' },
@@ -553,6 +596,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -569,6 +613,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',  // richiede visibilità sulla partizione
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -585,6 +630,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -602,11 +648,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -622,6 +669,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -638,11 +686,12 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       // Una sorgente PUÒ ricevere: il path del file, la query da
       // eseguire, i parametri. `[]` veniva da HANDLE_MAP e non era
       // mai stato verificato.
-      { id: 'input', label: 'input', role: 'data' },
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
     ],
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -657,6 +706,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -673,6 +723,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -690,6 +741,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'dataset',   // legge tutto prima di emettere
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -711,6 +763,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -726,6 +779,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -741,6 +795,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -756,6 +811,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -779,6 +835,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -793,6 +850,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:      'stream',     // riceve dati asincroni dal canale
     producesMultipleOutputs: false,
     acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
     staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       { id: 'output', label: 'output', role: 'data' },
@@ -807,6 +865,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -828,6 +887,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -848,6 +908,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -867,6 +928,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     // come gli altri sink: porta passthrough opzionale  reject
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
@@ -887,6 +949,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     // terminale: consuma e risponde, nessun output a valle
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
@@ -902,10 +965,18 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     operations:             ['transform'],
     executionSemantics:     'row',
     producesMultipleOutputs: false,
-    // riceve i catch da molti nodi della lane
-    acceptsMultipleInputs:  true,
+    // Ha UNA porta d'ingresso: `catch`. Diceva `acceptsMultipleInputs: true`
+    // ragionando sui NODI che gli mandano errori, non sulle PORTE che ha —
+    // ma la proprietà parla di porte.
+    acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
+    // role 'catch', non 'data': è da role che discende la regola di schema.
+    // connectable: false = porta LOGICA (R9): la raccolta degli errori è una
+    // proprietà della lane e resta implicita — l'error_handler è un nodo fisso
+    // e non eliminabile, infrastruttura, non un nodo di flusso. La porta si
+    // dichiara perché esiste, ma non si cabla a mano. Decisione utente 16 lug.
     staticInputPorts: [
-      { id: 'catch', label: 'catch', role: 'data' },
+      { id: 'catch', label: 'catch', role: 'catch', connectable: false },
     ],
     staticOutputPorts: [
       { id: 'error_out', label: 'error', role: 'data' },
@@ -922,6 +993,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts:        [],   // nessun ingresso
     staticOutputPorts: [
       // Il marcatore di avvio non emette righe: emette il "via". Chi lo
@@ -939,6 +1011,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
@@ -992,6 +1065,7 @@ export function getNodeSemantics(uiType: string): NodeSemantics {
     executionSemantics:     'row',
     producesMultipleOutputs: false,
     acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],

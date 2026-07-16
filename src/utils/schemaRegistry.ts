@@ -124,12 +124,32 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
       break
     }
     case 'filter': {
-      const rules = (node.data.config as any)?.filterRules as Array<{ id: string; name?: string }> | undefined
-      if (rules?.length) {
+      // Leggeva `config.filterRules` ed emetteva una porta `default`.
+      // Nessuna delle due cose esiste: in tutto il repo `filterRules`
+      // compariva SOLO nella riga che lo leggeva, e il pannello salva
+      // `config.filter.conditions`; l'uscita di scarto si chiama `reject`
+      // (così la disegna FilterNode, così la costruisce il lowerer).
+      // Il resolver rispondeva quindi ZERO uscite per ogni filter vero:
+      // latente finché i componenti dedicati disegnano da soli, mina a P20.
+      // V. contratto-porte.md §9.
+      const cfg = node.data.config?.filter as { conditions?: Array<{ id: string; label?: string }> } | undefined
+      if (cfg?.conditions?.length) {
         ports = {
           inputs:  [dyn('input')],
-          outputs: [...rules.map((r) => dyn(r.id, r.name)), dyn('default')],
+          outputs: [...cfg.conditions.map((c) => dyn(c.id, c.label)), dyn('reject', 'reject', true)],
         }
+      }
+      break
+    }
+
+    case 'union': {
+      // main + N flussi dinamici, come li crea connectionResolver e come li
+      // salva config.unionInputs. Il contratto dichiara la sola porta statica
+      // (`input_main`) e marca acceptsDynamicInputs: qui si completano.
+      const extra = (node.data.config as any)?.unionInputs as Array<{ id: string; label?: string }> | undefined
+      ports = {
+        ...ports,
+        inputs: [dyn('input_main', 'flusso 1'), ...(extra ?? []).map((i) => dyn(i.id, i.label))],
       }
       break
     }

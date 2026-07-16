@@ -153,6 +153,30 @@ export interface PortSpec {
   id: string; label: string; role: PortRole; schema?: SchemaField[]
   /** Omesso ⇒ porta sempre presente. */
   when?: PortCondition
+
+  /**
+   * Solo INGRESSI — quanti ARCHI la porta accetta. Omesso ⇒ 1.
+   * Design-time: è la regola che oggi vive sparsa in connectionResolver
+   * ("Nodo già collegato", "Handle input_main già collegato", …).
+   */
+  maxEdges?: 1 | 'many'
+
+  /**
+   * Solo INGRESSI — quante RIGHE la porta accetta a RUNTIME. Omesso ⇒ 'many'.
+   * NON è maxEdges: un arco solo può portare mille righe. Serve alla R8
+   * (un source si configura con UNA riga di parametri; 2+ = errore parlante).
+   * V. contratto-porte.md R8.
+   */
+  maxRows?: 1 | 'many'
+
+  /**
+   * false ⇒ porta LOGICA: esiste per la validazione e per il motore, ma il
+   * canvas non la disegna e non ci si può attaccare un arco. Omesso ⇒ true.
+   * Caso: il `catch` dell'error_handler — la raccolta degli errori è una
+   * proprietà della lane, non un filo da cablare a mano.
+   * V. contratto-porte.md R9.
+   */
+  connectable?: boolean
 }
 
 /**
