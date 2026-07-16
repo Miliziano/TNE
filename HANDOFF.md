@@ -4,7 +4,9 @@ Questo documento serve a riprendere il lavoro su FlowPilot in una nuova
 chat senza perdere contesto. Leggilo per intero prima di ripartire, poi
 **leggi il repo per lo stato vero** (vedi "Metodo di lavoro").
 
-Sostituisce l'handoff precedente (5 luglio). Aggiornato a: **Fase 12**.
+Sostituisce l'handoff precedente. Aggiornato a: **16 luglio** — Fase 13
+chiusa (mancano i manuali), **Fase porte in corso** (v. §5 e §9).
+Ultimo commit di riferimento: `fa7026e`.
 
 ---
 
@@ -87,7 +89,18 @@ Contratto: `src-tauri/docs/monitoring-schema.md`.
 
 ---
 
-## 3. Architettura decisa (Fase 12 — DEFINITIVA)
+- **Verificare interrogando i moduli veri, non con regex**: `npx tsx` con
+  uno script che importa e stampa (path ASSOLUTI negli import). Gli audit
+  a espressioni regolari hanno già mentito due volte.
+- **Test sintetici invece di chiedere conferme**: costruire nodi/archi
+  finti e passarli a `runValidation`/`getNodePorts` prova una tesi in un
+  minuto, senza far riaprire scenari all'utente.
+- **Chiedere `git status --short` prima di dare la colpa alla propria
+  consegna**: se il typecheck passa da noi e non da lui, il problema è
+  nel suo albero.
+---
+
+## 3. Architettura decisa (DEFINITIVA)
 
 Documento: `src-tauri/docs/architettura-pipeline.md`. In sintesi:
 
@@ -96,15 +109,15 @@ Documento: `src-tauri/docs/architettura-pipeline.md`. In sintesi:
   codegen futuri (Rust artifact, Java, Python, eventualmente TS). Il
   `LogicalPlan` di `src/ir/` NON è un secondo piano.
 - **D2 — `src/ir/` = libreria di analisi design-time del builder**:
-  `exprParser.ts` è il compilatore FPEL canonico (già condiviso);
-  `dagValidation`/`ValidationIssue`/`nodeSemantics` sono il sistema di
-  validazione live DA RIACCENDERE (oggi `triggerValidation` in flowStore
-  è definita ma mai chiamata; `nodeSemantics` manca di pivot,
-  data_quality, union); `schemaPropagation` è doppia (ir/ vs
-  utils/schemaUtils) — debito noto.
+  `exprParser.ts` è il compilatore FPEL canonico; `dagValidation` +
+  `ValidationIssue` + `nodeSemantics` sono il sistema di validazione live
+  — **acceso in Fase 13** (badge sui nodi + pannello Validazione, click
+  su un problema centra il canvas sul nodo).
+  `nodeSemantics` è oggi anche il **contratto delle porte** (v. §5).
+  `schemaPropagation` è doppia (`ir/` vs `utils/schemaUtils`) — debito noto.
 - **D3 — Codegen TypeScript congelato** (`src/codegen/typescript/` +
-  CodegenPanel): nessun lavoro nuovo; si deciderà il suo destino quando
-  partirà il codegen vero.
+  CodegenPanel): nessun lavoro nuovo. NB non dipende da `src/runner/`
+  (verificato: `grep -rn runner src/codegen` è vuoto).
 
 **Principio di validazione (doppio strato)** —
 `src-tauri/docs/design-validazione.md`: migrare l'esecuzione al motore
@@ -112,11 +125,17 @@ NON sposta la validazione. Trasformazione (tipizzare/compilare) → motore.
 Verifica → resta nel builder: errori bloccanti per il sicuramente
 sbagliato + warning non bloccanti per il sospetto-ma-legale. Il motore
 ri-valida tutto come errori parlanti (esecuzione headless). Ridondanza
-voluta. Il builder deve restare strumento di progettazione e verifica,
-non solo di disegno.
+voluta.
 
----
+**Principio di copertura** (deciso 15 lug): *tutti* i nodi in palette
+devono essere implementati in Rust. Se qualcosa va rifatto — come lo
+script — **va programmato**, non lasciato implicito. Un buco non si
+tollera in silenzio.
 
+**Principio della fonte unica** (la lezione della fase in corso): quando
+due componenti descrivono la stessa cosa, divergono — e nessuno se ne
+accorge finché qualcosa non si rompe in silenzio. Finché una
+dichiarazione non è *l'unica* fonte, ognuno se la riscrive addosso.
 ## 4. Il contratto spec e il pattern di migrazione
 
 Contratti (in `src-tauri/docs/`):
@@ -154,73 +173,215 @@ superset di node.data.config).
    senza compilazione: explode) o scrive l'IR in `specConfig` (nodo FPEL:
    aggregate). Le VALIDAZIONI del case restano nel builder (design-
    validazione) e si duplicano come errori parlanti nel motore.
-4. Cancellare l'executor JS: file in `src/runner/` + import +
-   registrazione in `executors.ts`.
+4. ⚠️ NON cancellare l'executor JS in `src/runner/`: decisione utente del
+   15 lug — resta come implementazione di RIFERIMENTO finché il porting
+   non è finito (v. §7). Il passo 4 del pattern originale è SOSPESO.
 5. Nota: `log_unconsumed` segnalerà come non consumate le props di testo
    FPEL sorgente (es. `aggFunctions`, `having`): atteso — il compilato
    vive in spec.config. Non è un drop.
 
 ---
 
-## 5. Stato migrazione nodi (a fine sessione Fase 12 — verificare sul repo)
+## 5. Il contratto delle porte (`src/ir/nodeSemantics.ts`) — FONTE UNICA
 
-Due assi: **spec** (contratto) e **registro dataset** (lane_datasets).
+Nato dalla **Fase porte** (luglio, in corso). Prima le porte di un nodo
+erano descritte in **quattro posti** che divergevano: `FlowNode.tsx`
+cablava `{ id:'output', show:true }` su ogni nodo, `HANDLE_MAP` in
+`schemaRegistry` diceva la sua, `nodeSemantics.staticOutputPorts`
+un'altra, e i lowerer (`laneBoundaryLowerer`, `scriptLowerer`) si
+ricopiavano le porte a mano. Su 43 tipi, **16 divergevano**.
 
-- Migrati alla SPEC: `source_db`, `sink_db`, `join`, `log`, `explode`,
-  `aggregate`.
-- Sul REGISTRO dataset (ma spec da fare): `window`, `pivot`,
-  `data_quality` (aggregate/explode: entrambi gli assi fatti).
-- DA MIGRARE alla spec: `pivot` (PROSSIMO — v. §7), `window`,
-  `data_quality`, `union`, `transform`, `filter`, `materialize`,
-  `source_file`, `sink_file`, `tmap`, `json_parser`, `json_serializer`,
-  `xml_parser`, `xml_serializer`.
-- CANCELLATO: `sequencer` (deciso; rimosso da motore e UI in Fase 12).
-- Executor JS già cancellati: dataQuality, pivot (pre-F12), explode,
-  aggregate (F12). Restano in `src/runner/` gli altri.
+Oggi `NodeSemantics` dichiara tutto:
 
-Commit di riferimento Fase 12: `d18c7ef` (sequencer + explode),
-`67b52c5` (aggregate + contratto IR + pulizia executor).
+- `staticInputPorts: PortSpec[]` / `staticOutputPorts: PortSpec[]`
+  (entrambi **obbligatori**: chi aggiunge un nodo non può dimenticarli,
+  il typecheck glielo dice).
+- `producesMultipleOutputs: boolean` — disambigua il *vuoto*:
+  `[] + true` = porte **dinamiche** (tmap, filter, json_parser,
+  xml_parser: le calcola il resolver dalla config); `[] + false` =
+  **nessuna uscita** (bridge_out, lane_end, webhook_responder).
+  Combacia esattamente con i due regimi del motore.
+- `PortSpec = { id, label, isReject, role?, when? }`
+  - **`id` = nome del filo** (deve combaciare con l'handle disegnato e
+    con ciò che il motore cerca: `take_primary_output` prova `"output"`
+    per primo). **`label` = cosa esce** (es. id `output`, label
+    `passthrough`). Non confonderli: id sbagliato = archi scollegati.
+  - `role: 'data' | 'signal' | 'reject' | 'catch'` — cosa PORTA la porta.
+    Da qui discende la regola di schema.
+  - `when: { prop, equals?, notEquals?, fallback? }` — la porta esiste
+    solo se la config lo dice. **Due porte con lo stesso `id` e `when`
+    mutuamente esclusive sono legittime e volute**: è il modo di dire
+    "questa porta cambia natura secondo la configurazione".
 
-Ordine concordato dopo pivot: window → data_quality → source_file/
-sink_file → filter → transform → union → tmap → parser/serializer →
-materialize (ultimo: è il produttore del registro e ha il limite
-"monte finito vs fallito" aperto).
+**Chi lo consuma** — tutti derivano, nessuno riscrive:
+- `getNodePorts(node)` in `src/utils/schemaRegistry.ts` = **il resolver**:
+  statiche dal contratto con `when` applicato + dinamiche (switch per i
+  4 tipi) + **`catch` universale** (onError='propagate'). Ritorna
+  `PortSpec[]` completi. `getNodeHandles` è una vista per id.
+- `FlowNode.tsx` disegna gli handle di uscita da lì.
+- `lowering.ts` → `buildOutputPorts` usa i lowerer specifici per i 4
+  dinamici, altrimenti il contratto.
+- `dagValidation` → `EDGE_FROM_UNDECLARED_PORT` (**error**): un arco che
+  parte da una porta non dichiarata.
+
+⚠️ **Gli INGRESSI non sono ancora derivati**: `FlowNode` disegna
+`<Handle id="input">` **sempre, cablato** (~riga 170) — è il gemello del
+vecchio `show:true`. Il contratto ora è corretto (le sorgenti hanno
+`['input']`: un source_file può ricevere il path da monte, un source_db
+la query), ma nessuno lo legge ancora per gli input. NB i nodi a ingressi
+multipli (join `input_left`/`input_right`, union `input_1/2`, tmap
+`input_main`, error_handler `catch`) vanno verificati: se usano
+`FlowNode`, oggi hanno un solo handle disegnato → c'è un'altra
+divergenza sotto.
+
+**`outputMode` — il vocabolario unico di cosa esce verso valle.**
+Valori: `none | passthrough | signal`. Implementato nel motore **solo da
+`sink_file`** (`sink_file.rs`, SIGNAL_SCHEMA). Dichiarato oggi da
+`sink_file` e dallo **script** (P18: sezione "Uscita verso valle" nel
+pannello — Dati / Innesco / Niente; per lo script è pura dichiarazione
+design-time, il motore non deve cambiare). Per gli altri sink e per
+`bridge_out` il motore NON emette la riga di segnale: dichiararlo senza
+implementarlo sarebbe una bugia silenziosa → va con la fase porting.
+
+> 📝 **NOTA UTENTE (16 lug)**: la sezione "**Uscita verso valle**" del
+> pannello script **va ridiscussa e quantomeno spostata di posizione**,
+> più avanti, **durante il restyling**. Non è una decisione chiusa: la
+> collocazione attuale (sotto "Modalità", sopra "Linguaggio") è
+> provvisoria.
 
 ---
 
-## 6. Lavori di sistema PRIMA di certi nodi (segnalare quando si arriva lì)
+## 6. Lo stato reale del motore (audit di copertura, 15 lug)
 
-- **filter/transform** → Fase B decimal-aware (`as_f64_lossy` nei nodi di
-  calcolo) + bug `Add` in expr.rs (concatena in silenzio dove FPEL dice
-  null — v. expr-ir-schema §3, va allineato PRIMA del codegen).
-- **union** → normare in node-spec la semantica merge by-name (collisioni
-  tipo, omonimie).
-- **materialize** → limite "monte finito vs monte fallito" (può pubblicare
-  dataset parziali in silenzio — materialize_integrazione.md §6).
-- **aggregate/window/pivot** → ORDER BY multi-campo disallineato
-  pannello↔motore (preesistente; scelto comportamento fedele
-  all'esistente; in TODO.md, decidere una volta per tutti i nodi).
-- **Fase 13 proposta** — riaccendere la validazione live: agganciare
-  `triggerValidation` alle mutazioni canvas, aggiornare `nodeSemantics`
-  (pivot/data_quality/union), badge error/warning sul canvas.
+**Non fidarsi delle mappe: interrogare il motore.** `executor.rs` ha 22
+arm che implementano davvero + un catch-all a riga ~705 (`other =>
+Err("Tipo nodo non supportato")`) che fa la cosa giusta.
+
+**Ma c'è uno STUB PASSTHROUGH SILENZIOSO** (executor.rs ~662-704) per
+**16 type-string**: `script, watchdog, source_http, source_ftp,
+source_mqtt, source_activemq, source_kafka, sink_kafka, sink_ftp,
+sink_mqtt, sink_activemq, sink_http, http_request, webhook_responder,
+report_generator, error_handler`. Il commento nel codice lo ammette
+("in attesa delle implementazioni vere"). Inoltra le righe tal quali ed
+emette `NodeStats` regolari con `error: None`: **non fallisce, non
+avvisa, finge di funzionare**. Le sorgenti di rete non hanno input →
+`rows_in=0, rows_out=0`, run "riuscito". I sink di rete buttano i dati in
+silenzio. Lo script non fa niente (e in `Cargo.toml` non c'è **nessun
+motore JS**: lo script non è portabile, va **riprogettato**).
+NB `data_quality` compare nella lista dello stub ma è irraggiungibile
+(ha il suo arm a riga 602): `data_quality` **è** implementato.
+
+Implementati davvero: source_file, source_db, sink_file, sink_db,
+bridge_out, bridge_in, tmap, log, join, transform, aggregate, explode,
+materialize, json_serializer, json_parser, filter, xml_serializer,
+xml_parser, pivot, data_quality, window, union (+ `bridge.rs` a livello
+`engine/`, fuori da `nodes/`).
+
+**I due regimi di porte del motore**: `filter`, `json_parser`,
+`xml_parser`, `tmap` ricevono l'**intera mappa `outputs`** e gestiscono
+le porte per nome, **reject compreso e funzionante**. Tutti gli altri
+usano `take_primary_output` (una porta sola) → i `reject` dichiarati per
+explode/join/materialize/sink_* **non sono implementati**.
+
+**Decisione utente**: i reject dichiarati **servono** e vanno
+implementati (non rimossi). Modello da copiare: filter e i parser.
 
 ---
 
-## 7. Da dove ripartire nella prossima chat
+## 7. `src/runner/` — CODICE MORTO, ma NON cancellare
 
-**Migrazione `pivot` alla spec.** Decisioni già prese:
-- pivot NON ha FPEL → niente specConfig: tutto dalle props
-  (`identityField` CSV → str_list; `pivotColumns`/`unpivotColumns`
-  JSON-string → json_or).
-- `nullValue`: il pannello lo salva stringa; **il motore la tipizza**
-  (scelta "A", confermata) — la logica di tipizzazione (~8 righe,
-  int/float/bool/string) si sposta dal builder a pivot.rs.
-- Le validazioni del case pivot (pivot_field/value_field obbligatori,
-  ≥1 colonna unpivot) RESTANO nel builder E si duplicano nel motore
-  (doppio strato). Il builder può aggiungere warning non bloccanti
-  (es. nullValue testuale in colonna probabilmente numerica) — se il
-  canale warning live non è ancora attivo, annotarli come predisposti.
-- Poi: sezione §10 in node-spec.md; il case builder si riduce alle sole
-  validazioni; executor JS di pivot già cancellato in passato (verificare).
+19 file, 6045 righe di executor TypeScript. **Nessuno lo importa**
+(verificato con grep, barrel incluso); il codegen TS non lo nomina; il
+suo `transactionCoordinator.ts` è già stato cancellato e lascia un import
+penzolante in `src/io/types.ts:20`.
 
-Dopo pivot: window (stesso pattern, ha `dataSource` come pivot).
+🛑 **Decisione utente (15 lug): NON si cancella finché il porting non è
+finito** — serve come **implementazione di riferimento** dei nodi ancora
+da portare. ⚠️ Rischio noto: il commit `1cc8e83` lo aggiornò *per
+riflesso* durante un lavoro sui parser → si stava mantenendo codice morto.
+Se resta, andrebbe **marcato** (intestazione "CODICE MORTO — riferimento
+per il porting, non aggiornare").
+
+Piano archiviato per quando si cancellerà: `git rm -r src/runner`;
+spostare `export type Row = Record<string, unknown>` in
+`src/io/readers.ts` e cancellare `src/io/types.ts` intero (tutti i suoi
+export sono consumati solo dal runner); **tenere** `src/io/readers.ts`
+(vivo: `source_file/MappingPanel.tsx` usa `readFileContent`).
+
+---
+
+## 8. Debiti noti e trappole (non ripetere questi errori)
+
+- **La baseline typecheck è 135** (`npx tsc --noEmit -p tsconfig.app.json
+  2>&1 | grep -c "error TS"`). Sono errori preesistenti (TS6133/6196
+  inutilizzati + un TS2307 penzolante). **Ogni consegna deve chiudere a
+  135**: se sale, è colpa tua.
+- **Verificare interrogando i moduli veri con `npx tsx`, non con regex**:
+  gli audit a espressioni regolari hanno mentito due volte (staticOutputPorts
+  sono oggetti, non stringhe; e un regex ha "perso" una voce esistente).
+  `tsx` richiede **path assoluti** negli import.
+- **Le voci di `nodeSemantics.ts` non hanno formattazione uniforme**:
+  alcune usano `staticOutputPorts: [`, altre la forma allineata
+  `staticOutputPorts:       [],`, e `dir_watcher` è indentato con **6
+  spazi** invece di 4. Un solo regex non basta.
+- **Non rilanciare uno script di inserimento su un file già modificato**:
+  la seconda passata duplica.
+- **`SIGNAL_SCHEMA` è duplicato**: `sink_file.rs` (Rust) e
+  `sink_file/Panel.tsx:80` (JSON). Fonte unica da fare.
+- **Gli eventi `Connection*` del motore non hanno un `conn_id`**
+  (`events.rs`): l'accoppiamento apertura/chiusura si fa sul `node_id`
+  con una **coda FIFO** in `Toolbar.tsx` — è un'ipotesi, e se un nodo
+  tiene due connessioni aperte insieme le *durate* possono scambiarsi.
+  Fix vero: aggiungere `conn_id` agli eventi.
+- **`case 'aggregate'` in schemaPropagation smista per `_uiRef.type`**:
+  materialize/pivot/aggregate hanno tutti `operations: ['aggregate']` ma
+  tre regole di schema diverse. Lo smistamento per *operazione* era
+  troppo grosso — è stata la causa di una cascata di falsi warning.
+- **Il marcatore `__pivot_dynamic__`** significa "colonne note solo a
+  runtime": va propagato **com'è**. Non appiattirlo a `[]` — è una
+  risposta, non un vuoto.
+- **Chiedere `git status --short` prima di dare la colpa alla propria
+  consegna**: un errore runtime attribuito a un import nuovo era in
+  realtà un file modificato in locale dall'utente.
+
+---
+
+## 9. Da dove ripartire
+
+**Fase 13 (validazione live + pannello Problems): CHIUSA.**
+P4 PropertyPanel contestuale, P5 Monitor staccabile+ridimensionabile,
+P6 stato del Monitor ritenuto dal bus, P7/P8 Step 4 bridge (validazione
+cardinalità/cicli + derivazione schema BridgeOut→BridgeIn: l'OUT è
+dominante, il tab del BridgeIn è in sola lettura). Restano da scrivere i
+**MANUALI** (richiesta esplicita: alla fine della fase li scrive Claude).
+
+**Fase porte: IN CORSO.** Fatto: P9→P13 (contratto esteso con role/when,
+archi orfani, schema aggregate/pivot/materialize/bridge_in, innesco vs
+dati), P14/P15 (metà ingressi + `HANDLE_MAP` cancellata), P16 (coda
+connessioni), P17 (FlowNode legge le porte — handle fantasma morti),
+P18 (le sorgenti hanno ingressi + lo script dichiara cosa emette).
+
+**Prossimi passi, in ordine:**
+1. **Gli ingressi sul canvas**: far leggere a `FlowNode` anche gli
+   `<Handle>` di ingresso dal contratto. Prima verificare i nodi a
+   ingressi multipli (join/union/tmap/error_handler).
+2. **Il motore** (apre di fatto la fase porting): i `reject` dichiarati
+   per explode/join/materialize/sink_db/sink_file (modello: filter e i
+   parser, che ricevono l'intera mappa `outputs`); il segnale del
+   `bridge_out` (`take_primary_output` + emissione riga di stato a fine
+   corsa; modello: `sink_file.rs`); `SIGNAL_SCHEMA` da fonte unica;
+   `conn_id` negli eventi Connection*.
+3. **Fase porting dei 16 stub**, ordine deciso dall'utente:
+   **error_handler → script → report_generator**. Riferimenti TS in
+   `src/runner/`: `errorHandlerExecutor.ts` (35 righe) +
+   `errorHandling.ts` (98) + il concetto `ExecutionContext.errorRows`
+   ("popolato da executeNode/executeStreamingNode, consumato da
+   processErrorHandler() alla fine di runLane" → **è orchestrazione, non
+   un executor**: tocca il motore, non solo `nodes/`); poi
+   `scriptExecutor.ts` (179) + `buildLaneProxy`; poi
+   `reportGeneratorExecutor.ts` (688, il più grosso).
+4. **Restyling**: v. la nota sull'"Uscita verso valle" in §5.
+
+**Sequenza decisa dall'utente**: si chiude una fase alla volta. *"Siamo
+sempre in fase di sviluppo: finché non abbiamo finito tutto non si va in
+produzione."*
