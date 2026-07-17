@@ -1,7 +1,14 @@
 # Il contratto delle porte — il modello
 
-**Stato**: prima stesura, 16 luglio. Scritta al commit `931545d`, con i dati
-estratti interrogando `src/ir/nodeSemantics.ts` (non con regex).
+**Stato**: seconda stesura, **17 luglio — a fase porte CHIUSA**. Prima stesura
+il 16 luglio al commit `931545d`. Dati estratti interrogando
+`src/ir/nodeSemantics.ts` (non con regex).
+
+La fase è chiusa: il contratto è la fonte unica, **tutti lo leggono** — chi
+disegna, chi valida, chi risolve le connessioni, chi genera il piano — e
+`connectionResolver` deriva invece di riscrivere. Delle 13 divergenze della
+prima stesura ne restano 5, tutte fuori dallo studio: motore e fase porting.
+Una (§9.8) si è rivelata **falsa**.
 
 Questo documento è **il modello**, non il resoconto del codice. Dove i due
 divergono, diverge il codice: le divergenze note sono elencate in §9 con il
@@ -178,32 +185,57 @@ nodo con `onError='propagate'`. Lo risolve `getNodePorts`, non i singoli tipi.
 
 ```ts
 PortSpec = {
-  id:        string          // il nome del filo
-  label:     string          // cosa esce
-  isReject:  boolean         // ⚠ ridondante con role — v. §9.6
-  role?:     'data' | 'signal' | 'reject' | 'catch'
-  when?:     { prop, equals?, notEquals?, fallback? }
+  id:    string                                  // il nome del filo
+  label: string                                  // cosa esce
+  role:  'data' | 'signal' | 'reject' | 'catch'  // OBBLIGATORIO
+  when?:        { prop, equals?, notEquals?, fallback? }
+  maxEdges?:    1 | 'many'    // solo ingressi — quanti ARCHI.  Omesso ⇒ 1
+  maxRows?:     1 | 'many'    // solo ingressi — quante RIGHE.  Omesso ⇒ 'many'
+  connectable?: boolean       // false = porta LOGICA (R9).     Omesso ⇒ true
 }
 
 NodeSemantics = {
   staticInputPorts:        PortSpec[]   // obbligatorio
   staticOutputPorts:       PortSpec[]   // obbligatorio
-  producesMultipleOutputs: boolean
+  acceptsMultipleInputs:   boolean      // ha più di UNA porta d'ingresso
+  acceptsDynamicInputs:    boolean      // le porte d'ingresso le calcola il resolver
+  producesMultipleOutputs: boolean      // idem, in uscita
   …
 }
 ```
 
-**`staticInputPorts` / `staticOutputPorts` sono obbligatori**: chi aggiunge un
-nodo non può dimenticarli, glielo dice il typecheck.
+**Le liste sono obbligatorie**, e così `role` e `acceptsDynamicInputs`: chi
+aggiunge un nodo non può dimenticarli, glielo dice il typecheck. Non è una
+formalità — rendere `acceptsDynamicInputs` obbligatorio ha fatto salire il
+typecheck di **esattamente 43 errori**, uno per tipo, finché ognuno non ha
+risposto.
 
-**`producesMultipleOutputs` disambigua il vuoto**:
-- `[] + true` → porte **dinamiche**, le calcola il resolver dalla config
-  (tmap, filter, json_parser, xml_parser);
-- `[] + false` → **nessuna uscita** (bridge_out, lane_end, webhook_responder).
+**I due `Multiple`/`Dynamic` non sono la stessa cosa**, e confonderli è l'errore
+che ha fatto mentire union e serializer per mesi:
+- `acceptsMultipleInputs` → **ha più di una porta**. Il `join` ne ha due, e sono
+  statiche.
+- `acceptsDynamicInputs` → **le porte le calcola il resolver dalla config**
+  (tmap, union, i due serializer). `true` implica anche che l'interfaccia
+  disegna l'handle di servizio `input_new`: la convenzione, prima non scritta
+  da nessuna parte, ora deriva da qui.
 
-Combacia esattamente con i due regimi del motore: i 4 dinamici ricevono
-l'intera mappa `outputs` e gestiscono le porte per nome; tutti gli altri
-passano da `take_primary_output`.
+**`producesMultipleOutputs` disambigua il vuoto**, e il gemello
+`acceptsDynamicInputs` fa lo stesso in ingresso:
+- `[] + true` → porte **dinamiche**: zero è **provvisorio**, vuol dire *non
+  ancora configurato* (filter, tmap, json_parser, xml_parser);
+- `[] + false` → **non ne ha** (bridge_out, lane_end, webhook_responder in
+  uscita; bridge_in, lane_start, error_handler in ingresso).
+
+Questa distinzione **non è pignoleria**: senza, la regola "zero porte ⇒ rifiuta
+la connessione" bloccherebbe un `filter` appena messo giù. Combacia anche con i
+due regimi del motore: i 4 dinamici ricevono l'intera mappa `outputs` e
+gestiscono le porte per nome; tutti gli altri passano da `take_primary_output`.
+
+**`maxEdges` ≠ `maxRows`.** Sembrano lo stesso campo e non lo sono: **un arco
+solo porta mille righe**. `maxEdges` è design-time (la regola che il canvas
+applica quando trascini); `maxRows` è runtime, ed è la R8. Fonderli sarebbe
+comodo oggi e velenoso fra un mese — è la forma esatta dello smistamento troppo
+grosso che ci è già costato caro.
 
 **`when`** — la porta esiste solo se la config lo dice. Due porte con lo
 stesso `id` e `when` mutuamente esclusivi sono **legittime e volute**.
@@ -300,166 +332,184 @@ campo in arrivo è **da decidere** (§10).
 
 ## 8. I 43 tipi — cosa dichiara ognuno
 
-Estratta da `nodeSemantics.ts` interrogando il modulo. *Fotografia al
-`931545d`: comprende le divergenze di §9.*
+Estratta da `nodeSemantics.ts` interrogando il modulo. *Rigenerata il 17 luglio,
+a fase porte chiusa: ora la tabella descrive il codice, non il debito.*
 
-| tipo | ingressi dichiarati | uscite dichiarate | uscite dinamiche |
-|---|---|---|---|
-| `aggregate` | `input` | `output` | no |
-| `bridge_in` | — | `output` | no |
-| `bridge_out` | `input` | — | no |
-| `data_quality` | `input` | `output` | no |
-| `dir_watcher` | `input` data | `output`<br>`reject` | no |
-| `error_handler` | `catch` | `error_out` | no |
-| `explode` | `input` | `output`<br>`reject` | no |
-| `filter` | `input` | — | **sì** |
-| `join` | `input_left`<br>`input_right` | `output`<br>`reject` | no |
-| `json_parser` | `input` | — | **sì** |
-| `json_serializer` | `input` | `output` | no |
-| `lane_end` | `input` | — | no |
-| `lane_start` | — | `output` signal | no |
-| `log` | `input` | `output` data | no |
-| `mail_sink` | `input` | `output` data<br>`reject` | no |
-| `materialize` | `input` | `output`<br>`reject` | no |
-| `pivot` | `input` | `output` | no |
-| `report_generator` | `input` | `output`<br>`reject` | no |
-| `script` | `input` | `output` data *when outputMode≠signal/none*<br>`output` signal *when outputMode=signal*<br>`reject` reject *when hasReject=true* | no |
-| `shell_exec` | `input` | `output` | no |
-| `sink_activemq` | `input` | `output` | no |
-| `sink_db` | `input` | `output` data<br>`reject` | no |
-| `sink_file` | `input` | `output` data<br>`reject` | no |
-| `sink_ftp` | `input` | `output` data<br>`reject` | no |
-| `sink_kafka` | `input` | `output` data<br>`reject` | no |
-| `sink_mqtt` | `input` | `output` | no |
-| `source_activemq` | `input` data | `output`<br>`reject` | no |
-| `source_db` | `input` data | `output` | no |
-| `source_file` | `input` data | `output` | no |
-| `source_ftp` | `input` data | `output` | no |
-| `source_http` | `input` data | `output`<br>`reject` | no |
-| `source_kafka` | `input` data | `output` | no |
-| `source_mqtt` | `input` data | `output` | no |
-| `ssh_exec` | `input` | `output` | no |
-| `tmap` | `input_main` | — | **sì** |
-| `transform` | `input` | `output` | no |
-| `union` | `input_1`<br>`input_2` | `output` | no |
-| `watchdog` | `input` data | `output` | no |
-| `webhook_receiver` | `input` data | `output` | no |
-| `webhook_responder` | `input` | — | no |
-| `window` | `input` | `output` | no |
-| `xml_parser` | `input` | — | **sì** |
-| `xml_serializer` | `input` | `output` | no |
+`din. in` / `din. out` = le porte le calcola il resolver dalla config
+(`acceptsDynamicInputs` / `producesMultipleOutputs`). `·1 riga` = `maxRows: 1`,
+la R8. `logica` = `connectable: false`, la R9.
+
+| tipo | ingressi | uscite | din. in | din. out |
+|---|---|---|:-:|:-:|
+| `aggregate` | `input` | `output` | · | · |
+| `bridge_in` | — | `output` | · | · |
+| `bridge_out` | `input` | — | · | · |
+| `data_quality` | `input` | `output` | · | · |
+| `dir_watcher` | `input` ·1 riga | `output`<br>`reject` reject | · | · |
+| `error_handler` | `catch` catch **logica** | `error_out` | · | · |
+| `explode` | `input` | `output`<br>`reject` reject | · | · |
+| `filter` | `input` | — | · | **sì** |
+| `join` | `input_left`<br>`input_right` | `output`<br>`reject` reject | · | · |
+| `json_parser` | `input` | — | · | **sì** |
+| `json_serializer` | `input` | `output` | **sì** | · |
+| `lane_end` | `input` | — | · | · |
+| `lane_start` | — | `output` signal | · | · |
+| `log` | `input` | `output` | · | · |
+| `mail_sink` | `input` | `output`<br>`reject` reject | · | · |
+| `materialize` | `input` | `output`<br>`reject` reject | · | · |
+| `pivot` | `input` | `output` | · | · |
+| `report_generator` | `input` | `output`<br>`reject` reject | · | · |
+| `script` | `input` | `output` *when outputMode≠signal/none*<br>`output` signal *when outputMode=signal*<br>`reject` reject *when hasReject=true* | · | · |
+| `shell_exec` | `input` | `output` | · | · |
+| `sink_activemq` | `input` | `output` | · | · |
+| `sink_db` | `input` | `output`<br>`reject` reject | · | · |
+| `sink_file` | `input` | `output`<br>`reject` reject | · | · |
+| `sink_ftp` | `input` | `output`<br>`reject` reject | · | · |
+| `sink_kafka` | `input` | `output`<br>`reject` reject | · | · |
+| `sink_mqtt` | `input` | `output` | · | · |
+| `source_activemq` | `input` ·1 riga | `output`<br>`reject` reject | · | · |
+| `source_db` | `input` ·1 riga | `output` | · | · |
+| `source_file` | `input` ·1 riga | `output` | · | · |
+| `source_ftp` | `input` ·1 riga | `output` | · | · |
+| `source_http` | `input` ·1 riga | `output`<br>`reject` reject | · | · |
+| `source_kafka` | `input` ·1 riga | `output` | · | · |
+| `source_mqtt` | `input` ·1 riga | `output` | · | · |
+| `ssh_exec` | `input` | `output` | · | · |
+| `tmap` | `input_main` | — | **sì** | **sì** |
+| `transform` | `input` | `output` | · | · |
+| `union` | `input_main` | `output` | **sì** | · |
+| `watchdog` | `input` ·1 riga | `output` | · | · |
+| `webhook_receiver` | `input` ·1 riga | `output` | · | · |
+| `webhook_responder` | `input` | — | · | · |
+| `window` | `input` | `output` | · | · |
+| `xml_parser` | `input` | — | · | **sì** |
+| `xml_serializer` | `input` | `output` | **sì** | · |
 
 Lo `script` è l'esempio vivo di R4: **due porte con lo stesso `id`**, `when`
 mutuamente esclusivi, ruoli diversi.
 
----
+## 9. Dove il codice diverge dal modello
 
-## 9. Dove il codice diverge dal modello (e chi lo chiude)
+**La fase porte è chiusa.** Delle 13 divergenze della prima stesura ne restano
+aperte 5, e sono tutte **motore** o **fase porting** — nessuna è nello studio.
+Questa resta la lista del debito, non un elenco di idee.
 
-Onestà: questa è la lista del debito, non un elenco di idee.
+### Chiuse
 
-**9.1 — Gli ingressi non sono derivati da nessuno.** Il contratto dichiara gli
-ingressi di tutti i 43 tipi, ma **nessuno li legge**: `FlowNode` disegna
-`<Handle id="input">` sempre, cablato — il gemello del vecchio `show:true`.
-→ **P20**.
+| | cos'era | chi l'ha chiusa |
+|---|---|---|
+| 9.1 | gli ingressi non erano derivati da nessuno: `FlowNode` disegnava `<Handle id="input">` cablato | **P20a** (FlowNode) + **P20b** (join/union/tmap) |
+| 9.2 | `union` dichiarava `input_1`/`input_2`, mai esistiti | **P19b** — statica `input_main` + dinamiche; tolto il ramo morto in `schemaUtils` |
+| 9.3 | i serializer derivavano le porte **dagli archi** | **P25** — `config.serializerInputs`, scritto dal resolver e ripulito alla cancellazione |
+| 9.4 | mancava il vocabolario per gli ingressi dinamici | **P19b** — `acceptsDynamicInputs`, `maxEdges`, `maxRows`, `connectable` |
+| 9.5 | la quinta copia: `NO_OUTPUT` vuoto, `NO_INPUT` senza `bridge_in`, `JOIN_HANDLES` a mano | **P21** — tutto derivato; + `EDGE_TO_UNDECLARED_PORT` |
+| 9.6 | `role` dichiarato su un quinto delle porte, e `isReject` diceva la stessa cosa due volte | **P19a** — `role` obbligatorio, `isReject` derivato con `isRejectPort()` |
+| 9.8 | «`bridge_in` disegna un handle nascosto» | **era falso** — v. sotto |
 
-**9.2 — `union` mente.** Il contratto dichiara `input_1`/`input_2`: non
-esistono. La realtà è `input_main` + handle dinamici `union_input_<ts>` creati
-da `connectionResolver` e salvati in `config.unionInputs`. In più
-`schemaUtils.ts:233` ha un ramo che cerca `input_1`/`input_2` e non scatta
-mai: funziona per caso, grazie al fallback `_${edgeIdx+1}`. → **P19**.
+**9.8 non era vero, ed è la correzione più istruttiva di tutta la fase.**
+L'handle `opacity: 0` di `bridge_in` sta in `BridgeNode.tsx`, che **non viene
+mai renderizzato**: `bridgeInNode`, `bridgeOutNode`, `webhookReceiverNode`,
+`webhookResponderNode` e `watchdogNode` sono registrati in `nodeTypes`
+(`LaneCanvas`) ma il `rfType` di `flowStore` **non li assegna mai** — quei nodi
+passano tutti da `FlowNode`. `WebhookNode.tsx` ha perfino il commento con la
+mappa che *sarebbe andata aggiunta*. Il vero handle di `bridge_in` lo disegnava
+`FlowNode` cablato, e P20a l'ha tolto per la strada giusta.
+→ **Da verificare**: un JSON salvato da una versione vecchia potrebbe portarsi
+dietro quei `rfType`, e allora i componenti morti tornano vivi.
 
-**9.3 — I serializer invertono la dipendenza.** Il contratto dichiara 1
-ingresso; la realtà è N handle, **uno per arco entrante**. L'arco crea la
-porta, che è il contrario del modello (§1). Da normalizzare al pattern
-`union`, config-driven. ⚠️ **Attenzione alla migrazione dei progetti salvati.**
-→ **P19**.
+### Aperte — tutte fuori dallo studio
 
-**9.4 — Gli ingressi dinamici non hanno vocabolario.** `producesMultipleOutputs`
-non ha gemello per gli ingressi. È **la ragione** per cui 9.2 e 9.3 mentono:
-non avendo come dirlo, hanno mentito. Manca anche la **cardinalità per porta**
-(serve a R8) e la dichiarazione dell'handle di servizio `input_new`, oggi
-convenzione UI non scritta. → **P19**.
+**9.7 — I reject sono asimmetrici** (*decisione*). `sink_mqtt` e `sink_activemq`
+non hanno `reject` mentre `sink_db`/`file`/`ftp`/`kafka` sì; `source_http`,
+`source_activemq` e `dir_watcher` ne hanno uno che gli altri source non hanno.
+Da decidere una per una, non a colpi di regex.
 
-**9.5 — La quinta copia: `connectionResolver.ts`.** `NO_OUTPUT` è un `Set`
-**vuoto**; `NO_INPUT` contiene solo `lane_start` e dimentica `bridge_in`;
-`JOIN_HANDLES` è un terzo elenco a mano; le regole di cardinalità sono sparse
-in cinque `return` diversi. → **P21**, + `EDGE_TO_UNDECLARED_PORT` lato target
-(gemello di quello lato source).
-
-**9.6 — `role` è dichiarato su un quinto delle porte.** Conteggio sul modulo
-vero: **10 ingressi su 43** e **10 uscite su 50** hanno `role`. Ma §6 dice che
-è **da `role` che discende la regola di schema** — quindi oggi quella regola
-discende, per l'80% delle porte, da un default implicito altrove.
-Peggio: `isReject: boolean` e `role: 'reject'` dicono **la stessa cosa due
-volte**, e sono popolati in modo diverso (`sink_db.reject` ha `isReject` ma
-non `role`). Il resolver, per le dinamiche, deriva già `role` da `isReject`
-(`role: isReject ? 'reject' : 'data'`).
-**Proposta**: `role` diventa **obbligatorio**, `isReject` **deriva**
-(`isReject === role === 'reject'`) e sparisce dalla dichiarazione. Un fatto,
-un posto. → **P19**.
-
-**9.7 — Incoerenze nella tabella §8**, da sanare con 9.6: `sink_mqtt` e
-`sink_activemq` non hanno `reject` mentre `sink_db`/`file`/`ftp`/`kafka` sì;
-`source_http`/`source_activemq`/`dir_watcher` hanno un `reject` che gli altri
-source non hanno. Vanno decise una per una, non uniformate a colpi di regex.
-
-**9.8 — `bridge_in` disegna un handle nascosto.** Contratto: zero ingressi. Il
-componente disegna `<Handle id="input">` con `opacity: 0`. → **P20**.
-
-**9.9 — I source non consumano il loro ingresso.** *(motore, non fase porte)*
+**9.9 — I source non consumano il loro ingresso** (*motore*).
 ```rust
 "source_db" => { let tx = take_primary_output(&mut outputs);
                  super::nodes::source_db::run(ctx, tx).await }
 ```
-La mappa `inputs` non è **mai** toccata. L'ingresso dato ai source da P18 è
-**dichiarato e non consumato**: R8 non è implementato. Il receiver droppato
-chiude il canale e le `let _ = tx.send(row).await` a monte falliscono **in
-silenzio** — righe che spariscono. È la spiegazione vera dello scenario
-`START→Script→DBFilm`.
+La mappa `inputs` non è **mai** toccata: l'ingresso dato ai source da P18 è
+dichiarato e non consumato, quindi **R8 non è implementata**. Il receiver
+droppato chiude il canale e le `let _ = tx.send(row).await` a monte falliscono
+**in silenzio** — righe che spariscono.
 
-**9.10 — Nessun binding di parametri.** `source_db.rs` fa
-`sqlx::query(query).fetch(pool)`: query stringa verbatim, nessun `.bind()`.
-R8 non ha con cosa configurarsi. *(motore)*
+**9.10 — Nessun binding di parametri** (*motore*). `source_db.rs` fa
+`sqlx::query(query).fetch(pool)`: stringa verbatim, nessun `.bind()`. R8 non ha
+con cosa configurarsi.
 
-**9.11 — I reject dichiarati non sono implementati** per
+**9.11 — I reject dichiarati non sono implementati** (*motore*) per
 explode/join/materialize/sink_*. Solo `filter` e i parser ricevono l'intera
-mappa `outputs` e gestiscono le porte per nome, reject compreso e
-funzionante. Modello da copiare: quelli. *(motore)*
+mappa `outputs` e gestiscono le porte per nome. Modello da copiare: quelli.
 
-**9.12 — `outputMode` è implementato solo da `sink_file`.** Lo dichiarano
-`sink_file` e lo `script`; per gli altri sink e per `bridge_out` il motore non
-emette la riga di segnale. Dichiararlo senza implementarlo sarebbe una bugia
-silenziosa (§2) → va con la fase porting. `SIGNAL_SCHEMA` è **duplicato**
-(`sink_file.rs` e `sink_file/Panel.tsx:80`): fonte unica da fare. *(motore)*
+**9.12 — `outputMode` è implementato solo da `sink_file`** (*fase porting*).
+Tutti e 7 i sink dichiarano `output` **senza `when`**: il pallino verde esiste
+sempre, anche quando il motore non ci manda niente. Ma il campo che governa
+l'uscita è diverso per ciascuno — `sink_db` va a `passthroughMasterDetail`
+(default `false`), `sink_file` a `outputMode`, e gli altri 5 non hanno **niente**
+nel motore. Mettere un `when` dove il motore non legge nulla sarebbe un'altra
+bugia: prima il porting, poi il `when`. `SIGNAL_SCHEMA` è **duplicato**
+(`sink_file.rs` e `sink_file/Panel.tsx:80`): fonte unica da fare.
 
-**9.13 — Lo `script` è uno stub.** Inoltra le righe tal quali e finge di
-funzionare; in `Cargo.toml` non c'è **nessun motore JS**. R6 gli chiede di
-emettere i risultati: **non può, oggi**. Va riprogettato — è programmato
-(porting: error_handler → script → report_generator).
+**9.13 — Lo `script` è uno stub** (*fase porting*). Inoltra le righe tal quali e
+finge di funzionare; in `Cargo.toml` non c'è **nessun motore JS**. R6 gli chiede
+di emettere i risultati: non può. È programmato.
+
+### Il muro che è emerso due volte
+
+`validateDAG(plan)` e `propagateSchema(plan)` ricevono **solo il piano, non le
+lane**. Ma i nomi dei dataset materializzati vivono **solo** in `lane.variables`
+(tipo `materialize`, `value` = nodeId di chi pubblica); il nodo materialize non
+si tiene nemmeno il proprio nome. Perciò l'IR non può risolvere
+`materializeName`, e si passa da `props.outputSchema` persistito dal pannello —
+che le lane le vede.
+
+Funziona, ma dipende dal fatto che **qualcuno abbia aperto il pannello**. E
+lascia una domanda senza risposta: *«questo window legge `ds_film` — chi lo
+pubblica?»*. Passare le lane a `validateDAG`/`propagateSchema` è un cambio di
+firma su tutti i chiamanti, ed è **il pezzo che manca al pre-compilatore**.
+
+### Una cosa che non c'è
+
+**FlowPilot non ha persistenza.** Nessun `localStorage`, nessun dialogo file, e
+tra i 45 comandi Tauri non c'è né `save_project` né `load_project`. Un flusso
+vive solo nella sessione. Va scritto qui perché ha smentito un rischio che
+questo stesso documento dichiarava — la "migrazione dei progetti salvati" del
+vecchio §9.3, che ha pesato su una decisione senza esistere.
 
 ---
 
 ## 10. Decisioni
 
-**Prese il 16 luglio** (utente):
+**Prese** (utente, 16 luglio):
 - R5 — niente segnale sostitutivo in assenza di dati. *Ritirata dopo averla
   proposta: il comportamento resta il più semplice.*
 - R6 — variabili di lane immutabili; i nodi che elaborano emettono i risultati.
 - R8 — barriera + parametri, cardinalità **una riga** (scartata "N righe = N
   esecuzioni").
 - R9 — `catch` dell'error_handler: porta logica, raccolta implicita.
+- 9.6 — `role` obbligatorio, `isReject` derivato. *Era una proposta di Claude:
+  approvata e fatta con P19a.*
+- 9.3 — serializer normalizzato al pattern union. *La migrazione, che era il
+  perno della scelta, non esisteva.*
 - Ordine di porting: **error_handler → script → report_generator**.
 
 **Aperte**:
 - La **sintassi** con cui una query cita un campo in arrivo (`:param` di sqlx?
   `${campo}` FPEL compilato a binding?). Tocca `node-spec.md` §3, che oggi dice
-  "SQL custom eseguito verbatim".
+  "SQL custom eseguito verbatim". Il binding va **tipizzato**, mai per
+  interpolazione di stringa: SQL injection, e "Decimal mai via f64".
 - 9.7 — i reject asimmetrici tra i sink e tra i source: uno per uno.
-- 9.6 — `role` obbligatorio e `isReject` derivato: **proposta di Claude**, da
-  approvare.
+- Il `when` sui sink (9.12): **dopo** il porting, non prima.
+- Le lane a `validateDAG`/`propagateSchema`.
+- **Se la dipendenza `window ← materialize` debba vedersi sul canvas.** Oggi è
+  invisibile: guardando il flusso non si vede che quel window dipende da quel
+  materialize. È in tensione con la R6 — *tutto ciò che influenza un nodo è
+  visibile sul canvas*. Le strade: (A) resta invisibile ma dichiarata e
+  validata; (B) un arco **logico** tratteggiato, derivato dalla config e non
+  cablato a mano — parente stretto della porta logica della R9.
 
 **Rimandate**:
 - La sezione "Uscita verso valle" del pannello script: **da ridiscutere e
   spostare**, al restyling. Con lei il nome "innesco" (§6).
-- Revisione generale delle regole, quando la fase sarà chiusa.
+- Revisione generale delle regole.
