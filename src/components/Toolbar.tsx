@@ -9,6 +9,7 @@ import {
   writeFile,
 } from '../lib/tauri'
 import { buildTMapPlan } from '../ir/tmapExprConverter'
+import { compileQueryParams, queryHasParams } from '../ir/queryParams'
 import type { TMapConfig } from '../types'
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
@@ -488,6 +489,23 @@ function buildRustPlan(
         ? (laneConfig?.resources.find(r => r.id === specResourceId)?.config ?? null)
         : null
       switch (node.data.type) {
+
+        // ── R8, seconda metà — i parametri di query ────────────────
+        // La query può citare un campo che arriva dall'ingresso:
+        // `${campo}`. La sintassi si legge nello STUDIO, come per FPEL
+        // (parsa lo studio, valuta il motore): nel piano scende già
+        // compilata — placeholder al posto dei `${}`, campi da legare in
+        // ordine. Il placeholder è NEUTRO (`?`): il dialetto lo sa il
+        // motore, che ha in mano il pool; dedurlo qui sarebbe vero solo
+        // finché l'utente non cambia risorsa.
+        // La query grezza resta nei props, verbatim, per il pannello.
+        case 'source_db': {
+          const rawQuery = String(props['query'] ?? '')
+          if (queryHasParams(rawQuery)) {
+            specConfig.queryCompiled = compileQueryParams(rawQuery)
+          }
+          break
+        }
 
        case 'source_file': {
           // `fields` è la PROIEZIONE per l'esecuzione dello schema: il

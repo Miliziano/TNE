@@ -8,6 +8,7 @@ import type {
   LogicalPlan, LogicalNode, ValidationIssue, ValidationResult, ExecutionSemantics,
 } from './types'
 import { topologicalSort, canvasNodeId } from './lowering'
+import { queryParamNames, quotedParamNames } from './queryParams'
 import { getNodeSemantics } from './nodeSemantics'
 import { propagateSchema } from './schemaPropagation'
 
@@ -666,6 +667,55 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
           severity: 'error',
           hint: 'Seleziona il dataset nel pannello, alla voce Sorgente',
         })
+      }
+    }
+
+    // ── R8, seconda metà — i parametri di query ────────────────────
+    //
+    // Una query può citare un campo che arriva dall'ingresso: `${campo}`.
+    // Lo studio lo compila (src/ir/queryParams.ts) e lo lega TIPIZZATO;
+    // qui si controlla, PRIMA di eseguire, che quel campo esista davvero.
+    // È l'intero motivo per cui la sintassi è `${campo}` e non `:param`
+    // nativo di sqlx: se la legge lo studio, lo studio può dirlo.
+    if (uiType === 'source_db') {
+      const query = String(node._uiRef?.props?.['query'] ?? '')
+
+      // Il parametro fra apici: `WHERE s = '${nome}'`. Diventerebbe
+      // `s = '?'` — il confronto con la stringa "?" — e lascerebbe un bind
+      // senza posto. È l'errore di chi arriva dall'interpolazione, dove gli
+      // apici servono; qui li mette il driver.
+      for (const name of quotedParamNames(query)) {
+        issues.push({
+          nodeId: canvasId, code: 'QUERY_PARAM_QUOTED',
+          message: `"${label}": il parametro \`\${${name}}\` è fra apici`,
+          severity: 'error',
+          hint: `Scrivi \`= \${${name}}\` senza apici: il valore viene legato, e gli apici li mette il driver. Con gli apici la query cercherebbe la stringa "?".`,
+        })
+      }
+
+      const cited = queryParamNames(query)
+      if (cited.length) {
+        // Da dove arrivano i campi: dall'unico arco entrante. Zero archi e
+        // parametri citati = la query non potrà mai riempirli.
+        // `preds` sono ID, non nodi: lo schema va cercato nel piano.
+        const byNodeId = new Map(plan.nodes.map((n) => [n.id, n]))
+        const known    = new Set(
+          preds.flatMap((pid) => byNodeId.get(pid)?.schema?.output ?? []).map((f) => f.name)
+        )
+
+        for (const name of cited) {
+          if (known.has(name)) continue
+          issues.push({
+            nodeId: canvasId, code: 'QUERY_PARAM_UNKNOWN',
+            message: preds.length === 0
+              ? `"${label}": la query usa il parametro \`\${${name}}\` ma al nodo non arriva nessun flusso`
+              : `"${label}": la query usa il parametro \`\${${name}}\`, che non è fra i campi in arrivo`,
+            severity: 'error',
+            hint: preds.length === 0
+              ? 'Collega a monte il nodo che calcola il parametro: la sua riga configura la query'
+              : `Campi in arrivo: ${[...known].join(', ') || '(nessuno)'}`,
+          })
+        }
       }
     }
 
