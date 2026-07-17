@@ -27,6 +27,7 @@ use sqlx::mysql::MySqlPool;
 use sqlx::sqlite::SqlitePool;
 use crate::engine::types::*;
 use crate::engine::executor::{RowSender, NodeContext, RowReceiver};
+use serde::Deserialize;
 use crate::engine::spec::Spec;
 use crate::engine::pool::{DbPool, PoolParams};
 
@@ -41,6 +42,36 @@ struct SourceDbConfig {
     connect_timeout: u64,
     query:           String,
     resource_id:     String,
+    /// R8 — la query compilata dallo studio, se cita parametri.
+    query_compiled:  Option<CompiledQuery>,
+}
+
+/// Query con i `${campo}` già risolti in placeholder.
+///
+/// La compila lo **studio** (`src/ir/queryParams.ts`) e scende nella busta
+/// `spec.config`. Qui non si legge MAI la sintassi `${...}`: è lo stesso
+/// patto di FPEL — `exprParser.ts` parsa, `expr.rs` valuta un albero già
+/// pronto. Un secondo parser in Rust sarebbe una copia, e le copie
+/// divergono in silenzio. V. contratto-porte.md R8 e §10.
+///
+/// `sql` porta placeholder NEUTRI (`?`): il dialetto lo sappiamo QUI,
+/// perché qui abbiamo il pool in mano. Lo studio non può saperlo per
+/// certo — la risorsa può cambiare sotto.
+#[derive(Deserialize, Clone, Debug)]
+struct CompiledQuery {
+    /// SQL con `?` al posto di ogni `${campo}`.
+    sql:   String,
+    /// I nomi dei campi da legare, **nell'ordine dei placeholder**.
+    /// Lo stesso campo citato due volte compare due volte: i placeholder
+    /// sono posizionali e ognuno vuole il suo valore.
+    binds: Vec<String>,
+}
+
+/// Parte compilata, letta da `spec.config` (non dalle props).
+#[derive(Deserialize, Default)]
+struct SourceDbConfigStruct {
+    #[serde(default, rename = "queryCompiled")]
+    query_compiled: Option<CompiledQuery>,
 }
 
 fn default_port(dialect: &str) -> u16 {
@@ -48,6 +79,10 @@ fn default_port(dialect: &str) -> u16 {
 }
 
 fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
+    // Strutture compilate dalla busta config (calco: aggregate.rs:88).
+    let st: SourceDbConfigStruct = serde_json::from_value(spec.config().clone())
+        .map_err(|e| format!("config strutturata non valida (queryCompiled): {}", e))?;
+
     if !spec.has_resource() {
         return Err("nessuna risorsa DB collegata (selezionare una \
                     connessione nel pannello del nodo)".to_string());
@@ -94,7 +129,125 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         port,
         user,
         query,
+        query_compiled:  st.query_compiled,
     })
+}
+
+// ─── R8, seconda metà — i parametri della query ────────────────────
+
+/// Rinumera i placeholder neutri `?` per il dialetto.
+///
+/// Postgres vuole `$1, $2, …` posizionali; MySQL e SQLite vogliono `?`.
+/// Lo studio emette sempre `?` perché non può sapere per certo con quale
+/// risorsa girerà il nodo; qui il pool ce l'abbiamo in mano.
+///
+/// NB si rinumerano solo i `?` che lo studio ha messo — sono tanti quanti
+/// i bind. Un `?` scritto a mano dall'utente dentro la sua query (dentro
+/// un letterale, per dire) sarebbe indistinguibile: per questo la conta
+/// viene verificata dal chiamante contro `binds.len()`.
+fn renumber_placeholders(sql: &str, dialect: &str) -> String {
+    if !dialect.starts_with("postgres") {
+        return sql.to_string();
+    }
+    let mut out = String::with_capacity(sql.len() + 8);
+    let mut n = 0usize;
+    for ch in sql.chars() {
+        if ch == '?' {
+            n += 1;
+            out.push('$');
+            out.push_str(&n.to_string());
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// Prende dalla riga di parametri i valori citati dalla query, in ordine.
+///
+/// La riga arriva dall'ingresso (R8: barriera + parametri, una riga sola —
+/// v. `nodes/source_input.rs`). Un campo citato e non presente è un errore
+/// parlante: lo studio lo controlla già in design (QUERY_PARAM_UNKNOWN),
+/// ma il piano può essere eseguito senza passare di lì, e a runtime un
+/// parametro mancante non deve diventare NULL in silenzio — diventerebbe
+/// una query che gira e non trova niente, cioè un risultato sbagliato che
+/// sembra giusto.
+fn resolve_binds(
+    node_id: &str,
+    compiled: &CompiledQuery,
+    params: Option<&Row>,
+) -> Result<Vec<Value>, String> {
+    if compiled.binds.is_empty() {
+        return Ok(Vec::new());
+    }
+    let Some(row) = params else {
+        return Err(format!(
+            "source_db {}: la query usa i parametri [{}] ma al nodo non è arrivata \
+             nessuna riga in ingresso. Collega a monte il nodo che li calcola.",
+            node_id, compiled.binds.join(", ")
+        ));
+    };
+    let mut out = Vec::with_capacity(compiled.binds.len());
+    for name in &compiled.binds {
+        match row.0.get(name) {
+            Some(v) => out.push(v.clone()),
+            None => {
+                let mut avail: Vec<&str> = row.0.keys().map(|k| k.as_str()).collect();
+                avail.sort_unstable();
+                return Err(format!(
+                    "source_db {}: la query usa il parametro `${{{}}}` ma la riga in \
+                     ingresso non ha quel campo. Campi arrivati: {}",
+                    node_id, name,
+                    if avail.is_empty() { "(nessuno)".to_string() } else { avail.join(", ") }
+                ));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Lega i valori a una query sqlx, **tipizzati**.
+///
+/// Macro e non funzione perché sqlx tipizza `Query` per dialetto
+/// (`Query<'_, Postgres, _>` ≠ `Query<'_, MySql, _>`): una funzione
+/// generica costerebbe più cerimonia di quanta ne risparmi. La macro
+/// tiene comunque il match in UN posto solo — tre copie a mano di questa
+/// tabella sarebbero esattamente il modo in cui questo progetto si è
+/// ammalato finora.
+///
+/// ⚠️ IL DECIMAL — il punto che decide tutto.
+/// `engine/types.rs` dice del suo `Decimal`: *"Esatto: non passa mai per
+/// f64"*. Legarlo per f64 qui vanificherebbe l'intera catena, in silenzio
+/// e sui soldi. Ma **il dialetto cambia la strada**:
+///   · Postgres e MySQL → si lega NATIVAMENTE (`sqlx` ha la feature
+///     `rust_decimal` abilitata, Cargo.toml).
+///   · SQLite → sqlx NON implementa `Encode<Sqlite>` per `Decimal`, perché
+///     SQLite non ha un tipo NUMERIC. Si lega come **testo**: esatto anche
+///     quello, e comunque mai per f64.
+/// Per questo il terzo parametro è *come si lega un Decimal qui*: la
+/// differenza sta in un posto solo, al punto di chiamata.
+///
+/// Date e DateTime a livello di trasporto sono stringhe ISO 8601 (v.
+/// engine/types.rs): si legano come stringhe e il driver le converte.
+/// `Object` (JSON) si lega come il suo testo JSON, non come Debug.
+macro_rules! bind_values {
+    ($q:expr, $vals:expr, $bind_decimal:expr) => {{
+        let mut q = $q;
+        for v in $vals {
+            q = match v {
+                Value::Null        => q.bind(None::<String>),
+                Value::Bool(b)     => q.bind(*b),
+                Value::Int(i)      => q.bind(*i),
+                Value::Float(f)    => q.bind(*f),
+                Value::Decimal(d)  => q.bind($bind_decimal(d)),
+                Value::String(s)   => q.bind(s.clone()),
+                Value::Date(s)     => q.bind(s.clone()),
+                Value::DateTime(s) => q.bind(s.clone()),
+                Value::Object(j)   => q.bind(j.to_string()),
+            };
+        }
+        q
+    }};
 }
 
 fn connection_string(c: &SourceDbConfig) -> Result<String, String> {
@@ -138,16 +291,11 @@ pub async fn run(
     // Aspetta chi sta a monte, se c'è. Da qui in poi il nodo a monte ha
     // finito: è la garanzia di ordine che l'arco porta anche quando non
     // porta dati.
-    let _params = super::source_input::await_params(
+    // Aspetta chi sta a monte, se c'è, e prendi la riga di parametri.
+    // R8: barriera + parametri, una riga sola. V. nodes/source_input.rs.
+    let params = super::source_input::await_params(
         &ctx.node_id.0, "source_db", rx,
     ).await?;
-    // ⚠️ `_params` non è ancora usato: il BINDING dei parametri nella query
-    // aspetta una decisione aperta — con quale sintassi la query cita un
-    // campo in arrivo (contratto-porte.md §10). Va fatto con `.bind()`
-    // tipizzato di sqlx, MAI per interpolazione di stringa: aprirebbe la
-    // SQL injection sul valore calcolato a monte e violerebbe "Decimal mai
-    // via f64". Fino ad allora il comportamento è quello di window.rs caso
-    // 1: l'ingresso è un INNESCO, la riga si scarta.
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;
@@ -160,8 +308,32 @@ pub async fn run(
     };
 
     let conn_str = connection_string(&config)?;
-    let query    = config.query.clone();
     let dialect  = config.dialect.clone();
+
+    // R8 — se la query cita parametri, lo studio l'ha già compilata:
+    // placeholder neutri + i campi da legare in ordine. Qui si rinumera
+    // per il dialetto (che sappiamo per certo: il pool è nostro) e si
+    // prendono i valori dalla riga arrivata in ingresso.
+    // Senza parametri: la query verbatim, come è sempre stato.
+    let (query, binds): (String, Vec<Value>) = match &config.query_compiled {
+        Some(c) => {
+            let vals = resolve_binds(&ctx.node_id.0, c, params.as_ref())?;
+            // Cintura: i `?` rinumerati devono essere tanti quanti i bind.
+            // Se non tornano, la query ha `?` che lo studio non ha messo e
+            // legare alla cieca darebbe un errore del driver senza spiegazione.
+            let holes = c.sql.matches('?').count();
+            if holes != c.binds.len() {
+                return Err(format!(
+                    "source_db {}: la query ha {} punti interrogativi ma {} parametri \
+                     dichiarati. Un `?` scritto a mano in una query con parametri non è \
+                     distinguibile da un segnaposto: toglilo, o usa `${{campo}}`.",
+                    ctx.node_id.0, holes, c.binds.len()
+                ));
+            }
+            (renumber_placeholders(&c.sql, &dialect), vals)
+        }
+        None => (config.query.clone(), Vec::new()),
+    };
 
     let start         = Instant::now();
     let mut rows_out  = 0u64;
@@ -187,9 +359,9 @@ pub async fn run(
     ctx.emit_connection_opened(&resource_id, &format!("db_{}", dialect));
 
     let result = match &pool {
-        DbPool::Pg(p)     => run_pg(ctx.clone(), tx, p, &query, &mut rows_out, &start, &mut last_prog).await,
-        DbPool::My(p)     => run_mysql(ctx.clone(), tx, p, &query, &mut rows_out, &start, &mut last_prog).await,
-        DbPool::Sqlite(p) => run_sqlite(ctx.clone(), tx, p, &query, &mut rows_out, &start, &mut last_prog).await,
+        DbPool::Pg(p)     => run_pg(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
+        DbPool::My(p)     => run_mysql(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
+        DbPool::Sqlite(p) => run_sqlite(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
     };
 
     // NB: nessun pool.close() — il pool è della lane (close_all()).
@@ -298,13 +470,15 @@ async fn run_pg(
     tx:        RowSender,
     pool:      &PgPool,
     query:     &str,
+    // R8 — i valori da legare, nell'ordine dei placeholder. Vuoto = query senza parametri.
+    binds:     &[Value],
     rows_out:  &mut u64,
     start:     &Instant,
     last_prog: &mut Instant,
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
-    let mut stream = sqlx::query(query).fetch(pool);
+    let mut stream = bind_values!(sqlx::query(query), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
@@ -335,13 +509,15 @@ async fn run_mysql(
     tx:        RowSender,
     pool:      &MySqlPool,
     query:     &str,
+    // R8 — i valori da legare, nell'ordine dei placeholder. Vuoto = query senza parametri.
+    binds:     &[Value],
     rows_out:  &mut u64,
     start:     &Instant,
     last_prog: &mut Instant,
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
-    let mut stream = sqlx::query(query).fetch(pool);
+    let mut stream = bind_values!(sqlx::query(query), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
@@ -374,13 +550,15 @@ async fn run_sqlite(
     tx:        RowSender,
     pool:      &SqlitePool,
     query:     &str,
+    // R8 — i valori da legare, nell'ordine dei placeholder. Vuoto = query senza parametri.
+    binds:     &[Value],
     rows_out:  &mut u64,
     start:     &Instant,
     last_prog: &mut Instant,
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
-    let mut stream = sqlx::query(query).fetch(pool);
+    let mut stream = bind_values!(sqlx::query(query), binds, |d: &rust_decimal::Decimal| d.to_string()).fetch(pool);
 
     while let Some(row_result) = stream.next().await {
         let row = row_result

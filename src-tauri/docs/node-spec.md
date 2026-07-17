@@ -109,15 +109,39 @@ Risorsa: **required** (`spec.resource` ≠ null, da `config.resourceId`).
 | `dialect`      | string  | `"postgresql"` | Dialetto SQL (informativo: fa fede `resource.dialect`)             | ✅   |
 | `querySchema`  | string  | `"public"`     | Schema della tabella                                               | 🕐 (oggi il builder legge la chiave errata `schema` → sempre `public`) |
 | `table`        | string  | — *(required se `query` vuota)* | Tabella sorgente                                  | ✅   |
-| `query`        | string  | `""`           | SQL custom **verbatim**. Se non vuota vince su tabella/limit/orderBy/offset | ✅ |
+| `query`        | string  | `""`           | SQL custom **verbatim**. Se non vuota vince su tabella/limit/orderBy/offset. Può citare un campo in arrivo con `${campo}` — v. sotto | ✅ |
 | `limit`        | int     | `0`            | `0` = nessun limite                                                | ✅   |
 | `offset`       | int     | `0`            | Offset righe (query generata)                                      | 🕐   |
 | `orderBy`      | string  | `""`           | Clausola ORDER BY (senza la parola chiave)                         | 🕐   |
 | `fetchSize`    | int     | `1000`         | Righe per fetch dal cursore                                        | 🕐   |
 | `queryTimeout` | int (s) | `30`           | Timeout della query                                                | 🕐   |
 
+**Parametri nella query (R8).** La `query` può citare un campo che arriva
+dall'ingresso: `WHERE anno = ${anno_calc}`. La sintassi la legge lo
+**studio** (`src/ir/queryParams.ts`), come per FPEL — parsa lo studio,
+esegue il motore — e nella busta `spec.config` scende `queryCompiled`:
+
+| chiave          | tipo     | contenuto |
+|-----------------|----------|-----------|
+| `queryCompiled` | object?  | `{ sql, binds }`. Presente **solo** se la query cita parametri |
+| `queryCompiled.sql`   | string   | l'SQL con `?` al posto di ogni `${campo}` — placeholder **neutro** |
+| `queryCompiled.binds` | string[] | i nomi dei campi, **nell'ordine dei placeholder** (un campo citato due volte compare due volte) |
+
+L'esecutore rinumera i `?` per il dialetto (`$1,$2` su Postgres; `?` su
+MySQL/SQLite — lo studio non può saperlo per certo, la risorsa può
+cambiare) e lega i valori **tipizzati**, mai per interpolazione: il valore
+arriva da un nodo a monte, e interpolarlo aprirebbe la SQL injection. I
+`Decimal` si legano nativamente su Postgres/MySQL e **come testo** su
+SQLite (che non ha NUMERIC) — **mai per f64**, in nessuno dei due casi.
+
+Lo studio verifica in design che i campi citati esistano davvero nello
+schema in arrivo (`QUERY_PARAM_UNKNOWN`) e che non siano scritti fra apici
+(`QUERY_PARAM_QUOTED`: `'${x}'` diventerebbe il confronto con la stringa
+`"?"`). V. `contratto-porte.md` R8.
+
 **Costruzione della query (a carico dell'esecutore, non dello studio):**
-se `query` non vuota → eseguirla verbatim. Altrimenti
+se `query` non vuota → eseguirla verbatim (o nella forma compilata, se
+cita parametri). Altrimenti
 `SELECT * FROM [querySchema.]table [ORDER BY orderBy] [LIMIT limit] [OFFSET offset]`
 (clausole presenti solo se il campo è valorizzato/≠0). La Preview dello
 studio deve mostrare esattamente questa forma.
