@@ -26,7 +26,7 @@ use sqlx::postgres::PgPool;
 use sqlx::mysql::MySqlPool;
 use sqlx::sqlite::SqlitePool;
 use crate::engine::types::*;
-use crate::engine::executor::{RowSender, NodeContext};
+use crate::engine::executor::{RowSender, NodeContext, RowReceiver};
 use crate::engine::spec::Spec;
 use crate::engine::pool::{DbPool, PoolParams};
 
@@ -125,8 +125,29 @@ const PROGRESS_EVERY_MS:   u64 = 500;
 
 pub async fn run(
     ctx: NodeContext,
+    // R8 — "barriera + parametri". Opzionale: se il nodo non ha archi in
+    // ingresso non c'è niente da aspettare. Se ce l'ha, si drena fino alla
+    // chiusura del canale — che È l'attesa (R7) — e si tiene la riga di
+    // parametri. Prima questo receiver non veniva MAI preso: il canale si
+    // chiudeva, le send a monte fallivano e `let _ =` le ingoiava, quindi
+    // le righe sparivano in silenzio. V. nodes/source_input.rs.
+    rx:  Option<RowReceiver>,
     tx:  Option<RowSender>,
 ) -> Result<NodeStats, String> {
+
+    // Aspetta chi sta a monte, se c'è. Da qui in poi il nodo a monte ha
+    // finito: è la garanzia di ordine che l'arco porta anche quando non
+    // porta dati.
+    let _params = super::source_input::await_params(
+        &ctx.node_id.0, "source_db", rx,
+    ).await?;
+    // ⚠️ `_params` non è ancora usato: il BINDING dei parametri nella query
+    // aspetta una decisione aperta — con quale sintassi la query cita un
+    // campo in arrivo (contratto-porte.md §10). Va fatto con `.bind()`
+    // tipizzato di sqlx, MAI per interpolazione di stringa: aprirebbe la
+    // SQL injection sul valore calcolato a monte e violerebbe "Decimal mai
+    // via f64". Fino ad allora il comportamento è quello di window.rs caso
+    // 1: l'ingresso è un INNESCO, la riga si scarta.
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;

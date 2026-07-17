@@ -429,13 +429,19 @@ async fn run_node(
     match node_type.as_str() {
 
         "source_file" => {
+            // `inputs` non veniva MAI toccata: il receiver restava nella
+            // mappa, veniva droppato a fine funzione, il canale si chiudeva
+            // e le righe del nodo a monte sparivano in silenzio. Ora si
+            // prende — R8. V. nodes/source_input.rs.
+            let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
-            super::nodes::source_file::run(ctx, tx).await
+            super::nodes::source_file::run(ctx, rx, tx).await
         }
 
         "source_db" => {
+            let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
-            super::nodes::source_db::run(ctx, tx).await
+            super::nodes::source_db::run(ctx, rx, tx).await
         }
 
         "sink_file" => {

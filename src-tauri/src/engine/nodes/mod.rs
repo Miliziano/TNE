@@ -4,6 +4,11 @@
 
 // src-tauri/src/engine/nodes/mod.rs
 
+// R8 — barriera + parametri, condivisa da tutte le sorgenti.
+// Una funzione sola: la regola è identica per tutte, e dieci copie di una
+// regola sono il modo in cui questa base di codice si è ammalata finora.
+pub mod source_input;
+
 pub mod source_file;
 pub mod source_db;
 pub mod filter;
