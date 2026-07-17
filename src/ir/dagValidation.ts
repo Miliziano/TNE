@@ -326,6 +326,45 @@ function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
     })
   })
 
+  // ── Lo stesso, dal lato che ARRIVA ────────────────────────────────
+  //
+  // Il gemello mancava: si controllava da dove l'arco PARTE e non dove
+  // ATTERRA. Un arco che punta a una porta d'ingresso non dichiarata è
+  // esattamente lo stesso difetto — e a runtime è peggio, perché il motore
+  // consegna i canali PER NOME di handle: un nome che il nodo non conosce
+  // vuol dire righe che non arrivano a nessuno, in silenzio.
+  //
+  // Il caso vivo: `bridge_in` ed `error_handler` non hanno ingressi, ma il
+  // vecchio FlowNode disegnava un handle cablato su tutto e
+  // connectionResolver non obiettava (NO_INPUT si dimenticava entrambi) —
+  // quindi archi così si potevano creare davvero. V. contratto-porte.md §9.5.
+  plan.edges.forEach((edge) => {
+    const tgt = byId.get(edge.target)
+    if (!tgt) return
+
+    // Le porte LOGICHE (R9) sono dichiarate ma non collegabili: il `catch`
+    // dell'error_handler non è un filo, è una proprietà della lane. Un arco
+    // che ci puntasse è comunque un errore, quindi NON vanno tra le valide.
+    const ports = tgt.inputs.filter((p) => p.connectable !== false).map((p) => p.id)
+    if (ports.includes(edge.targetPort)) return
+
+    const label    = tgt._uiRef?.label ?? canvasNodeId(tgt.id)
+    const src      = byId.get(edge.source)
+    const srcLabel = src?._uiRef?.label ?? edge.source
+
+    issues.push({
+      nodeId:   canvasNodeId(tgt.id),
+      code:     'EDGE_TO_UNDECLARED_PORT',
+      message:  ports.length === 0
+        ? `"${label}" non ha porte di ingresso, ma un arco lo collega da "${srcLabel}"`
+        : `"${label}": l'arco da "${srcLabel}" arriva sulla porta "${edge.targetPort}", che il nodo non dichiara`,
+      severity: 'error',
+      hint:     ports.length === 0
+        ? `${tgt._uiRef?.type ?? 'Il nodo'} non riceve dati dalla lane: a runtime le righe di "${srcLabel}" non arrivano a nessuno. Scollega l'arco.`
+        : `Porte dichiarate: ${ports.join(', ')}. L'arco è rimasto attaccato a una porta che non esiste più.`,
+    })
+  })
+
   return issues
 }
 

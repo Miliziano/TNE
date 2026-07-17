@@ -5,6 +5,8 @@
 import type { Node as FlowNode, Edge, Connection } from '@xyflow/react'
 import type { NodeData, TMapConfig, TMapInput, TMapInputField } from '../types'
 import { inferSchema, mergeSchema } from '../nodes/schemaInference'
+import { getNodePorts } from '../utils/schemaRegistry'
+import { getNodeSemantics } from './nodeSemantics'
 
 /** Ingresso dinamico dichiarato: id + etichetta + colore. NIENTE schema
  *  qui dentro — lo schema si deriva, non si copia (era la trappola di
@@ -46,9 +48,49 @@ export interface ConnectionResolution {
   }
 }
 
-const NO_OUTPUT    = new Set<string>()
-const NO_INPUT     = new Set(['lane_start'])
-const JOIN_HANDLES = new Set(['input_left', 'input_right'])
+// ─── Le porte le dice il CONTRATTO, non tre elenchi a mano ────────────
+//
+// Qui c'erano:
+//   const NO_OUTPUT    = new Set<string>()                      ← VUOTO
+//   const NO_INPUT     = new Set(['lane_start'])                ← incompleto
+//   const JOIN_HANDLES = new Set(['input_left','input_right'])  ← terza copia
+//
+// NO_OUTPUT vuoto voleva dire che da un bridge_out si poteva tirare un arco
+// e nessuno obiettava; NO_INPUT si dimenticava `bridge_in` ed `error_handler`.
+// Erano la quinta ricostruzione delle porte, e come le altre quattro
+// divergevano in silenzio. V. contratto-porte.md §9.5.
+
+/** Le porte d'ingresso che il canvas può collegare (le LOGICHE, R9, no). */
+const inputPortsOf = (n: FlowNode<NodeData>) =>
+  getNodePorts({ data: n.data }).inputs.filter((p) => p.connectable !== false)
+
+const outputPortsOf = (n: FlowNode<NodeData>) => getNodePorts({ data: n.data }).outputs
+
+/**
+ * "Non ha uscite" ≠ "non ne ha ancora". `filter`, `tmap` e i due parser
+ * rispondono zero uscite finché non sono configurati, ma le loro porte sono
+ * DINAMICHE: zero è provvisorio. Il contratto disambigua già il vuoto con
+ * `producesMultipleOutputs`, ed è quella la distinzione da usare — altrimenti
+ * un filter appena messo giù non si potrebbe collegare a niente.
+ */
+const hasNoOutputs = (n: FlowNode<NodeData>) =>
+  outputPortsOf(n).length === 0 && !getNodeSemantics(n.data.type).producesMultipleOutputs
+
+/** Idem in ingresso, col gemello `acceptsDynamicInputs`. */
+const hasNoInputs = (n: FlowNode<NodeData>) =>
+  inputPortsOf(n).length === 0 && !getNodeSemantics(n.data.type).acceptsDynamicInputs
+
+/**
+ * Quanti archi accetta già quella porta. La regola stava scritta cinque volte
+ * in cinque `return` diversi ("Nodo già collegato", "Handle input_main già
+ * collegato", "Handle ${label} già connesso"…); ora la dichiara il contratto
+ * con `maxEdges`, e qui si legge. Default 1.
+ */
+function portIsFull(tgt: FlowNode<NodeData>, port: { id: string; maxEdges?: 1 | 'many' }, edges: Edge[]): boolean {
+  if (port.maxEdges === 'many') return false
+  const used = edges.filter((e) => e.target === tgt.id && (e.targetHandle ?? port.id) === port.id).length
+  return used >= (port.maxEdges ?? 1)
+}
 
 function buildStatusFields(srcType: string): TMapInputField[] {
   const base: TMapInputField[] = [
@@ -92,9 +134,9 @@ export function resolveConnection(
     return { valid: false, rejectionReason: 'Connessioni cross-lane non permesse', resolvedTargetHandle: '' }
   if (connection.source === connection.target)
     return { valid: false, rejectionReason: 'Auto-connessione non permessa', resolvedTargetHandle: '' }
-  if (NO_OUTPUT.has(src.data.type))
+  if (hasNoOutputs(src))
     return { valid: false, rejectionReason: `${src.data.type} non ha uscite dati`, resolvedTargetHandle: '' }
-  if (NO_INPUT.has(tgt.data.type))
+  if (hasNoInputs(tgt))
     return { valid: false, rejectionReason: `${tgt.data.type} non accetta connessioni in ingresso`, resolvedTargetHandle: '' }
 
   if (src.data.type === 'filter' && connection.sourceHandle) {
@@ -120,11 +162,18 @@ export function resolveConnection(
   if (tgt.data.type === 'json_serializer') return resolveSerializerConnection(connection, tgt, edges,)
   if (tgt.data.type === 'xml_serializer')  return resolveSerializerConnection(connection, tgt, edges)
 
-  const hasIncoming = edges.some((e) => e.target === connection.target)
-  if (hasIncoming)
-    return { valid: false, rejectionReason: 'Nodo già collegato', resolvedTargetHandle: 'input' }
+  // Nodo a porta singola: l'handle è implicito, e quanti archi accetta lo
+  // dice il contratto. Prima: `edges.some(e => e.target === ...)` → "Nodo già
+  // collegato", cioè UNO fisso per tutti, cablato qui.
+  const ports = inputPortsOf(tgt)
+  const port  = ports[0]
+  if (!port)
+    return { valid: false, rejectionReason: `${tgt.data.type} non accetta connessioni in ingresso`, resolvedTargetHandle: '' }
 
-  return { valid: true, resolvedTargetHandle: 'input' }
+  if (portIsFull(tgt, port, edges))
+    return { valid: false, rejectionReason: 'Nodo già collegato', resolvedTargetHandle: port.id }
+
+  return { valid: true, resolvedTargetHandle: port.id }
 }
 
 // ─── Union ────────────────────────────────────────────────────────
@@ -190,15 +239,17 @@ function resolveJoinConnection(
   tgt:        FlowNode<NodeData>,
   edges:      Edge[],
 ): ConnectionResolution {
+  // Gli handle del join li dichiara il contratto (input_left / input_right):
+  // JOIN_HANDLES era un terzo elenco a mano che li ricopiava.
   const targetHandle = connection.targetHandle
-  if (!targetHandle || !JOIN_HANDLES.has(targetHandle))
+  const port = inputPortsOf(tgt).find((p) => p.id === targetHandle)
+  if (!port)
     return { valid: false, rejectionReason: 'Collega sull\'handle blu (principale) o ciano (lookup)', resolvedTargetHandle: '' }
-  const handleOccupied = edges.some((e) => e.target === tgt.id && e.targetHandle === targetHandle)
-  if (handleOccupied) {
+  if (portIsFull(tgt, port, edges)) {
     const label = targetHandle === 'input_left' ? 'principale' : 'lookup'
-    return { valid: false, rejectionReason: `Handle ${label} già connesso`, resolvedTargetHandle: targetHandle }
+    return { valid: false, rejectionReason: `Handle ${label} già connesso`, resolvedTargetHandle: port.id }
   }
-  return { valid: true, resolvedTargetHandle: targetHandle, edgeLabel: targetHandle === 'input_left' ? 'principale' : 'lookup' }
+  return { valid: true, resolvedTargetHandle: port.id, edgeLabel: port.id === 'input_left' ? 'principale' : 'lookup' }
 }
 
 // ─── TMap ─────────────────────────────────────────────────────────
@@ -296,8 +347,8 @@ export function isConnectionValid(
   if (!src || !tgt) return false
   if (src.data.laneId !== tgt.data.laneId) return false
   if (connection.source === connection.target) return false
-  if (NO_OUTPUT.has(src.data.type)) return false
-  if (NO_INPUT.has(tgt.data.type)) return false
+  if (hasNoOutputs(src)) return false
+  if (hasNoInputs(tgt))  return false
 
   if (src.data.type === 'filter' && connection.sourceHandle) {
     return !edges.some((e) => e.source === src.id && e.sourceHandle === connection.sourceHandle)
@@ -310,7 +361,7 @@ export function isConnectionValid(
   }
   if (tgt.data.type === 'join') {
     const targetHandle = connection.targetHandle
-    if (!targetHandle || !JOIN_HANDLES.has(targetHandle)) return false
+    if (!inputPortsOf(tgt).some((p) => p.id === targetHandle)) return false
     return !edges.some((e) => e.target === tgt.id && e.targetHandle === targetHandle)
   }
   if (tgt.data.type === 'union') {
