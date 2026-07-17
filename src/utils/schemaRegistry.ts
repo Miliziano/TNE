@@ -116,9 +116,19 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
     case 'tmap': {
       const tmap = node.data.config?.tmap as TMapConfig | undefined
       if (tmap) {
+        // `?? []` non è pignoleria: `if (tmap)` proteggeva solo l'esistenza di
+        // config.tmap, non delle due liste. Un tmap con `inputs` ma senza
+        // `outputs` faceva LANCIARE getNodePorts — e questa funzione la chiama
+        // chi DISEGNA: un throw qui svuota il canvas.
+        //
+        // E leggeva `i.name` / `o.name`: TMapInput e TMapOutput hanno **label**,
+        // non name (src/types/index.ts:285 e :306). Quei campi non sono mai
+        // esistiti, e `dyn()` ripiegava in silenzio sull'id — così le etichette
+        // delle porte tmap sono sempre state gli id invece dei nomi scelti
+        // dall'utente. Il cast `(i: any)` teneva il refuso fuori dal typecheck.
         ports = {
-          inputs:  tmap.inputs.map((i: any)  => dyn(i.id, i.name)),
-          outputs: tmap.outputs.map((o: any) => dyn(o.id, o.name, o.id === 'rejected')),
+          inputs:  (tmap.inputs  ?? []).map((i) => dyn(i.id, i.label)),
+          outputs: (tmap.outputs ?? []).map((o) => dyn(o.id, o.label, o.id === 'rejected')),
         }
       }
       break
@@ -162,7 +172,10 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
       const extra = (node.data.config as any)?.unionInputs as Array<{ id: string; label?: string }> | undefined
       ports = {
         ...ports,
-        inputs: [dyn('input_main', 'flusso 1'), ...(extra ?? []).map((i) => dyn(i.id, i.label))],
+        // 'flusso_1' con l'underscore: è la convenzione vera: MAIN_INPUT in
+        // UnionNode e le etichette dei dinamici in config (`flusso_2`, …).
+        // P19b aveva scritto 'flusso 1' con lo spazio — mia svista.
+        inputs: [dyn('input_main', 'flusso_1'), ...(extra ?? []).map((i) => dyn(i.id, i.label))],
       }
       break
     }

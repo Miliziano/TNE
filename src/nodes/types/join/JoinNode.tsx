@@ -1,7 +1,8 @@
 /**
  * src/nodes/types/join/JoinNode.tsx
  */
-import { memo, useCallback } from 'react'
+import { memo, useCallback, Fragment } from 'react'
+import { getNodePorts } from '../../../utils/schemaRegistry'
 import { ValidationBadge } from "../../ValidationBadge"
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges } from '../../RuntimeBadges'
@@ -19,10 +20,18 @@ const STATUS_COLORS: Record<NodeStatus, string> = {
 
 const LEFT_COLOR   = '#4a9eff'
 const LOOKUP_COLOR = '#22d3ee'
+
+/** Solo aspetto, indicizzato per id della porta. Le PORTE le dice il
+ *  contratto (nodeSemantics); qui si decide solo come si vedono. */
+const JOIN_LOOK: Record<string, { top: string; color: string; badge: string; title: string }> = {
+  input_left:  { top: '22%', color: LEFT_COLOR,   badge: 'L', title: 'Flusso principale (sinistra)' },
+  input_right: { top: '78%', color: LOOKUP_COLOR, badge: 'R', title: 'Lookup (destra)' },
+}
 const BORDER_COLOR = '#3d2a0a'
 
 export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData       = data as NodeData
+  const inputPorts     = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
   const selectNode     = useFlowStore((s) => s.selectNode)
   const openNodeEditor = useFlowStore((s) => s.openNodeEditor)
 
@@ -71,25 +80,33 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
         <i className="ti ti-edit" style={{ fontSize: 10, color: '#fff' }} />
       </div>
 
-      {/* ── Handle principale — 22% — blu ── */}
-      <Handle id="input_left" type="target" position={Position.Left}
-        style={{ top: '22%', left: -5, transform: 'none', background: LEFT_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
-        title="Flusso principale (sinistra)" />
-
-      {/* Label handle sinistra */}
-      <div style={{ position: 'absolute', top: 'calc(22% - 5px)', left: 4, fontSize: 10, fontWeight: 700, color: LEFT_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
-          L
-      </div>
-
-      {/* ── Handle lookup — 78% — ciano ── */}
-      <Handle id="input_right" type="target" position={Position.Left}
-        style={{ top: '78%', left: -5, transform: 'none', background: LOOKUP_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
-        title="Lookup (destra)" />
-
-      {/* Label handle destra */}
-      <div style={{ position: 'absolute', top: 'calc(78% - 5px)', left: 4, fontSize: 10, fontWeight: 700, color: LOOKUP_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
-          R
-      </div>
+      {/* ── Ingressi — dal contratto (P20b) ──────────────────────────
+          Erano due <Handle> cablati a mano, `input_left` e `input_right`:
+          combaciavano col contratto, ma erano una COPIA — se il contratto
+          cambiasse, questi resterebbero fermi in silenzio. Ora si mappano.
+          L'aspetto (posizione, colore, la lettera L/R) resta qui perché è
+          presentazione, ed è indicizzato per id della porta. Una porta che
+          il contratto dichiarasse e che qui non fosse prevista viene
+          comunque disegnata, con un aspetto neutro: meglio brutta che
+          invisibile. */}
+      {inputPorts.map((port, idx) => {
+        const look = JOIN_LOOK[port.id] ?? {
+          top:   `${inputPorts.length === 1 ? 50 : 22 + (idx / (inputPorts.length - 1)) * 56}%`,
+          color: LOOKUP_COLOR,
+          badge: String(idx + 1),
+          title: port.label,
+        }
+        return (
+          <Fragment key={port.id}>
+            <Handle id={port.id} type="target" position={Position.Left}
+              style={{ top: look.top, left: -5, transform: 'none', background: look.color, border: '2px solid #0f1117', width: 10, height: 10 }}
+              title={look.title} />
+            <div style={{ position: 'absolute', top: `calc(${look.top} - 5px)`, left: 4, fontSize: 10, fontWeight: 700, color: look.color, fontFamily: 'monospace', pointerEvents: 'none' }}>
+              {look.badge}
+            </div>
+          </Fragment>
+        )
+      })}
 
       {/* Header */}
       <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: `1px solid ${BORDER_COLOR}`, borderRadius: '6px 6px 0 0' }}>

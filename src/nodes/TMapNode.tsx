@@ -1,5 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { ValidationBadge } from "./ValidationBadge"
+import { getNodePorts } from '../utils/schemaRegistry'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 import type { NodeData, TMapConfig } from '../types'
@@ -16,6 +17,12 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
   const [showModal, setShowModal] = useState(false)
 
   const tmap = nodeData.config?.tmap as TMapConfig | undefined
+
+  // Le PORTE d'ingresso le dice il contratto; `inputs` resta perché serve
+  // ancora per `isMain` (aspetto) e per il corpo del nodo. Quando tmap non è
+  // configurato il contratto risponde comunque `input_main`, che è lo stesso
+  // default di qui: le due strade combaciano.
+  const inputPorts = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
 
   const inputs  = tmap?.inputs ?? [
     { id: 'input_main', label: 'main', isMain: true, joinType: 'none' as const, fields: [] },
@@ -88,10 +95,12 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
       </div>
 
       {/* ── Handle ingresso — uno per ogni input ── */}
-      {inputs.map((inp, idx) => {
-        const total = inputs.length
+      {/* Ingressi dal contratto (P20b): erano letti da config.tmap.inputs
+          per conto proprio. `isMain` è aspetto, e si cerca per id. */}
+      {inputPorts.map((inp, idx) => {
+        const total = inputPorts.length
         const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
-        const color = inp.isMain ? '#4a9eff' : '#ffb347'
+        const color = inputs.find((i) => i.id === inp.id)?.isMain ? '#4a9eff' : '#ffb347'
         return (
           <Handle
             key={inp.id}

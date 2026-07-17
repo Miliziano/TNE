@@ -11,6 +11,7 @@
 
 import { memo, useCallback } from 'react'
 import { ValidationBadge } from "../../ValidationBadge"
+import { getNodePorts } from '../../../utils/schemaRegistry'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges } from '../../RuntimeBadges'
 import type { NodeData } from '../../../types'
@@ -53,10 +54,15 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
     openNodeEditor(id)
   }, [id, openNodeEditor])
 
-  // Input aggiuntivi — stessa struttura di tmap.inputs
+  // Le PORTE le dice il contratto (P20b): prima questo componente se le
+  // ricomponeva da sé — MAIN_INPUT + config.unionInputs — cioè una quinta
+  // ricostruzione della stessa cosa, accanto a quelle del resolver, del
+  // lowerer e di connectionResolver. Ora si mappa quello che il contratto
+  // dichiara; il colore, che è presentazione, si cerca per id.
+  const inputPorts = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
   const extraInputs: UnionInput[] = (nodeData.config as any)?.unionInputs ?? []
-  // Tutti gli input: main + aggiuntivi
-  const allInputs: UnionInput[] = [MAIN_INPUT, ...extraInputs]
+  const colorOf = (portId: string) =>
+    [MAIN_INPUT, ...extraInputs].find((i) => i.id === portId)?.color ?? MAIN_INPUT.color
 
   const unionMode = nodeData.props?.['unionMode'] ?? 'concat'
   const modeLabel = unionMode === 'concat' ? 'CONCAT'
@@ -68,7 +74,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
 
   const displayName = (nodeData.config as any)?.displayName || 'Union'
 
-  const minHandles = allInputs.length
+  const minHandles = inputPorts.length
   const minHeight  = Math.max(100, minHandles * 28 + 60)
 
   const uiState = nodeData.uiState
@@ -114,8 +120,8 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
       </div>
 
       {/* ── Handle ingresso — uno per ogni input (main + aggiuntivi) ── */}
-      {allInputs.map((inp, idx) => {
-        const total = allInputs.length
+      {inputPorts.map((inp, idx) => {
+        const total = inputPorts.length
         const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
         return (
           <Handle
@@ -125,7 +131,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
             position={Position.Left}
             style={{
               top:        `${pct}%`,
-              background: inp.color,
+              background: colorOf(inp.id),
               border:     '2px solid #0f1117',
               width:      10,
               height:     10,
@@ -182,10 +188,10 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Body */}
       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {allInputs.map((inp) => (
+          {inputPorts.map((inp) => (
             <div key={inp.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: inp.color }} />
-              <span style={{ fontSize: 10, fontFamily: 'monospace', color: inp.color }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: colorOf(inp.id) }} />
+              <span style={{ fontSize: 10, fontFamily: 'monospace', color: colorOf(inp.id) }}>
                 {inp.label}
               </span>
             </div>
@@ -202,7 +208,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
           fontFamily: 'monospace', textAlign: 'center',
           borderTop: '0.5px solid #2a3349', paddingTop: 4,
         }}>
-          {allInputs.length} flussi → 1 output
+          {inputPorts.length} flussi → 1 output
         </div>
       </div>
 

@@ -1,0 +1,247 @@
+diff --git a/src/nodes/TMapNode.tsx b/src/nodes/TMapNode.tsx
+index ec0ccf3..54c0b2b 100644
+--- a/src/nodes/TMapNode.tsx
++++ b/src/nodes/TMapNode.tsx
+@@ -1,5 +1,6 @@
+ import { memo, useCallback, useState } from 'react'
+ import { ValidationBadge } from "./ValidationBadge"
++import { getNodePorts } from '../utils/schemaRegistry'
+ import { Handle, Position, type NodeProps } from '@xyflow/react'
+ import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
+ import type { NodeData, TMapConfig } from '../types'
+@@ -17,6 +18,12 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
+ 
+   const tmap = nodeData.config?.tmap as TMapConfig | undefined
+ 
++  // Le PORTE d'ingresso le dice il contratto; `inputs` resta perché serve
++  // ancora per `isMain` (aspetto) e per il corpo del nodo. Quando tmap non è
++  // configurato il contratto risponde comunque `input_main`, che è lo stesso
++  // default di qui: le due strade combaciano.
++  const inputPorts = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
++
+   const inputs  = tmap?.inputs ?? [
+     { id: 'input_main', label: 'main', isMain: true, joinType: 'none' as const, fields: [] },
+   ]
+@@ -88,10 +95,12 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
+       </div>
+ 
+       {/* ── Handle ingresso — uno per ogni input ── */}
+-      {inputs.map((inp, idx) => {
+-        const total = inputs.length
++      {/* Ingressi dal contratto (P20b): erano letti da config.tmap.inputs
++          per conto proprio. `isMain` è aspetto, e si cerca per id. */}
++      {inputPorts.map((inp, idx) => {
++        const total = inputPorts.length
+         const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
+-        const color = inp.isMain ? '#4a9eff' : '#ffb347'
++        const color = inputs.find((i) => i.id === inp.id)?.isMain ? '#4a9eff' : '#ffb347'
+         return (
+           <Handle
+             key={inp.id}
+diff --git a/src/nodes/types/join/JoinNode.tsx b/src/nodes/types/join/JoinNode.tsx
+index 87ccd6c..c35bc05 100644
+--- a/src/nodes/types/join/JoinNode.tsx
++++ b/src/nodes/types/join/JoinNode.tsx
+@@ -1,7 +1,8 @@
+ /**
+  * src/nodes/types/join/JoinNode.tsx
+  */
+-import { memo, useCallback } from 'react'
++import { memo, useCallback, Fragment } from 'react'
++import { getNodePorts } from '../../../utils/schemaRegistry'
+ import { ValidationBadge } from "../../ValidationBadge"
+ import { Handle, Position, type NodeProps } from '@xyflow/react'
+ import { NodeRuntimeBadges } from '../../RuntimeBadges'
+@@ -19,10 +20,18 @@ const STATUS_COLORS: Record<NodeStatus, string> = {
+ 
+ const LEFT_COLOR   = '#4a9eff'
+ const LOOKUP_COLOR = '#22d3ee'
++
++/** Solo aspetto, indicizzato per id della porta. Le PORTE le dice il
++ *  contratto (nodeSemantics); qui si decide solo come si vedono. */
++const JOIN_LOOK: Record<string, { top: string; color: string; badge: string; title: string }> = {
++  input_left:  { top: '22%', color: LEFT_COLOR,   badge: 'L', title: 'Flusso principale (sinistra)' },
++  input_right: { top: '78%', color: LOOKUP_COLOR, badge: 'R', title: 'Lookup (destra)' },
++}
+ const BORDER_COLOR = '#3d2a0a'
+ 
+ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
+   const nodeData       = data as NodeData
++  const inputPorts     = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
+   const selectNode     = useFlowStore((s) => s.selectNode)
+   const openNodeEditor = useFlowStore((s) => s.openNodeEditor)
+ 
+@@ -71,25 +80,33 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
+         <i className="ti ti-edit" style={{ fontSize: 10, color: '#fff' }} />
+       </div>
+ 
+-      {/* ── Handle principale — 22% — blu ── */}
+-      <Handle id="input_left" type="target" position={Position.Left}
+-        style={{ top: '22%', left: -5, transform: 'none', background: LEFT_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
+-        title="Flusso principale (sinistra)" />
+-
+-      {/* Label handle sinistra */}
+-      <div style={{ position: 'absolute', top: 'calc(22% - 5px)', left: 4, fontSize: 10, fontWeight: 700, color: LEFT_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
+-          L
+-      </div>
+-
+-      {/* ── Handle lookup — 78% — ciano ── */}
+-      <Handle id="input_right" type="target" position={Position.Left}
+-        style={{ top: '78%', left: -5, transform: 'none', background: LOOKUP_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
+-        title="Lookup (destra)" />
+-
+-      {/* Label handle destra */}
+-      <div style={{ position: 'absolute', top: 'calc(78% - 5px)', left: 4, fontSize: 10, fontWeight: 700, color: LOOKUP_COLOR, fontFamily: 'monospace', pointerEvents: 'none' }}>
+-          R
+-      </div>
++      {/* ── Ingressi — dal contratto (P20b) ──────────────────────────
++          Erano due <Handle> cablati a mano, `input_left` e `input_right`:
++          combaciavano col contratto, ma erano una COPIA — se il contratto
++          cambiasse, questi resterebbero fermi in silenzio. Ora si mappano.
++          L'aspetto (posizione, colore, la lettera L/R) resta qui perché è
++          presentazione, ed è indicizzato per id della porta. Una porta che
++          il contratto dichiarasse e che qui non fosse prevista viene
++          comunque disegnata, con un aspetto neutro: meglio brutta che
++          invisibile. */}
++      {inputPorts.map((port, idx) => {
++        const look = JOIN_LOOK[port.id] ?? {
++          top:   `${inputPorts.length === 1 ? 50 : 22 + (idx / (inputPorts.length - 1)) * 56}%`,
++          color: LOOKUP_COLOR,
++          badge: String(idx + 1),
++          title: port.label,
++        }
++        return (
++          <Fragment key={port.id}>
++            <Handle id={port.id} type="target" position={Position.Left}
++              style={{ top: look.top, left: -5, transform: 'none', background: look.color, border: '2px solid #0f1117', width: 10, height: 10 }}
++              title={look.title} />
++            <div style={{ position: 'absolute', top: `calc(${look.top} - 5px)`, left: 4, fontSize: 10, fontWeight: 700, color: look.color, fontFamily: 'monospace', pointerEvents: 'none' }}>
++              {look.badge}
++            </div>
++          </Fragment>
++        )
++      })}
+ 
+       {/* Header */}
+       <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: `1px solid ${BORDER_COLOR}`, borderRadius: '6px 6px 0 0' }}>
+diff --git a/src/nodes/types/union/UnionNode.tsx b/src/nodes/types/union/UnionNode.tsx
+index 5452604..20dd13c 100644
+--- a/src/nodes/types/union/UnionNode.tsx
++++ b/src/nodes/types/union/UnionNode.tsx
+@@ -11,6 +11,7 @@
+ 
+ import { memo, useCallback } from 'react'
+ import { ValidationBadge } from "../../ValidationBadge"
++import { getNodePorts } from '../../../utils/schemaRegistry'
+ import { Handle, Position, type NodeProps } from '@xyflow/react'
+ import { NodeRuntimeBadges } from '../../RuntimeBadges'
+ import type { NodeData } from '../../../types'
+@@ -53,10 +54,15 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
+     openNodeEditor(id)
+   }, [id, openNodeEditor])
+ 
+-  // Input aggiuntivi — stessa struttura di tmap.inputs
++  // Le PORTE le dice il contratto (P20b): prima questo componente se le
++  // ricomponeva da sé — MAIN_INPUT + config.unionInputs — cioè una quinta
++  // ricostruzione della stessa cosa, accanto a quelle del resolver, del
++  // lowerer e di connectionResolver. Ora si mappa quello che il contratto
++  // dichiara; il colore, che è presentazione, si cerca per id.
++  const inputPorts = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
+   const extraInputs: UnionInput[] = (nodeData.config as any)?.unionInputs ?? []
+-  // Tutti gli input: main + aggiuntivi
+-  const allInputs: UnionInput[] = [MAIN_INPUT, ...extraInputs]
++  const colorOf = (portId: string) =>
++    [MAIN_INPUT, ...extraInputs].find((i) => i.id === portId)?.color ?? MAIN_INPUT.color
+ 
+   const unionMode = nodeData.props?.['unionMode'] ?? 'concat'
+   const modeLabel = unionMode === 'concat' ? 'CONCAT'
+@@ -68,7 +74,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
+ 
+   const displayName = (nodeData.config as any)?.displayName || 'Union'
+ 
+-  const minHandles = allInputs.length
++  const minHandles = inputPorts.length
+   const minHeight  = Math.max(100, minHandles * 28 + 60)
+ 
+   const uiState = nodeData.uiState
+@@ -114,8 +120,8 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
+       </div>
+ 
+       {/* ── Handle ingresso — uno per ogni input (main + aggiuntivi) ── */}
+-      {allInputs.map((inp, idx) => {
+-        const total = allInputs.length
++      {inputPorts.map((inp, idx) => {
++        const total = inputPorts.length
+         const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
+         return (
+           <Handle
+@@ -125,7 +131,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
+             position={Position.Left}
+             style={{
+               top:        `${pct}%`,
+-              background: inp.color,
++              background: colorOf(inp.id),
+               border:     '2px solid #0f1117',
+               width:      10,
+               height:     10,
+@@ -182,10 +188,10 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
+       {/* Body */}
+       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+-          {allInputs.map((inp) => (
++          {inputPorts.map((inp) => (
+             <div key={inp.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+-              <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: inp.color }} />
+-              <span style={{ fontSize: 10, fontFamily: 'monospace', color: inp.color }}>
++              <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: colorOf(inp.id) }} />
++              <span style={{ fontSize: 10, fontFamily: 'monospace', color: colorOf(inp.id) }}>
+                 {inp.label}
+               </span>
+             </div>
+@@ -202,7 +208,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
+           fontFamily: 'monospace', textAlign: 'center',
+           borderTop: '0.5px solid #2a3349', paddingTop: 4,
+         }}>
+-          {allInputs.length} flussi → 1 output
++          {inputPorts.length} flussi → 1 output
+         </div>
+       </div>
+ 
+diff --git a/src/utils/schemaRegistry.ts b/src/utils/schemaRegistry.ts
+index 26e180f..9e3a81d 100644
+--- a/src/utils/schemaRegistry.ts
++++ b/src/utils/schemaRegistry.ts
+@@ -116,9 +116,19 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
+     case 'tmap': {
+       const tmap = node.data.config?.tmap as TMapConfig | undefined
+       if (tmap) {
++        // `?? []` non è pignoleria: `if (tmap)` proteggeva solo l'esistenza di
++        // config.tmap, non delle due liste. Un tmap con `inputs` ma senza
++        // `outputs` faceva LANCIARE getNodePorts — e questa funzione la chiama
++        // chi DISEGNA: un throw qui svuota il canvas.
++        //
++        // E leggeva `i.name` / `o.name`: TMapInput e TMapOutput hanno **label**,
++        // non name (src/types/index.ts:285 e :306). Quei campi non sono mai
++        // esistiti, e `dyn()` ripiegava in silenzio sull'id — così le etichette
++        // delle porte tmap sono sempre state gli id invece dei nomi scelti
++        // dall'utente. Il cast `(i: any)` teneva il refuso fuori dal typecheck.
+         ports = {
+-          inputs:  tmap.inputs.map((i: any)  => dyn(i.id, i.name)),
+-          outputs: tmap.outputs.map((o: any) => dyn(o.id, o.name, o.id === 'rejected')),
++          inputs:  (tmap.inputs  ?? []).map((i) => dyn(i.id, i.label)),
++          outputs: (tmap.outputs ?? []).map((o) => dyn(o.id, o.label, o.id === 'rejected')),
+         }
+       }
+       break
+@@ -162,7 +172,10 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
+       const extra = (node.data.config as any)?.unionInputs as Array<{ id: string; label?: string }> | undefined
+       ports = {
+         ...ports,
+-        inputs: [dyn('input_main', 'flusso 1'), ...(extra ?? []).map((i) => dyn(i.id, i.label))],
++        // 'flusso_1' con l'underscore: è la convenzione vera: MAIN_INPUT in
++        // UnionNode e le etichette dei dinamici in config (`flusso_2`, …).
++        // P19b aveva scritto 'flusso 1' con lo spazio — mia svista.
++        inputs: [dyn('input_main', 'flusso_1'), ...(extra ?? []).map((i) => dyn(i.id, i.label))],
+       }
+       break
+     }
