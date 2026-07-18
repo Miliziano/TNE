@@ -3,6 +3,7 @@
  */
 import { memo, useCallback, Fragment } from 'react'
 import { getNodePorts } from '../../../utils/schemaRegistry'
+import { isRejectPort } from '../../../ir/types'
 import { ValidationBadge } from "../../ValidationBadge"
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges } from '../../RuntimeBadges'
@@ -32,6 +33,7 @@ const BORDER_COLOR = '#3d2a0a'
 export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData       = data as NodeData
   const inputPorts     = getNodePorts({ data: nodeData }).inputs.filter((p) => p.connectable !== false)
+  const outputPorts    = getNodePorts({ data: nodeData }).outputs.filter((p) => p.connectable !== false)
   const selectNode     = useFlowStore((s) => s.selectNode)
   const openNodeEditor = useFlowStore((s) => s.openNodeEditor)
 
@@ -145,9 +147,23 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
         )}
       </div>
 
-      {/* Handle uscita */}
-      <Handle id="output" type="source" position={Position.Right}
-        style={{ background: '#ffb347', border: '2px solid #0f1117', width: 10, height: 10 }} />
+      {/* Handle uscita — dal contratto (output + reject). Le PORTE le dice
+          nodeSemantics; qui si decide solo il colore per ruolo (reject rosso
+          come nel resto dell'app, output arancione) e la distribuzione. */}
+      {outputPorts.map((p, idx) => {
+        const count = outputPorts.length
+        const top   = count === 1 ? '50%' : `${(50 - 44 / 2) + (idx / (count - 1)) * 44}%`
+        const isReject = isRejectPort(p)
+        return (
+          <Handle key={p.id} id={p.id} type="source" position={Position.Right}
+            title={isReject ? 'non-matched (reject)' : p.label}
+            style={{
+              background: isReject ? '#ff5f57' : '#ffb347',
+              border: '2px solid #0f1117', width: 10, height: 10,
+              top, right: -5, transform: 'none',
+            }} />
+        )
+      })}
     {/* Fase 8: contatori runtime */}
       <NodeRuntimeBadges nodeId={id} />
     </div>

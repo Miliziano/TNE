@@ -553,10 +553,10 @@ async fn run_node(
             }
         }
         "join" => {
-            let tx = take_primary_output(&mut outputs);
-            // Il join legge input_left e input_right da canali separati:
-            // passa l'intera mappa, il nodo la smista.
-            super::nodes::join::run(ctx, inputs, tx).await
+            // Il join legge input_left e input_right da canali separati: passa
+            // l'intera mappa inputs. Multi-uscita output+reject → mappa outputs
+            // intera, il nodo estrae le due porte (come filter/explode).
+            super::nodes::join::run(ctx, inputs, outputs).await
         }
        
 

@@ -31,7 +31,7 @@
 use std::collections::HashMap;
 use std::time::Instant;
 use crate::engine::types::*;
-use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::executor::{RowSender, RowReceiver, NodeContext, make_drain, take_primary_output};
 use crate::engine::spec::Spec;
 
 struct CompositeKey {
@@ -152,7 +152,7 @@ fn right_only(right: &Row, left_names: &std::collections::HashSet<String>, prefi
 pub async fn run(
     ctx:        NodeContext,
     mut inputs: HashMap<String, RowReceiver>,
-    tx:         Option<RowSender>,
+    mut outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
 
     let spec = Spec::from_ctx(&ctx.spec)
@@ -172,12 +172,11 @@ pub async fn run(
              input_right".to_string(), "panel");
     }
 
-    let tx = tx.unwrap_or_else(|| {
-        // Nessuna uscita collegata: drain (il join non deve bloccarsi).
-        let (t, mut r) = tokio::sync::mpsc::channel::<Row>(1);
-        tokio::spawn(async move { while r.recv().await.is_some() {} });
-        t
-    });
+    // Uscite: 'output' primaria (fallback drain, il join non deve bloccarsi) e
+    // 'reject' opzionale — le righe SINISTRE senza corrispondenza per inner/semi,
+    // che altrimenti verrebbero scartate. Toglilo prima del primario. Modello P31.
+    let reject_tx = outputs.remove("reject");
+    let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
 
     let mut left_rx  = inputs.remove("input_left");
     let mut right_rx = inputs.remove("input_right");
@@ -198,6 +197,7 @@ pub async fn run(
     let start = Instant::now();
     let mut rows_in  = 0u64;
     let mut rows_out = 0u64;
+    let mut rows_rejected = 0u64;
     let cross = cfg.join_type == "cross";
 
     // ── 1. Materializza il lato destro (drain completo) ───────────
@@ -248,6 +248,10 @@ pub async fn run(
                 if jt == "left" || jt == "full" {
                     if tx.send(lr.clone()).await.is_err() { break; }
                     rows_out += 1;
+                } else if jt == "inner" || jt == "semi" {
+                    // non-matched: la riga sinistra non produce output → reject
+                    if let Some(rej) = &reject_tx { let _ = rej.send(lr.clone()).await; }
+                    rows_rejected += 1;
                 }
                 continue;
             }
@@ -256,7 +260,11 @@ pub async fn run(
 
             if match_idx.is_empty() {
                 match jt {
-                    "inner" | "semi" => {}
+                    "inner" | "semi" => {
+                        // non-matched: la riga sinistra non produce output → reject
+                        if let Some(rej) = &reject_tx { let _ = rej.send(lr.clone()).await; }
+                        rows_rejected += 1;
+                    }
                     "anti" => { if tx.send(lr.clone()).await.is_err() { break; } rows_out += 1; }
                     "left" | "full" => { if tx.send(lr.clone()).await.is_err() { break; } rows_out += 1; }
                     _ => {}
@@ -307,11 +315,17 @@ pub async fn run(
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("[join] {}: {} righe in ingresso, {} in uscita",
-            jt.to_uppercase(), rows_in, rows_out), "panel");
+        format!("[join] {}: {} righe in ingresso, {} in uscita, {} scartate",
+            jt.to_uppercase(), rows_in, rows_out, rows_rejected), "panel");
+
+    // Conteggi per handle di uscita → badge sul canvas (come filter).
+    let mut per_out: HashMap<String, u64> = HashMap::new();
+    per_out.insert("output".to_string(), rows_out);
+    per_out.insert("reject".to_string(), rows_rejected);
+    ctx.emit_output_stats(per_out);
 
     let stats = NodeStats {
-        rows_in, rows_out, rows_rejected: 0, elapsed_ms, error: None,
+        rows_in, rows_out, rows_rejected, elapsed_ms, error: None,
     };
     ctx.emit_completed(stats.clone());
     Ok(stats)
