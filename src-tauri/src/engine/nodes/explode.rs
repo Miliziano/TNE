@@ -22,9 +22,10 @@
 // Un nodo, una responsabilità.
 
 use std::time::Instant;
+use std::collections::HashMap;
 use crate::engine::types::*;
 use crate::engine::spec::Spec;
-use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::executor::{RowSender, RowReceiver, NodeContext, make_drain, take_primary_output};
 
 // ─── Config ────────────────────────────────────────────────────────
 //
@@ -63,13 +64,21 @@ fn config_from_spec(spec: &Spec) -> ExplodeConfig {
 pub async fn run(
     ctx: NodeContext,
     rx:  Option<RowReceiver>,
-    tx:  RowSender,
+    mut outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("explode {}: {}", ctx.node_id.0, e))?;
     let cfg = config_from_spec(&spec);
     spec.log_unconsumed("explode", &ctx.node_id.0);
+
+    // Uscite: 'output' primaria (fallback drain se non collegata, così il nodo
+    // non si blocca mai) e 'reject' opzionale — la riga padre che non produce
+    // figli (campo null o struttura vuota, con onEmpty='skip') ci finisce
+    // invece di sparire in silenzio. Toglilo prima del primario così
+    // take_primary_output non lo pesca. Modello di filter/json_parser.
+    let reject_tx = outputs.remove("reject");
+    let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
 
     let start = Instant::now();
 
@@ -89,7 +98,7 @@ pub async fn run(
 
     match cfg.source.as_str() {
         "materialize" => from_materialize(ctx, rx, tx, cfg, start).await,
-        "flow_field"  => from_flow_field(ctx, rx, tx, cfg, start).await,
+        "flow_field"  => from_flow_field(ctx, rx, tx, reject_tx, cfg, start).await,
         other => Err(format!("explode {}: sorgente sconosciuta '{}'", ctx.node_id.0, other)),
     }
 }
@@ -145,11 +154,12 @@ async fn from_materialize(
 // ─── Campo collettivo → righe ──────────────────────────────────────
 
 async fn from_flow_field(
-    ctx:   NodeContext,
-    rx:    Option<RowReceiver>,
-    tx:    RowSender,
-    cfg:   ExplodeConfig,
-    start: Instant,
+    ctx:       NodeContext,
+    rx:        Option<RowReceiver>,
+    tx:        RowSender,
+    reject_tx: Option<RowSender>,
+    cfg:       ExplodeConfig,
+    start:     Instant,
 ) -> Result<NodeStats, String> {
 
     let Some(mut rx) = rx else {
@@ -160,8 +170,9 @@ async fn from_flow_field(
                            ctx.node_id.0));
     }
 
-    let mut rows_in  = 0u64;
-    let mut rows_out = 0u64;
+    let mut rows_in       = 0u64;
+    let mut rows_out      = 0u64;
+    let mut rows_rejected = 0u64;
     let mut last_prog = Instant::now();
 
     while let Some(parent) = rx.recv().await {
@@ -179,7 +190,10 @@ async fn from_flow_field(
                     if tx.send(row).await.is_err() { break }
                     rows_out += 1;
                 }
-                _ => {}   // skip
+                _ => {   // skip: la riga padre non produce figli → reject
+                    if let Some(rej) = &reject_tx { let _ = rej.send(parent.clone()).await; }
+                    rows_rejected += 1;
+                }
             }
             continue;
         }
@@ -195,7 +209,10 @@ async fn from_flow_field(
                     if tx.send(row).await.is_err() { break }
                     rows_out += 1;
                 }
-                _ => {}
+                _ => {   // skip: struttura vuota → la riga padre va al reject
+                    if let Some(rej) = &reject_tx { let _ = rej.send(parent.clone()).await; }
+                    rows_rejected += 1;
+                }
             }
             continue;
         }
@@ -222,13 +239,19 @@ async fn from_flow_field(
 
         if rows_in % 1000 == 0 || last_prog.elapsed().as_millis() >= 500 {
             let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
-            ctx.emit_progress(rows_in, rows_out, 0, rps);
+            ctx.emit_progress(rows_in, rows_out, rows_rejected, rps);
             last_prog = Instant::now();
         }
     }
 
+    // Conteggi per handle di uscita → badge sul canvas (come filter).
+    let mut per_out: HashMap<String, u64> = HashMap::new();
+    per_out.insert("output".to_string(), rows_out);
+    per_out.insert("reject".to_string(), rows_rejected);
+    ctx.emit_output_stats(per_out);
+
     let stats = NodeStats {
-        rows_in, rows_out, rows_rejected: 0,
+        rows_in, rows_out, rows_rejected,
         elapsed_ms: start.elapsed().as_millis() as u64, error: None,
     };
     ctx.emit_completed(stats.clone());

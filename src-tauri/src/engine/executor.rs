@@ -143,7 +143,7 @@ fn tmap_output_ids(config: &serde_json::Value) -> Vec<String> {
 /// obbligatorie dei nodi (es. filter richiede tx) quando nessun
 /// edge le consuma — senza, il nodo si bloccherebbe sul send o
 /// fallirebbe per tx mancante.
-fn make_drain() -> RowSender {
+pub(crate) fn make_drain() -> RowSender {
     let (tx, mut rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
     tokio::spawn(async move {
         while rx.recv().await.is_some() {}
@@ -195,7 +195,7 @@ fn take_single_input(inputs: &mut HashMap<String, RowReceiver>) -> Option<RowRec
 
 /// Estrae l'uscita "principale" di un nodo semplice: preferisce
 /// l'handle 'output', poi il primo handle non-reject/non-catch.
-fn take_primary_output(outputs: &mut HashMap<String, RowSender>) -> Option<RowSender> {
+pub(crate) fn take_primary_output(outputs: &mut HashMap<String, RowSender>) -> Option<RowSender> {
     if let Some(tx) = outputs.remove("output") { return Some(tx); }
     let key = outputs.keys()
         .find(|k| k.as_str() != "reject" && k.as_str() != "catch")
@@ -580,17 +580,17 @@ async fn run_node(
         "explode" => {
             // Input opzionale: con source='materialize' il nodo può non avere
             // archi, e si sblocca quando il dataset è pubblicato.
+            // Multi-uscita: output + reject → passa l'intera mappa (come filter).
             let rx = take_single_input(&mut inputs);
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::explode::run(ctx, rx, tx).await
+            super::nodes::explode::run(ctx, rx, outputs).await
         }
 
 
         "materialize" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("materialize {} richiede un input collegato", ctx.node_id.0))?;
-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
-            super::nodes::materialize::run(ctx, rx, tx).await
+            // Multi-uscita: output + reject (righe troncate) → mappa intera.
+            super::nodes::materialize::run(ctx, rx, outputs).await
         }
 
         "json_serializer" => {

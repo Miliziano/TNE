@@ -26,15 +26,23 @@
 // Vedi docs/design-materialize-registry.md.
 
 use std::time::Instant;
+use std::collections::HashMap;
 use crate::engine::types::*;
 use crate::engine::datasets::Dataset;
-use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::executor::{RowSender, RowReceiver, NodeContext, make_drain, take_primary_output};
 
 pub async fn run(
     ctx:    NodeContext,
     mut rx: RowReceiver,
-    tx:     RowSender,
+    mut outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
+
+    // Uscite: 'output' primaria (fallback drain se non collegata) e 'reject'
+    // opzionale — le righe TRONCATE per superamento di maxRows (onOverflow≠
+    // 'error') ci finiscono invece di sparire in silenzio. Togli reject prima
+    // del primario così take_primary_output non lo pesca. Modello di filter.
+    let reject_tx = outputs.remove("reject");
+    let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
 
     // Migrato alla spec (Fase 12). Caso "tutto props": scalari verbatim,
     // niente FPEL né strutture compilate. Il motore legge le chiavi del
@@ -83,7 +91,9 @@ pub async fn run(
                               ctx.node_id.0, max_rows));
             }
             truncated = true;
-            continue;   // truncate: la riga è scartata, non entra nel dataset
+            // truncate: la riga non entra nel dataset → al reject, se collegato
+            if let Some(rej) = &reject_tx { let _ = rej.send(row).await; }
+            continue;
         }
 
         if streaming {
@@ -142,9 +152,16 @@ pub async fn run(
                                ctx.node_id.0, other)),
     }
 
+    let rows_rejected = if truncated { rows_in.saturating_sub(buffer.len() as u64) } else { 0 };
+
+    // Conteggi per handle di uscita → badge sul canvas (come filter).
+    let mut per_out: HashMap<String, u64> = HashMap::new();
+    per_out.insert("output".to_string(), rows_out);
+    per_out.insert("reject".to_string(), rows_rejected);
+    ctx.emit_output_stats(per_out);
+
     let stats = NodeStats {
-        rows_in, rows_out,
-        rows_rejected: if truncated { rows_in.saturating_sub(buffer.len() as u64) } else { 0 },
+        rows_in, rows_out, rows_rejected,
         elapsed_ms: start.elapsed().as_millis() as u64,
         error: None,
     };

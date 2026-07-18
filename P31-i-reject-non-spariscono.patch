@@ -1,0 +1,230 @@
+diff --git a/src-tauri/src/engine/executor.rs b/src-tauri/src/engine/executor.rs
+index 7f19a71..aeef3bc 100644
+--- a/src-tauri/src/engine/executor.rs
++++ b/src-tauri/src/engine/executor.rs
+@@ -143,7 +143,7 @@ fn tmap_output_ids(config: &serde_json::Value) -> Vec<String> {
+ /// obbligatorie dei nodi (es. filter richiede tx) quando nessun
+ /// edge le consuma — senza, il nodo si bloccherebbe sul send o
+ /// fallirebbe per tx mancante.
+-fn make_drain() -> RowSender {
++pub(crate) fn make_drain() -> RowSender {
+     let (tx, mut rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
+     tokio::spawn(async move {
+         while rx.recv().await.is_some() {}
+@@ -195,7 +195,7 @@ fn take_single_input(inputs: &mut HashMap<String, RowReceiver>) -> Option<RowRec
+ 
+ /// Estrae l'uscita "principale" di un nodo semplice: preferisce
+ /// l'handle 'output', poi il primo handle non-reject/non-catch.
+-fn take_primary_output(outputs: &mut HashMap<String, RowSender>) -> Option<RowSender> {
++pub(crate) fn take_primary_output(outputs: &mut HashMap<String, RowSender>) -> Option<RowSender> {
+     if let Some(tx) = outputs.remove("output") { return Some(tx); }
+     let key = outputs.keys()
+         .find(|k| k.as_str() != "reject" && k.as_str() != "catch")
+@@ -580,17 +580,17 @@ async fn run_node(
+         "explode" => {
+             // Input opzionale: con source='materialize' il nodo può non avere
+             // archi, e si sblocca quando il dataset è pubblicato.
++            // Multi-uscita: output + reject → passa l'intera mappa (come filter).
+             let rx = take_single_input(&mut inputs);
+-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+-            super::nodes::explode::run(ctx, rx, tx).await
++            super::nodes::explode::run(ctx, rx, outputs).await
+         }
+ 
+ 
+         "materialize" => {
+             let rx = take_single_input(&mut inputs)
+                 .ok_or_else(|| format!("materialize {} richiede un input collegato", ctx.node_id.0))?;
+-            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+-            super::nodes::materialize::run(ctx, rx, tx).await
++            // Multi-uscita: output + reject (righe troncate) → mappa intera.
++            super::nodes::materialize::run(ctx, rx, outputs).await
+         }
+ 
+         "json_serializer" => {
+diff --git a/src-tauri/src/engine/nodes/explode.rs b/src-tauri/src/engine/nodes/explode.rs
+index 4d7f829..9e94364 100644
+--- a/src-tauri/src/engine/nodes/explode.rs
++++ b/src-tauri/src/engine/nodes/explode.rs
+@@ -22,9 +22,10 @@
+ // Un nodo, una responsabilità.
+ 
+ use std::time::Instant;
++use std::collections::HashMap;
+ use crate::engine::types::*;
+ use crate::engine::spec::Spec;
+-use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
++use crate::engine::executor::{RowSender, RowReceiver, NodeContext, make_drain, take_primary_output};
+ 
+ // ─── Config ────────────────────────────────────────────────────────
+ //
+@@ -63,7 +64,7 @@ fn config_from_spec(spec: &Spec) -> ExplodeConfig {
+ pub async fn run(
+     ctx: NodeContext,
+     rx:  Option<RowReceiver>,
+-    tx:  RowSender,
++    mut outputs: HashMap<String, RowSender>,
+ ) -> Result<NodeStats, String> {
+ 
+     let spec = Spec::from_ctx(&ctx.spec)
+@@ -71,6 +72,14 @@ pub async fn run(
+     let cfg = config_from_spec(&spec);
+     spec.log_unconsumed("explode", &ctx.node_id.0);
+ 
++    // Uscite: 'output' primaria (fallback drain se non collegata, così il nodo
++    // non si blocca mai) e 'reject' opzionale — la riga padre che non produce
++    // figli (campo null o struttura vuota, con onEmpty='skip') ci finisce
++    // invece di sparire in silenzio. Toglilo prima del primario così
++    // take_primary_output non lo pesca. Modello di filter/json_parser.
++    let reject_tx = outputs.remove("reject");
++    let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
++
+     let start = Instant::now();
+ 
+     // Sorgenti rimosse dal contratto (§8): rifiuto parlante invece che
+@@ -89,7 +98,7 @@ pub async fn run(
+ 
+     match cfg.source.as_str() {
+         "materialize" => from_materialize(ctx, rx, tx, cfg, start).await,
+-        "flow_field"  => from_flow_field(ctx, rx, tx, cfg, start).await,
++        "flow_field"  => from_flow_field(ctx, rx, tx, reject_tx, cfg, start).await,
+         other => Err(format!("explode {}: sorgente sconosciuta '{}'", ctx.node_id.0, other)),
+     }
+ }
+@@ -145,11 +154,12 @@ async fn from_materialize(
+ // ─── Campo collettivo → righe ──────────────────────────────────────
+ 
+ async fn from_flow_field(
+-    ctx:   NodeContext,
+-    rx:    Option<RowReceiver>,
+-    tx:    RowSender,
+-    cfg:   ExplodeConfig,
+-    start: Instant,
++    ctx:       NodeContext,
++    rx:        Option<RowReceiver>,
++    tx:        RowSender,
++    reject_tx: Option<RowSender>,
++    cfg:       ExplodeConfig,
++    start:     Instant,
+ ) -> Result<NodeStats, String> {
+ 
+     let Some(mut rx) = rx else {
+@@ -160,8 +170,9 @@ async fn from_flow_field(
+                            ctx.node_id.0));
+     }
+ 
+-    let mut rows_in  = 0u64;
+-    let mut rows_out = 0u64;
++    let mut rows_in       = 0u64;
++    let mut rows_out      = 0u64;
++    let mut rows_rejected = 0u64;
+     let mut last_prog = Instant::now();
+ 
+     while let Some(parent) = rx.recv().await {
+@@ -179,7 +190,10 @@ async fn from_flow_field(
+                     if tx.send(row).await.is_err() { break }
+                     rows_out += 1;
+                 }
+-                _ => {}   // skip
++                _ => {   // skip: la riga padre non produce figli → reject
++                    if let Some(rej) = &reject_tx { let _ = rej.send(parent.clone()).await; }
++                    rows_rejected += 1;
++                }
+             }
+             continue;
+         }
+@@ -195,7 +209,10 @@ async fn from_flow_field(
+                     if tx.send(row).await.is_err() { break }
+                     rows_out += 1;
+                 }
+-                _ => {}
++                _ => {   // skip: struttura vuota → la riga padre va al reject
++                    if let Some(rej) = &reject_tx { let _ = rej.send(parent.clone()).await; }
++                    rows_rejected += 1;
++                }
+             }
+             continue;
+         }
+@@ -222,13 +239,19 @@ async fn from_flow_field(
+ 
+         if rows_in % 1000 == 0 || last_prog.elapsed().as_millis() >= 500 {
+             let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+-            ctx.emit_progress(rows_in, rows_out, 0, rps);
++            ctx.emit_progress(rows_in, rows_out, rows_rejected, rps);
+             last_prog = Instant::now();
+         }
+     }
+ 
++    // Conteggi per handle di uscita → badge sul canvas (come filter).
++    let mut per_out: HashMap<String, u64> = HashMap::new();
++    per_out.insert("output".to_string(), rows_out);
++    per_out.insert("reject".to_string(), rows_rejected);
++    ctx.emit_output_stats(per_out);
++
+     let stats = NodeStats {
+-        rows_in, rows_out, rows_rejected: 0,
++        rows_in, rows_out, rows_rejected,
+         elapsed_ms: start.elapsed().as_millis() as u64, error: None,
+     };
+     ctx.emit_completed(stats.clone());
+diff --git a/src-tauri/src/engine/nodes/materialize.rs b/src-tauri/src/engine/nodes/materialize.rs
+index fbad291..0a11fc3 100644
+--- a/src-tauri/src/engine/nodes/materialize.rs
++++ b/src-tauri/src/engine/nodes/materialize.rs
+@@ -26,16 +26,24 @@
+ // Vedi docs/design-materialize-registry.md.
+ 
+ use std::time::Instant;
++use std::collections::HashMap;
+ use crate::engine::types::*;
+ use crate::engine::datasets::Dataset;
+-use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
++use crate::engine::executor::{RowSender, RowReceiver, NodeContext, make_drain, take_primary_output};
+ 
+ pub async fn run(
+     ctx:    NodeContext,
+     mut rx: RowReceiver,
+-    tx:     RowSender,
++    mut outputs: HashMap<String, RowSender>,
+ ) -> Result<NodeStats, String> {
+ 
++    // Uscite: 'output' primaria (fallback drain se non collegata) e 'reject'
++    // opzionale — le righe TRONCATE per superamento di maxRows (onOverflow≠
++    // 'error') ci finiscono invece di sparire in silenzio. Togli reject prima
++    // del primario così take_primary_output non lo pesca. Modello di filter.
++    let reject_tx = outputs.remove("reject");
++    let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
++
+     // Migrato alla spec (Fase 12). Caso "tutto props": scalari verbatim,
+     // niente FPEL né strutture compilate. Il motore legge le chiavi del
+     // pannello (camelCase) via Spec — il case builder che le rinominava
+@@ -83,7 +91,9 @@ pub async fn run(
+                               ctx.node_id.0, max_rows));
+             }
+             truncated = true;
+-            continue;   // truncate: la riga è scartata, non entra nel dataset
++            // truncate: la riga non entra nel dataset → al reject, se collegato
++            if let Some(rej) = &reject_tx { let _ = rej.send(row).await; }
++            continue;
+         }
+ 
+         if streaming {
+@@ -142,9 +152,16 @@ pub async fn run(
+                                ctx.node_id.0, other)),
+     }
+ 
++    let rows_rejected = if truncated { rows_in.saturating_sub(buffer.len() as u64) } else { 0 };
++
++    // Conteggi per handle di uscita → badge sul canvas (come filter).
++    let mut per_out: HashMap<String, u64> = HashMap::new();
++    per_out.insert("output".to_string(), rows_out);
++    per_out.insert("reject".to_string(), rows_rejected);
++    ctx.emit_output_stats(per_out);
++
+     let stats = NodeStats {
+-        rows_in, rows_out,
+-        rows_rejected: if truncated { rows_in.saturating_sub(buffer.len() as u64) } else { 0 },
++        rows_in, rows_out, rows_rejected,
+         elapsed_ms: start.elapsed().as_millis() as u64,
+         error: None,
+     };
