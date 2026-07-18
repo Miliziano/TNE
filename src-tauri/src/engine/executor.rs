@@ -160,6 +160,33 @@ fn closed_receiver() -> RowReceiver {
 
 /// Estrae l'input "principale" di un nodo semplice: preferisce
 /// l'handle 'input', altrimenti l'unico rimasto.
+/// I tipi che il motore **non implementa ancora**.
+///
+/// UNICA fonte: l'arm dei passthrough qui sotto si guida da questa lista
+/// con una match guard (`t if is_stub(t)`), invece di riscriverla come
+/// elenco di pattern. Se fosse scritta due volte divergerebbe in
+/// silenzio — è la malattia che abbiamo passato la fase porte a curare.
+///
+/// Chi sta qui NON fa il suo lavoro: inoltra le righe e basta. Per questo
+/// il nodo si segnala come **errore** e non come completato — v. l'arm.
+pub const NOT_IMPLEMENTED: &[&str] = &[
+    // NB `data_quality` NON è qui: ha un arm dedicato (:632) che chiama
+    // data_quality::run — è implementato. Stava nella vecchia lista per un
+    // commento ormai falso.
+    "script", "watchdog",
+    "source_http", "source_ftp", "source_mqtt",
+    "source_activemq", "source_kafka",
+    "sink_kafka", "sink_ftp", "sink_mqtt",
+    "sink_activemq", "sink_http",
+    "http_request", "webhook_responder", "report_generator",
+    "error_handler",
+];
+
+/// true se il motore non ha ancora un'implementazione per questo tipo.
+pub fn is_stub(node_type: &str) -> bool {
+    NOT_IMPLEMENTED.contains(&node_type)
+}
+
 fn take_single_input(inputs: &mut HashMap<String, RowReceiver>) -> Option<RowReceiver> {
     if let Some(rx) = inputs.remove("input") { return Some(rx); }
     let key = inputs.keys().next().cloned()?;
@@ -412,8 +439,9 @@ pub async fn execute_lane(
 //
 // I nodi semplici prendono input/output "principale" con gli helper;
 // il TMap ricostruisce i suoi vettori nell'ordine della config;
-// union/join/data_quality (multi-input) per ora concatenano gli
-// ingressi in sequenza — le implementazioni vere si innestano qui.
+// union e join (multi-input) hanno arm dedicati; i tipi non ancora
+// implementati (v. NOT_IMPLEMENTED) concatenano gli ingressi e si
+// segnalano come errore, così il Monitor non li dà per riusciti.
 
 async fn run_node(
     ctx:         NodeContext,
@@ -665,19 +693,25 @@ async fn run_node(
             super::nodes::union::run(ctx, ordered, tx).await
         }
 
-        // ── Passthrough residui (multi-input consapevole) ──────────
-        // union/join/data_quality: ora RICEVONO tutti i loro input
-        // (il wiring edge-based li supporta), ma in attesa delle
-        // implementazioni vere concatenano gli ingressi in sequenza
-        // sull'uscita primaria. Per union è già semanticamente una
-        // concat; data_quality va implementato.
-         "data_quality" | "script" | "watchdog" |
-        "source_http" | "source_ftp" | "source_mqtt" |
-        "source_activemq" | "source_kafka" |
-        "sink_kafka" | "sink_ftp" | "sink_mqtt" |
-        "sink_activemq" | "sink_http" |
-        "http_request" | "webhook_responder" | "report_generator" |
-        "error_handler" => {
+        // ── Nodi NON ANCORA IMPLEMENTATI ──────────────────────────
+        //
+        // L'elenco stava qui, come pattern; ora si guida da
+        // NOT_IMPLEMENTED (una fonte, non due). Deve restare DOPO gli arm
+        // veri: quelli hanno la precedenza, e questo raccoglie il resto.
+        //
+        // Cosa facevano: concatenavano gli ingressi sull'uscita primaria e
+        // poi dichiaravano `error: None` + emit_completed → nel Monitor il
+        // nodo diventava VERDE. Un `source_kafka` senza ingressi drenava
+        // zero righe, ne emetteva zero, e diceva che era andato tutto bene:
+        // una sorgente che non legge niente e non lo dice. Un `sink_kafka`
+        // inoltrava le righe a valle senza scrivere su Kafka, e sembrava
+        // riuscito.
+        //
+        // L'inoltro RESTA — toglierlo romperebbe di più — ma il nodo ora si
+        // segnala come ERRORE, così il Monitor smette di mentire.
+        // Contratto §2: un comportamento dichiarato e non implementato è
+        // peggio di uno assente, perché il primo si scopre in produzione.
+        t if is_stub(t) => {
             let start = Instant::now();
             let tx = take_primary_output(&mut outputs);
             let mut rows_in  = 0u64;
@@ -698,12 +732,24 @@ async fn run_node(
                 }
             }
 
+            // ⚠️ `error` VALORIZZATO, non None. Il frontend, su NodeCompleted,
+            // fa `status: stats.error ? 'error' : 'done'` (Toolbar.tsx:167):
+            // così il nodo diventa ROSSO col messaggio, ma il Run NON viene
+            // abortito e le righe già inoltrate continuano a valle — meglio
+            // non rompere più di quanto già non funzioni. Diverso da
+            // emit_failed, che segnerebbe il nodo come fallito a monte.
             let stats = NodeStats {
                 rows_in, rows_out, rows_rejected: 0,
-                elapsed_ms: start.elapsed().as_millis() as u64, error: None,
+                elapsed_ms: start.elapsed().as_millis() as u64,
+                error: Some(format!(
+                    "Il nodo '{}' non è ancora implementato nel motore: le righe \
+                     vengono inoltrate senza essere elaborate. Il risultato NON è \
+                     affidabile.",
+                    node_type
+                )),
             };
-            // OBBLIGATORIO anche per i passthrough — senza, il
-            // frontend non chiude mai pulse e contatori del nodo.
+            // OBBLIGATORIO anche qui — senza, il frontend non chiude mai
+            // pulse e contatori del nodo.
             ctx.emit_completed(stats.clone());
             Ok(stats)
         }
