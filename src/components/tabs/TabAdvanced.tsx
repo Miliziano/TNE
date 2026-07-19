@@ -138,6 +138,7 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
   if (!node) return null
   const adv     = node.data.config.advanced
   const onError = normalizeOnError(adv?.onError)
+  const isRetry = onError === 'retry_handler' || onError === 'retry_catch'
   const isDirWatcher = node.data.type === 'dir_watcher'
 
   // Handler timeout — per dir_watcher sincronizza anche watchTimeoutSec
@@ -166,16 +167,6 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
           <input type="number" style={inputStyle} value={adv?.timeoutSec ?? '30'}
             onChange={(e) => handleTimeoutChange(e.target.value)} />
         </Field>
-        <Field label="Numero di retry">
-          <input type="number" style={inputStyle} value={adv?.retryCount ?? '0'}
-            onChange={(e) => updateAdvanced(nodeId, 'retryCount', e.target.value)} />
-        </Field>
-      </Row>
-      <Row>
-        <Field label="Delay tra retry (secondi)">
-          <input type="number" style={inputStyle} value={adv?.retryDelaySec ?? '5'}
-            onChange={(e) => updateAdvanced(nodeId, 'retryDelaySec', e.target.value)} />
-        </Field>
         <Field label="In caso di errore">
           <CustomSelect style={inputStyle} value={onError}
             onChange={(e) => updateAdvanced(nodeId, 'onError', e.target.value)}>
@@ -186,6 +177,18 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
           </CustomSelect>
         </Field>
       </Row>
+      {isRetry && (
+        <Row>
+          <Field label="Numero di retry">
+            <input type="number" style={inputStyle} value={adv?.retryCount ?? '0'}
+              onChange={(e) => updateAdvanced(nodeId, 'retryCount', e.target.value)} />
+          </Field>
+          <Field label="Delay tra retry (secondi)">
+            <input type="number" style={inputStyle} value={adv?.retryDelaySec ?? '5'}
+              onChange={(e) => updateAdvanced(nodeId, 'retryDelaySec', e.target.value)} />
+          </Field>
+        </Row>
+      )}
 
       {(onError === 'catch' || onError === 'retry_catch') && (
         <div style={{

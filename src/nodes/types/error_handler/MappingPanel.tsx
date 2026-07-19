@@ -22,7 +22,7 @@
 
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
-import { normalizeOnError } from '../../../types'
+import { normalizeOnError, onErrorEmitsCatch } from '../../../types'
 import { NODE_DEFS } from '../../registry'
 
 const ERR_COLOR = '#ff5f57'
@@ -148,10 +148,19 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
                     onChange={(e) => updateAdvanced(n.id, 'excludeFromErrorLog' as any, e.target.checked ? 'true' : 'false')} />
                 </div>
 
-                {/* Critico */}
+                {/* Critico — ha senso solo se l'errore va all'handler.
+                    In modalità cattura (catch/retry_catch) l'errore non passa
+                    dall'handler → disabilitato. */}
                 <div style={{ textAlign: 'center' }}>
-                  <input type="checkbox" checked={critical === 'true'}
-                    style={{ accentColor: ERR_COLOR, width: 14, height: 14, cursor: 'pointer' }}
+                  <input type="checkbox"
+                    checked={critical === 'true' && !onErrorEmitsCatch(onError)}
+                    disabled={onErrorEmitsCatch(onError)}
+                    title={onErrorEmitsCatch(onError)
+                      ? 'Non applicabile: il nodo cattura gli errori da sé, non passano dall\'error handler'
+                      : 'Un errore di questo nodo, dopo che l\'handler ha concluso, interrompe la pipeline'}
+                    style={{ accentColor: ERR_COLOR, width: 14, height: 14,
+                      cursor: onErrorEmitsCatch(onError) ? 'not-allowed' : 'pointer',
+                      opacity: onErrorEmitsCatch(onError) ? 0.35 : 1 }}
                     onChange={(e) => updateAdvanced(n.id, 'critical' as any, e.target.checked ? 'true' : 'false')} />
                 </div>
 
