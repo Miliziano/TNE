@@ -261,15 +261,18 @@ pub async fn run(
 
     let resource_id = config.resource_id.clone();
     let conn_str = build_conn_str(&config)?;
-    let pool = ctx.lane_resources.pool(
-        &resource_id,
-        crate::engine::pool::PoolParams {
-            dialect:         config.dialect.clone(),
-            conn_str,
-            max_connections: 5,
-            connect_timeout: config.connect_timeout,
-        },
-    ).await
+    let params = crate::engine::pool::PoolParams {
+        dialect:         config.dialect.clone(),
+        conn_str,
+        max_connections: 5,
+        connect_timeout: config.connect_timeout,
+    };
+    // Retry "prima operazione": se la modalità onError lo prevede, ritenta
+    // l'apertura della connessione (risorsa non disponibile all'avvio).
+    let pool = match ctx.retry_policy() {
+        Some((n, d)) => ctx.lane_resources.pool_with_retry(&resource_id, params, n, d).await,
+        None         => ctx.lane_resources.pool(&resource_id, params).await,
+    }
         .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
 
     ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));

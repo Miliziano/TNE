@@ -344,15 +344,17 @@ pub async fn run(
 
     // Pool condiviso della lane (L1). Il source usa 1 connessione
     // (lettura in streaming da un unico cursore).
-    let pool = ctx.lane_resources.pool(
-        &config.resource_id,
-        PoolParams {
-            dialect:         dialect.clone(),
-            conn_str,
-            max_connections: 5,
-            connect_timeout: config.connect_timeout,
-        },
-    ).await
+    let params = PoolParams {
+        dialect:         dialect.clone(),
+        conn_str,
+        max_connections: 5,
+        connect_timeout: config.connect_timeout,
+    };
+    // Retry "prima operazione": ritenta l'apertura se la modalità lo prevede.
+    let pool = match ctx.retry_policy() {
+        Some((n, d)) => ctx.lane_resources.pool_with_retry(&config.resource_id, params, n, d).await,
+        None         => ctx.lane_resources.pool(&config.resource_id, params).await,
+    }
         .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;
 
     let resource_id = config.resource_id.clone();

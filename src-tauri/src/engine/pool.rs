@@ -39,6 +39,7 @@ pub enum DbPool {
 
 /// Parametri per creare un pool. Derivati dalla risorsa (spec.resource)
 /// dal nodo chiamante, che già sa costruire la connection string.
+#[derive(Clone)]
 pub struct PoolParams {
     pub dialect:         String,
     pub conn_str:        String,
@@ -90,6 +91,38 @@ impl LaneResources {
         eprintln!("[pool] CREO nuova connessione per risorsa '{}'", resource_id);
         guard.insert(resource_id.to_string(), pool.clone());
         Ok(pool)
+    }
+
+    /// Come `pool`, ma ritenta la CREAZIONE fino a `retries` volte con
+    /// `delay_secs` di attesa tra i tentativi. Modella il retry "prima
+    /// operazione" del contratto errori: la risorsa non disponibile
+    /// all'AVVIO (connessione rifiutata, DB in avvio) si ritenta; un guasto
+    /// dopo l'avvio no. Sicuro perché avviene PRIMA che il nodo produca
+    /// output: niente da duplicare, niente da annullare. Se la connessione
+    /// esiste già, `pool` la riusa sul fast-path e non arriva a fallire.
+    /// `retries = 0` → un solo tentativo (nessuna riprova).
+    pub async fn pool_with_retry(
+        &self,
+        resource_id: &str,
+        params:      PoolParams,
+        retries:     u32,
+        delay_secs:  u64,
+    ) -> Result<DbPool, String> {
+        let mut attempt = 0u32;
+        loop {
+            match self.pool(resource_id, params.clone()).await {
+                Ok(p) => return Ok(p),
+                Err(e) => {
+                    if attempt >= retries {
+                        return Err(e);
+                    }
+                    attempt += 1;
+                    eprintln!("[pool] risorsa '{}' non disponibile ({}). \
+                        Ritento {}/{} tra {}s", resource_id, e, attempt, retries, delay_secs);
+                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                }
+            }
+        }
     }
 
     /// Chiude TUTTI i pool della lane. Idempotente. Chiamato da

@@ -51,6 +51,27 @@ pub struct NodeContext {
 }
 
 impl NodeContext {
+    /// Policy di retry "prima operazione", se la modalità `onError` la prevede
+    /// (retry_handler / retry_catch). Ritorna (tentativi, attesa_secondi).
+    /// `advanced` è già nel piano: il lowering copia l'intero data.config nel
+    /// NodePlan. retryCount/retryDelaySec sono STRINGHE nel config (tipo TS
+    /// `string`) → si leggono con as_str().parse(). None = niente retry.
+    pub fn retry_policy(&self) -> Option<(u32, u64)> {
+        let adv = self.config.get("advanced")?;
+        let mode = adv.get("onError").and_then(|v| v.as_str()).unwrap_or("handler");
+        if mode != "retry_handler" && mode != "retry_catch" {
+            return None;
+        }
+        let count = adv.get("retryCount")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        let delay = adv.get("retryDelaySec")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .unwrap_or(5);
+        Some((count, delay))
+    }
     pub fn emit_progress(&self, rows_in: u64, rows_out: u64, rows_rejected: u64, rps: f64) {
         push_event(EngineEvent::NodeProgress {
             run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
