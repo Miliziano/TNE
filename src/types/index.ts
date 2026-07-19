@@ -33,11 +33,44 @@ export interface NodeMapping {
   transform?: string
 }
 
+// Gestione errori per-nodo (modello unificato, v2).
+//  - handler       : l'errore va all'error handler della lane (default)
+//  - catch         : la riga in errore esce dall'handle catch del nodo
+//  - retry_handler : riprova N volte, poi va all'error handler
+//  - retry_catch   : riprova N volte, poi esce dall'handle catch
+// L'interruzione della pipeline NON è più una modalità del nodo: la decide
+// l'error handler. Le riprove sono del nodo.
+export type OnError = 'handler' | 'catch' | 'retry_handler' | 'retry_catch'
+
+// Migrazione dai vecchi valori ('stop'|'skip'|'retry'|'propagate'): unica fonte,
+// così nessun confronto sparso deve conoscere i nomi legacy.
+export function normalizeOnError(raw: string | undefined | null): OnError {
+  switch (raw) {
+    case 'catch':
+    case 'retry_handler':
+    case 'retry_catch':
+    case 'handler':      return raw
+    case 'propagate':    return 'catch'          // era "esci dall'handle catch"
+    case 'skip':         return 'catch'          // "salta" rimosso → cattura
+    case 'retry':        return 'retry_handler'  // il retry legacy non diceva "poi cosa"
+    case 'stop':                                 // l'interruzione ora la decide l'handler
+    default:             return 'handler'
+  }
+}
+
+// Le uniche due modalità che fanno spuntare l'handle catch sul nodo. Fonte
+// unica: canvas (schemaRegistry/FlowNode), piano (lowering) e subtitle la
+// leggono da qui invece di ripetere il confronto.
+export function onErrorEmitsCatch(raw: string | undefined | null): boolean {
+  const m = normalizeOnError(raw)
+  return m === 'catch' || m === 'retry_catch'
+}
+
 export interface NodeAdvanced {
   timeoutSec:    string
   retryCount:    string
   retryDelaySec: string
-  onError:       'stop' | 'skip' | 'retry' | 'propagate'
+  onError:       OnError
   batchSize:     string
   parallel:      'false' | 'true'
    // ← aggiungere questi due:

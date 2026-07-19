@@ -60,9 +60,9 @@ function checkCatchHandles(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(node.id),
         code:     'CATCH_NOT_CONNECTED',
-        message:  `Il nodo "${node._uiRef?.label ?? node.id}" ha onError: propagate ma l'handle catch non è collegato — le eccezioni verranno gestite dalla lane`,
+        message:  `Il nodo "${node._uiRef?.label ?? node.id}" cattura gli errori sul nodo ma l'handle catch non è collegato — le righe in errore andrebbero perse`,
         severity: 'warning',
-        hint:     'Collega l\'handle catch a un nodo di gestione errori, oppure cambia onError in stop/skip/retry',
+        hint:     'Collega l\'handle catch a valle, oppure scegli "Error handler" come modalità di gestione errori',
       })
     }
   })

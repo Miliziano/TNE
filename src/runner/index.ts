@@ -232,7 +232,7 @@ async function executeNode(
   const startMs = Date.now()
 
   const adv          = node.data.config?.advanced
-  const onError      = adv?.onError ?? 'stop'
+  const onError: string      = adv?.onError ?? 'stop'
   const baseRetries  = parseInt(adv?.retryCount ?? '0', 10)
   const retryDelayMs = parseInt(adv?.retryDelaySec ?? '0', 10) * 1000
   const errorHandler = findErrorHandler(context, node.data.laneId)
@@ -425,7 +425,7 @@ async function executeStreamingNode(
     context.callbacks.onNodeDone({ nodeId: node.id, ok: false, message, rowsIn: input.length, rowsOut: totalRows })
 
     const adv            = node.data.config?.advanced
-    const onError        = adv?.onError ?? 'stop'
+    const onError: string        = adv?.onError ?? 'stop'
     const excludeFromLog = adv?.excludeFromErrorLog === 'true'
     const critical       = adv?.critical === 'true'
     const errorHandler   = findErrorHandler(context, node.data.laneId)

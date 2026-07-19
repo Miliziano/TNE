@@ -8,12 +8,12 @@
  * capire cosa fa quel nodo senza aprire l'editor.
  */
 import type { NodeData } from '../types'
+import { onErrorEmitsCatch } from '../types'
 
 // ── Helper catch ──────────────────────────────────────────────────
-// Aggiunge '⚡catch' al subtitle quando onError === 'propagate'
+// Aggiunge '⚡catch' al subtitle quando la modalità onError attiva la catch.
 function withCatch(subtitle: string, data: NodeData): string {
-  const onError = (data.config?.advanced?.onError) ?? 'stop'
-  if (onError !== 'propagate') return subtitle
+  if (!onErrorEmitsCatch(data.config?.advanced?.onError)) return subtitle
   const sep = subtitle ? ' · ' : ''
   return `${subtitle}${sep}⚡catch`
 }

@@ -1,5 +1,6 @@
 import { useFlowStore } from '../../store/flowStore'
 import { CustomSelect } from '../../components/CustomSelect'
+import { normalizeOnError } from '../../types'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -136,7 +137,7 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
 
   if (!node) return null
   const adv     = node.data.config.advanced
-  const onError = adv?.onError ?? 'stop'
+  const onError = normalizeOnError(adv?.onError)
   const isDirWatcher = node.data.type === 'dir_watcher'
 
   // Handler timeout — per dir_watcher sincronizza anche watchTimeoutSec
@@ -178,15 +179,15 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
         <Field label="In caso di errore">
           <CustomSelect style={inputStyle} value={onError}
             onChange={(e) => updateAdvanced(nodeId, 'onError', e.target.value)}>
-            <option value="stop">Stop — interrompi pipeline</option>
-            <option value="skip">Skip — salta questo nodo</option>
-            <option value="retry">Retry — riprova N volte</option>
-            <option value="propagate">Trasmetti eccezione — abilita handle catch</option>
+            <option value="handler">Error handler — la lane decide</option>
+            <option value="catch">Cattura sul nodo — abilita handle catch</option>
+            <option value="retry_handler">Riprova, poi error handler</option>
+            <option value="retry_catch">Riprova, poi cattura sul nodo</option>
           </CustomSelect>
         </Field>
       </Row>
 
-      {onError === 'propagate' && (
+      {(onError === 'catch' || onError === 'retry_catch') && (
         <div style={{
           padding: '10px 12px', fontSize: 10, color: CATCH_COLOR,
           background: `color-mix(in srgb, ${CATCH_COLOR} 8%, #0f1117)`,

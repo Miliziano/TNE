@@ -25,6 +25,7 @@ import type { Edge } from '@xyflow/react'
 import { resolveStaticPorts } from '../ir/nodeSemantics'
 import type { PortSpec } from '../ir/types'
 import type { TMapConfig, TMapInputField, TMapOutputField, FieldRenameEntry } from '../types'
+import { onErrorEmitsCatch } from '../types'
 import type { StoreSnapshot } from './schemaUtils'
 
 // ─── dbTypeToLogical ─────────────────────────────────────────────
@@ -194,9 +195,9 @@ export function getNodePorts(node: { data: any }): { inputs: PortSpec[]; outputs
   }
 
   // Il catch non appartiene a un tipo: appartiene alla gestione errori, e
-  // vale per qualunque nodo con onError='propagate'. Prima lo calcolavano
-  // FlowNode e il lowering, ciascuno per conto proprio.
-  if ((node.data.config?.advanced?.onError ?? 'stop') === 'propagate') {
+  // vale per qualunque nodo le cui modalità onError lo attivano (catch /
+  // retry_catch). Fonte unica: onErrorEmitsCatch.
+  if (onErrorEmitsCatch(node.data.config?.advanced?.onError)) {
     ports = {
       ...ports,
       outputs: [...ports.outputs, { id: 'catch', label: '⚡ catch', role: 'catch' }],

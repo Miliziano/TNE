@@ -4,6 +4,7 @@ import { isRejectPort } from '../ir/types'
 import { ValidationBadge } from "./ValidationBadge"
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData, NodeStatus } from '../types'
+import { onErrorEmitsCatch } from '../types'
 import { NODE_DEFS } from './registry'
 import { useFlowStore } from '../store/flowStore'
 import type { NodeRunStats } from '../store/flowStore'
@@ -117,9 +118,8 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
   })()
   const txColor = txConfig?.mode === 'xa' ? '#ffb347' : '#3ddc84'
 
-  // ── onError: propagate → badge catch ──────────────────────────
-  const onError    = (nodeData.config?.advanced?.onError) ?? 'stop'
-  const hasCatch   = onError === 'propagate'
+  // ── onError con modalità catch/retry_catch → badge catch ──────
+  const hasCatch   = onErrorEmitsCatch(nodeData.config?.advanced?.onError)
 
   // ── Handle di uscita ──────────────────────────────────────────
   // Qui c'era `{ id: 'output', show: true, ... }`: il canvas disegnava

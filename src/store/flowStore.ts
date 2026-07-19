@@ -140,7 +140,7 @@ const defaultConfig = (): Partial<NodeConfig> => ({
     timeoutSec:    '30',
     retryCount:    '0',
     retryDelaySec: '5',
-    onError:       'stop',
+    onError:       'handler',
     batchSize:     '1000',
     parallel:      'false',
     excludeFromErrorLog: 'false',   // ← aggiungere

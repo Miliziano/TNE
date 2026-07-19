@@ -4,6 +4,7 @@
 
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData, TMapConfig } from '../types'
+import { onErrorEmitsCatch } from '../types'
 import type {
   LogicalPlan, LogicalNode, LogicalEdge,
   PortSpec, SchemaField, ExprNode, RawStringExpr,
@@ -257,8 +258,7 @@ export function canvasToIR(
     const outputPorts = buildOutputPorts(n, ctx)
     const expressions = buildExpressions(n)
     
-    const onError = (n.data.config?.advanced?.onError) ?? 'stop'
-    if (onError === 'propagate') {
+    if (onErrorEmitsCatch(n.data.config?.advanced?.onError)) {
       outputPorts.push({
         id:    'catch',
         label: 'catch',

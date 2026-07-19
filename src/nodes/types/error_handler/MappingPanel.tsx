@@ -22,6 +22,7 @@
 
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { normalizeOnError } from '../../../types'
 import { NODE_DEFS } from '../../registry'
 
 const ERR_COLOR = '#ff5f57'
@@ -99,7 +100,7 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
           {laneNodes.map((n, idx) => {
             const def      = NODE_DEFS[n.data.type]
             const adv      = n.data.config.advanced
-            const onError  = adv?.onError ?? 'stop'
+            const onError  = normalizeOnError(adv?.onError)
             const exclude  = (adv as any)?.excludeFromErrorLog ?? 'false'
             const critical = (adv as any)?.critical ?? 'false'
             const displayName = n.data.config.displayName || def?.label || n.data.label
@@ -125,14 +126,14 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
                 {/* onError */}
                 <CustomSelect style={inputStyle} value={onError}
                   onChange={(e) => updateAdvanced(n.id, 'onError', e.target.value)}>
-                  <option value="stop">Stop</option>
-                  <option value="skip">Skip</option>
-                  <option value="retry">Retry</option>
-                  <option value="propagate">Propaga</option>
+                  <option value="handler">Error handler</option>
+                  <option value="catch">Cattura</option>
+                  <option value="retry_handler">Riprova → handler</option>
+                  <option value="retry_catch">Riprova → cattura</option>
                 </CustomSelect>
 
                 {/* Retry count */}
-                {onError === 'retry' ? (
+                {(onError === 'retry_handler' || onError === 'retry_catch') ? (
                   <input type="number" min="1" style={inputStyle}
                     value={adv?.retryCount ?? '0'}
                     onChange={(e) => updateAdvanced(n.id, 'retryCount', e.target.value)} />

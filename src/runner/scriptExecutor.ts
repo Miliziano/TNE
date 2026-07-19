@@ -155,7 +155,7 @@ export const scriptExecutor: NodeExecutor = {
         const msg = err instanceof Error ? err.message : String(err)
         context.callbacks.onLog('error', `Script errore riga: ${msg}`, node.id)
 
-        const onError = node.data.config?.advanced?.onError ?? 'stop'
+        const onError: string = node.data.config?.advanced?.onError ?? 'stop'
         if (onError === 'stop') {
           throw new Error(`Script: errore fatale — ${msg}`)
         }
