@@ -48,6 +48,7 @@ pub struct NodeContext {
     /// pubblica (materialize) e chi legge (window, aggregate, pivot,
     /// explode, join).
     pub lane_datasets:  std::sync::Arc<super::datasets::LaneDatasets>,
+    pub lane_errors:    std::sync::Arc<super::errors::LaneErrors>,
 }
 
 impl NodeContext {
@@ -292,6 +293,7 @@ pub async fn execute_lane(
         .map(|d| d.name.clone())
         .collect();
     let lane_datasets = super::datasets::LaneDatasets::new(&declared_datasets);
+    let lane_errors = super::errors::LaneErrors::new();
 
 
     if nodes.is_empty() {
@@ -375,6 +377,7 @@ pub async fn execute_lane(
             lane_resources: lane_resources.clone(),
             lane_txns: lane_txns.clone(),
             lane_datasets:  lane_datasets.clone(),
+            lane_errors:    lane_errors.clone(),
         };
 
         let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
