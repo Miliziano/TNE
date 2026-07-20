@@ -366,6 +366,38 @@ pub async fn execute_lane(
     // `_error_*` per i nodi in modalità handler che falliscono.
     let mut node_meta: std::collections::HashMap<String, (String, bool)> = std::collections::HashMap::new();
 
+    // ── Error handler come entità di FINE LANE (decisione (a)) ────
+    // Identifica il nodo EH e la sua sotto-pipeline: i nodi raggiungibili
+    // a valle di error_out. Non li si esegue coi nodi normali (si
+    // spegnerebbero subito): l'EH non viene spawato affatto e la sua
+    // sotto-pipeline viene attesa SEPARATAMENTE, dopo che a fine lane le
+    // righe raccolte sono state iniettate su error_out.
+    let eh_id: Option<String> = nodes.iter()
+        .find(|n| n.node_type == "error_handler")
+        .map(|n| n.node_id.0.clone());
+    let mut eh_subpipe: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if let Some(eh) = &eh_id {
+        let mut queue: std::collections::VecDeque<String> = std::collections::VecDeque::new();
+        for e in &plan_edges {
+            if &e.source_node.0 == eh && e.source_handle == "error_out" {
+                let t = e.target_node.0.clone();
+                if eh_subpipe.insert(t.clone()) { queue.push_back(t); }
+            }
+        }
+        while let Some(n) = queue.pop_front() {
+            for e in &plan_edges {
+                if e.source_node.0 == n {
+                    let t = e.target_node.0.clone();
+                    if eh_subpipe.insert(t.clone()) { queue.push_back(t); }
+                }
+            }
+        }
+    }
+    // Sender verso la sotto-pipeline (error_out), trattenuto e usato a fine
+    // lane; handle della sotto-pipeline, attesi dopo l'iniezione.
+    let mut error_out_tx: Option<RowSender> = None;
+    let mut eh_handles: Vec<(String, tokio::task::JoinHandle<Result<NodeStats, String>>)> = Vec::new();
+
     for node_plan in nodes.into_iter() {
         let node_id_str = node_plan.node_id.0.clone();
         let node_type   = node_plan.node_type.clone();
@@ -386,6 +418,13 @@ pub async fn execute_lane(
 
         let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
         let outputs = output_tx.remove(&node_id_str).unwrap_or_default();
+
+        // L'error_handler non gira come nodo: trattieni il suo error_out
+        // (per iniettare le righe raccolte a fine lane) e non spawnarlo.
+        if eh_id.as_deref() == Some(node_id_str.as_str()) {
+            error_out_tx = outputs.get("error_out").cloned();
+            continue;
+        }
 
         let bridge_id = node_plan.config
             .get("bridge_id")
@@ -408,7 +447,14 @@ pub async fn execute_lane(
             run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await
         });
 
-        handles.push((node_id_str, handle));
+        // La sotto-pipeline dell'EH va attesa a parte (dopo l'iniezione delle
+        // righe), non nel loop principale, per non deadlockare in attesa di
+        // error_out (che riceve solo a fine lane).
+        if eh_subpipe.contains(&node_id_str) {
+            eh_handles.push((node_id_str, handle));
+        } else {
+            handles.push((node_id_str, handle));
+        }
     }
 
     // ── 4. Attendi completamento ──────────────────────────────────
@@ -470,23 +516,41 @@ pub async fn execute_lane(
     // in modalità handler. Ordine rispettato: PRIMA il rollback (finalize
     // sopra), POI l'handler. L'instradamento alla sotto-pipeline grafica
     // su error_out è il pezzo successivo (2b-ii).
-    if !lane_errors.is_empty().await {
-        let drained = lane_errors.drain().await;
-        for row in &drained {
-            let node = super::errors::field_str(row, "_error_node_id");
-            let ntype = super::errors::field_str(row, "_error_node_type");
-            let msg  = super::errors::field_str(row, "_error_message");
-            push_event(crate::engine::events::EngineEvent::NodeLog {
-                run_id:     run_id.clone(),
-                lane_id:    lane_id.clone(),
-                node_id:    crate::engine::types::NodeId(node),
-                node_label: ntype,
-                level:      "error".to_string(),
-                row_num:    0,
-                message:    format!("Error handler: {}", msg),
-                target:     "panel".to_string(),
-            });
+    // Drena gli errori raccolti (una volta): li registra nel pannello log E
+    // li instrada alla sotto-pipeline collegata a error_out.
+    let drained = if !lane_errors.is_empty().await {
+        lane_errors.drain().await
+    } else {
+        Vec::new()
+    };
+    for row in &drained {
+        let node = super::errors::field_str(row, "_error_node_id");
+        let ntype = super::errors::field_str(row, "_error_node_type");
+        let msg  = super::errors::field_str(row, "_error_message");
+        push_event(crate::engine::events::EngineEvent::NodeLog {
+            run_id:     run_id.clone(),
+            lane_id:    lane_id.clone(),
+            node_id:    crate::engine::types::NodeId(node),
+            node_label: ntype,
+            level:      "error".to_string(),
+            row_num:    0,
+            message:    format!("Error handler: {}", msg),
+            target:     "panel".to_string(),
+        });
+    }
+    // Instrada le righe alla sotto-pipeline dell'EH (decisione (a)), poi
+    // chiudi error_out così la sotto-pipeline termina. Se non c'è EH o
+    // error_out non è collegato, error_out_tx è None.
+    if let Some(tx) = error_out_tx.take() {
+        for row in drained {
+            let _ = tx.send(row).await;
         }
+        // tx droppato qui → error_out chiuso → la sotto-pipeline finisce
+    }
+    // Attendi la sotto-pipeline dell'EH, eseguita ORA a fine lane (prima di
+    // chiudere le connessioni: i suoi sink potrebbero scrivere).
+    for (_id, handle) in eh_handles {
+        let _ = handle.await;
     }
 
     lane_resources.close_all().await;
