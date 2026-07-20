@@ -465,6 +465,30 @@ pub async fn execute_lane(
     // Finalizza le transazioni di gruppo in base all'esito COMPLETO
     // della lane (source e non-membri inclusi): commit solo se tutto ok.
     lane_txns.finalize_with_outcome(lane_result.is_ok()).await;
+
+    // ── Error handler (fine lane): registra gli errori raccolti dai nodi
+    // in modalità handler. Ordine rispettato: PRIMA il rollback (finalize
+    // sopra), POI l'handler. L'instradamento alla sotto-pipeline grafica
+    // su error_out è il pezzo successivo (2b-ii).
+    if !lane_errors.is_empty().await {
+        let drained = lane_errors.drain().await;
+        for row in &drained {
+            let node = super::errors::field_str(row, "_error_node_id");
+            let ntype = super::errors::field_str(row, "_error_node_type");
+            let msg  = super::errors::field_str(row, "_error_message");
+            push_event(crate::engine::events::EngineEvent::NodeLog {
+                run_id:     run_id.clone(),
+                lane_id:    lane_id.clone(),
+                node_id:    crate::engine::types::NodeId(node),
+                node_label: ntype,
+                level:      "error".to_string(),
+                row_num:    0,
+                message:    format!("Error handler: {}", msg),
+                target:     "panel".to_string(),
+            });
+        }
+    }
+
     lane_resources.close_all().await;
   
 

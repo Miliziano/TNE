@@ -58,6 +58,15 @@ pub fn goes_to_handler(config: &serde_json::Value) -> bool {
     mode != "catch" && mode != "retry_catch"
 }
 
+/// Estrae un campo stringa da una riga `_error_*` (vuoto se assente o non
+/// stringa). Comodo per leggere `_error_node_id`, `_error_message`, ecc.
+pub fn field_str(row: &Row, key: &str) -> String {
+    match row.0.get(key) {
+        Some(Value::String(s)) => s.clone(),
+        _ => String::new(),
+    }
+}
+
 /// Costruisce una riga `_error_*` (schema generale, uguale per tutti i
 /// nodi — v. types/index.ts:119). Fetta 1: i campi base. `_error_code` e
 /// `_error_row` arriveranno con le regole (fetta 3).
