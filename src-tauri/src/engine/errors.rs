@@ -46,6 +46,18 @@ impl LaneErrors {
     }
 }
 
+/// True se gli errori del nodo vanno all'error_handler (modalità handler /
+/// retry_handler, o assente = default handler). False per catch / retry_catch,
+/// dove il nodo li gestisce da sé sulla porta catch. `config` è la config del
+/// NodePlan (serde_json), che include il blocco `advanced`.
+pub fn goes_to_handler(config: &serde_json::Value) -> bool {
+    let mode = config.get("advanced")
+        .and_then(|a| a.get("onError"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("handler");
+    mode != "catch" && mode != "retry_catch"
+}
+
 /// Costruisce una riga `_error_*` (schema generale, uguale per tutti i
 /// nodi — v. types/index.ts:119). Fetta 1: i campi base. `_error_code` e
 /// `_error_row` arriveranno con le regole (fetta 3).

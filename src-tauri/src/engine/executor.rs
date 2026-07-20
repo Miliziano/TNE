@@ -361,6 +361,10 @@ pub async fn execute_lane(
 
     // ── 3. Spawn dei nodi ─────────────────────────────────────────
     let mut handles = Vec::new();
+    // node_id → (tipo, va-all-error-handler): salvato qui perché al loop di
+    // raccolta esiti node_plan è già consumato. Serve a costruire la riga
+    // `_error_*` per i nodi in modalità handler che falliscono.
+    let mut node_meta: std::collections::HashMap<String, (String, bool)> = std::collections::HashMap::new();
 
     for node_plan in nodes.into_iter() {
         let node_id_str = node_plan.node_id.0.clone();
@@ -395,6 +399,11 @@ pub async fn execute_lane(
             inputs.keys().collect::<Vec<_>>(),
             outputs.keys().collect::<Vec<_>>());
 
+        node_meta.insert(
+            node_id_str.clone(),
+            (node_type.clone(), super::errors::goes_to_handler(&node_plan.config)),
+        );
+
         let handle = tokio::spawn(async move {
             run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await
         });
@@ -426,6 +435,15 @@ pub async fn execute_lane(
                     node_id: crate::engine::types::NodeId(node_id_str.clone()),
                     error:   e.clone(),
                 });
+                // Canale controllo: se il nodo delega all'error_handler (non
+                // cattura da sé), deposita la riga `_error_*`. L'error_handler
+                // la emetterà su error_out a fine lane (fetta 2b).
+                if let Some((ntype, is_handler)) = node_meta.get(&node_id_str) {
+                    if *is_handler {
+                        let row = super::errors::build_error_row(&node_id_str, ntype, &e);
+                        lane_errors.push(row).await;
+                    }
+                }
                 if lane_result.is_ok() {
                     lane_result = Err(format!("Nodo {} fallito: {}", node_id_str, e));
                 }
