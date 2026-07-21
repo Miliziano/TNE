@@ -201,7 +201,6 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     "sink_kafka", "sink_ftp", "sink_mqtt",
     "sink_activemq", "sink_http",
     "http_request", "webhook_responder", "report_generator",
-    "error_handler",
 ];
 
 /// true se il motore non ha ancora un'implementazione per questo tipo.
@@ -366,37 +365,6 @@ pub async fn execute_lane(
     // `_error_*` per i nodi in modalità handler che falliscono.
     let mut node_meta: std::collections::HashMap<String, (String, bool)> = std::collections::HashMap::new();
 
-    // ── Error handler come entità di FINE LANE (decisione (a)) ────
-    // Identifica il nodo EH e la sua sotto-pipeline: i nodi raggiungibili
-    // a valle di error_out. Non li si esegue coi nodi normali (si
-    // spegnerebbero subito): l'EH non viene spawato affatto e la sua
-    // sotto-pipeline viene attesa SEPARATAMENTE, dopo che a fine lane le
-    // righe raccolte sono state iniettate su error_out.
-    let eh_id: Option<String> = nodes.iter()
-        .find(|n| n.node_type == "error_handler")
-        .map(|n| n.node_id.0.clone());
-    let mut eh_subpipe: std::collections::HashSet<String> = std::collections::HashSet::new();
-    if let Some(eh) = &eh_id {
-        let mut queue: std::collections::VecDeque<String> = std::collections::VecDeque::new();
-        for e in &plan_edges {
-            if &e.source_node.0 == eh && e.source_handle == "error_out" {
-                let t = e.target_node.0.clone();
-                if eh_subpipe.insert(t.clone()) { queue.push_back(t); }
-            }
-        }
-        while let Some(n) = queue.pop_front() {
-            for e in &plan_edges {
-                if e.source_node.0 == n {
-                    let t = e.target_node.0.clone();
-                    if eh_subpipe.insert(t.clone()) { queue.push_back(t); }
-                }
-            }
-        }
-    }
-    // Sender verso la sotto-pipeline (error_out), trattenuto e usato a fine
-    // lane; handle della sotto-pipeline, attesi dopo l'iniezione.
-    let mut error_out_tx: Option<RowSender> = None;
-    let mut eh_handles: Vec<(String, tokio::task::JoinHandle<Result<NodeStats, String>>)> = Vec::new();
 
     for node_plan in nodes.into_iter() {
         let node_id_str = node_plan.node_id.0.clone();
@@ -419,13 +387,6 @@ pub async fn execute_lane(
         let inputs  = input_rx.remove(&node_id_str).unwrap_or_default();
         let outputs = output_tx.remove(&node_id_str).unwrap_or_default();
 
-        // L'error_handler non gira come nodo: trattieni il suo error_out
-        // (per iniettare le righe raccolte a fine lane) e non spawnarlo.
-        if eh_id.as_deref() == Some(node_id_str.as_str()) {
-            error_out_tx = outputs.get("error_out").cloned();
-            continue;
-        }
-
         let bridge_id = node_plan.config
             .get("bridge_id")
             .and_then(|v| v.as_str())
@@ -447,14 +408,7 @@ pub async fn execute_lane(
             run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await
         });
 
-        // La sotto-pipeline dell'EH va attesa a parte (dopo l'iniezione delle
-        // righe), non nel loop principale, per non deadlockare in attesa di
-        // error_out (che riceve solo a fine lane).
-        if eh_subpipe.contains(&node_id_str) {
-            eh_handles.push((node_id_str, handle));
-        } else {
-            handles.push((node_id_str, handle));
-        }
+        handles.push((node_id_str, handle));
     }
 
     // ── 4. Attendi completamento ──────────────────────────────────
@@ -512,12 +466,12 @@ pub async fn execute_lane(
     // della lane (source e non-membri inclusi): commit solo se tutto ok.
     lane_txns.finalize_with_outcome(lane_result.is_ok()).await;
 
-    // ── Error handler (fine lane): registra gli errori raccolti dai nodi
-    // in modalità handler. Ordine rispettato: PRIMA il rollback (finalize
-    // sopra), POI l'handler. L'instradamento alla sotto-pipeline grafica
-    // su error_out è il pezzo successivo (2b-ii).
-    // Drena gli errori raccolti (una volta): li registra nel pannello log E
-    // li instrada alla sotto-pipeline collegata a error_out.
+    // ── Rete di sicurezza TRANSITORIA (passo 1 del modello a canale):
+    // drena il registro lane_errors e registra gli errori nel pannello
+    // log a fine lane, dopo il rollback (finalize sopra). L'instradamento
+    // su error_out non passa più da qui: lo farà il COLLETTORE dell'EH
+    // (passo 2), in streaming; a quel punto questo blocco e LaneErrors
+    // si smontano.
     let drained = if !lane_errors.is_empty().await {
         lane_errors.drain().await
     } else {
@@ -538,24 +492,6 @@ pub async fn execute_lane(
             target:     "panel".to_string(),
         });
     }
-    // Instrada le righe alla sotto-pipeline dell'EH (decisione (a)), poi
-    // chiudi error_out così la sotto-pipeline termina. Se non c'è EH o
-    // error_out non è collegato, error_out_tx è None.
-    if let Some(tx) = error_out_tx.take() {
-        for row in drained {
-            let _ = tx.send(row).await;
-        }
-        // tx droppato qui → error_out chiuso → la sotto-pipeline finisce
-    }
-    // Attendi la sotto-pipeline dell'EH, eseguita ORA a fine lane (prima di
-    // chiudere le connessioni: i suoi sink potrebbero scrivere).
-    for (_id, handle) in eh_handles {
-        let _ = handle.await;
-    }
-
-    lane_resources.close_all().await;
-  
-
     // Chiusura garantita delle connessioni della lane — in ogni caso.
     lane_resources.close_all().await;
 
@@ -841,6 +777,16 @@ async fn run_node(
         // segnala come ERRORE, così il Monitor smette di mentire.
         // Contratto §2: un comportamento dichiarato e non implementato è
         // peggio di uno assente, perché il primo si scopre in produzione.
+        // ── error_handler — nodo NORMALE (modello a canale, passo 1) ──
+        // Spawato come tutti gli altri. Al passo 1 non ha ancora il
+        // collettore: si dichiara vivo nel pannello, chiude error_out
+        // (drop dei sender → la sotto-pipeline vede fine-stream e
+        // conclude) e completa con 0 righe. Il collettore arriva al
+        // passo 2.
+        "error_handler" => {
+            super::nodes::error_handler::run(ctx, inputs, outputs).await
+        }
+
         t if is_stub(t) => {
             let start = Instant::now();
             let tx = take_primary_output(&mut outputs);

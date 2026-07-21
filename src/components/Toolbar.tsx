@@ -441,8 +441,13 @@ function buildRustPlan(
       on_error: tx.onError,
     }))
 
-    // Nodi della lane — skip lane_start, lane_end, error_handler
-    const SKIP_TYPES = new Set(['lane_start', 'lane_end', 'error_handler'])
+    // Nodi della lane — skip lane_start, lane_end (soli marcatori UI).
+    // L'error_handler NON si salta più: è un nodo ESEGUIBILE (modello a
+    // canale). Tenerlo qui lo faceva sparire dal piano E, a cascata,
+    // toglieva da laneNodeIds → laneEdges tutti gli edge che lo toccano
+    // (error_out incluso) — era la causa del nodo log a valle spawato
+    // con inputs=[] e dell'EH assente dagli spawn.
+    const SKIP_TYPES = new Set(['lane_start', 'lane_end'])
     const laneNodes  = nodes.filter(n =>
       n.data.laneId === laneId && !SKIP_TYPES.has(n.data.type)
     )
