@@ -4,9 +4,14 @@ Questo documento serve a riprendere il lavoro su FlowPilot in una nuova
 chat senza perdere contesto. Leggilo per intero prima di ripartire, poi
 **leggi il repo per lo stato vero** (vedi "Metodo di lavoro").
 
-Sostituisce l'handoff precedente. Aggiornato a: **16 luglio** — Fase 13
-chiusa (mancano i manuali), **Fase porte in corso** (v. §5 e §9).
-Ultimo commit di riferimento: `fa7026e`.
+Sostituisce l'handoff precedente. Aggiornato a: **22 luglio** — Fase 13
+chiusa (mancano i manuali), **Fase porte CHIUSA** (v. §5), **FASE MOTORE
+in corso**: l'error handling end-to-end è finito e collaudato (v. §6.1 e
+§9). Ultima consegna di riferimento: **P47**.
+
+> Aggiornamento mirato del 22 lug: riscritte l'intestazione, la consegna
+> in §2, §6 (l'error_handler non è più uno stub), §8 (nuove trappole) e
+> §9; aggiunta §6.1. Il resto è la stesura del 16 luglio ed è ancora valido.
 
 ---
 
@@ -36,6 +41,11 @@ Stack rilevante:
 - Canvas: React Flow (`@xyflow/react`), store Zustand (`src/store/flowStore.ts`).
 - Piano di esecuzione: `buildRustPlan` in `src/components/Toolbar.tsx` —
   produce nodi con **busta spec** + archi, consumato dal motore.
+  🔴 **ATTENZIONE: i builder di piano sono DUE e non portano le stesse
+  cose.** `canvasToIR` (`src/ir/lowering.ts`, usato da `pipeline.ts`)
+  serve **validazione e codegen TS**; il piano che arriva al MOTORE nasce
+  solo da `buildRustPlan`. Ogni ragionamento su "cosa riceve il motore"
+  parte da lì — leggere l'IR ha già portato fuori strada due volte (v. §8).
 - Parser FPEL (unico, condiviso): `src/ir/exprParser.ts`.
 - Motore: `src-tauri/src/engine/` — `executor.rs` (routing + NodeContext),
   `spec.rs` (contratto spec, accessor, telemetria chiavi non consumate),
@@ -61,13 +71,14 @@ Contratto: `src-tauri/docs/monitoring-schema.md`.
   modificare. Non ricostruire a memoria. Se l'utente ha pushato,
   ri-clonare/riallineare e verificare.
 - **Chat corte**: non far incollare file lunghi; leggere dal repo.
-- **Consegna del lavoro**: Claude modifica nella propria copia sandbox e
-  poi CONSEGNA all'utente — file interi (present_files) per i file
-  grossi/molto toccati + un documento di modifiche puntuali con numeri
-  di riga E testo "TROVA→SOSTITUISCI" (i numeri riferiti al repo pushato;
-  il testo è l'àncora se i numeri slittano). L'utente applica, compila,
+- **Consegna del lavoro (dal 20 lug): un file `.patch` per consegna.**
+  Claude clona il repo, modifica nella propria copia e consegna il
+  risultato di `git diff` come `.patch`; l'utente fa `git apply`, compila,
   committa e pusha lui. Claude NON pusha (niente credenziali, e il
-  cancello di qualità è la compilazione locale dell'utente).
+  cancello di qualità è la compilazione locale dell'utente). La patch è
+  tagliata sull'**ultimo commit pushato**: se l'albero locale ha lavoro
+  non committato sugli stessi file, `git apply` fallisce — è già successo
+  (v. §8). Consegnare sempre `git apply --check` come primo passo.
 - **Non si può compilare Rust nel sandbox**: l'utente compila con
   `npm run tauri dev` (fase `Compiling`) PRIMA di committare. Dichiarare
   sempre i punti a rischio compilazione e farsi riportare l'errore cargo.
@@ -251,17 +262,18 @@ implementarlo sarebbe una bugia silenziosa → va con la fase porting.
 
 ---
 
-## 6. Lo stato reale del motore (audit di copertura, 15 lug)
+## 6. Lo stato reale del motore (audit di copertura, 15 lug — aggiornato 22 lug)
 
 **Non fidarsi delle mappe: interrogare il motore.** `executor.rs` ha 22
 arm che implementano davvero + un catch-all a riga ~705 (`other =>
 Err("Tipo nodo non supportato")`) che fa la cosa giusta.
 
-**Ma c'è uno STUB PASSTHROUGH SILENZIOSO** (executor.rs ~662-704) per
-**16 type-string**: `script, watchdog, source_http, source_ftp,
-source_mqtt, source_activemq, source_kafka, sink_kafka, sink_ftp,
-sink_mqtt, sink_activemq, sink_http, http_request, webhook_responder,
-report_generator, error_handler`. Il commento nel codice lo ammette
+**Ma c'è uno STUB PASSTHROUGH SILENZIOSO** per **15 type-string**:
+`script, watchdog, source_http, source_ftp, source_mqtt, source_activemq,
+source_kafka, sink_kafka, sink_ftp, sink_mqtt, sink_activemq, sink_http,
+http_request, webhook_responder, report_generator`. ✅ **`error_handler`
+NON è più uno stub** (fase motore, 20-22 lug): è implementato davvero —
+v. §6.1. Il commento nel codice lo ammette
 ("in attesa delle implementazioni vere"). Inoltra le righe tal quali ed
 emette `NodeStats` regolari con `error: None`: **non fallisce, non
 avvisa, finge di funzionare**. Le sorgenti di rete non hanno input →
@@ -274,8 +286,8 @@ NB `data_quality` compare nella lista dello stub ma è irraggiungibile
 Implementati davvero: source_file, source_db, sink_file, sink_db,
 bridge_out, bridge_in, tmap, log, join, transform, aggregate, explode,
 materialize, json_serializer, json_parser, filter, xml_serializer,
-xml_parser, pivot, data_quality, window, union (+ `bridge.rs` a livello
-`engine/`, fuori da `nodes/`).
+xml_parser, pivot, data_quality, window, union, **error_handler**
+(+ `bridge.rs` a livello `engine/`, fuori da `nodes/`).
 
 **I due regimi di porte del motore**: `filter`, `json_parser`,
 `xml_parser`, `tmap` ricevono l'**intera mappa `outputs`** e gestiscono
@@ -285,6 +297,62 @@ explode/join/materialize/sink_* **non sono implementati**.
 
 **Decisione utente**: i reject dichiarati **servono** e vanno
 implementati (non rimossi). Modello da copiare: filter e i parser.
+
+---
+
+## 6.1 Error handling nel motore (fase motore, 20-22 lug) — FINITO E COLLAUDATO
+
+Il modello completo sta in `DISEGNO-error-handling.md`. Qui il minimo per
+non rifare le stesse scoperte.
+
+**DUE CANALI.** *Dati*: righe `_error_*` sulla porta `catch`, dentro il
+nodo, livello riga (pattern del reject). *Controllo*: eccezione di nodo →
+error_handler, livello nodo. Sono separati: non è la transazione a
+emettere il catch, ed il rollback è un binario a parte dalla notifica.
+
+**L'EH è un NODO NORMALE con un COLLETTORE A CANALE**, non un'entità di
+fine lane (il primo tentativo, a registro, è stato buttato). L'executor
+crea un `mpsc` per lane; il receiver arriva all'EH sotto l'handle
+**`catch`** — porta LOGICA (`connectable:false`, R9), che nessun arco del
+canvas può occupare, così `run_node` non cambia firma. Ogni spawn è un
+wrapper attorno a `run_node`: se il nodo torna `Err` **e** delega
+all'handler, la riga `_error_*` parte sul canale **appena l'errore
+capita**. L'EH drena in streaming ed emette su `error_out`: la
+sotto-pipeline dell'utente lavora mentre la lane gira ancora.
+
+**Terminazione, senza casi speciali**: il canale si chiude quando l'ultimo
+produttore droppa il sender. 🔑 Compresa **la copia dell'executor**, che
+va droppata subito dopo il loop di spawn — senza quel `drop` l'EH resta in
+ascolto per sempre (stesso principio del `drop(target_tx)` nel wiring).
+
+**Deadlock circolare evitato**: l'EH e i nodi della sua **sotto-pipeline**
+(BFS a valle di `error_out`, per `source_node`) non ricevono il sender del
+collettore. Conseguenza accettata: un errore *dentro* la sotto-pipeline
+dell'EH non può tornare all'EH — resta fatale e visibile solo su
+`NodeFailed`.
+
+**`critical` INTERROMPE** (decisione utente: abort immediato dei task
+ancora vivi, non "lascia finire bloccando i sink"). Il flag viaggia sulla
+riga come `_error_critical` — l'EH non vede il piano, vede solo ciò che
+gli arriva — ed è dichiarato in `ERROR_HANDLER_SCHEMA` (non in
+`CATCH_SCHEMA`: la criticità appartiene al canale di controllo), quindi
+l'utente può filtrarci sopra. L'EH chiama `LaneAbort::fire()`
+(`engine/abort.rs`) **dopo** aver registrato ed emesso quella riga: la
+notifica esce prima che la lane venga fermata. Il registro è **per-lane**
+(verificato su un grafo a due lane: la lane sana prosegue). I task
+abortiti tornano `JoinError::is_cancelled()` → arm dedicato: **non sono
+panic e non scrivono `lane_result`**, la causa resta il nodo critico.
+
+**Ordine finale**: `fire()` → nodi interrotti → collettore chiuso → l'EH
+conclude → la sotto-pipeline dell'EH conclude → `finalize_with_outcome`
+(rollback) → `close_all`. Quindi la notifica è già scritta quando parte il
+rollback — ma ⚠️ se il sink d'errore sta nello **stesso gruppo
+transazionale** della pipeline principale, il rollback se la porta via.
+
+**Cosa resta**: le REGOLE dell'EH (il pannello mostra ancora "0 regole":
+filtri, `_error_code`, `_error_row`), `excludeFromErrorLog`, e uno stato
+UI "interrotto" distinto da "fallito" (oggi i nodi abortiti sono rossi
+come i falliti: servirebbe un `EngineEvent` nuovo + frontend).
 
 ---
 
@@ -312,10 +380,37 @@ export sono consumati solo dal runner); **tenere** `src/io/readers.ts`
 
 ## 8. Debiti noti e trappole (non ripetere questi errori)
 
-- **La baseline typecheck è 135** (`npx tsc --noEmit -p tsconfig.app.json
+- **La baseline typecheck è 134** (`npx tsc --noEmit -p tsconfig.app.json
   2>&1 | grep -c "error TS"`). Sono errori preesistenti (TS6133/6196
   inutilizzati + un TS2307 penzolante). **Ogni consegna deve chiudere a
-  135**: se sale, è colpa tua.
+  134**: se sale, è colpa tua. Meglio ancora: confrontare l'ELENCO prima/
+  dopo (`git stash` + diff dei due output), non solo il numero.
+- 🔴 **`npx tsc --noEmit` NUDO dà un falso verde**: il `tsconfig.json` di
+  radice è solution-style (`files: []` + references), quindi controlla
+  ZERO file e stampa 0 errori. Serve sempre `-p tsconfig.app.json`.
+- 🔴 **Se una funzionalità "non fa niente", prima di tutto verificare che
+  il DATO arrivi al motore** — due volte su due il colpevole era il piano,
+  non il codice che lo consuma:
+  1. l'`error_handler` non entrava proprio nel piano (`SKIP_TYPES` in
+     `buildRustPlan`), e sparivano con lui **tutti i suoi archi**, perché
+     `laneEdges` è filtrato sui nodi sopravvissuti;
+  2. **nessuna impostazione `advanced` arrivava al motore**: lo studio
+     scrive in `node.data.config.advanced`, che `buildRustPlan` mette in
+     **`spec.config`**, mentre il campo `config` del NodePlan è la
+     selezione LEGACY da `node.data.props` (nella stringa "advanced" non
+     compare **mai** in Toolbar.tsx). Il Rust leggeva `config["advanced"]`
+     → sempre `None`: `critical` mai attivo, **il retry di P36 mai attivo
+     a runtime**, `onError` sempre "handler" (catch/retry_catch ignorati).
+     Si legge con `errors::advanced(&config, &spec)`.
+- **Il pannello NON antepone il `node_label` alle righe `NodeLog`**: se il
+  nodo deve essere visibile, va scritto **dentro il testo** del messaggio.
+- **Un nodo troncato si dichiarava riuscito**: il pattern
+  `if tx.send(..).await.is_err() { break }` (25 punti, 13 file) fa uscire
+  il loop e tornare `Ok` con le righe emesse fino a lì. Oggi l'executor
+  aggiunge una riga `warn` per i nodi che scrivevano verso un nodo
+  abortito; resta il debito più largo dei **`let _ = tx.send()` ingoiati**.
+- **Prima di applicare una patch, `git status`**: un `git apply` fallito
+  era lavoro locale non committato sugli stessi file, non una patch rotta.
 - **Verificare interrogando i moduli veri con `npx tsx`, non con regex**:
   gli audit a espressioni regolari hanno mentito due volte (staticOutputPorts
   sono oggetti, non stringhe; e un regex ha "perso" una voce esistente).
@@ -348,39 +443,41 @@ export sono consumati solo dal runner); **tenere** `src/io/readers.ts`
 
 ## 9. Da dove ripartire
 
-**Fase 13 (validazione live + pannello Problems): CHIUSA.**
-P4 PropertyPanel contestuale, P5 Monitor staccabile+ridimensionabile,
-P6 stato del Monitor ritenuto dal bus, P7/P8 Step 4 bridge (validazione
-cardinalità/cicli + derivazione schema BridgeOut→BridgeIn: l'OUT è
-dominante, il tab del BridgeIn è in sola lettura). Restano da scrivere i
-**MANUALI** (richiesta esplicita: alla fine della fase li scrive Claude).
+**Fase 13 (validazione live + pannello Problems): CHIUSA.** Restano da
+scrivere i **MANUALI** (richiesta esplicita: li scrive Claude a fine fase
+porting; se slitta ancora, farlo notare).
 
-**Fase porte: IN CORSO.** Fatto: P9→P13 (contratto esteso con role/when,
-archi orfani, schema aggregate/pivot/materialize/bridge_in, innesco vs
-dati), P14/P15 (metà ingressi + `HANDLE_MAP` cancellata), P16 (coda
-connessioni), P17 (FlowNode legge le porte — handle fantasma morti),
-P18 (le sorgenti hanno ingressi + lo script dichiara cosa emette).
+**Fase porte: CHIUSA.** Il contratto (`src/ir/nodeSemantics.ts`) è la
+fonte unica e la 2ª stesura di `src-tauri/docs/contratto-porte.md` è la
+SPEC: R1→R9, §9 divergenze, §10 decisioni. Da lì lo studio è *credibile*:
+quello che il canvas dichiara è vero.
+
+**FASE MOTORE: IN CORSO** — nasce esattamente da lì. Se lo studio promette
+e il Rust non mantiene, la promessa credibile è più pericolosa di una a
+cui nessuno crede. Fatto finora (P27→P47): error handling completo e
+collaudato end-to-end (§6.1), `advanced` che finalmente arriva al motore,
+i nodi troncati che non fingono più.
 
 **Prossimi passi, in ordine:**
-1. **Gli ingressi sul canvas**: far leggere a `FlowNode` anche gli
-   `<Handle>` di ingresso dal contratto. Prima verificare i nodi a
-   ingressi multipli (join/union/tmap/error_handler).
-2. **Il motore** (apre di fatto la fase porting): i `reject` dichiarati
-   per explode/join/materialize/sink_db/sink_file (modello: filter e i
-   parser, che ricevono l'intera mappa `outputs`); il segnale del
-   `bridge_out` (`take_primary_output` + emissione riga di stato a fine
-   corsa; modello: `sink_file.rs`); `SIGNAL_SCHEMA` da fonte unica;
-   `conn_id` negli eventi Connection*.
-3. **Fase porting dei 16 stub**, ordine deciso dall'utente:
-   **error_handler → script → report_generator**. Riferimenti TS in
-   `src/runner/`: `errorHandlerExecutor.ts` (35 righe) +
-   `errorHandling.ts` (98) + il concetto `ExecutionContext.errorRows`
-   ("popolato da executeNode/executeStreamingNode, consumato da
-   processErrorHandler() alla fine di runLane" → **è orchestrazione, non
-   un executor**: tocca il motore, non solo `nodes/`); poi
-   `scriptExecutor.ts` (179) + `buildLaneProxy`; poi
-   `reportGeneratorExecutor.ts` (688, il più grosso).
-4. **Restyling**: v. la nota sull'"Uscita verso valle" in §5.
+1. **Chiudere l'error handling**: le REGOLE dell'EH (oggi "0 regole" nel
+   pannello) — filtri, `_error_code`, `_error_row` — e
+   `excludeFromErrorLog`. Poi lo stato UI **"interrotto" ≠ "fallito"**
+   (serve un `EngineEvent` nuovo + frontend).
+2. **Collaudare il RETRY (P36)**: è rimasto inerte fino a P45 perché
+   leggeva `advanced` dal posto sbagliato. Nessuno l'ha ancora visto
+   funzionare — provarlo prima di considerarlo fatto.
+3. **I `reject` dichiarati** per explode/join/materialize/sink_db/
+   sink_file (modello: filter e i parser, che ricevono l'intera mappa
+   `outputs`); il segnale del `bridge_out`; poi `when` sui sink.
+   `SIGNAL_SCHEMA` da fonte unica; `conn_id` negli eventi Connection*.
+4. **I `let _ = tx.send()` ingoiati** (12 in 10 file): renderli rumorosi.
+5. **Fase PORTING degli stub**, ordine deciso dall'utente:
+   ~~error_handler~~ (fatto) → **script** → **report_generator**.
+   Riferimenti TS in `src/runner/`: `scriptExecutor.ts` (179) +
+   `buildLaneProxy`; poi `reportGeneratorExecutor.ts` (688, il più
+   grosso). ⚠️ Per lo script in `Cargo.toml` non c'è **nessun motore JS**:
+   va **riprogettato**, non portato.
+6. **Restyling**: v. la nota sull'"Uscita verso valle" in §5.
 
 **Sequenza decisa dall'utente**: si chiude una fase alla volta. *"Siamo
 sempre in fase di sviluppo: finché non abbiamo finito tutto non si va in

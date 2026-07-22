@@ -219,7 +219,10 @@ export function SourceDbPanel({ nodeId }: { nodeId: string }) {
             <input type="text" style={inputStyle} value={p('querySchema', 'public')} onChange={u('querySchema')} placeholder="public" />
           </Field>
         )}
-        <Field label="Tabella" hint="Usata se non c'è una query personalizzata nel tab Query">
+        <Field label={p('query').trim() ? 'Tabella — IGNORATA' : 'Tabella'}
+               hint={p('query').trim()
+                 ? '⚠ Ignorata: c\'è una query personalizzata nel tab Query, il motore esegue quella'
+                 : "Usata se non c'è una query personalizzata nel tab Query"}>
           <input type="text" style={inputStyle} value={p('table')} onChange={u('table')} placeholder="nome_tabella" />
         </Field>
       </Row>

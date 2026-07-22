@@ -33,11 +33,19 @@ export function getNodeSubtitle(data: NodeData): string {
     }
 
     case 'source_db': {
+      // ⚠️ La precedenza è QUELLA DEL MOTORE: query personalizzata prima,
+      // schema.tabella dopo (source_db.rs: "custom verbatim se presente").
+      // Prima era invertita e il canvas mostrava `schema.tabella` per un
+      // nodo che eseguiva tutt'altro: cambiare la tabella non aveva alcun
+      // effetto e sembrava un bug del motore.
+      const q = p('query').trim()
+      if (q) {
+        const compatta = q.replace(/\s+/g, ' ')
+        return withCatch(compatta.length > 44 ? `${compatta.slice(0, 44)}…` : compatta, data)
+      }
       const schema = p('schema', 'public')
       const table  = p('table')
-      if (table) return withCatch(`${schema}.${table}`, data)
-      const q = p('query')
-      return withCatch(q ? 'query SQL' : 'nessuna tabella', data)
+      return withCatch(table ? `${schema}.${table}` : 'nessuna tabella', data)
     }
 
     case 'source_http': {

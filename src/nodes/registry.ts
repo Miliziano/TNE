@@ -163,10 +163,12 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     color: '#4a9eff',
     description: 'Legge righe da una tabella di database.',
     fields: [
-      { key: 'schema',       label: 'Schema',          type: 'text',   default: 'public' },
-      { key: 'table',        label: 'Tabella',         type: 'text',   default: '' },
-      { key: 'limit',        label: 'Limite righe',    type: 'number', default: '0' },
-      { key: 'orderBy',      label: 'Ordina per',      type: 'text',   default: '' },
+      // ignoredWhenSet: 'query' — con una query personalizzata il motore
+      // esegue quella e basta (source_db.rs: "custom verbatim se presente").
+      { key: 'schema',       label: 'Schema',          type: 'text',   default: 'public', ignoredWhenSet: 'query' },
+      { key: 'table',        label: 'Tabella',         type: 'text',   default: '',       ignoredWhenSet: 'query' },
+      { key: 'limit',        label: 'Limite righe',    type: 'number', default: '0',      ignoredWhenSet: 'query' },
+      { key: 'orderBy',      label: 'Ordina per',      type: 'text',   default: '',       ignoredWhenSet: 'query' },
       { key: 'query',        label: 'Query SQL',       type: 'code',   default: 'SELECT * FROM ' },
     ],
   },

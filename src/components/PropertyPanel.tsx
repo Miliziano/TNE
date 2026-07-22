@@ -424,11 +424,36 @@ export function PropertyPanel() {
                       </div>
                     )
                   }
+                  // Campi resi INERTI da un'altra prop (v. FieldDef.ignoredWhenSet):
+                  // il motore li ignora, quindi il pannello non deve lasciarli
+                  // modificare in silenzio.
+                  const inerte = (field: typeof def.fields[number]) =>
+                    !!field.ignoredWhenSet &&
+                    String(node.data.props[field.ignoredWhenSet] ?? '').trim() !== ''
+                  const ignorati = def.fields.filter(inerte)
+                  const dominante = ignorati.length > 0
+                    ? def.fields.find((f) => f.key === ignorati[0].ignoredWhenSet)?.label ?? ignorati[0].ignoredWhenSet
+                    : ''
+
                   return (
                     <>
+                      {ignorati.length > 0 && (
+                        <div style={{
+                          margin: '8px', padding: '8px 10px', borderRadius: 4, fontSize: 11,
+                          background: '#3a2a15', color: '#ffb454', border: '1px solid #7a5320',
+                          display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.45,
+                        }}>
+                          <i className="ti ti-alert-triangle" style={{ fontSize: 13, marginTop: 1 }} aria-hidden="true" />
+                          <span>
+                            <b>«{dominante}» ha la precedenza.</b> Il motore esegue quella e
+                            ignora: {ignorati.map((f) => f.label).join(', ')}. Svuota il campo
+                            «{dominante}» per tornare a usarli.
+                          </span>
+                        </div>
+                      )}
                       {def.fields.map((field) => (
-                        <div key={field.key} style={{ margin: '4px 8px' }}>
-                          <Field label={field.label}>
+                        <div key={field.key} style={{ margin: '4px 8px', opacity: inerte(field) ? 0.45 : 1 }}>
+                          <Field label={inerte(field) ? `${field.label} — IGNORATO` : field.label}>
                             {field.type === 'select' ? (
                               <CustomSelect value={node.data.props[field.key] ?? field.default}
                                 onChange={(e) => updateNodeProp(node.id, field.key, e.target.value)}
@@ -447,6 +472,8 @@ export function PropertyPanel() {
                               <input type={field.type === 'number' ? 'number' : 'text'}
                                 value={node.data.props[field.key] ?? field.default}
                                 onChange={(e) => updateNodeProp(node.id, field.key, e.target.value)}
+                                disabled={inerte(field)}
+                                title={inerte(field) ? `Ignorato: ha la precedenza «${dominante}»` : undefined}
                                 style={inputStyle} />
                             )}
                           </Field>

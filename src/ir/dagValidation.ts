@@ -680,6 +680,21 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     if (uiType === 'source_db') {
       const query = String(node._uiRef?.props?.['query'] ?? '')
 
+      // Configurazione ambigua: query personalizzata E tabella. Il motore
+      // esegue la query e ignora la tabella (source_db.rs, "custom verbatim
+      // se presente"), ma il canvas mostrava la tabella: si finiva per
+      // modificare un campo inerte credendo di cambiare la sorgente, e la
+      // conferma arrivava solo dal log del run. Qui lo si dice prima.
+      const tabella = String(node._uiRef?.props?.['table'] ?? '').trim()
+      if (query.trim() && tabella) {
+        issues.push({
+          nodeId: canvasId, code: 'QUERY_OVERRIDES_TABLE',
+          message: `"${label}": la tabella "${tabella}" è ignorata, viene eseguita la query SQL personalizzata`,
+          severity: 'warning',
+          hint: 'Il motore esegue la query personalizzata e ignora schema, tabella, limite e ordinamento. Svuota la query per tornare a leggere dalla tabella.',
+        })
+      }
+
       // Il parametro fra apici: `WHERE s = '${nome}'`. Diventerebbe
       // `s = '?'` — il confronto con la stringa "?" — e lascerebbe un bind
       // senza posto. È l'errore di chi arriva dall'interpolazione, dove gli

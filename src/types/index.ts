@@ -13,6 +13,15 @@ export interface FieldDef {
   type: 'text' | 'number' | 'select' | 'code' | 'password'
   default: string
   options?: string[]
+  /**
+   * Chiave di un'ALTRA prop che, se valorizzata, rende questo campo
+   * INERTE: il motore lo ignora. Il pannello lo disabilita e lo dichiara,
+   * invece di lasciar modificare un campo che non ha effetto.
+   * Es. source_db: con una query SQL personalizzata il motore ignora
+   * schema/tabella/limite/ordinamento (`source_db.rs`, "custom verbatim
+   * se presente"). Chi aggiunge una precedenza nel motore la dichiara QUI.
+   */
+  ignoredWhenSet?: string
 }
 
 export interface NodeDef {
