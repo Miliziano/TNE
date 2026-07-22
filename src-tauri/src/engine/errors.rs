@@ -74,10 +74,23 @@ pub fn is_critical(config: &serde_json::Value, spec: &serde_json::Value) -> bool
 /// decisione di interrompere è sua (v. abort.rs). È dichiarato in
 /// ERROR_HANDLER_SCHEMA, quindi l'utente può anche filtrarci sopra nella
 /// propria pipeline d'errore.
-pub fn build_error_row(node_id: &str, node_type: &str, message: &str, critical: bool) -> Row {
+pub fn build_error_row(
+    node_id:   &str,
+    node_type: &str,
+    message:   &str,
+    critical:  bool,
+    lane_id:   &str,
+) -> Row {
     let mut m: HashMap<String, Value> = HashMap::new();
     m.insert("_error_critical".to_string(),
              Value::String(if critical { "true" } else { "false" }.to_string()));
+    m.insert("_error_lane_id".to_string(), Value::String(lane_id.to_string()));
+    // `_error_source` distingue i DUE CANALI del modello: "node" è il
+    // canale di CONTROLLO (eccezione di nodo, livello nodo) — l'unico che
+    // oggi produce righe. Quando la porta `catch` emetterà davvero
+    // (canale DATI, livello riga) quelle righe porteranno "row", e chi
+    // legge la pipeline d'errore potrà distinguerle senza indovinare.
+    m.insert("_error_source".to_string(), Value::String("node".to_string()));
     m.insert("_error_message".to_string(),   Value::String(message.to_string()));
     m.insert("_error_node_id".to_string(),   Value::String(node_id.to_string()));
     m.insert("_error_node_type".to_string(), Value::String(node_type.to_string()));

@@ -38,6 +38,33 @@ use std::time::Instant;
 use crate::engine::types::*;
 use crate::engine::errors::field_str;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::spec::Spec;
+
+// ─── Regole automatiche ────────────────────────────────────────────
+// Lo studio le salva come JSON in `props.rules` (v. ErrorRule in
+// src/types/index.ts) e la busta spec porta TUTTE le props, quindi
+// arrivano qui senza bisogno di toccare buildRustPlan.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ErrorRule {
+    #[serde(default)] match_type:  String,
+    #[serde(default)] match_value: String,
+    #[serde(default)] action:      String,
+}
+
+/// Stesso vocabolario di `normalizeErrorRuleAction` (TS): le azioni del
+/// modello vecchio non sono eseguibili dall'handler e valgono `emit`.
+/// La traduzione va rifatta QUI perché un progetto salvato prima di P50
+/// contiene ancora `skip`/`retry` sul disco: lo studio le mostra già
+/// tradotte, il motore deve comportarsi allo stesso modo.
+fn normalizza(azione: &str) -> &'static str {
+    match azione.trim() {
+        "log_only" => "log_only",
+        "ignore"   => "ignore",
+        "stop"     => "stop",
+        _          => "emit",   // emit, skip, retry, vuoto, sconosciuto
+    }
+}
 
 pub async fn run(
     ctx:         NodeContext,
@@ -58,6 +85,22 @@ pub async fn run(
     let error_out = outputs.remove("error_out");
     drop(outputs);
 
+    // Le regole si leggono UNA VOLTA, non a ogni riga. JSON malformato o
+    // assente = nessuna regola, che è anche il comportamento predefinito:
+    // tutto verso error_out.
+    let regole: Vec<ErrorRule> = Spec::from_ctx(&ctx.spec)
+        .ok()
+        .map(|sp| sp.str_or("rules", "[]"))
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default();
+    if !regole.is_empty() {
+        ctx.emit_log(
+            &ctx.label, "info", 0,
+            format!("{} regole attive", regole.len()),
+            "panel",
+        );
+    }
+
     let mut rows_in:  u64 = 0;
     let mut rows_out: u64 = 0;
     // Diventa false se la sotto-pipeline a valle si chiude prima di noi.
@@ -68,21 +111,52 @@ pub async fn run(
         while let Some(row) = rx.recv().await {
             rows_in += 1;
 
-            let node = field_str(&row, "_error_node_id");
-            let msg  = field_str(&row, "_error_message");
-            ctx.emit_log(
-                &ctx.label,
-                "error",
-                rows_in,
-                format!("{}: {}", node, msg),
-                "panel",
-            );
+            let node      = field_str(&row, "_error_node_id");
+            let node_type = field_str(&row, "_error_node_type");
+            let msg       = field_str(&row, "_error_message");
 
             // Il flag viaggia sulla riga (v. errors::build_error_row):
             // l'EH non vede il piano, vede solo ciò che gli arriva.
             let critical = field_str(&row, "_error_critical") == "true";
 
-            if valle_aperta {
+            // ── REGOLE ────────────────────────────────────────────
+            // In ordine, la PRIMA che corrisponde decide (come dichiara
+            // il pannello). `error_code` non corrisponde mai: il motore
+            // non popola `_error_code` — lo studio lo dichiara
+            // indisponibile, qui semplicemente non matcha.
+            let regola = regole.iter().position(|r| match r.match_type.trim() {
+                "always"    => true,
+                "node_type" => !r.match_value.trim().is_empty()
+                               && r.match_value.trim() == node_type,
+                _           => false,
+            });
+            let mut azione = regola
+                .map(|i| normalizza(&regole[i].action))
+                .unwrap_or("emit");
+
+            // ⚖️ `critical` È UN PAVIMENTO, non un'opinione: una regola
+            // può alzare la gravità, mai abbassarla. Se il nodo è critico
+            // la lane si ferma comunque (sotto) — e allora la riga va
+            // almeno REGISTRATA: fermare una lane in silenzio sarebbe il
+            // peggiore dei mondi.
+            if critical && azione == "ignore" {
+                azione = "log_only";
+            }
+
+            if azione != "ignore" {
+                ctx.emit_log(
+                    &ctx.label,
+                    "error",
+                    rows_in,
+                    match regola {
+                        Some(i) => format!("{}: {} [regola #{} → {}]", node, msg, i + 1, azione),
+                        None    => format!("{}: {}", node, msg),
+                    },
+                    "panel",
+                );
+            }
+
+            if valle_aperta && (azione == "emit" || azione == "stop") {
                 if let Some(tx) = &error_out {
                     // Errore di send = sotto-pipeline già conclusa: non
                     // c'è più nessuno a valle. NON si esce dal loop —
@@ -113,7 +187,7 @@ pub async fn run(
             // `fire` è idempotente: più errori critici fermano una
             // volta sola. Non c'è ricorsione: l'EH e la sua
             // sotto-pipeline non sono nel registro.
-            if critical {
+            if critical || azione == "stop" {
                 let stopped = ctx.lane_abort.fire().await;
                 if !stopped.is_empty() {
                     ctx.emit_log(
@@ -121,7 +195,8 @@ pub async fn run(
                         "error",
                         rows_in,
                         format!(
-                            "Errore CRITICO su {}: interrotti {} nodi ancora in esecuzione",
+                            "{} su {}: interrotti {} nodi ancora in esecuzione",
+                            if critical { "Errore CRITICO" } else { "Regola «interrompi»" },
                             node, stopped.len(),
                         ),
                         "panel",

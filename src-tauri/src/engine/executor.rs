@@ -469,6 +469,7 @@ pub async fn execute_lane(
         }
         let err_node_id   = node_id_str.clone();
         let err_node_type = node_type.clone();
+        let err_lane_id   = lane_id.0.clone();   // LaneId è una newtype: serve la String
 
         let handle = tokio::spawn(async move {
             let res = run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await;
@@ -483,7 +484,7 @@ pub async fn execute_lane(
                         // c'è più nessuno a cui consegnare — l'errore è
                         // comunque su NodeFailed.
                         let _ = tx.send(super::errors::build_error_row(
-                            &err_node_id, &err_node_type, e, is_critical)).await;
+                            &err_node_id, &err_node_type, e, is_critical, &err_lane_id)).await;
                     }
                 }
             }
