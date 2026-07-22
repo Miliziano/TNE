@@ -46,7 +46,9 @@ export function buildErrorRow(
 }
 
 export interface RuleMatch {
-  action:      ErrorRule['action']
+  // CODICE MORTO: `string` invece di ErrorRule['action'], che ora non
+  // contempla più retry/skip. Isolato, non aggiornato (HANDOFF §7).
+  action:      string
   retryCount?: number
 }
 
@@ -83,9 +85,13 @@ export function evalErrorRules(
         break
     }
     if (matches) {
+      // CODICE MORTO — vedi intestazione del modulo. `retryCount` non
+      // esiste più su ErrorRule (il retry appartiene al nodo): letto qui
+      // in modo destrutturato solo per non tipizzare il file morto.
+      const legacy = rule as unknown as { action: string; retryCount?: string }
       return {
-        action:     rule.action,
-        retryCount: rule.retryCount ? parseInt(rule.retryCount, 10) : undefined,
+        action:     legacy.action,
+        retryCount: legacy.retryCount ? parseInt(legacy.retryCount, 10) : undefined,
       }
     }
   }

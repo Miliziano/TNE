@@ -18,6 +18,7 @@
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
 import type { ErrorRule } from '../../../types'
+import { normalizeErrorRuleAction } from '../../../types'
 import { ERROR_HANDLER_SCHEMA } from '../../../types'
 
 const ERR_COLOR = '#ff5f57'
@@ -71,7 +72,12 @@ function SchemaRow({ name, type, desc }: { name: string; type: string; desc: str
 function parseRules(raw: string | undefined): ErrorRule[] {
   try {
     const parsed = JSON.parse(raw ?? '[]')
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    // Migrazione in LETTURA: le regole salvate col vocabolario vecchio
+    // (retry/skip) si mostrano già tradotte, così il pannello non offre
+    // un'azione che il motore non può eseguire. Il salvataggio avviene
+    // alla prima modifica; finché non arriva, la validazione avvisa.
+    return parsed.map((r) => ({ ...r, action: normalizeErrorRuleAction(r?.action) }))
   } catch { return [] }
 }
 
@@ -90,7 +96,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
 
   const addRule = () => setRules([
     ...rules,
-    { id: ruleUid(), matchType: 'always', matchValue: '', action: 'skip', retryCount: '3' },
+    { id: ruleUid(), matchType: 'always', matchValue: '', action: 'emit' },
   ])
   const updateRule = (id: string, patch: Partial<ErrorRule>) =>
     setRules(rules.map((r) => r.id === id ? { ...r, ...patch } : r))
@@ -144,6 +150,8 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
       <InfoBox color={ERR_COLOR}>
         Valutate in ordine, dall'alto verso il basso. La prima regola che corrisponde determina
         l'azione; ciò che non corrisponde a nessuna regola procede verso <code style={{ color: ERR_COLOR }}>error_out</code>.
+        Una regola può alzare la gravità, non abbassarla: un nodo marcato <b>critico</b> interrompe
+        comunque la lane, anche se la regola dice altro.
       </InfoBox>
 
       {rules.length === 0 && (
@@ -160,7 +168,10 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
               onChange={(e) => updateRule(rule.id, { matchType: e.target.value as ErrorRule['matchType'] })}>
               <option value="always">Sempre</option>
               <option value="node_type">Tipo nodo è</option>
-              <option value="error_code">Codice errore contiene</option>
+              {/* Il motore non popola ancora `_error_code` (gli errori di nodo
+                  sono stringhe): una regola su questo campo non scatterebbe
+                  mai. Meglio dichiararlo indisponibile che offrirlo inerte. */}
+              <option value="error_code" disabled>Codice errore contiene — non ancora disponibile</option>
             </CustomSelect>
             {rule.matchType !== 'always' && (
               <input style={{ ...inputStyle, flex: 1 }} value={rule.matchValue}
@@ -176,16 +187,21 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
             <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 18 }}>→</span>
             <CustomSelect style={{ ...inputStyle, flex: '0 0 160px' }} value={rule.action}
               onChange={(e) => updateRule(rule.id, { action: e.target.value as ErrorRule['action'] })}>
-              <option value="retry">Retry N volte</option>
-              <option value="skip">Skip — scarta riga</option>
-              <option value="ignore">Ignora — non loggare</option>
+              <option value="emit">Emetti — log + error_out</option>
+              <option value="log_only">Solo log — non manda a valle</option>
+              <option value="ignore">Ignora — né log né error_out</option>
+              <option value="stop">Interrompi la lane</option>
             </CustomSelect>
-            {rule.action === 'retry' && (
-              <input type="number" style={{ ...inputStyle, flex: '0 0 80px' }} value={rule.retryCount ?? '3'} min="1"
-                placeholder="N tentativi"
-                onChange={(e) => updateRule(rule.id, { retryCount: e.target.value })} />
+            {rule.action === 'stop' && (
+              <span style={{ fontSize: 9, color: ERR_COLOR }}>
+                ferma i nodi ancora in esecuzione
+              </span>
             )}
-            {rule.action === 'retry' && <span style={{ fontSize: 9, color: '#4a5a7a' }}>tentativi</span>}
+            {rule.action === 'ignore' && (
+              <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+                l'errore sparisce: il nodo resta rosso nel Monitor
+              </span>
+            )}
           </div>
         </div>
       ))}

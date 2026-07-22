@@ -1,0 +1,269 @@
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index 2e5db14..296cdf3 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -4,6 +4,7 @@
+ 
+ import type { Node as FlowNode } from '@xyflow/react'
+ import type { NodeData } from '../types'
++import { isLegacyRuleAction } from '../types'
+ import type {
+   LogicalPlan, LogicalNode, ValidationIssue, ValidationResult, ExecutionSemantics,
+ } from './types'
+@@ -677,6 +678,45 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
+     // qui si controlla, PRIMA di eseguire, che quel campo esista davvero.
+     // È l'intero motivo per cui la sintassi è `${campo}` e non `:param`
+     // nativo di sqlx: se la legge lo studio, lo studio può dirlo.
++    // ── Error handler: regole col vocabolario vecchio ─────────────
++    // `retry` e `skip` erano azioni dell'handler prima di P34. Oggi
++    // appartengono al NODO (retry = prima operazione prima dell'impegno;
++    // skip = onError 'catch'), e l'handler non può eseguirle: quando
++    // l'errore gli arriva il nodo è concluso. Il pannello le mostra già
++    // tradotte, ma finché il file non viene risalvato il valore vecchio
++    // resta lì: meglio dirlo che lasciar credere che la regola faccia
++    // ancora quello che promette il suo nome.
++    if (uiType === 'error_handler') {
++      let regole: unknown[] = []
++      try {
++        const parsed = JSON.parse(String(node._uiRef?.props?.['rules'] ?? '[]'))
++        if (Array.isArray(parsed)) regole = parsed
++      } catch { regole = [] }
++
++      regole.forEach((r, i) => {
++        const azione = (r as { action?: unknown })?.action
++        if (isLegacyRuleAction(azione)) {
++          issues.push({
++            nodeId: canvasId, code: 'ERROR_RULE_LEGACY_ACTION',
++            message: `"${label}": la regola #${i + 1} usa l'azione "${String(azione)}", non più eseguibile dall'handler`,
++            severity: 'warning',
++            hint: String(azione) === 'retry'
++              ? 'Il retry si configura sul nodo (Avanzate → Errore: "Riprova"), perché vale solo prima che l\'operazione sia impegnata. Qui la regola si comporta come "Emetti".'
++              : 'Per far gestire l\'errore al nodo stesso, imposta sul nodo Avanzate → Errore: "Cattura sul nodo". Qui la regola si comporta come "Emetti".',
++          })
++        }
++        const match = (r as { matchType?: unknown })?.matchType
++        if (String(match ?? '') === 'error_code') {
++          issues.push({
++            nodeId: canvasId, code: 'ERROR_RULE_CODE_UNAVAILABLE',
++            message: `"${label}": la regola #${i + 1} filtra sul codice errore, che il motore non popola ancora`,
++            severity: 'warning',
++            hint: 'Gli errori di nodo arrivano come messaggio, non come codice: la regola non corrisponderà mai. Usa "Tipo nodo è" oppure "Sempre".',
++          })
++        }
++      })
++    }
++
+     if (uiType === 'source_db') {
+       const query = String(node._uiRef?.props?.['query'] ?? '')
+ 
+diff --git a/src/nodes/types/error_handler/Panel.tsx b/src/nodes/types/error_handler/Panel.tsx
+index d919bde..c07d003 100644
+--- a/src/nodes/types/error_handler/Panel.tsx
++++ b/src/nodes/types/error_handler/Panel.tsx
+@@ -18,6 +18,7 @@
+ import { useFlowStore } from '../../../store/flowStore'
+ import { CustomSelect } from '../../../components/CustomSelect'
+ import type { ErrorRule } from '../../../types'
++import { normalizeErrorRuleAction } from '../../../types'
+ import { ERROR_HANDLER_SCHEMA } from '../../../types'
+ 
+ const ERR_COLOR = '#ff5f57'
+@@ -71,7 +72,12 @@ function SchemaRow({ name, type, desc }: { name: string; type: string; desc: str
+ function parseRules(raw: string | undefined): ErrorRule[] {
+   try {
+     const parsed = JSON.parse(raw ?? '[]')
+-    return Array.isArray(parsed) ? parsed : []
++    if (!Array.isArray(parsed)) return []
++    // Migrazione in LETTURA: le regole salvate col vocabolario vecchio
++    // (retry/skip) si mostrano già tradotte, così il pannello non offre
++    // un'azione che il motore non può eseguire. Il salvataggio avviene
++    // alla prima modifica; finché non arriva, la validazione avvisa.
++    return parsed.map((r) => ({ ...r, action: normalizeErrorRuleAction(r?.action) }))
+   } catch { return [] }
+ }
+ 
+@@ -90,7 +96,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+ 
+   const addRule = () => setRules([
+     ...rules,
+-    { id: ruleUid(), matchType: 'always', matchValue: '', action: 'skip', retryCount: '3' },
++    { id: ruleUid(), matchType: 'always', matchValue: '', action: 'emit' },
+   ])
+   const updateRule = (id: string, patch: Partial<ErrorRule>) =>
+     setRules(rules.map((r) => r.id === id ? { ...r, ...patch } : r))
+@@ -144,6 +150,8 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+       <InfoBox color={ERR_COLOR}>
+         Valutate in ordine, dall'alto verso il basso. La prima regola che corrisponde determina
+         l'azione; ciò che non corrisponde a nessuna regola procede verso <code style={{ color: ERR_COLOR }}>error_out</code>.
++        Una regola può alzare la gravità, non abbassarla: un nodo marcato <b>critico</b> interrompe
++        comunque la lane, anche se la regola dice altro.
+       </InfoBox>
+ 
+       {rules.length === 0 && (
+@@ -160,7 +168,10 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+               onChange={(e) => updateRule(rule.id, { matchType: e.target.value as ErrorRule['matchType'] })}>
+               <option value="always">Sempre</option>
+               <option value="node_type">Tipo nodo è</option>
+-              <option value="error_code">Codice errore contiene</option>
++              {/* Il motore non popola ancora `_error_code` (gli errori di nodo
++                  sono stringhe): una regola su questo campo non scatterebbe
++                  mai. Meglio dichiararlo indisponibile che offrirlo inerte. */}
++              <option value="error_code" disabled>Codice errore contiene — non ancora disponibile</option>
+             </CustomSelect>
+             {rule.matchType !== 'always' && (
+               <input style={{ ...inputStyle, flex: 1 }} value={rule.matchValue}
+@@ -176,16 +187,21 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+             <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 18 }}>→</span>
+             <CustomSelect style={{ ...inputStyle, flex: '0 0 160px' }} value={rule.action}
+               onChange={(e) => updateRule(rule.id, { action: e.target.value as ErrorRule['action'] })}>
+-              <option value="retry">Retry N volte</option>
+-              <option value="skip">Skip — scarta riga</option>
+-              <option value="ignore">Ignora — non loggare</option>
++              <option value="emit">Emetti — log + error_out</option>
++              <option value="log_only">Solo log — non manda a valle</option>
++              <option value="ignore">Ignora — né log né error_out</option>
++              <option value="stop">Interrompi la lane</option>
+             </CustomSelect>
+-            {rule.action === 'retry' && (
+-              <input type="number" style={{ ...inputStyle, flex: '0 0 80px' }} value={rule.retryCount ?? '3'} min="1"
+-                placeholder="N tentativi"
+-                onChange={(e) => updateRule(rule.id, { retryCount: e.target.value })} />
++            {rule.action === 'stop' && (
++              <span style={{ fontSize: 9, color: ERR_COLOR }}>
++                ferma i nodi ancora in esecuzione
++              </span>
++            )}
++            {rule.action === 'ignore' && (
++              <span style={{ fontSize: 9, color: '#4a5a7a' }}>
++                l'errore sparisce: il nodo resta rosso nel Monitor
++              </span>
+             )}
+-            {rule.action === 'retry' && <span style={{ fontSize: 9, color: '#4a5a7a' }}>tentativi</span>}
+           </div>
+         </div>
+       ))}
+diff --git a/src/runner/errorHandling.ts b/src/runner/errorHandling.ts
+index 5f77bc9..9533a87 100644
+--- a/src/runner/errorHandling.ts
++++ b/src/runner/errorHandling.ts
+@@ -46,7 +46,9 @@ export function buildErrorRow(
+ }
+ 
+ export interface RuleMatch {
+-  action:      ErrorRule['action']
++  // CODICE MORTO: `string` invece di ErrorRule['action'], che ora non
++  // contempla più retry/skip. Isolato, non aggiornato (HANDOFF §7).
++  action:      string
+   retryCount?: number
+ }
+ 
+@@ -83,9 +85,13 @@ export function evalErrorRules(
+         break
+     }
+     if (matches) {
++      // CODICE MORTO — vedi intestazione del modulo. `retryCount` non
++      // esiste più su ErrorRule (il retry appartiene al nodo): letto qui
++      // in modo destrutturato solo per non tipizzare il file morto.
++      const legacy = rule as unknown as { action: string; retryCount?: string }
+       return {
+-        action:     rule.action,
+-        retryCount: rule.retryCount ? parseInt(rule.retryCount, 10) : undefined,
++        action:     legacy.action,
++        retryCount: legacy.retryCount ? parseInt(legacy.retryCount, 10) : undefined,
+       }
+     }
+   }
+diff --git a/src/runner/index.ts b/src/runner/index.ts
+index a11cc50..074d075 100644
+--- a/src/runner/index.ts
++++ b/src/runner/index.ts
+@@ -250,8 +250,10 @@ async function executeNode(
+       lastMessage = err instanceof Error ? err.message : String(err)
+       lastRule    = evalErrorRules(errorHandler, node, lastMessage)
+ 
+-      const maxRetries = lastRule?.action === 'retry'
+-        ? (lastRule.retryCount ?? baseRetries)
++      // CODICE MORTO: `retry`/`skip` non sono più azioni di ErrorRule
++      // (v. types/index.ts). Confronti su string per non toccare la logica.
++      const maxRetries = (lastRule?.action as string | undefined) === 'retry'
++        ? ((lastRule as { retryCount?: number })?.retryCount ?? baseRetries)
+         : onError === 'retry' ? baseRetries : 0
+ 
+       if (attempt < maxRetries) {
+@@ -296,7 +298,7 @@ async function executeNode(
+     return !critical
+   }
+ 
+-  if (lastRule?.action === 'skip' || onError === 'skip') {
++  if ((lastRule?.action as string | undefined) === 'skip' || onError === 'skip') {
+     outputs.set(node.id, new Map([['output', input]]))
+     return !critical
+   }
+@@ -438,7 +440,7 @@ async function executeStreamingNode(
+     outputs.set(node.id, new Map([['output', []]]))
+ 
+     if (critical) return false
+-    if (rule?.action === 'skip' || onError === 'skip' || onError === 'propagate') return true
++    if ((rule?.action as string | undefined) === 'skip' || onError === 'skip' || onError === 'propagate') return true
+     return false
+   }
+ 
+diff --git a/src/types/index.ts b/src/types/index.ts
+index dcd9b79..cb74284 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -115,12 +115,52 @@ export interface NodeConfig {
+    [key: string]: unknown
+ }
+ // ─── Error Handler — regole automatiche ──────────────────────────
++/**
++ * Cosa fa una regola con l'errore che le corrisponde. Il vocabolario è
++ * quello del modello deciso in P34: `retry` e `skip` NON sono più azioni
++ * dell'handler perché appartengono al NODO —
++ *  - il retry vale solo sulla prima operazione prima dell'impegno; quando
++ *    l'errore arriva all'handler il nodo è concluso e le sue risorse
++ *    chiuse, quindi lì "riprova" non è eseguibile;
++ *  - `skip` è diventato `catch` (onError sul nodo): l'handler riceve solo
++ *    gli errori dei nodi in modalità handler, sugli autonomi non ha voce.
++ * Restano le azioni che l'handler può davvero compiere sull'errore.
++ */
++export type ErrorRuleAction =
++  | 'emit'      // registra nel log ED emette su error_out (default)
++  | 'log_only'  // registra nel log, non manda a valle
++  | 'ignore'    // né log né error_out
++  | 'stop'      // come emit, e in più INTERROMPE la lane
++
+ export interface ErrorRule {
+   id:         string
+   matchType:  'always' | 'node_type' | 'error_code'
+   matchValue: string
+-  action:     'retry' | 'skip' | 'ignore'
+-  retryCount?: string
++  action:     ErrorRuleAction
++}
++
++/**
++ * Traduce le azioni salvate col vocabolario vecchio (fonte unica, calco di
++ * `normalizeOnError`). `skip` significava "prosegui", che oggi è il
++ * comportamento predefinito; `retry` non è onorabile qui e viene degradato
++ * a `emit` — la validazione lo segnala perché va riconfigurato sul nodo.
++ */
++export function normalizeErrorRuleAction(raw: unknown): ErrorRuleAction {
++  switch (String(raw ?? '')) {
++    case 'log_only': return 'log_only'
++    case 'ignore':   return 'ignore'
++    case 'stop':     return 'stop'
++    case 'emit':     return 'emit'
++    case 'skip':     return 'emit'
++    case 'retry':    return 'emit'
++    default:         return 'emit'
++  }
++}
++
++/** True per le azioni del vocabolario vecchio, non più eseguibili. */
++export function isLegacyRuleAction(raw: unknown): boolean {
++  const a = String(raw ?? '')
++  return a === 'retry' || a === 'skip'
+ }
+ 
+ // Campi aggiunti alle righe che escono dall'handle 'catch'

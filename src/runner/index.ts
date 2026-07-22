@@ -250,8 +250,10 @@ async function executeNode(
       lastMessage = err instanceof Error ? err.message : String(err)
       lastRule    = evalErrorRules(errorHandler, node, lastMessage)
 
-      const maxRetries = lastRule?.action === 'retry'
-        ? (lastRule.retryCount ?? baseRetries)
+      // CODICE MORTO: `retry`/`skip` non sono più azioni di ErrorRule
+      // (v. types/index.ts). Confronti su string per non toccare la logica.
+      const maxRetries = (lastRule?.action as string | undefined) === 'retry'
+        ? ((lastRule as { retryCount?: number })?.retryCount ?? baseRetries)
         : onError === 'retry' ? baseRetries : 0
 
       if (attempt < maxRetries) {
@@ -296,7 +298,7 @@ async function executeNode(
     return !critical
   }
 
-  if (lastRule?.action === 'skip' || onError === 'skip') {
+  if ((lastRule?.action as string | undefined) === 'skip' || onError === 'skip') {
     outputs.set(node.id, new Map([['output', input]]))
     return !critical
   }
@@ -438,7 +440,7 @@ async function executeStreamingNode(
     outputs.set(node.id, new Map([['output', []]]))
 
     if (critical) return false
-    if (rule?.action === 'skip' || onError === 'skip' || onError === 'propagate') return true
+    if ((rule?.action as string | undefined) === 'skip' || onError === 'skip' || onError === 'propagate') return true
     return false
   }
 

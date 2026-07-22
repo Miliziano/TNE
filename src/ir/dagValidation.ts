@@ -4,6 +4,7 @@
 
 import type { Node as FlowNode } from '@xyflow/react'
 import type { NodeData } from '../types'
+import { isLegacyRuleAction } from '../types'
 import type {
   LogicalPlan, LogicalNode, ValidationIssue, ValidationResult, ExecutionSemantics,
 } from './types'
@@ -677,6 +678,45 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     // qui si controlla, PRIMA di eseguire, che quel campo esista davvero.
     // È l'intero motivo per cui la sintassi è `${campo}` e non `:param`
     // nativo di sqlx: se la legge lo studio, lo studio può dirlo.
+    // ── Error handler: regole col vocabolario vecchio ─────────────
+    // `retry` e `skip` erano azioni dell'handler prima di P34. Oggi
+    // appartengono al NODO (retry = prima operazione prima dell'impegno;
+    // skip = onError 'catch'), e l'handler non può eseguirle: quando
+    // l'errore gli arriva il nodo è concluso. Il pannello le mostra già
+    // tradotte, ma finché il file non viene risalvato il valore vecchio
+    // resta lì: meglio dirlo che lasciar credere che la regola faccia
+    // ancora quello che promette il suo nome.
+    if (uiType === 'error_handler') {
+      let regole: unknown[] = []
+      try {
+        const parsed = JSON.parse(String(node._uiRef?.props?.['rules'] ?? '[]'))
+        if (Array.isArray(parsed)) regole = parsed
+      } catch { regole = [] }
+
+      regole.forEach((r, i) => {
+        const azione = (r as { action?: unknown })?.action
+        if (isLegacyRuleAction(azione)) {
+          issues.push({
+            nodeId: canvasId, code: 'ERROR_RULE_LEGACY_ACTION',
+            message: `"${label}": la regola #${i + 1} usa l'azione "${String(azione)}", non più eseguibile dall'handler`,
+            severity: 'warning',
+            hint: String(azione) === 'retry'
+              ? 'Il retry si configura sul nodo (Avanzate → Errore: "Riprova"), perché vale solo prima che l\'operazione sia impegnata. Qui la regola si comporta come "Emetti".'
+              : 'Per far gestire l\'errore al nodo stesso, imposta sul nodo Avanzate → Errore: "Cattura sul nodo". Qui la regola si comporta come "Emetti".',
+          })
+        }
+        const match = (r as { matchType?: unknown })?.matchType
+        if (String(match ?? '') === 'error_code') {
+          issues.push({
+            nodeId: canvasId, code: 'ERROR_RULE_CODE_UNAVAILABLE',
+            message: `"${label}": la regola #${i + 1} filtra sul codice errore, che il motore non popola ancora`,
+            severity: 'warning',
+            hint: 'Gli errori di nodo arrivano come messaggio, non come codice: la regola non corrisponderà mai. Usa "Tipo nodo è" oppure "Sempre".',
+          })
+        }
+      })
+    }
+
     if (uiType === 'source_db') {
       const query = String(node._uiRef?.props?.['query'] ?? '')
 

@@ -115,12 +115,52 @@ export interface NodeConfig {
    [key: string]: unknown
 }
 // ─── Error Handler — regole automatiche ──────────────────────────
+/**
+ * Cosa fa una regola con l'errore che le corrisponde. Il vocabolario è
+ * quello del modello deciso in P34: `retry` e `skip` NON sono più azioni
+ * dell'handler perché appartengono al NODO —
+ *  - il retry vale solo sulla prima operazione prima dell'impegno; quando
+ *    l'errore arriva all'handler il nodo è concluso e le sue risorse
+ *    chiuse, quindi lì "riprova" non è eseguibile;
+ *  - `skip` è diventato `catch` (onError sul nodo): l'handler riceve solo
+ *    gli errori dei nodi in modalità handler, sugli autonomi non ha voce.
+ * Restano le azioni che l'handler può davvero compiere sull'errore.
+ */
+export type ErrorRuleAction =
+  | 'emit'      // registra nel log ED emette su error_out (default)
+  | 'log_only'  // registra nel log, non manda a valle
+  | 'ignore'    // né log né error_out
+  | 'stop'      // come emit, e in più INTERROMPE la lane
+
 export interface ErrorRule {
   id:         string
   matchType:  'always' | 'node_type' | 'error_code'
   matchValue: string
-  action:     'retry' | 'skip' | 'ignore'
-  retryCount?: string
+  action:     ErrorRuleAction
+}
+
+/**
+ * Traduce le azioni salvate col vocabolario vecchio (fonte unica, calco di
+ * `normalizeOnError`). `skip` significava "prosegui", che oggi è il
+ * comportamento predefinito; `retry` non è onorabile qui e viene degradato
+ * a `emit` — la validazione lo segnala perché va riconfigurato sul nodo.
+ */
+export function normalizeErrorRuleAction(raw: unknown): ErrorRuleAction {
+  switch (String(raw ?? '')) {
+    case 'log_only': return 'log_only'
+    case 'ignore':   return 'ignore'
+    case 'stop':     return 'stop'
+    case 'emit':     return 'emit'
+    case 'skip':     return 'emit'
+    case 'retry':    return 'emit'
+    default:         return 'emit'
+  }
+}
+
+/** True per le azioni del vocabolario vecchio, non più eseguibili. */
+export function isLegacyRuleAction(raw: unknown): boolean {
+  const a = String(raw ?? '')
+  return a === 'retry' || a === 'skip'
 }
 
 // Campi aggiunti alle righe che escono dall'handle 'catch'
