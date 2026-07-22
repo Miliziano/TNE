@@ -15,12 +15,28 @@ use std::collections::HashMap;
 use crate::engine::types::{Row, Value};
 use crate::engine::events::EngineEvent;
 
+/// Il blocco `advanced` del nodo (onError, critical, retryCount…), letto
+/// dal punto GIUSTO del piano.
+///
+/// 🔑 Lo studio salva le impostazioni avanzate in `node.data.config.advanced`,
+/// e `buildRustPlan` (Toolbar.tsx) manda `node.data.config` dentro **spec.config**,
+/// NON dentro `config`: quel campo è la selezione LEGACY per-tipo costruita da
+/// `node.data.props`, e `advanced` non ci finisce mai. Leggere
+/// `config["advanced"]` — come si faceva fino a P44 — restituiva quindi sempre
+/// None, e ogni impostazione avanzata cadeva sul default: critical mai attivo,
+/// retry mai attivo, onError sempre "handler". Si legge da spec.config, con
+/// `config` come ripiego per i piani vecchi o costruiti altrimenti.
+pub fn advanced<'a>(config: &'a serde_json::Value, spec: &'a serde_json::Value) -> Option<&'a serde_json::Value> {
+    spec.get("config")
+        .and_then(|c| c.get("advanced"))
+        .or_else(|| config.get("advanced"))
+}
+
 /// True se gli errori del nodo vanno all'error_handler (modalità handler /
 /// retry_handler, o assente = default handler). False per catch / retry_catch,
-/// dove il nodo li gestisce da sé sulla porta catch. `config` è la config del
-/// NodePlan (serde_json), che include il blocco `advanced`.
-pub fn goes_to_handler(config: &serde_json::Value) -> bool {
-    let mode = config.get("advanced")
+/// dove il nodo li gestisce da sé sulla porta catch.
+pub fn goes_to_handler(config: &serde_json::Value, spec: &serde_json::Value) -> bool {
+    let mode = advanced(config, spec)
         .and_then(|a| a.get("onError"))
         .and_then(|v| v.as_str())
         .unwrap_or("handler");
@@ -41,8 +57,8 @@ pub fn field_str(row: &Row, key: &str) -> String {
 /// retryCount: lo studio salva tutti gli advanced come stringhe — v.
 /// P36). Vale solo in modalità handler: per catch/retry_catch il nodo
 /// gestisce da sé e lo studio disabilita la casella (MappingPanel).
-pub fn is_critical(config: &serde_json::Value) -> bool {
-    config.get("advanced")
+pub fn is_critical(config: &serde_json::Value, spec: &serde_json::Value) -> bool {
+    advanced(config, spec)
         .and_then(|a| a.get("critical"))
         .and_then(|v| v.as_str())
         .map(|s| s.trim() == "true")

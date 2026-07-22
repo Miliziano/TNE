@@ -58,7 +58,8 @@ impl NodeContext {
     /// NodePlan. retryCount/retryDelaySec sono STRINGHE nel config (tipo TS
     /// `string`) → si leggono con as_str().parse(). None = niente retry.
     pub fn retry_policy(&self) -> Option<(u32, u64)> {
-        let adv = self.config.get("advanced")?;
+        // v. errors::advanced — il blocco vive in spec.config, non in config
+        let adv = super::errors::advanced(&self.config, &self.spec)?;
         let mode = adv.get("onError").and_then(|v| v.as_str()).unwrap_or("handler");
         if mode != "retry_handler" && mode != "retry_catch" {
             return None;
@@ -461,8 +462,11 @@ pub async fn execute_lane(
                 collector_tx.clone()
             };
         let interrompibile = err_tx.is_some();
-        let goes_to_eh    = super::errors::goes_to_handler(&node_plan.config);
-        let is_critical   = super::errors::is_critical(&node_plan.config);
+        let goes_to_eh    = super::errors::goes_to_handler(&node_plan.config, &node_plan.spec);
+        let is_critical   = super::errors::is_critical(&node_plan.config, &node_plan.spec);
+        if is_critical {
+            eprintln!("[executor] nodo {}: critical=ON (un errore qui interrompe la lane)", node_id_str);
+        }
         let err_node_id   = node_id_str.clone();
         let err_node_type = node_type.clone();
 
