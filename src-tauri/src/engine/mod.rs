@@ -30,6 +30,7 @@ pub mod expr;
 pub mod monitor;
 pub mod reporter;
 pub mod errors;
+pub mod abort;
 pub mod spec;
 pub mod pool;
 pub mod txregistry;

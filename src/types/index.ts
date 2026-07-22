@@ -131,7 +131,14 @@ export const CATCH_SCHEMA = [
 // ─── Error Handler — regole automatiche ──────────────────────────
 
 
-export const ERROR_HANDLER_SCHEMA = CATCH_SCHEMA
+// Le righe che escono da error_out portano un campo in più rispetto a
+// quelle della porta `catch`: la criticità è una proprietà del canale di
+// CONTROLLO (errore di nodo → error handler). Sulla catch il nodo
+// gestisce da sé e `critical` è disabilitato, quindi lì non esiste.
+export const ERROR_HANDLER_SCHEMA = [
+  ...CATCH_SCHEMA,
+  { id: 'error_critical', name: '_error_critical', type: 'string' as const },
+] as const
 
 // ─── Dati runtime di un nodo sul canvas ──────────────────────────
 export interface NodeData extends Record<string, unknown> {

@@ -36,11 +36,32 @@ pub fn field_str(row: &Row, key: &str) -> String {
     }
 }
 
+/// True se un errore di questo nodo deve INTERROMPERE la lane. Il flag
+/// vive in `advanced.critical` ed è una STRINGA 'true'|'false' (come
+/// retryCount: lo studio salva tutti gli advanced come stringhe — v.
+/// P36). Vale solo in modalità handler: per catch/retry_catch il nodo
+/// gestisce da sé e lo studio disabilita la casella (MappingPanel).
+pub fn is_critical(config: &serde_json::Value) -> bool {
+    config.get("advanced")
+        .and_then(|a| a.get("critical"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim() == "true")
+        .unwrap_or(false)
+}
+
 /// Costruisce una riga `_error_*` (schema generale, uguale per tutti i
 /// nodi — v. types/index.ts:119). Fetta 1: i campi base. `_error_code` e
 /// `_error_row` arriveranno con le regole (fetta 3).
-pub fn build_error_row(node_id: &str, node_type: &str, message: &str) -> Row {
+///
+/// `_error_critical` viaggia sulla riga perché l'EH non ha accesso al
+/// piano: dell'errore vede solo ciò che gli arriva sul collettore, e la
+/// decisione di interrompere è sua (v. abort.rs). È dichiarato in
+/// ERROR_HANDLER_SCHEMA, quindi l'utente può anche filtrarci sopra nella
+/// propria pipeline d'errore.
+pub fn build_error_row(node_id: &str, node_type: &str, message: &str, critical: bool) -> Row {
     let mut m: HashMap<String, Value> = HashMap::new();
+    m.insert("_error_critical".to_string(),
+             Value::String(if critical { "true" } else { "false" }.to_string()));
     m.insert("_error_message".to_string(),   Value::String(message.to_string()));
     m.insert("_error_node_id".to_string(),   Value::String(node_id.to_string()));
     m.insert("_error_node_type".to_string(), Value::String(node_type.to_string()));

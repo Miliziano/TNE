@@ -22,9 +22,16 @@
 // (criticità B): un fallimento DENTRO la sotto-pipeline dell'EH non può
 // tornare all'EH; resta fatale per la lane e visibile su NodeFailed.
 //
+// `critical` (P44): se la riga porta `_error_critical: 'true'`, l'EH —
+// dopo aver registrato ed emesso — interrompe i nodi della lane ancora
+// vivi tramite il registro degli AbortHandle (v. abort.rs). È il senso
+// di "solo l'EH interrompe": i nodi segnalano, la decisione è una sola
+// e sta qui.
+//
 // Cosa NON fa ancora: le REGOLE (il pannello mostra "0 regole"). Qui
 // ogni errore raccolto viene registrato ed emesso tale e quale; filtri,
-// `_error_code`/`_error_row` e `critical` sono la fetta successiva.
+// `_error_code`/`_error_row` ed excludeFromErrorLog sono la fetta
+// successiva.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -53,6 +60,8 @@ pub async fn run(
 
     let mut rows_in:  u64 = 0;
     let mut rows_out: u64 = 0;
+    // Diventa false se la sotto-pipeline a valle si chiude prima di noi.
+    let mut valle_aperta = true;
 
     if let Some(mut rx) = collector {
         // Streaming: si sblocca a ogni errore, non a fine lane.
@@ -69,22 +78,57 @@ pub async fn run(
                 "panel",
             );
 
-            if let Some(tx) = &error_out {
-                // Errore di send = sotto-pipeline già conclusa: non c'è
-                // più nessuno a valle, inutile continuare a spingere.
-                // L'errore resta comunque nel pannello (sopra) e su
-                // NodeFailed.
-                if tx.send(row).await.is_err() {
+            // Il flag viaggia sulla riga (v. errors::build_error_row):
+            // l'EH non vede il piano, vede solo ciò che gli arriva.
+            let critical = field_str(&row, "_error_critical") == "true";
+
+            if valle_aperta {
+                if let Some(tx) = &error_out {
+                    // Errore di send = sotto-pipeline già conclusa: non
+                    // c'è più nessuno a valle. NON si esce dal loop —
+                    // l'EH deve continuare a ricevere, sia per registrare
+                    // gli errori successivi nel pannello sia per poter
+                    // ancora INTERROMPERE la lane (sotto): una valle
+                    // chiusa non è un buon motivo per lasciar correre un
+                    // errore critico.
+                    if tx.send(row).await.is_err() {
+                        valle_aperta = false;
+                        ctx.emit_log(
+                            &ctx.label,
+                            "warn",
+                            rows_in,
+                            "Pipeline a valle di error_out chiusa: gli errori successivi restano nel pannello".to_string(),
+                            "panel",
+                        );
+                    } else {
+                        rows_out += 1;
+                    }
+                }
+            }
+
+            // ── INTERRUZIONE CRITICA ──────────────────────────────
+            // DOPO aver registrato ed emesso: la notifica deve uscire
+            // prima che la lane venga fermata, altrimenti si perde
+            // proprio l'informazione per cui esiste l'handler.
+            // `fire` è idempotente: più errori critici fermano una
+            // volta sola. Non c'è ricorsione: l'EH e la sua
+            // sotto-pipeline non sono nel registro.
+            if critical {
+                let stopped = ctx.lane_abort.fire().await;
+                if !stopped.is_empty() {
                     ctx.emit_log(
                         &ctx.label,
-                        "warn",
+                        "error",
                         rows_in,
-                        "Pipeline a valle di error_out chiusa: righe successive solo nel pannello".to_string(),
+                        format!(
+                            "Errore CRITICO su {}: interrotti {} nodi ancora in esecuzione",
+                            node, stopped.len(),
+                        ),
                         "panel",
                     );
-                    break;
                 }
-                rows_out += 1;
+                // I task interrotti droppano i loro sender: il
+                // collettore si chiude e il loop qui sotto esce da sé.
             }
         }
     }

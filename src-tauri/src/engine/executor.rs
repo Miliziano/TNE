@@ -48,6 +48,7 @@ pub struct NodeContext {
     /// pubblica (materialize) e chi legge (window, aggregate, pivot,
     /// explode, join).
     pub lane_datasets:  std::sync::Arc<super::datasets::LaneDatasets>,
+    pub lane_abort:     std::sync::Arc<super::abort::LaneAbort>,
 }
 
 impl NodeContext {
@@ -395,6 +396,10 @@ pub async fn execute_lane(
             }
         }
     }
+    // Registro degli AbortHandle: l'attrezzo dell'interruzione critica
+    // (v. abort.rs). Vive anche senza EH — resta semplicemente vuoto.
+    let lane_abort = super::abort::LaneAbort::new();
+
     let (collector_tx, mut collector_rx) = if eh_id.is_some() {
         let (tx, rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
         (Some(tx), Some(rx))
@@ -417,6 +422,7 @@ pub async fn execute_lane(
             lane_resources: lane_resources.clone(),
             lane_txns: lane_txns.clone(),
             lane_datasets:  lane_datasets.clone(),
+            lane_abort:     lane_abort.clone(),
         };
 
         let mut inputs = input_rx.remove(&node_id_str).unwrap_or_default();
@@ -454,7 +460,9 @@ pub async fn execute_lane(
             } else {
                 collector_tx.clone()
             };
+        let interrompibile = err_tx.is_some();
         let goes_to_eh    = super::errors::goes_to_handler(&node_plan.config);
+        let is_critical   = super::errors::is_critical(&node_plan.config);
         let err_node_id   = node_id_str.clone();
         let err_node_type = node_type.clone();
 
@@ -471,12 +479,20 @@ pub async fn execute_lane(
                         // c'è più nessuno a cui consegnare — l'errore è
                         // comunque su NodeFailed.
                         let _ = tx.send(super::errors::build_error_row(
-                            &err_node_id, &err_node_type, e)).await;
+                            &err_node_id, &err_node_type, e, is_critical)).await;
                     }
                 }
             }
             res
         });
+
+        // Registra il task come interrompibile — stesso insieme del
+        // collettore, all'incontrario: chi PUÒ segnalare un errore all'EH
+        // è anche chi l'EH può fermare. L'EH e la sua sotto-pipeline
+        // restano fuori (devono sopravvivere all'interruzione).
+        if interrompibile {
+            lane_abort.register(node_id_str.clone(), handle.abort_handle()).await;
+        }
 
         handles.push((node_id_str, handle));
     }
@@ -521,6 +537,18 @@ pub async fn execute_lane(
                     lane_result = Err(format!("Nodo {} fallito: {}", node_id_str, e));
                 }
             }
+            // Task interrotto dall'error_handler (errore critico): NON è
+            // un panic e NON è la causa del fallimento della lane — la
+            // causa è il nodo critico, che passa dal ramo Ok(Err) sopra.
+            Err(e) if e.is_cancelled() => {
+                eprintln!("[executor] nodo {} interrotto (errore critico a monte)", node_id_str);
+                push_event(crate::engine::events::EngineEvent::NodeFailed {
+                    run_id:  run_id.clone(),
+                    lane_id: lane_id.clone(),
+                    node_id: crate::engine::types::NodeId(node_id_str.clone()),
+                    error:   "interrotto: errore critico su un altro nodo della lane".to_string(),
+                });
+            }
             Err(e) => {
                 eprintln!("[executor] panic nodo {}: {}", node_id_str, e);
                 push_event(crate::engine::events::EngineEvent::NodeFailed {
@@ -535,6 +563,14 @@ pub async fn execute_lane(
             }
         }
     }
+    // Se l'interruzione critica è scattata, la lane NON può risultare
+    // riuscita nemmeno se, per ordine di raccolta, nessun esito Err è
+    // stato registrato: sotto c'è il rollback, e deve vedere il vero
+    // esito.
+    if lane_result.is_ok() && lane_abort.has_fired().await {
+        lane_result = Err("Lane interrotta da un errore critico".to_string());
+    }
+
     // Finalizza le transazioni di gruppo in base all'esito COMPLETO
     // della lane (source e non-membri inclusi): commit solo se tutto ok.
     lane_txns.finalize_with_outcome(lane_result.is_ok()).await;
