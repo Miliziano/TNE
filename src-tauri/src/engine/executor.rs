@@ -567,6 +567,41 @@ pub async fn execute_lane(
             }
         }
     }
+    // ── Nodi TRONCATI dall'interruzione ───────────────────────────
+    // Un nodo che scriveva verso un nodo poi abortito si ferma da sé:
+    // `tx.send()` fallisce (il receiver è morto col task) e i loop dei
+    // nodi escono con `break`, restituendo Ok con le righe emesse fino a
+    // lì. Senza questa passata il nodo risulterebbe semplicemente
+    // "riuscito con meno righe" — cioè il motore direbbe una mezza
+    // verità proprio nel momento in cui l'utente ha più bisogno di
+    // capire cosa è successo. Non si tocca l'esito (il nodo non ha
+    // fallito): si aggiunge la riga che spiega il perché di quel conteggio.
+    // NB vale anche per chi aveva già finito: le sue righe sono comunque
+    // rimaste in canali di nodi che non le hanno elaborate.
+    if lane_abort.has_fired().await {
+        let stopped: std::collections::HashSet<String> =
+            lane_abort.stopped().await.into_iter().collect();
+        for (node_id_str, stats) in stats_map.iter() {
+            let verso_valle_morta = plan_edges.iter().any(|e|
+                &e.source_node.0 == node_id_str && stopped.contains(&e.target_node.0));
+            if verso_valle_morta {
+                push_event(crate::engine::events::EngineEvent::NodeLog {
+                    run_id:     run_id.clone(),
+                    lane_id:    lane_id.clone(),
+                    node_id:    crate::engine::types::NodeId(node_id_str.clone()),
+                    node_label: node_id_str.clone(),
+                    level:      "warn".to_string(),
+                    row_num:    0,
+                    message:    format!(
+                        "Pipeline a valle interrotta: le {} righe emesse non sono state elaborate del tutto",
+                        stats.rows_out,
+                    ),
+                    target:     "panel".to_string(),
+                });
+            }
+        }
+    }
+
     // Se l'interruzione critica è scattata, la lane NON può risultare
     // riuscita nemmeno se, per ordine di raccolta, nessun esito Err è
     // stato registrato: sotto c'è il rollback, e deve vedere il vero

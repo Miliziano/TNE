@@ -32,6 +32,10 @@ struct Inner {
     // errori critici nella stessa lane interrompono una volta sola) e
     // chiude la corsa con `register` — v. sotto.
     fired: bool,
+    // Chi è stato effettivamente fermato. Serve all'executor DOPO, per
+    // riconoscere i nodi che hanno lavorato verso una valle poi sparita
+    // (v. `stopped`).
+    stopped: Vec<String>,
 }
 
 pub struct LaneAbort {
@@ -41,7 +45,11 @@ pub struct LaneAbort {
 impl LaneAbort {
     pub fn new() -> Arc<LaneAbort> {
         Arc::new(LaneAbort {
-            inner: Mutex::new(Inner { handles: HashMap::new(), fired: false }),
+            inner: Mutex::new(Inner {
+                handles: HashMap::new(),
+                fired:   false,
+                stopped: Vec::new(),
+            }),
         })
     }
 
@@ -76,7 +84,13 @@ impl LaneAbort {
                 stopped.push(id);
             }
         }
+        g.stopped = stopped.clone();
         stopped
+    }
+
+    /// Gli id fermati da `fire` (vuoto se non è mai scattata).
+    pub async fn stopped(&self) -> Vec<String> {
+        self.inner.lock().await.stopped.clone()
     }
 
     /// True se l'interruzione è già scattata (l'executor la usa per non
