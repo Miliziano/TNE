@@ -1,50 +1,19 @@
 // ─── src-tauri/src/engine/errors.rs ────────────────────────────────
 //
-// Registro per-lane degli errori raccolti dai nodi in modalità "handler".
-// L'error_handler li legge a FINE LANE ed emette su `error_out` (fetta 2).
-// Calco leggero di LaneDatasets: qui basta accumulare e drenare — niente
-// indice, niente attesa, niente Notify.
+// Attrezzi del canale CONTROLLO dell'error handling: la riga `_error_*`
+// (build_error_row), la regola di instradamento (goes_to_handler) e la
+// lettura dei campi (field_str).
 //
-// Perché a fine lane e non un nodo spawato: l'error_handler deve agire
-// DOPO che tutti gli altri nodi hanno concluso (altrimenti raccoglierebbe
-// errori non ancora arrivati), come `finalize_with_outcome` per le
-// transazioni. Vedi DISEGNO-error-handling.md §10.
+// Il TRASPORTO non sta più qui: dal passo 2 del modello a canale è un
+// mpsc per lane (il COLLETTORE, creato dall'executor prima dello spawn)
+// che l'error_handler drena in streaming. Il vecchio registro LaneErrors
+// (accumula-e-drena a fine lane, P37-P39) è stato smontato: accumulare
+// obbligava a un trattamento speciale a fine lane, il canale si chiude
+// da solo quando l'ultimo produttore droppa il sender.
 
-use std::sync::Arc;
 use std::collections::HashMap;
-use tokio::sync::Mutex;
 use crate::engine::types::{Row, Value};
 use crate::engine::events::EngineEvent;
-
-/// Accumulatore condiviso delle righe-errore della lane. I nodi che
-/// falliscono in modalità handler vi depositano una riga `_error_*`
-/// (build_error_row); l'error_handler la drena a fine lane.
-pub struct LaneErrors {
-    rows: Mutex<Vec<Row>>,
-}
-
-impl LaneErrors {
-    pub fn new() -> Arc<LaneErrors> {
-        Arc::new(LaneErrors { rows: Mutex::new(Vec::new()) })
-    }
-
-    /// Deposita una riga-errore.
-    pub async fn push(&self, row: Row) {
-        self.rows.lock().await.push(row);
-    }
-
-    /// Preleva e svuota tutte le righe accumulate (chiamato a fine lane
-    /// dall'error_handler).
-    pub async fn drain(&self) -> Vec<Row> {
-        let mut guard = self.rows.lock().await;
-        std::mem::take(&mut *guard)
-    }
-
-    /// True se non è stato accumulato alcun errore.
-    pub async fn is_empty(&self) -> bool {
-        self.rows.lock().await.is_empty()
-    }
-}
 
 /// True se gli errori del nodo vanno all'error_handler (modalità handler /
 /// retry_handler, o assente = default handler). False per catch / retry_catch,
