@@ -42,7 +42,6 @@ use std::collections::HashMap;
 use types::{Plan, RunId, RunStats, NodeStats};
 use bus::{global_bus, push_event, PollResult};
 use events::EngineEvent;
-use executor::{RowSender, RowReceiver};
 
 // ── Fase 0-2 (invariati) ─────────────────────────────────────────
 
@@ -144,10 +143,11 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         // che appartengono ai suoi nodi bridge_out e bridge_in.
         // Lo facciamo pre-scansionando i nodi di ogni lane.
         //
-        // bridge_senders_per_lane[lane_id] = HashMap<bridge_id, Sender>
-        // bridge_receivers_per_lane[lane_id] = HashMap<bridge_id, Receiver>
-        let mut senders_per_lane:   HashMap<String, HashMap<String, RowSender>>   = HashMap::new();
-        let mut receivers_per_lane: HashMap<String, HashMap<String, RowReceiver>> = HashMap::new();
+        // bridge_senders_per_lane[lane_id] = HashMap<bridge_id, BridgeOutEnds>
+        // bridge_receivers_per_lane[lane_id] = HashMap<bridge_id, BridgeInEnds>
+        // (canale dati + canale di controllo appaiati — v. bridge.rs)
+        let mut senders_per_lane:   HashMap<String, HashMap<String, bridge::BridgeOutEnds>> = HashMap::new();
+        let mut receivers_per_lane: HashMap<String, HashMap<String, bridge::BridgeInEnds>>  = HashMap::new();
 
         for lane in &plan.lanes {
             let mut lane_senders   = HashMap::new();

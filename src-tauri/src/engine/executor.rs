@@ -231,8 +231,8 @@ pub(crate) fn take_primary_output(outputs: &mut HashMap<String, RowSender>) -> O
 pub async fn execute_lane(
     run_id:               RunId,
     lane_plan:            LanePlan,
-    mut bridge_senders:   HashMap<String, RowSender>,
-    mut bridge_receivers: HashMap<String, RowReceiver>,
+    mut bridge_senders:   HashMap<String, super::bridge::BridgeOutEnds>,
+    mut bridge_receivers: HashMap<String, super::bridge::BridgeInEnds>,
 ) -> Result<HashMap<String, NodeStats>, String> {
 
     let lane_id    = lane_plan.lane_id.clone();
@@ -654,8 +654,8 @@ async fn run_node(
     node_type:   String,
     mut inputs:  HashMap<String, RowReceiver>,
     mut outputs: HashMap<String, RowSender>,
-    bridge_tx:   Option<RowSender>,
-    bridge_rx:   Option<RowReceiver>,
+    bridge_tx:   Option<super::bridge::BridgeOutEnds>,
+    bridge_rx:   Option<super::bridge::BridgeInEnds>,
 ) -> Result<NodeStats, String> {
 
     ctx.emit_started();
