@@ -36,6 +36,12 @@ struct Inner {
     // riconoscere i nodi che hanno lavorato verso una valle poi sparita
     // (v. `stopped`).
     stopped: Vec<String>,
+    // PERCHÉ è scattata. Lo sa solo l'error_handler (errore critico? regola
+    // «interrompi»?), ma a raccontarlo è l'executor, che vede i task
+    // cancellati senza sapere da cosa: senza questo campo ogni nodo
+    // interrotto direbbe "errore critico" anche quando a fermarlo è stata
+    // una regola.
+    reason: String,
 }
 
 pub struct LaneAbort {
@@ -49,6 +55,7 @@ impl LaneAbort {
                 handles: HashMap::new(),
                 fired:   false,
                 stopped: Vec::new(),
+                reason:  String::new(),
             }),
         })
     }
@@ -70,13 +77,15 @@ impl LaneAbort {
     /// Interrompe tutti i task registrati ancora vivi. Restituisce gli id
     /// di quelli effettivamente fermati (i già conclusi non contano: non
     /// vanno segnalati all'utente come interrotti). Chiamata solo
-    /// dall'error_handler.
-    pub async fn fire(&self) -> Vec<String> {
+    /// dall'error_handler, che passa il MOTIVO in forma già leggibile —
+    /// sarà quello a comparire accanto a ogni nodo interrotto.
+    pub async fn fire(&self, motivo: &str) -> Vec<String> {
         let mut g = self.inner.lock().await;
         if g.fired {
             return Vec::new();
         }
-        g.fired = true;
+        g.fired  = true;
+        g.reason = motivo.to_string();
         let mut stopped = Vec::new();
         for (id, h) in g.handles.drain() {
             if !h.is_finished() {
@@ -86,6 +95,11 @@ impl LaneAbort {
         }
         g.stopped = stopped.clone();
         stopped
+    }
+
+    /// Il motivo passato a `fire` (stringa vuota se non è mai scattata).
+    pub async fn reason(&self) -> String {
+        self.inner.lock().await.reason.clone()
     }
 
     /// Gli id fermati da `fire` (vuoto se non è mai scattata).

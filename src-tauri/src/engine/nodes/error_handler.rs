@@ -203,7 +203,14 @@ pub async fn run(
             // volta sola. Non c'è ricorsione: l'EH e la sua
             // sotto-pipeline non sono nel registro.
             if critical || azione == "stop" {
-                let stopped = ctx.lane_abort.fire().await;
+                // Il motivo viaggia col fire: sarà la frase che l'utente
+                // legge accanto a OGNI nodo interrotto, non solo qui.
+                let motivo = if critical {
+                    format!("errore critico su {}", node)
+                } else {
+                    format!("regola «interrompi» su {}", node)
+                };
+                let stopped = ctx.lane_abort.fire(&motivo).await;
                 if !stopped.is_empty() {
                     ctx.emit_log(
                         &ctx.label,
@@ -213,7 +220,8 @@ pub async fn run(
                             "{} su {}: interrotti {} nodi ancora in esecuzione",
                             if critical { "Errore CRITICO" } else { "Regola «interrompi»" },
                             node, stopped.len(),
-                        ),
+                        ),   // NB il testo qui resta invariato: `motivo` è la
+                             // forma breve che accompagna i nodi fermati.
                         "panel",
                     );
                 }

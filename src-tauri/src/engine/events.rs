@@ -110,6 +110,18 @@ pub enum EngineEvent {
         error:   String,
     },
 
+    /// Il nodo è stato FERMATO da fuori (interruzione decisa
+    /// dall'error_handler), non è fallito: non ha prodotto un errore
+    /// proprio e non è la causa di niente. Evento separato da NodeFailed
+    /// perché nel canvas erano indistinguibili — venti nodi rossi e uno
+    /// solo davvero rotto, con l'utente a cercare quale.
+    NodeInterrupted {
+        run_id:  RunId,
+        lane_id: LaneId,
+        node_id: NodeId,
+        reason:  String,   // già leggibile, v. LaneAbort::fire
+    },
+
     // ── Flusso su edge (per animazione canvas) ───────────────────
 
     /// "Su questo edge sono passate altre `delta` righe."

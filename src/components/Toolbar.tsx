@@ -98,18 +98,11 @@ function startPolling() {
       const store = useFlowStore.getState()
       for (const ev of result.events) {
         const p = ev.event.payload ?? {}
-        if (ev.event.type === 'MemorySample')
-+    console.log('[mem]', new Date().toISOString().slice(11, 23), 'rss', ev.event.payload?.rss)
-console.log('[evt]', ev.event.type)
         // Ignora eventi di run precedenti: il bus è append-only e
         // può contenere code di run passati — processarli riaccende
         // pallini a caso e, peggio, un vecchio RunCompleted ferma
         // il polling a metà del run corrente.
         if (p.run_id && _currentRunId && p.run_id !== _currentRunId) continue
-
-        if (ev.event.type === 'NodeFailed') {
-          console.log('[NodeFailed DOPO filtro] node_id:', JSON.stringify(p.node_id), 'run_id match:', p.run_id, '===', _currentRunId)
-        }
 
         switch (ev.event.type) {
 
@@ -199,6 +192,25 @@ console.log('[evt]', ev.event.type)
             const timing = _nodeTimings.get(p.node_id)
             if (timing) {
               monitor.nodeEnd(timing, { error: p.error })
+              _nodeTimings.delete(p.node_id)
+            }
+            break
+          }
+
+          case 'NodeInterrupted': {
+            // NON 'error': il nodo non è fallito, è stato fermato. Rosso
+            // sarebbe una bugia comoda — con venti nodi rossi e uno solo
+            // rotto, trovare la causa tocca all'utente.
+            store.setNodeStatus(p.node_id, 'warning', p.reason)
+            store.setNodeStats(p.node_id, { status: 'warning' })
+            store.addLog('warn', `${p.node_id}: interrotto — ${p.reason}`, p.node_id)
+            // Il timing va chiuso comunque, o nel Monitor il nodo resta
+            // giallo "running" per sempre (v. il caso NodeFailed). Il testo
+            // passato dice "interrotto", quindi il pannello non lo scambia
+            // per un fallimento suo.
+            const timing = _nodeTimings.get(p.node_id)
+            if (timing) {
+              monitor.nodeEnd(timing, { error: `interrotto: ${p.reason}` })
               _nodeTimings.delete(p.node_id)
             }
             break

@@ -16,7 +16,9 @@ const STATUS_COLORS: Record<NodeStatus, string> = {
   running: '#ffb347',
   done:    '#3ddc84',
   error:   '#ff5f57',
-  warning: '#ffb347',
+  // Interrotto: né rosso (non è fallito) né verde (non ha finito) né
+  // l'ambra di `running`, che pulsa e si scambierebbe con "in corso".
+  warning: '#8a93a8',
   ok:    '#3ddc84',
 }
 

@@ -550,12 +550,22 @@ pub async fn execute_lane(
             // un panic e NON è la causa del fallimento della lane — la
             // causa è il nodo critico, che passa dal ramo Ok(Err) sopra.
             Err(e) if e.is_cancelled() => {
-                eprintln!("[executor] nodo {} interrotto (errore critico a monte)", node_id_str);
-                push_event(crate::engine::events::EngineEvent::NodeFailed {
+                // Il motivo lo conosce solo chi ha ordinato l'interruzione
+                // (l'error_handler): qui si legge dal registro invece di
+                // ripetere a memoria "errore critico", che era falso ogni
+                // volta che a fermare la lane era una regola.
+                let motivo = lane_abort.reason().await;
+                let motivo = if motivo.is_empty() {
+                    "interruzione della lane".to_string()
+                } else {
+                    motivo
+                };
+                eprintln!("[executor] nodo {} interrotto ({})", node_id_str, motivo);
+                push_event(crate::engine::events::EngineEvent::NodeInterrupted {
                     run_id:  run_id.clone(),
                     lane_id: lane_id.clone(),
                     node_id: crate::engine::types::NodeId(node_id_str.clone()),
-                    error:   "interrotto: errore critico su un altro nodo della lane".to_string(),
+                    reason:  motivo,
                 });
             }
             Err(e) => {
