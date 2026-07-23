@@ -1,0 +1,173 @@
+diff --git a/src-tauri/src/engine/errors.rs b/src-tauri/src/engine/errors.rs
+index 64f1d53..68e5e65 100644
+--- a/src-tauri/src/engine/errors.rs
++++ b/src-tauri/src/engine/errors.rs
+@@ -65,6 +65,30 @@ pub fn is_critical(config: &serde_json::Value, spec: &serde_json::Value) -> bool
+         .unwrap_or(false)
+ }
+ 
++/// True se gli errori di questo nodo non devono intasare l'audit trail:
++/// niente riga nel pannello, niente emissione su `error_out`. Il flag vive
++/// in `advanced.excludeFromErrorLog` ed è una STRINGA 'true'|'false'.
++/// NB è una soppressione di RUMORE, non di sicurezza: l'errore viaggia lo
++/// stesso sul canale di controllo, e l'handler continua a poter
++/// interrompere la lane (v. error_handler.rs).
++pub fn is_excluded_from_log(config: &serde_json::Value, spec: &serde_json::Value) -> bool {
++    advanced(config, spec)
++        .and_then(|a| a.get("excludeFromErrorLog"))
++        .and_then(|v| v.as_str())
++        .map(|s| s.trim() == "true")
++        .unwrap_or(false)
++}
++
++/// I flag del nodo che viaggiano insieme all'errore. Sono un STRUCT e non
++/// due parametri `bool` di fila perché il Rust qui non si compila: due
++/// booleani adiacenti si invertono in silenzio, e invertire questi due
++/// significherebbe far interrompere la lane a un nodo non critico. Coi
++/// campi nominati allo `struct` lo scambio è impossibile.
++pub struct ErrorFlags {
++    pub critical: bool,
++    pub excluded: bool,
++}
++
+ /// Costruisce una riga `_error_*` (schema generale, uguale per tutti i
+ /// nodi — v. types/index.ts:119). Fetta 1: i campi base. `_error_code` e
+ /// `_error_row` arriveranno con le regole (fetta 3).
+@@ -78,12 +102,14 @@ pub fn build_error_row(
+     node_id:   &str,
+     node_type: &str,
+     message:   &str,
+-    critical:  bool,
++    flags:     &ErrorFlags,
+     lane_id:   &str,
+ ) -> Row {
+     let mut m: HashMap<String, Value> = HashMap::new();
+     m.insert("_error_critical".to_string(),
+-             Value::String(if critical { "true" } else { "false" }.to_string()));
++             Value::String(if flags.critical { "true" } else { "false" }.to_string()));
++    m.insert("_error_excluded".to_string(),
++             Value::String(if flags.excluded { "true" } else { "false" }.to_string()));
+     m.insert("_error_lane_id".to_string(), Value::String(lane_id.to_string()));
+     // `_error_source` distingue i DUE CANALI del modello: "node" è il
+     // canale di CONTROLLO (eccezione di nodo, livello nodo) — l'unico che
+diff --git a/src-tauri/src/engine/executor.rs b/src-tauri/src/engine/executor.rs
+index 809a5b6..4818b70 100644
+--- a/src-tauri/src/engine/executor.rs
++++ b/src-tauri/src/engine/executor.rs
+@@ -463,7 +463,11 @@ pub async fn execute_lane(
+             };
+         let interrompibile = err_tx.is_some();
+         let goes_to_eh    = super::errors::goes_to_handler(&node_plan.config, &node_plan.spec);
+-        let is_critical   = super::errors::is_critical(&node_plan.config, &node_plan.spec);
++        let err_flags     = super::errors::ErrorFlags {
++            critical: super::errors::is_critical(&node_plan.config, &node_plan.spec),
++            excluded: super::errors::is_excluded_from_log(&node_plan.config, &node_plan.spec),
++        };
++        let is_critical   = err_flags.critical;
+         if is_critical {
+             eprintln!("[executor] nodo {}: critical=ON (un errore qui interrompe la lane)", node_id_str);
+         }
+@@ -484,7 +488,7 @@ pub async fn execute_lane(
+                         // c'è più nessuno a cui consegnare — l'errore è
+                         // comunque su NodeFailed.
+                         let _ = tx.send(super::errors::build_error_row(
+-                            &err_node_id, &err_node_type, e, is_critical, &err_lane_id)).await;
++                            &err_node_id, &err_node_type, e, &err_flags, &err_lane_id)).await;
+                     }
+                 }
+             }
+diff --git a/src-tauri/src/engine/nodes/error_handler.rs b/src-tauri/src/engine/nodes/error_handler.rs
+index 8a46ce0..5326e3c 100644
+--- a/src-tauri/src/engine/nodes/error_handler.rs
++++ b/src-tauri/src/engine/nodes/error_handler.rs
+@@ -115,9 +115,10 @@ pub async fn run(
+             let node_type = field_str(&row, "_error_node_type");
+             let msg       = field_str(&row, "_error_message");
+ 
+-            // Il flag viaggia sulla riga (v. errors::build_error_row):
++            // I flag viaggiano sulla riga (v. errors::build_error_row):
+             // l'EH non vede il piano, vede solo ciò che gli arriva.
+             let critical = field_str(&row, "_error_critical") == "true";
++            let excluded = field_str(&row, "_error_excluded") == "true";
+ 
+             // ── REGOLE ────────────────────────────────────────────
+             // In ordine, la PRIMA che corrisponde decide (come dichiara
+@@ -134,6 +135,20 @@ pub async fn run(
+                 .map(|i| normalizza(&regole[i].action))
+                 .unwrap_or("emit");
+ 
++            // ── «Escludi dal log» (flag del NODO) ─────────────────
++            // Vale come un `ignore` mirato: gli errori di quel nodo non
++            // intasano l'audit trail (il caso d'uso è un nodo di puro
++            // logging il cui fallimento è rumore). È una soppressione di
++            // RUMORE, non di sicurezza — per questo NON batte una regola
++            // «interrompi»: l'escalation è una decisione deliberata, il
++            // silenziamento no. E per questo l'errore è stato comunque
++            // spedito sul canale di controllo invece di essere filtrato
++            // alla fonte: se lo avesse trattenuto il nodo, una spunta
++            // cosmetica avrebbe potuto disattivare `critical` in silenzio.
++            if excluded && azione != "stop" {
++                azione = "ignore";
++            }
++
+             // ⚖️ `critical` È UN PAVIMENTO, non un'opinione: una regola
+             // può alzare la gravità, mai abbassarla. Se il nodo è critico
+             // la lane si ferma comunque (sotto) — e allora la riga va
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index 296cdf3..6a4a4fc 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -717,6 +717,27 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
+       })
+     }
+ 
++    // ── «Escludi dal log» + «Critico» sullo stesso nodo ───────────
++    // Combinazione contraddittoria ma legittima: silenziare il rumore di
++    // un nodo che però non può fallire. Il motore la risolve a favore
++    // della sicurezza (la lane si ferma e l'errore viene comunque
++    // registrato, v. error_handler.rs), ma chi ha spuntato «escludi»
++    // crede di aver silenziato quel nodo: meglio dirgli cosa succederà
++    // davvero, prima del run.
++    // `_uiRef.config` è la config del nodo (non `.data.config`: qui il
++    // riferimento è già appiattito — v. gli altri usi in questo file).
++    const cfgNodo = node._uiRef?.config as Record<string, unknown> | undefined
++    const adv     = cfgNodo?.['advanced'] as Record<string, unknown> | undefined
++    if (String(adv?.['excludeFromErrorLog'] ?? '') === 'true' &&
++        String(adv?.['critical'] ?? '') === 'true') {
++      issues.push({
++        nodeId: canvasId, code: 'EXCLUDE_LOG_VS_CRITICAL',
++        message: `"${label}": è marcato sia «escludi dal log» sia «critico»`,
++        severity: 'warning',
++        hint: 'Prevale la sicurezza: un errore qui interrompe comunque la lane e viene registrato nel pannello (non viene però inviato a error_out). Togli «critico» per silenziarlo davvero.',
++      })
++    }
++
+     if (uiType === 'source_db') {
+       const query = String(node._uiRef?.props?.['query'] ?? '')
+ 
+diff --git a/src/nodes/types/error_handler/Panel.tsx b/src/nodes/types/error_handler/Panel.tsx
+index c07d003..c6eeacb 100644
+--- a/src/nodes/types/error_handler/Panel.tsx
++++ b/src/nodes/types/error_handler/Panel.tsx
+@@ -226,7 +226,8 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+               f.name === '_error_node_type' ? 'Tipo del nodo' :
+               f.name === '_error_at'        ? "Timestamp dell'eccezione" :
+               f.name === '_error_row'       ? 'La riga originale che ha causato l\'errore' :
+-              f.name === '_error_critical'  ? "'true' se l'errore ha interrotto la lane" : ''
++              f.name === '_error_critical'  ? "'true' se l'errore ha interrotto la lane" :
++              f.name === '_error_excluded'  ? "'true' se il nodo è marcato «escludi dal log»" : ''
+             } />
+         ))}
+       </div>
+diff --git a/src/types/index.ts b/src/types/index.ts
+index cb74284..1c9cb1d 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -187,6 +187,7 @@ export const CATCH_SCHEMA = [
+ export const ERROR_HANDLER_SCHEMA = [
+   ...CATCH_SCHEMA,
+   { id: 'error_critical', name: '_error_critical', type: 'string' as const },
++  { id: 'error_excluded', name: '_error_excluded', type: 'string' as const },
+ ] as const
+ 
+ // ─── Dati runtime di un nodo sul canvas ──────────────────────────

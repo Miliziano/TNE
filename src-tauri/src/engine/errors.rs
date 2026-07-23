@@ -65,6 +65,30 @@ pub fn is_critical(config: &serde_json::Value, spec: &serde_json::Value) -> bool
         .unwrap_or(false)
 }
 
+/// True se gli errori di questo nodo non devono intasare l'audit trail:
+/// niente riga nel pannello, niente emissione su `error_out`. Il flag vive
+/// in `advanced.excludeFromErrorLog` ed è una STRINGA 'true'|'false'.
+/// NB è una soppressione di RUMORE, non di sicurezza: l'errore viaggia lo
+/// stesso sul canale di controllo, e l'handler continua a poter
+/// interrompere la lane (v. error_handler.rs).
+pub fn is_excluded_from_log(config: &serde_json::Value, spec: &serde_json::Value) -> bool {
+    advanced(config, spec)
+        .and_then(|a| a.get("excludeFromErrorLog"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim() == "true")
+        .unwrap_or(false)
+}
+
+/// I flag del nodo che viaggiano insieme all'errore. Sono un STRUCT e non
+/// due parametri `bool` di fila perché il Rust qui non si compila: due
+/// booleani adiacenti si invertono in silenzio, e invertire questi due
+/// significherebbe far interrompere la lane a un nodo non critico. Coi
+/// campi nominati allo `struct` lo scambio è impossibile.
+pub struct ErrorFlags {
+    pub critical: bool,
+    pub excluded: bool,
+}
+
 /// Costruisce una riga `_error_*` (schema generale, uguale per tutti i
 /// nodi — v. types/index.ts:119). Fetta 1: i campi base. `_error_code` e
 /// `_error_row` arriveranno con le regole (fetta 3).
@@ -78,12 +102,14 @@ pub fn build_error_row(
     node_id:   &str,
     node_type: &str,
     message:   &str,
-    critical:  bool,
+    flags:     &ErrorFlags,
     lane_id:   &str,
 ) -> Row {
     let mut m: HashMap<String, Value> = HashMap::new();
     m.insert("_error_critical".to_string(),
-             Value::String(if critical { "true" } else { "false" }.to_string()));
+             Value::String(if flags.critical { "true" } else { "false" }.to_string()));
+    m.insert("_error_excluded".to_string(),
+             Value::String(if flags.excluded { "true" } else { "false" }.to_string()));
     m.insert("_error_lane_id".to_string(), Value::String(lane_id.to_string()));
     // `_error_source` distingue i DUE CANALI del modello: "node" è il
     // canale di CONTROLLO (eccezione di nodo, livello nodo) — l'unico che

@@ -187,6 +187,7 @@ export const CATCH_SCHEMA = [
 export const ERROR_HANDLER_SCHEMA = [
   ...CATCH_SCHEMA,
   { id: 'error_critical', name: '_error_critical', type: 'string' as const },
+  { id: 'error_excluded', name: '_error_excluded', type: 'string' as const },
 ] as const
 
 // ─── Dati runtime di un nodo sul canvas ──────────────────────────

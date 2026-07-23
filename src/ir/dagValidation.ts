@@ -717,6 +717,27 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
       })
     }
 
+    // ── «Escludi dal log» + «Critico» sullo stesso nodo ───────────
+    // Combinazione contraddittoria ma legittima: silenziare il rumore di
+    // un nodo che però non può fallire. Il motore la risolve a favore
+    // della sicurezza (la lane si ferma e l'errore viene comunque
+    // registrato, v. error_handler.rs), ma chi ha spuntato «escludi»
+    // crede di aver silenziato quel nodo: meglio dirgli cosa succederà
+    // davvero, prima del run.
+    // `_uiRef.config` è la config del nodo (non `.data.config`: qui il
+    // riferimento è già appiattito — v. gli altri usi in questo file).
+    const cfgNodo = node._uiRef?.config as Record<string, unknown> | undefined
+    const adv     = cfgNodo?.['advanced'] as Record<string, unknown> | undefined
+    if (String(adv?.['excludeFromErrorLog'] ?? '') === 'true' &&
+        String(adv?.['critical'] ?? '') === 'true') {
+      issues.push({
+        nodeId: canvasId, code: 'EXCLUDE_LOG_VS_CRITICAL',
+        message: `"${label}": è marcato sia «escludi dal log» sia «critico»`,
+        severity: 'warning',
+        hint: 'Prevale la sicurezza: un errore qui interrompe comunque la lane e viene registrato nel pannello (non viene però inviato a error_out). Togli «critico» per silenziarlo davvero.',
+      })
+    }
+
     if (uiType === 'source_db') {
       const query = String(node._uiRef?.props?.['query'] ?? '')
 

@@ -463,7 +463,11 @@ pub async fn execute_lane(
             };
         let interrompibile = err_tx.is_some();
         let goes_to_eh    = super::errors::goes_to_handler(&node_plan.config, &node_plan.spec);
-        let is_critical   = super::errors::is_critical(&node_plan.config, &node_plan.spec);
+        let err_flags     = super::errors::ErrorFlags {
+            critical: super::errors::is_critical(&node_plan.config, &node_plan.spec),
+            excluded: super::errors::is_excluded_from_log(&node_plan.config, &node_plan.spec),
+        };
+        let is_critical   = err_flags.critical;
         if is_critical {
             eprintln!("[executor] nodo {}: critical=ON (un errore qui interrompe la lane)", node_id_str);
         }
@@ -484,7 +488,7 @@ pub async fn execute_lane(
                         // c'è più nessuno a cui consegnare — l'errore è
                         // comunque su NodeFailed.
                         let _ = tx.send(super::errors::build_error_row(
-                            &err_node_id, &err_node_type, e, is_critical, &err_lane_id)).await;
+                            &err_node_id, &err_node_type, e, &err_flags, &err_lane_id)).await;
                     }
                 }
             }

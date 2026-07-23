@@ -115,9 +115,10 @@ pub async fn run(
             let node_type = field_str(&row, "_error_node_type");
             let msg       = field_str(&row, "_error_message");
 
-            // Il flag viaggia sulla riga (v. errors::build_error_row):
+            // I flag viaggiano sulla riga (v. errors::build_error_row):
             // l'EH non vede il piano, vede solo ciò che gli arriva.
             let critical = field_str(&row, "_error_critical") == "true";
+            let excluded = field_str(&row, "_error_excluded") == "true";
 
             // ── REGOLE ────────────────────────────────────────────
             // In ordine, la PRIMA che corrisponde decide (come dichiara
@@ -133,6 +134,20 @@ pub async fn run(
             let mut azione = regola
                 .map(|i| normalizza(&regole[i].action))
                 .unwrap_or("emit");
+
+            // ── «Escludi dal log» (flag del NODO) ─────────────────
+            // Vale come un `ignore` mirato: gli errori di quel nodo non
+            // intasano l'audit trail (il caso d'uso è un nodo di puro
+            // logging il cui fallimento è rumore). È una soppressione di
+            // RUMORE, non di sicurezza — per questo NON batte una regola
+            // «interrompi»: l'escalation è una decisione deliberata, il
+            // silenziamento no. E per questo l'errore è stato comunque
+            // spedito sul canale di controllo invece di essere filtrato
+            // alla fonte: se lo avesse trattenuto il nodo, una spunta
+            // cosmetica avrebbe potuto disattivare `critical` in silenzio.
+            if excluded && azione != "stop" {
+                azione = "ignore";
+            }
 
             // ⚖️ `critical` È UN PAVIMENTO, non un'opinione: una regola
             // può alzare la gravità, mai abbassarla. Se il nodo è critico

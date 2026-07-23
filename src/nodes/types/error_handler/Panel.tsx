@@ -226,7 +226,8 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
               f.name === '_error_node_type' ? 'Tipo del nodo' :
               f.name === '_error_at'        ? "Timestamp dell'eccezione" :
               f.name === '_error_row'       ? 'La riga originale che ha causato l\'errore' :
-              f.name === '_error_critical'  ? "'true' se l'errore ha interrotto la lane" : ''
+              f.name === '_error_critical'  ? "'true' se l'errore ha interrotto la lane" :
+              f.name === '_error_excluded'  ? "'true' se il nodo è marcato «escludi dal log»" : ''
             } />
         ))}
       </div>
