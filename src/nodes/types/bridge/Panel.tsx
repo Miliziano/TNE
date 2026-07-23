@@ -144,6 +144,27 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         )}
       </div>
 
+      {/* ── Come viaggia (o non viaggia) un fallimento ──
+          Il bridge porta il canale dati e una conferma di consegna: se la
+          lane sorgente viene INTERROTTA, la conferma non arriva e il
+          BridgeIn fallisce. Ma un fallimento NON critico non interrompe
+          nulla, quindi la consegna si chiude regolarmente — magari con 0
+          righe — e la lane di valle non ha modo di accorgersene. È una
+          trappola che si scopre in produzione: va detta qui, dove il
+          bridge si configura. */}
+      <div style={{
+        padding: '8px 10px', borderRadius: 6, fontSize: 10, lineHeight: 1.5,
+        background: '#1c1b12', border: '0.5px solid #4a4326', color: '#c2b280',
+        display: 'flex', gap: 6, alignItems: 'flex-start',
+      }}>
+        <i className="ti ti-info-circle" style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }} />
+        <span>
+          {isOut
+            ? <>Il fallimento di un nodo di questa lane arriva alla lane di valle <b>solo se quel nodo è marcato «critico»</b>. Altrimenti la consegna si chiude regolarmente e la lane di valle riceve 0 righe senza accorgersi di nulla.</>
+            : <>Un fallimento nella lane sorgente arriva fin qui <b>solo se il nodo che fallisce è marcato «critico»</b>. Altrimenti la consegna risulta conclusa e questo nodo riceve 0 righe come se fosse tutto a posto.</>}
+        </span>
+      </div>
+
       {/* ── Canale ── */}
       <SectionTitle label="Canale" color={ACCENT} />
       <Field label="Nome canale" hint="Deve corrispondere esattamente tra BridgeOut e BridgeIn">

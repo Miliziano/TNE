@@ -349,10 +349,33 @@ conclude → la sotto-pipeline dell'EH conclude → `finalize_with_outcome`
 rollback — ma ⚠️ se il sink d'errore sta nello **stesso gruppo
 transazionale** della pipeline principale, il rollback se la porta via.
 
-**Cosa resta**: le REGOLE dell'EH (il pannello mostra ancora "0 regole":
-filtri, `_error_code`, `_error_row`), `excludeFromErrorLog`, e uno stato
-UI "interrotto" distinto da "fallito" (oggi i nodi abortiti sono rossi
-come i falliti: servirebbe un `EngineEvent` nuovo + frontend).
+**CROSS-LANE: il bridge porta anche il controllo.** Oltre alle righe, ogni
+bridge ha un `oneshot` con cui il BridgeOut dichiara "consegna conclusa",
+mandato *prima* di lasciar cadere il canale dati. Se quel segnale non
+arriva, il BridgeIn sa che la lane sorgente è morta a metà e **fallisce
+come nodo normale** — quindi l'errore va all'error handler della lane di
+valle, che decide con le sue regole; marcare «critico» il BridgeIn ferma
+anche quella lane. Il disegno è vincolato da un fatto di Tokio: **un task
+abortito non esegue altro codice**, quindi la lane morente non può
+avvisare nessuno e l'unico segnale affidabile è l'ASSENZA della conferma.
+
+⚠️ **Limite da conoscere, verificato sul campo.** Se un nodo della lane
+sorgente fallisce **senza** essere critico, la lane non viene interrotta:
+il BridgeOut conclude regolarmente — magari con 0 righe — e manda la
+conferma. La lane di valle riceve "consegna completa, 0 righe" e prosegue
+verde: se ha dei sink, **scrivono vuoto**. Non è aggirabile a quel
+livello (quando il BridgeOut finisce, la sua lane non sa ancora di essere
+fallita: l'esito si compone a fine lane; e far attendere il BridgeIn
+serializzerebbe la lane di valle senza impedire le scritture, perché i
+sink scrivono man mano). **Regola operativa: se il fallimento della lane
+sorgente deve contare per quella di valle, il nodo va marcato «critico».**
+È scritto anche nel pannello del nodo Bridge, dove serve.
+
+**Cosa resta**: `_error_code` e `_error_row` (richiedono un errore di nodo
+STRUTTURATO al posto di `Result<_, String>`: 25+ punti, è un passo suo) e
+il riconoscimento dei fallimenti DERIVATI — oggi `RunFailed` elenca tutte
+le lane fallite senza poter dire quale sia la causa e quale la
+conseguenza.
 
 ---
 
@@ -454,18 +477,24 @@ quello che il canvas dichiara è vero.
 
 **FASE MOTORE: IN CORSO** — nasce esattamente da lì. Se lo studio promette
 e il Rust non mantiene, la promessa credibile è più pericolosa di una a
-cui nessuno crede. Fatto finora (P27→P47): error handling completo e
-collaudato end-to-end (§6.1), `advanced` che finalmente arriva al motore,
-i nodi troncati che non fingono più.
+cui nessuno crede. Fatto finora (P27→P57): **il modello di error handling
+è implementato per intero e collaudato sul campo** (§6.1) — canale a
+collettore, `critical` che interrompe davvero, regole con filtro ed
+escalation, «escludi dal log», "interrotto" ≠ "fallito", e il fallimento
+cross-lane che attraversa il bridge. Più: `advanced` che finalmente
+arriva al motore, i nodi troncati che non fingono, il Run che non
+nasconde la causa.
 
 **Prossimi passi, in ordine:**
-1. **Chiudere l'error handling**: le REGOLE dell'EH (oggi "0 regole" nel
-   pannello) — filtri, `_error_code`, `_error_row` — e
-   `excludeFromErrorLog`. Poi lo stato UI **"interrotto" ≠ "fallito"**
-   (serve un `EngineEvent` nuovo + frontend).
-2. **Collaudare il RETRY (P36)**: è rimasto inerte fino a P45 perché
+1. **Collaudare il RETRY (P36)**: è rimasto inerte fino a P45 perché
    leggeva `advanced` dal posto sbagliato. Nessuno l'ha ancora visto
-   funzionare — provarlo prima di considerarlo fatto.
+   funzionare — provarlo prima di considerarlo fatto. ⚠️ Il retry avvolge
+   **solo l'apertura della connessione**: per attivarlo bisogna rompere la
+   CONNESSIONE (password/host/porta, o il DB fermo), non la query.
+2. **Le due criticità rimaste del modello** (v. `DISEGNO-error-handling.md`):
+   l'handler emette *prima* del rollback di `finalize_with_outcome`, e un
+   errore *dentro* la sotto-pipeline dell'handler è fatale e visibile solo
+   come `NodeFailed` — da confermare o cambiare.
 3. **I `reject` dichiarati** per explode/join/materialize/sink_db/
    sink_file (modello: filter e i parser, che ricevono l'intera mappa
    `outputs`); il segnale del `bridge_out`; poi `when` sui sink.
