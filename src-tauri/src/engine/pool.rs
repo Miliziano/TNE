@@ -107,18 +107,44 @@ impl LaneResources {
         params:      PoolParams,
         retries:     u32,
         delay_secs:  u64,
+        // Chiamata a ogni tentativo, col messaggio GIÀ formattato. Il pool
+        // non sa nulla di run/lane/nodo e non può emettere eventi; chi lo
+        // chiama sì. Senza questo il retry parlava solo su stderr: funzionava
+        // ma restava invisibile nel pannello, cioè esattamente dove l'utente
+        // guarda mentre aspetta che la connessione torni.
+        on_retry:    impl Fn(String),
     ) -> Result<DbPool, String> {
         let mut attempt = 0u32;
         loop {
             match self.pool(resource_id, params.clone()).await {
-                Ok(p) => return Ok(p),
+                Ok(p) => {
+                    // Il lieto fine va detto: dopo un "ritento tra 5s" il
+                    // silenzio non si distingue da un blocco.
+                    if attempt > 0 {
+                        on_retry(format!(
+                            "Connessione riuscita al tentativo {} di {}",
+                            attempt + 1, retries + 1,
+                        ));
+                    }
+                    return Ok(p);
+                }
                 Err(e) => {
                     if attempt >= retries {
+                        if retries > 0 {
+                            on_retry(format!(
+                                "Connessione fallita dopo {} tentativi: {}",
+                                retries + 1, e,
+                            ));
+                        }
                         return Err(e);
                     }
                     attempt += 1;
-                    eprintln!("[pool] risorsa '{}' non disponibile ({}). \
-                        Ritento {}/{} tra {}s", resource_id, e, attempt, retries, delay_secs);
+                    let msg = format!(
+                        "Risorsa non disponibile ({}). Ritento {}/{} tra {}s",
+                        e, attempt, retries, delay_secs,
+                    );
+                    eprintln!("[pool] risorsa '{}': {}", resource_id, msg);
+                    on_retry(msg);
                     tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
                 }
             }

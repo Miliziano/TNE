@@ -270,7 +270,9 @@ pub async fn run(
     // Retry "prima operazione": se la modalità onError lo prevede, ritenta
     // l'apertura della connessione (risorsa non disponibile all'avvio).
     let pool = match ctx.retry_policy() {
-        Some((n, d)) => ctx.lane_resources.pool_with_retry(&resource_id, params, n, d).await,
+        Some((n, d)) => ctx.lane_resources
+            .pool_with_retry(&resource_id, params, n, d,
+                             |m| ctx.emit_log(&ctx.label, "warn", 0, m, "panel")).await,
         None         => ctx.lane_resources.pool(&resource_id, params).await,
     }
         .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;

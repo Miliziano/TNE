@@ -352,7 +352,9 @@ pub async fn run(
     };
     // Retry "prima operazione": ritenta l'apertura se la modalità lo prevede.
     let pool = match ctx.retry_policy() {
-        Some((n, d)) => ctx.lane_resources.pool_with_retry(&config.resource_id, params, n, d).await,
+        Some((n, d)) => ctx.lane_resources
+            .pool_with_retry(&config.resource_id, params, n, d,
+                             |m| ctx.emit_log(&ctx.label, "warn", 0, m, "panel")).await,
         None         => ctx.lane_resources.pool(&config.resource_id, params).await,
     }
         .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;
