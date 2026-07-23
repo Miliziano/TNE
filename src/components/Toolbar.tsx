@@ -16,6 +16,7 @@ import type { NodeData } from '../types'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
+import { parseScript, ScriptParseError } from '../ir/scriptParser'
 
 let abortFlag = false
 
@@ -658,6 +659,24 @@ function buildRustPlan(
           }
           break
         }
+        case 'script': {
+          // Il corpo si compila in IR come le espressioni del transform:
+          // il motore riceve `body` già in forma di ScriptStmt[] e non
+          // conosce la sintassi (v. src-tauri/docs/design-nodo-script.md).
+          // Un errore di sintassi BLOCCA il run invece di degradare a
+          // corpo vuoto: uno script che non compila e viene ignorato è un
+          // nodo che lascia passare le righe intatte fingendo di
+          // lavorarci — è esattamente ciò che faceva lo stub.
+          const sorgente = String(props['code'] ?? '')
+          try {
+            specConfig.body = parseScript(sorgente)
+          } catch (e) {
+            const dettaglio = e instanceof ScriptParseError ? e.pretty() : String(e)
+            throw new Error(`Script "${node.data.label}":\n  • ${dettaglio}`)
+          }
+          break
+        }
+
         case 'bridge_out': {
           // bridges[] è già costruito globalmente (accoppiamento per
           // channelName, in testa a buildRustPlan). Qui resta solo il

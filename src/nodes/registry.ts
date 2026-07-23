@@ -249,10 +249,14 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: 'λ',
     color: '#a78bfa',
-    description: 'Esegue codice personalizzato su ogni riga.',
+    description: 'Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni.',
+    // `lang` è sparito: prometteva TypeScript o Java, ma nessun codegen ha
+    // mai avuto un generatore per lo Script e il motore non ha mai eseguito
+    // né l'uno né l'altro. Il corpo è ora un linguaggio di istruzioni su
+    // FPEL — v. src-tauri/docs/design-nodo-script.md.
     fields: [
-      { key: 'lang', label: 'Linguaggio', type: 'select', default: 'typescript', options: ['typescript','java'] },
-      { key: 'code', label: 'Codice',     type: 'code',   default: '// row è disponibile come input\nreturn row' },
+      { key: 'code', label: 'Istruzioni', type: 'code',
+        default: '// I campi si usano per nome; "let" per i valori intermedi.\n// Istruzioni: let, assegnazione, if/else, skip, reject, log, error.\n' },
     ],
   },
   tmap: {

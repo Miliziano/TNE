@@ -196,7 +196,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // NB `data_quality` NON è qui: ha un arm dedicato (:632) che chiama
     // data_quality::run — è implementato. Stava nella vecchia lista per un
     // commento ormai falso.
-    "script", "watchdog",
+    "watchdog",
     "source_http", "source_ftp", "source_mqtt",
     "source_activemq", "source_kafka",
     "sink_kafka", "sink_ftp", "sink_mqtt",
@@ -917,6 +917,15 @@ async fn run_node(
         // segnala come ERRORE, così il Monitor smette di mentire.
         // Contratto §2: un comportamento dichiarato e non implementato è
         // peggio di uno assente, perché il primo si scopre in produzione.
+        // ── script — istruzioni su FPEL (v. docs/design-nodo-script.md) ──
+        // Riceve `outputs` intera per poter prendere la porta `reject`
+        // condizionale prima dell'uscita principale (modello P31/P32).
+        "script" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("script {} richiede un input collegato", ctx.node_id.0))?;
+            super::nodes::script::run(ctx, rx, outputs).await
+        }
+
         // ── error_handler — nodo NORMALE (modello a canale, passo 1) ──
         // Spawato come tutti gli altri. Al passo 1 non ha ancora il
         // collettore: si dichiara vivo nel pannello, chiude error_out
