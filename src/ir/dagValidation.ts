@@ -601,6 +601,20 @@ const NEEDS_ROWS = new Set([
 ])
 
 /**
+ * I tipi per cui il MOTORE pretende un arco in ingresso e fallisce senza
+ * («X richiede un input collegato», v. gli arm in executor.rs). Erano
+ * un'altra lista rispetto a NEEDS_ROWS, e le due non si parlavano: il
+ * controllo a design-time copriva cinque tipi che non sono nessuno di
+ * questi, quindi un transform o un sink scollegato passava la validazione
+ * e falliva al Run. Chi aggiunge un `take_single_input(...).ok_or_else(…)`
+ * nel motore aggiunge il tipo QUI.
+ */
+const NEEDS_EDGE_INPUT = new Set([
+  'transform', 'filter', 'data_quality', 'script',
+  'sink_file', 'sink_db', 'bridge_out',
+])
+
+/**
  * Di quelli, i tre che possono prendere le righe da un dataset di lane
  * invece che da un arco (prop `dataSource`: 'flow' | 'materialize').
  * Le chiavi sono identiche nei pannelli e nel motore (spec.str_or).
@@ -637,6 +651,15 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     // smista per TIPO, non per operazione.
     const uiType = node._uiRef?.type ?? ''
     const label  = node._uiRef?.label ?? node.id
+
+    if (NEEDS_EDGE_INPUT.has(uiType) && preds.length === 0) {
+      issues.push({
+        nodeId: canvasId, code: 'NODE_INPUT_NOT_CONNECTED',
+        message: `"${label}" (${uiType}) non ha niente in ingresso`,
+        severity: 'error',
+        hint: 'Il motore si ferma su questo nodo: senza un flusso collegato non ha righe su cui lavorare. Collega un ingresso o togli il nodo.',
+      })
+    }
 
     if (NEEDS_ROWS.has(uiType)) {
       // dataSource='materialize' → le righe NON arrivano dall'arco: il nodo
