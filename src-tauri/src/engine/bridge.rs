@@ -205,11 +205,11 @@ pub async fn run_bridge_in(
     // La conferma è già arrivata (il BridgeOut la manda PRIMA di
     // droppare il canale dati), quindi questa attesa non blocca.
     if done.await.is_err() {
-        ctx.emit_log(
-            &ctx.label, "error", rows_in,
-            format!("Ricevute {} righe, poi la lane sorgente si è interrotta", rows_in),
-            "panel",
-        );
+        // NB nessuna emit_log qui: il messaggio d'errore qui sotto porta
+        // già il conteggio delle righe e compare DUE volte nel pannello
+        // (dall'error handler e da NodeFailed). Una terza riga sarebbe
+        // rumore — e, non essendo il node_label anteposto ai NodeLog,
+        // sarebbe pure l'unica delle tre senza il nome del nodo.
         // Errore di NODO: prende il canale di controllo come qualunque
         // altro fallimento e arriva all'error handler di QUESTA lane, che
         // decide con le sue regole. Marcare «critico» il bridge_in è ciò

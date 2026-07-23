@@ -210,7 +210,9 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         let mut all_node_stats: HashMap<String, NodeStats> = HashMap::new();
         let mut lanes_ok     = 0u32;
         let mut lanes_failed = 0u32;
-        let mut first_error: Option<String> = None;
+        // TUTTI gli errori di lane, non solo il primo: v. la nota alla
+        // composizione di RunFailed, sotto.
+        let mut lane_errors: Vec<String> = Vec::new();
 
         while let Some(result) = lane_futures.next().await {
             match result {
@@ -221,12 +223,12 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                 Ok(Err(e)) => {
                     eprintln!("[engine] lane fallita: {}", e);
                     lanes_failed += 1;
-                    if first_error.is_none() { first_error = Some(e); }
+                    lane_errors.push(e);
                 }
                 Err(e) => {
                     eprintln!("[engine] panic in lane: {}", e);
                     lanes_failed += 1;
-                    if first_error.is_none() { first_error = Some(e.to_string()); }
+                    lane_errors.push(format!("panic: {}", e));
                 }
             }
         }
@@ -237,9 +239,23 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         sampler.stop();
 
         if lanes_failed > 0 {
+            // Con più lane fallite l'ordine di ARRIVO non dice nulla sulla
+            // causa: `FuturesUnordered` restituisce chi finisce prima, e una
+            // lane fermata dal fallimento di un'altra finisce quasi sempre
+            // per prima. Riportare solo la prima significava indicare il
+            // SINTOMO nascondendo la causa — il bridge_in di valle al posto
+            // del source che è morto. Si riportano tutte: ordinarle per
+            // "chi ha cominciato" richiederebbe di riconoscere i fallimenti
+            // derivati, che è un'altra questione (l'errore di nodo
+            // strutturato).
+            let error = match lane_errors.len() {
+                0 => "Errore sconosciuto".to_string(),
+                1 => lane_errors.join(""),
+                n => format!("{} lane fallite — {}", n, lane_errors.join("  |  ")),
+            };
             push_event(EngineEvent::RunFailed {
                 run_id,
-                error: first_error.unwrap_or("Errore sconosciuto".to_string()),
+                error,
                 elapsed_ms,
             });
         } else {
