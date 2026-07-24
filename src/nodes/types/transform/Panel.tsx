@@ -303,12 +303,12 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             style={{ ...S_input, fontFamily: 'monospace', color: '#ffb347' }}
             value={field.expression}
             onChange={e => onChange({ expression: e.target.value })}
-            placeholder={`row.${field.source || 'campo'} — es: row.nome.trim(), lane.counter++`}
+            placeholder={`${field.source || 'campo'} — es: trim(nome), var("prefisso") + "/" + codice`}
           />
           <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
-            Usa <code style={{ color: '#4a9eff' }}>row.campo</code> per i campi,{' '}
-            <code style={{ color: '#a78bfa' }}>lane.variabile</code> per le variabili di lane,{' '}
-            <code style={{ color: '#a78bfa' }}>context.lane.variabile</code> come alias.
+            Usa il <code style={{ color: '#4a9eff' }}>nome del campo</code> così com'è,{' '}
+            <code style={{ color: '#a78bfa' }}>var("nome")</code> per le variabili di lane
+            (sola lettura).
             Il risultato diventa <code style={{ color: '#3ddc84' }}>{field.output || 'output'}</code>.
           </div>
         </div>

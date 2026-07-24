@@ -344,7 +344,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
           {matName && materializeFields.length > 0 && (
             <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
-              <code style={{ color: '#22d3ee' }}>context.lane.{matName}.get(row.chiave)</code>
+              dataset <code style={{ color: '#22d3ee' }}>{matName}</code>
               — {materializeFields.length} campi disponibili · accesso O(1)
             </div>
           )}
@@ -363,8 +363,8 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
                 ))}
               </CustomSelect>
               <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 4, fontStyle: 'italic' }}>
-                {accessMode === 'dataset'  && '→ context.lane.' + matName + '.toDataset() — List<Row> completa, zero buffering aggiuntivo nel nodo'}
-                {accessMode === 'iterator' && '→ context.lane.' + matName + '.values() — riga per riga, Aggregate bufferizza internamente per gruppo'}
+                {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
+                {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
               </div>
             </Field>
           )}

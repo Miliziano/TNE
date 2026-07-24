@@ -1,0 +1,60 @@
+diff --git a/src/ir/schemaPropagation.ts b/src/ir/schemaPropagation.ts
+index 791ede8..3475250 100644
+--- a/src/ir/schemaPropagation.ts
++++ b/src/ir/schemaPropagation.ts
+@@ -36,6 +36,7 @@ import type {
+ } from './types'
+ import { isRejectPort } from './types'
+ import { topologicalSort, canvasNodeId } from './lowering'
++import { parseScript, campiAssegnati } from './scriptParser'
+ import { getNodeSemantics } from './nodeSemantics'
+ import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
+ import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
+@@ -241,7 +242,46 @@ function inferOutputSchema(
+     }
+ 
+     case 'transform': {
+-      // Script: schema dichiarato esplicitamente in props.outputSchema
++      // ── Script: lo schema si LEGGE dal corpo ────────────────────
++      // È il guadagno della riprogettazione su FPEL. Un corpo JavaScript
++      // poteva restituire qualunque forma, quindi lo studio non sapeva
++      // cosa uscisse da uno Script e a valle passava lo schema d'ingresso
++      // tale e quale — che per un GENERATORE è vuoto: da lì il falso
++      // "non riceve campi in ingresso" sui nodi successivi, e i template
++      // di log costruiti su zero campi.
++      // Un elenco di assegnazioni invece si legge: uscita = ingresso +
++      // campi assegnati. I `let` no: vivono solo dentro lo script.
++      if (uiType === 'script') {
++        const genera = String(props?.sourceMode ?? 'flusso') === 'genera'
++        // Un generatore non eredita niente: le sue righe nascono qui.
++        const base: SchemaField[] = genera ? [] : inputSchema
++        let campi: string[] = []
++        try {
++          campi = campiAssegnati(parseScript(String(props?.code ?? '')))
++        } catch {
++          // Corpo con errori di sintassi: nessuna promessa sui campi.
++          // Il Run si blocca comunque, buildRustPlan rilancia l'errore.
++          return base
++        }
++        // Tipo `any` e non `string`: del campo si conosce il NOME, non il
++        // tipo. Dichiararlo stringa sarebbe una bugia comoda — `numero_mese
++        // = mese` è un intero — e le bugie comode sulle promesse dello
++        // studio sono esattamente ciò che questa fase sta togliendo.
++        // L'inferenza vera oggi non è possibile senza inventarsela: il
++        // catalogo `src/ir/functions.ts`, che pure si dichiara fonte di
++        // verità, NON porta i tipi di ritorno (solo nome, arità,
++        // categoria), e l'unico `inferExprType` esistente è privato del
++        // tmap e legato alla sua configurazione. Il posto giusto dove
++        // aggiungerli è quel catalogo: da lì servirebbero sia a questa
++        // propagazione sia al tmap, invece di avere due inferenze che
++        // divergono alla prima modifica.
++        const nuovi = campi
++          .filter((c) => !base.some((f) => f.name === c))
++          .map((c) => ({ name: c, type: 'any' }))
++        return normalizeSchema([...base, ...nuovi])
++      }
++
++      // Schema dichiarato esplicitamente in props.outputSchema
+       try {
+         const raw = props?.outputSchema ?? config?.props?.outputSchema
+         if (raw) {

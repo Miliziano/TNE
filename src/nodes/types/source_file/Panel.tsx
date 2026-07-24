@@ -64,7 +64,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
   // Path effettivo da mostrare come preview
   const effectivePath = (() => {
     if (pathSource === 'static')   return p('path') || null
-    if (pathSource === 'lane_var') return p('laneVarName') ? `context.lane.${p('laneVarName')}` : null
+    if (pathSource === 'lane_var') return p('laneVarName') ? `var("${p('laneVarName')}")` : null
     if (pathSource === 'flow')     return p('pathField') ? `row.${p('pathField')}` : null
     return null
   })()

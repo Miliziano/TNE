@@ -126,7 +126,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
       {(() => {
         const preview =
           pathSource === 'static'   ? p('directory') :
-          pathSource === 'lane_var' ? (p('laneVarName') ? `context.lane.${p('laneVarName')}` : null) :
+          pathSource === 'lane_var' ? (p('laneVarName') ? `var("${p('laneVarName')}")` : null) :
           pathSource === 'flow'     ? (p('pathField')   ? `row.${p('pathField')}`             : null) :
           null
         if (!preview) return null

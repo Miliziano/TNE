@@ -32,9 +32,6 @@ function rejectVarPattern(fieldName: string): string { return fieldName }
 /** Variabile di lane: unica forma che richiede una chiamata. */
 function laneVarPattern(varName: string): string { return `var("${varName}")` }
 
-/** Variabile di pool: stessa forma — `var()` guarda le variabili visibili. */
-function poolVarPattern(varName: string): string { return `var("${varName}")` }
-
 
 function applyTransformExpression(expression: string, varName: string): string {
   return expression
@@ -467,35 +464,44 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           </div>
         )}
 
-        {/* Pool */}
+        {/* Le variabili di POOL non compaiono: non sono raggiungibili dalle
+            espressioni, ed è voluto. Il piano che arriva al motore porta
+            solo `laneConfig.variables` (buildRustPlan) e nel `LanePlan` non
+            esiste un campo per quelle di pool — quindi `var("nome")` su una
+            variabile di pool restituirebbe null in silenzio. Qui c'erano le
+            pill che la inserivano: suggerivano di scrivere una cosa che
+            sarebbe sempre stata vuota.
+            La riga sotto compare solo se il pool ne ha, per rispondere alla
+            domanda "e le mie variabili di pool?" prima che venga posta. */}
         {poolVars.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 9, color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-database" style={{ fontSize: 9 }} /> pool · {poolVars.length} variabili
-            </div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {poolVars.map((v) => (
-                <SmartPill key={v.name}
-                  label={poolVarPattern(v.name)} color="#a78bfa"
-                  type={v.type} varName={poolVarPattern(v.name)}
-                  onInsert={insertSnippet} onWrap={wrapSelection} />
-              ))}
-            </div>
+          <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.5, fontStyle: 'italic' }}>
+            Le {poolVars.length} variabili di pool non sono leggibili dalle espressioni:
+            usa quelle di lane.
           </div>
         )}
 
-        {/* Context */}
+        {/* Istruzioni del linguaggio.
+            Qui c'erano cinque chip che inserivano `context.log("")`,
+            `context.emit(row)`, `context.skip()` e compagnia: l'API
+            dell'esecutore JavaScript, che con questo linguaggio non
+            compila nemmeno. Erano l'ultimo posto in cui il vecchio
+            `context` sopravviveva — e il più insidioso, perché non si
+            legge: si CLICCA, e finisce dritto nell'editor. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ fontSize: 9, color: '#22d3ee', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <i className="ti ti-function" style={{ fontSize: 9 }} /> context
+            <i className="ti ti-function" style={{ fontSize: 9 }} /> istruzioni
           </div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {[
-              { label: 'context.log("")',     snippet: 'context.log("")',     title: 'scrivi nel log'   },
-              { label: 'context.emit(row)',    snippet: 'context.emit(row)',    title: 'emetti riga extra' },
-              { label: 'context.skip()',      snippet: 'context.skip()',      title: 'scarta riga'      },
-              { label: 'context.reject(row)', snippet: 'context.reject(row)', title: 'invia al reject', color: '#ff5f57' },
-              { label: 'context.error("")',   snippet: 'context.error("")',   title: 'lancia errore'    },
+              { label: 'let',    snippet: 'let nome = ',             title: 'valore intermedio: non finisce nella riga' },
+              { label: 'if',     snippet: 'if condizione {\n  \n}',  title: 'ramificazione' },
+              { label: 'repeat', snippet: 'repeat 3 as i {\n  \n}',  title: 'ripete N volte' },
+              { label: 'for',    snippet: 'for x in campo {\n  \n}', title: 'ripete su ogni elemento di un array' },
+              { label: 'emit',   snippet: 'emit',                    title: 'manda a valle una copia della riga' },
+              { label: 'skip',   snippet: 'skip',                    title: 'la riga non esce da nessuna porta' },
+              { label: 'reject', snippet: 'reject "motivo"',         title: 'manda la riga alla porta reject', color: '#ff5f57' },
+              { label: 'log',    snippet: 'log "messaggio"',         title: 'scrive nel pannello di log' },
+              { label: 'error',  snippet: 'error "messaggio"',       title: 'fa fallire il nodo', color: '#ff5f57' },
             ].map((fn) => (
               <button key={fn.label} onClick={() => insertSnippet(fn.snippet)} title={fn.title}
                 style={{ padding: '2px 8px', borderRadius: 10, fontSize: 9, background: '#0f1117', border: '1px solid #2a3349', color: '#9a9aaa', cursor: 'pointer', fontFamily: 'monospace', flexShrink: 0 }}

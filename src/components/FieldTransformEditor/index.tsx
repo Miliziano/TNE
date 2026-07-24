@@ -2,7 +2,7 @@
  * FieldTransformEditor/index.tsx  — v6
  *
  * Modifiche rispetto alla versione precedente:
- * - Hint lane.variabile / context.lane.variabile aggiunto sotto
+ * - Hint sulle variabili di lane: si leggono con var("nome")
  *   la casella espressione in modalità inline.
  * - Hint lane.var aggiunto nell'hint dello ScriptEditor.
  * - Gruppo "Lane" aggiunto negli snippet dello ScriptEditor con
@@ -220,50 +220,66 @@ interface SnippetDef {
   code:  string
 }
 
+// ─── Snippet delle espressioni ────────────────────────────────────
+// Erano 32 e ne compilavano DUE: il resto era JavaScript — `String(x ??
+// "").trim()`, IIFE con regex, `try { JSON.parse(…) } catch`, `Math.abs`,
+// e un gruppo "Lane" con `lane.x`, `++lane.x` e `lane.x = valore`, cioè
+// SCRITTURE che nessuna superficie supporta. Passati al parser davano
+// "carattere non riconosciuto" o "riferimento qualificato non ammesso".
+//
+// Un suggerimento che non compila è peggio di nessun suggerimento:
+// sembra la sintassi giusta, e chi lo usa perde tempo a capire di chi sia
+// la colpa. Queste espressioni finiscono in `tmap.transforms[].expression`
+// e le compila `tmapExprConverter` con lo stesso `parseExpression` di
+// Script e Transform — un solo parser, un solo IR.
+//
+// Usano SOLO funzioni presenti in `expr_functions.rs`, verificate una a una.
 const SCRIPT_SNIPPETS: SnippetDef[] = [
-  // ── Template completi ────────────────────────────────────────
-  { id: 'tpl_str',      group: 'Template',   label: '→ stringa',             code: 'return String($value ?? "").trim()' },
-  { id: 'tpl_int',      group: 'Template',   label: '→ intero',              code: 'return parseInt(String($value ?? "0").replace(",",""), 10)' },
-  { id: 'tpl_dec',      group: 'Template',   label: '→ decimale',            code: 'return parseFloat(String($value ?? "0").replace(",","."))' },
-  { id: 'tpl_bool',     group: 'Template',   label: '→ booleano',            code: 'return ["true","1","yes","si","sì"].includes(String($value ?? "").toLowerCase())' },
-  { id: 'tpl_date',     group: 'Template',   label: '→ data ISO',            code: 'const d = new Date($value)\nreturn isNaN(d.getTime()) ? null : d.toISOString().split("T")[0]' },
-  { id: 'tpl_json',     group: 'Template',   label: '→ parse JSON',          code: 'try { return JSON.parse(String($value)) } catch { return null }' },
-  { id: 'tpl_null',     group: 'Template',   label: 'null se vuoto',         code: 'return ($value === "" || $value == null) ? null : $value' },
-  { id: 'tpl_if',       group: 'Template',   label: 'if / else',             code: 'if ($value) {\n  return $value\n} else {\n  return null\n}' },
-  // ── Funzioni stringa ────────────────────────────────────────
-  { id: 'fn_upper',     group: 'Stringa',    label: 'toUpperCase',           code: 'String($sel ?? "").toUpperCase()' },
-  { id: 'fn_lower',     group: 'Stringa',    label: 'toLowerCase',           code: 'String($sel ?? "").toLowerCase()' },
-  { id: 'fn_trim',      group: 'Stringa',    label: 'trim',                  code: 'String($sel ?? "").trim()' },
-  { id: 'fn_cap',       group: 'Stringa',    label: 'capitalize',            code: '(()=>{ const _s=String($sel??"").toLowerCase(); return _s.charAt(0).toUpperCase()+_s.slice(1) })()' },
-  { id: 'fn_slug',      group: 'Stringa',    label: 'slug',                  code: 'String($sel??"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-")' },
-  { id: 'fn_pad',       group: 'Stringa',    label: 'padStart(8,"0")',       code: 'String($sel??"").padStart(8,"0")' },
-  { id: 'fn_replace',   group: 'Stringa',    label: 'replace',               code: 'String($sel??"").split("cerca").join("sostituisci")' },
-  { id: 'fn_substr',    group: 'Stringa',    label: 'substring(0,n)',        code: 'String($sel??"").substring(0,8)' },
-  // ── Funzioni numero ────────────────────────────────────────
-  { id: 'fn_toint',     group: 'Numero',     label: 'toInt',                 code: 'parseInt(String($sel??"0").replace(",",""),10)' },
-  { id: 'fn_todec',     group: 'Numero',     label: 'toDecimal',             code: 'parseFloat(String($sel??"0").replace(",","."))' },
-  { id: 'fn_round',     group: 'Numero',     label: 'round(2)',              code: 'Math.round(Number($sel??0)*100)/100' },
-  { id: 'fn_abs',       group: 'Numero',     label: 'abs',                   code: 'Math.abs(Number($sel??0))' },
-  // ── Funzioni data ────────────────────────────────────────
-  { id: 'fn_year',      group: 'Data',       label: 'getFullYear',           code: '(()=>{ const _d=new Date($sel); return isNaN(_d.getTime())?null:_d.getFullYear() })()' },
-  { id: 'fn_month',     group: 'Data',       label: 'getMonth',              code: '(()=>{ const _d=new Date($sel); return isNaN(_d.getTime())?null:_d.getMonth()+1 })()' },
-  { id: 'fn_day',       group: 'Data',       label: 'getDate',               code: '(()=>{ const _d=new Date($sel); return isNaN(_d.getTime())?null:_d.getDate() })()' },
-  { id: 'fn_fmtdate',   group: 'Data',       label: 'formatDate DD/MM/YYYY', code: '(()=>{ const _d=new Date($sel); if(isNaN(_d.getTime()))return null; const _p=n=>String(n).padStart(2,"0"); return _p(_d.getDate())+"/"+_p(_d.getMonth()+1)+"/"+_d.getFullYear() })()' },
-  { id: 'fn_parsedate', group: 'Data',       label: 'parseDate DD/MM/YYYY',  code: '(()=>{ const _s=String($sel??""); const _p=_s.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/); return _p?_p[3]+"-"+_p[2]+"-"+_p[1]:null })()' },
-  // ── Condizioni ──────────────────────────────────────────
-  { id: 'fn_isnull',    group: 'Condizioni', label: 'è null?',               code: '($sel == null)' },
-  { id: 'fn_coalesce',  group: 'Condizioni', label: 'coalesce(default)',     code: '($sel ?? "default")' },
-  { id: 'fn_ternary',   group: 'Condizioni', label: 'condizione ? a : b',    code: '($sel ? "vero" : "falso")' },
-  // ── Lane — variabili di lane ─────────────────────────────
-  // Sintassi identica a Script e Transform: lane.variabile
-  // context.lane.variabile è un alias equivalente.
-  { id: 'lane_read',    group: 'Lane',       label: 'leggi lane.var',        code: 'lane.$sel' },
-  { id: 'lane_inc',     group: 'Lane',       label: '++lane.var (incrementa)', code: '++lane.$sel' },
-  { id: 'lane_set',     group: 'Lane',       label: 'lane.var = valore',     code: 'lane.$sel = $value' },
-  { id: 'lane_reset',   group: 'Lane',       label: 'lane.var = 0 (reset)',  code: 'lane.$sel = 0' },
+  // ── Conversioni ─────────────────────────────────────────────
+  { id: 'tpl_str',      group: 'Template',   label: '→ testo',                 code: 'to_string($value)' },
+  { id: 'tpl_int',      group: 'Template',   label: '→ intero',                code: 'to_int($value)' },
+  { id: 'tpl_dec',      group: 'Template',   label: '→ decimale',              code: 'to_float($value)' },
+  { id: 'tpl_bool',     group: 'Template',   label: '→ booleano',              code: 'to_bool($value)' },
+  { id: 'tpl_date',     group: 'Template',   label: '→ data ISO',              code: 'date_format(parse_date($value), "yyyy-MM-dd")' },
+  { id: 'tpl_null',     group: 'Template',   label: 'null se vuoto',           code: 'nullif(trim(to_string($value)), "")' },
+  { id: 'tpl_default',  group: 'Template',   label: 'valore predefinito',      code: 'coalesce($value, "")' },
+  { id: 'tpl_if',       group: 'Template',   label: 'se / altrimenti',         code: 'iif($value is null, "mancante", $value)' },
+  // ── Stringhe ────────────────────────────────────────────────
+  { id: 'fn_upper',     group: 'Stringa',    label: 'MAIUSCOLO',               code: 'upper($sel)' },
+  { id: 'fn_lower',     group: 'Stringa',    label: 'minuscolo',               code: 'lower($sel)' },
+  { id: 'fn_trim',      group: 'Stringa',    label: 'trim',                    code: 'trim($sel)' },
+  { id: 'fn_cap',       group: 'Stringa',    label: 'Prima maiuscola',         code: 'capitalize($sel)' },
+  { id: 'fn_title',     group: 'Stringa',    label: 'Ogni Parola Maiuscola',   code: 'title_case($sel)' },
+  { id: 'fn_slug',      group: 'Stringa',    label: 'slug',                    code: 'to_slug($sel)' },
+  { id: 'fn_pad',       group: 'Stringa',    label: 'riempi a sinistra',       code: 'pad_left(to_string($sel), 8, "0")' },
+  { id: 'fn_replace',   group: 'Stringa',    label: 'sostituisci',             code: 'replace($sel, "cerca", "sostituisci")' },
+  { id: 'fn_regex',     group: 'Stringa',    label: 'sostituisci (regex)',     code: 'replace_regex($sel, "[^0-9]", "")' },
+  { id: 'fn_substr',    group: 'Stringa',    label: 'primi N caratteri',       code: 'left($sel, 8)' },
+  { id: 'fn_len',       group: 'Stringa',    label: 'lunghezza',               code: 'length($sel)' },
+  { id: 'fn_mask',      group: 'Stringa',    label: 'maschera email',          code: 'mask_email($sel)' },
+  // ── Numeri ──────────────────────────────────────────────────
+  { id: 'fn_toint',     group: 'Numero',     label: 'a intero',                code: 'to_int($sel)' },
+  { id: 'fn_todec',     group: 'Numero',     label: 'a decimale',              code: 'to_float($sel)' },
+  { id: 'fn_round',     group: 'Numero',     label: 'arrotonda a 2',           code: 'round($sel, 2)' },
+  { id: 'fn_abs',       group: 'Numero',     label: 'valore assoluto',         code: 'abs($sel)' },
+  { id: 'fn_clamp',     group: 'Numero',     label: 'limita fra 0 e 100',      code: 'clamp($sel, 0, 100)' },
+  // ── Date ────────────────────────────────────────────────────
+  { id: 'fn_quarter',   group: 'Data',       label: 'trimestre',               code: 'quarter($sel)' },
+  { id: 'fn_fmtdate',   group: 'Data',       label: 'formatta gg/mm/aaaa',     code: 'date_format($sel, "dd/MM/yyyy")' },
+  { id: 'fn_parsedate', group: 'Data',       label: 'da testo a data',         code: 'parse_date($sel)' },
+  { id: 'fn_adddays',   group: 'Data',       label: 'aggiungi 30 giorni',      code: 'add_days($sel, 30)' },
+  { id: 'fn_diffdays',  group: 'Data',       label: 'giorni da oggi',          code: 'diff_days(today(), $sel)' },
+  // ── Condizioni ──────────────────────────────────────────────
+  { id: 'fn_isnull',    group: 'Condizioni', label: 'è null?',                 code: '$sel is null' },
+  { id: 'fn_coalesce',  group: 'Condizioni', label: 'primo non nullo',         code: 'coalesce($sel, "predefinito")' },
+  { id: 'fn_ternary',   group: 'Condizioni', label: 'condizione ? a : b',      code: 'iif($sel is null, "vuoto", "pieno")' },
+  // ── Lane ────────────────────────────────────────────────────
+  // Il gruppo aveva quattro voci: una lettura inesistente e TRE scritture.
+  // Resta l'unica forma vera, ed è in sola lettura — scrivere una variabile
+  // di lane non è previsto oggi in nessuna superficie.
+  { id: 'lane_read',    group: 'Lane',       label: 'leggi variabile di lane', code: 'var("$sel")' },
 ]
 
-// Gruppi ordinati per il selettore — aggiunto 'Lane' in fondo
 const SNIPPET_GROUPS = ['Template', 'Stringa', 'Numero', 'Data', 'Condizioni', 'Lane']
 
 // ─── ScriptEditor con selettore snippet ──────────────────────────
@@ -732,19 +748,21 @@ export function FieldTransformEditor({
                   spellCheck={false}
                 />
 
-                {/* ── Hint lane — NUOVO ──────────────────────────────────────
-                    Mostra le variabili di lane disponibili nelle espressioni.
-                    Sintassi identica a Script e Transform:
-                    - lane.variabile       → lettura/scrittura diretta
-                    - context.lane.variabile → alias equivalente
-                    Esempio: lane.counter++, ++lane.counter, lane.prefix + '/' + $main.id
+                {/* ── Variabili di lane ──────────────────────────────────────
+                    Questa nota prometteva `lane.variabile`, l'alias
+                    `context.lane.variabile` e perfino `++lane.counter`.
+                    Nessuna delle tre esiste: passate al parser danno
+                    "riferimento qualificato non ammesso qui" le prime due
+                    e "espressione attesa" la terza. L'unica forma vera è
+                    `var("nome")`, ed è la stessa in Script, Transform e
+                    TMap — un solo parser, un solo IR.
+                    E sono in SOLA LETTURA: scriverle non è previsto in
+                    nessuna delle tre superfici.
                 ─────────────────────────────────────────────────────────── */}
                 <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.5 }}>
-                  <code style={{ color: '#a78bfa' }}>lane.variabile</code>
-                  {' '}per le variabili di lane ·{' '}
-                  <code style={{ color: '#a78bfa' }}>context.lane.variabile</code>
-                  {' '}come alias · es:{' '}
-                  <code style={{ color: '#a78bfa', opacity: 0.7 }}>++lane.counter</code>
+                  <code style={{ color: '#a78bfa' }}>var("nome")</code>
+                  {' '}per leggere una variabile di lane · es:{' '}
+                  <code style={{ color: '#a78bfa', opacity: 0.7 }}>var("prefisso") + "/" + codice</code>
                 </div>
 
                 {/* Anteprima con funzione finale applicata */}

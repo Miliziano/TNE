@@ -194,7 +194,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
           {p('materializeName') && (
             <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-arrow-right" style={{ fontSize: 9, color: ACCENT }} />
-              <code style={{ fontSize: 10, color: ACCENT }}>context.lane.{p('materializeName')}.values()</code>
+              dataset <code style={{ fontSize: 10, color: ACCENT }}>{p('materializeName')}</code>
             </div>
           )}
 
