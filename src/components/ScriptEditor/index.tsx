@@ -1,17 +1,16 @@
 import { useRef, useCallback, useEffect } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
+import {
+  FLOWPILOT_LANG_ID, registerFlowpilotLanguage, aggiornaContestoFlowpilot,
+} from './flowpilotLanguage'
 import type { editor as MonacoEditor } from 'monaco-editor'
 
 // ─── Mappa linguaggi → id Monaco ─────────────────────────────────
 const MONACO_LANG: Record<string, string> = {
-  // Il linguaggio del nodo Script non ha una grammatica Monaco propria.
-  // Si appoggia a quella di Rust per la SOLA evidenziazione: le parole
-  // chiave coincidono quasi tutte (`let`, `if`, `else`, `for`, `in`), i
-  // commenti sono `//` e le stringhe uguali. Soprattutto è una grammatica
-  // TextMate senza analisi semantica, quindi non segna in rosso codice
-  // valido — cosa che 'typescript' o 'javascript' farebbero a ogni riga.
-  // Una grammatica vera è un lavoro a sé, non un ripiego da fare in fretta.
-  flowpilot:  'rust',
+  // Il linguaggio del nodo Script ha ora una grammatica sua (Monarch, in
+  // flowpilotLanguage.ts): prima prendeva in prestito quella di Rust, che
+  // evidenziava let/if/for ma non emit/skip/reject né le funzioni FPEL.
+  flowpilot:  FLOWPILOT_LANG_ID,
   typescript: 'typescript',
   python:     'python',
   java:       'java',
@@ -158,6 +157,16 @@ export function ScriptEditor({
         tsLang?.typescriptDefaults?.addExtraLib(typeDefs, 'file:///flowpilot-types.d.ts')
       }
     } catch {}
+
+    // Il completamento del linguaggio dello Script legge da un contesto
+    // condiviso invece che dalle props: Monaco registra i provider una
+    // volta per LINGUAGGIO, non per editor, quindi un provider che
+    // chiudesse su queste props resterebbe fermo a quelle del primo
+    // editor montato. Le variabili di POOL non entrano: non sono
+    // raggiungibili dalle espressioni (v. P65).
+    if (monacoLang === FLOWPILOT_LANG_ID) {
+      aggiornaContestoFlowpilot(schema.map((f) => f.name), laneVars.map((v) => v.name))
+    }
   }, [schema, laneVars, poolVars, monacoLang])
 
   // ── Inserisci snippet alla posizione cursore ───────────────────
@@ -208,6 +217,11 @@ export function ScriptEditor({
     // Registra tema
     monacoInstance.editor.defineTheme(THEME_NAME, THEME_DEF)
     monacoInstance.editor.setTheme(THEME_NAME)
+
+    // Grammatica e completamento del linguaggio dello Script. La
+    // funzione è idempotente: Monaco è globale e onMount scatta per ogni
+    // editor montato.
+    try { registerFlowpilotLanguage(monacoInstance) } catch {}
 
     // Configura TypeScript
     try {

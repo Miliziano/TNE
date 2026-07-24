@@ -424,6 +424,27 @@ export function parseScript(src: string): ScriptStmt[] {
  * `null` quando quel ramo non passa) — stessa convenzione di un
  * `CASE WHEN` senza `ELSE`.
  */
+/**
+ * Le istruzioni presenti nel corpo, blocchi annidati inclusi.
+ *
+ * Serve alla validazione a design-time per due domande che si possono
+ * rispondere leggendo il corpo, senza eseguire niente: un generatore che
+ * non ha `emit` non produrrà mai una riga, e uno `reject` scritto mentre
+ * la porta è chiusa fa sparire le righe in silenzio.
+ */
+export function istruzioniUsate(stmts: ScriptStmt[]): Set<ScriptStmt['kind']> {
+  const viste = new Set<ScriptStmt['kind']>()
+  const visita = (lista: ScriptStmt[]) => {
+    for (const s of lista) {
+      viste.add(s.kind)
+      if (s.kind === 'If') { visita(s.then); visita(s.else) }
+      else if (s.kind === 'Repeat' || s.kind === 'For') visita(s.body)
+    }
+  }
+  visita(stmts)
+  return viste
+}
+
 export function campiAssegnati(stmts: ScriptStmt[]): string[] {
   const visti: string[] = []
   const visita = (lista: ScriptStmt[]) => {

@@ -5,6 +5,7 @@
 import type { Node as FlowNode } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { isLegacyRuleAction } from '../types'
+import { parseScript, istruzioniUsate, ScriptParseError } from './scriptParser'
 import type {
   LogicalPlan, LogicalNode, ValidationIssue, ValidationResult, ExecutionSemantics,
 } from './types'
@@ -707,6 +708,53 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     // qui si controlla, PRIMA di eseguire, che quel campo esista davvero.
     // È l'intero motivo per cui la sintassi è `${campo}` e non `:param`
     // nativo di sqlx: se la legge lo studio, lo studio può dirlo.
+    // ── Script: il corpo si legge PRIMA di premere Run ────────────
+    // Finora un errore di sintassi si scopriva solo al Run, perché a
+    // rilanciarlo è `buildRustPlan`. Ma il corpo è compilabile a
+    // design-time — lo fa già la propagazione dello schema — quindi
+    // l'errore si può dire subito, con la riga.
+    if (uiType === 'script') {
+      const codice = String(node._uiRef?.props?.['code'] ?? '')
+      try {
+        const corpo = parseScript(codice)
+        const usate = istruzioniUsate(corpo)
+        const genera = String(node._uiRef?.props?.['sourceMode'] ?? 'flusso') === 'genera'
+
+        // Un generatore senza `emit` non produce NIENTE: il corpo gira una
+        // volta sola e la riga di lavoro non esce da sé (è la differenza
+        // fra le due modalità). Il nodo concluderebbe verde con 0 righe.
+        if (genera && !usate.has('Emit') && codice.trim() !== '') {
+          issues.push({
+            nodeId: canvasId, code: 'SCRIPT_GENERATOR_NO_EMIT',
+            message: `"${label}" genera righe ma non ha nessun "emit": non ne produrrà nessuna`,
+            severity: 'error',
+            hint: 'In modalità «Genera» la riga di lavoro non esce da sola: le righe escono solo dalle istruzioni "emit".',
+          })
+        }
+
+        // `reject` scritto mentre la porta è chiusa: il motore non ha dove
+        // mandare le righe e le PERDE senza dire niente (stessa scelta
+        // degli altri nodi con reject condizionale — ma qui la si è
+        // chiesta esplicitamente scrivendola nel corpo).
+        if (usate.has('Reject') && String(node._uiRef?.props?.['hasReject'] ?? 'false') !== 'true') {
+          issues.push({
+            nodeId: canvasId, code: 'SCRIPT_REJECT_PORT_OFF',
+            message: `"${label}" usa "reject" ma la porta reject non è attiva: le righe scartate spariscono`,
+            severity: 'warning',
+            hint: 'Attiva la porta reject nel pannello del nodo e collegala, oppure usa "skip" se le righe vanno semplicemente scartate.',
+          })
+        }
+      } catch (e) {
+        const dettaglio = e instanceof ScriptParseError ? e.pretty() : String(e)
+        issues.push({
+          nodeId: canvasId, code: 'SCRIPT_PARSE_ERROR',
+          message: `"${label}": ${dettaglio}`,
+          severity: 'error',
+          hint: 'Il Run non parte finché il corpo non compila. Istruzioni: let, assegnazione, if/else, repeat, for, emit, skip, reject, log, error.',
+        })
+      }
+    }
+
     // ── Error handler: regole col vocabolario vecchio ─────────────
     // `retry` e `skip` erano azioni dell'handler prima di P34. Oggi
     // appartengono al NODO (retry = prima operazione prima dell'impegno;

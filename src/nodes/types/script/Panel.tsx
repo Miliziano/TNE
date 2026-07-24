@@ -400,17 +400,18 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           </div>
         </div>
 
-        {/* Qui c'era "autocomplete attivo": era vero solo per TypeScript,
-            perché le definizioni di tipo si caricano in Monaco unicamente
-            per quel linguaggio. Tenerlo ora sarebbe una spia che mente. */}
-        {schema.length > 0 && (
-          <div style={{ padding: '6px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <i className="ti ti-forms" style={{ fontSize: 9, color: '#3ddc84' }} />
-            <span style={{ fontSize: 9, color: '#3ddc84' }}>
-              {schema.length} campi in ingresso — cliccali qui sotto per inserirli
-            </span>
-          </div>
-        )}
+        {/* La spia era stata tolta perché "autocomplete attivo" valeva solo
+            per TypeScript. Ora il linguaggio ha una grammatica e un
+            provider di completamento suoi, quindi torna — ed è vero:
+            suggerisce i campi in arrivo, le variabili di lane e le
+            funzioni FPEL, dallo stesso catalogo che usa la validazione. */}
+        <div style={{ padding: '6px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
+          <span style={{ fontSize: 9, color: '#3ddc84' }}>
+            autocomplete attivo{schema.length > 0 ? ` su ${schema.length} campi, ` : ' su '}
+            variabili di lane e funzioni
+          </span>
+        </div>
 
         <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
           <CustomSelect style={{ ...inputStyle, width: 'auto', fontSize: 10, padding: '2px 6px', color: '#a78bfa' }}

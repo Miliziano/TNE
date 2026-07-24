@@ -1,0 +1,356 @@
+diff --git a/src/components/ScriptEditor/flowpilotLanguage.ts b/src/components/ScriptEditor/flowpilotLanguage.ts
+new file mode 100644
+index 0000000..1319f1a
+--- /dev/null
++++ b/src/components/ScriptEditor/flowpilotLanguage.ts
+@@ -0,0 +1,160 @@
++/**
++ * src/components/ScriptEditor/flowpilotLanguage.ts
++ *
++ * Grammatica Monaco per il linguaggio del nodo Script.
++ *
++ * Prima si prendeva in prestito quella di Rust: le parole chiave
++ * coincidono quasi tutte e — soprattutto — è una grammatica puramente
++ * lessicale, quindi non segnava in rosso codice valido come farebbe
++ * quella di TypeScript. Funzionava, ma restava un ripiego: `emit`,
++ * `skip`, `reject` non erano evidenziati, e le funzioni FPEL nemmeno.
++ *
++ * Qui il linguaggio è dichiarato per quello che è. Monarch è puramente
++ * lessicale anche lui: nessuna analisi semantica, quindi resta vero che
++ * l'editor non può contraddire il parser — chi decide se il corpo è
++ * valido è `scriptParser.ts`, e lo dice il pannello Validazione.
++ */
++
++import { FUNCTIONS } from '../../ir/functions'
++
++export const FLOWPILOT_LANG_ID = 'flowpilot'
++
++/** Le istruzioni del linguaggio (v. design-nodo-script.md §3.1). */
++const ISTRUZIONI = [
++  'let', 'if', 'else', 'repeat', 'for', 'in', 'as',
++  'emit', 'skip', 'reject', 'log', 'error',
++]
++
++/** Operatori-parola di FPEL, evidenziati come le istruzioni ma distinti. */
++const OPERATORI_PAROLA = ['and', 'or', 'not', 'is', 'null', 'true', 'false']
++
++/**
++ * Contesto corrente per il completamento. È mutabile e aggiornato
++ * dall'editor: Monaco registra i provider UNA volta per linguaggio, non
++ * per istanza, quindi il provider non può chiudere sulle props di un
++ * componente — leggerebbe quelle del primo editor montato.
++ */
++let contesto: { campi: string[]; variabili: string[] } = { campi: [], variabili: [] }
++
++export function aggiornaContestoFlowpilot(campi: string[], variabili: string[]): void {
++  contesto = { campi, variabili }
++}
++
++let registrato = false
++
++/**
++ * Registra linguaggio, grammatica e completamento. Idempotente: Monaco è
++ * globale e `onMount` scatta a ogni editor montato.
++ */
++export function registerFlowpilotLanguage(monaco: any): void {
++  if (registrato) return
++  registrato = true
++
++  monaco.languages.register({ id: FLOWPILOT_LANG_ID })
++
++  monaco.languages.setLanguageConfiguration(FLOWPILOT_LANG_ID, {
++    comments:        { lineComment: '//' },
++    brackets:        [['{', '}'], ['(', ')'], ['[', ']']],
++    autoClosingPairs: [
++      { open: '{', close: '}' },
++      { open: '(', close: ')' },
++      { open: '"', close: '"' },
++      { open: "'", close: "'" },
++    ],
++    surroundingPairs: [
++      { open: '{', close: '}' },
++      { open: '(', close: ')' },
++      { open: '"', close: '"' },
++    ],
++  })
++
++  monaco.languages.setMonarchTokensProvider(FLOWPILOT_LANG_ID, {
++    defaultToken: '',
++    istruzioni:   ISTRUZIONI,
++    paroleOp:     OPERATORI_PAROLA,
++    funzioni:     FUNCTIONS.map((f) => f.name),
++
++    tokenizer: {
++      root: [
++        [/\/\/.*$/, 'comment'],
++
++        // Nome seguito da `(` → chiamata di funzione. Si distingue quella
++        // conosciuta da quella che non esiste: un nome sbagliato resta
++        // grigio invece di sembrare valido. NB è solo un indizio visivo —
++        // a dire se la funzione esiste davvero è la validazione.
++        // I nomi dei token sono quelli che il tema dell'editor dichiara
++        // (THEME_DEF in index.tsx): 'function', 'keyword', 'identifier'…
++        // Un token inventato non colora niente e sembrerebbe che la
++        // grammatica non funzioni.
++        [/[a-zA-Z_][\w]*(?=\s*\()/, {
++          cases: {
++            '@funzioni': 'function',
++            '@default':  'identifier',
++          },
++        }],
++
++        [/[a-zA-Z_][\w]*/, {
++          cases: {
++            '@istruzioni': 'keyword',
++            '@paroleOp':   'keyword',
++            '@default':    'identifier',
++          },
++        }],
++
++        [/"([^"\\]|\\.)*"/, 'string'],
++        [/'([^'\\]|\\.)*'/, 'string'],
++        // Stringa non chiusa: resta colorata come stringa fino a fine
++        // riga. A dire che è un errore è il pannello Validazione, che
++        // legge il parser vero — l'editor non deve dare un secondo
++        // parere che potrebbe contraddirlo.
++        [/"([^"\\]|\\.)*$/, 'string'],
++
++        [/\d+\.\d+/, 'number'],
++        [/\d+/,      'number'],
++
++        [/[{}()[\]]/, 'delimiter'],
++        [/[=!<>]=?|[+\-*/%]|&&|\|\|/, 'delimiter'],
++      ],
++    },
++  })
++
++  // ── Completamento ───────────────────────────────────────────────
++  // Restituisce ciò che il pannello prometteva quando il linguaggio era
++  // TypeScript: i campi in arrivo, le variabili di lane e le funzioni —
++  // queste ultime dal catalogo `functions.ts`, che è la stessa fonte
++  // usata dalla validazione. Un'unica lista, non due che divergono.
++  monaco.languages.registerCompletionItemProvider(FLOWPILOT_LANG_ID, {
++    triggerCharacters: ['"'],
++    provideCompletionItems: (model: any, position: any) => {
++      const parola = model.getWordUntilPosition(position)
++      const range  = {
++        startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
++        startColumn: parola.startColumn,      endColumn: parola.endColumn,
++      }
++      const K = monaco.languages.CompletionItemKind
++
++      const suggestions = [
++        ...contesto.campi.map((nome) => ({
++          label: nome, kind: K.Field, insertText: nome, range,
++          detail: 'campo in ingresso', sortText: '0' + nome,
++        })),
++        ...contesto.variabili.map((nome) => ({
++          label: `var("${nome}")`, kind: K.Variable, insertText: `var("${nome}")`, range,
++          detail: 'variabile di lane (sola lettura)', sortText: '1' + nome,
++        })),
++        ...ISTRUZIONI.map((nome) => ({
++          label: nome, kind: K.Keyword, insertText: nome, range,
++          detail: 'istruzione', sortText: '2' + nome,
++        })),
++        ...FUNCTIONS.map((f) => ({
++          label: f.name, kind: K.Function, range,
++          // Snippet: il cursore si posiziona fra le parentesi.
++          insertText: `${f.name}($0)`,
++          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
++          detail: f.usage, documentation: f.desc, sortText: '3' + f.name,
++        })),
++      ]
++      return { suggestions }
++    },
++  })
++}
+diff --git a/src/components/ScriptEditor/index.tsx b/src/components/ScriptEditor/index.tsx
+index 68f993c..6653f72 100644
+--- a/src/components/ScriptEditor/index.tsx
++++ b/src/components/ScriptEditor/index.tsx
+@@ -1,17 +1,16 @@
+ import { useRef, useCallback, useEffect } from 'react'
+ import Editor, { type OnMount } from '@monaco-editor/react'
++import {
++  FLOWPILOT_LANG_ID, registerFlowpilotLanguage, aggiornaContestoFlowpilot,
++} from './flowpilotLanguage'
+ import type { editor as MonacoEditor } from 'monaco-editor'
+ 
+ // ─── Mappa linguaggi → id Monaco ─────────────────────────────────
+ const MONACO_LANG: Record<string, string> = {
+-  // Il linguaggio del nodo Script non ha una grammatica Monaco propria.
+-  // Si appoggia a quella di Rust per la SOLA evidenziazione: le parole
+-  // chiave coincidono quasi tutte (`let`, `if`, `else`, `for`, `in`), i
+-  // commenti sono `//` e le stringhe uguali. Soprattutto è una grammatica
+-  // TextMate senza analisi semantica, quindi non segna in rosso codice
+-  // valido — cosa che 'typescript' o 'javascript' farebbero a ogni riga.
+-  // Una grammatica vera è un lavoro a sé, non un ripiego da fare in fretta.
+-  flowpilot:  'rust',
++  // Il linguaggio del nodo Script ha ora una grammatica sua (Monarch, in
++  // flowpilotLanguage.ts): prima prendeva in prestito quella di Rust, che
++  // evidenziava let/if/for ma non emit/skip/reject né le funzioni FPEL.
++  flowpilot:  FLOWPILOT_LANG_ID,
+   typescript: 'typescript',
+   python:     'python',
+   java:       'java',
+@@ -158,6 +157,16 @@ export function ScriptEditor({
+         tsLang?.typescriptDefaults?.addExtraLib(typeDefs, 'file:///flowpilot-types.d.ts')
+       }
+     } catch {}
++
++    // Il completamento del linguaggio dello Script legge da un contesto
++    // condiviso invece che dalle props: Monaco registra i provider una
++    // volta per LINGUAGGIO, non per editor, quindi un provider che
++    // chiudesse su queste props resterebbe fermo a quelle del primo
++    // editor montato. Le variabili di POOL non entrano: non sono
++    // raggiungibili dalle espressioni (v. P65).
++    if (monacoLang === FLOWPILOT_LANG_ID) {
++      aggiornaContestoFlowpilot(schema.map((f) => f.name), laneVars.map((v) => v.name))
++    }
+   }, [schema, laneVars, poolVars, monacoLang])
+ 
+   // ── Inserisci snippet alla posizione cursore ───────────────────
+@@ -209,6 +218,11 @@ export function ScriptEditor({
+     monacoInstance.editor.defineTheme(THEME_NAME, THEME_DEF)
+     monacoInstance.editor.setTheme(THEME_NAME)
+ 
++    // Grammatica e completamento del linguaggio dello Script. La
++    // funzione è idempotente: Monaco è globale e onMount scatta per ogni
++    // editor montato.
++    try { registerFlowpilotLanguage(monacoInstance) } catch {}
++
+     // Configura TypeScript
+     try {
+       const tsLang = (monacoInstance.languages as any).typescript
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index 6f572b3..5181dff 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -5,6 +5,7 @@
+ import type { Node as FlowNode } from '@xyflow/react'
+ import type { NodeData } from '../types'
+ import { isLegacyRuleAction } from '../types'
++import { parseScript, istruzioniUsate, ScriptParseError } from './scriptParser'
+ import type {
+   LogicalPlan, LogicalNode, ValidationIssue, ValidationResult, ExecutionSemantics,
+ } from './types'
+@@ -707,6 +708,53 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
+     // qui si controlla, PRIMA di eseguire, che quel campo esista davvero.
+     // È l'intero motivo per cui la sintassi è `${campo}` e non `:param`
+     // nativo di sqlx: se la legge lo studio, lo studio può dirlo.
++    // ── Script: il corpo si legge PRIMA di premere Run ────────────
++    // Finora un errore di sintassi si scopriva solo al Run, perché a
++    // rilanciarlo è `buildRustPlan`. Ma il corpo è compilabile a
++    // design-time — lo fa già la propagazione dello schema — quindi
++    // l'errore si può dire subito, con la riga.
++    if (uiType === 'script') {
++      const codice = String(node._uiRef?.props?.['code'] ?? '')
++      try {
++        const corpo = parseScript(codice)
++        const usate = istruzioniUsate(corpo)
++        const genera = String(node._uiRef?.props?.['sourceMode'] ?? 'flusso') === 'genera'
++
++        // Un generatore senza `emit` non produce NIENTE: il corpo gira una
++        // volta sola e la riga di lavoro non esce da sé (è la differenza
++        // fra le due modalità). Il nodo concluderebbe verde con 0 righe.
++        if (genera && !usate.has('Emit') && codice.trim() !== '') {
++          issues.push({
++            nodeId: canvasId, code: 'SCRIPT_GENERATOR_NO_EMIT',
++            message: `"${label}" genera righe ma non ha nessun "emit": non ne produrrà nessuna`,
++            severity: 'error',
++            hint: 'In modalità «Genera» la riga di lavoro non esce da sola: le righe escono solo dalle istruzioni "emit".',
++          })
++        }
++
++        // `reject` scritto mentre la porta è chiusa: il motore non ha dove
++        // mandare le righe e le PERDE senza dire niente (stessa scelta
++        // degli altri nodi con reject condizionale — ma qui la si è
++        // chiesta esplicitamente scrivendola nel corpo).
++        if (usate.has('Reject') && String(node._uiRef?.props?.['hasReject'] ?? 'false') !== 'true') {
++          issues.push({
++            nodeId: canvasId, code: 'SCRIPT_REJECT_PORT_OFF',
++            message: `"${label}" usa "reject" ma la porta reject non è attiva: le righe scartate spariscono`,
++            severity: 'warning',
++            hint: 'Attiva la porta reject nel pannello del nodo e collegala, oppure usa "skip" se le righe vanno semplicemente scartate.',
++          })
++        }
++      } catch (e) {
++        const dettaglio = e instanceof ScriptParseError ? e.pretty() : String(e)
++        issues.push({
++          nodeId: canvasId, code: 'SCRIPT_PARSE_ERROR',
++          message: `"${label}": ${dettaglio}`,
++          severity: 'error',
++          hint: 'Il Run non parte finché il corpo non compila. Istruzioni: let, assegnazione, if/else, repeat, for, emit, skip, reject, log, error.',
++        })
++      }
++    }
++
+     // ── Error handler: regole col vocabolario vecchio ─────────────
+     // `retry` e `skip` erano azioni dell'handler prima di P34. Oggi
+     // appartengono al NODO (retry = prima operazione prima dell'impegno;
+diff --git a/src/ir/scriptParser.ts b/src/ir/scriptParser.ts
+index 8b008c1..3e0f345 100644
+--- a/src/ir/scriptParser.ts
++++ b/src/ir/scriptParser.ts
+@@ -424,6 +424,27 @@ export function parseScript(src: string): ScriptStmt[] {
+  * `null` quando quel ramo non passa) — stessa convenzione di un
+  * `CASE WHEN` senza `ELSE`.
+  */
++/**
++ * Le istruzioni presenti nel corpo, blocchi annidati inclusi.
++ *
++ * Serve alla validazione a design-time per due domande che si possono
++ * rispondere leggendo il corpo, senza eseguire niente: un generatore che
++ * non ha `emit` non produrrà mai una riga, e uno `reject` scritto mentre
++ * la porta è chiusa fa sparire le righe in silenzio.
++ */
++export function istruzioniUsate(stmts: ScriptStmt[]): Set<ScriptStmt['kind']> {
++  const viste = new Set<ScriptStmt['kind']>()
++  const visita = (lista: ScriptStmt[]) => {
++    for (const s of lista) {
++      viste.add(s.kind)
++      if (s.kind === 'If') { visita(s.then); visita(s.else) }
++      else if (s.kind === 'Repeat' || s.kind === 'For') visita(s.body)
++    }
++  }
++  visita(stmts)
++  return viste
++}
++
+ export function campiAssegnati(stmts: ScriptStmt[]): string[] {
+   const visti: string[] = []
+   const visita = (lista: ScriptStmt[]) => {
+diff --git a/src/nodes/types/script/Panel.tsx b/src/nodes/types/script/Panel.tsx
+index 5e29e3f..72f3595 100644
+--- a/src/nodes/types/script/Panel.tsx
++++ b/src/nodes/types/script/Panel.tsx
+@@ -400,17 +400,18 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
+           </div>
+         </div>
+ 
+-        {/* Qui c'era "autocomplete attivo": era vero solo per TypeScript,
+-            perché le definizioni di tipo si caricano in Monaco unicamente
+-            per quel linguaggio. Tenerlo ora sarebbe una spia che mente. */}
+-        {schema.length > 0 && (
+-          <div style={{ padding: '6px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
+-            <i className="ti ti-forms" style={{ fontSize: 9, color: '#3ddc84' }} />
+-            <span style={{ fontSize: 9, color: '#3ddc84' }}>
+-              {schema.length} campi in ingresso — cliccali qui sotto per inserirli
+-            </span>
+-          </div>
+-        )}
++        {/* La spia era stata tolta perché "autocomplete attivo" valeva solo
++            per TypeScript. Ora il linguaggio ha una grammatica e un
++            provider di completamento suoi, quindi torna — ed è vero:
++            suggerisce i campi in arrivo, le variabili di lane e le
++            funzioni FPEL, dallo stesso catalogo che usa la validazione. */}
++        <div style={{ padding: '6px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
++          <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
++          <span style={{ fontSize: 9, color: '#3ddc84' }}>
++            autocomplete attivo{schema.length > 0 ? ` su ${schema.length} campi, ` : ' su '}
++            variabili di lane e funzioni
++          </span>
++        </div>
+ 
+         <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+           <CustomSelect style={{ ...inputStyle, width: 'auto', fontSize: 10, padding: '2px 6px', color: '#a78bfa' }}
