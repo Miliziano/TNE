@@ -16,6 +16,8 @@
  */
 
 import { parseExpression, ExprParseError, type ExprNode } from './exprParser'
+import { inferExprType, unify, type InferCtx } from './exprTypes'
+import type { FieldType } from '../types/fieldTypes'
 
 // ─── IR ─────────────────────────────────────────────────────────────
 // Rispecchia `enum ScriptStmt` in src-tauri/src/engine/nodes/script.rs.
@@ -456,4 +458,53 @@ export function campiAssegnati(stmts: ScriptStmt[]): string[] {
   }
   visita(stmts)
   return visti
+}
+
+/**
+ * Come campiAssegnati, ma coi TIPI. Cammina gli statement in ordine
+ * mantenendo un ambiente: un campo che ne usa un altro assegnato prima
+ * (`totale = prezzo + iva`) vede il tipo giusto, e i riferimenti ai `let`
+ * risolvono via `__local`. Onesto sui limiti: dove il tipo non è
+ * deducibile (variabile di lane, elemento di un `for`) → `any`, mai una
+ * stringa comoda.
+ *
+ * `tipoIngresso` dà il tipo dei campi della riga in ingresso (per un
+ * generatore non c'è ingresso → restituisce sempre undefined).
+ */
+export function campiAssegnatiTipizzati(
+  stmts: ScriptStmt[],
+  tipoIngresso: (nome: string) => FieldType | undefined,
+): Array<{ name: string; type: FieldType }> {
+  const locali = new Map<string, FieldType>() // let + varName di for/repeat
+  const campi  = new Map<string, FieldType>() // campi assegnati (accumula)
+  const ordine: string[] = []
+
+  const ctx: InferCtx = {
+    field: (n) => campi.get(n) ?? tipoIngresso(n),
+    qualified: (input, field) =>
+      input === LOCAL_INPUT ? locali.get(field) : tipoIngresso(field),
+  }
+
+  const visita = (lista: ScriptStmt[]) => {
+    for (const s of lista) {
+      if (s.kind === 'Let') {
+        locali.set(s.name, inferExprType(s.expr, ctx))
+      } else if (s.kind === 'Assign') {
+        const t = inferExprType(s.expr, ctx)
+        // Assegnato in più rami (if/else) → si unificano i tipi.
+        campi.set(s.field, campi.has(s.field) ? unify(campi.get(s.field)!, t) : t)
+        if (!ordine.includes(s.field)) ordine.push(s.field)
+      } else if (s.kind === 'If') {
+        visita(s.then); visita(s.else)
+      } else if (s.kind === 'Repeat') {
+        if (s.varName) locali.set(s.varName, 'integer') // il contatore è intero
+        visita(s.body)
+      } else if (s.kind === 'For') {
+        locali.set(s.varName, 'any') // tipo dell'elemento non deducibile
+        visita(s.body)
+      }
+    }
+  }
+  visita(stmts)
+  return ordine.map((name) => ({ name, type: campi.get(name)! }))
 }

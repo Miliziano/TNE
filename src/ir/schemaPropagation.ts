@@ -36,7 +36,8 @@ import type {
 } from './types'
 import { isRejectPort } from './types'
 import { topologicalSort, canvasNodeId } from './lowering'
-import { parseScript, campiAssegnati } from './scriptParser'
+import { parseScript, campiAssegnatiTipizzati } from './scriptParser'
+import type { FieldType } from '../types/fieldTypes'
 import { getNodeSemantics } from './nodeSemantics'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
 import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
@@ -255,29 +256,24 @@ function inferOutputSchema(
         const genera = String(props?.sourceMode ?? 'flusso') === 'genera'
         // Un generatore non eredita niente: le sue righe nascono qui.
         const base: SchemaField[] = genera ? [] : inputSchema
-        let campi: string[] = []
+        let stmts
         try {
-          campi = campiAssegnati(parseScript(String(props?.code ?? '')))
+          stmts = parseScript(String(props?.code ?? ''))
         } catch {
           // Corpo con errori di sintassi: nessuna promessa sui campi.
           // Il Run si blocca comunque, buildRustPlan rilancia l'errore.
           return base
         }
-        // Tipo `any` e non `string`: del campo si conosce il NOME, non il
-        // tipo. Dichiararlo stringa sarebbe una bugia comoda — `numero_mese
-        // = mese` è un intero — e le bugie comode sulle promesse dello
-        // studio sono esattamente ciò che questa fase sta togliendo.
-        // L'inferenza vera oggi non è possibile senza inventarsela: il
-        // catalogo `src/ir/functions.ts`, che pure si dichiara fonte di
-        // verità, NON porta i tipi di ritorno (solo nome, arità,
-        // categoria), e l'unico `inferExprType` esistente è privato del
-        // tmap e legato alla sua configurazione. Il posto giusto dove
-        // aggiungerli è quel catalogo: da lì servirebbero sia a questa
-        // propagazione sia al tmap, invece di avere due inferenze che
-        // divergono alla prima modifica.
-        const nuovi = campi
-          .filter((c) => !base.some((f) => f.name === c))
-          .map((c) => ({ name: c, type: 'any' }))
+        // Tipo INFERITO dall'espressione (v. exprTypes.ts): i tipi di
+        // ritorno ora esistono nel catalogo (functions.ts), quindi
+        // `numero_mese = month(d)` esce `integer` e `etichetta = "IVA " +
+        // to_string(iva)` esce `string`, non più `any`. Dove il tipo non
+        // è deducibile (variabile di lane, accesso a struttura) resta
+        // `any` — onesto, non una bugia comoda.
+        const nuovi = campiAssegnatiTipizzati(
+          stmts,
+          (n) => base.find((f) => f.name === n)?.type as FieldType | undefined,
+        ).filter((c) => !base.some((f) => f.name === c.name))
         return normalizeSchema([...base, ...nuovi])
       }
 

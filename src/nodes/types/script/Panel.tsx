@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { getTemplates } from './templates'
-import { parseScript, campiAssegnati } from '../../../ir/scriptParser'
+import { parseScript, campiAssegnatiTipizzati } from '../../../ir/scriptParser'
 import { ScriptEditor, type SchemaField, type ContextVar } from '../../../components/ScriptEditor'
 import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
 import { scriptFieldsToSchema, propagateSchema, applyScriptFields } from '../../../utils/schemaUtils'
@@ -237,15 +237,19 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   // scritta a mano è la prima a invecchiare — chi aggiunge un campo nel
   // corpo e non aggiorna l'elenco vede il campo nel JSON del log ma non
   // nel mapping a valle.
-  // Ora l'elenco lo produce il corpo: `campiAssegnati` legge le
+  // Ora l'elenco lo produce il corpo: `campiAssegnatiTipizzati` legge le
   // assegnazioni (anche dentro if, repeat e for; i `let` no, non sono
   // campi). In modalità "flusso" la riga passa con i suoi campi più
   // quelli nuovi; da "genera" ci sono solo i nuovi.
   const schemaKey = JSON.stringify(schema)
   useEffect(() => {
-    let campi: string[]
+    const base    = (p('sourceMode') || 'flusso') === 'genera' ? [] : schema
+    let tipiCampi: Array<{ name: string; type: string }>
     try {
-      campi = campiAssegnati(parseScript(p('code') ?? ''))
+      tipiCampi = campiAssegnatiTipizzati(
+        parseScript(p('code') ?? ''),
+        (n) => base.find((f) => f.name === n)?.type as any,
+      )
     } catch {
       // Codice incompleto mentre si scrive: non si tocca niente. Meglio
       // un elenco vecchio di un elenco che sfarfalla a ogni carattere.
@@ -253,18 +257,19 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
     }
 
     const attuali = outputFieldsRef.current
-    const base    = (p('sourceMode') || 'flusso') === 'genera' ? [] : schema
-    const nomi    = [...base.map((f) => f.name), ...campi.filter((c) => !base.some((f) => f.name === c))]
+    const nomi    = [...base.map((f) => f.name), ...tipiCampi.filter((c) => !base.some((f) => f.name === c.name)).map((c) => c.name)]
 
-    // Il tipo scelto a mano nel pannello di mapping si conserva: il codice
-    // dice QUALI campi escono, non di che tipo sono (v. il commento in
-    // schemaPropagation: i tipi di ritorno delle funzioni non esistono
-    // ancora nel catalogo FPEL).
+    // Il tipo scelto a mano nel pannello di mapping si conserva (un campo
+    // già in elenco non si tocca): il codice dice QUALI campi escono, e
+    // ora anche di che tipo — ma un override manuale resta valido, es.
+    // un `var()` che l'inferenza dà `any` e l'utente sa essere stringa.
+    // Per i campi nuovi il tipo è quello inferito (v. exprTypes.ts).
     const nuovi = nomi.map((nome) => {
       const esistente = attuali.find((f) => f.name === nome)
       if (esistente) return esistente
-      const daMonte = base.find((f) => f.name === nome)
-      return { id: `sf_${nome}`, name: nome, type: daMonte?.type ?? 'any' }
+      const daMonte  = base.find((f) => f.name === nome)
+      const inferito = tipiCampi.find((c) => c.name === nome)?.type
+      return { id: `sf_${nome}`, name: nome, type: daMonte?.type ?? inferito ?? 'any' }
     })
 
     const invariato = nuovi.length === attuali.length &&

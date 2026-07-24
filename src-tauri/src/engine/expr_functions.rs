@@ -102,6 +102,17 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             None => Value::Null,
         },
 
+        // Componenti singole (data → intero). Mancavano: il catalogo le
+        // prometteva ma cadevano nel `_ => return None` e tornavano null
+        // con un eprintln. `date_arg` accetta Date/DateTime/String; i trait
+        // Datelike/Timelike sono già importati (riga 13).
+        "year"   => match date_arg(a0) { Some(d) => Value::Int(d.year()   as i64), None => Value::Null },
+        "month"  => match date_arg(a0) { Some(d) => Value::Int(d.month()  as i64), None => Value::Null },
+        "day"    => match date_arg(a0) { Some(d) => Value::Int(d.day()    as i64), None => Value::Null },
+        "hour"   => match date_arg(a0) { Some(d) => Value::Int(d.hour()   as i64), None => Value::Null },
+        "minute" => match date_arg(a0) { Some(d) => Value::Int(d.minute() as i64), None => Value::Null },
+        "second" => match date_arg(a0) { Some(d) => Value::Int(d.second() as i64), None => Value::Null },
+
         // ── Date: aritmetica ─────────────────────────────────────
         "add_days" => match (date_arg(a0), i(a1)) {
             (Some(d), Some(n)) => date_out(d + Duration::days(n)),
