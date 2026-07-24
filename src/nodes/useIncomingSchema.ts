@@ -20,7 +20,10 @@ import { useFlowStore } from '../store/flowStore'
 import type { SchemaField } from './../utils/schemaUtils'
 import { readOutputSchema, readIncomingSchema } from './../utils/schemaUtils'
 
-// Nodi passthrough — non producono schema proprio, lo ereditano
+// Nodi passthrough — non producono schema proprio, lo ereditano.
+// NB lo `script` NON è qui, ed è giusto: aggiunge campi propri. Il suo
+// schema arriva da `props.outputSchema`, che il pannello ricava dal corpo
+// (v. l'effetto in script/Panel.tsx) — la stessa via delle sorgenti.
 const PASSTHROUGH_TYPES = new Set(['log', 'materialize'])
 
 /**

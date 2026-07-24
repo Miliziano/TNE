@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { getTemplates } from './templates'
+import { parseScript, campiAssegnati } from '../../../ir/scriptParser'
 import { ScriptEditor, type SchemaField, type ContextVar } from '../../../components/ScriptEditor'
 import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
 import { scriptFieldsToSchema, propagateSchema } from '../../../utils/schemaUtils'
@@ -228,6 +229,53 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
     const schemaFields = scriptFieldsToSchema(fields)
     propagateSchema(nodeId, schemaFields, useFlowStore.getState())
   }, [outEdgeKey, nodeId])
+
+  // ── I campi in uscita si DERIVANO dal codice ──────────────────
+  // Prima andavano dichiarati a mano nel pannello di mapping: un elenco
+  // che diceva "questo Script produce X, Y, Z" senza che nessuno lo
+  // verificasse contro il codice. Due verità sullo stesso fatto, e quella
+  // scritta a mano è la prima a invecchiare — chi aggiunge un campo nel
+  // corpo e non aggiorna l'elenco vede il campo nel JSON del log ma non
+  // nel mapping a valle.
+  // Ora l'elenco lo produce il corpo: `campiAssegnati` legge le
+  // assegnazioni (anche dentro if, repeat e for; i `let` no, non sono
+  // campi). In modalità "flusso" la riga passa con i suoi campi più
+  // quelli nuovi; da "genera" ci sono solo i nuovi.
+  const schemaKey = JSON.stringify(schema)
+  useEffect(() => {
+    let campi: string[]
+    try {
+      campi = campiAssegnati(parseScript(p('code') ?? ''))
+    } catch {
+      // Codice incompleto mentre si scrive: non si tocca niente. Meglio
+      // un elenco vecchio di un elenco che sfarfalla a ogni carattere.
+      return
+    }
+
+    const attuali = outputFieldsRef.current
+    const base    = (p('sourceMode') || 'flusso') === 'genera' ? [] : schema
+    const nomi    = [...base.map((f) => f.name), ...campi.filter((c) => !base.some((f) => f.name === c))]
+
+    // Il tipo scelto a mano nel pannello di mapping si conserva: il codice
+    // dice QUALI campi escono, non di che tipo sono (v. il commento in
+    // schemaPropagation: i tipi di ritorno delle funzioni non esistono
+    // ancora nel catalogo FPEL).
+    const nuovi = nomi.map((nome) => {
+      const esistente = attuali.find((f) => f.name === nome)
+      if (esistente) return esistente
+      const daMonte = base.find((f) => f.name === nome)
+      return { id: `sf_${nome}`, name: nome, type: daMonte?.type ?? 'any' }
+    })
+
+    const invariato = nuovi.length === attuali.length &&
+      nuovi.every((f, i) => f.name === attuali[i].name && f.type === attuali[i].type)
+    if (invariato) return
+
+    updateProp(nodeId, 'outputFields', JSON.stringify(nuovi))
+    updateProp(nodeId, 'rejectFields', JSON.stringify(
+      nuovi.map((f) => ({ ...f, id: `rf_${f.id}` }))))
+    propagateSchema(nodeId, scriptFieldsToSchema(nuovi), useFlowStore.getState())
+  }, [p('code'), p('sourceMode'), schemaKey, nodeId, updateProp])
 
   // ── Propaga rename campi input nel codice ─────────────────────
   const prevSchemaRef = useRef<SchemaField[]>([])
