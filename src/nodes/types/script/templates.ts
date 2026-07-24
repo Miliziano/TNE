@@ -1,13 +1,19 @@
-// ─── Tipi ────────────────────────────────────────────────────────
-
-export interface ScriptLanguage {
-  value:        string
-  label:        string
-  icon:         string
-  ext:          string
-  lineComment:  string
-  blockComment: { open: string; close: string }
-}
+/**
+ * src/nodes/types/script/templates.ts
+ *
+ * Esempi pronti per il nodo Script, nel linguaggio di FlowPilot
+ * (istruzioni + espressioni FPEL — v. src-tauri/docs/design-nodo-script.md).
+ *
+ * Prima questo file conteneva ~120 esempi in TypeScript, Python, Java e
+ * Groovy: quattro linguaggi che il motore non ha mai eseguito e che
+ * nessun codegen ha mai tradotto. Ora ce n'e' uno solo, ed e' quello che
+ * gira davvero.
+ *
+ * Ogni esempio usa SOLO funzioni che esistono in `expr_functions.rs`.
+ * Un template che non funziona e' peggio di un template che manca:
+ * insegna una sintassi sbagliata e fa perdere tempo a capire di chi sia
+ * la colpa.
+ */
 
 export interface ScriptTemplate {
   id:          string
@@ -17,1611 +23,292 @@ export interface ScriptTemplate {
   code:        string
 }
 
-// ─── Lingue supportate ────────────────────────────────────────────
+const T = (...righe: string[]) => righe.join('\n')
 
-export const SCRIPT_LANGUAGES: ScriptLanguage[] = [
+export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
+
+  // == Base =====================================================
   {
-    value: 'typescript', label: 'TypeScript', icon: 'ti-brand-typescript',
-    ext: 'ts', lineComment: '//', blockComment: { open: '/*', close: '*/' },
+    id: 'base_trasforma', category: 'Base',
+    label: 'Aggiungere campi',
+    description: 'Calcola campi nuovi; quelli che non tocchi passano invariati',
+    code: T(
+      '// I campi si leggono per nome. Assegnare crea o sovrascrive.',
+      '// Quello che non assegni passa a valle com\'era.',
+      'elaborato_il  = today()',
+      'nome_completo = concat_ws(" ", nome, cognome)',
+    ),
   },
   {
-    value: 'python', label: 'Python', icon: 'ti-brand-python',
-    ext: 'py', lineComment: '#', blockComment: { open: '"""', close: '"""' },
+    id: 'base_intermedi', category: 'Base',
+    label: 'Valori intermedi con let',
+    description: 'Calcoli d\'appoggio che non finiscono nella riga in uscita',
+    code: T(
+      '// "let" NON crea un campo: vale solo dentro lo script.',
+      'let imponibile = quantita * prezzo_unitario',
+      'let iva        = round(imponibile * 0.22, 2)',
+      '',
+      'totale = round(imponibile + iva, 2)',
+    ),
   },
   {
-    value: 'java', label: 'Java', icon: 'ti-coffee',
-    ext: 'java', lineComment: '//', blockComment: { open: '/*', close: '*/' },
+    id: 'base_condizione', category: 'Base',
+    label: 'Condizione',
+    description: 'Rami diversi secondo il contenuto della riga',
+    code: T(
+      'if totale > 1000 {',
+      '  fascia = "alta"',
+      '  log "Ordine sopra soglia: " + codice',
+      '} else if totale > 100 {',
+      '  fascia = "media"',
+      '} else {',
+      '  fascia = "bassa"',
+      '}',
+    ),
   },
   {
-    value: 'groovy', label: 'Groovy', icon: 'ti-brand-java',
-    ext: 'groovy', lineComment: '//', blockComment: { open: '/*', close: '*/' },
+    id: 'base_filtro', category: 'Base',
+    label: 'Filtrare (skip)',
+    description: 'Le righe che non interessano non escono da nessuna porta',
+    code: T(
+      '// "skip" ferma l\'elaborazione di QUESTA riga: non esce da nessuna',
+      '// parte e le istruzioni successive non vengono eseguite.',
+      'if stato != "attivo" {',
+      '  skip',
+      '}',
+    ),
+  },
+  {
+    id: 'base_scarto', category: 'Base',
+    label: 'Scartare con motivo (reject)',
+    description: 'Manda la riga sulla porta reject spiegando perche',
+    code: T(
+      '// Richiede la porta "reject" attiva nel pannello. Il motivo finisce',
+      '// nel campo _reject_reason della riga scartata.',
+      'if email is null {',
+      '  reject "email mancante"',
+      '}',
+      'if quantita <= 0 {',
+      '  reject "quantita non valida: " + to_string(quantita)',
+      '}',
+    ),
+  },
+  {
+    id: 'base_errore', category: 'Base',
+    label: 'Fallire (error)',
+    description: 'Ferma il nodo e manda l\'errore all\'error handler della lane',
+    code: T(
+      '// Diverso da reject: qui e\' il NODO a fallire, e l\'errore prende il',
+      '// canale di controllo come qualunque altro fallimento.',
+      'if tipo_record is null {',
+      '  error "record senza tipo: il file non ha il formato atteso"',
+      '}',
+    ),
+  },
+
+  // == Piu righe ================================================
+  {
+    id: 'fanout_ripeti', category: 'Piu righe',
+    label: 'Una riga -> N copie',
+    description: 'Duplica ogni riga un numero di volte',
+    code: T(
+      '// "emit" manda a valle una copia della riga com\'e in quel momento;',
+      '// non interrompe niente. Il "skip" finale evita che esca ANCHE',
+      '// l\'originale: senza, uscirebbero N copie piu la riga di partenza.',
+      'repeat quantita as copia {',
+      '  numero_copia = copia',
+      '  emit',
+      '}',
+      'skip',
+    ),
+  },
+  {
+    id: 'fanout_array', category: 'Piu righe',
+    label: 'Espandere un array',
+    description: 'Un campo che contiene un array JSON diventa una riga per elemento',
+    code: T(
+      '// Il campo deve contenere un array (per esempio da un JSON Parser).',
+      'for elemento in dettagli {',
+      '  dettaglio = elemento',
+      '  emit',
+      '}',
+      'skip',
+    ),
+  },
+  {
+    id: 'gen_serie', category: 'Piu righe',
+    label: 'Generare righe dal nulla',
+    description: 'Nodo di partenza: nessun ingresso, le righe le produce lui',
+    code: T(
+      '// Metti "Sorgente delle righe" su GENERA: la porta d\'ingresso',
+      '// sparisce, il corpo gira UNA volta sola e le righe escono solo',
+      '// dalle "emit". Qui non serve "skip": senza ingresso non c\'e',
+      '// nessuna riga originale da trattenere.',
+      'repeat 12 as mese {',
+      '  numero_mese = mese',
+      '  etichetta   = "mese " + to_string(mese)',
+      '  emit',
+      '}',
+    ),
+  },
+
+  // == Stringhe =================================================
+  {
+    id: 'str_normalizza', category: 'Stringhe',
+    label: 'Normalizzare',
+    description: 'Spazi, maiuscole, accenti',
+    code: T(
+      'nome    = title_case(trim(nome))',
+      'codice  = upper(trim(codice))',
+      'ricerca = to_slug(remove_accents(descrizione))',
+    ),
+  },
+  {
+    id: 'str_maschera', category: 'Stringhe',
+    label: 'Mascherare dati sensibili',
+    description: 'Email e carte di credito offuscate',
+    code: T(
+      'email_pubblica = mask_email(email)',
+      'carta_pubblica = mask_card(numero_carta)',
+    ),
+  },
+  {
+    id: 'str_estrai', category: 'Stringhe',
+    label: 'Estrarre e sostituire',
+    description: 'Sottostringhe, riempimenti, espressioni regolari',
+    code: T(
+      'prefisso    = left(codice, 3)',
+      'progressivo = pad_left(to_string(numero), 6, "0")',
+      'pulito      = replace_regex(telefono, "[^0-9]", "")',
+    ),
+  },
+
+  // == Date =====================================================
+  {
+    id: 'data_formatta', category: 'Date',
+    label: 'Formattare una data',
+    description: 'Da data a stringa nel formato che serve',
+    code: T(
+      '// Il pattern accetta sia dd/MM/yyyy sia %d/%m/%Y.',
+      'data_italiana = date_format(data_ordine, "dd/MM/yyyy")',
+      'anno_mese     = date_format(data_ordine, "yyyy-MM")',
+    ),
+  },
+  {
+    id: 'data_calcoli', category: 'Date',
+    label: 'Calcoli sulle date',
+    description: 'Scadenze, differenze, trimestri',
+    code: T(
+      'scadenza      = add_days(data_fattura, 30)',
+      'giorni_aperto = diff_days(today(), data_apertura)',
+      'trimestre     = quarter(data_ordine)',
+      '',
+      'if is_weekend(data_consegna) {',
+      '  nota = "consegna nel fine settimana"',
+      '}',
+    ),
+  },
+
+  // == Numeri ===================================================
+  {
+    id: 'num_calcoli', category: 'Numeri',
+    label: 'Calcoli e arrotondamenti',
+    description: 'Sconti, totali, valori entro un intervallo',
+    code: T(
+      'let sconto_valido = clamp(sconto_percentuale, 0, 100)',
+      'let scontato      = prezzo * (1 - sconto_valido / 100)',
+      '',
+      'prezzo_finale = round(scontato, 2)',
+      'risparmio     = round(prezzo - scontato, 2)',
+    ),
+  },
+  {
+    id: 'num_sicuri', category: 'Numeri',
+    label: 'Difendersi dai valori mancanti',
+    description: 'Valori predefiniti e divisioni sicure',
+    code: T(
+      '// coalesce restituisce il primo valore non nullo.',
+      'let q = coalesce(quantita, 0)',
+      'let t = coalesce(totale, 0)',
+      '',
+      '// La divisione per zero da null: iif evita di propagarlo.',
+      'prezzo_medio = iif(q > 0, round(t / q, 2), 0)',
+    ),
+  },
+
+  // == Controlli ================================================
+  {
+    id: 'val_obbligatori', category: 'Controlli',
+    label: 'Campi obbligatori',
+    description: 'Scarta le righe incomplete dicendo cosa manca',
+    code: T(
+      'if codice is null {',
+      '  reject "manca il codice"',
+      '}',
+      'if descrizione is null {',
+      '  reject "manca la descrizione per " + codice',
+      '}',
+      'if length(trim(coalesce(descrizione, ""))) < 3 {',
+      '  reject "descrizione troppo corta per " + codice',
+      '}',
+    ),
+  },
+  {
+    id: 'val_formato', category: 'Controlli',
+    label: 'Formato di un campo',
+    description: 'Controlla la forma con un\'espressione regolare',
+    code: T(
+      'if regex_match(email, "^[^@ ]+@[^@ ]+\\\\.[a-z]{2,}$") == false {',
+      '  reject "email non valida: " + email',
+      '}',
+      'if starts_with(iban, "IT") == false {',
+      '  log "IBAN estero su " + codice',
+      '  estero = true',
+      '}',
+    ),
+  },
+  {
+    id: 'chiave_hash', category: 'Controlli',
+    label: 'Chiave stabile',
+    description: 'Un\'impronta riproducibile da piu campi',
+    code: T(
+      '// concat_ws con un separatore evita che "AB"+"C" e "A"+"BC"',
+      '// producano la stessa chiave.',
+      'chiave = hash_sha256(concat_ws("|", codice, to_string(data_ordine), cliente))',
+    ),
+  },
+
+  // == Variabili di lane ========================================
+  {
+    id: 'lane_leggi', category: 'Variabili di lane',
+    label: 'Leggere una variabile di lane',
+    description: 'Valori condivisi nella lane, letti con var()',
+    code: T(
+      '// var("nome") legge una variabile della lane. Scriverle dallo',
+      '// script non e ancora possibile: arriva con una fetta successiva.',
+      'ambiente    = var("ambiente")',
+      'data_carico = var("data_esecuzione")',
+      '',
+      'if var("ambiente") == "test" {',
+      '  log "riga elaborata in test: " + codice',
+      '}',
+    ),
   },
 ]
 
-// ─── Template per linguaggio ──────────────────────────────────────
+// === Accesso ========================================================
 
-export const SCRIPT_TEMPLATES: Record<string, ScriptTemplate[]> = {
-
-  // ══════════════════════════════════════════════════════════════
-  // TYPESCRIPT
-  // ══════════════════════════════════════════════════════════════
-  typescript: [
-
-    // ── Base ──────────────────────────────────────────────────
-    {
-      id: 'ts_transform', category: 'Base',
-      label: 'Transform base',
-      description: 'Trasforma ogni riga in ingresso',
-      code: [
-        'function transform(row: Row, context: Context): Row | null {',
-        '  return {',
-        '    ...row,',
-        '    processed_at: new Date().toISOString(),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_emit', category: 'Base',
-      label: 'Emit (1 → N righe)',
-      description: 'Genera N righe per ogni riga in ingresso',
-      code: [
-        'function transform(row: Row, context: Context): Row[] {',
-        '  const results: Row[] = []',
-        '  const items = (row.items as any[]) ?? []',
-        '  for (const item of items) {',
-        '    results.push({ ...row, item_id: item.id, item_value: item.value })',
-        '  }',
-        '  return results',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_filter', category: 'Base',
-      label: 'Filtro riga',
-      description: 'Scarta righe che non soddisfano la condizione',
-      code: [
-        'function transform(row: Row, context: Context): Row | null {',
-        '  if (row.status === "deleted") return null',
-        '  if (!row.email) return null',
-        '  return row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_passthrough', category: 'Base',
-      label: 'Passthrough',
-      description: 'Lascia passare la riga senza modifiche',
-      code: 'function transform(row: Row, context: Context): Row {\n  return row\n}',
-    },
-
-    // ── Stringhe ──────────────────────────────────────────────
-    {
-      id: 'ts_str_normalize', category: 'Stringhe',
-      label: 'Normalizza stringhe',
-      description: 'Trim e lowercase su tutti i campi stringa',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const result: Row = { ...row }',
-        '  for (const key of Object.keys(result)) {',
-        '    if (typeof result[key] === "string") {',
-        '      result[key] = (result[key] as string).trim().toLowerCase()',
-        '    }',
-        '  }',
-        '  return result',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_str_concat', category: 'Stringhe',
-      label: 'Concatena campi',
-      description: 'Unisce più campi in uno solo',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    full_name: [row.first_name, row.last_name]',
-        '      .filter(Boolean).join(" ").trim(),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_str_split', category: 'Stringhe',
-      label: 'Spacchetta campo',
-      description: 'Divide un campo stringa in più campi',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const parts = String(row.full_name ?? "").split(" ")',
-        '  return {',
-        '    ...row,',
-        '    first_name: parts[0] ?? "",',
-        '    last_name:  parts.slice(1).join(" ") ?? "",',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_str_regex', category: 'Stringhe',
-      label: 'Pulizia con regex',
-      description: 'Rimuove caratteri indesiderati con regex',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    phone: String(row.phone ?? "").replace(/[^\\d+]/g, ""),',
-        '    cf:    String(row.cf ?? "").toUpperCase().replace(/\\s/g, ""),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_str_pad', category: 'Stringhe',
-      label: 'Padding numerico',
-      description: 'Padding a sinistra per codici e ID',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    codice: String(row.codice ?? "").padStart(8, "0"),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_str_mask', category: 'Stringhe',
-      label: 'Maschera dati sensibili',
-      description: 'Oscura email e carta di credito',
-      code: [
-        'function maskEmail(email: string): string {',
-        '  const [user, domain] = email.split("@")',
-        '  return user.slice(0, 2) + "***@" + domain',
-        '}',
-        'function maskCard(card: string): string {',
-        '  return "**** **** **** " + card.slice(-4)',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    email:       row.email ? maskEmail(String(row.email)) : null,',
-        '    card_number: row.card_number ? maskCard(String(row.card_number)) : null,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Date ──────────────────────────────────────────────────
-    {
-      id: 'ts_date_format', category: 'Date',
-      label: 'Formatta data',
-      description: 'Converte una data in formato ISO o leggibile',
-      code: [
-        'function formatDate(val: unknown, fmt: "iso" | "it" | "us" = "iso"): string {',
-        '  const d = new Date(val as string)',
-        '  if (isNaN(d.getTime())) return ""',
-        '  const y  = d.getFullYear()',
-        '  const m  = String(d.getMonth() + 1).padStart(2, "0")',
-        '  const dd = String(d.getDate()).padStart(2, "0")',
-        '  if (fmt === "it") return `${dd}/${m}/${y}`',
-        '  if (fmt === "us") return `${m}/${dd}/${y}`',
-        '  return `${y}-${m}-${dd}`',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  return { ...row, created_at_fmt: formatDate(row.created_at, "it") }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_date_diff', category: 'Date',
-      label: 'Differenza tra date',
-      description: 'Calcola giorni tra due date',
-      code: [
-        'function daysDiff(a: unknown, b: unknown): number {',
-        '  const da = new Date(a as string).getTime()',
-        '  const db = new Date(b as string).getTime()',
-        '  return Math.round((db - da) / 86400000)',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    days_open: daysDiff(row.created_at, row.closed_at ?? new Date()),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_date_add', category: 'Date',
-      label: 'Aggiungi giorni a data',
-      description: 'Calcola una data futura o passata',
-      code: [
-        'function addDays(val: unknown, days: number): string {',
-        '  const d = new Date(val as string)',
-        '  d.setDate(d.getDate() + days)',
-        '  return d.toISOString().split("T")[0]',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  return { ...row, scadenza: addDays(row.data_inizio, 30) }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_date_quarter', category: 'Date',
-      label: 'Trimestre e anno',
-      description: 'Estrae trimestre e anno da una data',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const d = new Date(row.data as string)',
-        '  const q = Math.ceil((d.getMonth() + 1) / 3)',
-        '  return {',
-        '    ...row,',
-        '    anno:      d.getFullYear(),',
-        '    mese:      d.getMonth() + 1,',
-        '    trimestre: `Q${q} ${d.getFullYear()}`,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_date_ts', category: 'Date',
-      label: 'Timestamp unix',
-      description: 'Converte data in timestamp unix (ms)',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    ts: new Date(row.created_at as string).getTime(),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Numeri ────────────────────────────────────────────────
-    {
-      id: 'ts_num_round', category: 'Numeri',
-      label: 'Arrotondamenti',
-      description: 'Round, floor, ceil su campi numerici',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const amount = Number(row.amount ?? 0)',
-        '  return {',
-        '    ...row,',
-        '    amount_round: Math.round(amount * 100) / 100,',
-        '    amount_floor: Math.floor(amount),',
-        '    amount_ceil:  Math.ceil(amount),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_num_calc', category: 'Numeri',
-      label: 'Calcolo IVA e sconti',
-      description: 'Calcola imponibile, IVA e totale',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const aliquota   = Number(context.pool.iva_rate ?? 0.22)',
-        '  const imponibile = Number(row.prezzo ?? 0)',
-        '  const sconto     = Number(row.sconto_pct ?? 0) / 100',
-        '  const netto      = imponibile * (1 - sconto)',
-        '  const iva        = netto * aliquota',
-        '  return {',
-        '    ...row,',
-        '    imponibile: Math.round(netto * 100) / 100,',
-        '    iva:        Math.round(iva * 100) / 100,',
-        '    totale:     Math.round((netto + iva) * 100) / 100,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_num_currency', category: 'Numeri',
-      label: 'Conversione valuta',
-      description: 'Converte importo usando tasso da variabile pool',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const rate       = Number(context.pool.eur_usd_rate ?? 1)',
-        '  const amount_eur = Number(row.amount_usd ?? 0)',
-        '  return {',
-        '    ...row,',
-        '    amount_eur: Math.round(amount_eur / rate * 100) / 100,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_num_normalize', category: 'Numeri',
-      label: 'Normalizza numeri',
-      description: 'Converte stringhe numeriche e gestisce null',
-      code: [
-        'function toNum(val: unknown, fallback = 0): number {',
-        '  const n = Number(String(val ?? "").replace(",", "."))',
-        '  return isNaN(n) ? fallback : n',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  return {',
-        '    ...row,',
-        '    amount:   toNum(row.amount),',
-        '    quantity: toNum(row.quantity, 1),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Validazione ───────────────────────────────────────────
-    {
-      id: 'ts_validate_email', category: 'Validazione',
-      label: 'Valida email',
-      description: 'Controlla formato email',
-      code: [
-        'function isValidEmail(email: unknown): boolean {',
-        '  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(email ?? ""))',
-        '}',
-        'function transform(row: Row, context: Context): Row | null {',
-        '  if (!isValidEmail(row.email)) {',
-        '    context.log(`Email non valida: ${row.id} → ${row.email}`)',
-        '    return null',
-        '  }',
-        '  return { ...row, email: String(row.email).toLowerCase().trim() }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_validate_cf', category: 'Validazione',
-      label: 'Valida codice fiscale IT',
-      description: 'Controlla il formato del codice fiscale italiano',
-      code: [
-        'function isValidCF(cf: unknown): boolean {',
-        '  return /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/',
-        '    .test(String(cf ?? "").toUpperCase().trim())',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  const cf = String(row.codice_fiscale ?? "").toUpperCase().trim()',
-        '  return { ...row, codice_fiscale: cf, cf_valido: isValidCF(cf) }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_validate_multi', category: 'Validazione',
-      label: 'Validazione multi-campo',
-      description: 'Valida più campi e accumula gli errori',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const errors: string[] = []',
-        '  if (!row.nome)            errors.push("nome mancante")',
-        '  if (!row.email)           errors.push("email mancante")',
-        '  if (Number(row.eta) < 18) errors.push("età < 18")',
-        '  return {',
-        '    ...row,',
-        '    is_valid:     errors.length === 0,',
-        '    error_detail: errors.join(" | ") || null,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_validate_required', category: 'Validazione',
-      label: 'Campi obbligatori',
-      description: 'Scarta righe con campi obbligatori mancanti',
-      code: [
-        'const REQUIRED = ["id", "nome", "email"]',
-        'function transform(row: Row, context: Context): Row | null {',
-        '  for (const field of REQUIRED) {',
-        '    if (row[field] === null || row[field] === undefined || row[field] === "") {',
-        '      context.log(`Campo ${field} mancante`)',
-        '      return null',
-        '    }',
-        '  }',
-        '  return row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Arricchimento ─────────────────────────────────────────
-    {
-      id: 'ts_enrich_lookup', category: 'Arricchimento',
-      label: 'Lookup da variabile pool',
-      description: 'Arricchisce la riga con dati da una mappa in pool',
-      code: [
-        '// In pool: category_map = {"A": "Premium", "B": "Standard"}',
-        'function transform(row: Row, context: Context): Row {',
-        '  const map = context.pool.category_map as Record<string, string> ?? {}',
-        '  return {',
-        '    ...row,',
-        '    category_label: map[String(row.category_code)] ?? "Sconosciuta",',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_enrich_compute', category: 'Arricchimento',
-      label: 'Campi calcolati multipli',
-      description: 'Aggiunge più campi derivati dalla riga',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const qty   = Number(row.quantity ?? 0)',
-        '  const price = Number(row.unit_price ?? 0)',
-        '  const disc  = Number(row.discount_pct ?? 0) / 100',
-        '  const netto = qty * price * (1 - disc)',
-        '  return {',
-        '    ...row,',
-        '    subtotal:      Math.round(qty * price * 100) / 100,',
-        '    total:         Math.round(netto * 100) / 100,',
-        '    is_discounted: disc > 0,',
-        '    processed_at:  new Date().toISOString(),',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_enrich_geo', category: 'Arricchimento',
-      label: 'Parsing indirizzo',
-      description: 'Spacchetta un indirizzo in componenti',
-      code: [
-        'function parseAddress(addr: string): Record<string, string> {',
-        '  const match = addr.match(/^(.+),\\s*(\\d{5})\\s+(.+?)\\s+([A-Z]{2})$/)',
-        '  if (!match) return { indirizzo_raw: addr }',
-        '  return { via: match[1].trim(), cap: match[2], citta: match[3].trim(), prov: match[4] }',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  return { ...row, ...parseAddress(String(row.indirizzo ?? "")) }',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Stato persistente ─────────────────────────────────────
-    {
-      id: 'ts_state_counter', category: 'Stato persistente',
-      label: 'Contatore progressivo',
-      description: 'Aggiunge un numero di riga progressivo',
-      code: [
-        'let rowNumber = 0',
-        'function transform(row: Row, context: Context): Row {',
-        '  rowNumber++',
-        '  return { ...row, row_number: rowNumber }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_state_running', category: 'Stato persistente',
-      label: 'Running total',
-      description: 'Calcola totale e media progressivi',
-      code: [
-        'let count = 0',
-        'let sum   = 0',
-        'function transform(row: Row, context: Context): Row {',
-        '  count++',
-        '  sum += Number(row.amount ?? 0)',
-        '  return {',
-        '    ...row,',
-        '    running_count: count,',
-        '    running_sum:   Math.round(sum * 100) / 100,',
-        '    running_avg:   Math.round(sum / count * 100) / 100,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_state_dedup', category: 'Stato persistente',
-      label: 'Deduplicazione',
-      description: 'Scarta righe duplicate per chiave',
-      code: [
-        'const seen = new Set<string>()',
-        'function transform(row: Row, context: Context): Row | null {',
-        '  const key = String(row.id ?? "")',
-        '  if (seen.has(key)) { context.log(`Duplicato: ${key}`); return null }',
-        '  seen.add(key)',
-        '  return row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_state_prev', category: 'Stato persistente',
-      label: 'Confronto con riga precedente',
-      description: 'Calcola delta rispetto alla riga precedente',
-      code: [
-        'let prevRow: Row | null = null',
-        'function transform(row: Row, context: Context): Row {',
-        '  const delta = prevRow ? Number(row.amount) - Number(prevRow.amount) : 0',
-        '  prevRow = row',
-        '  return {',
-        '    ...row,',
-        '    delta_amount: Math.round(delta * 100) / 100,',
-        '    is_increase:  delta > 0,',
-        '  }',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Log e debug ───────────────────────────────────────────
-    {
-      id: 'ts_log_sample', category: 'Log e debug',
-      label: 'Log ogni N righe',
-      description: 'Stampa nel log ogni N righe per monitoraggio',
-      code: [
-        'let n = 0',
-        'function transform(row: Row, context: Context): Row {',
-        '  n++',
-        '  if (n % 1000 === 0) context.log(`Elaborate ${n} righe`)',
-        '  return row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_log_anomaly', category: 'Log e debug',
-      label: 'Log anomalie',
-      description: 'Logga valori anomali senza scartare la riga',
-      code: [
-        'function transform(row: Row, context: Context): Row {',
-        '  const amount = Number(row.amount ?? 0)',
-        '  if (amount < 0)      context.log(`Negativo: ${row.id} → ${amount}`)',
-        '  if (amount > 100000) context.log(`Elevato:  ${row.id} → ${amount}`)',
-        '  if (!row.email)      context.log(`Email mancante: ${row.id}`)',
-        '  return row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── JSON e oggetti ────────────────────────────────────────
-    {
-      id: 'ts_json_flatten', category: 'JSON e oggetti',
-      label: 'Flatten oggetto JSON',
-      description: 'Appiattisce un campo JSON annidato',
-      code: [
-        'function flatten(obj: Record<string, unknown>, prefix = ""): Record<string, unknown> {',
-        '  const result: Record<string, unknown> = {}',
-        '  for (const [k, v] of Object.entries(obj)) {',
-        '    const key = prefix ? `${prefix}_${k}` : k',
-        '    if (v && typeof v === "object" && !Array.isArray(v)) {',
-        '      Object.assign(result, flatten(v as Record<string, unknown>, key))',
-        '    } else { result[key] = v }',
-        '  }',
-        '  return result',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  const meta = row.metadata as Record<string, unknown> ?? {}',
-        '  return { ...row, ...flatten(meta, "meta") }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_json_parse', category: 'JSON e oggetti',
-      label: 'Parse campo JSON',
-      description: 'Deserializza un campo stringa JSON',
-      code: [
-        'function safeParse<T>(val: unknown, fallback: T): T {',
-        '  try { return JSON.parse(String(val)) } catch { return fallback }',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  const tags   = safeParse<string[]>(row.tags_json, [])',
-        '  const config = safeParse<Record<string, unknown>>(row.config_json, {})',
-        '  return { ...row, tags, config, tag_count: tags.length }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_json_pick', category: 'JSON e oggetti',
-      label: 'Seleziona campi (pick)',
-      description: 'Mantieni solo i campi specificati',
-      code: [
-        'const KEEP = ["id", "nome", "email", "created_at"]',
-        'function transform(row: Row, context: Context): Row {',
-        '  return Object.fromEntries(KEEP.filter((k) => k in row).map((k) => [k, row[k]])) as Row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_json_omit', category: 'JSON e oggetti',
-      label: 'Rimuovi campi (omit)',
-      description: 'Rimuovi campi sensibili o inutili',
-      code: [
-        'const OMIT = ["password", "token", "secret", "internal_notes"]',
-        'function transform(row: Row, context: Context): Row {',
-        '  return Object.fromEntries(Object.entries(row).filter(([k]) => !OMIT.includes(k))) as Row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_json_rename', category: 'JSON e oggetti',
-      label: 'Rinomina campi (mapping)',
-      description: 'Rinomina campi secondo una mappa',
-      code: [
-        'const RENAME: Record<string, string> = {',
-        '  "first_name": "nome",',
-        '  "last_name":  "cognome",',
-        '  "email_addr": "email",',
-        '}',
-        'function transform(row: Row, context: Context): Row {',
-        '  const result: Row = {}',
-        '  for (const [k, v] of Object.entries(row)) { result[RENAME[k] ?? k] = v }',
-        '  return result',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Emit avanzato ─────────────────────────────────────────
-    {
-      id: 'ts_emit_explode', category: 'Emit avanzato',
-      label: 'Esplodi array in righe',
-      description: 'Genera una riga per ogni elemento di un array',
-      code: [
-        'function transform(row: Row, context: Context): Row[] {',
-        '  const items = Array.isArray(row.items) ? row.items as Row[] : []',
-        '  if (items.length === 0) return [row]',
-        '  return items.map((item, i) => ({',
-        '    parent_id:   row.id,',
-        '    item_index:  i,',
-        '    item_id:     item.id,',
-        '    item_name:   item.name,',
-        '    item_amount: item.amount,',
-        '  }))',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'ts_emit_fork', category: 'Emit avanzato',
-      label: 'Fork con riga audit',
-      description: 'Emette la riga originale e una riga di audit',
-      code: [
-        'function transform(row: Row, context: Context): Row[] {',
-        '  const audit: Row = {',
-        '    audit_type:   "row_processed",',
-        '    source_id:    row.id,',
-        '    processed_at: new Date().toISOString(),',
-        '    lane:         context.lane.name ?? "unknown",',
-        '  }',
-        '  return [row, audit]',
-        '}',
-      ].join('\n'),
-    },
-  ],
-
-  // ══════════════════════════════════════════════════════════════
-  // PYTHON
-  // ══════════════════════════════════════════════════════════════
-  python: [
-    {
-      id: 'py_transform', category: 'Base',
-      label: 'Transform base',
-      description: 'Trasforma ogni riga in ingresso',
-      code: [
-        'def transform(row, context):',
-        '    from datetime import datetime',
-        '    row["processed_at"] = datetime.now().isoformat()',
-        '    return row',
-      ].join('\n'),
-    },
-    {
-      id: 'py_filter', category: 'Base',
-      label: 'Filtro riga',
-      description: 'Scarta righe che non soddisfano la condizione',
-      code: [
-        'def transform(row, context):',
-        '    if row.get("status") == "deleted": return None',
-        '    if not row.get("email"): return None',
-        '    return row',
-      ].join('\n'),
-    },
-    {
-      id: 'py_str_normalize', category: 'Stringhe',
-      label: 'Normalizza stringhe',
-      description: 'Trim e lowercase su tutti i campi stringa',
-      code: [
-        'def transform(row, context):',
-        '    return {k: v.strip().lower() if isinstance(v, str) else v for k, v in row.items()}',
-      ].join('\n'),
-    },
-    {
-      id: 'py_date_format', category: 'Date',
-      label: 'Formatta data',
-      description: 'Converte data in formato italiano',
-      code: [
-        'def transform(row, context):',
-        '    from datetime import datetime',
-        '    try:',
-        '        d = datetime.fromisoformat(str(row.get("created_at", "")))',
-        '        row["created_at_fmt"] = d.strftime("%d/%m/%Y")',
-        '    except Exception:',
-        '        row["created_at_fmt"] = ""',
-        '    return row',
-      ].join('\n'),
-    },
-    {
-      id: 'py_num_calc', category: 'Numeri',
-      label: 'Calcolo IVA',
-      description: 'Calcola imponibile, IVA e totale',
-      code: [
-        'def transform(row, context):',
-        '    aliquota   = float(context.get("pool", {}).get("iva_rate", 0.22))',
-        '    imponibile = float(row.get("prezzo", 0))',
-        '    sconto     = float(row.get("sconto_pct", 0)) / 100',
-        '    netto      = imponibile * (1 - sconto)',
-        '    row["imponibile"] = round(netto, 2)',
-        '    row["iva"]        = round(netto * aliquota, 2)',
-        '    row["totale"]     = round(netto * (1 + aliquota), 2)',
-        '    return row',
-      ].join('\n'),
-    },
-    {
-      id: 'py_validate', category: 'Validazione',
-      label: 'Validazione multi-campo',
-      description: 'Valida più campi e accumula errori',
-      code: [
-        'def transform(row, context):',
-        '    errors = []',
-        '    if not row.get("nome"):          errors.append("nome mancante")',
-        '    if not row.get("email"):         errors.append("email mancante")',
-        '    if int(row.get("eta", 0)) < 18:  errors.append("eta < 18")',
-        '    row["is_valid"]     = len(errors) == 0',
-        '    row["error_detail"] = " | ".join(errors) or None',
-        '    return row',
-      ].join('\n'),
-    },
-    {
-      id: 'py_state_dedup', category: 'Stato persistente',
-      label: 'Deduplicazione',
-      description: 'Scarta righe duplicate per chiave',
-      code: [
-        '_seen = set()',
-        '',
-        'def transform(row, context):',
-        '    key = str(row.get("id", ""))',
-        '    if key in _seen: return None',
-        '    _seen.add(key)',
-        '    return row',
-      ].join('\n'),
-    },
-    {
-      id: 'py_json_flatten', category: 'JSON e oggetti',
-      label: 'Flatten oggetto JSON',
-      description: 'Appiattisce un dizionario annidato',
-      code: [
-        'def flatten(obj, prefix=""):',
-        '    result = {}',
-        '    for k, v in obj.items():',
-        '        key = f"{prefix}_{k}" if prefix else k',
-        '        if isinstance(v, dict): result.update(flatten(v, key))',
-        '        else: result[key] = v',
-        '    return result',
-        '',
-        'def transform(row, context):',
-        '    meta = row.pop("metadata", {}) or {}',
-        '    row.update(flatten(meta, "meta"))',
-        '    return row',
-      ].join('\n'),
-    },
-  ],
-
-  // ══════════════════════════════════════════════════════════════
-  // JAVA
-  // ══════════════════════════════════════════════════════════════
-  java: [
-
-    // ── Base ──────────────────────────────────────────────────
-    {
-      id: 'java_transform', category: 'Base',
-      label: 'Transform base',
-      description: 'Transform standard in Java',
-      code: [
-        'import java.util.Map;',
-        'import java.time.Instant;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    if ("deleted".equals(row.get("status"))) return null;',
-        '    row.put("processed_at", Instant.now().toString());',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_filter', category: 'Base',
-      label: 'Filtro riga',
-      description: 'Scarta righe che non soddisfano la condizione',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    if (row.get("status") == null) return null;',
-        '    if ("deleted".equals(row.get("status"))) return null;',
-        '    if (row.get("email") == null || row.get("email").toString().isEmpty()) return null;',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_passthrough', category: 'Base',
-      label: 'Passthrough',
-      description: 'Lascia passare la riga senza modifiche',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Stringhe ──────────────────────────────────────────────
-    {
-      id: 'java_str_concat', category: 'Stringhe',
-      label: 'Concatena campi',
-      description: 'Unisce nome e cognome',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    String first = String.valueOf(row.getOrDefault("first_name", "")).trim();',
-        '    String last  = String.valueOf(row.getOrDefault("last_name",  "")).trim();',
-        '    row.put("full_name", (first + " " + last).trim());',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_str_normalize', category: 'Stringhe',
-      label: 'Normalizza stringhe',
-      description: 'Trim e lowercase su campi stringa',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    for (String key : new java.util.ArrayList<>(row.keySet())) {',
-        '        Object val = row.get(key);',
-        '        if (val instanceof String) {',
-        '            row.put(key, ((String) val).trim().toLowerCase());',
-        '        }',
-        '    }',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_str_pad', category: 'Stringhe',
-      label: 'Padding numerico',
-      description: 'Padding a sinistra per codici',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    String codice = String.valueOf(row.getOrDefault("codice", ""));',
-        '    row.put("codice", String.format("%08d", Integer.parseInt(codice.isEmpty() ? "0" : codice)));',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_str_mask', category: 'Stringhe',
-      label: 'Maschera dati sensibili',
-      description: 'Oscura email e carta di credito',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    // Maschera email',
-        '    if (row.get("email") != null) {',
-        '        String email = row.get("email").toString();',
-        '        int at = email.indexOf("@");',
-        '        if (at > 2) {',
-        '            row.put("email", email.substring(0, 2) + "***" + email.substring(at));',
-        '        }',
-        '    }',
-        '    // Maschera carta',
-        '    if (row.get("card_number") != null) {',
-        '        String card = row.get("card_number").toString().replaceAll("\\\\s", "");',
-        '        row.put("card_number", "**** **** **** " + card.substring(Math.max(0, card.length() - 4)));',
-        '    }',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Date ──────────────────────────────────────────────────
-    {
-      id: 'java_date_format', category: 'Date',
-      label: 'Formatta data',
-      description: 'Converte data in formato italiano',
-      code: [
-        'import java.time.LocalDate;',
-        'import java.time.format.DateTimeFormatter;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    try {',
-        '        LocalDate d   = LocalDate.parse(row.get("created_at").toString());',
-        '        String    fmt = d.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));',
-        '        row.put("created_at_fmt", fmt);',
-        '    } catch (Exception e) {',
-        '        row.put("created_at_fmt", "");',
-        '    }',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_date_diff', category: 'Date',
-      label: 'Differenza tra date',
-      description: 'Calcola giorni tra due date',
-      code: [
-        'import java.time.LocalDate;',
-        'import java.time.temporal.ChronoUnit;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    try {',
-        '        LocalDate start = LocalDate.parse(row.get("created_at").toString());',
-        '        LocalDate end   = row.get("closed_at") != null',
-        '            ? LocalDate.parse(row.get("closed_at").toString())',
-        '            : LocalDate.now();',
-        '        row.put("days_open", ChronoUnit.DAYS.between(start, end));',
-        '    } catch (Exception e) {',
-        '        row.put("days_open", -1);',
-        '    }',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_date_quarter', category: 'Date',
-      label: 'Trimestre e anno',
-      description: 'Estrae trimestre e anno da una data',
-      code: [
-        'import java.time.LocalDate;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    try {',
-        '        LocalDate d = LocalDate.parse(row.get("data").toString());',
-        '        int q = (d.getMonthValue() - 1) / 3 + 1;',
-        '        row.put("anno",      d.getYear());',
-        '        row.put("mese",      d.getMonthValue());',
-        '        row.put("trimestre", "Q" + q + " " + d.getYear());',
-        '    } catch (Exception e) { /* ignora */ }',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Numeri ────────────────────────────────────────────────
-    {
-      id: 'java_num_calc', category: 'Numeri',
-      label: 'Calcolo IVA',
-      description: 'Calcola imponibile e IVA',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    double prezzo   = Double.parseDouble(String.valueOf(row.getOrDefault("prezzo",    "0")));',
-        '    double sconto   = Double.parseDouble(String.valueOf(row.getOrDefault("sconto_pct","0"))) / 100;',
-        '    double aliquota = 0.22;',
-        '    double netto    = prezzo * (1 - sconto);',
-        '    double iva      = Math.round(netto * aliquota * 100.0) / 100.0;',
-        '    double totale   = Math.round((netto + iva)   * 100.0) / 100.0;',
-        '    row.put("imponibile", Math.round(netto * 100.0) / 100.0);',
-        '    row.put("iva",    iva);',
-        '    row.put("totale", totale);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_num_currency', category: 'Numeri',
-      label: 'Conversione valuta',
-      description: 'Converte importo usando tasso dal context',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    double rate      = Double.parseDouble(String.valueOf(',
-        '        ((Map<?,?>) context.getOrDefault("pool", new java.util.HashMap<>()))',
-        '        .getOrDefault("eur_usd_rate", "1")));',
-        '    double amountUsd = Double.parseDouble(String.valueOf(row.getOrDefault("amount_usd", "0")));',
-        '    row.put("amount_eur", Math.round(amountUsd / rate * 100.0) / 100.0);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_num_round', category: 'Numeri',
-      label: 'Arrotondamenti',
-      description: 'Round a N decimali',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    double amount = Double.parseDouble(String.valueOf(row.getOrDefault("amount", "0")));',
-        '    row.put("amount_2dec", Math.round(amount * 100.0)   / 100.0);',
-        '    row.put("amount_0dec", Math.round(amount));',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Validazione ───────────────────────────────────────────
-    {
-      id: 'java_validate', category: 'Validazione',
-      label: 'Validazione multi-campo',
-      description: 'Valida campi obbligatori e accumula errori',
-      code: [
-        'import java.util.ArrayList;',
-        'import java.util.List;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    List<String> errors = new ArrayList<>();',
-        '    if (row.get("nome")  == null) errors.add("nome mancante");',
-        '    if (row.get("email") == null) errors.add("email mancante");',
-        '    Object etaObj = row.get("eta");',
-        '    if (etaObj != null && Integer.parseInt(etaObj.toString()) < 18) errors.add("eta < 18");',
-        '    row.put("is_valid",     errors.isEmpty());',
-        '    row.put("error_detail", errors.isEmpty() ? null : String.join(" | ", errors));',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_validate_email', category: 'Validazione',
-      label: 'Valida email',
-      description: 'Controlla formato email con regex',
-      code: [
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    String email = String.valueOf(row.getOrDefault("email", "")).trim().toLowerCase();',
-        '    boolean valid = email.matches("^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$");',
-        '    if (!valid) return null; // scarta la riga',
-        '    row.put("email", email);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Arricchimento ─────────────────────────────────────────
-    {
-      id: 'java_enrich_compute', category: 'Arricchimento',
-      label: 'Campi calcolati',
-      description: 'Aggiunge campi derivati dalla riga',
-      code: [
-        'import java.time.Instant;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    double qty   = Double.parseDouble(String.valueOf(row.getOrDefault("quantity",   "0")));',
-        '    double price = Double.parseDouble(String.valueOf(row.getOrDefault("unit_price", "0")));',
-        '    double disc  = Double.parseDouble(String.valueOf(row.getOrDefault("discount_pct","0"))) / 100;',
-        '    double netto = qty * price * (1 - disc);',
-        '    row.put("subtotal",      Math.round(qty * price * 100.0) / 100.0);',
-        '    row.put("total",         Math.round(netto * 100.0) / 100.0);',
-        '    row.put("is_discounted", disc > 0);',
-        '    row.put("processed_at",  Instant.now().toString());',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_enrich_lookup', category: 'Arricchimento',
-      label: 'Lookup da mappa',
-      description: 'Arricchisce da una mappa dichiarata nel codice',
-      code: [
-        'import java.util.Map;',
-        '',
-        'private static final Map<String, String> CATEGORY_MAP = Map.of(',
-        '    "A", "Premium",',
-        '    "B", "Standard",',
-        '    "C", "Basic"',
-        ');',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    String code  = String.valueOf(row.getOrDefault("category_code", ""));',
-        '    String label = CATEGORY_MAP.getOrDefault(code, "Sconosciuta");',
-        '    row.put("category_label", label);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Stato persistente ─────────────────────────────────────
-    {
-      id: 'java_state_counter', category: 'Stato persistente',
-      label: 'Contatore progressivo',
-      description: 'Aggiunge numero riga progressivo',
-      code: [
-        'private int rowNumber = 0;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    row.put("row_number", ++rowNumber);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_state_dedup', category: 'Stato persistente',
-      label: 'Deduplicazione',
-      description: 'Scarta righe duplicate per chiave',
-      code: [
-        'import java.util.HashSet;',
-        'import java.util.Set;',
-        '',
-        'private final Set<String> seen = new HashSet<>();',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    String key = String.valueOf(row.getOrDefault("id", ""));',
-        '    if (seen.contains(key)) return null;',
-        '    seen.add(key);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_state_running', category: 'Stato persistente',
-      label: 'Running total',
-      description: 'Calcola totale e media progressivi',
-      code: [
-        'private int    count = 0;',
-        'private double sum   = 0;',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    count++;',
-        '    sum += Double.parseDouble(String.valueOf(row.getOrDefault("amount", "0")));',
-        '    row.put("running_count", count);',
-        '    row.put("running_sum",   Math.round(sum * 100.0) / 100.0);',
-        '    row.put("running_avg",   Math.round(sum / count * 100.0) / 100.0);',
-        '    return row;',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── JSON ──────────────────────────────────────────────────
-    {
-      id: 'java_json_pick', category: 'JSON e oggetti',
-      label: 'Seleziona campi (pick)',
-      description: 'Mantieni solo i campi specificati',
-      code: [
-        'import java.util.Arrays;',
-        'import java.util.HashMap;',
-        'import java.util.List;',
-        '',
-        'private static final List<String> KEEP = Arrays.asList("id", "nome", "email", "created_at");',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    Map<String, Object> result = new HashMap<>();',
-        '    for (String key : KEEP) {',
-        '        if (row.containsKey(key)) result.put(key, row.get(key));',
-        '    }',
-        '    return result;',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'java_json_rename', category: 'JSON e oggetti',
-      label: 'Rinomina campi',
-      description: 'Rinomina campi secondo una mappa',
-      code: [
-        'import java.util.HashMap;',
-        'import java.util.Map;',
-        '',
-        'private static final Map<String, String> RENAME = Map.of(',
-        '    "first_name", "nome",',
-        '    "last_name",  "cognome",',
-        '    "email_addr", "email"',
-        ');',
-        '',
-        'public Map<String, Object> transform(Map<String, Object> row, Map<String, Object> context) {',
-        '    Map<String, Object> result = new HashMap<>();',
-        '    for (Map.Entry<String, Object> e : row.entrySet()) {',
-        '        result.put(RENAME.getOrDefault(e.getKey(), e.getKey()), e.getValue());',
-        '    }',
-        '    return result;',
-        '}',
-      ].join('\n'),
-    },
-  ],
-
-  // ══════════════════════════════════════════════════════════════
-  // GROOVY
-  // ══════════════════════════════════════════════════════════════
-  groovy: [
-
-    // ── Base ──────────────────────────────────────────────────
-    {
-      id: 'groovy_transform', category: 'Base',
-      label: 'Transform base',
-      description: 'Transform Groovy con closure',
-      code: [
-        'def transform = { row, context ->',
-        "    if (row.status == 'deleted') return null",
-        "    row.processed_at = new Date().format(\"yyyy-MM-dd'T'HH:mm:ss\")",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_filter', category: 'Base',
-      label: 'Filtro riga',
-      description: 'Scarta righe che non soddisfano la condizione',
-      code: [
-        'def transform = { row, context ->',
-        "    if (!row.email)           return null",
-        "    if (row.status == 'skip') return null",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_talend', category: 'Base',
-      label: 'Stile Talend',
-      description: 'Pattern compatibile con tGroovy Talend',
-      code: [
-        '// Variabili Talend: input_row, output_row, context',
-        'output_row.full_name    = input_row.first_name + " " + input_row.last_name',
-        "output_row.processed_at = new Date().format(\"yyyy-MM-dd'T'HH:mm:ss\")",
-        'output_row.amount_eur   = input_row.amount_usd * context.eur_rate',
-        '',
-        '// Per scartare la riga:',
-        "// reject_row.reason = 'motivo'; reject = true",
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_passthrough', category: 'Base',
-      label: 'Passthrough',
-      description: 'Lascia passare la riga senza modifiche',
-      code: [
-        'def transform = { row, context ->',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Stringhe ──────────────────────────────────────────────
-    {
-      id: 'groovy_str_normalize', category: 'Stringhe',
-      label: 'Normalizza stringhe',
-      description: 'Trim e lowercase su tutti i campi stringa',
-      code: [
-        'def transform = { row, context ->',
-        '    row.each { k, v ->',
-        '        if (v instanceof String) row[k] = v.trim().toLowerCase()',
-        '    }',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_str_concat', category: 'Stringhe',
-      label: 'Concatena campi',
-      description: 'Unisce nome e cognome',
-      code: [
-        'def transform = { row, context ->',
-        '    row.full_name = "${row.first_name?.trim()} ${row.last_name?.trim()}".trim()',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_str_pad', category: 'Stringhe',
-      label: 'Padding numerico',
-      description: 'Padding a sinistra per codici',
-      code: [
-        'def transform = { row, context ->',
-        "    row.codice = (row.codice ?: '').padLeft(8, '0')",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_str_mask', category: 'Stringhe',
-      label: 'Maschera email',
-      description: 'Oscura parte della email',
-      code: [
-        'def transform = { row, context ->',
-        '    if (row.email) {',
-        '        def parts = row.email.split("@")',
-        "        row.email = parts[0].take(2) + '***@' + parts[1]",
-        '    }',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_str_regex', category: 'Stringhe',
-      label: 'Pulizia con regex',
-      description: 'Normalizza telefono e codice fiscale',
-      code: [
-        'def transform = { row, context ->',
-        "    row.phone = (row.phone ?: '').replaceAll(/[^\\d+]/, '')",
-        "    row.cf    = (row.codice_fiscale ?: '').toUpperCase().replaceAll(/\\s/, '')",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Date ──────────────────────────────────────────────────
-    {
-      id: 'groovy_date_format', category: 'Date',
-      label: 'Formatta data',
-      description: 'Converte data in formato italiano',
-      code: [
-        'def transform = { row, context ->',
-        '    try {',
-        "        def d = Date.parse('yyyy-MM-dd', row.created_at.toString())",
-        "        row.created_at_fmt = d.format('dd/MM/yyyy')",
-        '    } catch (e) {',
-        "        row.created_at_fmt = ''",
-        '    }',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_date_diff', category: 'Date',
-      label: 'Differenza tra date',
-      description: 'Calcola giorni tra due date',
-      code: [
-        'def transform = { row, context ->',
-        '    try {',
-        "        def start = Date.parse('yyyy-MM-dd', row.created_at.toString())",
-        '        def end   = row.closed_at',
-        "            ? Date.parse('yyyy-MM-dd', row.closed_at.toString())",
-        '            : new Date()',
-        '        row.days_open = (end - start)',
-        '    } catch (e) {',
-        '        row.days_open = -1',
-        '    }',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_date_quarter', category: 'Date',
-      label: 'Trimestre e anno',
-      description: 'Estrae trimestre e anno da una data',
-      code: [
-        'def transform = { row, context ->',
-        '    try {',
-        "        def d = Date.parse('yyyy-MM-dd', row.data.toString())",
-        '        def cal = d.toCalendar()',
-        '        def month = cal.get(Calendar.MONTH)',
-        '        def year  = cal.get(Calendar.YEAR)',
-        '        def q = (month / 3).toInteger() + 1',
-        '        row.anno      = year',
-        '        row.mese      = month + 1',
-        '        row.trimestre = "Q${q} ${year}"',
-        '    } catch (e) { /* ignora */ }',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Numeri ────────────────────────────────────────────────
-    {
-      id: 'groovy_num_calc', category: 'Numeri',
-      label: 'Calcolo IVA',
-      description: 'Calcolo IVA in Groovy',
-      code: [
-        'def transform = { row, context ->',
-        '    def prezzo   = (row.prezzo ?: 0) as Double',
-        '    def sconto   = ((row.sconto_pct ?: 0) as Double) / 100',
-        '    def aliquota = (context.lane?.iva_rate ?: 0.22) as Double',
-        '    def netto    = prezzo * (1 - sconto)',
-        '    row.imponibile = netto.round(2)',
-        '    row.iva        = (netto * aliquota).round(2)',
-        '    row.totale     = (netto * (1 + aliquota)).round(2)',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_num_round', category: 'Numeri',
-      label: 'Arrotondamenti',
-      description: 'Round a N decimali in Groovy',
-      code: [
-        'def transform = { row, context ->',
-        '    def amount = (row.amount ?: 0) as Double',
-        '    row.amount_2dec = amount.round(2)',
-        '    row.amount_0dec = amount.round(0).toInteger()',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_num_currency', category: 'Numeri',
-      label: 'Conversione valuta',
-      description: 'Converte importo usando tasso dal context',
-      code: [
-        'def transform = { row, context ->',
-        '    def rate      = (context.pool?.eur_usd_rate ?: 1) as Double',
-        '    def amountUsd = (row.amount_usd ?: 0) as Double',
-        '    row.amount_eur = (amountUsd / rate).round(2)',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Validazione ───────────────────────────────────────────
-    {
-      id: 'groovy_validate', category: 'Validazione',
-      label: 'Validazione multi-campo',
-      description: 'Valida più campi e accumula errori',
-      code: [
-        'def transform = { row, context ->',
-        '    def errors = []',
-        "    if (!row.nome)              errors << 'nome mancante'",
-        "    if (!row.email)             errors << 'email mancante'",
-        "    if ((row.eta ?: 0) < 18)   errors << 'eta < 18'",
-        '    row.is_valid     = errors.isEmpty()',
-        "    row.error_detail = errors ? errors.join(' | ') : null",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_validate_required', category: 'Validazione',
-      label: 'Campi obbligatori',
-      description: 'Scarta righe con campi obbligatori mancanti',
-      code: [
-        "def REQUIRED = ['id', 'nome', 'email']",
-        '',
-        'def transform = { row, context ->',
-        '    for (field in REQUIRED) {',
-        '        if (!row[field]) {',
-        "            context.log(\"Campo ${field} mancante\")",
-        '            return null',
-        '        }',
-        '    }',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Arricchimento ─────────────────────────────────────────
-    {
-      id: 'groovy_enrich_compute', category: 'Arricchimento',
-      label: 'Campi calcolati',
-      description: 'Aggiunge campi derivati dalla riga',
-      code: [
-        'def transform = { row, context ->',
-        '    def qty   = (row.quantity   ?: 0) as Double',
-        '    def price = (row.unit_price ?: 0) as Double',
-        '    def disc  = ((row.discount_pct ?: 0) as Double) / 100',
-        '    def netto = qty * price * (1 - disc)',
-        '    row.subtotal      = (qty * price).round(2)',
-        '    row.total         = netto.round(2)',
-        '    row.is_discounted = disc > 0',
-        "    row.processed_at  = new Date().format(\"yyyy-MM-dd'T'HH:mm:ss\")",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_enrich_lookup', category: 'Arricchimento',
-      label: 'Lookup da mappa',
-      description: 'Arricchisce da una mappa dichiarata nel codice',
-      code: [
-        "def CATEGORY_MAP = ['A': 'Premium', 'B': 'Standard', 'C': 'Basic']",
-        '',
-        'def transform = { row, context ->',
-        "    row.category_label = CATEGORY_MAP[row.category_code] ?: 'Sconosciuta'",
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── Stato persistente ─────────────────────────────────────
-    {
-      id: 'groovy_state_counter', category: 'Stato persistente',
-      label: 'Contatore progressivo',
-      description: 'Aggiunge numero riga progressivo',
-      code: [
-        'def rowNumber = 0',
-        '',
-        'def transform = { row, context ->',
-        '    row.row_number = ++rowNumber',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_state_dedup', category: 'Stato persistente',
-      label: 'Deduplicazione',
-      description: 'Scarta righe duplicate per chiave',
-      code: [
-        'def seen = [] as Set',
-        '',
-        'def transform = { row, context ->',
-        '    def key = row.id?.toString()',
-        '    if (seen.contains(key)) return null',
-        '    seen.add(key)',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_state_running', category: 'Stato persistente',
-      label: 'Running total',
-      description: 'Calcola totale e media progressivi',
-      code: [
-        'def count = 0',
-        'def sum   = 0.0',
-        '',
-        'def transform = { row, context ->',
-        '    count++',
-        '    sum += (row.amount ?: 0) as Double',
-        '    row.running_count = count',
-        '    row.running_sum   = sum.round(2)',
-        '    row.running_avg   = (sum / count).round(2)',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_state_prev', category: 'Stato persistente',
-      label: 'Confronto con riga precedente',
-      description: 'Calcola delta rispetto alla riga precedente',
-      code: [
-        'def prevRow = null',
-        '',
-        'def transform = { row, context ->',
-        '    def delta = prevRow ? ((row.amount ?: 0) as Double) - ((prevRow.amount ?: 0) as Double) : 0',
-        '    prevRow = row',
-        '    row.delta_amount = delta.round(2)',
-        '    row.is_increase  = delta > 0',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-
-    // ── JSON e oggetti ────────────────────────────────────────
-    {
-      id: 'groovy_json_pick', category: 'JSON e oggetti',
-      label: 'Seleziona campi (pick)',
-      description: 'Mantieni solo i campi specificati',
-      code: [
-        "def KEEP = ['id', 'nome', 'email', 'created_at']",
-        '',
-        'def transform = { row, context ->',
-        '    row.subMap(KEEP.findAll { row.containsKey(it) })',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_json_rename', category: 'JSON e oggetti',
-      label: 'Rinomina campi',
-      description: 'Rinomina campi secondo una mappa',
-      code: [
-        "def RENAME = ['first_name': 'nome', 'last_name': 'cognome', 'email_addr': 'email']",
-        '',
-        'def transform = { row, context ->',
-        '    row.collectEntries { k, v -> [(RENAME[k] ?: k): v] }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_json_omit', category: 'JSON e oggetti',
-      label: 'Rimuovi campi (omit)',
-      description: 'Rimuovi campi sensibili o inutili',
-      code: [
-        "def OMIT = ['password', 'token', 'secret'] as Set",
-        '',
-        'def transform = { row, context ->',
-        '    row.findAll { k, v -> !OMIT.contains(k) }',
-        '}',
-      ].join('\n'),
-    },
-    {
-      id: 'groovy_json_flatten', category: 'JSON e oggetti',
-      label: 'Flatten oggetto',
-      description: 'Appiattisce una Map annidata',
-      code: [
-        'def flatten(map, prefix = "") {',
-        '    def result = [:]',
-        '    map.each { k, v ->',
-        '        def key = prefix ? "${prefix}_${k}" : k',
-        '        if (v instanceof Map) result.putAll(flatten(v, key))',
-        '        else result[key] = v',
-        '    }',
-        '    result',
-        '}',
-        '',
-        'def transform = { row, context ->',
-        '    def meta = row.remove("metadata") ?: [:]',
-        '    row.putAll(flatten(meta, "meta"))',
-        '    row',
-        '}',
-      ].join('\n'),
-    },
-  ],
+export function getTemplates(): ScriptTemplate[] {
+  return SCRIPT_TEMPLATES
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────
-
-export function getLanguage(value: string): ScriptLanguage | undefined {
-  return SCRIPT_LANGUAGES.find((l) => l.value === value)
-}
-
-export function getTemplates(lang: string): ScriptTemplate[] {
-  return SCRIPT_TEMPLATES[lang] ?? []
-}
-
-export function getDefaultTemplate(lang: string): string {
-  return SCRIPT_TEMPLATES[lang]?.[0]?.code ?? ''
-}
-
-export function getTemplatesByCategory(lang: string): Record<string, ScriptTemplate[]> {
-  return getTemplates(lang).reduce((acc, t) => {
-    acc[t.category] = acc[t.category] ?? []
-    acc[t.category].push(t)
+export function getTemplatesByCategory(): Record<string, ScriptTemplate[]> {
+  return SCRIPT_TEMPLATES.reduce((acc, t) => {
+    (acc[t.category] ??= []).push(t)
     return acc
   }, {} as Record<string, ScriptTemplate[]>)
+}
+
+export function getDefaultTemplate(): string {
+  return SCRIPT_TEMPLATES[0]?.code ?? ''
 }

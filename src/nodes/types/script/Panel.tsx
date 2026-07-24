@@ -1,60 +1,40 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
-import { SCRIPT_LANGUAGES, getTemplates, getDefaultTemplate } from './templates'
+import { getTemplates } from './templates'
 import { ScriptEditor, type SchemaField, type ContextVar } from '../../../components/ScriptEditor'
 import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
 import { scriptFieldsToSchema, propagateSchema } from '../../../utils/schemaUtils'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { getHandleSchema } from '../../../utils/schemaRegistry'
 
-const PANEL_LANGUAGES = ['typescript', 'python', 'java']
+// ─── Come si scrive un riferimento nel linguaggio di FlowPilot ────
+// Erano cinque funzioni con dentro uno `switch (lang)` su quattro
+// linguaggi. Ora il linguaggio è uno solo e i riferimenti sono nudi: un
+// campo si chiama col suo nome, sia in lettura sia in scrittura. Restano
+// funzioni (invece di sparire) perché i pannelli le usano per costruire
+// i chip cliccabili che inseriscono testo nell'editor.
 
-// ─── Pattern inserimento per linguaggio ──────────────────────────
-function inputPattern(lang: string, fieldName: string): string {
-  switch (lang) {
-    case 'python': return `row['${fieldName}']`
-    case 'java':
-    case 'groovy': return `row.get("${fieldName}")`
-    default:       return `row.${fieldName}`
-  }
-}
+/**
+ * Chiave in `MONACO_LANG` (ScriptEditor): il linguaggio dello Script usa
+ * la grammatica di Rust per l'evidenziazione, senza analisi semantica.
+ */
+const EDITOR_LANG = 'flowpilot'
 
-function laneVarPattern(lang: string, varName: string): string {
-  switch (lang) {
-    case 'python': return `context['lane']['${varName}']`
-    case 'java':
-    case 'groovy': return `context.get("lane").get("${varName}")`
-    default:       return `context.lane.${varName}`
-  }
-}
+/** Campo della riga in ingresso: si legge col suo nome. */
+function inputPattern(fieldName: string): string { return fieldName }
 
-function poolVarPattern(lang: string, varName: string): string {
-  switch (lang) {
-    case 'python': return `context['pool']['${varName}']`
-    case 'java':
-    case 'groovy': return `context.get("pool").get("${varName}")`
-    default:       return `context.pool.${varName}`
-  }
-}
+/** Campo in uscita: si scrive col suo nome — l'assegnazione lo crea. */
+function outVarPattern(fieldName: string): string { return fieldName }
 
-// ─── Pattern output — usa out.campo e reject.campo ───────────────
-function outVarPattern(lang: string, fieldName: string): string {
-  switch (lang) {
-    case 'python': return `out['${fieldName}']`
-    case 'java':
-    case 'groovy': return `out.get("${fieldName}")`
-    default:       return `out.${fieldName}`
-  }
-}
+/** Campo sulla riga scartata: è la stessa riga, stessi nomi. */
+function rejectVarPattern(fieldName: string): string { return fieldName }
 
-function rejectVarPattern(lang: string, fieldName: string): string {
-  switch (lang) {
-    case 'python': return `reject['${fieldName}']`
-    case 'java':
-    case 'groovy': return `reject.get("${fieldName}")`
-    default:       return `reject.${fieldName}`
-  }
-}
+/** Variabile di lane: unica forma che richiede una chiamata. */
+function laneVarPattern(varName: string): string { return `var("${varName}")` }
+
+/** Variabile di pool: stessa forma — `var()` guarda le variabili visibili. */
+function poolVarPattern(varName: string): string { return `var("${varName}")` }
+
 
 function applyTransformExpression(expression: string, varName: string): string {
   return expression
@@ -185,7 +165,6 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   const nodes      = useFlowStore((s) => s.nodes)
   const pool       = useFlowStore((s) => s.pool)
 
-  const [showDeps,     setShowDeps]     = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [snippet,      setSnippet]      = useState<string | undefined>(undefined)
   const [wrap,         setWrap]         = useState<string | undefined>(undefined)
@@ -196,9 +175,11 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     updateProp(nodeId, key, e.target.value)
 
-  const lang      = p('lang')      || 'typescript'
-  const execMode  = p('execMode')  || 'transform'
-  const hasReject = p('hasReject') === 'true'
+  // `sourceMode` decide la NATURA del nodo: trasforma righe che riceve,
+  // oppure le genera lui. In "genera" la porta d'ingresso non esiste
+  // proprio (contratto porte), quindi la differenza si vede sul canvas.
+  const sourceMode = p('sourceMode') || 'flusso'
+  const hasReject  = p('hasReject') === 'true'
   // Cosa esce verso il nodo a valle. Stesso vocabolario dei sink.
   // Default 'passthrough' = il comportamento di sempre: dallo script
   // escono righe. Va DICHIARATO perché chi sta a valle deve sapere se
@@ -289,43 +270,50 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
     updateProp(nodeId, 'code', newCode)
   }, [nodeId, updateProp])
 
-  const visibleLangs = SCRIPT_LANGUAGES.filter((l) => PANEL_LANGUAGES.includes(l.value))
-
-  const handleLangChange = useCallback((newLang: string) => {
-    updateProp(nodeId, 'lang', newLang)
-    if (!p('code')) updateProp(nodeId, 'code', getDefaultTemplate(newLang))
-  }, [nodeId, updateProp])
-
   const insertSnippet = useCallback((text: string) => setSnippet(text), [])
   const wrapSelection = useCallback((expr: string) => setWrap(expr), [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {/* ══ SEZ 1 — MODALITÀ + LINGUAGGIO ══════════════════════ */}
+      {/* ══ SEZ 1 — NATURA DEL NODO E USCITA ═══════════════════ */}
+      {/* Qui c'era anche un selettore "Modalità: Transform | Emit" che
+          NESSUNO leggeva — né il motore, né il builder, né il contratto
+          porte: due bottoni che scrivevano una prop inerte. Con questo
+          linguaggio non serve più nemmeno come idea: `emit` è
+          un'istruzione, quindi 1→N si ottiene scrivendolo, non
+          dichiarandolo. E c'era una barra "Linguaggio" con TypeScript,
+          Python e Java: nessuno dei tre è mai stato eseguito. */}
       <div style={{ background: '#161b27', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
 
         <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Modalità</div>
+          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Sorgente delle righe</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
-              { value: 'transform', label: 'Transform', icon: 'ti-arrow-right',  desc: '1 riga → 1 riga'  },
-              { value: 'emit',      label: 'Emit',       icon: 'ti-arrows-split', desc: '1 riga → N righe' },
+              { value: 'flusso', label: 'Dal flusso', icon: 'ti-arrow-right',
+                desc: 'una passata per riga' },
+              { value: 'genera', label: 'Genera',     icon: 'ti-sparkles',
+                desc: 'nessun ingresso, una passata sola' },
             ].map((m) => (
-              <button key={m.value} onClick={() => updateProp(nodeId, 'execMode', m.value)}
+              <button key={m.value} onClick={() => updateProp(nodeId, 'sourceMode', m.value)}
                 style={{
                   flex: 1, padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
-                  background: execMode === m.value ? '#1a3a6a' : '#1a2030',
-                  border:     execMode === m.value ? '1px solid #2a5a9a' : '1px solid #2a3349',
+                  background: sourceMode === m.value ? '#1a3a6a' : '#1a2030',
+                  border:     sourceMode === m.value ? '1px solid #2a5a9a' : '1px solid #2a3349',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: execMode === m.value ? '#4a9eff' : '#4a5a7a' }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: execMode === m.value ? '#4a9eff' : '#4a5a7a' }}>{m.label}</span>
+                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: sourceMode === m.value ? '#4a9eff' : '#4a5a7a' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: sourceMode === m.value ? '#4a9eff' : '#4a5a7a' }}>{m.label}</span>
                 </div>
-                <span style={{ fontSize: 9, color: execMode === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
+                <span style={{ fontSize: 9, color: sourceMode === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
               </button>
             ))}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 9, lineHeight: 1.5, color: '#6a7a9a' }}>
+            {sourceMode === 'genera'
+              ? <>La porta d'ingresso <b>sparisce dal canvas</b>: il corpo gira una volta sola e le righe escono <b>solo</b> dalle <code>emit</code>. Senza <code>emit</code> non esce niente.</>
+              : <>Il corpo gira <b>una volta per ogni riga</b> in arrivo. A fine corpo la riga esce anche senza <code>emit</code>; <code>skip</code> la trattiene, <code>emit</code> ne aggiunge altre.</>}
           </div>
         </div>
 
@@ -333,13 +321,23 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Uscita verso valle</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
-              { value: 'passthrough', label: 'Dati',    icon: 'ti-table-row',    desc: 'righe elaborate'   },
-              { value: 'signal',      label: 'Innesco', icon: 'ti-bolt',         desc: 'solo il "via"'     },
-              { value: 'none',        label: 'Niente',  icon: 'ti-player-stop',  desc: 'nessuna uscita'    },
+              { value: 'passthrough', label: 'Dati',    icon: 'ti-table-row',    desc: 'righe elaborate', pronto: true  },
+              // «Innesco» cambia la porta sul canvas ma il motore continua
+              // a mandare righe: lo Script non sa ancora emettere un
+              // segnale né scrivere variabili di lane (è la fetta 3 del
+              // disegno). Offrirlo funzionante sarebbe una promessa non
+              // mantenuta — meglio dichiararlo indisponibile, come si è
+              // fatto per il match sul codice errore nell'error handler.
+              { value: 'signal',      label: 'Innesco', icon: 'ti-bolt',         desc: 'non ancora disponibile', pronto: false },
+              { value: 'none',        label: 'Niente',  icon: 'ti-player-stop',  desc: 'nessuna uscita',  pronto: true  },
             ].map((m) => (
-              <button key={m.value} onClick={() => updateProp(nodeId, 'outputMode', m.value)}
+              <button key={m.value} disabled={!m.pronto}
+                title={m.pronto ? undefined : 'Lo Script non emette ancora segnali: arriva con una fetta successiva'}
+                onClick={() => { if (m.pronto) updateProp(nodeId, 'outputMode', m.value) }}
                 style={{
-                  flex: 1, padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                  flex: 1, padding: '7px 10px', borderRadius: 6,
+                  cursor: m.pronto ? 'pointer' : 'not-allowed',
+                  opacity: m.pronto ? 1 : 0.45,
                   background: outputMode === m.value ? '#1a3a6a' : '#1a2030',
                   border:     outputMode === m.value ? '1px solid #2a5a9a' : '1px solid #2a3349',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
@@ -354,38 +352,24 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           </div>
         </div>
 
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Linguaggio</div>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-            {visibleLangs.map((l) => (
-              <button key={l.value} onClick={() => handleLangChange(l.value)}
-                style={{
-                  padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
-                  background: lang === l.value ? '#1a3a6a' : '#1e2535',
-                  color:      lang === l.value ? '#4a9eff' : '#4a5a7a',
-                  border:     lang === l.value ? '1px solid #2a5a9a' : '1px solid #2a3349',
-                  fontWeight: lang === l.value ? 600 : 400,
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}>
-                <i className={`ti ${l.icon}`} style={{ fontSize: 11 }} />
-                {l.label}
-              </button>
-            ))}
-            {schema.length > 0 && lang === 'typescript' && (
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: '#1a2a1a', border: '1px solid #2a5a2a', borderRadius: 4 }}>
-                <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
-                <span style={{ fontSize: 9, color: '#3ddc84' }}>autocomplete attivo</span>
-              </div>
-            )}
+        {/* Qui c'era "autocomplete attivo": era vero solo per TypeScript,
+            perché le definizioni di tipo si caricano in Monaco unicamente
+            per quel linguaggio. Tenerlo ora sarebbe una spia che mente. */}
+        {schema.length > 0 && (
+          <div style={{ padding: '6px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <i className="ti ti-forms" style={{ fontSize: 9, color: '#3ddc84' }} />
+            <span style={{ fontSize: 9, color: '#3ddc84' }}>
+              {schema.length} campi in ingresso — cliccali qui sotto per inserirli
+            </span>
           </div>
-        </div>
+        )}
 
         <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
           <CustomSelect style={{ ...inputStyle, width: 'auto', fontSize: 10, padding: '2px 6px', color: '#a78bfa' }}
             value="" onChange={(e) => { if (e.target.value) { insertSnippet(e.target.value); e.target.value = '' } }}>
             <option value="">⚡ template</option>
             {Object.entries(
-              getTemplates(lang).reduce((acc, t) => {
+              getTemplates().reduce((acc, t) => {
                 acc[t.category] = acc[t.category] ?? []
                 acc[t.category].push(t)
                 return acc
@@ -424,8 +408,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {schema.map((f) => (
                 <SmartPill key={f.name}
-                  label={inputPattern(lang, f.name)} color="#3ddc84"
-                  type={f.type} varName={inputPattern(lang, f.name)}
+                  label={inputPattern(f.name)} color="#3ddc84"
+                  type={f.type} varName={inputPattern(f.name)}
                   onInsert={insertSnippet} onWrap={wrapSelection} />
               ))}
             </div>
@@ -441,8 +425,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {outputFields.map((f) => (
                 <SmartPill key={f.id}
-                  label={outVarPattern(lang, f.name)} color="#4a9eff"
-                  type={f.type} varName={outVarPattern(lang, f.name)}
+                  label={outVarPattern(f.name)} color="#4a9eff"
+                  type={f.type} varName={outVarPattern(f.name)}
                   onInsert={insertSnippet} onWrap={wrapSelection} />
               ))}
             </div>
@@ -458,8 +442,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {outputFields.map((f) => (
                 <SmartPill key={f.id}
-                  label={rejectVarPattern(lang, f.name)} color="#ff5f57"
-                  type={f.type} varName={rejectVarPattern(lang, f.name)}
+                  label={rejectVarPattern(f.name)} color="#ff5f57"
+                  type={f.type} varName={rejectVarPattern(f.name)}
                   onInsert={insertSnippet} onWrap={wrapSelection} />
               ))}
             </div>
@@ -475,8 +459,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {laneVars.map((v) => (
                 <SmartPill key={v.name}
-                  label={laneVarPattern(lang, v.name)} color="#ffb347"
-                  type={v.type} varName={laneVarPattern(lang, v.name)}
+                  label={laneVarPattern(v.name)} color="#ffb347"
+                  type={v.type} varName={laneVarPattern(v.name)}
                   onInsert={insertSnippet} onWrap={wrapSelection} />
               ))}
             </div>
@@ -492,8 +476,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {poolVars.map((v) => (
                 <SmartPill key={v.name}
-                  label={poolVarPattern(lang, v.name)} color="#a78bfa"
-                  type={v.type} varName={poolVarPattern(lang, v.name)}
+                  label={poolVarPattern(v.name)} color="#a78bfa"
+                  type={v.type} varName={poolVarPattern(v.name)}
                   onInsert={insertSnippet} onWrap={wrapSelection} />
               ))}
             </div>
@@ -534,7 +518,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       <ScriptEditor
         value={p('code')}
         onChange={handleCodeChange}
-        language={lang}
+        language={EDITOR_LANG}
         schema={schema}
         laneVars={laneVars}
         poolVars={poolVars}
@@ -555,40 +539,11 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         </div>
       )}
 
-      {/* ══ SEZ 5 — DIPENDENZE ══════════════════════════════════ */}
-      <div style={{ background: '#1a2030', border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
-        <button onClick={() => setShowDeps((v) => !v)}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#9a9aaa', fontSize: 10 }}>
-          <i className={`ti ${showDeps ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 10 }} />
-          <i className="ti ti-package" style={{ fontSize: 11, color: '#a78bfa' }} />
-          Dipendenze
-        </button>
-        {showDeps && (
-          <div style={{ padding: '8px 10px', borderTop: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {lang === 'typescript' && (
-              <Field label="Import NPM (JSON)" hint='Es: {"lodash": "4.17.21"}'>
-                <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace' }}
-                  value={p('dependencies') || '{}'} onChange={u('dependencies')} spellCheck={false} />
-              </Field>
-            )}
-            {lang === 'python' && (
-              <Field label="Moduli Python (uno per riga)" hint="Installati con pip prima dell'esecuzione">
-                <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace' }}
-                  value={p('pipRequirements') || ''} onChange={u('pipRequirements')}
-                  placeholder={'pandas==2.0.0\nnumpy'} spellCheck={false} />
-              </Field>
-            )}
-            {lang === 'java' && (
-              <Field label="Dipendenze Maven" hint="groupId:artifactId:version — una per riga">
-                <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace' }}
-                  value={p('mavenDeps') || ''} onChange={u('mavenDeps')}
-                  placeholder={'com.google.guava:guava:31.0'} spellCheck={false} />
-              </Field>
-            )}
-          </div>
-          
-        )}
-      </div>
+      {/* La sezione DIPENDENZE è stata rimossa: prometteva import NPM,
+          moduli pip e artefatti Maven per tre linguaggi che il motore non
+          ha mai eseguito. Il linguaggio di FlowPilot non ha librerie
+          esterne per disegno (v. design-nodo-script.md §6): tutto quello
+          che si può chiamare è nelle ~80 funzioni di FPEL. */}
 
       {/* ══ SEZ 6 — OPZIONI AVANZATE ════════════════════════════ */}
       <div style={{ background: '#1a2030', border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>

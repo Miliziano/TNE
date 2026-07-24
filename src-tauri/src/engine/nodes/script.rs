@@ -42,7 +42,28 @@ enum ScriptStmt {
     Reject { #[serde(default)] reason: Option<ExprNode> },
     Log    { expr: ExprNode },
     Error  { expr: ExprNode },
+    /// Manda a valle una COPIA della riga com'è ora. Non interrompe: le
+    /// istruzioni successive continuano sulla stessa riga di lavoro.
+    Emit,
+    Repeat {
+        count: ExprNode,
+        // `rename` esplicito invece di `rename_all_fields`: è lo stesso
+        // costrutto già usato qui sopra per `else`, quindi noto e sicuro.
+        #[serde(default, rename = "varName")] var_name: Option<String>,
+        #[serde(default)] body: Vec<ScriptStmt>,
+    },
+    For {
+        #[serde(rename = "varName")] var_name: String,
+        list: ExprNode,
+        #[serde(default)] body: Vec<ScriptStmt>,
+    },
 }
+
+/// Tetto ai giri di ciclo per riga in ingresso. Serve a trasformare un
+/// `repeat` con un conteggio sbagliato in un errore leggibile invece che
+/// in un processo che mangia memoria finché non muore. Il numero è alto
+/// abbastanza da non intralciare un uso legittimo.
+const MAX_GIRI: u64 = 1_000_000;
 
 /// Esito dell'esecuzione di un blocco. `Salta`, `Scarta` e `Fallisci`
 /// risalgono attraverso gli `if` annidati fino al ciclo sulle righe:
@@ -57,7 +78,12 @@ enum Flow {
 
 pub async fn run(
     ctx:        NodeContext,
-    mut rx:     RowReceiver,
+    // OPZIONALE, come per `window` ("caso 2: nessun arco"): senza ingresso
+    // lo Script è un GENERATORE — il corpo gira una volta sola e le righe
+    // escono solo dalle `emit`. Con l'ingresso è il caso normale: una
+    // passata per riga. Che sia voluto lo dichiara `sourceMode` nello
+    // studio, che in modalità "genera" toglie proprio la porta.
+    rx:         Option<RowReceiver>,
     mut outputs: HashMap<String, RowSender>,
 ) -> Result<NodeStats, String> {
 
@@ -88,38 +114,26 @@ pub async fn run(
     let mut rows_out      = 0u64;
     let mut rows_rejected = 0u64;
 
-    while let Some(row) = rx.recv().await {
-        rows_in += 1;
+    match rx {
+        // ── Caso normale: una passata per ogni riga in ingresso ──
+        Some(mut rx) => {
+            while let Some(row) = rx.recv().await {
+                rows_in += 1;
+                let prosegui = passata(&body, row, &variables, &ctx, rows_in,
+                                       &tx, &reject_tx,
+                                       &mut rows_out, &mut rows_rejected, true).await?;
+                if !prosegui { break; }
+            }
+        }
 
-        // Si parte da una COPIA della riga in ingresso: chi non assegna
-        // niente ottiene un passthrough.
-        let mut riga   = row;
-        // I locali vivono in una riga sintetica, azzerata a ogni giro:
-        // un `let` non deve sopravvivere alla riga che l'ha calcolato.
-        let mut locali = Row(HashMap::new());
-
-        match esegui(&body, &mut riga, &mut locali, &variables, &ctx, rows_in) {
-            Flow::Continua => {
-                if tx.send(riga).await.is_err() { break; }
-                rows_out += 1;
-            }
-            Flow::Salta => { /* la riga non esce da nessuna porta */ }
-            Flow::Scarta(motivo) => {
-                rows_rejected += 1;
-                if let Some(rtx) = &reject_tx {
-                    let mut scartata = riga;
-                    scartata.0.insert("_reject_reason".to_string(), Value::String(motivo));
-                    if rtx.send(scartata).await.is_err() { break; }
-                }
-                // Senza porta reject collegata la riga si perde: è la
-                // stessa scelta degli altri nodi con reject condizionale.
-            }
-            Flow::Fallisci(messaggio) => {
-                // Errore di NODO: prende il canale di controllo e arriva
-                // all'error handler della lane come qualunque altro
-                // fallimento.
-                return Err(format!("script {}: {}", ctx.node_id.0, messaggio));
-            }
+        // ── Generatore: una passata sola, senza riga d'ingresso ──
+        // La riga di lavoro parte VUOTA e NON esce da sola a fine corpo:
+        // senza `emit` un generatore non produce niente, ed è giusto —
+        // far uscire una riga vuota sarebbe inventare un dato.
+        None => {
+            passata(&body, Row(HashMap::new()), &variables, &ctx, 0,
+                    &tx, &reject_tx,
+                    &mut rows_out, &mut rows_rejected, false).await?;
         }
     }
 
@@ -134,6 +148,70 @@ pub async fn run(
     Ok(stats)
 }
 
+/// Una passata del corpo su una riga di lavoro: esegue, poi manda a valle
+/// ciò che è stato prodotto. Restituisce `false` se un canale a valle si è
+/// chiuso, così il chiamante smette di ciclare.
+///
+/// `uscita_implicita` distingue le due nature del nodo: con una riga in
+/// ingresso, quella riga esce anche se lo script non ha detto `emit`
+/// (passthrough); da generatore, no.
+#[allow(clippy::too_many_arguments)]
+async fn passata(
+    body:             &[ScriptStmt],
+    riga_iniziale:    Row,
+    variables:        &HashMap<String, Value>,
+    ctx:              &NodeContext,
+    row_num:          u64,
+    tx:               &RowSender,
+    reject_tx:        &Option<RowSender>,
+    rows_out:         &mut u64,
+    rows_rejected:    &mut u64,
+    uscita_implicita: bool,
+) -> Result<bool, String> {
+    let mut riga   = riga_iniziale;
+    // I locali vivono in una riga sintetica, azzerata a ogni passata: un
+    // `let` non deve sopravvivere alla riga che l'ha calcolato.
+    let mut locali = Row(HashMap::new());
+    let mut emesse: Vec<Row> = Vec::new();
+
+    let esito = esegui(body, &mut riga, &mut locali, variables, ctx, row_num, &mut emesse);
+
+    // Le righe di `emit` escono in ogni caso: sono state prodotte PRIMA
+    // che il corpo decidesse come finire. Così `repeat 3 { emit }` seguito
+    // da `skip` significa "solo le tre, non l'originale" — che è il modo
+    // naturale di scrivere un fan-out puro.
+    for r in emesse {
+        if tx.send(r).await.is_err() { return Ok(false); }
+        *rows_out += 1;
+    }
+
+    match esito {
+        Flow::Continua => {
+            if uscita_implicita {
+                if tx.send(riga).await.is_err() { return Ok(false); }
+                *rows_out += 1;
+            }
+        }
+        Flow::Salta => { /* la riga di lavoro non esce da nessuna porta */ }
+        Flow::Scarta(motivo) => {
+            *rows_rejected += 1;
+            if let Some(rtx) = reject_tx {
+                let mut scartata = riga;
+                scartata.0.insert("_reject_reason".to_string(), Value::String(motivo));
+                if rtx.send(scartata).await.is_err() { return Ok(false); }
+            }
+            // Senza porta reject collegata la riga si perde: stessa scelta
+            // degli altri nodi con reject condizionale.
+        }
+        Flow::Fallisci(messaggio) => {
+            // Errore di NODO: prende il canale di controllo e arriva
+            // all'error handler della lane come ogni altro fallimento.
+            return Err(format!("script {}: {}", ctx.node_id.0, messaggio));
+        }
+    }
+    Ok(true)
+}
+
 /// Esegue un blocco di istruzioni sulla riga corrente.
 ///
 /// Non è ricorsivo sui dati, solo sui blocchi annidati: il linguaggio
@@ -146,6 +224,12 @@ fn esegui(
     variables: &HashMap<String, Value>,
     ctx:       &NodeContext,
     row_num:   u64,
+    // Le righe di `emit` si RACCOLGONO qui invece di essere spedite
+    // subito. Spedire vorrebbe dire `await`, e una funzione async che
+    // ricorre su se stessa (i blocchi annidati) in Rust non compila senza
+    // impacchettare il future: raccogliere tiene la funzione sincrona e
+    // la ricorsione banale. Il tetto MAX_GIRI limita quanto può crescere.
+    emesse:    &mut Vec<Row>,
 ) -> Flow {
     for stmt in stmts {
         match stmt {
@@ -166,11 +250,60 @@ fn esegui(
                 // condizione in un filter. Duplicare la regola qui
                 // significherebbe farle divergere alla prima modifica.
                 let rami = if is_truthy(&v) { then } else { altrimenti };
-                match esegui(rami, riga, locali, variables, ctx, row_num) {
+                match esegui(rami, riga, locali, variables, ctx, row_num, emesse) {
                     // Un blocco che non decide niente lascia proseguire
                     // il blocco esterno; gli altri esiti risalgono.
                     Flow::Continua => {}
                     altro          => return altro,
+                }
+            }
+
+            ScriptStmt::Emit => emesse.push(riga.clone()),
+
+            ScriptStmt::Repeat { count, var_name, body } => {
+                let quante = match valuta(count, riga, locali, variables).as_f64_lossy() {
+                    Some(n) if n >= 0.0 => n as u64,
+                    _ => return Flow::Fallisci(
+                        "repeat: il numero di giri non è un numero non negativo".to_string()),
+                };
+                if quante > MAX_GIRI {
+                    return Flow::Fallisci(format!(
+                        "repeat: {} giri richiesti, il massimo è {}", quante, MAX_GIRI));
+                }
+                for i in 0..quante {
+                    if let Some(nome) = var_name {
+                        // Contatore da 1: chi scrive `repeat 3 as i` si
+                        // aspetta 1,2,3 e non 0,1,2.
+                        locali.0.insert(nome.clone(), Value::Int(i as i64 + 1));
+                    }
+                    match esegui(body, riga, locali, variables, ctx, row_num, emesse) {
+                        Flow::Continua => {}
+                        altro          => return altro,
+                    }
+                }
+            }
+
+            ScriptStmt::For { var_name, list, body } => {
+                let v = valuta(list, riga, locali, variables);
+                // Gli array non sono un tipo di FPEL: vivono dentro
+                // `Object`, che porta un serde_json::Value. Un valore che
+                // non è un array non viene "adattato" a lista di uno solo:
+                // sarebbe una comodità che nasconde un errore.
+                let elementi: Vec<serde_json::Value> = match &v {
+                    Value::Object(serde_json::Value::Array(a)) => a.clone(),
+                    _ => return Flow::Fallisci(
+                        "for: l'espressione non è un array".to_string()),
+                };
+                if elementi.len() as u64 > MAX_GIRI {
+                    return Flow::Fallisci(format!(
+                        "for: {} elementi, il massimo è {}", elementi.len(), MAX_GIRI));
+                }
+                for el in elementi {
+                    locali.0.insert(var_name.clone(), Value::from_json(el));
+                    match esegui(body, riga, locali, variables, ctx, row_num, emesse) {
+                        Flow::Continua => {}
+                        altro          => return altro,
+                    }
                 }
             }
 

@@ -138,5 +138,50 @@ ok('i let non entrano nello schema', () => {
   eq(campiAssegnati(parseScript('let t = 1\na = t')), ['a'], 'solo i campi assegnati')
 })
 
+// ─── Fan-out e generatore ───────────────────────────────────────────
+
+ok('emit', () => { eq((parseScript('emit') as any[])[0].kind, 'Emit', 'kind') })
+
+ok('repeat con contatore', () => {
+  const r = parseScript('repeat 3 as i {\n n = i\n emit\n}') as any[]
+  eq(r[0].kind, 'Repeat', 'kind'); eq(r[0].varName, 'i', 'nome del contatore')
+  eq(r[0].body.length, 2, 'corpo')
+  eq(r[0].body[0].expr.input, '__local', 'il contatore è un locale')
+})
+
+ok('repeat senza contatore', () => {
+  const r = parseScript('repeat n_copie { emit }') as any[]
+  eq(r[0].varName, null, 'nessun nome')
+  eq(r[0].count.kind, 'DirectFieldRef', 'il conteggio può venire da un campo')
+})
+
+ok('for su un array', () => {
+  const r = parseScript('for riga in dettagli {\n codice = riga\n emit\n}') as any[]
+  eq(r[0].kind, 'For', 'kind'); eq(r[0].varName, 'riga', 'nome')
+  eq(r[0].body[0].expr.input, '__local', 'la variabile è un locale')
+})
+
+ok('la variabile del ciclo non esce dal ciclo', () => {
+  const r = parseScript('for x in lista {\n a = x\n}\nb = x') as any[]
+  eq(r[0].body[0].expr.kind, 'FieldRef', 'dentro è il locale')
+  eq(r[1].expr.kind, 'DirectFieldRef', 'fuori torna a essere un campo')
+})
+
+ok('cicli annidati', () => {
+  const r = parseScript('repeat 2 as i {\n for y in l {\n emit\n }\n}') as any[]
+  eq(r[0].body[0].kind, 'For', 'un for dentro un repeat')
+})
+
+ok('i campi assegnati nei cicli entrano nello schema', () => {
+  eq(campiAssegnati(parseScript('repeat 3 { a = 1 }\nfor y in l { b = 2 }')).sort(),
+     ['a', 'b'], 'schema di uscita')
+})
+
+bad('repeat 3\n emit', 'repeat senza graffa')
+bad('for x lista { emit }', 'for senza "in"')
+bad('let i = 1\nrepeat 3 as i { emit }', 'nome del contatore già preso', 2)
+bad('let emit = 1', '"emit" è riservata')
+bad('repeat 3 {\n emit', 'graffa del ciclo non chiusa')
+
 console.log(`\n=== ${pass} passati, ${fail} falliti ===`)
 process.exit(fail > 0 ? 1 : 0)

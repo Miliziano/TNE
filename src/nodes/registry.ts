@@ -255,6 +255,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     // né l'uno né l'altro. Il corpo è ora un linguaggio di istruzioni su
     // FPEL — v. src-tauri/docs/design-nodo-script.md.
     fields: [
+      { key: 'sourceMode', label: 'Sorgente delle righe', type: 'select', default: 'flusso',
+        options: ['flusso', 'genera'] },
       { key: 'code', label: 'Istruzioni', type: 'code',
         default: '// I campi si usano per nome; "let" per i valori intermedi.\n// Istruzioni: let, assegnazione, if/else, skip, reject, log, error.\n' },
     ],

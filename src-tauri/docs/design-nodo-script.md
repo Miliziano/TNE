@@ -99,7 +99,47 @@ variabile di lane. Quello che si aggiunge sono le **istruzioni**.
       skip
     }
 
-### 3.1 Istruzioni della prima fetta
+### 3.0 Due nature: trasformatore e generatore
+
+Uno Script può **ricevere righe** e trasformarle, oppure **generarle dal
+nulla** — un conteggio, una serie di date, l'espansione di un array. La
+differenza la dichiara la prop `sourceMode`:
+
+- `flusso` (predefinito): il corpo gira **una volta per riga**; la riga di
+  lavoro parte da una copia di quella in ingresso ed esce a fine corpo
+  anche senza `emit` (passthrough);
+- `genera`: **la porta d'ingresso non esiste** (`when` su
+  `staticInputPorts` — il meccanismo era già generale, nessuna porta
+  d'ingresso lo aveva mai usato). Il corpo gira **una volta sola**, la
+  riga di lavoro parte vuota e **non esce da sola**: senza `emit` un
+  generatore non produce niente, ed è giusto — far uscire una riga vuota
+  sarebbe inventare un dato.
+
+La natura si **dichiara** e non si deduce: con `genera` un arco non è
+nemmeno disegnabile, quindi la doppia natura non può nascere per
+distrazione — che è il difetto del "se non ha archi, allora è un
+generatore". Nel motore l'ingresso è un `Option<RowReceiver>`, come già
+fa `window` ("caso 2: nessun arco").
+
+### 3.0.1 `emit` non è una funzione del generatore
+
+`emit` manda a valle **una copia della riga di lavoro com'è in quel
+momento**, e vale in tutte e due le modalità: una riga può entrarne una e
+uscirne molte. Non interrompe niente — le istruzioni successive
+continuano sulla stessa riga e possono emetterla di nuovo dopo averla
+cambiata.
+
+Le righe emesse escono **in ogni caso**, anche se il corpo finisce con
+`skip` o `reject`: sono state prodotte prima che il corpo decidesse come
+finire. Da cui il modo naturale di scrivere un fan-out puro:
+
+    repeat 3 as i {
+      copia = i
+      emit
+    }
+    skip        // escono le tre copie, non l'originale
+
+### 3.1 Istruzioni
 
 | Istruzione | Effetto |
 |---|---|
@@ -110,6 +150,9 @@ variabile di lane. Quello che si aggiunge sono le **istruzioni**.
 | `reject <expr>` | la riga esce dalla porta `reject` col motivo indicato; l'elaborazione di quella riga finisce lì |
 | `log <expr>` | riga nel pannello di log (livello `info`) |
 | `error <expr>` | il nodo fallisce con quel messaggio |
+| `emit` | manda a valle una copia della riga di lavoro; non interrompe |
+| `repeat <expr> [as <nome>] { … }` | ripete il blocco N volte; `nome` è un locale che conta da 1 |
+| `for <nome> in <expr> { … }` | ripete il blocco su ogni elemento di un array |
 
 `skip`, `reject` ed `error` **terminano** l'elaborazione della riga
 corrente: le istruzioni successive non vengono eseguite. È la stessa
@@ -187,10 +230,25 @@ Questo alimenta la propagazione a valle, oggi assente per lo Script.
 
 ---
 
+### 3.4 Cicli e limiti
+
+`repeat` conta; `for` scorre un array. Gli array **non sono un tipo di
+FPEL**: vivono dentro `Value::Object`, che porta un `serde_json::Value` —
+quindi `for` funziona senza aggiungere una variante a `Value` né toccare
+`expr.rs`. Un'espressione che non è un array fa fallire il nodo con un
+messaggio esplicito: adattarla a lista di un elemento sarebbe una
+comodità che nasconde un errore.
+
+Entrambi i cicli hanno un **tetto** (`MAX_GIRI`, un milione di giri per
+riga in ingresso). Serve a trasformare un conteggio sbagliato in un
+errore leggibile invece che in un processo che mangia memoria finché non
+muore. Non ci sono `while`: il numero di giri è sempre noto prima di
+cominciare.
+
+---
+
 ## 6. Cosa NON fa (e perché è scritto qui)
 
-- **Niente cicli** nella prima fetta. Servono per `emit` multiplo e per
-  scorrere array JSON; entrambi vanno con la fetta 2, non prima.
 - **Niente I/O**: nessun accesso a rete, file, database dal corpo. Chi
   deve leggere qualcosa usa i nodi che lo fanno.
 - **Niente `lang`**: il campo `lang: typescript | java` del registro
@@ -198,23 +256,28 @@ Questo alimenta la propagazione a valle, oggi assente per lo Script.
   alcun generatore per lo Script — ed è una promessa che nessuno mantiene
   (stessa famiglia di `advanced` prima di P45, e della tabella ignorata
   dal `source_db` prima di P49).
-- **Niente scrittura di variabili di lane** nella prima fetta: arriva con
-  la fetta 2 insieme a `outputMode: 'signal'`.
+- **Niente scrittura di variabili di lane**: arriva con la fetta 3,
+  insieme a `outputMode: 'signal'`.
+- **Niente `while`**: ogni ciclo ha un numero di giri noto prima di
+  cominciare, ed è ciò che rende il tetto una garanzia e non una speranza.
 
 ---
 
 ## 7. Fette
 
-1. **Motore + IR**: `nodes/script.rs` che esegue `ScriptStmt`; `Let`,
+1. ✅ **Motore + IR**: `nodes/script.rs` che esegue `ScriptStmt`; `Let`,
    `Assign`, `If`, `Skip`, `Reject`, `Log`, `Error`. Lo studio compila
    con un parser di istruzioni che riusa `parseExpression` per le parti
-   fra le graffe. Il nodo esce dallo stub e comincia a fare qualcosa.
-2. **Controllo esteso**: `emit <expr>` (più righe da una), scrittura
-   variabili di lane, `outputMode: 'signal'`.
-3. **Codegen**: generatore TypeScript per lo Script (oggi assente), e i
+   fra le graffe. Il nodo esce dallo stub.
+2. ✅ **Produrre righe**: `emit`, `repeat`, `for` e la modalità
+   generatore. Erano tre voci separate in questo elenco (fan-out, cicli,
+   nodo di partenza) e **sono una cosa sola**: un generatore che non sa
+   ciclare emette solo il numero fisso di righe scritte a mano, e `emit`
+   senza modalità generatore serve a metà.
+3. **Scrittura di variabili di lane** e `outputMode: 'signal'` — lo Script
+   che prepara un valore e dà il via al nodo dopo.
+4. **Codegen**: generatore TypeScript per lo Script (oggi assente), e i
    generatori degli altri runtime quando ci saranno.
-4. **Cicli**, se e quando servono davvero: `for x in <expr> { … }` su
-   array. Da non anticipare.
 
 ---
 

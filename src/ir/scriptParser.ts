@@ -29,6 +29,9 @@ export type ScriptStmt =
   | { kind: 'Reject'; reason: ExprNode | null }
   | { kind: 'Log';    expr: ExprNode; level: 'info' }
   | { kind: 'Error';  expr: ExprNode }
+  | { kind: 'Emit' }
+  | { kind: 'Repeat'; count: ExprNode; varName: string | null; body: ScriptStmt[] }
+  | { kind: 'For';    varName: string; list: ExprNode; body: ScriptStmt[] }
 
 /** Nome dell'input sintetico sotto cui il motore registra i locali. */
 export const LOCAL_INPUT = '__local'
@@ -165,12 +168,16 @@ const RE_LET    = /^let\s+([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$/
 // `=(?!=)` per non scambiare `a == b` per un'assegnazione.
 const RE_ASSIGN = /^([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$/
 const RE_IF     = /^if\s+(.+?)\s*\{$/
+// `repeat <n> [as <nome>] {`  e  `for <nome> in <espressione> {`
+const RE_REPEAT = /^repeat\s+(.+?)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*\{$/
+const RE_FOR    = /^for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(.+?)\s*\{$/
 const RE_ELSEIF = /^else\s+if\s+(.+?)\s*\{$/
 const RE_ELSE   = /^else\s*\{$/
 const RE_CHIUSA = /^\}$/
 
 /** Parola riservata usata come nome di campo o locale → errore chiaro. */
-const RISERVATE = new Set(['let', 'if', 'else', 'skip', 'reject', 'log', 'error'])
+const RISERVATE = new Set(['let', 'if', 'else', 'skip', 'reject', 'log', 'error',
+                           'emit', 'repeat', 'for', 'in', 'as'])
 
 interface Cursore { i: number }
 
@@ -232,6 +239,52 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
       throw new ScriptParseError('a un "else" deve seguire "{" (o "if … {")', n)
     }
 
+    // ── repeat <n> [as <nome>] { … } ────────────────────────────
+    const mRep = text.match(RE_REPEAT)
+    if (mRep) {
+      const conta = espr(mRep[1], n, locali)
+      // Il contatore è un LOCALE del corpo: dichiararlo nella copia
+      // impedisce che sopravviva al ciclo e che copra un campo fuori.
+      const dentro = new Set(locali)
+      if (mRep[2]) {
+        if (locali.has(mRep[2])) {
+          throw new ScriptParseError(`"${mRep[2]}" è già dichiarato: scegli un altro nome`, n)
+        }
+        dentro.add(mRep[2])
+      }
+      out.push({ kind: 'Repeat', count: conta, varName: mRep[2] ?? null,
+                 body: chiudiBlocco(righe, cur, dentro, n) })
+      continue
+    }
+
+    // ── for <nome> in <espressione> { … } ───────────────────────
+    const mFor = text.match(RE_FOR)
+    if (mFor) {
+      if (RISERVATE.has(mFor[1])) {
+        throw new ScriptParseError(`"${mFor[1]}" è una parola riservata e non può essere un nome`, n)
+      }
+      // La lista si compila PRIMA di dichiarare la variabile, come per `let`.
+      const lista  = espr(mFor[2], n, locali)
+      const dentro = new Set(locali)
+      dentro.add(mFor[1])
+      out.push({ kind: 'For', varName: mFor[1], list: lista,
+                 body: chiudiBlocco(righe, cur, dentro, n) })
+      continue
+    }
+
+    if (/^repeat\b/.test(text)) {
+      throw new ScriptParseError('forma attesa: repeat <quante volte> [as <nome>] {', n)
+    }
+    if (/^for\b/.test(text)) {
+      throw new ScriptParseError('forma attesa: for <nome> in <espressione> {', n)
+    }
+
+    // ── emit ────────────────────────────────────────────────────
+    // Manda a valle una COPIA della riga com'è in questo momento. Non
+    // interrompe niente: le istruzioni dopo continuano a lavorare sulla
+    // stessa riga, e possono emetterla di nuovo dopo averla cambiata.
+    if (text === 'emit') { out.push({ kind: 'Emit' }); continue }
+
     // ── skip ────────────────────────────────────────────────────
     if (text === 'skip') { out.push({ kind: 'Skip' }); continue }
 
@@ -284,13 +337,26 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
 
     throw new ScriptParseError(
       `istruzione non riconosciuta. Attese: assegnazione "campo = ...", "let", "if", ` +
-      `"skip", "reject", "log", "error"`, n)
+      `"repeat", "for", "emit", "skip", "reject", "log", "error"`, n)
   }
 
   if (annidato) {
     throw new ScriptParseError('manca la "}" che chiude un "if"', righe[righe.length - 1]?.n ?? 1)
   }
   return out
+}
+
+/**
+ * Legge un blocco e consuma la `}` che lo chiude. Gli `if` non la usano
+ * perché devono ancora guardare se segue un `else`; i cicli sì.
+ */
+function chiudiBlocco(righe: Riga[], cur: Cursore, locali: Set<string>, rigaApertura: number): ScriptStmt[] {
+  const corpo = blocco(righe, cur, locali, true)
+  if (cur.i >= righe.length || !RE_CHIUSA.test(righe[cur.i].text)) {
+    throw new ScriptParseError('manca la "}" che chiude questo blocco', rigaApertura)
+  }
+  cur.i++
+  return corpo
 }
 
 function leggiIf(righe: Riga[], cur: Cursore, locali: Set<string>,
@@ -364,6 +430,7 @@ export function campiAssegnati(stmts: ScriptStmt[]): string[] {
     for (const s of lista) {
       if (s.kind === 'Assign') { if (!visti.includes(s.field)) visti.push(s.field) }
       else if (s.kind === 'If') { visita(s.then); visita(s.else) }
+      else if (s.kind === 'Repeat' || s.kind === 'For') { visita(s.body) }
     }
   }
   visita(stmts)

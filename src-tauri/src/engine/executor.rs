@@ -921,8 +921,11 @@ async fn run_node(
         // Riceve `outputs` intera per poter prendere la porta `reject`
         // condizionale prima dell'uscita principale (modello P31/P32).
         "script" => {
-            let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("script {} richiede un input collegato", ctx.node_id.0))?;
+            // Input OPZIONALE, come per `window`: senza arco lo Script è un
+            // GENERATORE (corpo eseguito una volta, righe solo da `emit`).
+            // Che sia voluto lo dichiara `sourceMode` nello studio, che in
+            // modalità "genera" toglie proprio la porta d'ingresso.
+            let rx = take_single_input(&mut inputs);
             super::nodes::script::run(ctx, rx, outputs).await
         }
 

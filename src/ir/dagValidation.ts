@@ -652,7 +652,13 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     const uiType = node._uiRef?.type ?? ''
     const label  = node._uiRef?.label ?? node.id
 
-    if (NEEDS_EDGE_INPUT.has(uiType) && preds.length === 0) {
+    // Lo Script in modalità "genera" NON ha porta d'ingresso (v. il `when`
+    // in nodeSemantics): pretendere un arco sarebbe pretendere di
+    // collegare qualcosa che non esiste.
+    const generatore = uiType === 'script' &&
+      String(node._uiRef?.props?.['sourceMode'] ?? 'flusso') === 'genera'
+
+    if (NEEDS_EDGE_INPUT.has(uiType) && !generatore && preds.length === 0) {
       issues.push({
         nodeId: canvasId, code: 'NODE_INPUT_NOT_CONNECTED',
         message: `"${label}" (${uiType}) non ha niente in ingresso`,

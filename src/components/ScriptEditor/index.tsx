@@ -4,6 +4,14 @@ import type { editor as MonacoEditor } from 'monaco-editor'
 
 // ─── Mappa linguaggi → id Monaco ─────────────────────────────────
 const MONACO_LANG: Record<string, string> = {
+  // Il linguaggio del nodo Script non ha una grammatica Monaco propria.
+  // Si appoggia a quella di Rust per la SOLA evidenziazione: le parole
+  // chiave coincidono quasi tutte (`let`, `if`, `else`, `for`, `in`), i
+  // commenti sono `//` e le stringhe uguali. Soprattutto è una grammatica
+  // TextMate senza analisi semantica, quindi non segna in rosso codice
+  // valido — cosa che 'typescript' o 'javascript' farebbero a ogni riga.
+  // Una grammatica vera è un lavoro a sé, non un ripiego da fare in fretta.
+  flowpilot:  'rust',
   typescript: 'typescript',
   python:     'python',
   java:       'java',

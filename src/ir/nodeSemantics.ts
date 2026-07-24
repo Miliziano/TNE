@@ -420,7 +420,16 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     acceptsMultipleInputs:  false,
     acceptsDynamicInputs:   false,
     staticInputPorts: [
-      { id: 'input', label: 'input', role: 'data' },
+      // Anche l'INGRESSO cambia secondo la configurazione: uno Script può
+      // trasformare righe che riceve, oppure generarle dal nulla — un
+      // conteggio, una serie di date, l'espansione di un array. In
+      // modalità "genera" la porta non esiste proprio, così un arco non è
+      // nemmeno disegnabile e la doppia natura non può nascere per
+      // distrazione. Prima nessuna porta d'INGRESSO usava `when`, ma il
+      // meccanismo era già generale: resolveStaticPorts filtra entrambi i
+      // lati con portApplies.
+      { id: 'input', label: 'input', role: 'data',
+        when: { prop: 'sourceMode', notEquals: ['genera'], fallback: 'flusso' } },
     ],
     staticOutputPorts: [
       // Due dichiarazioni per la STESSA porta, mutuamente esclusive: è il
