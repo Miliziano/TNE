@@ -308,6 +308,47 @@ export function scriptFieldsToSchema(
   return fields.map((f) => ({ id: f.id, name: f.name, type: f.type, physicalName: f.name }))
 }
 
+/**
+ * Pubblica i campi di uscita di uno Script su ENTRAMBI i flussi.
+ *
+ * Sono sei scritture che devono avvenire insieme — `outputFields`,
+ * `rejectFields`, `outputSchema`, `rejectSchema` e le due propagazioni —
+ * e finché sono state ricopiate a mano in due posti se ne è persa per
+ * strada la metà: i campi nuovi comparivano a valle sul flusso main e non
+ * sul reject, pur essendo elencati nel pannello del nodo.
+ *
+ * NB `propagateSchema` esclude di default il flusso `reject`, quindi la
+ * seconda chiamata deve escludere `main` per fare l'opposto. È la riga
+ * che è più facile dimenticare, ed è il motivo per cui questa funzione
+ * esiste invece di un commento.
+ *
+ * I campi reject conservano quelli esistenti con lo stesso nome (il tipo
+ * può essere stato corretto a mano) e ne creano di nuovi per il resto.
+ */
+export function applyScriptFields(
+  nodeId:            string,
+  mainFields:        Array<{ id: string; name: string; type: string }>,
+  rejectEsistenti:   Array<{ id: string; name: string; type: string }>,
+  store:             StoreSnapshot,
+): Array<{ id: string; name: string; type: string }> {
+  const rejectFields = mainFields.map((mf) =>
+    rejectEsistenti.find((rf) => rf.name === mf.name)
+      ?? { id: `rf_${mf.id}`, name: mf.name, type: mf.type })
+
+  store.updateNodeProp(nodeId, 'outputFields', JSON.stringify(mainFields))
+  store.updateNodeProp(nodeId, 'rejectFields', JSON.stringify(rejectFields))
+
+  const mainSchema = scriptFieldsToSchema(mainFields)
+  store.updateNodeProp(nodeId, 'outputSchema', JSON.stringify(mainSchema))
+  propagateSchema(nodeId, mainSchema, store)
+
+  const rejectSchema = scriptFieldsToSchema(rejectFields)
+  store.updateNodeProp(nodeId, 'rejectSchema', JSON.stringify(rejectSchema))
+  propagateSchema(nodeId, rejectSchema, store, ['main'])
+
+  return rejectFields
+}
+
 export function lockSchemaAndPropagate(
   nodeId:    string,
   newSchema: SchemaField[],

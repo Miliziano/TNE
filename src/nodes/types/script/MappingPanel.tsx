@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
-import { propagateSchema, scriptFieldsToSchema } from '../../../utils/schemaUtils'
+import { propagateSchema, scriptFieldsToSchema, applyScriptFields } from '../../../utils/schemaUtils'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 
@@ -45,29 +45,12 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
   // ── Salva entrambi i flussi in sync ──────────────────────────
   // Quando aggiungo/rimuovo un campo, agisce su entrambi
   // i flussi simultaneamente con id separati
+  // Le sei scritture che pubblicano i campi su ENTRAMBI i flussi stanno
+  // in `applyScriptFields` (schemaUtils): erano ricopiate qui e nel
+  // pannello dello Script, e nella copia se n'erano perse tre.
   const saveFields = useCallback((mainFields: OutputField[]) => {
-    // Calcola i campi reject corrispondenti
-    // Mantieni i campi reject esistenti per nome, aggiungi/rimuovi in sync
-    const newRejectFields: OutputField[] = mainFields.map((mf) => {
-      // Cerca campo reject esistente con stesso nome
-      const existing = rejectFields.find((rf) => rf.name === mf.name)
-      return existing ?? { id: `rf_${mf.id}`, name: mf.name, type: mf.type }
-    })
-
-    // Aggiorna props
-    updateProp(nodeId, 'outputFields', JSON.stringify(mainFields))
-    updateProp(nodeId, 'rejectFields', JSON.stringify(newRejectFields))
-
-    // Aggiorna outputSchema (flusso main) e propaga
-    const schemaFields = scriptFieldsToSchema(mainFields)
-    updateProp(nodeId, 'outputSchema', JSON.stringify(schemaFields))
-    propagateSchema(nodeId, schemaFields, useFlowStore.getState())
-
-    // Aggiorna rejectSchema e propaga sul flusso reject
-    const rejectSchemaFields = scriptFieldsToSchema(newRejectFields)
-    updateProp(nodeId, 'rejectSchema', JSON.stringify(rejectSchemaFields))
-    propagateSchema(nodeId, rejectSchemaFields, useFlowStore.getState(), ['main'])
-  }, [nodeId, updateProp, rejectFields])
+    applyScriptFields(nodeId, mainFields, rejectFields, useFlowStore.getState())
+  }, [nodeId, rejectFields])
 
   // Quando cambia solo il tipo di un campo, aggiorna anche il reject
   const updateFieldType = useCallback((id: string, newType: string) => {

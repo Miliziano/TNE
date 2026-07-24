@@ -4,7 +4,7 @@ import { getTemplates } from './templates'
 import { parseScript, campiAssegnati } from '../../../ir/scriptParser'
 import { ScriptEditor, type SchemaField, type ContextVar } from '../../../components/ScriptEditor'
 import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
-import { scriptFieldsToSchema, propagateSchema } from '../../../utils/schemaUtils'
+import { scriptFieldsToSchema, propagateSchema, applyScriptFields } from '../../../utils/schemaUtils'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { getHandleSchema } from '../../../utils/schemaRegistry'
 
@@ -271,11 +271,14 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       nuovi.every((f, i) => f.name === attuali[i].name && f.type === attuali[i].type)
     if (invariato) return
 
-    updateProp(nodeId, 'outputFields', JSON.stringify(nuovi))
-    updateProp(nodeId, 'rejectFields', JSON.stringify(
-      nuovi.map((f) => ({ ...f, id: `rf_${f.id}` }))))
-    propagateSchema(nodeId, scriptFieldsToSchema(nuovi), useFlowStore.getState())
-  }, [p('code'), p('sourceMode'), schemaKey, nodeId, updateProp])
+    // Le SEI scritture (outputFields, rejectFields, outputSchema,
+    // rejectSchema e le due propagazioni) stanno in un posto solo: qui
+    // ne facevo tre, e i campi nuovi arrivavano a valle sul main ma non
+    // sul reject.
+    let rejectEsistenti: Array<{ id: string; name: string; type: string }> = []
+    try { rejectEsistenti = JSON.parse(p('rejectFields')) } catch { /* mai salvati */ }
+    applyScriptFields(nodeId, nuovi, rejectEsistenti, useFlowStore.getState())
+  }, [p('code'), p('sourceMode'), schemaKey, nodeId])
 
   // ── Propaga rename campi input nel codice ─────────────────────
   const prevSchemaRef = useRef<SchemaField[]>([])
