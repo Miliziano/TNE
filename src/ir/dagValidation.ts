@@ -31,6 +31,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkBridgeLaneCycles(plan))
   issues.push(...checkBridgeJoinPattern(plan))
   issues.push(...checkMissingSinks(plan))
+  issues.push(...checkNotImplemented(plan))
 
   // NB: lo schema si assume GIÀ propagato dal chiamante (runValidation /
   // runCompilation lo fanno prima di chiamare validateDAG). NON ri-propaghiamo
@@ -621,6 +622,50 @@ const NEEDS_EDGE_INPUT = new Set([
  * Le chiavi sono identiche nei pannelli e nel motore (spec.str_or).
  */
 const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
+
+/**
+ * I nodi che il MOTORE non implementa: sono gli stub dichiarati in
+ * `NOT_IMPLEMENTED` (src-tauri/src/engine/executor.rs). Al Run inoltrano le
+ * righe intatte e "fingono di funzionare" — il flusso completa ma quel passo
+ * non fa niente. Finora lo studio non lo diceva: lo si scopriva solo a valle,
+ * con dati che passavano immutati (o, per dir_watcher prima di essere messo
+ * qui, con un crash). Questa lista rende visibile il principio di copertura.
+ * 🔗 DEVE restare allineata a NOT_IMPLEMENTED nel motore: chi PORTA un nodo
+ * lo TOGLIE di là E di qui; chi ne dichiara uno nuovo stub lo aggiunge a
+ * ENTRAMBE.
+ */
+const MOTORE_NON_IMPLEMENTA = new Set([
+  'watchdog',
+  'source_http', 'source_ftp', 'source_mqtt', 'source_activemq', 'source_kafka',
+  'dir_watcher',
+  'sink_kafka', 'sink_ftp', 'sink_mqtt', 'sink_activemq', 'sink_http',
+  'http_request', 'webhook_responder', 'report_generator',
+])
+
+/**
+ * Avvisa, a design-time, per ogni nodo in flusso che il motore non esegue
+ * davvero (v. MOTORE_NON_IMPLEMENTA). Severità `warning` e non `error`:
+ * il flusso tecnicamente gira, e mentre si porta un nodo alla volta un
+ * blocco duro darebbe più fastidio che aiuto. Ma lo dice, invece di
+ * lasciarlo scoprire dai dati.
+ */
+function checkNotImplemented(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    if (node.operation === 'lane_boundary') continue
+    const type = node._uiRef?.type ?? ''
+    if (!MOTORE_NON_IMPLEMENTA.has(type)) continue
+    const label = node._uiRef?.label ?? node.id
+    issues.push({
+      nodeId:   canvasNodeId(node.id),
+      code:     'NODE_NOT_IMPLEMENTED',
+      message:  `"${label}" non è ancora implementato nel motore: al Run le righe lo attraversano intatte e il suo lavoro non viene fatto`,
+      severity: 'warning',
+      hint:     'Il nodo è in palette ma il motore lo tratta come trasparente finché non viene portato: per una sorgente significa nessuna riga prodotta, per un sink nessuna scrittura.',
+    })
+  }
+  return issues
+}
 
 function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
   const issues: ValidationIssue[] = []
