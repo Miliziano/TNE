@@ -551,6 +551,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {[
               { label: 'let',    snippet: 'let nome = ',             title: 'valore intermedio: non finisce nella riga' },
+              { label: 'var =',  snippet: 'var("nome") = ',           title: 'scrive una variabile di lane: sopravvive fra le righe (totali, deduplica)' },
               { label: 'if',     snippet: 'if condizione {\n  \n}',  title: 'ramificazione' },
               { label: 'repeat', snippet: 'repeat 3 as i {\n  \n}',  title: 'ripete N volte' },
               { label: 'for',    snippet: 'for x in campo {\n  \n}', title: 'ripete su ogni elemento di un array' },

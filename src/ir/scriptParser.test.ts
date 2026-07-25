@@ -183,5 +183,30 @@ bad('let i = 1\nrepeat 3 as i { emit }', 'nome del contatore già preso', 2)
 bad('let emit = 1', '"emit" è riservata')
 bad('repeat 3 {\n emit', 'graffa del ciclo non chiusa')
 
+
+// ─── SetVar: scrittura variabile di lane (P71) ───────────────────────
+ok('var("x") = expr → SetVar', () => {
+  const p = parseScript('var("tot") = 10')
+  eq(p.length, 1, 'una istruzione')
+  eq(p[0].kind, 'SetVar', 'kind SetVar')
+  eq((p[0] as any).name, 'tot', 'nome variabile')
+})
+ok('SetVar legge campi e altre var', () => {
+  const p = parseScript('var("tot") = var("tot") + prezzo')
+  eq(p[0].kind, 'SetVar', 'kind')
+})
+ok('apici singoli ammessi', () => {
+  eq(parseScript("var('c') = 0")[0].kind, 'SetVar', 'kind con apici singoli')
+})
+ok('SetVar NON è un campo in uscita', () => {
+  // una scrittura di lane non deve comparire fra i campi assegnati
+  const campi = campiAssegnati(parseScript('var("tot") = 1\nfascia = "A"'))
+  eq(campi.length, 1, 'solo il campo vero')
+  eq(campi[0], 'fascia', 'fascia, non tot')
+})
+ok('assegnazione di campo normale resta Assign', () => {
+  eq(parseScript('x = 1')[0].kind, 'Assign', 'x = 1 è Assign')
+})
+
 console.log(`\n=== ${pass} passati, ${fail} falliti ===`)
 process.exit(fail > 0 ? 1 : 0)

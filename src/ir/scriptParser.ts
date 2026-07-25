@@ -26,6 +26,7 @@ import type { FieldType } from '../types/fieldTypes'
 export type ScriptStmt =
   | { kind: 'Let';    name:  string; expr: ExprNode }
   | { kind: 'Assign'; field: string; expr: ExprNode }
+  | { kind: 'SetVar'; name:  string; expr: ExprNode }  // var("x") = expr → scrive una variabile di lane
   | { kind: 'If';     cond:  ExprNode; then: ScriptStmt[]; else: ScriptStmt[] }
   | { kind: 'Skip' }
   | { kind: 'Reject'; reason: ExprNode | null }
@@ -169,6 +170,8 @@ function risolviLocali(node: ExprNode, locali: Set<string>): ExprNode {
 const RE_LET    = /^let\s+([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$/
 // `=(?!=)` per non scambiare `a == b` per un'assegnazione.
 const RE_ASSIGN = /^([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$/
+// var("nome") = expr — scrittura di una variabile di lane (simmetrica a var("nome") in lettura)
+const RE_SETVAR = /^var\s*\(\s*(["'])(.+?)\1\s*\)\s*=(?!=)\s*(.+)$/
 const RE_IF     = /^if\s+(.+?)\s*\{$/
 // `repeat <n> [as <nome>] {`  e  `for <nome> in <espressione> {`
 const RE_REPEAT = /^repeat\s+(.+?)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*\{$/
@@ -324,6 +327,13 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
       const expr = espr(mLet[2], n, locali)
       locali.add(nome)
       out.push({ kind: 'Let', name: nome, expr })
+      continue
+    }
+
+    // ── var("x") = <expr> : scrittura variabile di lane ─────────
+    const mSet = text.match(RE_SETVAR)
+    if (mSet) {
+      out.push({ kind: 'SetVar', name: mSet[2], expr: espr(mSet[3], n, locali) })
       continue
     }
 
