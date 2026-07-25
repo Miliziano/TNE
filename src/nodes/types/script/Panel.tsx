@@ -453,6 +453,12 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           Variabili disponibili — clicca per inserire · ▾ per trasformazioni
         </div>
 
+        {/* I campi possono essere molti: qui stanno in una fascia con
+            altezza massima e scroll, così non spingono l'editor più in
+            basso e resta sempre raggiungibile. Le istruzioni (numero fisso)
+            restano fuori, subito sopra l'editor. */}
+        <div style={{ maxHeight: 190, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, margin: '0 -4px', padding: '2px 4px' }}>
+
         {/* Input */}
         {schema.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -520,6 +526,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             </div>
           </div>
         )}
+        </div>{/* ── fine fascia scrollabile dei campi ── */}
 
         {/* Le variabili di POOL non compaiono: non sono raggiungibili dalle
             espressioni, ed è voluto. Il piano che arriva al motore porta

@@ -457,6 +457,60 @@ export function istruzioniUsate(stmts: ScriptStmt[]): Set<ScriptStmt['kind']> {
   return viste
 }
 
+/**
+ * Variabili di lane LETTE (via `var("x")` con nome letterale) e SCRITTE
+ * (via `SetVar`) in un corpo. Serve alla validazione per avvisare su una
+ * lettura mai dichiarata né assegnata: nel motore darebbe sempre `null`
+ * in silenzio, ed è il refuso classico (`var("totaal")` per `var("totale")`).
+ * Solo nomi LETTERALI: `var(campo_dinamico)` non è controllabile → si salta.
+ */
+export function variabiliDiLaneUsate(stmts: ScriptStmt[]): { lette: Set<string>; scritte: Set<string> } {
+  const lette = new Set<string>()
+  const scritte = new Set<string>()
+
+  const daExpr = (e: ExprNode): void => {
+    switch (e.kind) {
+      case 'FunctionCall':
+        if (e.name.toLowerCase() === 'var' && e.args.length >= 1) {
+          const a = e.args[0]
+          if (a.kind === 'Literal' && typeof a.value === 'string') lette.add(a.value)
+        }
+        e.args.forEach(daExpr)
+        break
+      case 'BinaryOp':  daExpr(e.left); daExpr(e.right); break
+      case 'UnaryOp':   daExpr(e.expr); break
+      case 'Cast':      daExpr(e.expr); break
+      case 'IsNull':    daExpr(e.expr); break
+      case 'IsNotNull': daExpr(e.expr); break
+      case 'Coalesce':  e.args.forEach(daExpr); break
+      case 'CaseWhen':
+        e.branches.forEach((b) => { daExpr(b.condition); daExpr(b.value) })
+        if (e.default) daExpr(e.default)
+        break
+      // Literal, FieldRef, DirectFieldRef: foglie, niente da raccogliere.
+    }
+  }
+
+  const daStmt = (lista: ScriptStmt[]): void => {
+    for (const s of lista) {
+      switch (s.kind) {
+        case 'Let':    daExpr(s.expr); break
+        case 'Assign': daExpr(s.expr); break
+        case 'SetVar': scritte.add(s.name); daExpr(s.expr); break
+        case 'Reject': if (s.reason) daExpr(s.reason); break
+        case 'Log':    daExpr(s.expr); break
+        case 'Error':  daExpr(s.expr); break
+        case 'Repeat': daExpr(s.count); daStmt(s.body); break
+        case 'For':    daExpr(s.list);  daStmt(s.body); break
+        case 'If':     daExpr(s.cond);  daStmt(s.then); daStmt(s.else); break
+        // Skip, Emit: nessuna espressione.
+      }
+    }
+  }
+  daStmt(stmts)
+  return { lette, scritte }
+}
+
 export function campiAssegnati(stmts: ScriptStmt[]): string[] {
   const visti: string[] = []
   const visita = (lista: ScriptStmt[]) => {

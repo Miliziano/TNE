@@ -8,7 +8,7 @@
  * disegno (docs/design-nodo-script.md) cambia, qui si vede subito.
  */
 
-import { parseScript, campiAssegnati, ScriptParseError } from './scriptParser'
+import { parseScript, campiAssegnati, variabiliDiLaneUsate, ScriptParseError } from './scriptParser'
 
 let pass = 0, fail = 0
 
@@ -206,6 +206,32 @@ ok('SetVar NON è un campo in uscita', () => {
 })
 ok('assegnazione di campo normale resta Assign', () => {
   eq(parseScript('x = 1')[0].kind, 'Assign', 'x = 1 è Assign')
+})
+
+
+// ─── variabiliDiLaneUsate (P71b) ─────────────────────────────────────
+function vlu(src: string) { return variabiliDiLaneUsate(parseScript(src)) }
+ok('lettura semplice', () => {
+  const r = vlu('x = var("c")')
+  eq([...r.lette].join(), 'c', 'legge c')
+  eq(r.scritte.size, 0, 'niente scritte')
+})
+ok('lettura + scrittura della stessa', () => {
+  const r = vlu('var("tot") = var("tot") + 1')
+  eq([...r.lette].join(), 'tot', 'legge tot')
+  eq([...r.scritte].join(), 'tot', 'scrive tot')
+})
+ok('dentro if e blocchi', () => {
+  const r = vlu('if var("f") > 0 {\n  y = var("g")\n}')
+  eq([...r.lette].sort().join(), 'f,g', 'legge f e g')
+})
+ok('dentro reject e log', () => {
+  const r = vlu('log var("m")\nreject var("r")')
+  eq([...r.lette].sort().join(), 'm,r', 'legge m e r')
+})
+ok('nome dinamico non contato', () => {
+  const r = vlu('x = var(campo)')  // campo, non una stringa
+  eq(r.lette.size, 0, 'var(dinamico) si salta')
 })
 
 console.log(`\n=== ${pass} passati, ${fail} falliti ===`)

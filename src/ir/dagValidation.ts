@@ -5,7 +5,7 @@
 import type { Node as FlowNode } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { isLegacyRuleAction } from '../types'
-import { parseScript, istruzioniUsate, ScriptParseError } from './scriptParser'
+import { parseScript, istruzioniUsate, variabiliDiLaneUsate, ScriptParseError } from './scriptParser'
 import type {
   LogicalPlan, LogicalNode, ValidationIssue, ValidationResult, ExecutionSemantics,
 } from './types'
@@ -743,6 +743,29 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
             severity: 'warning',
             hint: 'Attiva la porta reject nel pannello del nodo e collegala, oppure usa "skip" se le righe vanno semplicemente scartate.',
           })
+        }
+
+        // var("x") LETTA ma mai dichiarata nella lane né assegnata prima:
+        // nel motore darebbe sempre `null` in silenzio. È il refuso
+        // classico (var("totaal") per var("totale")) — stessa onestà di
+        // P60/P69: dirlo a design-time invece di lasciarlo sparire. Non si
+        // avvisa se è scritta da qualche parte nello script (accumulatore
+        // che parte da null è legittimo).
+        const { lette, scritte } = variabiliDiLaneUsate(corpo)
+        if (lette.size > 0) {
+          const laneId = node._uiRef?.laneId ?? ''
+          const lane = plan.pool?.lanes?.find((l) => l.id === laneId)
+          const dichiarate = new Set((lane?.variables ?? []).map((v) => v.name))
+          for (const nome of lette) {
+            if (!dichiarate.has(nome) && !scritte.has(nome)) {
+              issues.push({
+                nodeId: canvasId, code: 'SCRIPT_LANE_VAR_UNDECLARED',
+                message: `"${label}": var("${nome}") è letta ma non è dichiarata nella lane né assegnata prima — varrà sempre null`,
+                severity: 'warning',
+                hint: `Dichiara "${nome}" nelle variabili della lane, oppure scrivila con var("${nome}") = … prima di leggerla. Se è un errore di battitura, correggi il nome.`,
+              })
+            }
+          }
         }
       } catch (e) {
         const dettaglio = e instanceof ScriptParseError ? e.pretty() : String(e)
