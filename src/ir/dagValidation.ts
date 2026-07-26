@@ -636,7 +636,7 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
  */
 const MOTORE_NON_IMPLEMENTA = new Set([
   'watchdog',
-  'source_http', 'source_ftp', 'source_mqtt', 'source_activemq', 'source_kafka',
+  'source_http', 'source_mqtt', 'source_activemq', 'source_kafka',
   'dir_watcher',
   'sink_kafka', 'sink_ftp', 'sink_mqtt', 'sink_activemq', 'sink_http',
   'http_request', 'webhook_responder',

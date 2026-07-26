@@ -1523,18 +1523,18 @@ struct FileEntry {
 // ═══════════════════════════════════════════════════════════════════
 
 #[derive(Debug, Deserialize, Clone)]
-struct FtpConnectionParams {
-  protocol:        String,
-  host:            String,
-  port:            u16,
-  user:            String,
-  password:        Option<String>,
+pub struct FtpConnectionParams {
+  pub protocol:        String,
+  pub host:            String,
+  pub port:            u16,
+  pub user:            String,
+  pub password:        Option<String>,
   #[serde(rename = "keyPath")]
-  key_path:        Option<String>,
+  pub key_path:        Option<String>,
   #[serde(rename = "authType")]
-  auth_type:       Option<String>,
+  pub auth_type:       Option<String>,
   #[serde(rename = "connectTimeout")]
-  connect_timeout: Option<u64>,
+  pub connect_timeout: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1545,12 +1545,12 @@ struct FtpTestResult {
 }
 
 #[derive(Debug, Serialize)]
-struct FtpFileEntry {
-  name:        String,
-  path:        String,
-  is_dir:      bool,
-  size:        u64,
-  modified_at: Option<String>,
+pub struct FtpFileEntry {
+  pub name:        String,
+  pub path:        String,
+  pub is_dir:      bool,
+  pub size:        u64,
+  pub modified_at: Option<String>,
 }
 
 #[tauri::command]
@@ -1563,8 +1563,11 @@ async fn ftp_test(connection: FtpConnectionParams) -> Result<FtpTestResult, Stri
   }
 }
 
-#[tauri::command]
-async fn ftp_list(
+// Impl condivisa (FONTE UNICA): la chiamano SIA il comando Tauri qui sotto
+// SIA i nodi del motore (crate::ftp_list_impl). NON marcare `pub` il
+// #[tauri::command]: nello stesso modulo la macro ri-esporta i suoi helper
+// (__cmd__*, __tauri_command_name_*) e collidono con la definizione (E0255).
+pub async fn ftp_list_impl(
   connection:  FtpConnectionParams,
   remote_path: String,
   pattern:     Option<String>,
@@ -1578,12 +1581,26 @@ async fn ftp_list(
 }
 
 #[tauri::command]
-async fn ftp_read(connection: FtpConnectionParams, remote_path: String) -> Result<String, String> {
+async fn ftp_list(
+  connection:  FtpConnectionParams,
+  remote_path: String,
+  pattern:     Option<String>,
+  recursive:   Option<bool>,
+) -> Result<Vec<FtpFileEntry>, String> {
+  ftp_list_impl(connection, remote_path, pattern, recursive).await
+}
+
+pub async fn ftp_read_impl(connection: FtpConnectionParams, remote_path: String) -> Result<String, String> {
   match connection.protocol.as_str() {
     "sftp"        => sftp_read(&connection, &remote_path).await,
     "ftp" | "ftps" => ftp_plain_read(&connection, &remote_path).await,
     p             => Err(format!("Protocollo '{}' non supportato", p)),
   }
+}
+
+#[tauri::command]
+async fn ftp_read(connection: FtpConnectionParams, remote_path: String) -> Result<String, String> {
+  ftp_read_impl(connection, remote_path).await
 }
 
 #[tauri::command]

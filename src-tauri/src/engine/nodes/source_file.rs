@@ -275,7 +275,7 @@ pub async fn run(
     Ok(stats)
 }
 
-fn parse_csv_line(line: &str, delimiter: u8) -> Vec<String> {
+pub(crate) fn parse_csv_line(line: &str, delimiter: u8) -> Vec<String> {
     let delim = delimiter as char;
     let mut fields = Vec::new();
     let mut current = String::new();

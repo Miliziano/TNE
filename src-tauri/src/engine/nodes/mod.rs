@@ -10,6 +10,7 @@
 pub mod source_input;
 
 pub mod source_file;
+pub mod source_ftp;
 pub mod source_db;
 pub mod filter;
 pub mod sink_file;
