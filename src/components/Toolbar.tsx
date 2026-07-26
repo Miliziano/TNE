@@ -1171,8 +1171,22 @@ export function Toolbar() {
     setRunning(false)
   }
 
-  // ── Salva ─────────────────────────────────────────────────────
-  const handleSave = async () => {
+  // ── Salva / Salva con nome ────────────────────────────────────
+  // Scrive lo scenario nel percorso dato e lo RICORDA come file corrente,
+  // così i salvataggi successivi sovrascrivono quello senza ridomandarlo.
+  const scriviProgetto = async (path: string) => {
+    const state   = useFlowStore.getState()
+    const payload = JSON.stringify({
+      version: '1.0', savedAt: new Date().toISOString(),
+      pool: state.pool, nodes: state.nodes, edges: state.edges,
+    }, null, 2)
+    await writeFile(path, payload)
+    useFlowStore.setState({ currentPath: path })
+    addLog('ok', `Progetto salvato: ${path}`)
+  }
+
+  // "Salva con nome": chiede sempre dove salvare.
+  const handleSaveAs = async () => {
     if (!isTauri()) {
       addLog('warn', 'Salvataggio file disponibile solo nell\'app desktop.')
       return
@@ -1181,13 +1195,26 @@ export function Toolbar() {
     try {
       const path = await savePlanDialog()
       if (!path) return
-      const state   = useFlowStore.getState()
-      const payload = JSON.stringify({
-        version: '1.0', savedAt: new Date().toISOString(),
-        pool: state.pool, nodes: state.nodes, edges: state.edges,
-      }, null, 2)
-      await writeFile(path, payload)
-      addLog('ok', `Progetto salvato: ${path}`)
+      await scriviProgetto(path)
+    } catch (e) {
+      addLog('error', `Errore salvataggio: ${e}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // "Salva": sovrascrive il file corrente senza finestra. Se non c'è ancora
+  // un file (progetto nuovo o mai salvato), ricade su "Salva con nome".
+  const handleSave = async () => {
+    const current = useFlowStore.getState().currentPath
+    if (!current) { await handleSaveAs(); return }
+    if (!isTauri()) {
+      addLog('warn', 'Salvataggio file disponibile solo nell\'app desktop.')
+      return
+    }
+    setSaving(true)
+    try {
+      await scriviProgetto(current)
     } catch (e) {
       addLog('error', `Errore salvataggio: ${e}`)
     } finally {
@@ -1214,6 +1241,7 @@ export function Toolbar() {
       useFlowStore.setState({
         pool: data.pool, nodes: data.nodes, edges: data.edges,
         selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
+        currentPath: path,
       })
       resyncNodeCounter(data.nodes)
       addLog('ok', `Progetto aperto: ${path}`)
@@ -1289,9 +1317,13 @@ export function Toolbar() {
         <i className="ti ti-folder-open" style={{ fontSize: 13 }} aria-hidden="true" />
         {opening ? 'Apertura…' : 'Apri'}
       </TbBtn>
-      <TbBtn onClick={handleSave} disabled={saving} title="Salva progetto">
+      <TbBtn onClick={handleSave} disabled={saving} title="Salva (sovrascrive il file aperto)">
         <i className="ti ti-device-floppy" style={{ fontSize: 13 }} aria-hidden="true" />
         {saving ? 'Salvataggio…' : 'Salva'}
+      </TbBtn>
+      <TbBtn onClick={handleSaveAs} disabled={saving} title="Salva con nome (scegli il file)">
+        <i className="ti ti-file-export" style={{ fontSize: 13 }} aria-hidden="true" />
+        Salva con nome
       </TbBtn>
 
       <TbDivider />

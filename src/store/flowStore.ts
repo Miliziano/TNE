@@ -238,6 +238,7 @@ interface FlowState {
   selectedLaneId:     string | null
   selectedResourceId: string | null
   editingNodeId:      string | null
+  currentPath:        string | null   // file .ffplan aperto/salvato → "Salva" lo sovrascrive
   logs:               LogEntry[]
   running:            boolean
 
@@ -401,6 +402,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   selectedLaneId:     null,
   selectedResourceId: null,
   editingNodeId:      null,
+  currentPath:        null,
   logs:               [],
   running:            false,
   nodeStats:          {},
