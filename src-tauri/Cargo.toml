@@ -26,6 +26,7 @@ tauri-plugin-fs     = { version = "2.5.1", features = ["watch"] }
 tauri-plugin-dialog = "2.7.1"
 tauri-plugin-shell  = "2.3.5"
 base64     = "0.22"
+rust_xlsxwriter = "0.96"
 lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder", "hostname",] }
 rumqttc = { version = "0.24", features = ["use-rustls"] }
 hmac            = "0.12"

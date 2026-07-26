@@ -19,6 +19,7 @@ pub mod tmap;
 // ── Nodi semplici ────────────────────────────────────────────────
 pub mod log;
 pub mod error_handler;
+pub mod report_generator;
 pub mod script;
 
 //pub mod map;

@@ -205,7 +205,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     "dir_watcher",
     "sink_kafka", "sink_ftp", "sink_mqtt",
     "sink_activemq", "sink_http",
-    "http_request", "webhook_responder", "report_generator",
+    "http_request", "webhook_responder",
 ];
 
 /// true se il motore non ha ancora un'implementazione per questo tipo.
@@ -783,6 +783,14 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::aggregate::run(ctx, rx, tx).await
+        }
+
+        "report_generator" => {
+            // NEEDS_ROWS: bufferizza tutte le righe ed emette 1 riga-artefatto
+            // { content, content_type, filename, … }.
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+            super::nodes::report_generator::run(ctx, rx, tx).await
         }
 
 

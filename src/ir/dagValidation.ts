@@ -639,7 +639,7 @@ const MOTORE_NON_IMPLEMENTA = new Set([
   'source_http', 'source_ftp', 'source_mqtt', 'source_activemq', 'source_kafka',
   'dir_watcher',
   'sink_kafka', 'sink_ftp', 'sink_mqtt', 'sink_activemq', 'sink_http',
-  'http_request', 'webhook_responder', 'report_generator',
+  'http_request', 'webhook_responder',
 ])
 
 /**
