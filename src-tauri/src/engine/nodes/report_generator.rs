@@ -68,6 +68,16 @@ pub async fn run(
         serde_json::from_str(&spec.str_or("columns", "[]")).unwrap_or_default();
     let kpi_fields: Vec<String> = spec.str_or("kpiFields", "")
         .split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    let x_field = spec.str_or("chartXField", "");
+    let y_field = spec.str_or("chartYField", "");
+    // Titolo del grafico: quello scritto, oppure "<y> per <x>" se i due campi
+    // ci sono, altrimenti niente (come il runner).
+    let chart_title = {
+        let t = spec.str_or("chartTitle", "");
+        if !t.is_empty() { t }
+        else if !x_field.is_empty() && !y_field.is_empty() { format!("{} per {}", y_field, x_field) }
+        else { String::new() }
+    };
 
     // ── Bufferizza tutte le righe ──────────────────────────────────
     let Some(mut rx) = rx else {
@@ -91,7 +101,7 @@ pub async fn run(
          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string(),
          "xlsx")
     } else {
-        (build_html(&rows, &columns, &template, &title, &subtitle, &header_col, &accent_col, &theme, &locale, &dq_field, &kpi_fields),
+        (build_html(&rows, &columns, &template, &title, &subtitle, &header_col, &accent_col, &theme, &locale, &dq_field, &kpi_fields, &x_field, &y_field, &chart_title),
          "text/html".to_string(),
          "html")
     };
@@ -462,13 +472,141 @@ fn build_table(rows: &[Row], columns: &[ColumnConfig], header_col: &str, accent_
         theme.row_border, header, body, totals)
 }
 
+// ─── Grafici SVG (Fetta 3) ─────────────────────────────────────────
+fn chart_num(row: &Row, field: &str) -> f64 {
+    row.0.get(field).and_then(|v| v.as_f64_lossy()).unwrap_or(0.0)
+}
+fn chart_lbl(row: &Row, field: &str) -> String {
+    row.0.get(field).map(|v| v.as_str_repr()).unwrap_or_default()
+}
+fn trunc_lbl(s: &str, max: usize) -> String {
+    if s.chars().count() > max {
+        format!("{}…", s.chars().take(max.saturating_sub(1)).collect::<String>())
+    } else { s.to_string() }
+}
+fn chart_title_html(title: &str) -> String {
+    if title.is_empty() { String::new() }
+    else { format!("<div style=\"font-size:14px;font-weight:600;color:#333;margin-bottom:10px;text-align:center\">{}</div>", esc(title)) }
+}
+
+fn build_bar_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str, locale: &str) -> String {
+    if x_field.is_empty() || y_field.is_empty() || rows.is_empty() { return String::new() }
+    let n = rows.len() as f64;
+    let values: Vec<f64> = rows.iter().map(|r| chart_num(r, y_field)).collect();
+    let max_val = values.iter().cloned().fold(1.0_f64, f64::max);
+    let (width, height) = (680.0_f64, 300.0_f64);
+    let (pad_l, pad_t) = (60.0_f64, 20.0_f64);
+    let chart_w = width - pad_l - 20.0;   // padR = 20
+    let chart_h = height - pad_t - 70.0;  // padB = 70
+    let bar_w = (chart_w / n - 8.0).floor().max(8.0);
+    let bars: String = rows.iter().enumerate().map(|(i, row)| {
+        let bar_h = ((values[i] / max_val) * chart_h).floor().max(2.0);
+        let x = pad_l + (i as f64 * (chart_w / n)).floor() + ((chart_w / n - bar_w) / 2.0).floor();
+        let y = pad_t + chart_h - bar_h;
+        let lx = x + bar_w / 2.0;
+        format!("<rect x=\"{:.0}\" y=\"{:.0}\" width=\"{:.0}\" height=\"{:.0}\" fill=\"{}\" rx=\"3\" opacity=\"0.9\"/><text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"middle\" font-size=\"10\" fill=\"{}\" font-family=\"sans-serif\" font-weight=\"600\">{}</text><text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\" font-family=\"sans-serif\">{}</text>",
+            x, y, bar_w, bar_h, accent, lx, y - 4.0, accent, esc(&fmt_num(values[i], locale, false, false)), lx, pad_t + chart_h + 18.0, esc(&trunc_lbl(&chart_lbl(row, x_field), 10)))
+    }).collect();
+    let y_ticks: String = [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|pct| {
+        let y = pad_t + chart_h - (pct * chart_h).floor();
+        format!("<line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" stroke=\"#ddd\" stroke-width=\"1\"/><text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"end\" font-size=\"10\" fill=\"#888\" font-family=\"sans-serif\">{}</text>",
+            pad_l, y, pad_l + chart_w, y, pad_l - 6.0, y + 4.0, esc(&fmt_num((max_val * pct).round(), locale, false, false)))
+    }).collect();
+    format!("<div style=\"margin:24px 0\">{}<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{:.0}\" height=\"{:.0}\" style=\"max-width:100%;display:block;margin:0 auto\"><rect width=\"{:.0}\" height=\"{:.0}\" fill=\"white\" rx=\"4\"/>{}{}<line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" stroke=\"#999\" stroke-width=\"1.5\"/><line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" stroke=\"#999\" stroke-width=\"1.5\"/></svg></div>",
+        chart_title_html(title), width, height, width, height, y_ticks, bars,
+        pad_l, pad_t, pad_l, pad_t + chart_h, pad_l, pad_t + chart_h, pad_l + chart_w, pad_t + chart_h)
+}
+
+fn build_line_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str, locale: &str) -> String {
+    if x_field.is_empty() || y_field.is_empty() || rows.len() < 2 { return String::new() }
+    let values: Vec<f64> = rows.iter().map(|r| chart_num(r, y_field)).collect();
+    let max_val = values.iter().cloned().fold(1.0_f64, f64::max);
+    let min_val = values.iter().cloned().fold(0.0_f64, f64::min);
+    let range = if (max_val - min_val).abs() < f64::EPSILON { 1.0 } else { max_val - min_val };
+    let (width, height) = (680.0_f64, 300.0_f64);
+    let (pad_l, pad_t) = (60.0_f64, 20.0_f64);
+    let chart_w = width - pad_l - 20.0;
+    let chart_h = height - pad_t - 70.0;
+    let nm1 = (rows.len() - 1) as f64;
+    let px = |i: usize| pad_l + ((i as f64 / nm1) * chart_w).floor();
+    let py = |i: usize| pad_t + chart_h - (((values[i] - min_val) / range) * chart_h).floor();
+    let points: String = (0..rows.len()).map(|i| format!("{:.0},{:.0}", px(i), py(i))).collect::<Vec<_>>().join(" ");
+    let area = format!("{:.0},{:.0} {} {:.0},{:.0}", pad_l, pad_t + chart_h, points, pad_l + chart_w, pad_t + chart_h);
+    let step = ((rows.len() as f64 / 16.0).ceil() as usize).max(1);
+    let dots: String = (0..rows.len()).map(|i| {
+        let show = rows.len() <= 16 || i % step == 0;
+        let text = if show {
+            format!("<text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\" font-family=\"sans-serif\">{}</text>", px(i), pad_t + chart_h + 18.0, esc(&trunc_lbl(&chart_lbl(&rows[i], x_field), 10)))
+        } else { String::new() };
+        format!("<circle cx=\"{:.0}\" cy=\"{:.0}\" r=\"4\" fill=\"{}\" stroke=\"white\" stroke-width=\"2\"/>{}", px(i), py(i), accent, text)
+    }).collect();
+    let y_ticks: String = [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|pct| {
+        let y = pad_t + chart_h - (pct * chart_h).floor();
+        format!("<line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" stroke=\"#ddd\" stroke-width=\"1\"/><text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"end\" font-size=\"10\" fill=\"#888\" font-family=\"sans-serif\">{}</text>",
+            pad_l, y, pad_l + chart_w, y, pad_l - 6.0, y + 4.0, esc(&fmt_num((min_val + range * pct).round(), locale, false, false)))
+    }).collect();
+    format!("<div style=\"margin:24px 0\">{}<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{:.0}\" height=\"{:.0}\" style=\"max-width:100%;display:block;margin:0 auto\"><rect width=\"{:.0}\" height=\"{:.0}\" fill=\"white\" rx=\"4\"/>{}<polygon points=\"{}\" fill=\"{}\" opacity=\"0.1\"/><polyline points=\"{}\" fill=\"none\" stroke=\"{}\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>{}<line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" stroke=\"#999\" stroke-width=\"1.5\"/><line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" stroke=\"#999\" stroke-width=\"1.5\"/></svg></div>",
+        chart_title_html(title), width, height, width, height, y_ticks, area, accent, points, accent, dots,
+        pad_l, pad_t, pad_l, pad_t + chart_h, pad_l, pad_t + chart_h, pad_l + chart_w, pad_t + chart_h)
+}
+
+fn build_pie_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str) -> String {
+    if x_field.is_empty() || y_field.is_empty() || rows.is_empty() { return String::new() }
+    let colors: [&str; 10] = [accent, "#3ddc84", "#ffb347", "#a78bfa", "#22d3ee", "#f472b6", "#ff5f57", "#84cc16", "#fb923c", "#e879f9"];
+    let values: Vec<f64> = rows.iter().map(|r| chart_num(r, y_field).abs()).collect();
+    let total = { let s: f64 = values.iter().sum(); if s == 0.0 { 1.0 } else { s } };
+    let (cx, cy, r) = (140.0_f64, 130.0_f64, 100.0_f64);
+    let mut angle = -std::f64::consts::PI / 2.0;
+    let mut slices = String::new();
+    for i in 0..rows.len() {
+        let pct = values[i] / total;
+        if pct == 0.0 { continue }
+        let a = pct * 2.0 * std::f64::consts::PI;
+        let (x1, y1) = (cx + r * angle.cos(), cy + r * angle.sin());
+        let (x2, y2) = (cx + r * (angle + a).cos(), cy + r * (angle + a).sin());
+        let large = if a > std::f64::consts::PI { 1 } else { 0 };
+        let mid = angle + a / 2.0;
+        let (lx, ly) = (cx + r * 0.65 * mid.cos(), cy + r * 0.65 * mid.sin());
+        slices.push_str(&format!("<path d=\"M {:.0} {:.0} L {:.1} {:.1} A {:.0} {:.0} 0 {} 1 {:.1} {:.1} Z\" fill=\"{}\" stroke=\"white\" stroke-width=\"2\"/>",
+            cx, cy, x1, y1, r, r, large, x2, y2, colors[i % colors.len()]));
+        if pct > 0.04 {
+            slices.push_str(&format!("<text x=\"{:.1}\" y=\"{:.1}\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"11\" fill=\"white\" font-weight=\"600\" font-family=\"sans-serif\">{}%</text>",
+                lx, ly, (pct * 100.0).round() as i64));
+        }
+        angle += a;
+    }
+    let mut legend = String::new();
+    for i in 0..rows.len() {
+        let ly = 20 + i * 22;
+        legend.push_str(&format!("<rect x=\"295\" y=\"{}\" width=\"12\" height=\"12\" fill=\"{}\" rx=\"2\"/><text x=\"313\" y=\"{}\" font-size=\"11\" fill=\"#333\" font-family=\"sans-serif\">{} ({:.1}%)</text>",
+            ly, colors[i % colors.len()], ly + 10, esc(&trunc_lbl(&chart_lbl(&rows[i], x_field), 22)), values[i] / total * 100.0));
+    }
+    let svg_h = (20 + rows.len() * 22 + 20).max(280);
+    format!("<div style=\"margin:24px 0\">{}<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"560\" height=\"{}\" style=\"max-width:100%;display:block;margin:0 auto\"><rect width=\"560\" height=\"{}\" fill=\"white\" rx=\"4\"/>{}{}</svg></div>",
+        chart_title_html(title), svg_h, svg_h, slices, legend)
+}
+
+// template "mixed": card KPI + grafico a barre + tabella dettagliata.
+#[allow(clippy::too_many_arguments)]
+fn build_mixed(rows: &[Row], columns: &[ColumnConfig], x_field: &str, y_field: &str, chart_title: &str, header_col: &str, accent_col: &str, theme: &Theme, locale: &str, dq_field: &str, kpi_fields: &[String]) -> String {
+    let summary = build_summary(rows, kpi_fields, header_col, accent_col, locale, dq_field);
+    let bar = build_bar_chart(rows, x_field, y_field, chart_title, accent_col, locale);
+    let table = build_table(rows, columns, header_col, accent_col, theme, locale, dq_field);
+    let heading = if theme.bg == "#0f1117" { "#c8d4f0" } else { "#333" };
+    format!("{}{}<div style=\"margin-top:28px\"><div style=\"font-size:14px;font-weight:600;color:{};margin-bottom:12px\">Dati dettagliati</div>{}</div>", summary, bar, heading, table)
+}
+
 // ─── Guscio HTML ───────────────────────────────────────────────────
-fn build_html(rows: &[Row], columns: &[ColumnConfig], template: &str, title: &str, subtitle: &str, header_col: &str, accent_col: &str, theme: &Theme, locale: &str, dq_field: &str, kpi_fields: &[String]) -> String {
+#[allow(clippy::too_many_arguments)]
+fn build_html(rows: &[Row], columns: &[ColumnConfig], template: &str, title: &str, subtitle: &str, header_col: &str, accent_col: &str, theme: &Theme, locale: &str, dq_field: &str, kpi_fields: &[String], x_field: &str, y_field: &str, chart_title: &str) -> String {
     let is_dark = theme.bg == "#0f1117";
     let body = match template {
-        "summary" => build_summary(rows, kpi_fields, header_col, accent_col, locale, dq_field),
-        // bar_chart / line_chart / pie_chart / mixed → Fetta 3; per ora tabella.
-        _ => build_table(rows, columns, header_col, accent_col, theme, locale, dq_field),
+        "summary"    => build_summary(rows, kpi_fields, header_col, accent_col, locale, dq_field),
+        "bar_chart"  => build_bar_chart(rows, x_field, y_field, chart_title, accent_col, locale),
+        "line_chart" => build_line_chart(rows, x_field, y_field, chart_title, accent_col, locale),
+        "pie_chart"  => build_pie_chart(rows, x_field, y_field, chart_title, accent_col),
+        "mixed"      => build_mixed(rows, columns, x_field, y_field, chart_title, header_col, accent_col, theme, locale, dq_field, kpi_fields),
+        _            => build_table(rows, columns, header_col, accent_col, theme, locale, dq_field),
     };
     let panel = if is_dark { "#161b27" } else { "#ffffff" };
     let sub = if subtitle.is_empty() { String::new() }
