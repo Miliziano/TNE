@@ -494,7 +494,25 @@ fn chart_title_html(title: &str) -> String {
     else { format!("<div style=\"font-size:14px;font-weight:600;color:#333;margin-bottom:10px;text-align:center\">{}</div>", esc(title)) }
 }
 
-fn build_bar_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str, locale: &str) -> String {
+// Colore di evidenza dalle stesse CellRule della colonna del campo: così una
+// regola (es. "> 200 → danger") colora la barra / il punto del grafico oltre
+// che la cella in tabella — un'unica configurazione. None = nessuna regola
+// scatta → si usa il colore di default del grafico.
+fn rule_color(row: &Row, field: &str, columns: &[ColumnConfig], dark: bool) -> Option<String> {
+    let col = columns.iter().find(|c| c.field == field)?;
+    for rule in &col.rules {
+        if !eval_rule(row, field, rule) { continue }
+        let c = if rule.style == "custom" {
+            rule.bg_color.clone().or_else(|| rule.text_color.clone()).unwrap_or_default()
+        } else {
+            preset(&rule.style, dark).2.to_string()   // border = colore vivido del preset
+        };
+        if !c.is_empty() { return Some(c) }
+    }
+    None
+}
+
+fn build_bar_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str, locale: &str, columns: &[ColumnConfig], dark: bool) -> String {
     if x_field.is_empty() || y_field.is_empty() || rows.is_empty() { return String::new() }
     let n = rows.len() as f64;
     let values: Vec<f64> = rows.iter().map(|r| chart_num(r, y_field)).collect();
@@ -509,8 +527,9 @@ fn build_bar_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, acce
         let x = pad_l + (i as f64 * (chart_w / n)).floor() + ((chart_w / n - bar_w) / 2.0).floor();
         let y = pad_t + chart_h - bar_h;
         let lx = x + bar_w / 2.0;
+        let fill = rule_color(row, y_field, columns, dark).unwrap_or_else(|| accent.to_string());
         format!("<rect x=\"{:.0}\" y=\"{:.0}\" width=\"{:.0}\" height=\"{:.0}\" fill=\"{}\" rx=\"3\" opacity=\"0.9\"/><text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"middle\" font-size=\"10\" fill=\"{}\" font-family=\"sans-serif\" font-weight=\"600\">{}</text><text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\" font-family=\"sans-serif\">{}</text>",
-            x, y, bar_w, bar_h, accent, lx, y - 4.0, accent, esc(&fmt_num(values[i], locale, false, false)), lx, pad_t + chart_h + 18.0, esc(&trunc_lbl(&chart_lbl(row, x_field), 10)))
+            x, y, bar_w, bar_h, fill, lx, y - 4.0, fill, esc(&fmt_num(values[i], locale, false, false)), lx, pad_t + chart_h + 18.0, esc(&trunc_lbl(&chart_lbl(row, x_field), 10)))
     }).collect();
     let y_ticks: String = [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|pct| {
         let y = pad_t + chart_h - (pct * chart_h).floor();
@@ -522,7 +541,7 @@ fn build_bar_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, acce
         pad_l, pad_t, pad_l, pad_t + chart_h, pad_l, pad_t + chart_h, pad_l + chart_w, pad_t + chart_h)
 }
 
-fn build_line_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str, locale: &str) -> String {
+fn build_line_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, accent: &str, locale: &str, columns: &[ColumnConfig], dark: bool) -> String {
     if x_field.is_empty() || y_field.is_empty() || rows.len() < 2 { return String::new() }
     let values: Vec<f64> = rows.iter().map(|r| chart_num(r, y_field)).collect();
     let max_val = values.iter().cloned().fold(1.0_f64, f64::max);
@@ -543,7 +562,8 @@ fn build_line_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, acc
         let text = if show {
             format!("<text x=\"{:.0}\" y=\"{:.0}\" text-anchor=\"middle\" font-size=\"11\" fill=\"#555\" font-family=\"sans-serif\">{}</text>", px(i), pad_t + chart_h + 18.0, esc(&trunc_lbl(&chart_lbl(&rows[i], x_field), 10)))
         } else { String::new() };
-        format!("<circle cx=\"{:.0}\" cy=\"{:.0}\" r=\"4\" fill=\"{}\" stroke=\"white\" stroke-width=\"2\"/>{}", px(i), py(i), accent, text)
+        let dfill = rule_color(&rows[i], y_field, columns, dark).unwrap_or_else(|| accent.to_string());
+        format!("<circle cx=\"{:.0}\" cy=\"{:.0}\" r=\"4\" fill=\"{}\" stroke=\"white\" stroke-width=\"2\"/>{}", px(i), py(i), dfill, text)
     }).collect();
     let y_ticks: String = [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|pct| {
         let y = pad_t + chart_h - (pct * chart_h).floor();
@@ -595,7 +615,7 @@ fn build_pie_chart(rows: &[Row], x_field: &str, y_field: &str, title: &str, acce
 #[allow(clippy::too_many_arguments)]
 fn build_mixed(rows: &[Row], columns: &[ColumnConfig], x_field: &str, y_field: &str, chart_title: &str, header_col: &str, accent_col: &str, theme: &Theme, locale: &str, dq_field: &str, kpi_fields: &[String]) -> String {
     let summary = build_summary(rows, kpi_fields, header_col, accent_col, locale, dq_field);
-    let bar = build_bar_chart(rows, x_field, y_field, chart_title, accent_col, locale);
+    let bar = build_bar_chart(rows, x_field, y_field, chart_title, accent_col, locale, columns, theme.bg == "#0f1117");
     let table = build_table(rows, columns, header_col, accent_col, theme, locale, dq_field);
     let heading = if theme.bg == "#0f1117" { "#c8d4f0" } else { "#333" };
     format!("{}{}<div style=\"margin-top:28px\"><div style=\"font-size:14px;font-weight:600;color:{};margin-bottom:12px\">Dati dettagliati</div>{}</div>", summary, bar, heading, table)
@@ -607,8 +627,8 @@ fn build_html(rows: &[Row], columns: &[ColumnConfig], template: &str, title: &st
     let is_dark = theme.bg == "#0f1117";
     let body = match template {
         "summary"    => build_summary(rows, kpi_fields, header_col, accent_col, locale, dq_field),
-        "bar_chart"  => build_bar_chart(rows, x_field, y_field, chart_title, accent_col, locale),
-        "line_chart" => build_line_chart(rows, x_field, y_field, chart_title, accent_col, locale),
+        "bar_chart"  => build_bar_chart(rows, x_field, y_field, chart_title, accent_col, locale, columns, is_dark),
+        "line_chart" => build_line_chart(rows, x_field, y_field, chart_title, accent_col, locale, columns, is_dark),
         "pie_chart"  => build_pie_chart(rows, x_field, y_field, chart_title, accent_col),
         "mixed"      => build_mixed(rows, columns, x_field, y_field, chart_title, header_col, accent_col, theme, locale, dq_field, kpi_fields),
         _            => build_table(rows, columns, header_col, accent_col, theme, locale, dq_field),
