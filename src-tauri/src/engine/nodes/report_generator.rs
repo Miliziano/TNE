@@ -119,13 +119,18 @@ pub async fn run(
     out.insert("format".into(),       Value::String(output_fmt));
     let _ = tx.send(Row(out)).await;
 
-    Ok(NodeStats {
+    // Riporta i conteggi alla UI come fanno gli altri nodi (aggregate, ecc.):
+    // in questo motore è il nodo stesso a emettere il proprio NodeStats.
+    // Senza questa riga il canvas mostrava sempre ↓0↑0 pur funzionando.
+    let stats = NodeStats {
         rows_in,
         rows_out: 1,
         rows_rejected: 0,
         elapsed_ms: start.elapsed().as_millis() as u64,
         error: None,
-    })
+    };
+    ctx.emit_completed(stats.clone());
+    Ok(stats)
 }
 
 // ─── Colonne effettive ─────────────────────────────────────────────
