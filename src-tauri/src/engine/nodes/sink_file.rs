@@ -336,12 +336,12 @@ pub async fn run(
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
-fn write_str<W: Write>(w: &mut W, s: &str, bytes: &mut u64) -> Result<(), String> {
+pub(crate) fn write_str<W: Write>(w: &mut W, s: &str, bytes: &mut u64) -> Result<(), String> {
     *bytes += s.len() as u64;
     w.write_all(s.as_bytes()).map_err(|e| format!("Errore scrittura: {}", e))
 }
 
-fn row_to_json(row: &Row) -> serde_json::Value {
+pub(crate) fn row_to_json(row: &Row) -> serde_json::Value {
     let mut obj = serde_json::Map::new();
     let mut keys: Vec<&String> = row.0.keys().collect();
     keys.sort();
@@ -353,7 +353,7 @@ fn row_to_json(row: &Row) -> serde_json::Value {
     serde_json::Value::Object(obj)
 }
 
-fn escape_csv(s: &str, delimiter: char, quote: char) -> String {
+pub(crate) fn escape_csv(s: &str, delimiter: char, quote: char) -> String {
     if s.contains(delimiter) || s.contains(quote) || s.contains('\n') || s.contains('\r') {
         let doubled = s.replace(quote, &format!("{}{}", quote, quote));
         format!("{}{}{}", quote, doubled, quote)
@@ -362,7 +362,7 @@ fn escape_csv(s: &str, delimiter: char, quote: char) -> String {
     }
 }
 
-fn escape_xml(s: &str) -> String {
+pub(crate) fn escape_xml(s: &str) -> String {
     s.replace('&', "&amp;")
      .replace('<', "&lt;")
      .replace('>', "&gt;")
@@ -370,7 +370,7 @@ fn escape_xml(s: &str) -> String {
      .replace('\'', "&apos;")
 }
 
-fn sanitize_tag(s: &str) -> String {
+pub(crate) fn sanitize_tag(s: &str) -> String {
     let mut result = String::new();
     for c in s.chars() {
         if c.is_alphanumeric() || c == '_' || c == '-' { result.push(c); }

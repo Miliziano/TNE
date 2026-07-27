@@ -203,7 +203,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // catch-all `other => Err` e crashava al Run. Ora è uno stub dichiarato
     // come gli altri source non ancora portati (inoltra invece di fallire).
     "dir_watcher",
-    "sink_kafka", "sink_ftp", "sink_mqtt",
+    "sink_kafka", "sink_mqtt",
     "sink_activemq", "sink_http",
     "http_request", "webhook_responder",
 ];
@@ -694,6 +694,13 @@ async fn run_node(
             // signal/replay: il sink può emettere a valle DOPO la scrittura
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_file::run(ctx, rx, tx).await
+        }
+
+        "sink_ftp" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("sink_ftp {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::sink_ftp::run(ctx, rx, tx).await
         }
 
         "sink_db" => {

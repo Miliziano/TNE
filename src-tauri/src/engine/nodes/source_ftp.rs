@@ -24,7 +24,7 @@ const PROGRESS_EVERY_MS: u64 = 500;
 
 /// Costruisce i parametri di connessione dalla risorsa di lane risolta.
 /// Stesse chiavi di `buildFtpConnection` (studio) e di source_db per il DB.
-fn build_conn(spec: &Spec) -> FtpConnectionParams {
+pub(crate) fn build_conn(spec: &Spec) -> FtpConnectionParams {
     let protocol     = spec.res_str_or("protocol", "sftp");
     let default_port = if protocol == "ftp" || protocol == "ftps" { 21 } else { 22 };
     let user = {

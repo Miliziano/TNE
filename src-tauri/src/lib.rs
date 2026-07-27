@@ -1603,8 +1603,7 @@ async fn ftp_read(connection: FtpConnectionParams, remote_path: String) -> Resul
   ftp_read_impl(connection, remote_path).await
 }
 
-#[tauri::command]
-async fn ftp_write(
+pub async fn ftp_write_impl(
   connection:  FtpConnectionParams,
   remote_path: String,
   content:     String,
@@ -1616,6 +1615,17 @@ async fn ftp_write(
     "ftp" | "ftps" => ftp_plain_write(&connection, &remote_path, &content).await,
     p             => Err(format!("Protocollo '{}' non supportato", p)),
   }
+}
+
+#[tauri::command]
+async fn ftp_write(
+  connection:  FtpConnectionParams,
+  remote_path: String,
+  content:     String,
+  create_dirs: Option<bool>,
+  atomic:      Option<bool>,
+) -> Result<u64, String> {
+  ftp_write_impl(connection, remote_path, content, create_dirs, atomic).await
 }
 
 fn sftp_connect_sync(conn: &FtpConnectionParams) -> Result<ssh2::Session, String> {
