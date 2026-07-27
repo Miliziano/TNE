@@ -11,6 +11,7 @@ pub mod source_input;
 
 pub mod source_file;
 pub mod source_ftp;
+pub mod dir_watcher;
 pub mod source_mqtt;
 pub mod source_http;
 pub mod http_request;

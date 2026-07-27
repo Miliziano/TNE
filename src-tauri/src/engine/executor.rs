@@ -198,10 +198,6 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // commento ormai falso.
     "watchdog",
     "source_activemq", "source_kafka",
-    // dir_watcher era l'unico source in palette a NON essere qui: cadeva nel
-    // catch-all `other => Err` e crashava al Run. Ora è uno stub dichiarato
-    // come gli altri source non ancora portati (inoltra invece di fallire).
-    "dir_watcher",
     "sink_kafka",
     "sink_activemq", "webhook_responder",
 ];
@@ -684,6 +680,12 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
             super::nodes::source_ftp::run(ctx, rx, tx).await
+        }
+
+        "dir_watcher" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::dir_watcher::run(ctx, rx, tx).await
         }
 
         "source_mqtt" => {
