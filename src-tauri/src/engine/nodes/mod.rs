@@ -16,6 +16,7 @@ pub mod source_db;
 pub mod filter;
 pub mod sink_file;
 pub mod sink_ftp;
+pub mod sink_mqtt;
 pub mod sink_db;
 pub mod tmap;
 

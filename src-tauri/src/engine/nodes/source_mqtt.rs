@@ -18,7 +18,7 @@ use crate::{MqttConnectionParams, MqttSubscribeRequest, mqtt_subscribe_impl};
 /// Parametri di connessione dalla risorsa di lane (chiavi di buildConnection
 /// del runner: host/port/clientId/username|user/password/keepAlive/
 /// cleanSession/scheme).
-fn build_conn(spec: &Spec) -> MqttConnectionParams {
+pub(crate) fn build_conn(spec: &Spec) -> MqttConnectionParams {
     let username = {
         let u = spec.res_str_or("username", "");
         if u.is_empty() { spec.res_str_or("user", "") } else { u }

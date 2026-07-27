@@ -1869,7 +1869,7 @@ pub struct MqttSubscribeRequest { pub connection: MqttConnectionParams, pub topi
 #[derive(Debug, Serialize)]
 pub struct MqttMessage { pub topic: String, pub payload: String, pub qos: u8, pub retain: bool, pub received_at: String }
 #[derive(Debug, Deserialize)]
-struct MqttPublishRequest { connection: MqttConnectionParams, topic: String, payload: String, qos: u8, retain: bool }
+pub struct MqttPublishRequest { pub connection: MqttConnectionParams, pub topic: String, pub payload: String, pub qos: u8, pub retain: bool }
 
 fn mqtt_qos(qos: u8) -> rumqttc::QoS {
     match qos { 0 => rumqttc::QoS::AtMostOnce, 2 => rumqttc::QoS::ExactlyOnce, _ => rumqttc::QoS::AtLeastOnce }
@@ -1910,8 +1910,7 @@ async fn mqtt_subscribe(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage
     mqtt_subscribe_impl(request).await
 }
 
-#[tauri::command]
-async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
+pub async fn mqtt_publish_impl(request: MqttPublishRequest) -> Result<(), String> {
     use rumqttc::{AsyncClient, Event, Incoming};
     let opts = build_mqtt_options(&request.connection);
     let (client, mut eventloop) = AsyncClient::new(opts, 16);
@@ -1939,6 +1938,11 @@ async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
     }
     client.disconnect().await.ok();
     Ok(())
+}
+
+#[tauri::command]
+async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
+    mqtt_publish_impl(request).await
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -1,0 +1,230 @@
+diff --git a/src-tauri/src/engine/executor.rs b/src-tauri/src/engine/executor.rs
+index 57c6181..bbb67af 100644
+--- a/src-tauri/src/engine/executor.rs
++++ b/src-tauri/src/engine/executor.rs
+@@ -203,7 +203,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
+     // catch-all `other => Err` e crashava al Run. Ora è uno stub dichiarato
+     // come gli altri source non ancora portati (inoltra invece di fallire).
+     "dir_watcher",
+-    "sink_kafka", "sink_mqtt",
++    "sink_kafka",
+     "sink_activemq", "sink_http",
+     "http_request", "webhook_responder",
+ ];
+@@ -709,6 +709,13 @@ async fn run_node(
+             super::nodes::sink_ftp::run(ctx, rx, tx).await
+         }
+ 
++        "sink_mqtt" => {
++            let rx = take_single_input(&mut inputs)
++                .ok_or_else(|| format!("sink_mqtt {} richiede un input collegato", ctx.node_id.0))?;
++            let tx = take_primary_output(&mut outputs);
++            super::nodes::sink_mqtt::run(ctx, rx, tx).await
++        }
++
+         "sink_db" => {
+             let rx = take_single_input(&mut inputs)
+                 .ok_or_else(|| format!("sink_db {} richiede un input collegato", ctx.node_id.0))?;
+diff --git a/src-tauri/src/engine/nodes/mod.rs b/src-tauri/src/engine/nodes/mod.rs
+index 107bbf4..aab6696 100644
+--- a/src-tauri/src/engine/nodes/mod.rs
++++ b/src-tauri/src/engine/nodes/mod.rs
+@@ -16,6 +16,7 @@ pub mod source_db;
+ pub mod filter;
+ pub mod sink_file;
+ pub mod sink_ftp;
++pub mod sink_mqtt;
+ pub mod sink_db;
+ pub mod tmap;
+ 
+diff --git a/src-tauri/src/engine/nodes/sink_mqtt.rs b/src-tauri/src/engine/nodes/sink_mqtt.rs
+new file mode 100644
+index 0000000..05bb569
+--- /dev/null
++++ b/src-tauri/src/engine/nodes/sink_mqtt.rs
+@@ -0,0 +1,124 @@
++// ─── src-tauri/src/engine/nodes/sink_mqtt.rs ──────────────────────
++//
++// Sink MQTT (publisher). Coppia MQTT del porting nodi di rete.
++//
++// FONTE UNICA: `crate::mqtt_publish_impl` (rumqttc, la stessa del comando
++// Tauri). La connessione la costruisce `super::source_mqtt::build_conn` (una
++// sola lettura della risorsa). Per ogni riga in ingresso pubblica un
++// messaggio; il topic è statico o preso da un campo (`topicField`).
++
++use std::time::Instant;
++use base64::Engine;
++use crate::engine::types::*;
++use crate::engine::spec::Spec;
++use crate::engine::executor::{RowReceiver, RowSender, NodeContext};
++use crate::{MqttPublishRequest, mqtt_publish_impl};
++use super::source_mqtt::build_conn;
++use super::sink_file::row_to_json;
++
++const MAX_ERRORS: u64 = 5;
++
++pub async fn run(
++    ctx: NodeContext,
++    mut rx: RowReceiver,
++    tx: Option<RowSender>,
++) -> Result<NodeStats, String> {
++
++    let spec = Spec::from_ctx(&ctx.spec)
++        .map_err(|e| format!("sink_mqtt {}: {}", ctx.node_id.0, e))?;
++    if !spec.has_resource() {
++        let msg = format!("sink_mqtt {}: nessuna risorsa MQTT configurata \
++                           (selezionare un broker nel pannello del nodo)", ctx.node_id.0);
++        ctx.emit_failed(msg.clone());
++        return Err(msg);
++    }
++    spec.log_unconsumed("sink_mqtt", &ctx.node_id.0);
++
++    let conn          = build_conn(&spec);
++    let topic_static  = spec.str_or("topic", "pipeline/output");
++    let topic_field   = spec.str_or("topicField", "");
++    let qos           = spec.u64_or("qos", 1) as u8;
++    let retain        = spec.bool_or("retain", false);
++    let serialization = spec.str_or("serialization", "json");
++
++    let start = Instant::now();
++    let (mut rows_in, mut published, mut errors) = (0u64, 0u64, 0u64);
++
++    while let Some(row) = rx.recv().await {
++        rows_in += 1;
++
++        // topic: dal campo `topicField` se presente e valorizzato, altrimenti statico.
++        let topic = if !topic_field.is_empty() {
++            match row.get(&topic_field) {
++                Some(v) => v.as_str_repr(),
++                None    => topic_static.clone(),
++            }
++        } else {
++            topic_static.clone()
++        };
++
++        // payload secondo `serialization`.
++        let json = serde_json::to_string(&row_to_json(&row)).unwrap_or_default();
++        let payload = match serialization.as_str() {
++            "text" => {
++                // valore del primo campo (ordine chiavi), fallback al JSON.
++                let mut keys: Vec<&String> = row.0.keys().collect();
++                keys.sort();
++                keys.first()
++                    .and_then(|k| row.get(*k))
++                    .map(|v| v.as_str_repr())
++                    .unwrap_or(json.clone())
++            }
++            "bytes" => base64::engine::general_purpose::STANDARD.encode(json.as_bytes()),
++            _       => json, // json (default)
++        };
++
++        let request = MqttPublishRequest {
++            connection: conn.clone(),
++            topic:      topic.clone(),
++            payload,
++            qos,
++            retain,
++        };
++
++        match mqtt_publish_impl(request).await {
++            Ok(())  => { published += 1; }
++            Err(e)  => {
++                errors += 1;
++                ctx.emit_log(&ctx.label, "error", 0,
++                    format!("MQTT: pubblicazione su '{}' fallita — {}", topic, e), "panel");
++                if errors > MAX_ERRORS {
++                    let msg = format!("sink_mqtt {}: troppi errori di pubblicazione ({})",
++                                      ctx.node_id.0, errors);
++                    ctx.emit_failed(msg.clone());
++                    return Err(msg);
++                }
++            }
++        }
++    }
++
++    ctx.emit_log(&ctx.label, "info", 0,
++        format!("MQTT: {} messaggi pubblicati, {} errori", published, errors), "panel");
++
++    let elapsed_ms = start.elapsed().as_millis() as u64;
++
++    // Riga di riepilogo a valle (come il runner).
++    if let Some(tx) = &tx {
++        let mut summary = Row::new();
++        summary.set("_mqtt_published".into(), Value::Int(published as i64));
++        summary.set("_mqtt_errors".into(),    Value::Int(errors as i64));
++        summary.set("topic".into(),           Value::String(topic_static.clone()));
++        summary.set("completed_at".into(),     Value::DateTime(chrono::Local::now().to_rfc3339()));
++        let _ = tx.send(summary).await;
++    }
++
++    let stats = NodeStats {
++        rows_in,
++        rows_out:      published,
++        rows_rejected: errors,
++        elapsed_ms,
++        error:         None,
++    };
++    ctx.emit_completed(stats.clone());
++    Ok(stats)
++}
+diff --git a/src-tauri/src/engine/nodes/source_mqtt.rs b/src-tauri/src/engine/nodes/source_mqtt.rs
+index 71dc4e8..25f49eb 100644
+--- a/src-tauri/src/engine/nodes/source_mqtt.rs
++++ b/src-tauri/src/engine/nodes/source_mqtt.rs
+@@ -18,7 +18,7 @@ use crate::{MqttConnectionParams, MqttSubscribeRequest, mqtt_subscribe_impl};
+ /// Parametri di connessione dalla risorsa di lane (chiavi di buildConnection
+ /// del runner: host/port/clientId/username|user/password/keepAlive/
+ /// cleanSession/scheme).
+-fn build_conn(spec: &Spec) -> MqttConnectionParams {
++pub(crate) fn build_conn(spec: &Spec) -> MqttConnectionParams {
+     let username = {
+         let u = spec.res_str_or("username", "");
+         if u.is_empty() { spec.res_str_or("user", "") } else { u }
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 14e9a66..9f14d49 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -1869,7 +1869,7 @@ pub struct MqttSubscribeRequest { pub connection: MqttConnectionParams, pub topi
+ #[derive(Debug, Serialize)]
+ pub struct MqttMessage { pub topic: String, pub payload: String, pub qos: u8, pub retain: bool, pub received_at: String }
+ #[derive(Debug, Deserialize)]
+-struct MqttPublishRequest { connection: MqttConnectionParams, topic: String, payload: String, qos: u8, retain: bool }
++pub struct MqttPublishRequest { pub connection: MqttConnectionParams, pub topic: String, pub payload: String, pub qos: u8, pub retain: bool }
+ 
+ fn mqtt_qos(qos: u8) -> rumqttc::QoS {
+     match qos { 0 => rumqttc::QoS::AtMostOnce, 2 => rumqttc::QoS::ExactlyOnce, _ => rumqttc::QoS::AtLeastOnce }
+@@ -1910,8 +1910,7 @@ async fn mqtt_subscribe(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage
+     mqtt_subscribe_impl(request).await
+ }
+ 
+-#[tauri::command]
+-async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
++pub async fn mqtt_publish_impl(request: MqttPublishRequest) -> Result<(), String> {
+     use rumqttc::{AsyncClient, Event, Incoming};
+     let opts = build_mqtt_options(&request.connection);
+     let (client, mut eventloop) = AsyncClient::new(opts, 16);
+@@ -1941,6 +1940,11 @@ async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
+     Ok(())
+ }
+ 
++#[tauri::command]
++async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
++    mqtt_publish_impl(request).await
++}
++
+ #[derive(Debug, Deserialize, Clone)]
+ struct StompConnectionParams { host: String, port: u16, username: String, password: String, vhost: String, use_tls: bool }
+ #[derive(Debug, Deserialize)]
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index b276c26..43c6d02 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -638,7 +638,7 @@ const MOTORE_NON_IMPLEMENTA = new Set([
+   'watchdog',
+   'source_http', 'source_activemq', 'source_kafka',
+   'dir_watcher',
+-  'sink_kafka', 'sink_mqtt', 'sink_activemq', 'sink_http',
++  'sink_kafka', 'sink_activemq', 'sink_http',
+   'http_request', 'webhook_responder',
+ ])
+ 
