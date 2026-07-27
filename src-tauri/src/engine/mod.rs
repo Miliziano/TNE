@@ -116,6 +116,11 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
     let run_id_str = run_id.0.clone();
     reporter::start(&run_id_str);
 
+    // Service mode: token di cancellazione del run + registro globale, così
+    // `stop_run` (e in futuro il nodo stop) possono fermare i nodi-servizio.
+    let cancel = tokio_util::sync::CancellationToken::new();
+    run_cancels().lock().unwrap().insert(run_id_str.clone(), cancel.clone());
+
     push_event(EngineEvent::RunStarted {
         run_id:     run_id.clone(),
         lane_count: plan.lanes.len() as u32,
@@ -195,12 +200,13 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         for lane in plan.lanes {
             let lane_id_str    = lane.lane_id.0.clone();
             let run_id_cl      = run_id.clone();
+            let cancel_cl      = cancel.clone();
             let bridge_senders   = senders_per_lane.remove(&lane_id_str).unwrap_or_default();
             let bridge_receivers = receivers_per_lane.remove(&lane_id_str).unwrap_or_default();
 
             // Ogni lane → task Tokio separato = parallelismo reale
             let handle = tokio::spawn(async move {
-                executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers).await
+                executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
             });
 
             lane_futures.push(handle);
@@ -236,6 +242,8 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         let elapsed_ms = start.elapsed().as_millis() as u64;
         // Ferma il sampler: nessun MemorySample deve arrivare DOPO
         // l'evento terminale del run. stop() ritorna entro ~20ms.
+        // Service mode: fine run → deregistra il token.
+        run_cancels().lock().unwrap().remove(&run_id.0);
         sampler.stop();
 
         if lanes_failed > 0 {
@@ -275,4 +283,21 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
     });
 
     Ok(run_id_str)
+}
+
+// ─── Service mode: registro dei token di cancellazione per-run ────
+fn run_cancels() -> &'static std::sync::Mutex<std::collections::HashMap<String, tokio_util::sync::CancellationToken>> {
+    static RUN_CANCELS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, tokio_util::sync::CancellationToken>>> = std::sync::OnceLock::new();
+    RUN_CANCELS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Ferma un run in corso: scatena il token di cancellazione. I nodi-servizio
+/// (watch fase 2, webhook) lo attendono in `select!` per uscire puliti.
+#[tauri::command]
+pub async fn stop_run(run_id: String) -> Result<(), String> {
+    let tok = run_cancels().lock().unwrap().get(&run_id).cloned();
+    match tok {
+        Some(t) => { t.cancel(); Ok(()) }
+        None    => Err(format!("run '{}' non trovato (gia' concluso?)", run_id)),
+    }
 }

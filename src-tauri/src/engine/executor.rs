@@ -49,6 +49,9 @@ pub struct NodeContext {
     /// explode, join).
     pub lane_datasets:  std::sync::Arc<super::datasets::LaneDatasets>,
     pub lane_abort:     std::sync::Arc<super::abort::LaneAbort>,
+    /// Token di cancellazione del RUN (service mode): i nodi-servizio lo
+    /// attendono per uscire pulito; `stop_run` e il nodo stop lo scatenano.
+    pub cancel:         tokio_util::sync::CancellationToken,
 }
 
 impl NodeContext {
@@ -231,6 +234,7 @@ pub async fn execute_lane(
     lane_plan:            LanePlan,
     mut bridge_senders:   HashMap<String, super::bridge::BridgeOutEnds>,
     mut bridge_receivers: HashMap<String, super::bridge::BridgeInEnds>,
+    cancel:               tokio_util::sync::CancellationToken,
 ) -> Result<HashMap<String, NodeStats>, String> {
 
     let lane_id    = lane_plan.lane_id.clone();
@@ -422,6 +426,7 @@ pub async fn execute_lane(
             lane_txns: lane_txns.clone(),
             lane_datasets:  lane_datasets.clone(),
             lane_abort:     lane_abort.clone(),
+            cancel:         cancel.clone(),
         };
 
         let mut inputs = input_rx.remove(&node_id_str).unwrap_or_default();

@@ -35,6 +35,8 @@ sha1            = "0.10"
 md-5            = "0.10"
 hex             = "0.4"
 reqwest         = { version = "0.12", features = ["json"] }
+notify          = "6"
+tokio-util      = { version = "0.7", features = ["rt"] }
 hyper           = { version = "1",    features = ["full"] }
 http-body-util  = "0.1"
 hyper-util      = { version = "0.1",  features = ["tokio"] }

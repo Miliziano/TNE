@@ -2,11 +2,13 @@
 //
 // Nodo dir_watcher. Due modalità:
 //   • scan  — lista la cartella UNA volta e emette una riga per file (finito).
-//   • watch — osserva per una finestra `watchTimeoutSec` (poll periodico),
-//             emette i file nuovi/modificati che compaiono nella finestra.
-//             Bounded come il subscribe MQTT → si incastra nel modello a run
-//             finito. ⚠️ v1: è POLLING (non eventi fs reali: niente crate
-//             `notify`); rileva create/modify, non i delete.
+//   • watch — FASE 1: si sottoscrive agli eventi del SO (crate `notify`) e
+//             BLOCCA in attesa; al primo evento (o batch entro un debounce)
+//             emette i file coinvolti e RITORNA → la lane processa e finisce.
+//             Event-driven vero, single-shot ⇒ finito ⇒ gira nel motore
+//             attuale. `watchTimeoutSec` è un tetto di sicurezza. Rileva
+//             create/modify (non delete). FASE 2 (ri-ascolto + lane che non
+//             chiude) = service mode, capitolo a parte.
 //
 // I metadati file (mtime/size) vengono da std::fs — nessuna dipendenza nuova.
 // La cartella arriva dai props (pathSource=static) o dal primo record in
@@ -164,42 +166,85 @@ pub async fn run(
         return Ok(stats);
     }
 
-    // ── WATCH (polling bounded dal timeout) ──────────────────────
-    let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) {
-        0 => 86_400, // 0 = "infinito" → 24h come massimo pratico (come il runner)
-        n => n,
-    };
-    let deadline = Instant::now() + Duration::from_secs(timeout_sec);
-    let poll = Duration::from_millis(spec.u64_or("debounceMs", 300).max(200));
+    // ── WATCH — attesa dell'evento REALE del SO (crate `notify`) ─
+    // FASE 1: sottoscrive la cartella, BLOCCA sull'evento (attesa efficiente,
+    // niente polling né loop occupato), al primo evento (o piccolo batch entro
+    // un debounce) emette i file coinvolti e RITORNA → la lane processa fino
+    // all'uscita. Event-driven vero, single-shot ⇒ finito ⇒ gira nel motore
+    // attuale. `watchTimeoutSec` è un TETTO di sicurezza (se non arriva nulla
+    // ritorna a vuoto, così il run finito non resta appeso). FASE 2 (ri-ascolto
+    // + lane che non chiude) = service mode, capitolo a parte.
+    use notify::{EventKind, RecursiveMode, Watcher};
 
-    // baseline: registra lo stato attuale senza emettere (watch = eventi futuri).
-    let mut seen: HashSet<(String, String)> = HashSet::new();
-    {
-        let mut base = Vec::new();
-        scan_dir(&directory, &pattern, recursive, max_age_min, min_size, &mut base);
-        for f in &base { seen.insert((f.path.clone(), systime_rfc3339(f.mtime))); }
-    }
+    let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };
+    let debounce = Duration::from_millis(spec.u64_or("debounceMs", 300).max(50));
 
-    let mut rows_out = 0u64;
-    while Instant::now() < deadline {
-        tokio::time::sleep(poll).await;
-        let mut cur = Vec::new();
-        scan_dir(&directory, &pattern, recursive, max_age_min, min_size, &mut cur);
-        for f in &cur {
-            let key = (f.path.clone(), systime_rfc3339(f.mtime));
-            if seen.contains(&key) { continue; }
-            // nuovo path = create; path già visto con mtime diverso = modify
-            let is_new = !seen.iter().any(|(p, _)| p == &f.path);
-            let event = if is_new { "create" } else { "modify" };
-            seen.insert(key);
-            rows_out += 1;
-            if tx.send(to_row(f, Some(event))).await.is_err() {
-                let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
-                    elapsed_ms: start.elapsed().as_millis() as u64, error: None };
-                ctx.emit_completed(stats.clone());
-                return Ok(stats);
+    let (ev_tx, ev_rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+        let _ = ev_tx.send(res);
+    }).map_err(|e| format!("dir_watcher {}: watcher: {}", ctx.node_id.0, e))?;
+    watcher.watch(
+        Path::new(&directory),
+        if recursive { RecursiveMode::Recursive } else { RecursiveMode::NonRecursive },
+    ).map_err(|e| format!("dir_watcher {}: watch '{}': {}", ctx.node_id.0, directory, e))?;
+
+    ctx.emit_log(&ctx.label, "info", 0,
+        format!("DirWatcher watch: in ascolto su {} (eventi SO, tetto {}s)", directory, timeout_sec), "panel");
+
+    // Attesa BLOCCANTE dell'evento fuori dal runtime async (std mpsc).
+    let wait_timeout = Duration::from_secs(timeout_sec);
+    let affected: Vec<(String, String)> = tokio::task::spawn_blocking(move || {
+        let label = |k: &EventKind| -> Option<&'static str> {
+            match k {
+                EventKind::Create(_) => Some("create"),
+                EventKind::Modify(_) => Some("modify"),
+                _ => None,
+            }
+        };
+        let mut out: Vec<(String, String)> = Vec::new();
+        // primo evento (blocca fino al tetto)
+        match ev_rx.recv_timeout(wait_timeout) {
+            Ok(Ok(ev)) => if let Some(l) = label(&ev.kind) {
+                for pth in ev.paths { out.push((pth.to_string_lossy().to_string(), l.to_string())); }
+            },
+            _ => return out,
+        }
+        // drena eventi ravvicinati entro il debounce
+        while let Ok(Ok(ev)) = ev_rx.recv_timeout(debounce) {
+            if let Some(l) = label(&ev.kind) {
+                for pth in ev.paths { out.push((pth.to_string_lossy().to_string(), l.to_string())); }
             }
         }
+        out
+    }).await.map_err(|e| format!("dir_watcher {}: attesa evento: {}", ctx.node_id.0, e))?;
+
+    drop(watcher); // smette di ascoltare
+
+    // Emette i file coinvolti che matchano (dedup per path).
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut rows_out = 0u64;
+    for (path, event) in affected {
+        if !seen.insert(path.clone()) { continue; }
+        let meta = match std::fs::metadata(&path) { Ok(m) => m, Err(_) => continue };
+        if !meta.is_file() { continue; }
+        let filename = Path::new(&path).file_name()
+            .map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        if !glob_match(&pattern, &filename) { continue; }
+        if min_size > 0 && meta.len() < min_size { continue; }
+        let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+        let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
+        let dir_of = Path::new(&path).parent()
+            .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
+        let fi = FileInfo {
+            path: path.clone(), filename, extension: ext, directory: dir_of,
+            size: meta.len(),
+            created_at:  meta.created().ok().map(systime_rfc3339),
+            modified_at: Some(systime_rfc3339(mtime)),
+            mtime,
+        };
+        rows_out += 1;
+        if tx.send(to_row(&fi, Some(&event))).await.is_err() { break; }
+        if limit > 0 && rows_out as usize >= limit { break; }
     }
 
     let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,

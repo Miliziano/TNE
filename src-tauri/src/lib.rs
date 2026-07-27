@@ -167,6 +167,7 @@ pub fn run() {
         engine::engine_poll_events,
         engine::engine_test_bus,
         engine::engine_run,
+        engine::stop_run,
         mail_send,
         mqtt_subscribe,
         mqtt_publish,
