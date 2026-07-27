@@ -203,8 +203,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // come gli altri source non ancora portati (inoltra invece di fallire).
     "dir_watcher",
     "sink_kafka",
-    "sink_activemq", "sink_http",
-    "http_request", "webhook_responder",
+    "sink_activemq", "webhook_responder",
 ];
 
 /// true se il motore non ha ancora un'implementazione per questo tipo.
@@ -699,6 +698,13 @@ async fn run_node(
             super::nodes::source_http::run(ctx, rx, tx).await
         }
 
+        "http_request" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("http_request {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::http_request::run(ctx, rx, tx).await
+        }
+
         "sink_file" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("sink_file {} richiede un input collegato", ctx.node_id.0))?;
@@ -719,6 +725,13 @@ async fn run_node(
                 .ok_or_else(|| format!("sink_mqtt {} richiede un input collegato", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_mqtt::run(ctx, rx, tx).await
+        }
+
+        "sink_http" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("sink_http {} richiede un input collegato", ctx.node_id.0))?;
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::sink_http::run(ctx, rx, tx).await
         }
 
         "sink_db" => {

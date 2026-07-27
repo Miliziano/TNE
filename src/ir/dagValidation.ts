@@ -638,8 +638,8 @@ const MOTORE_NON_IMPLEMENTA = new Set([
   'watchdog',
   'source_activemq', 'source_kafka',
   'dir_watcher',
-  'sink_kafka', 'sink_activemq', 'sink_http',
-  'http_request', 'webhook_responder',
+  'sink_kafka', 'sink_activemq',
+  'webhook_responder',
 ])
 
 /**

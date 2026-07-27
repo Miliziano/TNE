@@ -13,11 +13,13 @@ pub mod source_file;
 pub mod source_ftp;
 pub mod source_mqtt;
 pub mod source_http;
+pub mod http_request;
 pub mod source_db;
 pub mod filter;
 pub mod sink_file;
 pub mod sink_ftp;
 pub mod sink_mqtt;
+pub mod sink_http;
 pub mod sink_db;
 pub mod tmap;
 

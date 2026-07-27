@@ -109,6 +109,7 @@ dependencies = [
  "hyper-util",
  "lettre",
  "log",
+ "md-5",
  "quick-xml 0.40.1",
  "regex",
  "reqwest 0.12.28",
