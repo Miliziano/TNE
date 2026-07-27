@@ -206,15 +206,20 @@ fn row_to_json_obj(row: &Row) -> J {
 // ─── Una singola chiamata (con retry) → righe ────────────────────
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute_single_request(
-    spec:   &Spec,
-    client: &reqwest::Client,
-    row:    &Row,
-    ctx:    &NodeContext,
+    spec:         &Spec,
+    client:       &reqwest::Client,
+    row:          &Row,
+    ctx:          &NodeContext,
+    extra_query:  &[(String, String)],
+    url_override: Option<&str>,
 ) -> Result<Vec<Row>, String> {
     let method = spec.str_or("method", "GET").to_uppercase();
 
-    // URL: interpolazione + api_key query + query params
-    let url = interpolate(&spec.str_or("url", ""), row);
+    // URL: override (paginazione link) oppure interpolazione
+    let url = match url_override {
+        Some(u) => u.to_string(),
+        None    => interpolate(&spec.str_or("url", ""), row),
+    };
     let (auth_h, api_key_q) = auth_headers(spec).await?;
 
     let mut query: Vec<(String, String)> = Vec::new();
@@ -222,6 +227,7 @@ pub(crate) async fn execute_single_request(
     if let Ok(J::Object(qp)) = serde_json::from_str::<J>(&interpolate(&spec.str_or("queryParams", "{}"), row)) {
         for (k, v) in qp { query.push((k, json_scalar_str(&v))); }
     }
+    for (k, v) in extra_query { query.push((k.clone(), v.clone())); }
     // Headers: Accept + auth + extra(JSON interpolato) + dinamici da campi
     let mut headers: Vec<(String, String)> = vec![
         ("Accept".into(), "application/json, text/plain, */*".into()),
@@ -378,6 +384,100 @@ fn json_scalar_str(v: &J) -> String {
     }
 }
 
+// ─── Paginazione (page / offset / cursor / link) ─────────────────
+pub(crate) async fn execute_with_pagination(
+    spec:   &Spec,
+    client: &reqwest::Client,
+    row:    &Row,
+    ctx:    &NodeContext,
+) -> Result<Vec<Row>, String> {
+    let pagination = spec.str_or("pagination", "none");
+    if pagination == "none" {
+        return execute_single_request(spec, client, row, ctx, &[], None).await;
+    }
+
+    let max_pages = spec.u64_or("maxPages", 0);
+    let page_size = spec.u64_or("pageSize", 100);
+    let mut page  = spec.u64_or("pageStart", 1);
+    let mut offset   = 0u64;
+    let mut cursor   = String::new();
+    let mut link_url: Option<String> = None;
+    let mut page_num = 0u64;
+    let mut all: Vec<Row> = Vec::new();
+
+    loop {
+        if max_pages != 0 && page_num >= max_pages { break; }
+        page_num += 1;
+
+        // Query params di paginazione per questa pagina
+        let mut extra: Vec<(String, String)> = Vec::new();
+        match pagination.as_str() {
+            "page" => {
+                extra.push((spec.str_or("pageParam", "page"), page.to_string()));
+                let lp = spec.str_or("limitParam", "limit");
+                extra.push((if lp.is_empty() { "page_size".into() } else { lp }, page_size.to_string()));
+            }
+            "offset" => {
+                extra.push((spec.str_or("offsetParam", "offset"), offset.to_string()));
+                extra.push((spec.str_or("limitParam", "limit"), page_size.to_string()));
+            }
+            "cursor" => {
+                if !cursor.is_empty() { extra.push((spec.str_or("cursorParam", "cursor"), cursor.clone())); }
+                extra.push(("limit".into(), page_size.to_string()));
+            }
+            _ => {} // link: niente param, si usa url_override
+        }
+
+        let page_rows = execute_single_request(spec, client, row, ctx, &extra, link_url.as_deref()).await?;
+        let got = page_rows.len() as u64;
+
+        // Determina se c'è un'altra pagina (prima di consumare page_rows)
+        let mut has_more = false;
+        match pagination.as_str() {
+            "page"   => { has_more = got >= page_size; page += 1; }
+            "offset" => { has_more = got >= page_size; offset += page_size; }
+            "cursor" => {
+                let cpath = spec.str_or("cursorPath", "$.meta.next_cursor");
+                cursor = page_rows.first().map(|r| {
+                    let src = match r.0.get("body_parsed") {
+                        Some(Value::Object(bp)) => bp.clone(),
+                        _                       => row_to_json_obj(r),
+                    };
+                    resolve_json_path(&src, &cpath).map(|v| json_scalar_str(&v)).unwrap_or_default()
+                }).unwrap_or_default();
+                has_more = !cursor.is_empty();
+            }
+            "link" => {
+                let next = page_rows.first().and_then(|r| match r.0.get("headers") {
+                    Some(Value::Object(J::Object(h))) => h.get("link").and_then(|v| v.as_str()).and_then(parse_link_next),
+                    _ => None,
+                });
+                has_more = next.is_some();
+                link_url = next;
+            }
+            _ => {}
+        }
+
+        all.extend(page_rows);
+        ctx.emit_log(&ctx.label, "info", 0,
+            format!("HTTP paginazione {} pagina {}: {} righe", pagination, page_num, got), "panel");
+        if !has_more { break; }
+    }
+    Ok(all)
+}
+
+// Estrae l'URL con rel="next" da un header Link.
+fn parse_link_next(link: &str) -> Option<String> {
+    for part in link.split(',') {
+        if part.contains("rel=\"next\"") || part.contains("rel=next") {
+            if let (Some(a), Some(b)) = (part.find('<'), part.find('>')) {
+                if a < b { return Some(part[a + 1..b].to_string()); }
+            }
+        }
+    }
+    None
+}
+
 pub async fn run(
     ctx: NodeContext,
     rx:  Option<RowReceiver>,
@@ -418,7 +518,7 @@ pub async fn run(
     let mut rows_out = 0u64;
 
     for row in &inputs {
-        match execute_single_request(&spec, &client, row, &ctx).await {
+        match execute_with_pagination(&spec, &client, row, &ctx).await {
             Ok(resp_rows) => {
                 for mut rr in resp_rows {
                     if passthrough && !row.0.is_empty() {
