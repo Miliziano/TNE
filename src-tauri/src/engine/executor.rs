@@ -197,7 +197,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // data_quality::run — è implementato. Stava nella vecchia lista per un
     // commento ormai falso.
     "watchdog",
-    "source_http", "source_mqtt",
+    "source_http",
     "source_activemq", "source_kafka",
     // dir_watcher era l'unico source in palette a NON essere qui: cadeva nel
     // catch-all `other => Err` e crashava al Run. Ora è uno stub dichiarato
@@ -686,6 +686,12 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
             super::nodes::source_ftp::run(ctx, rx, tx).await
+        }
+
+        "source_mqtt" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::source_mqtt::run(ctx, rx, tx).await
         }
 
         "sink_file" => {

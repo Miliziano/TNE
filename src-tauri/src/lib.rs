@@ -1860,14 +1860,14 @@ fn build_mail_body(request: &MailSendRequest) -> Result<MultiPart, String> {
 
 //-----mqtt-----
 #[derive(Debug, Deserialize, Clone)]
-struct MqttConnectionParams {
-    host: String, port: u16, client_id: String, username: Option<String>, password: Option<String>,
-    keep_alive: u64, clean_session: bool, use_tls: bool,
+pub struct MqttConnectionParams {
+    pub host: String, pub port: u16, pub client_id: String, pub username: Option<String>, pub password: Option<String>,
+    pub keep_alive: u64, pub clean_session: bool, pub use_tls: bool,
 }
 #[derive(Debug, Deserialize)]
-struct MqttSubscribeRequest { connection: MqttConnectionParams, topic: String, qos: u8, timeout_ms: u64, max_messages: usize }
+pub struct MqttSubscribeRequest { pub connection: MqttConnectionParams, pub topic: String, pub qos: u8, pub timeout_ms: u64, pub max_messages: usize }
 #[derive(Debug, Serialize)]
-struct MqttMessage { topic: String, payload: String, qos: u8, retain: bool, received_at: String }
+pub struct MqttMessage { pub topic: String, pub payload: String, pub qos: u8, pub retain: bool, pub received_at: String }
 #[derive(Debug, Deserialize)]
 struct MqttPublishRequest { connection: MqttConnectionParams, topic: String, payload: String, qos: u8, retain: bool }
 
@@ -1883,8 +1883,7 @@ fn build_mqtt_options(conn: &MqttConnectionParams) -> rumqttc::MqttOptions {
     opts
 }
 
-#[tauri::command]
-async fn mqtt_subscribe(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage>, String> {
+pub async fn mqtt_subscribe_impl(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage>, String> {
     use rumqttc::{AsyncClient, Event, Incoming};
     let opts = build_mqtt_options(&request.connection);
     let (client, mut eventloop) = AsyncClient::new(opts, 64);
@@ -1904,6 +1903,11 @@ async fn mqtt_subscribe(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage
     }
     client.disconnect().await.ok();
     Ok(messages)
+}
+
+#[tauri::command]
+async fn mqtt_subscribe(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage>, String> {
+    mqtt_subscribe_impl(request).await
 }
 
 #[tauri::command]
