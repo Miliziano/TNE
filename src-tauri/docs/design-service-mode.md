@@ -77,38 +77,104 @@ loop {
 webhook_receiver = `webhook_pop` in loop fino a cancel. webhook_responder =
 tiene su il server (già in lib.rs) fino a cancel, poi `webhook_responder_stop`.
 
-## 2. Nodo `stop` funzionale (D2) — idea dell'utente
+## 2. Nodo `stop` funzionale (D2) — DISEGNO CHIUSO (28 lug)
 
-Oggi `stop` è cosmetico. Diventa il modo per chiudere il processo **dal disegno
-del flusso**, consapevolmente. Riusa i meccanismi esistenti. Due semantiche,
-richieste esplicitamente dall'utente ("un'eccezione o un evento di chiusura"):
+Diventa il modo per chiudere il processo **dal disegno del flusso**,
+consapevolmente. Nasce dall'idea dell'utente ("un'eccezione o un evento di
+chiusura") ma è stato **ridotto a una cosa sola** dopo la discussione: pool e
+restart sono stati eliminati (chiedevano capacità nuove al motore), e le due
+semantiche `exception`/`close` sono collassate in **un'azione unica**.
 
-- **exception** — il nodo `stop`, alla ricezione di una riga (o su condizione),
-  emette una riga d'errore verso l'**error handler** (stesso canale controllo
-  dei fallimenti nodo). L'autore la instrada/gestisce nell'EH; se marcata
-  critica, fa scattare `LaneAbort`. È il ramo "eccezione governata".
-- **close** — chiusura PULITA: scatena il **token di cancellazione del run**
-  (§1.1) con un `reason` = "stop deliberato", lasciando drenare le righe in
-  volo. NON marca la lane come fallita (Monitor/report NON mostrano un
-  fallimento — il campo `reason` di LaneAbort nasce apposta per non spacciare
-  per "errore critico" un'interruzione voluta).
+### 2.1 Un'azione sola: ferma la lane
+Il nodo `stop` **ferma la lane** — niente altro. Ferma-lane =
+`LaneAbort::fire` (`engine/abort.rs`), che GIÀ porta **rollback delle
+transazioni attive + chiusura connessioni** (§6.1 di HANDOFF: il `fire` fa
+scattare l'abort dei task ancora vivi, e a fine lane `finalize_with_outcome`
+esegue il rollback perché l'esito non è Ok, poi `close_all`). Non c'è niente da
+inventare nel motore: si riusa il mattone dell'abort critico, con un **motivo**
+diverso.
 
-**➡️ Raccomandato:** entrambe, scelte da un prop `stopMode: exception | close`
-(default `close`). Il `stop` in modalità close è l'interruttore naturale della
-service mode; in modalità exception è la valvola per flussi che vogliono
-governare l'uscita passando dall'EH.
+Il `fire` conserva il `reason`: qui è **"stop deliberato"**, non "errore
+critico". I nodi interrotti compaiono nel Monitor come *interrotti* (evento
+`NodeInterrupted`, warning grigio — v. P53), con quel motivo accanto: è
+un'uscita voluta, non un fallimento.
 
-Semantica d'attivazione (D2b): il `stop` scatta **alla prima riga che riceve**
-(default), oppure su una condizione FPEL (`when`), riusando l'espressione già
-disponibile agli altri nodi. Raccomandato: prima riga per la v1, `when`
-opzionale.
+### 2.2 Due modalità di INNESCO
+Il nodo scatta **quando gli arriva una riga**; la modalità decide *quando*:
 
-## 3. Fette (ordine proposto)
-1. **Plumbing service mode**: token per-run + registro + `stop_run` + token nel
-   NodeContext. Nessun nodo lo usa ancora → si verifica con un nodo-servizio di
-   prova o direttamente con la fetta 3.
-2. **Nodo `stop` funzionale** (modalità close + exception). Non dipende dai
-   servizi: utile da subito anche in lane finite (uscita governata).
+- **`immediate`** (default) — scatta alla **prima riga** ricevuta. "Se il
+  flusso arriva qui, fermati subito."
+- **`after_input`** — scatta **dopo che il monte ha esaurito le righe** (drena
+  l'ingresso fino a EOF, poi ferma). Serve a lasciar **processare/loggare tutte
+  le righe del ramo** prima di chiudere (es. un `log` fra il reject e lo stop
+  finisce di scrivere tutte le righe scartate, poi la lane si ferma).
+
+Convenzione di innesco: entrambe le modalità richiedono **≥1 riga**. Un ramo che
+non produce righe (EOF a 0) NON innesca — coerente con "scatta quando gli arriva
+una riga". (Se un domani serve "ferma comunque a fine ramo anche a 0 righe" è un
+solo `if`.)
+
+Multi-istanza: se ne mettono quante se ne vuole per lane, tipicamente **a valle
+di un `reject` o di un handle di un `filter`**.
+
+### 2.3 Cancellabile (vincolo utente)
+Il nodo `stop` parte in parallelo come ogni altro. Deve **NON scattare
+all'avvio** e rispondere al `cancel` del run (§1.1): attende in
+`tokio::select!` fra la **riga d'innesco** e `ctx.cancel.cancelled()`. Se il
+ramo non viene mai raggiunto, o se un altro `cancel` scatta prima, esce
+**pulito** senza fermare niente. (⚠️ il `fire` può abortire anche il task del
+nodo stop, che è registrato come interrompibile: per questo il `fire` è
+l'**ultima** azione, senza `.await` dopo — il task conclude normalmente prima
+che la cancellazione di sé stesso prenda effetto.)
+
+### 2.4 Passa dall'error handler per gli EFFETTI (amplificatore, non requisito)
+Gli effetti collaterali di una chiusura (log su file, mail, http, `sink_db`) non
+si duplicano sul nodo stop: si **riusano quelli dell'error handler**. Il nodo
+`stop`, all'innesco, manda all'EH una riga di **"chiusura deliberata"** sul
+canale di controllo (il collettore, come i fallimenti di nodo, ma marcata
+`_error_source = "stop"` e **non critica**): l'EH la registra e la emette su
+`error_out`, dove la **sotto-pipeline disegnata dall'utente** esegue gli
+effetti. Così gli effetti si disegnano **una volta** e valgono per errori E
+stop; il `reason` "stop deliberato" li tiene distinti da un fallimento.
+
+Ordine corretto: **prima** la sotto-pipeline dell'EH esegue gli effetti,
+**poi** rollback+close. È già garantito dal modello a canale: l'EH e la sua
+sotto-pipeline sono ESCLUSI dall'abort, quindi `fire` ferma solo la pipeline
+principale; il collettore si chiude, l'EH drena la riga di chiusura, la
+sotto-pipeline conclude, e solo allora `finalize_with_outcome` fa il rollback.
+
+**FALLBACK senza EH** — se la lane non ha (o non usa) l'EH, lo stop **ferma
+comunque** la lane in modo pulito (rollback+close, motivo deliberato), solo
+senza effetti ricchi. L'EH è un **amplificatore, non un requisito**.
+
+⚠️ **Avvertenza salva-stato.** Un eventuale "salva lo stato su stop" che deve
+**sopravvivere** alla chiusura va tenuto **fuori dal gruppo transazionale**: sta
+nel gruppo → il rollback se lo porta via. Stesso avvertimento del sink d'errore
+dell'EH (§6.1).
+
+### 2.5 Cosmetici (nota, non parte dell'implementazione motore)
+Esiste già una coppia di nodi rotondi ▶/⏹ (`StartNode`/`EndNode`,
+`lane_start`/`lane_end`): **NON sono decorativi**, sono gli **ancoraggi di
+boundary della lane** (→ `lane_boundary` nell'IR, `non eliminabile`, usati dalla
+validazione). Il nuovo `stop` è un **nodo di palette distinto** (sezione
+"Flusso"), non una trasformazione di quegli ancoraggi. Ogni ripulitura estetica
+dei rotondi resta una decisione a parte e non tocca questo disegno.
+
+## 3. Fette (ordine aggiornato)
+1. ✅ **Plumbing service mode** (P93/P93b): token per-run + registro +
+   `stop_run` + `cancel` nel NodeContext. FATTO.
+2. **Nodo `stop` funzionale** — spezzato in due:
+   - **2a — ferma-lane (path base/fallback).** Studio (voce palette "Flusso" +
+     `nodeSemantics` + pannello innesco `immediate`/`after_input` + messaggio
+     opz.) + motore (`stop.rs`: `select!` innesco-vs-`cancel`; immediate = 1ª
+     riga, after_input = drena fino a EOF; poi `LaneAbort::fire("stop
+     deliberato")`). È già utile da sé: ferma la lane pulito, cancellabile,
+     anche senza EH. **← questa fetta.**
+   - **2b — amplificatore EH.** La riga di "chiusura deliberata" al collettore →
+     effetti via `error_out`; e il "non è un fallimento" a livello di **Run**
+     (oggi una lane con `fire` scattato è riportata come interrotta col motivo
+     onesto, ma il Run la conta comunque fra le non-riuscite: rendere il Run
+     onesto sull'interruzione-voluta è parte di 2b).
 3. **dir_watcher fase 2**: la fase 1 (notify, già fatta in P91) dentro il loop
    di servizio, ri-armata, `select!` col token.
 4. **webhook_receiver** come nodo-servizio (poll `webhook_pop` fino a cancel;
@@ -126,5 +192,12 @@ opzionale.
 - `tokio-util` è dep nuova (feature `rt` per CancellationToken) — l'utente la
   aggiunge compilando. Alternativa senza dep: un `tokio::sync::watch<bool>` fatto
   a mano (più codice, stessa sostanza).
-- La modalità `close` del `stop` che droppa i servizi mentre righe sono in volo:
-  definire l'ordine (prima si smette di produrre, poi si lascia drenare).
+- Il nodo `stop` è registrato come **interrompibile** (ha il sender del
+  collettore ⇒ è nel registro degli AbortHandle): il suo `fire` può abortire
+  anche il proprio task. È benigno solo perché `fire` è l'**ultima** azione,
+  senza `.await` dopo (v. §2.3). Se in futuro serve del lavoro *dopo* il `fire`,
+  o si esclude il `stop` dal registro (come l'EH) o si sposta quel lavoro prima.
+- Ordine effetti-EH → rollback (§2.4): garantito dal fatto che l'EH e la sua
+  sotto-pipeline sono esclusi dall'abort. Vale finché quell'esclusione (BFS
+  `eh_subpipe` in `executor`) resta corretta — è la stessa su cui poggia
+  l'abort critico.

@@ -62,6 +62,7 @@ import { WebhookResponderPanel } from './types/webhook/Panel'
 import { WatchdogPanel_ as WatchdogPanel } from './types/webhook/Panel'
 import { ShellExecPanel, SshExecPanel } from './types/shell_exec/Panel'
 import { ErrorHandlerPanel } from './types/error_handler/Panel'
+import { StopPanel } from './types/stop/Panel'
 import { ErrorHandlerNodesPanel } from './types/error_handler/MappingPanel'
 import { UnionPreviewPanel } from './types/union/PreviewPanel'
 
@@ -532,6 +533,19 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     description: 'Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se "Log centralizzato" è attivo).',
     fields:      [],
   },
+
+  stop: {
+    type:        'stop',
+    label:       'Stop',
+    icon:        '⏹',
+    color:       '#ff5f57',
+    category:    'transform' as const,   // border neutro; la validazione va per _uiRef.type, non per category
+    description: 'Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.',
+    fields: [
+      { key: 'trigger', label: 'Innesco', type: 'select', default: 'immediate', options: ['immediate', 'after_input'] },
+      { key: 'message', label: 'Messaggio', type: 'text', default: '' },
+    ],
+  },
 }
  
 
@@ -542,6 +556,7 @@ export const PALETTE_SECTIONS = [
   { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
   { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot'] },
   { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
+  { label: 'Flusso', types: ['stop'] },
   { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
 ]
 
@@ -587,6 +602,7 @@ export const NODE_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
   shell_exec: ShellExecPanel,
   ssh_exec:   SshExecPanel,
   error_handler: ErrorHandlerPanel,
+  stop:          StopPanel,
 }
 
 import { SourceFileMappingPanel } from './types/source_file/MappingPanel'

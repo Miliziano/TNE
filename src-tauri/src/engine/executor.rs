@@ -628,7 +628,20 @@ pub async fn execute_lane(
     // stato registrato: sotto c'è il rollback, e deve vedere il vero
     // esito.
     if lane_result.is_ok() && lane_abort.has_fired().await {
-        lane_result = Err("Lane interrotta da un errore critico".to_string());
+        // Il motivo lo conosce chi ha ordinato il `fire`: l'error_handler
+        // (errore critico o regola «interrompi») oppure il nodo `stop`
+        // (chiusura deliberata). Si legge dal registro invece di dire
+        // sempre "errore critico" — che era falso già per una regola, e lo
+        // sarebbe per uno stop deliberato, dove spaccerebbe per errore
+        // un'uscita voluta. Il rollback resta (l'esito non è Ok, ed è ciò
+        // che lo stop vuole: rollback + close); cambia solo la verità del
+        // messaggio.
+        let motivo = lane_abort.reason().await;
+        lane_result = Err(if motivo.trim().is_empty() {
+            "Lane interrotta".to_string()
+        } else {
+            format!("Lane interrotta: {}", motivo)
+        });
     }
 
     // Finalizza le transazioni di gruppo in base all'esito COMPLETO
@@ -1000,6 +1013,17 @@ async fn run_node(
         // passo 2.
         "error_handler" => {
             super::nodes::error_handler::run(ctx, inputs, outputs).await
+        }
+
+        // ── stop — nodo di controllo di flusso (service mode 2a) ──────
+        // Ferma DELIBERATAMENTE la lane via LaneAbort::fire. Input
+        // OPZIONALE: l'innesco è una riga ricevuta, ma un `stop` senza
+        // monte è lecito (attende solo il cancel ed esce). Nessun output:
+        // è un nodo terminale di controllo. V. nodes/stop.rs e
+        // docs/design-service-mode.md §2.
+        "stop" => {
+            let rx = take_single_input(&mut inputs);
+            super::nodes::stop::run(ctx, rx).await
         }
 
         t if is_stub(t) => {

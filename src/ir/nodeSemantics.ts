@@ -994,6 +994,29 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     pushdownCapable:   [],
   },
 
+  // Nodo di CONTROLLO DI FLUSSO (sezione palette "Flusso", con
+  // l'error_handler): ferma deliberatamente la lane quando il flusso lo
+  // raggiunge. Consuma righe, non ne produce → nessuna porta di output
+  // (è terminale). `operations: ['transform']` come log/error_handler:
+  // non c'è un'operazione logica "control", e usarne una nuova
+  // ramificherebbe ogni switch su LogicalOperation senza guadagno — lo
+  // schema non si propaga comunque (0 uscite). Input NON dinamico, una
+  // porta sola. Disegno: src-tauri/docs/design-service-mode.md §2.
+  stop: {
+    uiType:                  'stop',
+    operations:              ['transform'],
+    executionSemantics:      'row',
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', role: 'data' },
+    ],
+    staticOutputPorts: [],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
+
   // ── Nodi interni canvas (non entrano nell'IR) ─────────────────
 
   lane_start: {
