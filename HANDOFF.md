@@ -4,14 +4,18 @@ Questo documento serve a riprendere il lavoro su FlowPilot in una nuova
 chat senza perdere contesto. Leggilo per intero prima di ripartire, poi
 **leggi il repo per lo stato vero** (vedi "Metodo di lavoro").
 
-Sostituisce l'handoff precedente. Aggiornato a: **22 luglio** — Fase 13
-chiusa (mancano i manuali), **Fase porte CHIUSA** (v. §5), **FASE MOTORE
-in corso**: l'error handling end-to-end è finito e collaudato (v. §6.1 e
-§9). Ultima consegna di riferimento: **P47**.
+Sostituisce l'handoff precedente. Aggiornato a: **27 luglio** — ultima
+consegna di riferimento: **P93b**. Da P47 a oggi: chiuso il porting del nodo
+**Script** (P58-73) e del **report_generator** (P74-78); aggiunta la
+**persistenza** salva/apri (P79); portata l'intera famiglia dei **nodi di
+rete** (FTP, MQTT, HTTP client con tutti gli auth incl. digest reale,
+dir_watcher); avviata la **SERVICE MODE** (token di cancellazione per-run,
+P93). Restano pochi stub (§6) e un punto aperto sul **nodo stop** (§9).
 
-> Aggiornamento mirato del 22 lug: riscritte l'intestazione, la consegna
-> in §2, §6 (l'error_handler non è più uno stub), §8 (nuove trappole) e
-> §9; aggiunta §6.1. Il resto è la stesura del 16 luglio ed è ancora valido.
+> Le sezioni 1-5 (cos'è, metodo, architettura, contratto spec, contratto
+> porte) e 6.1 (error handling) sono la stesura precedente e sono ancora
+> valide. Aggiornate il 27 lug: intestazione, §6, §8, §9; aggiunte §6.2 (fase
+> porting) e §6.3 (service mode).
 
 ---
 
@@ -262,43 +266,35 @@ implementarlo sarebbe una bugia silenziosa → va con la fase porting.
 
 ---
 
-## 6. Lo stato reale del motore (audit di copertura, 15 lug — aggiornato 22 lug)
+## 6. Lo stato reale del motore (audit di copertura — agg. 27 lug)
 
-**Non fidarsi delle mappe: interrogare il motore.** `executor.rs` ha 22
-arm che implementano davvero + un catch-all a riga ~705 (`other =>
-Err("Tipo nodo non supportato")`) che fa la cosa giusta.
+**Non fidarsi delle mappe: interrogare il motore.** La lista autorevole è
+`NOT_IMPLEMENTED` in `executor.rs` (i nodi ancora stub), tenuta allineata a
+mano con `MOTORE_NON_IMPLEMENTA` in `dagValidation.ts`: chi porta un nodo lo
+toglie da ENTRAMBE — riverificare che coincidano a ogni consegna.
 
-**Ma c'è uno STUB PASSTHROUGH SILENZIOSO** per **15 type-string**:
-`script, watchdog, source_http, source_ftp, source_mqtt, source_activemq,
-source_kafka, sink_kafka, sink_ftp, sink_mqtt, sink_activemq, sink_http,
-http_request, webhook_responder, report_generator`. ✅ **`error_handler`
-NON è più uno stub** (fase motore, 20-22 lug): è implementato davvero —
-v. §6.1. Il commento nel codice lo ammette
-("in attesa delle implementazioni vere"). Inoltra le righe tal quali ed
-emette `NodeStats` regolari con `error: None`: **non fallisce, non
-avvisa, finge di funzionare**. Le sorgenti di rete non hanno input →
-`rows_in=0, rows_out=0`, run "riuscito". I sink di rete buttano i dati in
-silenzio. Lo script non fa niente (e in `Cargo.toml` non c'è **nessun
-motore JS**: lo script non è portabile, va **riprogettato**).
-NB `data_quality` compare nella lista dello stub ma è irraggiungibile
-(ha il suo arm a riga 602): `data_quality` **è** implementato.
+**Stub rimasti (6)**, tutti nella fase porting ancora da fare:
+`watchdog, source_activemq, sink_activemq, source_kafka, sink_kafka,
+webhook_responder`. Lo stub inoltra le righe tal quali senza fallire né
+avvisare (i sink buttano i dati in silenzio) — MA da P73 lo studio ci mette un
+**warning giallo** (`NODE_NOT_IMPLEMENTED`), così non è più un inganno
+silenzioso. `data_quality` NON è stub (ha il suo arm): è implementato.
 
-Implementati davvero: source_file, source_db, sink_file, sink_db,
-bridge_out, bridge_in, tmap, log, join, transform, aggregate, explode,
-materialize, json_serializer, json_parser, filter, xml_serializer,
-xml_parser, pivot, data_quality, window, union, **error_handler**
-(+ `bridge.rs` a livello `engine/`, fuori da `nodes/`).
+**Portati da luglio (P58→P93):** Script (FPEL), report_generator, FTP
+source/sink, MQTT source/sink, HTTP client (source_http + http_request +
+sink_http con 7 auth incl. digest reale, retry, paginazione), dir_watcher.
+V. §6.2.
 
-**I due regimi di porte del motore**: `filter`, `json_parser`,
-`xml_parser`, `tmap` ricevono l'**intera mappa `outputs`** e gestiscono
-le porte per nome, **reject compreso e funzionante**. Tutti gli altri
-usano `take_primary_output` (una porta sola) → i `reject` dichiarati per
-explode/join/materialize/sink_* **non sono implementati**.
+**Già implementati prima:** source_file, source_db, sink_file, sink_db,
+bridge_out/in, tmap, log, join, transform, aggregate, explode, materialize,
+json/xml serializer+parser, filter, pivot, data_quality, window, union,
+**error_handler** (+ `bridge.rs` a livello `engine/`).
 
-**Decisione utente**: i reject dichiarati **servono** e vanno
-implementati (non rimossi). Modello da copiare: filter e i parser.
-
----
+**I due regimi di porte** (invariato): `filter`, `json_parser`, `xml_parser`,
+`tmap` ricevono l'intera mappa `outputs` e gestiscono i reject; gli altri
+usano `take_primary_output` (una porta) → i `reject` dichiarati per
+explode/join/materialize/sink_* restano DA IMPLEMENTARE. Modello: filter e i
+parser. Decisione utente: i reject servono, vanno implementati.
 
 ## 6.1 Error handling nel motore (fase motore, 20-22 lug) — FINITO E COLLAUDATO
 
@@ -379,6 +375,48 @@ conseguenza.
 
 ---
 
+## 6.2 FASE PORTING degli stub (P58→P93) — quasi finita
+
+Ordine deciso dall'utente: error_handler (fatto in fase motore) → Script →
+report_generator → nodi di rete → (restano watchdog/activemq/kafka).
+
+- **Script (P58-73):** rifatto su **FPEL** — mini-linguaggio di istruzioni
+  compilato a IR, NON un motore JS (che avrebbe reso il nodo opaco al codegen
+  per sempre). Così lo schema d'uscita è calcolabile e il nodo è traducibile.
+  Grammatica Monaco propria, tipi di ritorno, variabili di lane scrivibili.
+  Disegno: `src-tauri/docs/design-nodo-script.md`.
+- **report_generator (P74-78):** HTML/SVG costruiti a mano + Excel via
+  `rust_xlsxwriter` (solo dati); formattazione condizionale, DQ, KPI, grafici.
+  Disegno: `src-tauri/docs/design-nodo-report-generator.md`.
+- **Persistenza (P79):** salva / salva-con-nome / apri (file `.ffplan`) — era
+  il grande buco di uno studio ETL. Toolbar + flowStore.
+- **Nodi di rete.** 🔑 La logica di connessione (FTP/SFTP, MQTT, ActiveMQ via
+  STOMP, SMTP) ESISTE GIÀ in `lib.rs` come comandi Tauri: per questi il porting
+  è **cablaggio** — il nodo del motore chiama una `*_impl` pub estratta dal
+  comando. Fatti: FTP source/sink (P80-82), MQTT source/sink (P83-84),
+  dir_watcher (P90-91, watch a eventi reali via `notify`). Il **client HTTP**
+  invece NON esisteva in Rust (il runner usava `fetch` TS): portato da ZERO in
+  reqwest — source_http (nucleo condiviso) + http_request + sink_http, con 7
+  auth (incl. **digest reale** RFC, crate `md-5` — quello del runner era finto,
+  mandava Basic), retry, paginazione (P85-89). Disegno FTP:
+  `src-tauri/docs/design-nodo-ftp.md`.
+
+## 6.3 SERVICE MODE (in corso) — nodi che vivono oltre la lane
+
+Nato dall'osservazione che `dir_watcher` in watch e i **webhook**
+(receiver/responder, oggi server long-running in `lib.rs`) devono restare
+attivi finché non li fermi — cosa che il motore, strettamente FINITO (attende
+che OGNI task-nodo ritorni), non permette ancora. Disegno completo:
+`src-tauri/docs/design-service-mode.md`.
+
+- **Watch fase 1 (P91, FATTO):** `dir_watcher` watch aspetta l'evento REALE del
+  SO (crate `notify`), single-shot → resta finito → gira già nel motore.
+- **Plumbing (P93, FATTO):** `tokio_util::CancellationToken` per-run, registro
+  globale `run_id→token` in `engine_run`, campo `cancel` nel `NodeContext`,
+  comando `stop_run(run_id)`. Puro plumbing: nessun nodo lo usa ancora.
+- **Da fare:** nodo `stop` funzionale (§9), watch fase 2, i due webhook come
+  nodi-servizio (`select!` fra evento e `cancel`).
+
 ## 7. `src/runner/` — CODICE MORTO, ma NON cancellare
 
 19 file, 6045 righe di executor TypeScript. **Nessuno lo importa**
@@ -403,6 +441,22 @@ export sono consumati solo dal runner); **tenere** `src/io/readers.ts`
 
 ## 8. Debiti noti e trappole (non ripetere questi errori)
 
+- 🔴 **Non marcare `pub` un `#[tauri::command]` nello stesso modulo** (E0255):
+  la macro ri-esporta i suoi helper (`__cmd__*`) → nomi duplicati. Estrarre una
+  `*_impl` pub e lasciare il comando non-pub a delegare. Vale per ogni nodo di
+  rete che richiama un comando Tauri (ftp/mqtt/stomp).
+- 🔴 **Il "digest" del client HTTP nel runner era FINTO** (mandava Basic).
+  Implementato quello vero (RFC 2617, crate `md-5`). Direttiva utente:
+  sicurezza/autenticazione vanno implementate DAVVERO, mai finte.
+- **Confezionamento patch:** committare in locale la consegna PRECEDENTE come
+  base prima della successiva, o `git diff` impacchetta entrambe. Un commit per
+  patch.
+- **Move in `for` + `async move`:** un valore non-Copy (es. `CancellationToken`)
+  usato in `tokio::spawn(async move …)` dentro un ciclo va clonato
+  PER-ITERAZIONE prima dello spawn (come `run_id`), altrimenti E0382.
+- **Rust non si compila in sandbox:** ogni patch Rust lo compila l'UTENTE — è
+  quello il cancello. Il typecheck TS (baseline 134) è l'unica verifica
+  automatica di Claude.
 - **La baseline typecheck è 134** (`npx tsc --noEmit -p tsconfig.app.json
   2>&1 | grep -c "error TS"`). Sono errori preesistenti (TS6133/6196
   inutilizzati + un TS2307 penzolante). **Ogni consegna deve chiudere a
@@ -466,48 +520,36 @@ export sono consumati solo dal runner); **tenere** `src/io/readers.ts`
 
 ## 9. Da dove ripartire
 
-**Fase 13 (validazione live + pannello Problems): CHIUSA.** Restano da
-scrivere i **MANUALI** (richiesta esplicita: li scrive Claude a fine fase
-porting; se slitta ancora, farlo notare).
+**Fasi chiuse:** Fase 13 (validazione live), Fase porte, Fase motore (error
+handling end-to-end, §6.1). **FASE PORTING quasi finita** (§6.2): Script,
+report_generator, persistenza e tutti i nodi di rete tranne activemq/kafka.
 
-**Fase porte: CHIUSA.** Il contratto (`src/ir/nodeSemantics.ts`) è la
-fonte unica e la 2ª stesura di `src-tauri/docs/contratto-porte.md` è la
-SPEC: R1→R9, §9 divergenze, §10 decisioni. Da lì lo studio è *credibile*:
-quello che il canvas dichiara è vero.
+**PUNTO APERTO — nodo `stop` (service mode, fetta 2).** ⚠️ Verificato: **NON
+esiste un nodo `stop`** in palette/motore. `stop` è solo un'**azione di regola
+dell'error handler** ("emit + interrompi la lane"), ed è GIÀ implementata
+(`error_handler.rs` fa `fire` dell'abort via `abort.rs`). L'utente vuole un
+NODO piazzabile nel flusso per chiudere il processo consapevolmente
+(eccezione→EH, oppure close→cancel del token di P93). → Va CREATO un nodo nuovo
+— anche lato STUDIO (voce palette + pannello + `nodeSemantics`), non solo il
+motore — che riusa l'abort esistente + il token. **In attesa di conferma
+dell'utente.** Vincolo suo: il nodo stop dev'essere CANCELLABILE (parte in
+parallelo come ogni nodo, `select!` fra innesco e `cancel`), non deve scattare
+all'avvio, sennò chiude tutto al momento sbagliato.
 
-**FASE MOTORE: IN CORSO** — nasce esattamente da lì. Se lo studio promette
-e il Rust non mantiene, la promessa credibile è più pericolosa di una a
-cui nessuno crede. Fatto finora (P27→P57): **il modello di error handling
-è implementato per intero e collaudato sul campo** (§6.1) — canale a
-collettore, `critical` che interrompe davvero, regole con filtro ed
-escalation, «escludi dal log», "interrotto" ≠ "fallito", e il fallimento
-cross-lane che attraversa il bridge. Più: `advanced` che finalmente
-arriva al motore, i nodi troncati che non fingono, il Run che non
-nasconde la causa.
+**Prossimi passi (service mode + porting):**
+1. Nodo `stop` (fetta 2, dopo conferma) → poi **watch fase 2** → i due webhook
+   (`webhook_receiver`, `webhook_responder`) come nodi-servizio.
+2. Nodi finiti rimasti: **watchdog** (c'è `watchdog_check` reqwest in lib.rs),
+   **ActiveMQ/STOMP** (logica in lib.rs = cablaggio), **Kafka** (ultimo: crate
+   nuovo, non compile-testabile in sandbox).
+3. Debiti motore ancora aperti: collaudare il **retry** (P36, avvolge solo
+   l'apertura connessione); le due criticità del modello error handling (§9
+   prec.); i **reject** dichiarati (explode/join/materialize/sink_*, modello
+   filter/parser); i `let _ = tx.send()` ingoiati; `SIGNAL_SCHEMA` da fonte
+   unica; `conn_id` negli eventi Connection*.
+4. **MANUALI**: il cancello di fine porting (li scrive Claude; già slittati una
+   volta — se slitta ancora, farlo notare).
 
-**Prossimi passi, in ordine:**
-1. **Collaudare il RETRY (P36)**: è rimasto inerte fino a P45 perché
-   leggeva `advanced` dal posto sbagliato. Nessuno l'ha ancora visto
-   funzionare — provarlo prima di considerarlo fatto. ⚠️ Il retry avvolge
-   **solo l'apertura della connessione**: per attivarlo bisogna rompere la
-   CONNESSIONE (password/host/porta, o il DB fermo), non la query.
-2. **Le due criticità rimaste del modello** (v. `DISEGNO-error-handling.md`):
-   l'handler emette *prima* del rollback di `finalize_with_outcome`, e un
-   errore *dentro* la sotto-pipeline dell'handler è fatale e visibile solo
-   come `NodeFailed` — da confermare o cambiare.
-3. **I `reject` dichiarati** per explode/join/materialize/sink_db/
-   sink_file (modello: filter e i parser, che ricevono l'intera mappa
-   `outputs`); il segnale del `bridge_out`; poi `when` sui sink.
-   `SIGNAL_SCHEMA` da fonte unica; `conn_id` negli eventi Connection*.
-4. **I `let _ = tx.send()` ingoiati** (12 in 10 file): renderli rumorosi.
-5. **Fase PORTING degli stub**, ordine deciso dall'utente:
-   ~~error_handler~~ (fatto) → **script** → **report_generator**.
-   Riferimenti TS in `src/runner/`: `scriptExecutor.ts` (179) +
-   `buildLaneProxy`; poi `reportGeneratorExecutor.ts` (688, il più
-   grosso). ⚠️ Per lo script in `Cargo.toml` non c'è **nessun motore JS**:
-   va **riprogettato**, non portato.
-6. **Restyling**: v. la nota sull'"Uscita verso valle" in §5.
-
-**Sequenza decisa dall'utente**: si chiude una fase alla volta. *"Siamo
-sempre in fase di sviluppo: finché non abbiamo finito tutto non si va in
-produzione."*
+**Metodo:** una fase alla volta; Rust compilato dall'utente a ogni patch;
+baseline TS 134; un commit per patch. *"Siamo sempre in fase di sviluppo:
+finché non abbiamo finito tutto non si va in produzione."*
