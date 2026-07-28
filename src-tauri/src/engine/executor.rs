@@ -52,6 +52,15 @@ pub struct NodeContext {
     /// Token di cancellazione del RUN (service mode): i nodi-servizio lo
     /// attendono per uscire pulito; `stop_run` e il nodo stop lo scatenano.
     pub cancel:         tokio_util::sync::CancellationToken,
+    /// Sender del COLLETTORE errori della lane (`Some` solo se la lane ha
+    /// un error_handler e questo nodo può segnalargli — stesso insieme di
+    /// `err_tx`: NON l'EH, NON la sua sotto-pipeline). Il wrapper di spawn
+    /// lo usa per i FALLIMENTI di nodo; il nodo `stop` lo usa DA DENTRO per
+    /// originare una riga di "chiusura deliberata" (fetta 2b), che l'EH
+    /// emette su `error_out` facendo girare gli effetti disegnati
+    /// dall'utente. `None` senza EH → lo stop fa comunque fallback (ferma
+    /// la lane senza effetti ricchi).
+    pub err_collector:  Option<RowSender>,
 }
 
 impl NodeContext {
@@ -414,6 +423,17 @@ pub async fn execute_lane(
         let node_id_str = node_plan.node_id.0.clone();
         let node_type   = node_plan.node_type.clone();
 
+        // Eleggibilità al collettore: tutti i produttori TRANNE l'EH e la
+        // sua sotto-pipeline (criticità A). Calcolato PRIMA del ctx perché
+        // ora ci vive dentro (`err_collector`) oltre a servire per `err_tx`.
+        let collector_for_node: Option<RowSender> =
+            if eh_id.as_deref() == Some(node_id_str.as_str())
+                || eh_subpipe.contains(&node_id_str) {
+                None
+            } else {
+                collector_tx.clone()
+            };
+
         let ctx = NodeContext {
             run_id:    run_id.clone(),
             lane_id:   lane_id.clone(),
@@ -427,6 +447,7 @@ pub async fn execute_lane(
             lane_datasets:  lane_datasets.clone(),
             lane_abort:     lane_abort.clone(),
             cancel:         cancel.clone(),
+            err_collector:  collector_for_node.clone(),
         };
 
         let mut inputs = input_rx.remove(&node_id_str).unwrap_or_default();
@@ -455,15 +476,10 @@ pub async fn execute_lane(
             inputs.keys().collect::<Vec<_>>(),
             outputs.keys().collect::<Vec<_>>());
 
-        // Sender del collettore per questo nodo: tutti i produttori tranne
-        // l'EH stesso e la sua sotto-pipeline (criticità A, sopra).
-        let err_tx: Option<RowSender> =
-            if eh_id.as_deref() == Some(node_id_str.as_str())
-                || eh_subpipe.contains(&node_id_str) {
-                None
-            } else {
-                collector_tx.clone()
-            };
+        // Sender del collettore per il WRAPPER di spawn (fallimenti di
+        // nodo). Stesso valore che vive nel ctx come `err_collector`: qui
+        // ne prendiamo la copia originale, che viene mossa nel task.
+        let err_tx: Option<RowSender> = collector_for_node;
         let interrompibile = err_tx.is_some();
         let goes_to_eh    = super::errors::goes_to_handler(&node_plan.config, &node_plan.spec);
         let err_flags     = super::errors::ErrorFlags {
@@ -627,6 +643,7 @@ pub async fn execute_lane(
     // riuscita nemmeno se, per ordine di raccolta, nessun esito Err è
     // stato registrato: sotto c'è il rollback, e deve vedere il vero
     // esito.
+    let mut deliberate_stop = false;
     if lane_result.is_ok() && lane_abort.has_fired().await {
         // Il motivo lo conosce chi ha ordinato il `fire`: l'error_handler
         // (errore critico o regola «interrompi») oppure il nodo `stop`
@@ -637,6 +654,11 @@ pub async fn execute_lane(
         // che lo stop vuole: rollback + close); cambia solo la verità del
         // messaggio.
         let motivo = lane_abort.reason().await;
+        // Questo blocco gira SOLO se nessun nodo ha davvero fallito
+        // (lane_result ancora Ok): quindi qui l'UNICA causa del non-Ok è il
+        // `fire`. Se è uno stop deliberato, la lane va rollbackata (voluto)
+        // ma NON contata fra le non-riuscite (fetta 2b).
+        deliberate_stop = motivo.starts_with("stop deliberato");
         lane_result = Err(if motivo.trim().is_empty() {
             "Lane interrotta".to_string()
         } else {
@@ -650,6 +672,17 @@ pub async fn execute_lane(
 
     // Chiusura garantita delle connessioni della lane — in ogni caso.
     lane_resources.close_all().await;
+
+    // Onestà verso il Run: uno stop DELIBERATO non è un fallimento. Il
+    // rollback è già stato fatto (sopra, esito non-Ok = voluto), ma la lane
+    // non va contata fra le non-riuscite: i nodi interrotti restano
+    // visibili come "interrotti" col motivo, e il pannello ha già la riga
+    // "Chiusura deliberata". V. design-service-mode.md §2 ("non è un
+    // fallimento — Monitor/report"). Diverso da errore critico/regola, che
+    // restano Err e vanno a RunFailed.
+    if deliberate_stop {
+        return Ok(stats_map);
+    }
 
     lane_result.map(|_| stats_map)
 }

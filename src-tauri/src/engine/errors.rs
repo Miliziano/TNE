@@ -123,3 +123,24 @@ pub fn build_error_row(
     m.insert("_error_at".to_string(),        Value::String(EngineEvent::timestamp_ms().to_string()));
     Row(m)
 }
+
+/// Riga di CHIUSURA DELIBERATA originata dal nodo `stop` (fetta 2b). Va
+/// sullo stesso collettore dei fallimenti, ma è marcata `_error_source =
+/// "stop"` e **non critica**: l'error_handler la riconosce, la registra
+/// come interruzione voluta (non un errore) e la emette su `error_out`,
+/// dove la sotto-pipeline dell'utente esegue gli effetti (log/mail/http/
+/// sink). NON fa scattare l'abort — quello lo fa il nodo stop da sé. Così
+/// gli effetti di chiusura si disegnano UNA volta (nell'EH) e valgono per
+/// errori e per stop.
+pub fn build_stop_row(node_id: &str, message: &str, lane_id: &str) -> Row {
+    let mut m: HashMap<String, Value> = HashMap::new();
+    m.insert("_error_source".to_string(),    Value::String("stop".to_string()));
+    m.insert("_error_critical".to_string(),  Value::String("false".to_string()));
+    m.insert("_error_excluded".to_string(),  Value::String("false".to_string()));
+    m.insert("_error_lane_id".to_string(),   Value::String(lane_id.to_string()));
+    m.insert("_error_message".to_string(),   Value::String(message.to_string()));
+    m.insert("_error_node_id".to_string(),   Value::String(node_id.to_string()));
+    m.insert("_error_node_type".to_string(), Value::String("stop".to_string()));
+    m.insert("_error_at".to_string(),        Value::String(EngineEvent::timestamp_ms().to_string()));
+    Row(m)
+}

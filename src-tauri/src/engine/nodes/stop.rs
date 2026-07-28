@@ -42,6 +42,7 @@ use std::time::Instant;
 use crate::engine::types::*;
 use crate::engine::executor::{RowReceiver, NodeContext};
 use crate::engine::spec::Spec;
+use crate::engine::errors::build_stop_row;
 
 pub async fn run(
     ctx: NodeContext,
@@ -124,6 +125,18 @@ pub async fn run(
         ),
         "panel",
     );
+
+    // AMPLIFICATORE EH (fetta 2b): manda la riga di chiusura deliberata al
+    // collettore PRIMA del `fire`. L'EH la emette su error_out e la
+    // sotto-pipeline dell'utente esegue gli effetti (log/mail/http/sink)
+    // mentre la lane è ancora viva; il rollback (a valle del fire) arriva
+    // solo dopo che quella sotto-pipeline conclude, perché EH e
+    // sotto-pipeline sono ESCLUSI dall'abort. `err_collector` è None se la
+    // lane non ha EH → FALLBACK: si salta e si ferma senza effetti ricchi.
+    // NB questo `.await` è PRIMA del fire: nessun rischio di auto-abort qui.
+    if let Some(tx) = &ctx.err_collector {
+        let _ = tx.send(build_stop_row(&ctx.node_id.0, &motivo, &ctx.lane_id.0)).await;
+    }
 
     // `fire` è idempotente e conserva il MOTIVO: i nodi ancora vivi
     // vengono abortiti, e a fine lane il rollback + close_all seguono

@@ -111,6 +111,34 @@ pub async fn run(
         while let Some(row) = rx.recv().await {
             rows_in += 1;
 
+            // ── CHIUSURA DELIBERATA (nodo stop, fetta 2b) ─────────
+            // Non è un errore: si registra come interruzione VOLUTA e si
+            // emette su error_out perché la sotto-pipeline dell'utente
+            // esegua gli effetti (gli stessi degli errori — si disegnano
+            // una volta sola). Niente regole, niente `critical`, niente
+            // abort: la lane la ferma il nodo stop da sé. `excludeFrom
+            // ErrorLog` non si applica (non è rumore d'errore: è una
+            // chiusura richiesta a mano, va sempre tracciata).
+            if field_str(&row, "_error_source") == "stop" {
+                let node = field_str(&row, "_error_node_id");
+                let msg  = field_str(&row, "_error_message");
+                ctx.emit_log(
+                    &ctx.label, "warn", rows_in,
+                    format!("Chiusura deliberata da {}: {}", node, msg),
+                    "panel",
+                );
+                if valle_aperta {
+                    if let Some(tx) = &error_out {
+                        if tx.send(row).await.is_err() {
+                            valle_aperta = false;
+                        } else {
+                            rows_out += 1;
+                        }
+                    }
+                }
+                continue;
+            }
+
             let node      = field_str(&row, "_error_node_id");
             let node_type = field_str(&row, "_error_node_type");
             let msg       = field_str(&row, "_error_message");
