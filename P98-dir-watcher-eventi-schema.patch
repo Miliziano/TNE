@@ -1,0 +1,330 @@
+diff --git a/src-tauri/src/engine/nodes/dir_watcher.rs b/src-tauri/src/engine/nodes/dir_watcher.rs
+index d98b0c4..249572e 100644
+--- a/src-tauri/src/engine/nodes/dir_watcher.rs
++++ b/src-tauri/src/engine/nodes/dir_watcher.rs
+@@ -6,9 +6,11 @@
+ //             BLOCCA in attesa; al primo evento (o batch entro un debounce)
+ //             emette i file coinvolti e RITORNA → la lane processa e finisce.
+ //             Event-driven vero, single-shot ⇒ finito ⇒ gira nel motore
+-//             attuale. `watchTimeoutSec` è un tetto di sicurezza. Rileva
+-//             create/modify (non delete). FASE 2 (ri-ascolto + lane che non
+-//             chiude) = service mode, capitolo a parte.
++//             attuale. `watchTimeoutSec` è un tetto di sicurezza. Eventi:
++//             new/update/rename/delete (prop `events` = filtro; metadata/
++//             permessi esclusi). delete e rename-from → riga "magra" (il file
++//             non c'è più: size/date NULL). FASE 2 (ri-ascolto continuo + lane
++//             a sessioni) = `design-nodo-dir-watcher.md`, capitolo a parte.
+ //
+ // I metadati file (mtime/size) vengono da std::fs — nessuna dipendenza nuova.
+ // La cartella arriva dai props (pathSource=static) o dal primo record in
+@@ -52,7 +54,7 @@ struct FileInfo {
+     mtime:       SystemTime,
+ }
+ 
+-fn to_row(f: &FileInfo, event: Option<&str>) -> Row {
++fn to_row(f: &FileInfo, event: Option<&str>, old_path: Option<&str>) -> Row {
+     let mut r = Row::new();
+     r.set("path".into(),        Value::String(f.path.clone()));
+     r.set("filename".into(),    Value::String(f.filename.clone()));
+@@ -61,10 +63,61 @@ fn to_row(f: &FileInfo, event: Option<&str>) -> Row {
+     r.set("size".into(),        Value::Int(f.size as i64));
+     r.set("created_at".into(),  f.created_at.clone().map(Value::String).unwrap_or(Value::Null));
+     r.set("modified_at".into(), f.modified_at.clone().map(Value::String).unwrap_or(Value::Null));
+-    if let Some(e) = event { r.set("event".into(), Value::String(e.to_string())); }
++    // In watch (event=Some) la riga porta SEMPRE `event` e `old_path` (coerenza
++    // di schema con le righe magre); `old_path` è Null se non è un rename atomico.
++    // In scan (event=None) nessuno dei due, come da schema scan.
++    if let Some(e) = event {
++        r.set("event".into(),    Value::String(e.to_string()));
++        r.set("old_path".into(), old_path.map(|s| Value::String(s.to_string())).unwrap_or(Value::Null));
++    }
++    r
++}
++
++/// Riga MAGRA per `delete` / `rename`-from: il file NON esiste più → path e
++/// derivati dal path, size/date a NULL. Stessi campi di una riga watch piena
++/// (schema coerente) ma valori nulli dove manca il file — NON si salta la riga.
++fn to_row_magra(path: &str, event: &str, old_path: Option<&str>) -> Row {
++    let filename = Path::new(path).file_name()
++        .map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
++    let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
++    let dir_of = Path::new(path).parent()
++        .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
++    let mut r = Row::new();
++    r.set("path".into(),        Value::String(path.to_string()));
++    r.set("filename".into(),    Value::String(filename));
++    r.set("extension".into(),   Value::String(ext));
++    r.set("directory".into(),   Value::String(dir_of));
++    r.set("size".into(),        Value::Null);
++    r.set("created_at".into(),  Value::Null);
++    r.set("modified_at".into(), Value::Null);
++    r.set("event".into(),       Value::String(event.to_string()));
++    r.set("old_path".into(),    old_path.map(|s| Value::String(s.to_string())).unwrap_or(Value::Null));
+     r
+ }
+ 
++/// Traduce la prop `events` in un set di eventi ammessi (vocabolario
++/// new/update/rename/delete). Retro-compat coi vecchi token: create→new,
++/// modify→update. "all" o vuoto = tutti e quattro.
++fn parse_events_filter(raw: &str) -> HashSet<String> {
++    let all = || ["new", "update", "rename", "delete"].iter().map(|s| s.to_string()).collect::<HashSet<String>>();
++    let raw = raw.trim();
++    if raw.is_empty() || raw.eq_ignore_ascii_case("all") { return all(); }
++    let mut set = HashSet::new();
++    for tok in raw.split(',') {
++        let norm = match tok.trim().to_ascii_lowercase().as_str() {
++            "create"           => "new",      // retro-compat vecchio vocabolario
++            "modify"           => "update",   // retro-compat
++            "new"              => "new",
++            "update"           => "update",
++            "rename"           => "rename",
++            "delete"           => "delete",
++            _                  => continue,
++        };
++        set.insert(norm.to_string());
++    }
++    if set.is_empty() { all() } else { set }
++}
++
+ // Scansione (ricorsiva opzionale) con i filtri pattern/maxAge/minSize.
+ fn scan_dir(dir: &str, pattern: &str, recursive: bool, max_age_min: u64, min_size: u64, out: &mut Vec<FileInfo>) {
+     let entries = match std::fs::read_dir(dir) { Ok(e) => e, Err(_) => return };
+@@ -158,7 +211,7 @@ pub async fn run(
+         let mut rows_out = 0u64;
+         for f in &files {
+             rows_out += 1;
+-            if tx.send(to_row(f, None)).await.is_err() { break; }
++            if tx.send(to_row(f, None, None)).await.is_err() { break; }
+         }
+         let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
+             elapsed_ms: start.elapsed().as_millis() as u64, error: None };
+@@ -175,10 +228,15 @@ pub async fn run(
+     // ritorna a vuoto, così il run finito non resta appeso). FASE 2 (ri-ascolto
+     // + lane che non chiude) = service mode, capitolo a parte.
+     use notify::{EventKind, RecursiveMode, Watcher};
++    use notify::event::{ModifyKind, RenameMode};
+ 
+     let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };
+     let debounce = Duration::from_millis(spec.u64_or("debounceMs", 300).max(50));
+ 
++    // Filtro eventi (prop `events`, prima INERTE nel motore → ora onorata).
++    // Vocabolario new/update/rename/delete; retro-compat create/modify.
++    let allowed = parse_events_filter(&spec.str_or("events", "all"));
++
+     let (ev_tx, ev_rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
+     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+         let _ = ev_tx.send(res);
+@@ -191,59 +249,84 @@ pub async fn run(
+     ctx.emit_log(&ctx.label, "info", 0,
+         format!("DirWatcher watch: in ascolto su {} (eventi SO, tetto {}s)", directory, timeout_sec), "panel");
+ 
+-    // Attesa BLOCCANTE dell'evento fuori dal runtime async (std mpsc).
++    // Un evento SO → 0..N triple (path, event, old_path). `old_path` valorizzato
++    // solo per un rename ATOMICO (Both: due path in un colpo). Metadata/permessi
++    // esclusi (decisione utente). rename-from → delete, rename-to → new; il caso
++    // ambiguo (Any/Other) lo risolve l'emissione per esistenza del file.
+     let wait_timeout = Duration::from_secs(timeout_sec);
+-    let affected: Vec<(String, String)> = tokio::task::spawn_blocking(move || {
+-        let label = |k: &EventKind| -> Option<&'static str> {
+-            match k {
+-                EventKind::Create(_) => Some("create"),
+-                EventKind::Modify(_) => Some("modify"),
+-                _ => None,
++    let affected: Vec<(String, String, Option<String>)> = tokio::task::spawn_blocking(move || {
++        let map_event = |ev: &notify::Event, out: &mut Vec<(String, String, Option<String>)>| {
++            let paths: Vec<String> = ev.paths.iter().map(|p| p.to_string_lossy().to_string()).collect();
++            match &ev.kind {
++                EventKind::Create(_) => { for p in paths { out.push((p, "new".into(), None)); } }
++                EventKind::Remove(_) => { for p in paths { out.push((p, "delete".into(), None)); } }
++                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Modify(ModifyKind::Any) => {
++                    for p in paths { out.push((p, "update".into(), None)); }
++                }
++                EventKind::Modify(ModifyKind::Metadata(_)) => { /* rumore ETL: escluso */ }
++                EventKind::Modify(ModifyKind::Name(mode)) => match mode {
++                    RenameMode::Both if paths.len() >= 2 => {
++                        out.push((paths[1].clone(), "rename".into(), Some(paths[0].clone())));
++                    }
++                    RenameMode::From => { for p in paths { out.push((p, "delete".into(), None)); } }
++                    RenameMode::To   => { for p in paths { out.push((p, "new".into(), None)); } }
++                    _ => { for p in paths { out.push((p, "rename".into(), None)); } }
++                },
++                _ => {}
+             }
+         };
+-        let mut out: Vec<(String, String)> = Vec::new();
++        let mut out: Vec<(String, String, Option<String>)> = Vec::new();
+         // primo evento (blocca fino al tetto)
+         match ev_rx.recv_timeout(wait_timeout) {
+-            Ok(Ok(ev)) => if let Some(l) = label(&ev.kind) {
+-                for pth in ev.paths { out.push((pth.to_string_lossy().to_string(), l.to_string())); }
+-            },
++            Ok(Ok(ev)) => map_event(&ev, &mut out),
+             _ => return out,
+         }
+         // drena eventi ravvicinati entro il debounce
+         while let Ok(Ok(ev)) = ev_rx.recv_timeout(debounce) {
+-            if let Some(l) = label(&ev.kind) {
+-                for pth in ev.paths { out.push((pth.to_string_lossy().to_string(), l.to_string())); }
+-            }
++            map_event(&ev, &mut out);
+         }
+         out
+     }).await.map_err(|e| format!("dir_watcher {}: attesa evento: {}", ctx.node_id.0, e))?;
+ 
+     drop(watcher); // smette di ascoltare
+ 
+-    // Emette i file coinvolti che matchano (dedup per path).
++    // Emissione: dedup per path (first-wins), filtro pattern + eventi. Riga PIENA
++    // se il file esiste, riga MAGRA (size/date NULL) se è sparito (delete o
++    // rename-from) — senza saltarla. Il rename ambiguo su file assente → delete.
+     let mut seen: HashSet<String> = HashSet::new();
+     let mut rows_out = 0u64;
+-    for (path, event) in affected {
+-        if !seen.insert(path.clone()) { continue; }
+-        let meta = match std::fs::metadata(&path) { Ok(m) => m, Err(_) => continue };
+-        if !meta.is_file() { continue; }
++    for (path, event, old_path) in affected {
++        if !seen.insert(path.clone()) { continue; }   // first-wins per path
+         let filename = Path::new(&path).file_name()
+             .map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+         if !glob_match(&pattern, &filename) { continue; }
+-        if min_size > 0 && meta.len() < min_size { continue; }
+-        let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+-        let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
+-        let dir_of = Path::new(&path).parent()
+-            .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
+-        let fi = FileInfo {
+-            path: path.clone(), filename, extension: ext, directory: dir_of,
+-            size: meta.len(),
+-            created_at:  meta.created().ok().map(systime_rfc3339),
+-            modified_at: Some(systime_rfc3339(mtime)),
+-            mtime,
+-        };
+-        rows_out += 1;
+-        if tx.send(to_row(&fi, Some(&event))).await.is_err() { break; }
++
++        match std::fs::metadata(&path) {
++            Ok(meta) if meta.is_file() => {
++                if !allowed.contains(event.as_str()) { continue; }
++                if min_size > 0 && meta.len() < min_size { continue; }
++                let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
++                let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
++                let dir_of = Path::new(&path).parent()
++                    .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
++                let fi = FileInfo {
++                    path: path.clone(), filename, extension: ext, directory: dir_of,
++                    size: meta.len(),
++                    created_at:  meta.created().ok().map(systime_rfc3339),
++                    modified_at: Some(systime_rfc3339(mtime)),
++                    mtime,
++                };
++                rows_out += 1;
++                if tx.send(to_row(&fi, Some(&event), old_path.as_deref())).await.is_err() { break; }
++            }
++            _ => {
++                // File assente: rename ambiguo → delete; altrimenti tieni l'evento.
++                let ev2 = if event == "rename" { "delete" } else { event.as_str() };
++                if !allowed.contains(ev2) { continue; }
++                rows_out += 1;
++                if tx.send(to_row_magra(&path, ev2, old_path.as_deref())).await.is_err() { break; }
++            }
++        }
+         if limit > 0 && rows_out as usize >= limit { break; }
+     }
+ 
+diff --git a/src/ir/schemaPropagation.ts b/src/ir/schemaPropagation.ts
+index f89f436..0454109 100644
+--- a/src/ir/schemaPropagation.ts
++++ b/src/ir/schemaPropagation.ts
+@@ -99,6 +99,13 @@ function inferOutputSchema(
+           }
+         }
+       } catch {}
++      // dir_watcher: schema d'uscita STATICO (campi del file +, in watch,
++      // `event` e `old_path`). Prima il fallback tornava [] → la valle non
++      // vedeva NULLA. Deve restare allineato a to_row / to_row_magra nel
++      // motore (dir_watcher.rs) e all'anteprima nel pannello.
++      if (uiType === 'dir_watcher') {
++        return normalizeSchema(dirWatcherSchema(props?.mode))
++      }
+       // Fallback: schema vuoto (sarà popolato dall'utente o dal test connessione)
+       return []
+     }
+@@ -481,6 +488,30 @@ function mergeSchemas(base: SchemaField[], incoming: SchemaField[]): SchemaField
+   return [...base, ...newFields]
+ }
+ 
++/**
++ * Schema d'uscita STATICO del dir_watcher. In `watch` aggiunge `event`
++ * (new/update/rename/delete) e `old_path` (solo rename atomico). size/date
++ * sono nullable in watch perché delete/rename-from emettono righe "magre"
++ * (file assente). Allineato a to_row / to_row_magra in dir_watcher.rs.
++ */
++function dirWatcherSchema(mode: any): any[] {
++  const watch = mode === 'watch'
++  const base: any[] = [
++    { name: 'path',        type: 'string'  },
++    { name: 'filename',    type: 'string'  },
++    { name: 'extension',   type: 'string'  },
++    { name: 'directory',   type: 'string'  },
++    { name: 'size',        type: 'integer', nullable: watch },
++    { name: 'created_at',  type: 'date',    nullable: true  },
++    { name: 'modified_at', type: 'date',    nullable: true  },
++  ]
++  if (watch) {
++    base.push({ name: 'event',    type: 'string' })
++    base.push({ name: 'old_path', type: 'string', nullable: true })
++  }
++  return base
++}
++
+ // ─────────────────────────────────────────────────────────────────
+ // PROPAGAZIONE PRINCIPALE
+ // ─────────────────────────────────────────────────────────────────
+diff --git a/src/nodes/types/dir_watcher/Panel.tsx b/src/nodes/types/dir_watcher/Panel.tsx
+index 2c702a9..ab601e4 100644
+--- a/src/nodes/types/dir_watcher/Panel.tsx
++++ b/src/nodes/types/dir_watcher/Panel.tsx
+@@ -46,7 +46,8 @@ const OUTPUT_SCHEMA = [
+   { name: 'created_at',  type: 'date',    desc: 'Data creazione'                 },
+   { name: 'modified_at', type: 'date',    desc: 'Data ultima modifica'           },
+ ]
+-const WATCH_EXTRA = { name: 'event', type: 'string', desc: 'Tipo evento SO (create/modify/delete)' }
++const WATCH_EXTRA = { name: 'event',    type: 'string', desc: 'new / update / rename / delete' }
++const WATCH_OLDP  = { name: 'old_path', type: 'string', desc: 'Path precedente (solo rename atomico), altrimenti null' }
+ 
+ const PROP_DEFAULTS: Record<string, string> = {
+   mode:            'scan',
+@@ -58,7 +59,7 @@ const PROP_DEFAULTS: Record<string, string> = {
+   stabilityMs:     '500',
+   debounceMs:      '300',
+   watchTimeoutSec: '300',
+-  events:          'create',
++  events:          'all',
+   dedup:           'path',
+   dedupStore:      'memory',
+   sortBy:          'name',
+@@ -119,7 +120,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+     )
+   }, [pool, node.data.laneId])
+ 
+-  const schema = mode === 'watch' ? [...OUTPUT_SCHEMA, WATCH_EXTRA] : OUTPUT_SCHEMA
++  const schema = mode === 'watch' ? [...OUTPUT_SCHEMA, WATCH_EXTRA, WATCH_OLDP] : OUTPUT_SCHEMA
+ 
+   return (
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+@@ -249,10 +250,10 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+           <SectionTitle label="Opzioni Watch" />
+           <Row>
+             <Field label="Eventi">
+-              <CustomSelect style={inputStyle} value={p('events', 'create')} onChange={u('events')}>
+-                <option value="create">Solo nuovi file</option>
+-                <option value="create,modify">Nuovi + modifiche</option>
+-                <option value="all">Tutti gli eventi</option>
++              <CustomSelect style={inputStyle} value={p('events', 'all')} onChange={u('events')}>
++                <option value="new">Solo nuovi file</option>
++                <option value="new,update">Nuovi + modifiche</option>
++                <option value="all">Tutti (new/update/rename/delete)</option>
+               </CustomSelect>
+             </Field>
+             <Field label="Debounce (ms)" hint="Attesa prima di processare — evita eventi doppi">

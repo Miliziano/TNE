@@ -99,6 +99,13 @@ function inferOutputSchema(
           }
         }
       } catch {}
+      // dir_watcher: schema d'uscita STATICO (campi del file +, in watch,
+      // `event` e `old_path`). Prima il fallback tornava [] → la valle non
+      // vedeva NULLA. Deve restare allineato a to_row / to_row_magra nel
+      // motore (dir_watcher.rs) e all'anteprima nel pannello.
+      if (uiType === 'dir_watcher') {
+        return normalizeSchema(dirWatcherSchema(props?.mode))
+      }
       // Fallback: schema vuoto (sarà popolato dall'utente o dal test connessione)
       return []
     }
@@ -479,6 +486,30 @@ function mergeSchemas(base: SchemaField[], incoming: SchemaField[]): SchemaField
   const existingNames = new Set(base.map((f) => f.name))
   const newFields     = incoming.filter((f) => !existingNames.has(f.name))
   return [...base, ...newFields]
+}
+
+/**
+ * Schema d'uscita STATICO del dir_watcher. In `watch` aggiunge `event`
+ * (new/update/rename/delete) e `old_path` (solo rename atomico). size/date
+ * sono nullable in watch perché delete/rename-from emettono righe "magre"
+ * (file assente). Allineato a to_row / to_row_magra in dir_watcher.rs.
+ */
+function dirWatcherSchema(mode: any): any[] {
+  const watch = mode === 'watch'
+  const base: any[] = [
+    { name: 'path',        type: 'string'  },
+    { name: 'filename',    type: 'string'  },
+    { name: 'extension',   type: 'string'  },
+    { name: 'directory',   type: 'string'  },
+    { name: 'size',        type: 'integer', nullable: watch },
+    { name: 'created_at',  type: 'date',    nullable: true  },
+    { name: 'modified_at', type: 'date',    nullable: true  },
+  ]
+  if (watch) {
+    base.push({ name: 'event',    type: 'string' })
+    base.push({ name: 'old_path', type: 'string', nullable: true })
+  }
+  return base
 }
 
 // ─────────────────────────────────────────────────────────────────

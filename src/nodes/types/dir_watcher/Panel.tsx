@@ -46,7 +46,8 @@ const OUTPUT_SCHEMA = [
   { name: 'created_at',  type: 'date',    desc: 'Data creazione'                 },
   { name: 'modified_at', type: 'date',    desc: 'Data ultima modifica'           },
 ]
-const WATCH_EXTRA = { name: 'event', type: 'string', desc: 'Tipo evento SO (create/modify/delete)' }
+const WATCH_EXTRA = { name: 'event',    type: 'string', desc: 'new / update / rename / delete' }
+const WATCH_OLDP  = { name: 'old_path', type: 'string', desc: 'Path precedente (solo rename atomico), altrimenti null' }
 
 const PROP_DEFAULTS: Record<string, string> = {
   mode:            'scan',
@@ -58,7 +59,7 @@ const PROP_DEFAULTS: Record<string, string> = {
   stabilityMs:     '500',
   debounceMs:      '300',
   watchTimeoutSec: '300',
-  events:          'create',
+  events:          'all',
   dedup:           'path',
   dedupStore:      'memory',
   sortBy:          'name',
@@ -119,7 +120,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
     )
   }, [pool, node.data.laneId])
 
-  const schema = mode === 'watch' ? [...OUTPUT_SCHEMA, WATCH_EXTRA] : OUTPUT_SCHEMA
+  const schema = mode === 'watch' ? [...OUTPUT_SCHEMA, WATCH_EXTRA, WATCH_OLDP] : OUTPUT_SCHEMA
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -249,10 +250,10 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
           <SectionTitle label="Opzioni Watch" />
           <Row>
             <Field label="Eventi">
-              <CustomSelect style={inputStyle} value={p('events', 'create')} onChange={u('events')}>
-                <option value="create">Solo nuovi file</option>
-                <option value="create,modify">Nuovi + modifiche</option>
-                <option value="all">Tutti gli eventi</option>
+              <CustomSelect style={inputStyle} value={p('events', 'all')} onChange={u('events')}>
+                <option value="new">Solo nuovi file</option>
+                <option value="new,update">Nuovi + modifiche</option>
+                <option value="all">Tutti (new/update/rename/delete)</option>
               </CustomSelect>
             </Field>
             <Field label="Debounce (ms)" hint="Attesa prima di processare — evita eventi doppi">
