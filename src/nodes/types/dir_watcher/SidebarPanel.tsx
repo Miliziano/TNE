@@ -3,6 +3,7 @@
  */
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
+import { useDirWatcherSchemaSync } from './schema'
 import type { Variable } from '../../../types'
 import { CustomSelect } from '../../../components/CustomSelect'
 
@@ -33,6 +34,11 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const edges      = useFlowStore((s) => s.edges)
   const pool       = useFlowStore((s) => s.pool)
+
+  // Schema d'uscita → props.outputSchema + propagazione a valle (vedi schema.ts).
+  // Questo è il pannello mostrato alla SELEZIONE del nodo: qui la sincronia
+  // scatta senza dover aprire il modale.
+  useDirWatcherSchemaSync(nodeId)
 
   if (!node) return null
 
