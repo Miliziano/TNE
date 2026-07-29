@@ -89,6 +89,28 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
     }
   }, [nodeId])
 
+  // ── Dichiara lo schema d'uscita in props.outputSchema ─────────
+  // Il tmap e gli altri pannelli di mapping leggono lo schema della SORGENTE
+  // da props.outputSchema (via useIncomingSchema → readOutputSchema). Il
+  // dir_watcher non lo scriveva → la valle vedeva ZERO campi (solo la riga
+  // JSON a runtime). In watch aggiunge event + old_path. Allineato a
+  // dirWatcherSchema (schemaPropagation) e a to_row/to_row_magra nel motore.
+  useEffect(() => {
+    if (!node) return
+    const wmode  = node.data.props.mode ?? 'scan'
+    const fields = OUTPUT_SCHEMA.map((f) => ({
+      id: `dw_${f.name}`, name: f.name, type: f.type, physicalName: f.name,
+    }))
+    if (wmode === 'watch') {
+      fields.push({ id: 'dw_event',    name: 'event',    type: 'string', physicalName: 'event'    })
+      fields.push({ id: 'dw_old_path', name: 'old_path', type: 'string', physicalName: 'old_path' })
+    }
+    const next = JSON.stringify(fields)
+    if (node.data.props.outputSchema !== next) {
+      updateProp(nodeId, 'outputSchema', next)
+    }
+  }, [nodeId, node?.data.props.mode])
+
   if (!node) return null
 
   const p   = (key: string, def = '') => node.data.props[key] ?? def
