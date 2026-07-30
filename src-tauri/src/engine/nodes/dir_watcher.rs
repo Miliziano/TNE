@@ -303,14 +303,30 @@ pub async fn run(
         return Ok(stats);
     }
 
-    // ── WATCH — attesa dell'evento REALE del SO (crate `notify`) ─
+    // ── WATCH CONTINUO (fetta 3) — ADATTATORE ─────────────────────
+    // In continuo il nodo NON ascolta il SO: il loop di sessione dell'engine
+    // (engine/mod.rs) ha già depositato il gruppo di eventi GREZZI di QUESTA
+    // sessione nello slot run-scoped (watch_subs). Qui li preleva ed emette con
+    // lo STESSO emettitore dell'one-shot (`emit_watch`). Ritorna → la lane
+    // committa e chiude; il loop la ri-esegue al gruppo successivo.
+    if spec.str_or("submode", "oneshot") == "continuo" {
+        let allowed = parse_events_filter(&spec.str_or("events", "all"));
+        let key    = crate::engine::watch_subs::watch_key(&ctx.run_id.0, &ctx.node_id.0);
+        let events = crate::engine::watch_subs::take_group(&key);
+        let rows_out = emit_watch(&events, &allowed, &pattern, min_size, limit, &tx).await;
+        let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
+            elapsed_ms: start.elapsed().as_millis() as u64, error: None };
+        ctx.emit_completed(stats.clone());
+        return Ok(stats);
+    }
+
+    // ── WATCH ONE-SHOT — attesa dell'evento REALE del SO (crate `notify`) ─
     // FASE 1: sottoscrive la cartella, BLOCCA sull'evento (attesa efficiente,
     // niente polling né loop occupato), al primo evento (o piccolo batch entro
     // un debounce) emette i file coinvolti e RITORNA → la lane processa fino
     // all'uscita. Event-driven vero, single-shot ⇒ finito ⇒ gira nel motore
     // attuale. `watchTimeoutSec` è un TETTO di sicurezza (se non arriva nulla
-    // ritorna a vuoto, così il run finito non resta appeso). FASE 2 (ri-ascolto
-    // + lane che non chiude) = service mode, capitolo a parte.
+    // ritorna a vuoto, così il run finito non resta appeso).
     use notify::{RecursiveMode, Watcher};
 
     let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };

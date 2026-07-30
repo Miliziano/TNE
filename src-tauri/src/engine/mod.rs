@@ -207,7 +207,56 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
 
             // Ogni lane → task Tokio separato = parallelismo reale
             let handle = tokio::spawn(async move {
-                executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
+                match continuous_watcher(&lane) {
+                    // ── WATCH CONTINUO — LOOP DI SESSIONE (fetta 3) ──────
+                    // La lane si ri-esegue una volta per gruppo: ogni
+                    // `execute_lane` è una sessione transazionale completa
+                    // (apre → elabora → commit/rollback → chiude). La
+                    // sottoscrizione + coda stanno SOPRA la lane (watch_subs),
+                    // così non si perdono eventi fra una sessione e l'altra.
+                    Some((node_id, dir, recursive)) => {
+                        let key = watch_subs::watch_key(&run_id_cl.0, &node_id);
+                        let mut rx = match watch_subs::start_watch(key.clone(), &dir, recursive) {
+                            Ok(rx) => rx,
+                            Err(e) => return Err(e),
+                        };
+                        let debounce = std::time::Duration::from_millis(300);
+                        let mut last: Result<HashMap<String, NodeStats>, String> = Ok(HashMap::new());
+                        loop {
+                            // Attendi il PRIMO evento del prossimo gruppo, o il cancel.
+                            let first = tokio::select! {
+                                _  = cancel_cl.cancelled() => None,
+                                ev = rx.recv()             => ev,
+                            };
+                            let first = match first { Some(e) => e, None => break };
+                            // Raccogli il burst entro una finestra fissa di debounce.
+                            let mut group = vec![first];
+                            let deadline = tokio::time::Instant::now() + debounce;
+                            loop {
+                                tokio::select! {
+                                    _  = tokio::time::sleep_until(deadline) => break,
+                                    ev = rx.recv() => match ev {
+                                        Some(e) => group.push(e),
+                                        None    => break,
+                                    },
+                                }
+                            }
+                            // Deposita il gruppo e ri-esegui la lane (una sessione).
+                            watch_subs::put_group(&key, group);
+                            last = executor::execute_lane(
+                                run_id_cl.clone(), lane.clone(),
+                                HashMap::new(), HashMap::new(), cancel_cl.clone(),
+                            ).await;
+                            if cancel_cl.is_cancelled() || last.is_err() { break; }
+                        }
+                        watch_subs::stop_watch(&key);
+                        last
+                    }
+                    // ── lane normale: una sola esecuzione (come sempre) ──
+                    None => {
+                        executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
+                    }
+                }
             });
 
             lane_futures.push(handle);
@@ -287,6 +336,24 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
     });
 
     Ok(run_id_str)
+}
+
+// ─── dir_watcher continuo (fetta 3): riconoscimento della lane ────
+// Se la lane ha un dir_watcher in modalità watch CONTINUO (mode='watch' +
+// submode='continuo'), ne ritorna (node_id, directory, recursive). Il continuo
+// cambia lo scheduling: la lane va RI-ESEGUITA per gruppo (loop di sessione).
+// v1: single-lane, directory statica (niente interpolazione di variabili).
+fn continuous_watcher(lane: &types::LanePlan) -> Option<(String, String, bool)> {
+    for node in &lane.nodes {
+        if node.node_type != "dir_watcher" { continue; }
+        let props = node.spec.get("props");
+        let s = |k: &str| props.and_then(|p| p.get(k)).and_then(|v| v.as_str()).unwrap_or("");
+        if s("mode") == "watch" && s("submode") == "continuo" {
+            let dir = s("directory").trim_end_matches('/').to_string();
+            return Some((node.node_id.0.clone(), dir, s("recursive") == "true"));
+        }
+    }
+    None
 }
 
 // ─── Service mode: registro dei token di cancellazione per-run ────

@@ -1,0 +1,170 @@
+diff --git a/src-tauri/src/engine/mod.rs b/src-tauri/src/engine/mod.rs
+index 5c81f1a..84ac51f 100644
+--- a/src-tauri/src/engine/mod.rs
++++ b/src-tauri/src/engine/mod.rs
+@@ -207,7 +207,56 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
+ 
+             // Ogni lane → task Tokio separato = parallelismo reale
+             let handle = tokio::spawn(async move {
+-                executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
++                match continuous_watcher(&lane) {
++                    // ── WATCH CONTINUO — LOOP DI SESSIONE (fetta 3) ──────
++                    // La lane si ri-esegue una volta per gruppo: ogni
++                    // `execute_lane` è una sessione transazionale completa
++                    // (apre → elabora → commit/rollback → chiude). La
++                    // sottoscrizione + coda stanno SOPRA la lane (watch_subs),
++                    // così non si perdono eventi fra una sessione e l'altra.
++                    Some((node_id, dir, recursive)) => {
++                        let key = watch_subs::watch_key(&run_id_cl.0, &node_id);
++                        let mut rx = match watch_subs::start_watch(key.clone(), &dir, recursive) {
++                            Ok(rx) => rx,
++                            Err(e) => return Err(e),
++                        };
++                        let debounce = std::time::Duration::from_millis(300);
++                        let mut last: Result<HashMap<String, NodeStats>, String> = Ok(HashMap::new());
++                        loop {
++                            // Attendi il PRIMO evento del prossimo gruppo, o il cancel.
++                            let first = tokio::select! {
++                                _  = cancel_cl.cancelled() => None,
++                                ev = rx.recv()             => ev,
++                            };
++                            let first = match first { Some(e) => e, None => break };
++                            // Raccogli il burst entro una finestra fissa di debounce.
++                            let mut group = vec![first];
++                            let deadline = tokio::time::Instant::now() + debounce;
++                            loop {
++                                tokio::select! {
++                                    _  = tokio::time::sleep_until(deadline) => break,
++                                    ev = rx.recv() => match ev {
++                                        Some(e) => group.push(e),
++                                        None    => break,
++                                    },
++                                }
++                            }
++                            // Deposita il gruppo e ri-esegui la lane (una sessione).
++                            watch_subs::put_group(&key, group);
++                            last = executor::execute_lane(
++                                run_id_cl.clone(), lane.clone(),
++                                HashMap::new(), HashMap::new(), cancel_cl.clone(),
++                            ).await;
++                            if cancel_cl.is_cancelled() || last.is_err() { break; }
++                        }
++                        watch_subs::stop_watch(&key);
++                        last
++                    }
++                    // ── lane normale: una sola esecuzione (come sempre) ──
++                    None => {
++                        executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
++                    }
++                }
+             });
+ 
+             lane_futures.push(handle);
+@@ -289,6 +338,24 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
+     Ok(run_id_str)
+ }
+ 
++// ─── dir_watcher continuo (fetta 3): riconoscimento della lane ────
++// Se la lane ha un dir_watcher in modalità watch CONTINUO (mode='watch' +
++// submode='continuo'), ne ritorna (node_id, directory, recursive). Il continuo
++// cambia lo scheduling: la lane va RI-ESEGUITA per gruppo (loop di sessione).
++// v1: single-lane, directory statica (niente interpolazione di variabili).
++fn continuous_watcher(lane: &types::LanePlan) -> Option<(String, String, bool)> {
++    for node in &lane.nodes {
++        if node.node_type != "dir_watcher" { continue; }
++        let props = node.spec.get("props");
++        let s = |k: &str| props.and_then(|p| p.get(k)).and_then(|v| v.as_str()).unwrap_or("");
++        if s("mode") == "watch" && s("submode") == "continuo" {
++            let dir = s("directory").trim_end_matches('/').to_string();
++            return Some((node.node_id.0.clone(), dir, s("recursive") == "true"));
++        }
++    }
++    None
++}
++
+ // ─── Service mode: registro dei token di cancellazione per-run ────
+ fn run_cancels() -> &'static std::sync::Mutex<std::collections::HashMap<String, tokio_util::sync::CancellationToken>> {
+     static RUN_CANCELS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, tokio_util::sync::CancellationToken>>> = std::sync::OnceLock::new();
+diff --git a/src-tauri/src/engine/nodes/dir_watcher.rs b/src-tauri/src/engine/nodes/dir_watcher.rs
+index a2e79e4..f9d1482 100644
+--- a/src-tauri/src/engine/nodes/dir_watcher.rs
++++ b/src-tauri/src/engine/nodes/dir_watcher.rs
+@@ -303,14 +303,30 @@ pub async fn run(
+         return Ok(stats);
+     }
+ 
+-    // ── WATCH — attesa dell'evento REALE del SO (crate `notify`) ─
++    // ── WATCH CONTINUO (fetta 3) — ADATTATORE ─────────────────────
++    // In continuo il nodo NON ascolta il SO: il loop di sessione dell'engine
++    // (engine/mod.rs) ha già depositato il gruppo di eventi GREZZI di QUESTA
++    // sessione nello slot run-scoped (watch_subs). Qui li preleva ed emette con
++    // lo STESSO emettitore dell'one-shot (`emit_watch`). Ritorna → la lane
++    // committa e chiude; il loop la ri-esegue al gruppo successivo.
++    if spec.str_or("submode", "oneshot") == "continuo" {
++        let allowed = parse_events_filter(&spec.str_or("events", "all"));
++        let key    = crate::engine::watch_subs::watch_key(&ctx.run_id.0, &ctx.node_id.0);
++        let events = crate::engine::watch_subs::take_group(&key);
++        let rows_out = emit_watch(&events, &allowed, &pattern, min_size, limit, &tx).await;
++        let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
++            elapsed_ms: start.elapsed().as_millis() as u64, error: None };
++        ctx.emit_completed(stats.clone());
++        return Ok(stats);
++    }
++
++    // ── WATCH ONE-SHOT — attesa dell'evento REALE del SO (crate `notify`) ─
+     // FASE 1: sottoscrive la cartella, BLOCCA sull'evento (attesa efficiente,
+     // niente polling né loop occupato), al primo evento (o piccolo batch entro
+     // un debounce) emette i file coinvolti e RITORNA → la lane processa fino
+     // all'uscita. Event-driven vero, single-shot ⇒ finito ⇒ gira nel motore
+     // attuale. `watchTimeoutSec` è un TETTO di sicurezza (se non arriva nulla
+-    // ritorna a vuoto, così il run finito non resta appeso). FASE 2 (ri-ascolto
+-    // + lane che non chiude) = service mode, capitolo a parte.
++    // ritorna a vuoto, così il run finito non resta appeso).
+     use notify::{RecursiveMode, Watcher};
+ 
+     let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };
+diff --git a/src-tauri/src/engine/watch_subs.rs b/src-tauri/src/engine/watch_subs.rs
+index f7559c1..93d4c9d 100644
+--- a/src-tauri/src/engine/watch_subs.rs
++++ b/src-tauri/src/engine/watch_subs.rs
+@@ -79,13 +79,37 @@ pub fn stop_watch(key: &str) {
+     watch_subs().lock().unwrap().remove(key);
+ }
+ 
+-/// Teardown a fine/annullamento run: rimuove tutte le sottoscrizioni del run
+-/// (chiave `"{run_id}::…"`), così non restano watcher orfani. Va chiamato dove
+-/// il run deregistra il suo CancellationToken (mod.rs).
++// ─── SLOT dei gruppi di sessione (fetta 3) ───────────────────────
++// Il loop di sessione (engine) deposita qui gli eventi GREZZI del gruppo
++// corrente PRIMA di ri-eseguire la lane; il nodo dir_watcher continuo li
++// preleva (`take_group`) ed emette. Chiave = stessa di `start_watch`.
++fn watch_groups() -> &'static Mutex<HashMap<String, Vec<notify::Event>>> {
++    static GROUPS: OnceLock<Mutex<HashMap<String, Vec<notify::Event>>>> = OnceLock::new();
++    GROUPS.get_or_init(|| Mutex::new(HashMap::new()))
++}
++
++/// Deposita il gruppo di eventi della sessione corrente (loop → nodo).
++pub fn put_group(key: &str, events: Vec<notify::Event>) {
++    watch_groups().lock().unwrap().insert(key.to_string(), events);
++}
++
++/// Preleva (e rimuove) il gruppo della sessione corrente (nodo). Vec vuoto se
++/// non c'è niente (sessione a vuoto, es. su cancel).
++pub fn take_group(key: &str) -> Vec<notify::Event> {
++    watch_groups().lock().unwrap().remove(key).unwrap_or_default()
++}
++
++/// Teardown a fine/annullamento run: rimuove tutte le sottoscrizioni E i gruppi
++/// del run (chiave `"{run_id}::…"`), così non restano watcher né code orfani.
++/// Va chiamato dove il run deregistra il suo CancellationToken (mod.rs).
+ pub fn stop_run_watches(run_id: &str) {
+     let prefix = format!("{}::", run_id);
+     watch_subs()
+         .lock()
+         .unwrap()
+         .retain(|k, _| !k.starts_with(prefix.as_str()));
++    watch_groups()
++        .lock()
++        .unwrap()
++        .retain(|k, _| !k.starts_with(prefix.as_str()));
+ }

@@ -79,12 +79,36 @@ pub fn stop_watch(key: &str) {
     watch_subs().lock().unwrap().remove(key);
 }
 
-/// Teardown a fine/annullamento run: rimuove tutte le sottoscrizioni del run
-/// (chiave `"{run_id}::…"`), così non restano watcher orfani. Va chiamato dove
-/// il run deregistra il suo CancellationToken (mod.rs).
+// ─── SLOT dei gruppi di sessione (fetta 3) ───────────────────────
+// Il loop di sessione (engine) deposita qui gli eventi GREZZI del gruppo
+// corrente PRIMA di ri-eseguire la lane; il nodo dir_watcher continuo li
+// preleva (`take_group`) ed emette. Chiave = stessa di `start_watch`.
+fn watch_groups() -> &'static Mutex<HashMap<String, Vec<notify::Event>>> {
+    static GROUPS: OnceLock<Mutex<HashMap<String, Vec<notify::Event>>>> = OnceLock::new();
+    GROUPS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Deposita il gruppo di eventi della sessione corrente (loop → nodo).
+pub fn put_group(key: &str, events: Vec<notify::Event>) {
+    watch_groups().lock().unwrap().insert(key.to_string(), events);
+}
+
+/// Preleva (e rimuove) il gruppo della sessione corrente (nodo). Vec vuoto se
+/// non c'è niente (sessione a vuoto, es. su cancel).
+pub fn take_group(key: &str) -> Vec<notify::Event> {
+    watch_groups().lock().unwrap().remove(key).unwrap_or_default()
+}
+
+/// Teardown a fine/annullamento run: rimuove tutte le sottoscrizioni E i gruppi
+/// del run (chiave `"{run_id}::…"`), così non restano watcher né code orfani.
+/// Va chiamato dove il run deregistra il suo CancellationToken (mod.rs).
 pub fn stop_run_watches(run_id: &str) {
     let prefix = format!("{}::", run_id);
     watch_subs()
+        .lock()
+        .unwrap()
+        .retain(|k, _| !k.starts_with(prefix.as_str()));
+    watch_groups()
         .lock()
         .unwrap()
         .retain(|k, _| !k.starts_with(prefix.as_str()));
