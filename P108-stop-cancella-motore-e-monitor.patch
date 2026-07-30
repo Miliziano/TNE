@@ -1,0 +1,36 @@
+diff --git a/src/components/Toolbar.tsx b/src/components/Toolbar.tsx
+index 768e292..af7b820 100644
+--- a/src/components/Toolbar.tsx
++++ b/src/components/Toolbar.tsx
+@@ -1162,6 +1162,18 @@ export function Toolbar() {
+   // ── Stop ──────────────────────────────────────────────────────
+   const handleStop = () => {
+     abortFlag = true
++    // Ferma DAVVERO il run lato motore. Senza questo lo Stop era solo
++    // cosmetico: in modalità servizio/continuo (dir_watcher continuo,
++    // webhook) la lane resta viva sul watcher e continua a ri-eseguirsi
++    // — i sink scrivono a nostra insaputa. `stop_run` scatena il
++    // CancellationToken del run: i nodi-servizio escono dal loro
++    // `select!`, la lane droppa le tx, il run finisce e il motore
++    // deregistra token e sottoscrizioni watch (niente watcher orfani).
++    // Fire-and-forget: se il run è già concluso, stop_run torna Err e
++    // non c'è nulla da fermare.
++    if (_currentRunId) {
++      invoke('stop_run', { runId: _currentRunId }).catch(() => {})
++    }
+     stopPolling()
+     nodes.forEach(n => {
+       if (n.data.status === 'running') setNodeStatus(n.id, 'idle')
+@@ -1172,6 +1184,12 @@ export function Toolbar() {
+     Object.entries(stats).forEach(([id, st]) => {
+       if (st.status === 'running') setNodeStats(id, { status: 'idle' })
+     })
++    // Chiude il run sul MonitoringBus. stopPolling() sopra impedisce di
++    // ricevere il RunCompleted che il motore emetterà a cancellazione
++    // avvenuta, quindi il teardown del monitor va fatto QUI: altrimenti
++    // activeRun resta valorizzato e il MonitorPanel (che deriva isRunning
++    // da activeRun !== null) continua a mostrare "● running" all'infinito.
++    monitor.runEnd()
+     addLog('warn', "Pipeline interrotta dall'utente.")
+     setRunning(false)
+   }
