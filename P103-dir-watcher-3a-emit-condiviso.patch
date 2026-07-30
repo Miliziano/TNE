@@ -1,0 +1,200 @@
+diff --git a/src-tauri/src/engine/nodes/dir_watcher.rs b/src-tauri/src/engine/nodes/dir_watcher.rs
+index 249572e..a2e79e4 100644
+--- a/src-tauri/src/engine/nodes/dir_watcher.rs
++++ b/src-tauri/src/engine/nodes/dir_watcher.rs
+@@ -118,6 +118,90 @@ fn parse_events_filter(raw: &str) -> HashSet<String> {
+     if set.is_empty() { all() } else { set }
+ }
+ 
++/// Mappa UN evento `notify` grezzo sulle righe da emettere: triple
++/// (path, event, old_path). Vocabolario new/update/rename/delete; metadata/
++/// permessi esclusi; rename atomico (Both, due path) → una riga `rename` con
++/// old_path, from→delete, to→new, ambiguo→"rename" (risolto in emissione per
++/// esistenza file). CONDIVISA da watch one-shot e continuo (fetta 3).
++pub(crate) fn map_watch_event(ev: &notify::Event, out: &mut Vec<(String, String, Option<String>)>) {
++    use notify::EventKind;
++    use notify::event::{ModifyKind, RenameMode};
++    let paths: Vec<String> = ev.paths.iter().map(|p| p.to_string_lossy().to_string()).collect();
++    match &ev.kind {
++        EventKind::Create(_) => { for p in paths { out.push((p, "new".into(), None)); } }
++        EventKind::Remove(_) => { for p in paths { out.push((p, "delete".into(), None)); } }
++        EventKind::Modify(ModifyKind::Data(_)) | EventKind::Modify(ModifyKind::Any) => {
++            for p in paths { out.push((p, "update".into(), None)); }
++        }
++        EventKind::Modify(ModifyKind::Metadata(_)) => { /* rumore ETL: escluso */ }
++        EventKind::Modify(ModifyKind::Name(mode)) => match mode {
++            RenameMode::Both if paths.len() >= 2 => {
++                out.push((paths[1].clone(), "rename".into(), Some(paths[0].clone())));
++            }
++            RenameMode::From => { for p in paths { out.push((p, "delete".into(), None)); } }
++            RenameMode::To   => { for p in paths { out.push((p, "new".into(), None)); } }
++            _ => { for p in paths { out.push((p, "rename".into(), None)); } }
++        },
++        _ => {}
++    }
++}
++
++/// Trasforma una sequenza di eventi `notify` GREZZI in righe e le emette su
++/// `tx`: mappa (map_watch_event) → dedup per path first-wins → filtro
++/// pattern+eventi → riga PIENA se il file esiste, MAGRA (size/date NULL) se è
++/// sparito (delete/rename-from), senza saltarla. Ritorna il numero di righe
++/// emesse. CONDIVISA da watch one-shot (drena il suo canale → Vec → qui) e
++/// continuo (slot run-scoped → Vec → qui, fetta 3).
++pub(crate) async fn emit_watch(
++    events:   &[notify::Event],
++    allowed:  &HashSet<String>,
++    pattern:  &str,
++    min_size: u64,
++    limit:    usize,
++    tx:       &RowSender,
++) -> u64 {
++    let mut mapped: Vec<(String, String, Option<String>)> = Vec::new();
++    for ev in events { map_watch_event(ev, &mut mapped); }
++
++    let mut seen: HashSet<String> = HashSet::new();
++    let mut rows_out = 0u64;
++    for (path, event, old_path) in mapped {
++        if !seen.insert(path.clone()) { continue; }   // first-wins per path
++        let filename = Path::new(&path).file_name()
++            .map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
++        if !glob_match(pattern, &filename) { continue; }
++
++        match std::fs::metadata(&path) {
++            Ok(meta) if meta.is_file() => {
++                if !allowed.contains(event.as_str()) { continue; }
++                if min_size > 0 && meta.len() < min_size { continue; }
++                let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
++                let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
++                let dir_of = Path::new(&path).parent()
++                    .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
++                let fi = FileInfo {
++                    path: path.clone(), filename, extension: ext, directory: dir_of,
++                    size: meta.len(),
++                    created_at:  meta.created().ok().map(systime_rfc3339),
++                    modified_at: Some(systime_rfc3339(mtime)),
++                    mtime,
++                };
++                rows_out += 1;
++                if tx.send(to_row(&fi, Some(&event), old_path.as_deref())).await.is_err() { break; }
++            }
++            _ => {
++                // File assente: rename ambiguo → delete; altrimenti tieni l'evento.
++                let ev2 = if event == "rename" { "delete" } else { event.as_str() };
++                if !allowed.contains(ev2) { continue; }
++                rows_out += 1;
++                if tx.send(to_row_magra(&path, ev2, old_path.as_deref())).await.is_err() { break; }
++            }
++        }
++        if limit > 0 && rows_out as usize >= limit { break; }
++    }
++    rows_out
++}
++
+ // Scansione (ricorsiva opzionale) con i filtri pattern/maxAge/minSize.
+ fn scan_dir(dir: &str, pattern: &str, recursive: bool, max_age_min: u64, min_size: u64, out: &mut Vec<FileInfo>) {
+     let entries = match std::fs::read_dir(dir) { Ok(e) => e, Err(_) => return };
+@@ -227,8 +311,7 @@ pub async fn run(
+     // attuale. `watchTimeoutSec` è un TETTO di sicurezza (se non arriva nulla
+     // ritorna a vuoto, così il run finito non resta appeso). FASE 2 (ri-ascolto
+     // + lane che non chiude) = service mode, capitolo a parte.
+-    use notify::{EventKind, RecursiveMode, Watcher};
+-    use notify::event::{ModifyKind, RenameMode};
++    use notify::{RecursiveMode, Watcher};
+ 
+     let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };
+     let debounce = Duration::from_millis(spec.u64_or("debounceMs", 300).max(50));
+@@ -249,86 +332,25 @@ pub async fn run(
+     ctx.emit_log(&ctx.label, "info", 0,
+         format!("DirWatcher watch: in ascolto su {} (eventi SO, tetto {}s)", directory, timeout_sec), "panel");
+ 
+-    // Un evento SO → 0..N triple (path, event, old_path). `old_path` valorizzato
+-    // solo per un rename ATOMICO (Both: due path in un colpo). Metadata/permessi
+-    // esclusi (decisione utente). rename-from → delete, rename-to → new; il caso
+-    // ambiguo (Any/Other) lo risolve l'emissione per esistenza del file.
++    // Drena i `notify::Event` GREZZI (attesa bloccante fuori dal runtime async):
++    // primo evento entro il tetto, poi il burst ravvicinato entro il debounce.
++    // La trasformazione in righe è delegata a `emit_watch` (condivisa col continuo).
+     let wait_timeout = Duration::from_secs(timeout_sec);
+-    let affected: Vec<(String, String, Option<String>)> = tokio::task::spawn_blocking(move || {
+-        let map_event = |ev: &notify::Event, out: &mut Vec<(String, String, Option<String>)>| {
+-            let paths: Vec<String> = ev.paths.iter().map(|p| p.to_string_lossy().to_string()).collect();
+-            match &ev.kind {
+-                EventKind::Create(_) => { for p in paths { out.push((p, "new".into(), None)); } }
+-                EventKind::Remove(_) => { for p in paths { out.push((p, "delete".into(), None)); } }
+-                EventKind::Modify(ModifyKind::Data(_)) | EventKind::Modify(ModifyKind::Any) => {
+-                    for p in paths { out.push((p, "update".into(), None)); }
+-                }
+-                EventKind::Modify(ModifyKind::Metadata(_)) => { /* rumore ETL: escluso */ }
+-                EventKind::Modify(ModifyKind::Name(mode)) => match mode {
+-                    RenameMode::Both if paths.len() >= 2 => {
+-                        out.push((paths[1].clone(), "rename".into(), Some(paths[0].clone())));
+-                    }
+-                    RenameMode::From => { for p in paths { out.push((p, "delete".into(), None)); } }
+-                    RenameMode::To   => { for p in paths { out.push((p, "new".into(), None)); } }
+-                    _ => { for p in paths { out.push((p, "rename".into(), None)); } }
+-                },
+-                _ => {}
+-            }
+-        };
+-        let mut out: Vec<(String, String, Option<String>)> = Vec::new();
+-        // primo evento (blocca fino al tetto)
++    let events: Vec<notify::Event> = tokio::task::spawn_blocking(move || {
++        let mut out: Vec<notify::Event> = Vec::new();
+         match ev_rx.recv_timeout(wait_timeout) {
+-            Ok(Ok(ev)) => map_event(&ev, &mut out),
++            Ok(Ok(ev)) => out.push(ev),
+             _ => return out,
+         }
+-        // drena eventi ravvicinati entro il debounce
+         while let Ok(Ok(ev)) = ev_rx.recv_timeout(debounce) {
+-            map_event(&ev, &mut out);
++            out.push(ev);
+         }
+         out
+     }).await.map_err(|e| format!("dir_watcher {}: attesa evento: {}", ctx.node_id.0, e))?;
+ 
+     drop(watcher); // smette di ascoltare
+ 
+-    // Emissione: dedup per path (first-wins), filtro pattern + eventi. Riga PIENA
+-    // se il file esiste, riga MAGRA (size/date NULL) se è sparito (delete o
+-    // rename-from) — senza saltarla. Il rename ambiguo su file assente → delete.
+-    let mut seen: HashSet<String> = HashSet::new();
+-    let mut rows_out = 0u64;
+-    for (path, event, old_path) in affected {
+-        if !seen.insert(path.clone()) { continue; }   // first-wins per path
+-        let filename = Path::new(&path).file_name()
+-            .map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+-        if !glob_match(&pattern, &filename) { continue; }
+-
+-        match std::fs::metadata(&path) {
+-            Ok(meta) if meta.is_file() => {
+-                if !allowed.contains(event.as_str()) { continue; }
+-                if min_size > 0 && meta.len() < min_size { continue; }
+-                let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+-                let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
+-                let dir_of = Path::new(&path).parent()
+-                    .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
+-                let fi = FileInfo {
+-                    path: path.clone(), filename, extension: ext, directory: dir_of,
+-                    size: meta.len(),
+-                    created_at:  meta.created().ok().map(systime_rfc3339),
+-                    modified_at: Some(systime_rfc3339(mtime)),
+-                    mtime,
+-                };
+-                rows_out += 1;
+-                if tx.send(to_row(&fi, Some(&event), old_path.as_deref())).await.is_err() { break; }
+-            }
+-            _ => {
+-                // File assente: rename ambiguo → delete; altrimenti tieni l'evento.
+-                let ev2 = if event == "rename" { "delete" } else { event.as_str() };
+-                if !allowed.contains(ev2) { continue; }
+-                rows_out += 1;
+-                if tx.send(to_row_magra(&path, ev2, old_path.as_deref())).await.is_err() { break; }
+-            }
+-        }
+-        if limit > 0 && rows_out as usize >= limit { break; }
+-    }
++    let rows_out = emit_watch(&events, &allowed, &pattern, min_size, limit, &tx).await;
+ 
+     let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
+         elapsed_ms: start.elapsed().as_millis() as u64, error: None };

@@ -187,3 +187,87 @@ Fette candidate (da rivedere insieme):
 - rename per-OS: forma della/e riga/righe? (§6)
 - update = solo Modify(Data)? (metadata escluse) (§6)
 - scoping multi-lane: v1 = un continuo per run / single-lane? (§9)
+
+---
+
+# FETTA 3 — loop di sessione dell'engine (disegno di dettaglio)
+
+Le fette 1 (eventi+schema, P98-100) e 2 (sottoscrizione+coda run-scoped, P101) sono fatte.
+La 3 è **il cuore**: fa girare davvero il modello a sessioni. Tocca il modello d'esecuzione
+del motore, quindi va deciso il disegno prima di scrivere.
+
+## 3.1 Dove vive il loop — e perché `execute_lane` basta
+`executor::execute_lane(run_id, lane_plan, senders, receivers, cancel)` crea `lane_txns`
+all'inizio e a fine fa `finalize_with_outcome(is_ok)` (commit/rollback) + `close_all()`.
+Quindi **UNA chiamata a execute_lane = UNA sessione transazionale completa** (apre, elabora,
+committa, chiude). Il modello a sessioni si ottiene **richiamando execute_lane in un LOOP**,
+una volta per gruppo. Il loop vive nel per-lane spawn di `engine/mod.rs` (dove oggi execute_lane
+è chiamato una volta sola). `LanePlan` è `Clone` → ogni sessione passa `lane_plan.clone()`
+(nodi/txn/stato freschi = azzeramento per sessione, gratis — coerente con §2).
+
+## 3.2 IL FORK da decidere — come il gruppo raggiunge il nodo
+In continuo il nodo dir_watcher NON ascolta più il SO: riceve il gruppo della sessione. Due modi:
+
+### Opzione A (RACCOMANDATA) — il loop possiede il receiver, deposita il gruppo in uno SLOT run-scoped, il nodo legge
+Coerente con P101 (`start_watch` RITORNA il receiver al chiamante = il loop). Divisione netta:
+il **loop** fa timing/coda (attesa + debounce), il **nodo** fa le righe. Zero modifiche a
+`execute_lane` / `NodeContext`.
+- Loop: `rx = start_watch(...)`; poi
+  `loop { attendi ≥1 evento su rx (select! col cancel) → raccogli il burst entro il debounce in
+  Vec<notify::Event> → deposita nello SLOT[key] → execute_lane(clone).await; if cancel { break } }`;
+  infine `stop_watch(key)`.
+- SLOT = registro run-scoped `Mutex<HashMap<key, Vec<notify::Event>>>` (fratello di `watch_subs`).
+  Il nodo continuo fa `take` dello slot per la sua key, mappa+coalesce+filtra+emette (riusa la
+  logica di P98), ritorna.
+
+### Opzione D — il nodo prende in prestito il receiver dal registro e fa lui attesa+coalescing
+Richiede che `watch_subs` TENGA il receiver (non lo ritorni). Loop engine banale (ri-esegui e
+basta), tutta la logica notify nel nodo. Ma **cambia P101** (il receiver non è più del chiamante)
+e mette `await` + prestito del receiver dentro il nodo (più delicato: take/put di un
+`Option<Receiver>` da un Mutex senza tenere il guard tra gli await).
+
+➡️ **Raccomando A**: rispetta P101 così com'è, tiene il motore padrone del *timing* e il nodo
+padrone delle *righe*.
+
+## 3.3 Cosa si deposita: eventi GREZZI (non righe)
+Nello slot vanno i `notify::Event` GREZZI. È il **nodo** a fare mappatura (new/update/rename/
+delete) + coalescing first-wins + filtro pattern/eventi + emissione riga piena/magra — cioè
+ESATTAMENTE la logica di P98, che va **estratta** dalla sezione watch in una fn riusabile su
+`Vec<notify::Event>`. Così one-shot (drena il suo canale → Vec → emette) e continuo (slot → Vec
+→ emette) condividono lo stesso emettitore; anche il `map_event` di P98 (oggi chiusura interna)
+diventa fn condivisa. Loop = "ecco gli eventi grezzi di questa sessione"; nodo = "trasformali in
+righe".
+
+## 3.4 Come il motore riconosce la lane continua
+Marcatore sul nodo: `mode='watch'` + nuova prop **`submode='continuo'`** (assente = `'oneshot'`).
+Il per-lane spawn scandisce i nodi della lane: se trova un dir_watcher con `submode=continuo`
+→ parte il loop di sessione; altrimenti → `execute_lane` singolo come oggi. Il PANNELLO che
+imposta `submode` è la **fetta 4**; per la 3 la prop si può settare a mano (o con un default
+temporaneo).
+
+## 3.5 Cancellazione e sessioni a vuoto
+Il cancel (token P93 / `stop_run`) sta nel `select!` dell'attesa (esce subito, niente busy) e nel
+controllo di fine loop (`if cancel.is_cancelled() { break }`). Su cancel il nodo può tornare
+senza gruppo → sessione a vuoto innocua (commit di nulla) → il loop esce. `stop_run_watches`
+(P101) chiude comunque la sottoscrizione a fine run.
+
+## 3.6 Scoping (v1) e coalescing
+v1 = **un** dir_watcher continuo che guida la SUA lane (single-lane, come da §11). Il debounce
+(finestra breve, configurabile, default ~300ms) raccoglie il burst; il coalescing first-wins per
+path lo fa il nodo (già previsto §5). Gruppo auto-regolato dall'arretrato (§4).
+
+## 3.7 Sotto-fette proposte
+- **3a** — estrai l'emettitore watch di P98 in una fn su `Vec<notify::Event>` (map_event +
+  coalesce + filtro + righe piena/magra); il ramo one-shot la usa (NESSUN cambio di comportamento,
+  solo refactor). Aggiungi il ramo `submode=continuo` nel nodo che legge lo SLOT ed emette.
+  Isolabile e verificabile a TS 134.
+- **3b** — SLOT run-scoped + loop di sessione nel per-lane spawn + riconoscimento della lane
+  continua. È il pezzo di motore. A fine 3b il continuo GIRA end-to-end: watch continuo, tocca
+  file, la lane si ri-esegue per gruppo con commit; `stop_run` ferma.
+
+## 3.8 DA CONFERMARE prima di implementare
+1. **Opzione A vs D** per la consegna del gruppo (raccomando A).
+2. Marcatore `submode='continuo'` sul nodo va bene? (pannello in fetta 4).
+3. Sessione a vuoto su cancel: accettabile un commit di nulla finale, o saltare il finalize se
+   il gruppo è vuoto?
+4. Debounce di default (~300ms) — e se esporlo come prop.
