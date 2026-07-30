@@ -36,6 +36,7 @@ pub mod pool;
 pub mod txregistry;
 pub mod expr_functions;
 pub mod datasets;
+pub mod watch_subs;
 
 use std::time::Instant;
 use std::collections::HashMap;
@@ -244,6 +245,9 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
         // l'evento terminale del run. stop() ritorna entro ~20ms.
         // Service mode: fine run → deregistra il token.
         run_cancels().lock().unwrap().remove(&run_id.0);
+        // dir_watcher continuo: chiudi le sottoscrizioni watch di questo run
+        // (drop dei watcher = dissottoscrizione), così non restano orfane.
+        watch_subs::stop_run_watches(&run_id.0);
         sampler.stop();
 
         if lanes_failed > 0 {
