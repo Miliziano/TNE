@@ -1,0 +1,57 @@
+diff --git a/HANDOFF.md b/HANDOFF.md
+index cfd3339..2192249 100644
+--- a/HANDOFF.md
++++ b/HANDOFF.md
+@@ -553,3 +553,52 @@ all'avvio, sennò chiude tutto al momento sbagliato.
+ **Metodo:** una fase alla volta; Rust compilato dall'utente a ogni patch;
+ baseline TS 134; un commit per patch. *"Siamo sempre in fase di sviluppo:
+ finché non abbiamo finito tutto non si va in produzione."*
++
++---
++
++## AGGIORNAMENTO — stato al P106 (service mode: stop + dir_watcher continuo)
++
++Sezione additiva sopra il corpo storico (fermo a ~P93b). Il dettaglio patch-per-patch è nei commit
++`git log P94..P106` e nei design in `src-tauri/docs/`. Cancello TS invariato: `npx tsc --noEmit -p
++tsconfig.app.json`, baseline **134**, diff elenco vuoto. Rust non compilabile in sandbox → gate = utente.
++
++### Nodo STOP — CHIUSO (P94 design, P95 ferma-lane, P96 amplificatore-EH) → `design-service-mode.md` §2
++Nodo di palette (sezione "Flusso"). Unica azione: ferma la lane via `LaneAbort::fire` (rollback txn + chiusura
++conn; reason "stop deliberato" → nodi `NodeInterrupted`, non falliti). Innesco `immediate`/`after_input` (≥1
++riga). Passa dall'Error Handler per gli EFFETTI: riga collettore `_error_source="stop"` (non critica) →
++sotto-pipeline `error_out`; ordine effetti-poi-rollback garantito (EH+sotto-pipeline esclusi dall'abort).
++Fallback senza EH: ferma pulito senza effetti. Cancellabile (`select!` vs `ctx.cancel`, token P93). Run ONESTO:
++stop deliberato fa rollback ma `execute_lane` ritorna `Ok(stats)` → RunCompleted, non RunFailed. Campo nuovo
++`err_collector: Option<RowSender>` in `NodeContext`. Collaudo utente da confermare.
++
++### dir_watcher CONTINUO — COMPLETO (P97 design, P98-P106 impl) → `design-nodo-dir-watcher.md`
++Terza modalità del dir_watcher (oltre scan e watch one-shot): **watch continuo a SESSIONI**. Nasce da due
++vincoli utente che insieme forzano il modello: (1) commit per gruppo ⇒ la lane va **ri-eseguita** per ogni
++gruppo di eventi; (2) non perdere input ⇒ la sottoscrizione + coda vivono **sopra la lane** (run-scoped), non
++nel nodo (che verrebbe ricreato a ogni sessione).
++
++- **Eventi + schema (P98-100)**: vocabolario `new/update/rename/delete` (metadata escluse; rename atomico Both
++  → riga `rename` con `old_path`, altrimenti from→delete/to→new). `delete` e `rename`-from → riga "magra"
++  (path+event, size/date NULL, non saltata). Prop `events` ora onorata (era inerte). Schema d'uscita: la valle
++  lo legge da `props.outputSchema` → scritto e propagato dal nuovo `src/nodes/types/dir_watcher/schema.ts`
++  (hook `useDirWatcherSchemaSync`, agganciato a ENTRAMBI i pannelli). NB: due sistemi di schema — vedi lezione
++  in memoria/`schema.ts`.
++- **Sottoscrizione run-scoped (P101)**: nuovo `src-tauri/src/engine/watch_subs.rs` — registro globale (stesso
++  schema di `run_cancels()`) che tiene vivo il `RecommendedWatcher`; callback `notify` → canale `tokio::mpsc`
++  unbounded; `start_watch` ritorna il receiver al chiamante; `stop_run_watches` nel teardown di fine run.
++- **Loop di sessione (P102-104, il cuore)**: fatto chiave — `execute_lane(lane_plan: LanePlan)` crea le
++  transazioni e a fine committa/chiude, quindi **una chiamata = una sessione**; `LanePlan` è `Clone`. Nel
++  per-lane spawn di `engine/mod.rs`, `continuous_watcher()` riconosce la lane (`mode='watch'` +
++  `submode='continuo'`) e, invece di eseguirla una volta, la mette in loop: attende evento (o cancel), raccoglie
++  il burst entro 300ms, deposita gli eventi grezzi in uno slot run-scoped, ri-esegue `execute_lane(clone)`.
++  L'emettitore watch è stato estratto in `map_watch_event`/`emit_watch` (condiviso one-shot/continuo); il nodo
++  in continuo è un adattatore che legge lo slot ed emette.
++- **UI (P105)**: selettore sotto-modo "Ascolto" (Una volta / Continuo) nei due pannelli → prop `submode`.
++- **Monitor sessioni (P106, leggera)**: evento `LaneSessionStarted` per sessione → log "Sessione N — M eventi".
++  Le statistiche per-nodo si sovrascrivono ancora a ogni sessione (indice per-nodo pieno rimandato).
++
++Limiti v1: single-lane, directory statica nel continuo (niente interpolazione variabili), debounce 300ms fisso,
++bridge ignorati nel ramo continuo, coda in-memory (crash del processo = eventi persi). Collaudo utente in attesa.
++
++### Prossimo
++webhook_receiver / webhook_responder (nodi-servizio) → watchdog → ActiveMQ/STOMP → Kafka (ultimo) → MANUALI.
