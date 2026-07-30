@@ -140,6 +140,11 @@ function startPolling() {
             if (id) monitor.connectionError(id, p.error)
             break
           }     
+          case 'LaneSessionStarted':
+            // dir_watcher continuo: una nuova sessione del loop (la lane si
+            // ri-esegue per gruppo). Log visibile con indice + n. eventi.
+            store.addLog('info', `Sessione ${p.session} — ${p.group_size} eventi`, p.node_id)
+            break
           case 'NodeStarted':
             store.setNodeStatus(p.node_id, 'running')
             // Fase 8: inizializza le stats — pulse giallo + contatori a 0

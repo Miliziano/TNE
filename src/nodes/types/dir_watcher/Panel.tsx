@@ -52,6 +52,7 @@ const WATCH_OLDP  = { name: 'old_path', type: 'string', desc: 'Path precedente (
 
 const PROP_DEFAULTS: Record<string, string> = {
   mode:            'scan',
+  submode:         'oneshot',
   pathSource:      'static',
   pattern:         '*',
   recursive:       'false',
@@ -252,6 +253,12 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
       {mode === 'watch' && (
         <>
           <SectionTitle label="Opzioni Watch" />
+          <Field label="Ascolto" hint="One-shot: attende un batch di eventi, emette e termina. Continuo: la lane si ri-esegue per ogni gruppo di eventi (con commit) finché non premi Stop.">
+            <CustomSelect style={inputStyle} value={p('submode', 'oneshot')} onChange={u('submode')}>
+              <option value="oneshot">Una volta (one-shot)</option>
+              <option value="continuo">Continuo (a sessioni)</option>
+            </CustomSelect>
+          </Field>
           <Row>
             <Field label="Eventi">
               <CustomSelect style={inputStyle} value={p('events', 'all')} onChange={u('events')}>

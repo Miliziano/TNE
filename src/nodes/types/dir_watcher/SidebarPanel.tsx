@@ -47,6 +47,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
     updateProp(nodeId, key, e.target.value)
 
   const mode       = p('mode', 'scan')
+  const submode    = p('submode', 'oneshot')
   const pathSource = p('pathSource', 'static')
   const hasInput   = edges.some((e) => e.target === nodeId)
 
@@ -169,6 +170,26 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
           </button>
         ))}
       </div>
+
+      {mode === 'watch' && (
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[
+            { value: 'oneshot',  label: 'Una volta' },
+            { value: 'continuo', label: 'Continuo'  },
+          ].map((sm) => (
+            <button key={sm.value} onClick={() => updateProp(nodeId, 'submode', sm.value)}
+              style={{
+                flex: 1, padding: '5px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 10,
+                background: submode === sm.value ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
+                border: submode === sm.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
+                color: submode === sm.value ? ACCENT : '#4a5a7a',
+                fontWeight: submode === sm.value ? 600 : 400,
+              }}>
+              {sm.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ fontSize: 10, color: '#4a5a7a', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
         <i className="ti ti-mouse" style={{ fontSize: 11 }} />

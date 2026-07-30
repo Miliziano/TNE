@@ -222,6 +222,7 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                         };
                         let debounce = std::time::Duration::from_millis(300);
                         let mut last: Result<HashMap<String, NodeStats>, String> = Ok(HashMap::new());
+                        let mut session: u32 = 0;
                         loop {
                             // Attendi il PRIMO evento del prossimo gruppo, o il cancel.
                             let first = tokio::select! {
@@ -241,6 +242,17 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                                     },
                                 }
                             }
+                            // Nuova SESSIONE: marca per la UI (indice + n. eventi
+                            // del gruppo) prima di ri-eseguire la lane.
+                            session += 1;
+                            let group_size = group.len() as u32;
+                            push_event(EngineEvent::LaneSessionStarted {
+                                run_id:  run_id_cl.clone(),
+                                lane_id: lane.lane_id.clone(),
+                                node_id: types::NodeId(node_id.clone()),
+                                session,
+                                group_size,
+                            });
                             // Deposita il gruppo e ri-esegui la lane (una sessione).
                             watch_subs::put_group(&key, group);
                             last = executor::execute_lane(

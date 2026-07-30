@@ -122,6 +122,19 @@ pub enum EngineEvent {
         reason:  String,   // già leggibile, v. LaneAbort::fire
     },
 
+    /// dir_watcher CONTINUO (fetta 5): marca l'inizio di una SESSIONE del loop
+    /// di sessione (la lane si ri-esegue per ogni gruppo di eventi). `session`
+    /// parte da 1; `group_size` = eventi grezzi del gruppo. Serve alla UI per
+    /// distinguere le N esecuzioni della stessa lane (le stat di nodo, chiave
+    /// per node_id, altrimenti si sovrascrivono a ogni sessione).
+    LaneSessionStarted {
+        run_id:     RunId,
+        lane_id:    LaneId,
+        node_id:    NodeId,
+        session:    u32,
+        group_size: u32,
+    },
+
     // ── Flusso su edge (per animazione canvas) ───────────────────
 
     /// "Su questo edge sono passate altre `delta` righe."
