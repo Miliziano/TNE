@@ -47,6 +47,8 @@ export interface NodeTiming {
   nodeId:      string
   nodeLabel:   string
   nodeType:    string
+  laneLabel?:  string
+  laneColor?:  string
   startAt:     number
   endAt?:      number
   durationMs?: number
@@ -351,9 +353,9 @@ class MonitoringBusClass {
 
   // ── Nodi ───────────────────────────────────────────────────────
 
-  nodeStart(nodeId: string, nodeLabel: string, nodeType = 'unknown'): NodeTiming {
+  nodeStart(nodeId: string, nodeLabel: string, nodeType = 'unknown', laneLabel?: string, laneColor?: string): NodeTiming {
     const timing: NodeTiming = {
-      nodeId, nodeLabel, nodeType,
+      nodeId, nodeLabel, nodeType, laneLabel, laneColor,
       startAt:      Date.now(),
       rowsIn:       0,
       rowsOut:      0,

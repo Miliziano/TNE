@@ -258,7 +258,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
         <thead>
           <tr style={{ background: '#161b27' }}>
-            {['Nodo', 'Tipo', 'Durata', 'Righe in', 'Righe out', 'Scartate', 'Stato'].map(h => (
+            {['Lane', 'Nodo', 'Tipo', 'Durata', 'Righe in', 'Righe out', 'Scartate', 'Stato'].map(h => (
               <th key={h} style={{ padding: '4px 8px', textAlign: 'left', color: '#4a5a7a', fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '0.5px solid #2a3349', whiteSpace: 'nowrap' }}>
                 {h}
               </th>
@@ -272,6 +272,11 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
             const color     = hasError ? RED : isRunning ? ORANGE : '#c8d4f0'
             return (
               <tr key={t.nodeId} style={{ borderBottom: '0.5px solid #1e2535', background: i % 2 === 0 ? '#1a2030' : 'transparent' }}>
+                <td style={{ padding: '4px 8px' }}>
+                  {t.laneLabel
+                    ? <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, whiteSpace: 'nowrap', color: t.laneColor ?? '#8aa0c8', border: `0.5px solid ${t.laneColor ?? '#2a3349'}`, background: `${t.laneColor ?? '#2a3349'}22` }}>{t.laneLabel}</span>
+                    : <span style={{ color: '#4a5a7a' }}>—</span>}
+                </td>
                 <td style={{ padding: '4px 8px', color, fontFamily: 'monospace', fontSize: 10 }} title={t.error}>
                   {t.nodeLabel}
                 </td>

@@ -145,10 +145,13 @@ function startPolling() {
             // ri-esegue per gruppo). Log visibile con indice + n. eventi.
             store.addLog('info', `Sessione ${p.session} — ${p.group_size} eventi`, p.node_id)
             break
-          case 'NodeStarted':
+          case 'NodeStarted': {
             store.setNodeStatus(p.node_id, 'running')
             // Fase 8: inizializza le stats — pulse giallo + contatori a 0
             store.setNodeStats(p.node_id, { status: 'running', rowsIn: 0, rowsOut: 0 })
+            // Lane del nodo: dall'evento (p.lane_id) → label+colore dalla pool.
+            // Serve al Monitor per distinguere gli EH omonimi delle diverse lane.
+            const lane = store.pool.lanes.find(l => l.id === p.lane_id)
             // Fase 9: apre il timing del nodo sul MonitoringBus (tab Nodi).
             _nodeTimings.set(
               p.node_id,
@@ -156,9 +159,12 @@ function startPolling() {
                 p.node_id,
                 p.label ?? p.node_id,
                 store.nodes.find(n => n.id === p.node_id)?.data.type ?? 'unknown',
+                lane?.label,
+                lane?.color,
               ),
             )
             break
+          }
           case 'NodeCompleted':
             store.setNodeStatus(p.node_id, 'done')
             // Fase 8: congela le stats finali (verde, o rosso se error valorizzato)

@@ -223,7 +223,26 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                         let debounce = std::time::Duration::from_millis(300);
                         let mut last: Result<HashMap<String, NodeStats>, String> = Ok(HashMap::new());
                         let mut session: u32 = 0;
+                        // P110: label del watcher per mostrarlo "in ascolto" fra le sessioni.
+                        let watcher_label = lane.nodes.iter()
+                            .find(|n| n.node_id.0 == node_id)
+                            .map(|n| n.label.clone())
+                            .unwrap_or_else(|| node_id.clone());
                         loop {
+                            // P110 — UNIFORMA CONTINUO↔ONE-SHOT: prima di bloccarsi in attesa,
+                            // il dir_watcher si dichiara "in ascolto" (NodeStarted → 'running').
+                            // Così nel Monitor/canvas compare SUBITO e il suo edge d'uscita è
+                            // animato mentre aspetta il prossimo evento, come in one-shot dove il
+                            // watcher È running bloccato DENTRO il nodo. La sessione poi ri-emette
+                            // started/completed del nodo (il frontend deduplica per node_id); a
+                            // fine run la "scopa" di RunCompleted / lo stop riportano il nodo a
+                            // done/idle. Un solo evento per giro (poi il select! blocca).
+                            push_event(EngineEvent::NodeStarted {
+                                run_id:  run_id_cl.clone(),
+                                lane_id: lane.lane_id.clone(),
+                                node_id: types::NodeId(node_id.clone()),
+                                label:   watcher_label.clone(),
+                            });
                             // Attendi il PRIMO evento del prossimo gruppo, o il cancel.
                             let first = tokio::select! {
                                 _  = cancel_cl.cancelled() => None,
