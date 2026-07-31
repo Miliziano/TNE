@@ -2073,15 +2073,15 @@ use sha2::Sha256;
 use sha1::Sha1;
 
 #[derive(Debug, Clone, Serialize)]
-struct WebhookEvent {
-    event_id:        String,
-    event_type:      String,
-    source_ip:       String,
-    path:            String,
-    headers:         std::collections::HashMap<String, String>,
-    payload:         serde_json::Value,
-    received_at:     String,
-    signature_valid: Option<bool>,
+pub struct WebhookEvent {
+    pub event_id:        String,
+    pub event_type:      String,
+    pub source_ip:       String,
+    pub path:            String,
+    pub headers:         std::collections::HashMap<String, String>,
+    pub payload:         serde_json::Value,
+    pub received_at:     String,
+    pub signature_valid: Option<bool>,
 }
 
 struct WebhookSubscriber {
@@ -2172,10 +2172,16 @@ fn webhook_event_id(headers: &std::collections::HashMap<String, String>, body: &
 }
 
 #[derive(Debug, Deserialize)]
-struct WebhookServerStartRequest { resource_id: String, port: u16, ip_whitelist: Vec<String> }
+pub struct WebhookServerStartRequest { pub resource_id: String, pub port: u16, pub ip_whitelist: Vec<String> }
 
 #[tauri::command]
 async fn webhook_server_start(request: WebhookServerStartRequest) -> Result<(), String> {
+    webhook_server_start_impl(request).await
+}
+
+/// FONTE UNICA del server webhook (chiamata dal comando Tauri e dal
+/// nodo-servizio `webhook_receiver` nel motore). V. pattern rete (`*_impl`).
+pub async fn webhook_server_start_impl(request: WebhookServerStartRequest) -> Result<(), String> {
     use hyper::server::conn::http1;
     use hyper::service::service_fn;
     use hyper::{Request, Response, StatusCode};
@@ -2247,10 +2253,14 @@ async fn webhook_server_stop(resource_id: String) -> Result<(), String> {
 }
 
 #[derive(Debug, Deserialize)]
-struct WebhookSubscribeRequest { resource_id: String, node_id: String, path: String, secret: String, sig_header: String, sig_algo: String, dedup_ttl_sec: u64, max_buffer: usize, overflow: String }
+pub struct WebhookSubscribeRequest { pub resource_id: String, pub node_id: String, pub path: String, pub secret: String, pub sig_header: String, pub sig_algo: String, pub dedup_ttl_sec: u64, pub max_buffer: usize, pub overflow: String }
 
 #[tauri::command]
 async fn webhook_subscribe(request: WebhookSubscribeRequest) -> Result<(), String> {
+    webhook_subscribe_impl(request).await
+}
+
+pub async fn webhook_subscribe_impl(request: WebhookSubscribeRequest) -> Result<(), String> {
     let reg   = webhook_servers().lock().unwrap();
     let entry = reg.get(&request.resource_id).ok_or_else(|| format!("Server webhook '{}' non avviato", request.resource_id))?;
     let mut state = entry.state.lock().unwrap();
@@ -2262,16 +2272,24 @@ async fn webhook_subscribe(request: WebhookSubscribeRequest) -> Result<(), Strin
 
 #[tauri::command]
 async fn webhook_unsubscribe(resource_id: String, node_id: String) -> Result<(), String> {
+    webhook_unsubscribe_impl(resource_id, node_id).await
+}
+
+pub async fn webhook_unsubscribe_impl(resource_id: String, node_id: String) -> Result<(), String> {
     let reg = webhook_servers().lock().unwrap();
     if let Some(entry) = reg.get(&resource_id) { entry.state.lock().unwrap().subscribers.retain(|_, s| s.node_id != node_id); }
     Ok(())
 }
 
 #[derive(Debug, Serialize)]
-struct WebhookPopResult { event: Option<WebhookEvent>, queued: usize }
+pub struct WebhookPopResult { pub event: Option<WebhookEvent>, pub queued: usize }
 
 #[tauri::command]
 async fn webhook_pop(resource_id: String, node_id: String) -> Result<WebhookPopResult, String> {
+    webhook_pop_impl(resource_id, node_id).await
+}
+
+pub async fn webhook_pop_impl(resource_id: String, node_id: String) -> Result<WebhookPopResult, String> {
     let reg = webhook_servers().lock().unwrap();
     let Some(entry) = reg.get(&resource_id) else { return Ok(WebhookPopResult { event: None, queued: 0 }); };
     let mut state = entry.state.lock().unwrap();
