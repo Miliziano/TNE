@@ -9,6 +9,7 @@
 import { useState, useCallback } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { useWebhookReceiverSchemaSync } from './schema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -67,6 +68,9 @@ function InfoBox({ children, color }: { children: React.ReactNode; color: string
 const ACCENT_RECV = '#3ddc84'
 
 function ReceiverPanel({ nodeId }: { nodeId: string }) {
+  // Sincronizza lo schema d'uscita a valle (props.outputSchema + propagateSchema).
+  // Va PRIMA dell'early-return `if (!node)` per rispettare le regole degli hook.
+  useWebhookReceiverSchemaSync(nodeId)
   const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))
   const updateProp = useFlowStore(s => s.updateNodeProp)
   if (!node) return null
@@ -161,6 +165,7 @@ function ReceiverPanel({ nodeId }: { nodeId: string }) {
           { name: 'event_id',        type: 'string',  desc: 'ID univoco (X-Webhook-Delivery o hash payload)' },
           { name: 'event_type',      type: 'string',  desc: 'Tipo evento (X-Webhook-Event)' },
           { name: 'source_ip',       type: 'string',  desc: 'IP del chiamante' },
+          { name: 'webhook_path',    type: 'string',  desc: 'Path su cui è arrivato l\'evento' },
           { name: 'payload',         type: 'object',  desc: 'Body JSON completo' },
           { name: 'headers',         type: 'object',  desc: 'Tutti gli header HTTP ricevuti' },
           { name: 'received_at',     type: 'date',    desc: 'Timestamp ricezione' },

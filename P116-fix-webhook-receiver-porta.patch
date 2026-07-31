@@ -1,0 +1,52 @@
+diff --git a/src-tauri/src/engine/nodes/webhook_receiver.rs b/src-tauri/src/engine/nodes/webhook_receiver.rs
+index 0b87dfe..bb299b9 100644
+--- a/src-tauri/src/engine/nodes/webhook_receiver.rs
++++ b/src-tauri/src/engine/nodes/webhook_receiver.rs
+@@ -37,28 +37,30 @@ pub async fn run(
+         .map_err(|e| format!("webhook_receiver {}: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("webhook_receiver", &ctx.node_id.0);
+ 
+-    // Config — chiavi allineate a resolveReceiverConfig del runner.
+-    let resource_id = {
+-        let r = spec.str_or("resourceId", "");
+-        if r.is_empty() { format!("webhook_{}", ctx.node_id.0) } else { r }
++    // Config — allineata a resolveReceiverConfig del runner.
++    // ⚠️ Con una RISORSA collegata, resourceId + porta + ipWhitelist vengono
++    // dalla RISORSA (non dai prop): è il caso normale del pannello. Default
++    // porta = 9110. (La prima versione leggeva "port" dai prop e ricadeva
++    // sempre su 8088 ignorando la risorsa.)
++    let (resource_id, port, ip_whitelist): (String, u16, Vec<String>) = if spec.has_resource() {
++        let rid = { let r = spec.resource_id(); if r.is_empty() { ctx.node_id.0.clone() } else { r } };
++        let wl  = spec.res_str_or("ipWhitelist", "")
++            .split('\n').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
++        (rid, spec.res_u16_or("port", 9110), wl)
++    } else {
++        (ctx.node_id.0.clone(), spec.u64_or("port", 9110) as u16, Vec::new())
+     };
+-    let port = spec.u64_or("port", 8088) as u16;
+     let path = {
+         let p = spec.str_or("path", "/webhook");
+         if p.starts_with('/') { p } else { format!("/{}", p) }
+     };
+-    let secret      = spec.str_or("secret", "");
+-    let sig_header  = spec.str_or("sigHeader", "x-hub-signature-256");
+-    let sig_algo    = spec.str_or("sigAlgo", "sha256");
+-    let dedup_ttl   = spec.u64_or("dedupTtlSec", 0);
+-    let max_buffer  = spec.u64_or("maxBuffer", 1000) as usize;
+-    let overflow    = spec.str_or("overflow", "drop_oldest");
+-    // ip_whitelist: prop stringa separata da virgole (vuota = nessun filtro).
+-    let ip_whitelist: Vec<String> = spec.str_or("ipWhitelist", "")
+-        .split(',')
+-        .map(|s| s.trim().to_string())
+-        .filter(|s| !s.is_empty())
+-        .collect();
++    // secret/sigHeader/sigAlgo: prop → altrimenti dalla risorsa → altrimenti default.
++    let secret     = spec.str_or("hmacSecret", &spec.res_str_or("hmacSecret", ""));
++    let sig_header = spec.str_or("sigHeader",  &spec.res_str_or("sigHeader",  "X-Hub-Signature-256"));
++    let sig_algo   = spec.str_or("sigAlgo",    &spec.res_str_or("sigAlgo",    "sha256"));
++    let dedup_ttl  = spec.u64_or("dedupTtlSec", 3600);
++    let max_buffer = spec.u64_or("maxBuffer", 1000) as usize;
++    let overflow   = spec.str_or("overflow", "drop_oldest");
+     let poll_ms     = spec.u64_or("pollIntervalMs", 200).max(20);
+     let listen_sec  = spec.u64_or("listenSec", 0);         // 0 = senza limite
+     let debounce_ms = spec.u64_or("debounceMs", 0) as i64; // 0 = disattivo
