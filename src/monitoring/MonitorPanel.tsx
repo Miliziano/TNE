@@ -28,6 +28,7 @@ const ACCENT = '#a78bfa'
 const GREEN  = '#3ddc84'
 const RED    = '#ff5f57'
 const ORANGE = '#ffb347'
+const SLATE  = '#8792ab'
 const BLUE   = '#4a9eff'
 
 // ─── Stili base ───────────────────────────────────────────────────
@@ -267,9 +268,10 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
         </thead>
         <tbody>
           {sorted.map((t, i) => {
-            const isRunning = !t.endAt
-            const hasError  = !!t.error
-            const color     = hasError ? RED : isRunning ? ORANGE : '#c8d4f0'
+            const interrupted = !!t.interrupted
+            const isRunning = !t.endAt && !interrupted
+            const hasError  = !!t.error && !interrupted
+            const color     = interrupted ? SLATE : hasError ? RED : isRunning ? ORANGE : '#c8d4f0'
             return (
               <tr key={t.nodeId} style={{ borderBottom: '0.5px solid #1e2535', background: i % 2 === 0 ? '#1a2030' : 'transparent' }}>
                 <td style={{ padding: '4px 8px' }}>
@@ -290,7 +292,9 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
                   {t.rowsRejected > 0 ? t.rowsRejected.toLocaleString() : '—'}
                 </td>
                 <td style={{ padding: '4px 8px' }}>
-                  {hasError
+                  {interrupted
+                    ? <span style={{ color: SLATE, fontSize: 9 }}>■ interrotto</span>
+                    : hasError
                     ? <span style={{ color: RED, fontSize: 9 }}>✗ errore</span>
                     : isRunning
                     ? <span style={{ color: ORANGE, fontSize: 9 }}>● running</span>

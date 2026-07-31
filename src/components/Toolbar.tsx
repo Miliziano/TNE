@@ -1190,6 +1190,14 @@ export function Toolbar() {
     Object.entries(stats).forEach(([id, st]) => {
       if (st.status === 'running') setNodeStats(id, { status: 'idle' })
     })
+    // Chiude i timing dei nodi rimasti APERTI sul MonitoringBus (nessun
+    // NodeCompleted ricevuto: es. il dir_watcher one-shot bloccato in attesa
+    // dell'evento e la valle bloccata su di lui). Senza questo restano
+    // "⏳ running" nel Monitor per sempre — è il caso one-shot che l'utente
+    // vedeva. Marcati "interrotto", NON "ok": non hanno finito, li ha fermati
+    // l'utente. (In continuo, fra le sessioni, i nodi erano già chiusi.)
+    _nodeTimings.forEach((t) => monitor.nodeEnd(t, { interrupted: true }))
+    _nodeTimings.clear()
     // Chiude il run sul MonitoringBus. stopPolling() sopra impedisce di
     // ricevere il RunCompleted che il motore emetterà a cancellazione
     // avvenuta, quindi il teardown del monitor va fatto QUI: altrimenti

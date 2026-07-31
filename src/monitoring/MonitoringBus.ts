@@ -57,6 +57,7 @@ export interface NodeTiming {
   rowsRejected: number
   bytesEstimated?: number
   error?:      string
+  interrupted?: boolean
 }
 
 export interface ConnectionEvent {
@@ -368,7 +369,7 @@ class MonitoringBusClass {
     return timing
   }
 
-  nodeEnd(timing: NodeTiming, stats: { rowsIn?: number; rowsOut?: number; rowsRejected?: number; error?: string } = {}) {
+  nodeEnd(timing: NodeTiming, stats: { rowsIn?: number; rowsOut?: number; rowsRejected?: number; error?: string; interrupted?: boolean } = {}) {
     if (!this._enabled) return
     timing.endAt        = Date.now()
     timing.durationMs   = timing.endAt - timing.startAt
@@ -376,6 +377,7 @@ class MonitoringBusClass {
     timing.rowsOut      = stats.rowsOut      ?? timing.rowsOut
     timing.rowsRejected = stats.rowsRejected ?? timing.rowsRejected
     timing.error        = stats.error
+    timing.interrupted  = stats.interrupted
 
     // Stima bytes: ~256 bytes per riga come euristica base
     timing.bytesEstimated = timing.rowsIn * 256

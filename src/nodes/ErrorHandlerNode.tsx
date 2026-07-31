@@ -108,13 +108,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
       <Handle id="error_out" type="source" position={Position.Right}
         style={{ background: ERR_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
         title="error_out — collega un Filter per il recovery" />
-      <div style={{
-        position: 'absolute', right: 14, top: 'calc(50% - 7px)',
-        fontSize: 9, color: ERR_COLOR, fontFamily: 'monospace', fontWeight: 600,
-        pointerEvents: 'none', userSelect: 'none',
-      }}>
-        error_out
-      </div>
+      
     {/* Fase 8: contatori runtime */}
       <NodeRuntimeBadges nodeId={id} />
     </div>
