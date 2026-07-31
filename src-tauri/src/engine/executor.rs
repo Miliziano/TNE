@@ -208,7 +208,6 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // NB `data_quality` NON è qui: ha un arm dedicato (:632) che chiama
     // data_quality::run — è implementato. Stava nella vecchia lista per un
     // commento ormai falso.
-    "watchdog",
     "source_activemq", "source_kafka",
     "sink_kafka",
     "sink_activemq", "webhook_responder",
@@ -743,6 +742,18 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
             super::nodes::source_mqtt::run(ctx, rx, tx).await
+        }
+
+        "webhook_receiver" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::webhook_receiver::run(ctx, rx, tx).await
+        }
+
+        "watchdog" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::watchdog::run(ctx, rx, tx).await
         }
 
         "source_http" => {

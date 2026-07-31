@@ -2401,17 +2401,23 @@ async fn webhook_responder_stop(node_id: String) -> Result<(), String> {
 
 // ─── Watchdog ─────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
-struct WatchdogCheckRequest {
-    url: String, method: String, header_name: String, header_value: String,
-    match_mode: String, auth_type: String, auth_value: String, timeout_sec: u64,
+#[derive(Debug, Clone, Deserialize)]
+pub struct WatchdogCheckRequest {
+    pub url: String, pub method: String, pub header_name: String, pub header_value: String,
+    pub match_mode: String, pub auth_type: String, pub auth_value: String, pub timeout_sec: u64,
 }
 
 #[derive(Debug, Serialize)]
-struct WatchdogCheckResult { matched: bool, header_found: Option<String>, status_code: u16, elapsed_ms: u64 }
+pub struct WatchdogCheckResult { pub matched: bool, pub header_found: Option<String>, pub status_code: u16, pub elapsed_ms: u64 }
 
 #[tauri::command]
 async fn watchdog_check(request: WatchdogCheckRequest) -> Result<WatchdogCheckResult, String> {
+    watchdog_check_impl(request).await
+}
+
+/// FONTE UNICA del check watchdog (comando Tauri + nodo-servizio `watchdog`
+/// nel motore). Pattern rete (`*_impl`).
+pub async fn watchdog_check_impl(request: WatchdogCheckRequest) -> Result<WatchdogCheckResult, String> {
     let start  = Instant::now();
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(request.timeout_sec)).build().map_err(|e| format!("Watchdog client: {}", e))?;
     let method = match request.method.to_uppercase().as_str() { "GET" => reqwest::Method::GET, _ => reqwest::Method::HEAD };

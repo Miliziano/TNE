@@ -14,6 +14,8 @@ pub mod source_ftp;
 pub mod dir_watcher;
 pub mod source_mqtt;
 pub mod source_http;
+pub mod webhook_receiver;   // service mode 4b: riceve webhook HTTP
+pub mod watchdog;           // service mode: sonda HTTP (gate/stream/edge)
 pub mod http_request;
 pub mod source_db;
 pub mod filter;
