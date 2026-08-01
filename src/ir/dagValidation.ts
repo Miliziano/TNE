@@ -635,7 +635,7 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
  * ENTRAMBE.
  */
 const MOTORE_NON_IMPLEMENTA = new Set([
-  'source_activemq', 'source_kafka',
+  'source_kafka',
   'sink_kafka', 'sink_activemq',
 ])
 
