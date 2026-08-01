@@ -1,0 +1,259 @@
+diff --git a/src-tauri/src/engine/executor.rs b/src-tauri/src/engine/executor.rs
+index 8e5bd93..bb5bcab 100644
+--- a/src-tauri/src/engine/executor.rs
++++ b/src-tauri/src/engine/executor.rs
+@@ -208,7 +208,6 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
+     // NB `data_quality` NON è qui: ha un arm dedicato (:632) che chiama
+     // data_quality::run — è implementato. Stava nella vecchia lista per un
+     // commento ormai falso.
+-    "source_kafka",
+     "sink_kafka",
+ ];
+ 
+@@ -773,6 +772,12 @@ async fn run_node(
+             super::nodes::sink_activemq::run(ctx, rx, tx).await
+         }
+ 
++        "source_kafka" => {
++            let rx = take_single_input(&mut inputs);
++            let tx = take_primary_output(&mut outputs);
++            super::nodes::source_kafka::run(ctx, rx, tx).await
++        }
++
+         "source_http" => {
+             let rx = take_single_input(&mut inputs);
+             let tx = take_primary_output(&mut outputs);
+diff --git a/src-tauri/src/engine/nodes/mod.rs b/src-tauri/src/engine/nodes/mod.rs
+index cd8ada7..8e9c7af 100644
+--- a/src-tauri/src/engine/nodes/mod.rs
++++ b/src-tauri/src/engine/nodes/mod.rs
+@@ -19,6 +19,7 @@ pub mod watchdog;           // service mode: sonda HTTP (gate/stream/edge)
+ pub mod webhook_responder;  // service mode 5: risponde HEAD/GET con header sintetici
+ pub mod source_activemq;    // consumer STOMP (batch)
+ pub mod sink_activemq;      // producer STOMP
++pub mod source_kafka;       // consumer Kafka (REST Proxy; nativo deferito)
+ pub mod http_request;
+ pub mod source_db;
+ pub mod filter;
+diff --git a/src-tauri/src/engine/nodes/source_kafka.rs b/src-tauri/src/engine/nodes/source_kafka.rs
+new file mode 100644
+index 0000000..859ee00
+--- /dev/null
++++ b/src-tauri/src/engine/nodes/source_kafka.rs
+@@ -0,0 +1,204 @@
++// ─── src-tauri/src/engine/nodes/source_kafka.rs ───────────────────
++//
++// Sorgente Kafka. Due modalità, come `src/runner/kafkaExecutor.ts`:
++//   • REST Proxy (Confluent): se `restProxyUrl` è configurato → consumo REALE
++//     via HTTP (reqwest), NESSUN crate nativo. È il path di fase 1.
++//   • Nativo (librdkafka): DEFERITO — richiede la dipendenza C `rdkafka`,
++//     rimandata al code-gen di fase 2. Qui NON facciamo passthrough silenzioso
++//     (una sorgente non ha input): logghiamo un avviso ONESTO e 0 righe.
++//
++// FONTE UNICA HTTP = reqwest (già usato da http_request/sink_http). Fedele al
++// runner: crea consumer group → subscribe → poll records → riga per record
++// (payload/topic/partition/offset, + _kafka_* se includeMetadata, + flatten
++// del value se è un oggetto) → DELETE del consumer.
++
++use std::time::{Duration, Instant};
++use crate::engine::types::*;
++use crate::engine::spec::Spec;
++use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
++
++pub async fn run(
++    ctx: NodeContext,
++    rx:  Option<RowReceiver>,
++    tx:  Option<RowSender>,
++) -> Result<NodeStats, String> {
++
++    let _params = super::source_input::await_params(&ctx.node_id.0, "source_kafka", rx).await?;
++
++    let spec = Spec::from_ctx(&ctx.spec)
++        .map_err(|e| format!("source_kafka {}: {}", ctx.node_id.0, e))?;
++    spec.log_unconsumed("source_kafka", &ctx.node_id.0);
++
++    let topics           = spec.str_or("topics", "");
++    let group_id         = spec.str_or("groupId", "flowpilot-consumer");
++    let rest_proxy       = spec.str_or("restProxyUrl", "").trim().to_string();
++    let max_messages     = spec.u64_or("maxMessages", 100) as usize;
++    let poll_timeout      = spec.u64_or("pollTimeout", 5000);
++    let value_format     = spec.str_or("valueFormat", "json");
++    let offset_mode      = spec.str_or("offsetMode", "latest");
++    let include_metadata = spec.str_or("includeMetadata", "false") == "true";
++
++    let tx = match tx {
++        Some(t) => t,
++        None => return Ok(NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: 0, error: None }),
++    };
++    let start = Instant::now();
++
++    // ── Nativo non disponibile (fase 1) ──────────────────────────
++    if rest_proxy.is_empty() {
++        ctx.emit_log(&ctx.label, "warn", 0, format!(
++            "Kafka Source [{}]: il protocollo nativo Kafka non è disponibile in fase 1 (richiede librdkafka). \
++             Configura una REST Proxy URL nel pannello per testare, oppure usa una sorgente File/Script. \
++             In fase 2 verrà generato codice nativo.",
++            if topics.is_empty() { "topic non configurato" } else { &topics }
++        ), "panel");
++        let stats = NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
++        ctx.emit_completed(stats.clone());
++        return Ok(stats);
++    }
++
++    // ── REST Proxy (Confluent) ───────────────────────────────────
++    let topic_list: Vec<String> = topics.split(',').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect();
++    if topic_list.is_empty() {
++        let msg = format!("source_kafka {}: nessun topic configurato", ctx.node_id.0);
++        ctx.emit_failed(msg.clone());
++        return Err(msg);
++    }
++
++    ctx.emit_log(&ctx.label, "info", 0,
++        format!("Kafka Source REST — {} | topics: {} | group: {}", rest_proxy, topics, group_id), "panel");
++
++    let client = reqwest::Client::builder()
++        .timeout(Duration::from_millis(poll_timeout + 15_000))
++        .build()
++        .map_err(|e| format!("source_kafka {}: client HTTP — {}", ctx.node_id.0, e))?;
++
++    // 1) crea il consumer group
++    let consumer_base = format!("{}/consumers/{}", rest_proxy.trim_end_matches('/'), group_id);
++    let instance_name = format!("flowpilot_{}", chrono::Utc::now().timestamp_millis());
++    let create_body = serde_json::json!({
++        "name": instance_name,
++        "auto.offset.reset": if offset_mode == "earliest" { "earliest" } else { "latest" },
++        "auto.commit.enable": "true",
++    });
++    let inst_res = client.post(&consumer_base)
++        .header("Content-Type", "application/vnd.kafka.v2+json")
++        .header("Accept", "application/vnd.kafka.v2+json")
++        .json(&create_body).send().await
++        .map_err(|e| { let m = format!("Kafka REST: creazione consumer — {}", e); ctx.emit_failed(m.clone()); m })?;
++    if !inst_res.status().is_success() {
++        let body = inst_res.text().await.unwrap_or_default();
++        let msg = format!("Kafka REST: errore creazione consumer — {}", body);
++        ctx.emit_failed(msg.clone());
++        return Err(msg);
++    }
++    let instance: serde_json::Value = inst_res.json().await
++        .map_err(|e| format!("Kafka REST: risposta consumer non valida — {}", e))?;
++    let instance_url = instance.get("base_uri").and_then(|v| v.as_str()).unwrap_or("").to_string();
++    if instance_url.is_empty() {
++        let msg = "Kafka REST: base_uri mancante nella risposta del consumer".to_string();
++        ctx.emit_failed(msg.clone());
++        return Err(msg);
++    }
++
++    // Da qui in poi assicuriamo il cleanup (DELETE) su ogni uscita.
++    let result = poll_records(
++        &client, &instance_url, &topic_list, poll_timeout, &value_format,
++        max_messages, include_metadata, &tx,
++    ).await;
++
++    // 5) cleanup: elimina l'istanza consumer (best-effort)
++    let _ = client.delete(&instance_url).send().await;
++
++    let rows_out = match result {
++        Ok(n)  => n,
++        Err(e) => { let m = format!("Kafka Source REST: {}", e); ctx.emit_failed(m.clone()); return Err(m); }
++    };
++
++    ctx.emit_log(&ctx.label, "info", 0, format!("Kafka Source REST: {} record letti", rows_out), "panel");
++
++    let stats = NodeStats {
++        rows_in: 0, rows_out, rows_rejected: 0,
++        elapsed_ms: start.elapsed().as_millis() as u64, error: None,
++    };
++    ctx.emit_completed(stats.clone());
++    Ok(stats)
++}
++
++#[allow(clippy::too_many_arguments)]
++async fn poll_records(
++    client:           &reqwest::Client,
++    instance_url:     &str,
++    topic_list:       &[String],
++    poll_timeout:     u64,
++    value_format:     &str,
++    max_messages:     usize,
++    include_metadata: bool,
++    tx:               &RowSender,
++) -> Result<u64, String> {
++
++    // 2) sottoscrivi ai topic
++    client.post(format!("{}/subscription", instance_url))
++        .header("Content-Type", "application/vnd.kafka.v2+json")
++        .json(&serde_json::json!({ "topics": topic_list }))
++        .send().await
++        .map_err(|e| format!("subscribe — {}", e))?;
++
++    // 3) breve attesa per la riassegnazione delle partizioni
++    tokio::time::sleep(Duration::from_millis(500)).await;
++
++    // 4) fetch dei record
++    let accept = if value_format == "json" {
++        "application/vnd.kafka.json.v2+json"
++    } else {
++        "application/vnd.kafka.binary.v2+json"
++    };
++    let rec_res = client.get(format!("{}/records?timeout={}&max_bytes=1048576", instance_url, poll_timeout))
++        .header("Accept", accept)
++        .send().await
++        .map_err(|e| format!("fetch — {}", e))?;
++    if !rec_res.status().is_success() {
++        let body = rec_res.text().await.unwrap_or_default();
++        return Err(format!("errore fetch — {}", body));
++    }
++    let records: Vec<serde_json::Value> = rec_res.json().await
++        .map_err(|e| format!("record non validi — {}", e))?;
++
++    let mut rows_out = 0u64;
++    for r in records.iter().take(max_messages) {
++        let topic     = r.get("topic").and_then(|v| v.as_str()).unwrap_or("").to_string();
++        let partition = r.get("partition").and_then(|v| v.as_i64()).unwrap_or(0);
++        let offset    = r.get("offset").and_then(|v| v.as_i64()).unwrap_or(0);
++        let key       = r.get("key").cloned().unwrap_or(serde_json::Value::Null);
++        let value     = r.get("value").cloned().unwrap_or(serde_json::Value::Null);
++        let timestamp = r.get("timestamp").and_then(|v| v.as_i64());
++
++        let mut row = Row::new();
++        row.set("payload".to_string(),   Value::from_json(value.clone()));
++        row.set("topic".to_string(),     Value::String(topic.clone()));
++        row.set("partition".to_string(), Value::Int(partition));
++        row.set("offset".to_string(),    Value::Int(offset));
++
++        if include_metadata {
++            row.set("_kafka_topic".to_string(),     Value::String(topic));
++            row.set("_kafka_partition".to_string(), Value::Int(partition));
++            row.set("_kafka_offset".to_string(),    Value::Int(offset));
++            row.set("_kafka_key".to_string(),       Value::from_json(key));
++            if let Some(ts) = timestamp {
++                if let Some(dt) = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ts) {
++                    row.set("_kafka_timestamp".to_string(), Value::String(dt.to_rfc3339()));
++                }
++            }
++        }
++
++        // Se il value è un oggetto JSON, i suoi campi salgono a livello riga.
++        if let serde_json::Value::Object(map) = &value {
++            for (k, v) in map { row.set(k.clone(), Value::from_json(v.clone())); }
++        }
++
++        if tx.send(row).await.is_err() { break; }
++        rows_out += 1;
++    }
++
++    Ok(rows_out)
++}
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index 044fe3a..6760745 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -635,7 +635,6 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
+  * ENTRAMBE.
+  */
+ const MOTORE_NON_IMPLEMENTA = new Set([
+-  'source_kafka',
+   'sink_kafka',
+ ])
+ 

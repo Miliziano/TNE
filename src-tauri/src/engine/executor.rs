@@ -205,11 +205,10 @@ fn closed_receiver() -> RowReceiver {
 /// Chi sta qui NON fa il suo lavoro: inoltra le righe e basta. Per questo
 /// il nodo si segnala come **errore** e non come completato — v. l'arm.
 pub const NOT_IMPLEMENTED: &[&str] = &[
-    // NB `data_quality` NON è qui: ha un arm dedicato (:632) che chiama
-    // data_quality::run — è implementato. Stava nella vecchia lista per un
-    // commento ormai falso.
-    "source_kafka",
-    "sink_kafka",
+    // VUOTA: tutti i nodi di palette hanno un arm nel motore (fase porting
+    // completata). Kafka nativo è "implementato" via REST Proxy; il protocollo
+    // binario nativo (librdkafka) è rimandato al code-gen di fase 2.
+    // `data_quality` ha un arm dedicato (:632) → è implementato.
 ];
 
 /// true se il motore non ha ancora un'implementazione per questo tipo.
@@ -771,6 +770,18 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_activemq::run(ctx, rx, tx).await
+        }
+
+        "source_kafka" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::source_kafka::run(ctx, rx, tx).await
+        }
+
+        "sink_kafka" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::sink_kafka::run(ctx, rx, tx).await
         }
 
         "source_http" => {

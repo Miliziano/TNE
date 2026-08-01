@@ -634,9 +634,8 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
  * lo TOGLIE di là E di qui; chi ne dichiara uno nuovo stub lo aggiunge a
  * ENTRAMBE.
  */
-const MOTORE_NON_IMPLEMENTA = new Set([
-  'source_kafka',
-  'sink_kafka',
+const MOTORE_NON_IMPLEMENTA = new Set<string>([
+  // vuota: tutti i nodi hanno un'implementazione nel motore Rust.
 ])
 
 /**

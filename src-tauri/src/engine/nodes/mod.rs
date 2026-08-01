@@ -19,6 +19,8 @@ pub mod watchdog;           // service mode: sonda HTTP (gate/stream/edge)
 pub mod webhook_responder;  // service mode 5: risponde HEAD/GET con header sintetici
 pub mod source_activemq;    // consumer STOMP (batch)
 pub mod sink_activemq;      // producer STOMP
+pub mod source_kafka;       // consumer Kafka (REST Proxy; nativo deferito)
+pub mod sink_kafka;         // producer Kafka (REST Proxy; nativo deferito)
 pub mod http_request;
 pub mod source_db;
 pub mod filter;
