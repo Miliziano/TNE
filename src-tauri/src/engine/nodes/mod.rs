@@ -18,6 +18,7 @@ pub mod webhook_receiver;   // service mode 4b: riceve webhook HTTP
 pub mod watchdog;           // service mode: sonda HTTP (gate/stream/edge)
 pub mod webhook_responder;  // service mode 5: risponde HEAD/GET con header sintetici
 pub mod source_activemq;    // consumer STOMP (batch)
+pub mod sink_activemq;      // producer STOMP
 pub mod http_request;
 pub mod source_db;
 pub mod filter;

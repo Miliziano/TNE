@@ -6,6 +6,7 @@
  */
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { useActiveMQSourceSchemaSync } from './schema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -44,6 +45,9 @@ function SectionTitle({ label, color = ACCENT }: { label: string; color?: string
 export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
   const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
   const updateProp = useFlowStore((s) => s.updateNodeProp)
+  // Propaga lo schema d'uscita del consumer a valle (no-op per il producer).
+  // PRIMA dell'early-return, per le regole degli hook.
+  useActiveMQSourceSchemaSync(nodeId)
   if (!node) return null
 
   // Ruolo dedotto dal tipo nodo — nessun toggle

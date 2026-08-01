@@ -210,7 +210,6 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // commento ormai falso.
     "source_kafka",
     "sink_kafka",
-    "sink_activemq",
 ];
 
 /// true se il motore non ha ancora un'implementazione per questo tipo.
@@ -766,6 +765,12 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
             super::nodes::source_activemq::run(ctx, rx, tx).await
+        }
+
+        "sink_activemq" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::sink_activemq::run(ctx, rx, tx).await
         }
 
         "source_http" => {

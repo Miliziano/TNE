@@ -19,7 +19,8 @@ use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 use crate::{StompConnectionParams, StompSubscribeRequest, stomp_subscribe_impl};
 
 /// Connessione dalla risorsa (se presente) o dai prop. Porta STOMP 61613.
-fn build_connection(spec: &Spec) -> StompConnectionParams {
+/// Condivisa col sink (`sink_activemq`) — fonte unica della connessione.
+pub(crate) fn build_connection(spec: &Spec) -> StompConnectionParams {
     if spec.has_resource() {
         let username = {
             let u = spec.res_str_or("username", "");
