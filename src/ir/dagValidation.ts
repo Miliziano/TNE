@@ -637,7 +637,6 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
 const MOTORE_NON_IMPLEMENTA = new Set([
   'source_activemq', 'source_kafka',
   'sink_kafka', 'sink_activemq',
-  'webhook_responder',
 ])
 
 /**

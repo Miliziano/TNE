@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { useWebhookReceiverSchemaSync } from './schema'
+import { useIncomingSchema } from '../../useIncomingSchema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -202,12 +203,13 @@ function serializeTemplate(rows: HeaderRow[]): string {
   return JSON.stringify(obj, null, 0)
 }
 
-function HeaderTemplateEditor({ value, onChange, varNames, mode, color }: {
-  value:     string
-  onChange:  (v: string) => void
-  varNames:  string[]
-  mode:      string
-  color:     string
+function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, color }: {
+  value:      string
+  onChange:   (v: string) => void
+  varNames:   string[]
+  fieldNames: string[]
+  mode:       string
+  color:      string
 }) {
   const [rows, setRows] = useState<HeaderRow[]>(() => parseTemplate(value))
   const [insertTarget, setInsertTarget] = useState<number | null>(null)  // indice riga su cui inserire
@@ -230,6 +232,8 @@ function HeaderTemplateEditor({ value, onChange, varNames, mode, color }: {
   }
 
   const sourceLabel = mode === 'monitor' ? 'variabile di lane' : 'campo della riga'
+  // Suggerimenti inseribili: variabili di lane in monitor, campi in ingresso in flow.
+  const suggestions = mode === 'monitor' ? varNames : fieldNames
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -240,9 +244,11 @@ function HeaderTemplateEditor({ value, onChange, varNames, mode, color }: {
           ? <>Scrivi il <strong>nome dell'header</strong> a sinistra. Nel valore usa <code style={{ color }}>$nomeVariabile</code> per inserire una {sourceLabel}.</>
           : <>Scrivi il <strong>nome dell'header</strong> a sinistra. Nel valore usa <code style={{ color }}>$nomeCampo</code> per inserire il valore di un {sourceLabel}.</>
         }
-        {mode === 'monitor' && varNames.length === 0 && (
+        {suggestions.length === 0 && (
           <div style={{ marginTop: 4, color: '#4a5a7a', fontStyle: 'italic' }}>
-            Nessuna variabile definita nella lane. Aggiungine una dalla sidebar delle variabili.
+            {mode === 'monitor'
+              ? 'Nessuna variabile definita nella lane. Aggiungine una dalla sidebar delle variabili.'
+              : 'Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.'}
           </div>
         )}
       </div>
@@ -266,11 +272,11 @@ function HeaderTemplateEditor({ value, onChange, varNames, mode, color }: {
               onChange={(e) => setValue(i, e.target.value)}
               placeholder={mode === 'monitor' ? '$nomeVariabile o valore fisso' : '$nomeCampo o valore fisso'}
             />
-            {/* Bottone inserisci variabile — solo se ci sono variabili */}
-            {mode === 'monitor' && varNames.length > 0 && (
+            {/* Bottone inserisci — se ci sono suggerimenti (variabili o campi) */}
+            {suggestions.length > 0 && (
               <button
                 onClick={() => setInsertTarget(insertTarget === i ? null : i)}
-                title="Inserisci variabile"
+                title={mode === 'monitor' ? 'Inserisci variabile' : 'Inserisci campo in ingresso'}
                 style={{ padding: '4px 7px', background: insertTarget === i ? color : '#1a2030', border: `0.5px solid ${insertTarget === i ? color : '#3a4a6a'}`, borderRadius: 4, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                 <i className="ti ti-variable" style={{ fontSize: 11, color: insertTarget === i ? '#0f1117' : color }} />
               </button>
@@ -285,12 +291,12 @@ function HeaderTemplateEditor({ value, onChange, varNames, mode, color }: {
           </div>
 
           {/* Dropdown variabili — appare solo per la riga selezionata */}
-          {insertTarget === i && varNames.length > 0 && (
+          {insertTarget === i && suggestions.length > 0 && (
             <div style={{ marginLeft: 146, display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${color}40` }}>
               <span style={{ fontSize: 9, color: '#4a5a7a', width: '100%', marginBottom: 2 }}>
                 Clicca per inserire nel valore:
               </span>
-              {varNames.map(varName => (
+              {suggestions.map(varName => (
                 <button
                   key={varName}
                   onClick={() => insertVar(varName, i)}
@@ -347,6 +353,9 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
     return (lane?.variables ?? []).map(v => v.name).join(';')
   })
 
+  // Campi in arrivo all'ingresso (flow mode): pescabili nel template header.
+  const incomingFields = useIncomingSchema(nodeId)
+
   if (!node) return null
 
   const p = (key: string, def = '') => String(node.data.props?.[key] ?? def)
@@ -355,6 +364,7 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
 
   const mode = p('mode', 'flow')
   const varNames = laneVariables ? laneVariables.split(';').filter(Boolean) : []
+  const fieldNames = incomingFields.map(f => f.name)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -413,6 +423,12 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
       <Field label="Tempo di esposizione (sec)" hint="0 = finché il runner non viene fermato">
         <input type="number" style={inputStyle} value={p('listenSec', '0')} onChange={u('listenSec')} min="0" />
       </Field>
+      <Field label="Body sul GET" hint="L'HEAD resta sempre senza corpo. Utile per ispezionare l'endpoint da browser/curl.">
+        <CustomSelect style={inputStyle} value={p('exposeBody', 'true')} onChange={u('exposeBody')}>
+          <option value="true">Sì — il GET restituisce il JSON degli header</option>
+          <option value="false">No — solo header, body vuoto (endpoint puro)</option>
+        </CustomSelect>
+      </Field>
 
       {/* Header template — editor interattivo con inserimento variabili */}
       <SectionTitle label="Header da esporre" color={ACCENT_RESP} />
@@ -420,6 +436,7 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
         value={p('headerTemplate', '{"X-Data-Ready":"true","X-Status":"ok"}')}
         onChange={(v) => updateProp(nodeId, 'headerTemplate', v)}
         varNames={varNames}
+        fieldNames={fieldNames}
         mode={mode}
         color={ACCENT_RESP}
       />

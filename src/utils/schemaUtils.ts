@@ -203,7 +203,20 @@ function propagateToTMap(
 
   if (renames.length > 0) store.applyTMapRenames(tgt.id, renames)
   deletedFields.forEach((f) => store.removeFieldFromTransforms(tgt.id, inputId, f.name))
-  store.updateTMapInput(tgt.id, inputId, { fields: merged })
+
+  // Dedup per nome del risultato. Il merge sopra tiene TUTTI i campi esistenti
+  // col nome che combacia (non collassa doppioni già presenti) e, se lo schema
+  // in ingresso contiene nomi ripetuti, part-2 li aggiunge tutti. Senza questo,
+  // riconnettere o re-importare lo stesso file input accumula campi doppi — e
+  // la cancellazione singola ri-scatenava il merge che li moltiplicava.
+  // Teniamo la PRIMA occorrenza (il campo esistente, con id/connessioni).
+  const seenNames = new Set<string>()
+  const dedupedFields = merged.filter((f) => {
+    if (seenNames.has(f.name)) return false
+    seenNames.add(f.name)
+    return true
+  })
+  store.updateTMapInput(tgt.id, inputId, { fields: dedupedFields })
 }
 
 export function propagateUnionSchema(

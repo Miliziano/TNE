@@ -2303,14 +2303,20 @@ pub async fn webhook_pop_impl(resource_id: String, node_id: String) -> Result<We
 // ─── Responder — con headers dinamici aggiornabili a runtime ─────
 
 #[derive(Debug, Deserialize)]
-struct WebhookResponderStartRequest {
-    node_id: String, port: u16, path: String,
-    methods: Vec<String>,
-    headers: std::collections::HashMap<String, String>,
+pub struct WebhookResponderStartRequest {
+    pub node_id: String, pub port: u16, pub path: String,
+    pub methods: Vec<String>,
+    pub headers: std::collections::HashMap<String, String>,
+    #[serde(default)] pub expose_body: bool,
 }
 
 #[tauri::command]
 async fn webhook_responder_start(request: WebhookResponderStartRequest) -> Result<(), String> {
+    webhook_responder_start_impl(request).await
+}
+
+/// FONTE UNICA del server responder (comando Tauri + nodo `webhook_responder`).
+pub async fn webhook_responder_start_impl(request: WebhookResponderStartRequest) -> Result<(), String> {
     use hyper::server::conn::http1;
     use hyper::service::service_fn;
     use hyper::{Request, Response, StatusCode};
@@ -2331,6 +2337,7 @@ async fn webhook_responder_start(request: WebhookResponderStartRequest) -> Resul
 
     let path    = request.path.clone();
     let methods = request.methods.iter().map(|m| m.to_uppercase()).collect::<Vec<_>>();
+    let expose_body = request.expose_body;
 
     tokio::spawn(async move {
         let listener = match tokio::net::TcpListener::bind(addr).await { Ok(l) => l, Err(e) => { eprintln!("Responder: bind fallito: {}", e); return; } };
@@ -2343,10 +2350,12 @@ async fn webhook_responder_start(request: WebhookResponderStartRequest) -> Resul
                     let methods = methods.clone();
                     let hdrs    = Arc::clone(&headers_cl);
                     let cnt     = Arc::clone(&req_count_cl);
+                    let expose_body = expose_body;
                     tokio::spawn(async move {
                         let svc = service_fn(move |req: Request<hyper::body::Incoming>| {
                             let path = path.clone(); let methods = methods.clone();
                             let hdrs = Arc::clone(&hdrs); let cnt = Arc::clone(&cnt);
+                            let expose_body = expose_body;
                             async move {
                                 let method = req.method().as_str().to_uppercase();
                                 if req.uri().path() != path || !methods.contains(&method) {
@@ -2358,7 +2367,17 @@ async fn webhook_responder_start(request: WebhookResponderStartRequest) -> Resul
                                 let current_headers = hdrs.lock().unwrap().clone();
                                 let mut builder = Response::builder().status(status);
                                 for (k, v) in &current_headers { builder = builder.header(k.as_str(), v.as_str()); }
-                                Ok::<_, hyper::Error>(builder.body(Full::new(Bytes::new())).unwrap())
+                                // HEAD → mai corpo (204). GET → JSON degli header SOLO se
+                                // `expose_body` è attivo (toggle nel pannello); altrimenti
+                                // resta header-only, endpoint macchina-a-macchina puro.
+                                let body = if method == "HEAD" || !expose_body {
+                                    Full::new(Bytes::new())
+                                } else {
+                                    builder = builder.header("content-type", "application/json");
+                                    let json = serde_json::to_string(&current_headers).unwrap_or_else(|_| "{}".to_string());
+                                    Full::new(Bytes::from(json))
+                                };
+                                Ok::<_, hyper::Error>(builder.body(body).unwrap())
                             }
                         });
                         let io = hyper_util::rt::TokioIo::new(stream);
@@ -2380,6 +2399,13 @@ async fn webhook_responder_update_headers(
     node_id: String,
     headers: std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
+    webhook_responder_update_headers_impl(node_id, headers).await
+}
+
+pub async fn webhook_responder_update_headers_impl(
+    node_id: String,
+    headers: std::collections::HashMap<String, String>,
+) -> Result<(), String> {
     let reg = webhook_responders().lock().unwrap();
     if let Some((_, _, headers_state)) = reg.get(&node_id) {
         *headers_state.lock().unwrap() = headers;
@@ -2395,6 +2421,10 @@ async fn webhook_responder_request_count(node_id: String) -> Result<u64, String>
 
 #[tauri::command]
 async fn webhook_responder_stop(node_id: String) -> Result<(), String> {
+    webhook_responder_stop_impl(node_id).await
+}
+
+pub async fn webhook_responder_stop_impl(node_id: String) -> Result<(), String> {
     if let Some((tx, _, _)) = webhook_responders().lock().unwrap().remove(&node_id) { let _ = tx.send(()); }
     Ok(())
 }

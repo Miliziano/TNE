@@ -210,7 +210,7 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // commento ormai falso.
     "source_activemq", "source_kafka",
     "sink_kafka",
-    "sink_activemq", "webhook_responder",
+    "sink_activemq",
 ];
 
 /// true se il motore non ha ancora un'implementazione per questo tipo.
@@ -754,6 +754,12 @@ async fn run_node(
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
             super::nodes::watchdog::run(ctx, rx, tx).await
+        }
+
+        "webhook_responder" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::webhook_responder::run(ctx, rx, tx).await
         }
 
         "source_http" => {

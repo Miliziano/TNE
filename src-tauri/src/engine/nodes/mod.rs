@@ -16,6 +16,7 @@ pub mod source_mqtt;
 pub mod source_http;
 pub mod webhook_receiver;   // service mode 4b: riceve webhook HTTP
 pub mod watchdog;           // service mode: sonda HTTP (gate/stream/edge)
+pub mod webhook_responder;  // service mode 5: risponde HEAD/GET con header sintetici
 pub mod http_request;
 pub mod source_db;
 pub mod filter;
