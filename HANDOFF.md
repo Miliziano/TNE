@@ -4,8 +4,14 @@ Questo documento serve a riprendere il lavoro su FlowPilot in una nuova
 chat senza perdere contesto. Leggilo per intero prima di ripartire, poi
 **leggi il repo per lo stato vero** (vedi "Metodo di lavoro").
 
-Sostituisce l'handoff precedente. Aggiornato a: **27 luglio** — ultima
-consegna di riferimento: **P93b**. Da P47 a oggi: chiuso il porting del nodo
+Sostituisce l'handoff precedente. Aggiornato a: **1 agosto** — ultima consegna
+di riferimento: **P127**. La **FASE PORTING è CONCLUSA**: `NOT_IMPLEMENTED` è
+vuota, restano solo 3 "manuali" (mail_sink, shell_exec, ssh_exec). Per tutto ciò
+che è cambiato da P106 leggi l'**appendice finale "stato al P127"**; l'intestazione
+storica qui sotto (27 lug, P93b) resta per contesto.
+
+--- (storico) ---
+Aggiornato a: **27 luglio** — ultima consegna di riferimento: **P93b**. Da P47 a oggi: chiuso il porting del nodo
 **Script** (P58-73) e del **report_generator** (P74-78); aggiunta la
 **persistenza** salva/apri (P79); portata l'intera famiglia dei **nodi di
 rete** (FTP, MQTT, HTTP client con tutti gli auth incl. digest reale,
@@ -273,12 +279,15 @@ implementarlo sarebbe una bugia silenziosa → va con la fase porting.
 mano con `MOTORE_NON_IMPLEMENTA` in `dagValidation.ts`: chi porta un nodo lo
 toglie da ENTRAMBE — riverificare che coincidano a ogni consegna.
 
-**Stub rimasti (6)**, tutti nella fase porting ancora da fare:
-`watchdog, source_activemq, sink_activemq, source_kafka, sink_kafka,
-webhook_responder`. Lo stub inoltra le righe tal quali senza fallire né
-avvisare (i sink buttano i dati in silenzio) — MA da P73 lo studio ci mette un
-**warning giallo** (`NODE_NOT_IMPLEMENTED`), così non è più un inganno
-silenzioso. `data_quality` NON è stub (ha il suo arm): è implementato.
+**`NOT_IMPLEMENTED` ora VUOTA** (agg. 1 ago, dopo P127): la fase porting è
+**chiusa**. Restano senza arm nel motore solo **3 nodi mai portati** — i
+"manuali": `mail_sink, shell_exec, ssh_exec`. Ora che la lista è vuota il ramo
+passthrough `is_stub` è morto: un tipo senza arm cade in
+`other => Err("Tipo nodo non supportato")` (non più inoltro silenzioso).
+NB: `mail_sink` ha GIÀ l'infra SMTP in lib.rs (crate `lettre`) → porting =
+cablaggio; `shell_exec`/`ssh_exec` sono i due sostanziali (sensibili →
+sicurezza reale). `data_quality` ha il suo arm (implementato). Il dettaglio del
+lavoro P108→P127 è nell'**appendice finale "stato al P127"**.
 
 **Portati da luglio (P58→P93):** Script (FPEL), report_generator, FTP
 source/sink, MQTT source/sink, HTTP client (source_http + http_request +
@@ -600,5 +609,90 @@ nel nodo (che verrebbe ricreato a ogni sessione).
 Limiti v1: single-lane, directory statica nel continuo (niente interpolazione variabili), debounce 300ms fisso,
 bridge ignorati nel ramo continuo, coda in-memory (crash del processo = eventi persi). Collaudo utente in attesa.
 
-### Prossimo
+### Prossimo (piano com'era allo stato P106)
 webhook_receiver / webhook_responder (nodi-servizio) → watchdog → ActiveMQ/STOMP → Kafka (ultimo) → MANUALI.
+→ **Tutto questo è stato completato (P108-P127): vedi l'appendice sotto.**
+
+---
+
+## AGGIORNAMENTO — stato al P127 (1 agosto)
+
+**La FASE PORTING è conclusa.** `NOT_IMPLEMENTED` (executor.rs) e
+`MOTORE_NON_IMPLEMENTA` (dagValidation.ts) sono **vuote**. Su 40 tipi-nodo reali
+tutti hanno un arm nel motore **tranne 3** — i "manuali" mai portati:
+`mail_sink`, `shell_exec`, `ssh_exec`. (`mail_sink` ha già l'infra SMTP `lettre`
+in lib.rs → porting = solo cablaggio; `shell_exec`/`ssh_exec` sono i due
+sostanziali.) `lane_start`/`lane_end` sono ancoraggi (lowered a `lane_boundary`,
+non eseguiti), non contano.
+
+Metodo invariato: **1 consegna = 1 `.patch`**; cancello TS
+`npx tsc --noEmit -p tsconfig.app.json` (baseline **134**, diff elenco vuoto); il
+Rust NON è compilabile in sandbox → l'utente è il cancello, i punti a rischio
+sono dichiarati per patch. Pattern di cablaggio invariato: `*_impl` pub in
+lib.rs, il comando `#[tauri::command]` diventa un wrapper sottile (gotcha E0255).
+
+### Correzioni Stop / Monitor (P108-P112) — P108/109/110 COLLAUDATI OK
+- **P108**: il pulsante Stop era cosmetico (non chiamava `stop_run` né
+  `monitor.runEnd`) → in service/continuo il motore non veniva mai cancellato e
+  il monitor restava "running". Ora ferma davvero.
+- **P109**: colonna **Lane** (chip colorato) nel Monitor — l'utente scambiava
+  l'error_handler di lane diverse. (`P109-DIAG` era una sonda usa-e-getta, da
+  non committare.)
+- **P110**: il dir_watcher continuo ora si mostra "in ascolto" (NodeStarted del
+  watcher a ogni giro del loop, prima del `select!`) → il flusso è visibile dal
+  via anche fra le sessioni istantanee.
+- **P111**: lo Stop chiude i timing dei nodi rimasti aperti (stato "■ interrotto"
+  grigio) → in one-shot il Monitor non resta più "running".
+- **P112**: il watch **one-shot** ora è cancellabile (`select!` su `ctx.cancel`
+  attorno al `spawn_blocking`) → lo Stop lo ferma davvero (prima girava fino al
+  timeout, e un file in arrivo faceva eseguire la lane DOPO lo stop).
+
+### SERVICE MODE — CHIUSO (webhook + watchdog, P113-P120) → `design-service-mode.md`
+Infra webhook già in lib.rs (server hyper, subscribe/pop, responder, **HMAC
+reale**). Riferimento del flusso: `src/runner/webhookExecutor.ts`.
+- **P113** cablaggio (`webhook_*_impl` + struct pub).
+- **P114** `webhook_receiver` (server_start → subscribe → loop `select!{cancel |
+  poll webhook_pop}` → riga per evento → unsubscribe). **P116** fix: porta/
+  resourceId/ipWhitelist vengono dalla RISORSA (default 9110), non dai prop —
+  📌 lezione: leggere `resolve*Config` del runner per le chiavi vere, non solo
+  l'executor.
+- **P115** `watchdog` (nodo-servizio HTTP): 3 modi `gate`/`stream`/`edge`, via
+  `watchdog_check_impl` (reqwest), attesa `select!` su cancel.
+- **P117** schema studio del receiver (8 campi fissi propagati a valle).
+- **P118** `webhook_responder` → **SERVICE MODE CHIUSO**: modi `flow` (header
+  per-riga dal template `$campo`) e `monitor` (header dalle variabili di lane).
+  **P119** fix: log punta a `localhost` (non 0.0.0.0) e il GET restituisce il
+  JSON degli header (prima corpo vuoto → "niente nel browser"). **P120**: toggle
+  "Body sul GET" + selettore dei campi in ingresso nel pannello (chip cliccabili,
+  via `useIncomingSchema`).
+
+### ActiveMQ / STOMP — CHIUSO (P122-P125) → `src/runner/activemqExecutor.ts`
+Infra STOMP grezza su TCP già in lib.rs (nessun crate). **P122** cablaggio
+(`stomp_{subscribe,publish}_impl` + struct pub). **P123** `source_activemq`
+(consumer batch, cancellabile). **P124** `sink_activemq` (producer json/text/
+bytes, conteggio errori). **P125** schema studio del source (5 campi).
+Connessione dalla risorsa (porta 61613) via `build_connection` condiviso.
+
+### Kafka — CHIUSO (P126-P127) → `src/runner/kafkaExecutor.ts`
+🔑 Niente crate nuovo: il Kafka **nativo** (librdkafka) è deferito al code-gen
+di fase 2 (come già faceva il runner); il path **REST Proxy Confluent** è solo
+HTTP → portato reale con `reqwest`. **P126** `source_kafka` (crea consumer →
+subscribe → GET /records → righe → DELETE). **P127** `sink_kafka` (POST /topics
+a batch da 100; aggiunta feature `v4` a `uuid`). Senza REST Proxy → avviso
+onesto, non passthrough silenzioso.
+
+### Studio: fix campi doppi TMap (P121)
+`propagateToTMap` (e i gemelli json/xml_parser) non collassavano i doppioni:
+riconnettere/re-importare lo stesso file accumulava campi doppi nell'input del
+TMap, e la cancellazione li moltiplicava. **P121** deduplica per nome il
+risultato del merge (idempotente). ⚠️ DEBITO: fatto SOLO in `propagateToTMap`;
+i 2 siti gemelli in `flowStore.ts` (onConnect ~650, updateNodeConfig ~719, path
+json/xml_parser) hanno la stessa falla latente — indurirli quando si usano.
+
+### Da dove ripartire (i "manuali")
+`mail_sink` (cablare l'infra SMTP `lettre` già in lib.rs), poi `shell_exec` e
+`ssh_exec` — replicando i rispettivi executor del runner, con attenzione alla
+sicurezza reale. L'utente ha anticipato che chiederà anche un nodo **LDAP**
+(sarebbe un nodo NUOVO, non in palette). Debiti motore ancora aperti: reject
+dichiarati inerti (explode/join/materialize/sink_*), retry da collaudare,
+`let _ = tx.send()` ingoiati, `conn_id` negli eventi Connection*.
