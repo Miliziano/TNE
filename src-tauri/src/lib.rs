@@ -2488,7 +2488,7 @@ pub async fn watchdog_check_impl(request: WatchdogCheckRequest) -> Result<Watchd
 // ─── Shell exec ─────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
-struct ShellExecRequest {
+pub struct ShellExecRequest {
     pub command:     String,
     pub cwd:         Option<String>,
     pub timeout_sec: Option<u64>,
@@ -2496,7 +2496,7 @@ struct ShellExecRequest {
 }
 
 #[derive(serde::Serialize)]
-struct ShellResult {
+pub struct ShellResult {
     pub exit_code:   i32,
     pub stdout:      String,
     pub stderr:      String,
@@ -2506,6 +2506,16 @@ struct ShellResult {
 
 #[tauri::command]
 async fn shell_exec(request: ShellExecRequest) -> Result<ShellResult, String> {
+    shell_exec_impl(request).await
+}
+
+/// Esecuzione shell reale (`/bin/sh -c`), richiamabile SIA dal comando Tauri
+/// SIA dai nodi del motore (porting del nodo shell_exec). Estratta come
+/// `*_impl` per la fonte unica — stesso pattern di rete/webhook/stomp; il
+/// comando resta un wrapper sottile (gotcha E0255: mai `pub` su un
+/// `#[tauri::command]` nello stesso modulo, la macro ri-esporterebbe helper
+/// con nomi duplicati).
+pub async fn shell_exec_impl(request: ShellExecRequest) -> Result<ShellResult, String> {
     let start = Instant::now();
 
     let mut cmd = tokio::process::Command::new("/bin/sh");

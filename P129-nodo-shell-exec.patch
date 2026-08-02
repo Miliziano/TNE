@@ -1,0 +1,368 @@
+diff --git a/src-tauri/src/engine/executor.rs b/src-tauri/src/engine/executor.rs
+index af573ac..e38593f 100644
+--- a/src-tauri/src/engine/executor.rs
++++ b/src-tauri/src/engine/executor.rs
+@@ -790,6 +790,12 @@ async fn run_node(
+             super::nodes::mail_sink::run(ctx, rx, tx).await
+         }
+ 
++        "shell_exec" => {
++            let rx = take_single_input(&mut inputs);
++            let tx = take_primary_output(&mut outputs);
++            super::nodes::shell_exec::run(ctx, rx, tx).await
++        }
++
+         "source_http" => {
+             let rx = take_single_input(&mut inputs);
+             let tx = take_primary_output(&mut outputs);
+diff --git a/src-tauri/src/engine/nodes/mod.rs b/src-tauri/src/engine/nodes/mod.rs
+index 632321c..ab8d6c7 100644
+--- a/src-tauri/src/engine/nodes/mod.rs
++++ b/src-tauri/src/engine/nodes/mod.rs
+@@ -22,6 +22,7 @@ pub mod sink_activemq;      // producer STOMP
+ pub mod source_kafka;       // consumer Kafka (REST Proxy; nativo deferito)
+ pub mod sink_kafka;         // producer Kafka (REST Proxy; nativo deferito)
+ pub mod mail_sink;          // sink email (SMTP via lettre; cloud-REST deferiti)
++pub mod shell_exec;         // DevOps: esegue comandi shell locali (cablaggio shell_exec_impl)
+ pub mod http_request;
+ pub mod source_db;
+ pub mod filter;
+diff --git a/src-tauri/src/engine/nodes/shell_exec.rs b/src-tauri/src/engine/nodes/shell_exec.rs
+new file mode 100644
+index 0000000..eda73ba
+--- /dev/null
++++ b/src-tauri/src/engine/nodes/shell_exec.rs
+@@ -0,0 +1,294 @@
++// ─── src-tauri/src/engine/nodes/shell_exec.rs ─────────────────────
++//
++// Nodo Shell — esegue comandi shell locali (`/bin/sh -c`) e porta l'output
++// nel flusso come righe. Porting di CABLAGGIO: l'infrastruttura reale
++// (`crate::shell_exec_impl`, ex corpo del comando Tauri `shell_exec`) esisteva
++// già in lib.rs — qui si aggiunge solo il nodo del motore, come per la rete.
++//
++// Riferimento del flusso: `src/runner/shellExecutor.ts`. Config dai prop del
++// pannello (nessuna risorsa): command, cwd, outputMode, timeoutSec, onError,
++// captureStderr, env (JSON oggetto), runPerRow.
++//
++// Modalità d'uscita (outputMode):
++//   lines   — ogni riga di stdout è una Row {line,line_number,stream,exit_code,
++//             duration_ms}; con captureStderr anche le righe di stderr (default)
++//   json    — stdout parsato come JSON (array o oggetto) → una Row per elemento
++//   jsonl   — ogni riga di stdout parsata come oggetto JSON
++//   summary — una sola Row di riepilogo per esecuzione
++//
++// ⚠️ SICUREZZA: esegue comandi arbitrari sull'host, senza sandboxing. È un nodo
++// DevOps deliberato — l'utente scrive il comando. Il timeout è onorato dal
++// comando reale; la cancellazione (ctx.cancel) agisce FRA un'esecuzione e la
++// successiva in runPerRow (un singolo processo già avviato non è interrotto a
++// metà — stesso limite di mail/http).
++
++use std::collections::HashMap;
++use std::time::Instant;
++use crate::engine::types::*;
++use crate::engine::spec::Spec;
++use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
++use crate::{ShellExecRequest, ShellResult, shell_exec_impl};
++
++/// Sostituisce `${nome}` e `$nome` col valore del campo di riga o della
++/// variabile di lane. Fedele a `resolveTemplate` del runner: la riga vince
++/// sulla lane; un valore assente o `null` lascia il token letterale.
++fn resolve_template(tpl: &str, row: &Row, lane: &HashMap<String, String>) -> String {
++    let lookup = |name: &str| -> Option<String> {
++        match row.get(name) {
++            Some(v) if !matches!(v, Value::Null) => Some(v.as_str_repr()),
++            _ => lane.get(name).cloned(),
++        }
++    };
++    let chars: Vec<char> = tpl.chars().collect();
++    let mut out = String::with_capacity(tpl.len());
++    let mut i = 0;
++    while i < chars.len() {
++        if chars[i] == '$' && i + 1 < chars.len() {
++            if chars[i + 1] == '{' {
++                // ${nome} — qualsiasi cosa fino alla graffa chiusa
++                if let Some(rel) = chars[i + 2..].iter().position(|&c| c == '}') {
++                    let name: String = chars[i + 2..i + 2 + rel].iter().collect();
++                    match lookup(&name) {
++                        Some(v) => out.push_str(&v),
++                        None => { out.push_str("${"); out.push_str(&name); out.push('}'); }
++                    }
++                    i = i + 2 + rel + 1;
++                    continue;
++                }
++            } else if chars[i + 1].is_ascii_alphabetic() || chars[i + 1] == '_' {
++                // $nome — [A-Za-z_][A-Za-z0-9_]*
++                let mut j = i + 1;
++                while j < chars.len() && (chars[j].is_ascii_alphanumeric() || chars[j] == '_') { j += 1; }
++                let name: String = chars[i + 1..j].iter().collect();
++                match lookup(&name) {
++                    Some(v) => out.push_str(&v),
++                    None => { out.push('$'); out.push_str(&name); }
++                }
++                i = j;
++                continue;
++            }
++        }
++        out.push(chars[i]);
++        i += 1;
++    }
++    out
++}
++
++/// Righe non vuote — come `.split('\n').filter(Boolean)` del runner.
++fn non_empty_lines(s: &str) -> Vec<&str> {
++    s.split('\n').filter(|l| !l.is_empty()).collect()
++}
++
++/// Clona la riga in ingresso e vi sovrappone i campi di un oggetto JSON
++/// (lo spread `{...row, ...item}` del runner: l'oggetto vince sulle collisioni).
++fn row_with_object(base: &Row, obj: &serde_json::Value) -> Row {
++    let mut r = base.clone();
++    if let serde_json::Value::Object(map) = obj {
++        for (k, v) in map { r.set(k.clone(), Value::from_json(v.clone())); }
++    }
++    r
++}
++
++pub async fn run(
++    ctx: NodeContext,
++    rx:  Option<RowReceiver>,
++    tx:  Option<RowSender>,
++) -> Result<NodeStats, String> {
++
++    let spec = Spec::from_ctx(&ctx.spec)
++        .map_err(|e| format!("shell_exec {}: {}", ctx.node_id.0, e))?;
++    spec.log_unconsumed("shell_exec", &ctx.node_id.0);
++
++    let command        = spec.str_or("command", "");
++    let cwd_tpl        = spec.str_or("cwd", "");
++    let output_mode    = spec.str_or("outputMode", "lines");
++    let timeout_sec    = spec.u64_or("timeoutSec", 30);
++    let on_error       = spec.str_or("onError", "stop");
++    let capture_stderr = spec.str_or("captureStderr", "true") == "true";
++    let run_per_row    = spec.str_or("runPerRow", "false") == "true";
++    let env: HashMap<String, String> = spec.json_or("env", HashMap::new());
++
++    let start = Instant::now();
++
++    if command.trim().is_empty() {
++        let msg = format!("shell_exec {}: comando non configurato", ctx.node_id.0);
++        ctx.emit_failed(msg.clone());
++        return Err(msg);
++    }
++
++    // Variabili di lane (per ${VAR}) come stringhe.
++    let lane_vars: HashMap<String, String> = ctx.variables.iter()
++        .map(|(k, v)| (k.clone(), v.as_str_repr())).collect();
++
++    // Drena l'eventuale input.
++    let mut input: Vec<Row> = Vec::new();
++    if let Some(mut rxc) = rx {
++        while let Some(r) = rxc.recv().await { input.push(r); }
++    }
++    let rows_in = input.len() as u64;
++
++    // runPerRow: una esecuzione per riga; altrimenti una sola con la 1ª riga
++    // (o riga vuota se non c'è input) — identico al runner.
++    let batch: Vec<Row> = if run_per_row && !input.is_empty() {
++        input
++    } else {
++        vec![input.into_iter().next().unwrap_or_else(Row::new)]
++    };
++
++    let mut rows_out = 0u64;
++
++    for row in &batch {
++        if ctx.cancel.is_cancelled() { break; }
++
++        let resolved_command = resolve_template(&command, row, &lane_vars);
++        let resolved_cwd = if cwd_tpl.is_empty() { None }
++                           else { Some(resolve_template(&cwd_tpl, row, &lane_vars)) };
++
++        ctx.emit_log(&ctx.label, "info", 0,
++            format!("Shell: eseguo — {}", resolved_command), "panel");
++
++        let result: ShellResult = match shell_exec_impl(ShellExecRequest {
++            command:     resolved_command.clone(),
++            cwd:         resolved_cwd,
++            timeout_sec: if timeout_sec > 0 { Some(timeout_sec) } else { None },
++            env:         if env.is_empty() { None } else { Some(env.clone()) },
++        }).await {
++            Ok(r) => r,
++            Err(e) => {
++                ctx.emit_log(&ctx.label, "error", 0,
++                    format!("Shell: invocazione fallita — {}", e), "panel");
++                if on_error == "stop" {
++                    let msg = format!("shell_exec {}: {}", ctx.node_id.0, e);
++                    ctx.emit_failed(msg.clone());
++                    return Err(msg);
++                }
++                continue;
++            }
++        };
++
++        let out_lines = non_empty_lines(&result.stdout);
++        let err_lines = non_empty_lines(&result.stderr);
++
++        ctx.emit_log(&ctx.label,
++            if result.exit_code == 0 { "ok" } else { "warn" }, 0,
++            format!("Shell: exit {} | {}ms | stdout: {} righe",
++                result.exit_code, result.duration_ms, out_lines.len()), "panel");
++
++        if capture_stderr {
++            for line in &err_lines {
++                ctx.emit_log(&ctx.label, "warn", 0, format!("Shell stderr: {}", line), "panel");
++            }
++        }
++
++        // Exit code non-zero con onError=stop → il nodo fallisce (va all'EH).
++        if result.exit_code != 0 && on_error == "stop" {
++            let detail = if result.stderr.is_empty() { &result.stdout } else { &result.stderr };
++            let msg = format!("shell_exec {}: exit code {}\n{}", ctx.node_id.0, result.exit_code, detail);
++            ctx.emit_failed(msg.clone());
++            return Err(msg);
++        }
++
++        // Senza valle: eseguito per gli effetti, niente da emettere.
++        let tx = match &tx { Some(t) => t, None => continue };
++
++        match output_mode.as_str() {
++            "summary" => {
++                let mut r = row.clone();
++                r.set("command".into(),      Value::String(resolved_command.clone()));
++                r.set("exit_code".into(),    Value::Int(result.exit_code as i64));
++                r.set("stdout".into(),       Value::String(result.stdout.clone()));
++                r.set("stderr".into(),       Value::String(result.stderr.clone()));
++                r.set("stdout_lines".into(), Value::Int(out_lines.len() as i64));
++                r.set("stderr_lines".into(), Value::Int(err_lines.len() as i64));
++                r.set("duration_ms".into(),  Value::Int(result.duration_ms as i64));
++                r.set("ok".into(),           Value::Bool(result.exit_code == 0));
++                if tx.send(r).await.is_err() { break; }
++                rows_out += 1;
++            }
++
++            "json" => {
++                match serde_json::from_str::<serde_json::Value>(result.stdout.trim()) {
++                    Ok(parsed) => {
++                        let arr = match parsed {
++                            serde_json::Value::Array(a) => a,
++                            other => vec![other],
++                        };
++                        for item in arr {
++                            let mut r = row_with_object(row, &item);
++                            r.set("_exit_code".into(), Value::Int(result.exit_code as i64));
++                            if tx.send(r).await.is_err() { break; }
++                            rows_out += 1;
++                        }
++                    }
++                    Err(_) => {
++                        ctx.emit_log(&ctx.label, "warn", 0,
++                            "Shell [json]: output non è JSON valido — fallback a lines".into(), "panel");
++                        for (i, line) in out_lines.iter().enumerate() {
++                            let mut r = row.clone();
++                            r.set("line".into(),        Value::String((*line).to_string()));
++                            r.set("line_number".into(), Value::Int((i + 1) as i64));
++                            r.set("stream".into(),      Value::String("stdout".into()));
++                            r.set("exit_code".into(),   Value::Int(result.exit_code as i64));
++                            if tx.send(r).await.is_err() { break; }
++                            rows_out += 1;
++                        }
++                    }
++                }
++            }
++
++            "jsonl" => {
++                for (i, line) in out_lines.iter().enumerate() {
++                    let r = match serde_json::from_str::<serde_json::Value>(line) {
++                        Ok(parsed) => {
++                            let mut r = row_with_object(row, &parsed);
++                            r.set("_exit_code".into(), Value::Int(result.exit_code as i64));
++                            r
++                        }
++                        Err(_) => {
++                            let mut r = row.clone();
++                            r.set("line".into(),        Value::String((*line).to_string()));
++                            r.set("line_number".into(), Value::Int((i + 1) as i64));
++                            r.set("stream".into(),      Value::String("stdout".into()));
++                            r.set("exit_code".into(),   Value::Int(result.exit_code as i64));
++                            r
++                        }
++                    };
++                    if tx.send(r).await.is_err() { break; }
++                    rows_out += 1;
++                }
++            }
++
++            _ => {
++                // lines (default)
++                for (i, line) in out_lines.iter().enumerate() {
++                    let mut r = row.clone();
++                    r.set("line".into(),        Value::String((*line).to_string()));
++                    r.set("line_number".into(), Value::Int((i + 1) as i64));
++                    r.set("stream".into(),      Value::String("stdout".into()));
++                    r.set("exit_code".into(),   Value::Int(result.exit_code as i64));
++                    r.set("duration_ms".into(), Value::Int(result.duration_ms as i64));
++                    if tx.send(r).await.is_err() { break; }
++                    rows_out += 1;
++                }
++                if capture_stderr {
++                    for (i, line) in err_lines.iter().enumerate() {
++                        let mut r = row.clone();
++                        r.set("line".into(),        Value::String((*line).to_string()));
++                        r.set("line_number".into(), Value::Int((i + 1) as i64));
++                        r.set("stream".into(),      Value::String("stderr".into()));
++                        r.set("exit_code".into(),   Value::Int(result.exit_code as i64));
++                        if tx.send(r).await.is_err() { break; }
++                        rows_out += 1;
++                    }
++                }
++            }
++        }
++    }
++
++    let stats = NodeStats {
++        rows_in, rows_out, rows_rejected: 0,
++        elapsed_ms: start.elapsed().as_millis() as u64, error: None,
++    };
++    ctx.emit_completed(stats.clone());
++    Ok(stats)
++}
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index bd52254..f577477 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -2488,7 +2488,7 @@ pub async fn watchdog_check_impl(request: WatchdogCheckRequest) -> Result<Watchd
+ // ─── Shell exec ─────────────────────────────────────────────────────
+ 
+ #[derive(serde::Deserialize)]
+-struct ShellExecRequest {
++pub struct ShellExecRequest {
+     pub command:     String,
+     pub cwd:         Option<String>,
+     pub timeout_sec: Option<u64>,
+@@ -2496,7 +2496,7 @@ struct ShellExecRequest {
+ }
+ 
+ #[derive(serde::Serialize)]
+-struct ShellResult {
++pub struct ShellResult {
+     pub exit_code:   i32,
+     pub stdout:      String,
+     pub stderr:      String,
+@@ -2506,6 +2506,16 @@ struct ShellResult {
+ 
+ #[tauri::command]
+ async fn shell_exec(request: ShellExecRequest) -> Result<ShellResult, String> {
++    shell_exec_impl(request).await
++}
++
++/// Esecuzione shell reale (`/bin/sh -c`), richiamabile SIA dal comando Tauri
++/// SIA dai nodi del motore (porting del nodo shell_exec). Estratta come
++/// `*_impl` per la fonte unica — stesso pattern di rete/webhook/stomp; il
++/// comando resta un wrapper sottile (gotcha E0255: mai `pub` su un
++/// `#[tauri::command]` nello stesso modulo, la macro ri-esporterebbe helper
++/// con nomi duplicati).
++pub async fn shell_exec_impl(request: ShellExecRequest) -> Result<ShellResult, String> {
+     let start = Instant::now();
+ 
+     let mut cmd = tokio::process::Command::new("/bin/sh");
