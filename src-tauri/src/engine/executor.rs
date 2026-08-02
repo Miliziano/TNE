@@ -784,6 +784,12 @@ async fn run_node(
             super::nodes::sink_kafka::run(ctx, rx, tx).await
         }
 
+        "mail_sink" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::mail_sink::run(ctx, rx, tx).await
+        }
+
         "source_http" => {
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);

@@ -1802,25 +1802,30 @@ use lettre::{
     transport::smtp::client::{Tls, TlsParameters},
 };
 
-#[derive(Debug, Deserialize)]
-struct SmtpConfig {
-    host:     String, port: u16, username: String, password: String, security: String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct SmtpConfig {
+    pub host:     String, pub port: u16, pub username: String, pub password: String, pub security: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct MailAttachmentRequest {
-    filename:     String, content_b64: String, content_type: String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct MailAttachmentRequest {
+    pub filename:     String, pub content_b64: String, pub content_type: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct MailSendRequest {
-    smtp:        SmtpConfig, from: String, to: Vec<String>, cc: Vec<String>, bcc: Vec<String>,
-    subject:     String, html: Option<String>, text: Option<String>,
-    attachments: Vec<MailAttachmentRequest>,
+#[derive(Debug, Clone, Deserialize)]
+pub struct MailSendRequest {
+    pub smtp:        SmtpConfig, pub from: String, pub to: Vec<String>, pub cc: Vec<String>, pub bcc: Vec<String>,
+    pub subject:     String, pub html: Option<String>, pub text: Option<String>,
+    pub attachments: Vec<MailAttachmentRequest>,
 }
 
 #[tauri::command]
 async fn mail_send(request: MailSendRequest) -> Result<(), String> {
+    mail_send_impl(request).await
+}
+
+/// FONTE UNICA dell'invio email (comando Tauri + nodo `mail_sink`). SMTP via lettre.
+pub async fn mail_send_impl(request: MailSendRequest) -> Result<(), String> {
     let from_mailbox = request.from.parse::<lettre::message::Mailbox>().map_err(|e| format!("Indirizzo mittente non valido: {}", e))?;
     let mut builder = Message::builder().from(from_mailbox);
     for addr in &request.to { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("TO non valido '{}': {}", addr, e))?; builder = builder.to(mb); }
