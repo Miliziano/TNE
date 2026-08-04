@@ -32,7 +32,7 @@ use crate::{ShellExecRequest, ShellResult, shell_exec_impl};
 /// Sostituisce `${nome}` e `$nome` col valore del campo di riga o della
 /// variabile di lane. Fedele a `resolveTemplate` del runner: la riga vince
 /// sulla lane; un valore assente o `null` lascia il token letterale.
-fn resolve_template(tpl: &str, row: &Row, lane: &HashMap<String, String>) -> String {
+pub(crate) fn resolve_template(tpl: &str, row: &Row, lane: &HashMap<String, String>) -> String {
     let lookup = |name: &str| -> Option<String> {
         match row.get(name) {
             Some(v) if !matches!(v, Value::Null) => Some(v.as_str_repr()),
@@ -75,7 +75,7 @@ fn resolve_template(tpl: &str, row: &Row, lane: &HashMap<String, String>) -> Str
 }
 
 /// Righe non vuote — come `.split('\n').filter(Boolean)` del runner.
-fn non_empty_lines(s: &str) -> Vec<&str> {
+pub(crate) fn non_empty_lines(s: &str) -> Vec<&str> {
     s.split('\n').filter(|l| !l.is_empty()).collect()
 }
 

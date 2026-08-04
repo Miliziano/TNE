@@ -796,6 +796,12 @@ async fn run_node(
             super::nodes::shell_exec::run(ctx, rx, tx).await
         }
 
+        "ssh_exec" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::ssh_exec::run(ctx, rx, tx).await
+        }
+
         "source_http" => {
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);

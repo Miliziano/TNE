@@ -2561,7 +2561,7 @@ pub async fn shell_exec_impl(request: ShellExecRequest) -> Result<ShellResult, S
 // ─── SSH exec ─────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize, Clone)]
-struct SshConnection {
+pub struct SshConnection {
     pub host:                String,
     pub port:                u16,
     pub user:                String,
@@ -2574,7 +2574,7 @@ struct SshConnection {
 }
 
 #[derive(serde::Deserialize)]
-struct SshExecRequest {
+pub struct SshExecRequest {
     pub connection:  SshConnection,
     pub command:     String,
     pub timeout_sec: Option<u64>,
@@ -2637,6 +2637,14 @@ fn build_ssh_session(conn: &SshConnection) -> Result<ssh2::Session, String> {
 
 #[tauri::command]
 async fn ssh_exec(request: SshExecRequest) -> Result<ShellResult, String> {
+    ssh_exec_impl(request).await
+}
+
+/// Esecuzione SSH reale (ssh2, in `spawn_blocking`), richiamabile SIA dal
+/// comando Tauri SIA dai nodi del motore (porting del nodo ssh_exec). Estratta
+/// come `*_impl` per la fonte unica — gemella di `shell_exec_impl`; il comando
+/// resta un wrapper sottile (gotcha E0255).
+pub async fn ssh_exec_impl(request: SshExecRequest) -> Result<ShellResult, String> {
     let conn    = request.connection.clone();
     let command = request.command.clone();
     let timeout = request.timeout_sec;
