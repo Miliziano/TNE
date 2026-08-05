@@ -2,6 +2,7 @@ import { useFlowStore } from '../store/flowStore'
 import type { LaneResource, ResourceStatus, ResourceAction } from '../types'
 import { HTTP_DEFAULTS } from '../nodes/resourceDefaults.ts'
 import { CustomSelect } from '../components/CustomSelect'
+import { actionsForKind } from '../nodes/resourceActions'
 
 
 
@@ -415,7 +416,14 @@ function WebhookConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
 
 // ─── ActionButtons ────────────────────────────────────────────────
 function ActionButtons({ resource, laneId }: { resource: LaneResource; laneId: string }) {
-  if (resource.actions.length === 0) return null
+  // Unione delle azioni salvate sulla risorsa + quelle canoniche per il suo kind
+  // (fonte unica in resourceActions.ts), deduplicate per id. Così anche le
+  // risorse create prima che il nodo esistesse mostrano l'azione.
+  const actions = [...resource.actions]
+  for (const a of actionsForKind(resource.kind)) {
+    if (!actions.some((x) => x.id === a.id)) actions.push(a)
+  }
+  if (actions.length === 0) return null
 
   const handleAction = (action: ResourceAction) => {
     const store   = useFlowStore.getState()
@@ -435,7 +443,7 @@ function ActionButtons({ resource, laneId }: { resource: LaneResource; laneId: s
   return (
     <Section label="Aggiungi al canvas">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {resource.actions.map((action) => (
+        {actions.map((action) => (
           <button key={action.id} onClick={() => handleAction(action)}
             style={{ width: '100%', padding: '7px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 8, borderRadius: 4, cursor: 'pointer', textAlign: 'left', background: '#1a2030', border: '0.5px solid #2a3349', color: '#9a9aaa' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535'; (e.currentTarget as HTMLElement).style.color = '#c8d4f0' }}

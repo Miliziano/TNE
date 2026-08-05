@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { HTTP_DEFAULTS } from '../nodes/resourceDefaults'
+import { actionsForKind } from '../nodes/resourceActions'
 import { DB_DEFAULTS } from '../nodes/resourceDefaults'
 import { JsonParserNode } from '../nodes/JsonParserNode'
 import { XmlParserNode } from '../nodes/XmlParserNode'
@@ -230,7 +231,7 @@ function ResourceStrip({ lane }: { lane: Lane }) {
           connectTimeout: '10',
           pageSize:       '500',
         },
-        actions: [],   // query→ldap_source / auth→ldap_auth arriveranno con i nodi
+        actions: actionsForKind('ldap'),   // fonte unica in resourceActions.ts (auth→ldap_auth in fetta 3)
       }),
     },
     { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'Nuovo DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Aggiungi come input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Aggiungi come output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },

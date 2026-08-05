@@ -38,6 +38,7 @@ import { AggregateMappingPanel } from './types/aggregate/MappingPanel'
 import { PivotPanel } from './types/pivot/Panel'
 import { PivotMappingPanel } from './types/pivot/MappingPanel'
 import { SourceFtpPanel } from './types/source_ftp/Panel'
+import { LdapSourcePanel } from './types/ldap_source/Panel'
 import { SinkFtpPanel }   from './types/sink_ftp/Panel'
 import { JsonSerializerPanel } from './types/json_serializer/Panel'
 import { XmlSerializerPanel }  from './types/xml_serializer/Panel'
@@ -134,6 +135,16 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     color:       '#4a9eff',
     category:    'input',
     description: 'Legge file da server FTP, FTPS o SFTP.',
+    fields:      [],
+  },
+
+  ldap_source: {
+    type:        'ldap_source',
+    label:       'LDAP Source',
+    icon:        '⧉',
+    color:       '#4a9eff',
+    category:    'input',
+    description: 'Interroga una directory LDAP e produce una riga per voce.',
     fields:      [],
   },
 
@@ -553,7 +564,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
 
 
 export const PALETTE_SECTIONS = [
-  { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
+  { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
   { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot'] },
   { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
   { label: 'Flusso', types: ['stop'] },
@@ -588,6 +599,7 @@ export const NODE_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
   explode: ExplodePanel,
   pivot: PivotPanel,   // ← aggiungere
   source_ftp: SourceFtpPanel,
+  ldap_source: LdapSourcePanel,
   sink_ftp:   SinkFtpPanel,
   //json_serializer: JsonSerializerPanel,
   xml_serializer:  XmlSerializerPanel,
