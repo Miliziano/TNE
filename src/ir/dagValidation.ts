@@ -635,7 +635,7 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
  * ENTRAMBE.
  */
 const MOTORE_NON_IMPLEMENTA = new Set<string>([
-  'ldap_auth',  // studio pronto (fetta 3a); implementazione motore in arrivo (fetta 3b)
+  // vuota: tutti i nodi hanno un'implementazione nel motore Rust.
 ])
 
 /**

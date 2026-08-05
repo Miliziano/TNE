@@ -808,6 +808,13 @@ async fn run_node(
             super::nodes::ldap_source::run(ctx, rx, tx).await
         }
 
+        "ldap_auth" => {
+            let rx = take_single_input(&mut inputs)
+                .ok_or_else(|| format!("ldap_auth {} richiede un input collegato", ctx.node_id.0))?;
+            // Multi-uscita: output + reject → passa l'intera mappa (come filter).
+            super::nodes::ldap_auth::run(ctx, rx, outputs).await
+        }
+
         "source_http" => {
             let rx = take_single_input(&mut inputs);
             let tx = take_primary_output(&mut outputs);
