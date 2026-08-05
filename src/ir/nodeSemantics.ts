@@ -355,6 +355,24 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     pushdownCapable:         [],
   },
 
+  ldap_auth: {
+    uiType:                  'ldap_auth',
+    operations:              ['transform'],
+    executionSemantics:      'row',
+    producesMultipleOutputs: true,
+    acceptsMultipleInputs:   false,
+    acceptsDynamicInputs:    false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', role: 'data' },
+    ],
+    staticOutputPorts: [
+      { id: 'output', label: 'authenticated', role: 'data' },
+      { id: 'reject', label: 'reject',        role: 'reject' },
+    ],
+    preferredRuntimes:       ['typescript'],
+    pushdownCapable:         [],
+  },
+
   transform: {
     uiType:                 'transform',
     operations:             ['projection'],

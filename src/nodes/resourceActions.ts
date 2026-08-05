@@ -14,6 +14,7 @@ import type { ResourceKind, ResourceAction } from '../types'
 export const RESOURCE_ACTIONS: Partial<Record<ResourceKind, ResourceAction[]>> = {
   ldap: [
     { id: 'query', label: 'Aggiungi come query (source)', nodeType: 'ldap_source', propsOverride: {} },
+    { id: 'auth',  label: 'Aggiungi come autenticatore',   nodeType: 'ldap_auth',   propsOverride: {} },
   ],
 }
 
