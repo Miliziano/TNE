@@ -1,0 +1,186 @@
+// ─── src-tauri/src/engine/nodes/ldap_source.rs ────────────────────
+//
+// Sorgente LDAP (FETTA 2b) — interroga una directory ed emette una riga per
+// voce. La connessione + l'account di SERVIZIO vengono dalla risorsa LDAP
+// collegata (o dai prop in fallback), tramite l'helper condiviso
+// `crate::ldap_connect_and_bind` (lo stesso di ldap_test). Lo studio dichiara
+// lo schema d'uscita in props.outputSchema (dn + attributi).
+//
+// Search PAGINATA (adapter EntriesOnly + PagedResults) per NON troncare in
+// silenzio su directory grandi (es. il limite 1000 di AD). Riferimento studio:
+// src/nodes/types/ldap_source/Panel.tsx.
+
+use std::time::Instant;
+use crate::engine::types::*;
+use crate::engine::spec::Spec;
+use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::LdapConnection;
+use ldap3::{Scope, SearchEntry};
+use ldap3::adapters::{Adapter, EntriesOnly, PagedResults};
+
+pub async fn run(
+    ctx: NodeContext,
+    rx:  Option<RowReceiver>,
+    tx:  Option<RowSender>,
+) -> Result<NodeStats, String> {
+
+    let spec = Spec::from_ctx(&ctx.spec)
+        .map_err(|e| format!("ldap_source {}: {}", ctx.node_id.0, e))?;
+    spec.log_unconsumed("ldap_source", &ctx.node_id.0);
+
+    // Attende l'eventuale trigger a monte (come le altre sorgenti).
+    let _ = super::source_input::await_params(&ctx.node_id.0, "ldap_source", rx).await?;
+
+    // Connessione: dalla RISORSA collegata se c'è, altrimenti dai prop del nodo
+    // (stesso schema di ssh/P130; le chiavi coincidono con la config risorsa).
+    let (host, port, tls_mode, verify_cert, bind_dn, password, res_base_dn, connect_timeout_sec): (
+        String, u16, String, bool, String, String, String, u64,
+    ) = if spec.has_resource() {
+        (
+            spec.res_str_or("host", ""),
+            spec.res_u16_or("port", 636),
+            spec.res_str_or("tlsMode", "ldaps"),
+            spec.res_str_or("verifyCert", "true") == "true",
+            spec.res_str_or("bindDN", ""),
+            spec.res_str_or("password", ""),
+            spec.res_str_or("baseDN", ""),
+            spec.res_u64_or("connectTimeout", 10),
+        )
+    } else {
+        (
+            spec.str_or("host", ""),
+            spec.str_or("port", "636").parse().unwrap_or(636),
+            spec.str_or("tlsMode", "ldaps"),
+            spec.str_or("verifyCert", "true") == "true",
+            spec.str_or("bindDN", ""),
+            spec.str_or("password", ""),
+            spec.str_or("baseDN", ""),
+            spec.str_or("connectTimeout", "10").parse().unwrap_or(10),
+        )
+    };
+
+    let conn = LdapConnection {
+        host: host.clone(), port, tls_mode, verify_cert,
+        bind_dn, password, base_dn: res_base_dn.clone(), connect_timeout_sec,
+    };
+
+    // Parametri della query (prop del nodo). baseDN del nodo prevale, altrimenti
+    // quello della risorsa.
+    let base_dn = {
+        let b = spec.str_or("baseDN", "");
+        if b.is_empty() { res_base_dn } else { b }
+    };
+    let scope_s   = spec.str_or("scope", "subtree");
+    let filter    = spec.str_or("filter", "(objectClass=*)");
+    let attrs_raw = spec.str_or("attributes", "");
+    let page_size = spec.str_or("pageSize", "500").parse::<i32>().unwrap_or(500).max(1);
+    let multi     = spec.str_or("multiValue", "array");
+
+    let attributes: Vec<String> = attrs_raw
+        .split(',').map(|a| a.trim().to_string()).filter(|a| !a.is_empty()).collect();
+
+    let scope = match scope_s.as_str() {
+        "base" => Scope::Base,
+        "one"  => Scope::OneLevel,
+        _      => Scope::Subtree,
+    };
+
+    if conn.host.is_empty() {
+        let m = format!("ldap_source {}: host non configurato (collega una risorsa LDAP)", ctx.node_id.0);
+        ctx.emit_failed(m.clone());
+        return Err(m);
+    }
+    if base_dn.is_empty() {
+        let m = format!("ldap_source {}: base DN non configurato", ctx.node_id.0);
+        ctx.emit_failed(m.clone());
+        return Err(m);
+    }
+
+    let start = Instant::now();
+    ctx.emit_log(&ctx.label, "info", 0,
+        format!("LDAP: search base={} scope={} filtro={}", base_dn, scope_s, filter), "panel");
+
+    // Connessione + bind di servizio (helper condiviso con ldap_test).
+    let mut ldap = crate::ldap_connect_and_bind(&conn).await.map_err(|e| {
+        let m = format!("ldap_source {}: {}", ctx.node_id.0, e);
+        ctx.emit_failed(m.clone());
+        m
+    })?;
+
+    // Search PAGINATA: EntriesOnly scarta referral/messaggi intermedi,
+    // PagedResults applica il controllo di paginazione fino a esaurire il set.
+    let adapters: Vec<Box<dyn Adapter<_, _>>> = vec![
+        Box::new(EntriesOnly::new()),
+        Box::new(PagedResults::new(page_size)),
+    ];
+    // Se nessun attributo richiesto → tutti ("*").
+    let attrs_for_search: Vec<String> =
+        if attributes.is_empty() { vec!["*".to_string()] } else { attributes.clone() };
+
+    let mut stream = ldap
+        .streaming_search_with(adapters, &base_dn, scope, &filter, attrs_for_search)
+        .await
+        .map_err(|e| {
+            let m = format!("ldap_source {}: search fallita — {}", ctx.node_id.0, e);
+            ctx.emit_failed(m.clone());
+            m
+        })?;
+
+    let mut rows_out = 0u64;
+
+    loop {
+        if ctx.cancel.is_cancelled() { break; }
+
+        let next = stream.next().await.map_err(|e| {
+            let m = format!("ldap_source {}: lettura voce fallita — {}", ctx.node_id.0, e);
+            ctx.emit_failed(m.clone());
+            m
+        })?;
+        let entry = match next { Some(e) => e, None => break };
+        let se = SearchEntry::construct(entry);
+
+        let mut row = Row::new();
+        row.set("dn".into(), Value::String(se.dn.clone()));
+
+        // Colonne: gli attributi richiesti (anche se assenti nella voce →
+        // Null/vuoto), o tutti quelli restituiti se non ne è stato chiesto nessuno.
+        let keys: Vec<String> = if attributes.is_empty() {
+            se.attrs.keys().cloned().collect()
+        } else {
+            attributes.clone()
+        };
+        for k in keys {
+            let values = se.attrs.get(&k).cloned().unwrap_or_default();
+            let v = match multi.as_str() {
+                "first" => values.into_iter().next().map(Value::String).unwrap_or(Value::Null),
+                "join"  => Value::String(values.join(";")),
+                _ => Value::from_json(serde_json::Value::Array(
+                        values.into_iter().map(serde_json::Value::String).collect())),
+            };
+            row.set(k, v);
+        }
+
+        if let Some(t) = &tx {
+            if t.send(row).await.is_err() { break; }
+        }
+        rows_out += 1;
+    }
+
+    // Chiude lo stream e verifica il codice di risultato (rc≠0 = errore, es.
+    // sizeLimit/timeLimit → fallisce, NON tronca in silenzio).
+    let _res = stream.finish().await.success().map_err(|e| {
+        let m = format!("ldap_source {}: risultato search — {}", ctx.node_id.0, e);
+        ctx.emit_failed(m.clone());
+        m
+    })?;
+
+    ctx.emit_log(&ctx.label, "ok", 0,
+        format!("LDAP: {} voci in {}ms", rows_out, start.elapsed().as_millis()), "panel");
+
+    let stats = NodeStats {
+        rows_in: 0, rows_out, rows_rejected: 0,
+        elapsed_ms: start.elapsed().as_millis() as u64, error: None,
+    };
+    ctx.emit_completed(stats.clone());
+    Ok(stats)
+}

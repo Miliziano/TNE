@@ -24,6 +24,7 @@ pub mod sink_kafka;         // producer Kafka (REST Proxy; nativo deferito)
 pub mod mail_sink;          // sink email (SMTP via lettre; cloud-REST deferiti)
 pub mod shell_exec;         // DevOps: esegue comandi shell locali (cablaggio shell_exec_impl)
 pub mod ssh_exec;           // DevOps: esegue comandi su host remoto via SSH (cablaggio ssh_exec_impl)
+pub mod ldap_source;        // sorgente LDAP: search paginata → una riga per voce (usa ldap_connect_and_bind)
 pub mod http_request;
 pub mod source_db;
 pub mod filter;
