@@ -1577,6 +1577,37 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       return
     }
 
+    // LDAP — bind di servizio via ldap_test (aggiorna badge + log come gli altri)
+    if (res.kind === 'ldap') {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const cfg = res.config ?? {}
+        const result = await invoke<{ ok: boolean; message: string; elapsed_ms: number }>('ldap_test', {
+          connection: {
+            host:                cfg.host ?? '',
+            port:                parseInt(cfg.port ?? '636', 10),
+            tls_mode:            cfg.tlsMode ?? 'ldaps',
+            verify_cert:         (cfg.verifyCert ?? 'true') === 'true',
+            bind_dn:             cfg.bindDN ?? '',
+            password:            cfg.password ?? '',
+            base_dn:             cfg.baseDN ?? '',
+            connect_timeout_sec: parseInt(cfg.connectTimeout ?? '10', 10),
+          },
+        })
+        if (result.ok) {
+          setResourceStatus(laneId, resourceId, 'ok')
+          addLog('ok', `"${res.label}" — ${result.message}`, undefined, laneId)
+        } else {
+          setResourceStatus(laneId, resourceId, 'error')
+          addLog('error', `"${res.label}" — ${result.message}`, undefined, laneId)
+        }
+      } catch (err) {
+        setResourceStatus(laneId, resourceId, 'error')
+        addLog('error', `"${res.label}" — ${err instanceof Error ? err.message : String(err)}`, undefined, laneId)
+      }
+      return
+    }
+
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       const cfg = res.config ?? {}

@@ -1,0 +1,117 @@
+diff --git a/src/components/ResourcePanel.tsx b/src/components/ResourcePanel.tsx
+index 3d8a3e4..2c44741 100644
+--- a/src/components/ResourcePanel.tsx
++++ b/src/components/ResourcePanel.tsx
+@@ -1,5 +1,3 @@
+-import { useState } from 'react'
+-import { invoke } from '@tauri-apps/api/core'
+ import { useFlowStore } from '../store/flowStore'
+ import type { LaneResource, ResourceStatus, ResourceAction } from '../types'
+ import { HTTP_DEFAULTS } from '../nodes/resourceDefaults.ts'
+@@ -131,33 +129,6 @@ function LdapConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
+   const f = (k: string) => c[k] ?? ''
+   const p = { laneId, resourceId: res.id }
+ 
+-  const [testing, setTesting] = useState(false)
+-  const [result, setResult]   = useState<{ ok: boolean; message: string } | null>(null)
+-
+-  async function runTest() {
+-    setTesting(true)
+-    setResult(null)
+-    try {
+-      const r = await invoke<{ ok: boolean; message: string; elapsed_ms: number }>('ldap_test', {
+-        connection: {
+-          host:                f('host'),
+-          port:                parseInt(f('port') || '636', 10),
+-          tls_mode:            f('tlsMode') || 'ldaps',
+-          verify_cert:         (f('verifyCert') || 'true') === 'true',
+-          bind_dn:             f('bindDN'),
+-          password:            f('password'),
+-          base_dn:             f('baseDN'),
+-          connect_timeout_sec: parseInt(f('connectTimeout') || '10', 10),
+-        },
+-      })
+-      setResult({ ok: r.ok, message: r.message })
+-    } catch (e) {
+-      setResult({ ok: false, message: e instanceof Error ? e.message : String(e) })
+-    } finally {
+-      setTesting(false)
+-    }
+-  }
+-
+   return (
+     <>
+       <Section label="Connessione">
+@@ -183,30 +154,6 @@ function LdapConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
+           <Field label="Dimensione pagina" fieldKey="pageSize" value={f('pageSize') || '500'} type="number" {...p} />
+         </div>
+       </Section>
+-
+-      <Section label="Test">
+-        <button
+-          onClick={runTest}
+-          disabled={testing || !f('host')}
+-          style={{
+-            width: '100%', padding: '8px 12px', borderRadius: 6, cursor: testing ? 'default' : 'pointer',
+-            background: '#1d6d40', color: '#eafff2', border: '0.5px solid #2a3349',
+-            opacity: testing || !f('host') ? 0.5 : 1, fontSize: 13,
+-          }}
+-        >
+-          {testing ? 'Test in corso…' : 'Test connessione'}
+-        </button>
+-        {result && (
+-          <div style={{
+-            marginTop: 8, padding: '7px 10px', borderRadius: 6, fontSize: 12, lineHeight: 1.4,
+-            background: result.ok ? '#0d3d20' : '#3d1414',
+-            border: `0.5px solid ${result.ok ? '#1d6d40' : '#6d1d1d'}`,
+-            color: result.ok ? '#3ddc84' : '#ff8080', wordBreak: 'break-word',
+-          }}>
+-            {result.message}
+-          </div>
+-        )}
+-      </Section>
+     </>
+   )
+ }
+diff --git a/src/store/flowStore.ts b/src/store/flowStore.ts
+index 06d3739..a9e3be6 100644
+--- a/src/store/flowStore.ts
++++ b/src/store/flowStore.ts
+@@ -1577,6 +1577,37 @@ export const useFlowStore = create<FlowState>((set, get) => ({
+       return
+     }
+ 
++    // LDAP — bind di servizio via ldap_test (aggiorna badge + log come gli altri)
++    if (res.kind === 'ldap') {
++      try {
++        const { invoke } = await import('@tauri-apps/api/core')
++        const cfg = res.config ?? {}
++        const result = await invoke<{ ok: boolean; message: string; elapsed_ms: number }>('ldap_test', {
++          connection: {
++            host:                cfg.host ?? '',
++            port:                parseInt(cfg.port ?? '636', 10),
++            tls_mode:            cfg.tlsMode ?? 'ldaps',
++            verify_cert:         (cfg.verifyCert ?? 'true') === 'true',
++            bind_dn:             cfg.bindDN ?? '',
++            password:            cfg.password ?? '',
++            base_dn:             cfg.baseDN ?? '',
++            connect_timeout_sec: parseInt(cfg.connectTimeout ?? '10', 10),
++          },
++        })
++        if (result.ok) {
++          setResourceStatus(laneId, resourceId, 'ok')
++          addLog('ok', `"${res.label}" — ${result.message}`, undefined, laneId)
++        } else {
++          setResourceStatus(laneId, resourceId, 'error')
++          addLog('error', `"${res.label}" — ${result.message}`, undefined, laneId)
++        }
++      } catch (err) {
++        setResourceStatus(laneId, resourceId, 'error')
++        addLog('error', `"${res.label}" — ${err instanceof Error ? err.message : String(err)}`, undefined, laneId)
++      }
++      return
++    }
++
+     try {
+       const { invoke } = await import('@tauri-apps/api/core')
+       const cfg = res.config ?? {}

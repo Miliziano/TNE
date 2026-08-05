@@ -213,6 +213,26 @@ function ResourceStrip({ lane }: { lane: Lane }) {
   }, [open])
 
   const RESOURCE_TEMPLATES: Array<{ kind: ResourceKind; label: string; build: () => Omit<LaneResource, 'id' | 'status'> }> = [
+    {
+      kind: 'ldap' as const,
+      label: '⧉ LDAP / Directory',
+      build: () => ({
+        kind: 'ldap' as const,
+        label: 'Directory LDAP',
+        config: {
+          host:           '',
+          port:           '636',
+          tlsMode:        'ldaps',
+          verifyCert:     'true',
+          bindDN:         '',
+          password:       '',
+          baseDN:         '',
+          connectTimeout: '10',
+          pageSize:       '500',
+        },
+        actions: [],   // query→ldap_source / auth→ldap_auth arriveranno con i nodi
+      }),
+    },
     { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'Nuovo DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Aggiungi come input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Aggiungi come output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },
     { kind: 'http', label: '⇄ HTTP / REST API', build: () => ({ kind: 'http' as const, label: 'Nuova API', config: { url: HTTP_DEFAULTS.url, method: HTTP_DEFAULTS.method, authType: HTTP_DEFAULTS.authType, headers: HTTP_DEFAULTS.headers }, actions: [ { id: 'in', label: 'Aggiungi come source HTTP', nodeType: 'source_http', propsOverride: {} as Record<string, string> } ] }) },
     { kind: 'kafka', label: '≋ Kafka', build: () => ({ kind: 'kafka' as const, label: 'Nuovo Kafka', config: { broker: 'localhost:9092' }, actions: [ 

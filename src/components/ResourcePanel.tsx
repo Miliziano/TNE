@@ -124,6 +124,40 @@ function StatusBadge({ status }: { status: ResourceStatus }) {
 }
 
 // ─── Config DB ────────────────────────────────────────────────────
+function LdapConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
+  const c = res.config
+  const f = (k: string) => c[k] ?? ''
+  const p = { laneId, resourceId: res.id }
+
+  return (
+    <>
+      <Section label="Connessione">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Field label="Modalità TLS" fieldKey="tlsMode" value={f('tlsMode') || 'ldaps'}
+            type="select" options={['ldaps', 'starttls', 'plain']} {...p} />
+          <Field label="Porta" fieldKey="port" value={f('port') || '636'} type="number" {...p} />
+        </div>
+        <Field label="Host" fieldKey="host" value={f('host')} {...p} />
+        <Field label="Base DN" fieldKey="baseDN" value={f('baseDN')} {...p} />
+        <Field label="Verifica certificato" fieldKey="verifyCert" value={f('verifyCert') || 'true'}
+          type="select" options={['true', 'false']} {...p} />
+      </Section>
+
+      <Section label="Autenticazione (account di servizio)">
+        <Field label="Bind DN" fieldKey="bindDN" value={f('bindDN')} {...p} />
+        <Field label="Password" fieldKey="password" value={f('password')} type="password" {...p} />
+      </Section>
+
+      <Section label="Opzioni">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <Field label="Timeout conn. (s)" fieldKey="connectTimeout" value={f('connectTimeout') || '10'} type="number" {...p} />
+          <Field label="Dimensione pagina" fieldKey="pageSize" value={f('pageSize') || '500'} type="number" {...p} />
+        </div>
+      </Section>
+    </>
+  )
+}
+
 function DbConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
   const c = res.config
   const f = (k: string) => c[k] ?? ''
@@ -535,6 +569,7 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
         {liveResource.kind === 'mqtt'    && <MqttConfig    res={liveResource} laneId={laneId} />}
         {liveResource.kind === 'ftp'     && <FtpConfig     res={liveResource} laneId={laneId} />}
         {liveResource.kind === 'webhook' && <WebhookConfig res={liveResource} laneId={laneId} />}
+        {liveResource.kind === 'ldap'    && <LdapConfig    res={liveResource} laneId={laneId} />}
 
         <ActionButtons resource={liveResource} laneId={laneId} />
         {/* UsedBy è ridondante per Webhook — WebhookConfig mostra già i Receiver collegati */}

@@ -298,7 +298,7 @@ export interface ResourceAction {
 
 // ─── Risorsa configurata nella resource strip ─────────────────────
 
-export type ResourceKind = 'db' | 'http' | 'kafka' | 'mqtt' | 'ftp' | 'webhook' | 'ssh'
+export type ResourceKind = 'db' | 'http' | 'kafka' | 'mqtt' | 'ftp' | 'webhook' | 'ssh' | 'ldap'
 
 export interface LaneResource {
   id: string

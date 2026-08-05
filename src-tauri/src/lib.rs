@@ -187,6 +187,7 @@ pub fn run() {
         shell_exec, 
         ssh_exec,
         ssh_test,
+        ldap_test,
         get_memory_info,
     ])
     .run(tauri::generate_context!())
@@ -2715,4 +2716,95 @@ async fn ssh_test(connection: SshConnection) -> Result<SshTestResult, String> {
             elapsed_ms,
         }),
     }
+}
+
+// ─── LDAP ─────────────────────────────────────────────────────────
+// Infrastruttura di connessione condivisa (FETTA 1). Il comando `ldap_test`
+// è il round-trip per il pulsante "Test connessione" della risorsa LDAP; le
+// funzioni `pub` qui sotto saranno riusate dai nodi ldap_source / ldap_auth
+// (stesso schema di ssh: un `*_impl`/helper pub, il comando è un wrapper).
+// Crate: ldap3 (async, native-tls). Sicurezza: LDAPS di default, verifica
+// certificato attiva salvo opt-out esplicito, StartTLS come alternativa; un
+// bindDN con password vuota è RIFIUTATO (molti server lo trattano come bind
+// anonimo che "riesce" → falso positivo di autenticazione).
+
+#[derive(serde::Deserialize, Clone)]
+pub struct LdapConnection {
+    pub host:                String,
+    pub port:                u16,
+    pub tls_mode:            String,   // "ldaps" | "starttls" | "plain"
+    pub verify_cert:         bool,
+    pub bind_dn:             String,   // account di servizio ("" = bind anonimo)
+    pub password:            String,
+    pub base_dn:             String,
+    pub connect_timeout_sec: u64,
+}
+
+#[derive(serde::Serialize)]
+pub struct LdapTestResult {
+    pub ok:         bool,
+    pub message:    String,
+    pub elapsed_ms: u64,
+}
+
+fn ldap_url(conn: &LdapConnection) -> String {
+    let scheme = if conn.tls_mode == "ldaps" { "ldaps" } else { "ldap" };
+    format!("{}://{}:{}", scheme, conn.host, conn.port)
+}
+
+/// Apre la connessione, esegue il bind di SERVIZIO (se un bindDN è impostato) e
+/// restituisce l'handle pronto per le operazioni. Il driver di connessione è
+/// già spawnato con `drive!`. Condivisa da ldap_test e (in seguito) dai nodi.
+pub async fn ldap_connect_and_bind(conn: &LdapConnection) -> Result<ldap3::Ldap, String> {
+    let mut settings = ldap3::LdapConnSettings::new()
+        .set_conn_timeout(std::time::Duration::from_secs(conn.connect_timeout_sec.max(1)))
+        .set_no_tls_verify(!conn.verify_cert);
+    if conn.tls_mode == "starttls" {
+        settings = settings.set_starttls(true);
+    }
+
+    let url = ldap_url(conn);
+    let (driver, mut ldap) = ldap3::LdapConnAsync::with_settings(settings, &url)
+        .await
+        .map_err(|e| format!("LDAP: connessione a {} fallita — {}", url, e))?;
+    ldap3::drive!(driver);
+
+    // Un bindDN con password vuota NON è consentito: sarebbe un bind anonimo
+    // travestito da account di servizio, che molti server accettano.
+    if !conn.bind_dn.is_empty() {
+        if conn.password.is_empty() {
+            return Err("LDAP: password dell'account di servizio vuota (bind anonimo mascherato non consentito)".to_string());
+        }
+        ldap.simple_bind(&conn.bind_dn, &conn.password)
+            .await
+            .map_err(|e| format!("LDAP: bind fallito — {}", e))?
+            .success()
+            .map_err(|e| format!("LDAP: bind rifiutato dal server — {}", e))?;
+    }
+
+    Ok(ldap)
+}
+
+pub async fn ldap_test_impl(connection: LdapConnection) -> Result<LdapTestResult, String> {
+    let start = Instant::now();
+    let outcome = ldap_connect_and_bind(&connection).await;
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    match outcome {
+        Ok(mut ldap) => {
+            let _ = ldap.unbind().await;
+            let how = if connection.bind_dn.is_empty() { "connessione (anonima)" }
+                      else { "connessione + bind di servizio" };
+            Ok(LdapTestResult {
+                ok:      true,
+                message: format!("{} a {}:{} riuscita ({}ms)", how, connection.host, connection.port, elapsed_ms),
+                elapsed_ms,
+            })
+        }
+        Err(e) => Ok(LdapTestResult { ok: false, message: e, elapsed_ms }),
+    }
+}
+
+#[tauri::command]
+async fn ldap_test(connection: LdapConnection) -> Result<LdapTestResult, String> {
+    ldap_test_impl(connection).await
 }

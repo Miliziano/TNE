@@ -1,0 +1,275 @@
+diff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml
+index 393fcdb..7f990f7 100644
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -41,6 +41,7 @@ hyper           = { version = "1",    features = ["full"] }
+ http-body-util  = "0.1"
+ hyper-util      = { version = "0.1",  features = ["tokio"] }
+ ssh2 = "0.9"
++ldap3 = "0.11"   # client LDAP async (native-tls, coerente con lettre/suppaftp); condiviso da ldap_test/ldap_source/ldap_auth
+ futures = "0.3"
+ sysinfo = "0.30"
+ regex = "1"
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 254d679..6288e2d 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -187,6 +187,7 @@ pub fn run() {
+         shell_exec, 
+         ssh_exec,
+         ssh_test,
++        ldap_test,
+         get_memory_info,
+     ])
+     .run(tauri::generate_context!())
+@@ -2715,4 +2716,95 @@ async fn ssh_test(connection: SshConnection) -> Result<SshTestResult, String> {
+             elapsed_ms,
+         }),
+     }
++}
++
++// ─── LDAP ─────────────────────────────────────────────────────────
++// Infrastruttura di connessione condivisa (FETTA 1). Il comando `ldap_test`
++// è il round-trip per il pulsante "Test connessione" della risorsa LDAP; le
++// funzioni `pub` qui sotto saranno riusate dai nodi ldap_source / ldap_auth
++// (stesso schema di ssh: un `*_impl`/helper pub, il comando è un wrapper).
++// Crate: ldap3 (async, native-tls). Sicurezza: LDAPS di default, verifica
++// certificato attiva salvo opt-out esplicito, StartTLS come alternativa; un
++// bindDN con password vuota è RIFIUTATO (molti server lo trattano come bind
++// anonimo che "riesce" → falso positivo di autenticazione).
++
++#[derive(serde::Deserialize, Clone)]
++pub struct LdapConnection {
++    pub host:                String,
++    pub port:                u16,
++    pub tls_mode:            String,   // "ldaps" | "starttls" | "plain"
++    pub verify_cert:         bool,
++    pub bind_dn:             String,   // account di servizio ("" = bind anonimo)
++    pub password:            String,
++    pub base_dn:             String,
++    pub connect_timeout_sec: u64,
++}
++
++#[derive(serde::Serialize)]
++pub struct LdapTestResult {
++    pub ok:         bool,
++    pub message:    String,
++    pub elapsed_ms: u64,
++}
++
++fn ldap_url(conn: &LdapConnection) -> String {
++    let scheme = if conn.tls_mode == "ldaps" { "ldaps" } else { "ldap" };
++    format!("{}://{}:{}", scheme, conn.host, conn.port)
++}
++
++/// Apre la connessione, esegue il bind di SERVIZIO (se un bindDN è impostato) e
++/// restituisce l'handle pronto per le operazioni. Il driver di connessione è
++/// già spawnato con `drive!`. Condivisa da ldap_test e (in seguito) dai nodi.
++pub async fn ldap_connect_and_bind(conn: &LdapConnection) -> Result<ldap3::Ldap, String> {
++    let mut settings = ldap3::LdapConnSettings::new()
++        .set_conn_timeout(std::time::Duration::from_secs(conn.connect_timeout_sec.max(1)))
++        .set_no_tls_verify(!conn.verify_cert);
++    if conn.tls_mode == "starttls" {
++        settings = settings.set_starttls(true);
++    }
++
++    let url = ldap_url(conn);
++    let (driver, mut ldap) = ldap3::LdapConnAsync::with_settings(settings, &url)
++        .await
++        .map_err(|e| format!("LDAP: connessione a {} fallita — {}", url, e))?;
++    ldap3::drive!(driver);
++
++    // Un bindDN con password vuota NON è consentito: sarebbe un bind anonimo
++    // travestito da account di servizio, che molti server accettano.
++    if !conn.bind_dn.is_empty() {
++        if conn.password.is_empty() {
++            return Err("LDAP: password dell'account di servizio vuota (bind anonimo mascherato non consentito)".to_string());
++        }
++        ldap.simple_bind(&conn.bind_dn, &conn.password)
++            .await
++            .map_err(|e| format!("LDAP: bind fallito — {}", e))?
++            .success()
++            .map_err(|e| format!("LDAP: bind rifiutato dal server — {}", e))?;
++    }
++
++    Ok(ldap)
++}
++
++pub async fn ldap_test_impl(connection: LdapConnection) -> Result<LdapTestResult, String> {
++    let start = Instant::now();
++    let outcome = ldap_connect_and_bind(&connection).await;
++    let elapsed_ms = start.elapsed().as_millis() as u64;
++    match outcome {
++        Ok(mut ldap) => {
++            let _ = ldap.unbind().await;
++            let how = if connection.bind_dn.is_empty() { "connessione (anonima)" }
++                      else { "connessione + bind di servizio" };
++            Ok(LdapTestResult {
++                ok:      true,
++                message: format!("{} a {}:{} riuscita ({}ms)", how, connection.host, connection.port, elapsed_ms),
++                elapsed_ms,
++            })
++        }
++        Err(e) => Ok(LdapTestResult { ok: false, message: e, elapsed_ms }),
++    }
++}
++
++#[tauri::command]
++async fn ldap_test(connection: LdapConnection) -> Result<LdapTestResult, String> {
++    ldap_test_impl(connection).await
+ }
+\ No newline at end of file
+diff --git a/src/components/LaneCanvas.tsx b/src/components/LaneCanvas.tsx
+index cb29a0f..87c4799 100644
+--- a/src/components/LaneCanvas.tsx
++++ b/src/components/LaneCanvas.tsx
+@@ -213,6 +213,26 @@ function ResourceStrip({ lane }: { lane: Lane }) {
+   }, [open])
+ 
+   const RESOURCE_TEMPLATES: Array<{ kind: ResourceKind; label: string; build: () => Omit<LaneResource, 'id' | 'status'> }> = [
++    {
++      kind: 'ldap' as const,
++      label: '⧉ LDAP / Directory',
++      build: () => ({
++        kind: 'ldap' as const,
++        label: 'Directory LDAP',
++        config: {
++          host:           '',
++          port:           '636',
++          tlsMode:        'ldaps',
++          verifyCert:     'true',
++          bindDN:         '',
++          password:       '',
++          baseDN:         '',
++          connectTimeout: '10',
++          pageSize:       '500',
++        },
++        actions: [],   // query→ldap_source / auth→ldap_auth arriveranno con i nodi
++      }),
++    },
+     { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'Nuovo DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Aggiungi come input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Aggiungi come output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },
+     { kind: 'http', label: '⇄ HTTP / REST API', build: () => ({ kind: 'http' as const, label: 'Nuova API', config: { url: HTTP_DEFAULTS.url, method: HTTP_DEFAULTS.method, authType: HTTP_DEFAULTS.authType, headers: HTTP_DEFAULTS.headers }, actions: [ { id: 'in', label: 'Aggiungi come source HTTP', nodeType: 'source_http', propsOverride: {} as Record<string, string> } ] }) },
+     { kind: 'kafka', label: '≋ Kafka', build: () => ({ kind: 'kafka' as const, label: 'Nuovo Kafka', config: { broker: 'localhost:9092' }, actions: [ 
+diff --git a/src/components/ResourcePanel.tsx b/src/components/ResourcePanel.tsx
+index 7a25e4b..3d8a3e4 100644
+--- a/src/components/ResourcePanel.tsx
++++ b/src/components/ResourcePanel.tsx
+@@ -1,3 +1,5 @@
++import { useState } from 'react'
++import { invoke } from '@tauri-apps/api/core'
+ import { useFlowStore } from '../store/flowStore'
+ import type { LaneResource, ResourceStatus, ResourceAction } from '../types'
+ import { HTTP_DEFAULTS } from '../nodes/resourceDefaults.ts'
+@@ -124,6 +126,91 @@ function StatusBadge({ status }: { status: ResourceStatus }) {
+ }
+ 
+ // ─── Config DB ────────────────────────────────────────────────────
++function LdapConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
++  const c = res.config
++  const f = (k: string) => c[k] ?? ''
++  const p = { laneId, resourceId: res.id }
++
++  const [testing, setTesting] = useState(false)
++  const [result, setResult]   = useState<{ ok: boolean; message: string } | null>(null)
++
++  async function runTest() {
++    setTesting(true)
++    setResult(null)
++    try {
++      const r = await invoke<{ ok: boolean; message: string; elapsed_ms: number }>('ldap_test', {
++        connection: {
++          host:                f('host'),
++          port:                parseInt(f('port') || '636', 10),
++          tls_mode:            f('tlsMode') || 'ldaps',
++          verify_cert:         (f('verifyCert') || 'true') === 'true',
++          bind_dn:             f('bindDN'),
++          password:            f('password'),
++          base_dn:             f('baseDN'),
++          connect_timeout_sec: parseInt(f('connectTimeout') || '10', 10),
++        },
++      })
++      setResult({ ok: r.ok, message: r.message })
++    } catch (e) {
++      setResult({ ok: false, message: e instanceof Error ? e.message : String(e) })
++    } finally {
++      setTesting(false)
++    }
++  }
++
++  return (
++    <>
++      <Section label="Connessione">
++        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
++          <Field label="Modalità TLS" fieldKey="tlsMode" value={f('tlsMode') || 'ldaps'}
++            type="select" options={['ldaps', 'starttls', 'plain']} {...p} />
++          <Field label="Porta" fieldKey="port" value={f('port') || '636'} type="number" {...p} />
++        </div>
++        <Field label="Host" fieldKey="host" value={f('host')} {...p} />
++        <Field label="Base DN" fieldKey="baseDN" value={f('baseDN')} {...p} />
++        <Field label="Verifica certificato" fieldKey="verifyCert" value={f('verifyCert') || 'true'}
++          type="select" options={['true', 'false']} {...p} />
++      </Section>
++
++      <Section label="Autenticazione (account di servizio)">
++        <Field label="Bind DN" fieldKey="bindDN" value={f('bindDN')} {...p} />
++        <Field label="Password" fieldKey="password" value={f('password')} type="password" {...p} />
++      </Section>
++
++      <Section label="Opzioni">
++        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
++          <Field label="Timeout conn. (s)" fieldKey="connectTimeout" value={f('connectTimeout') || '10'} type="number" {...p} />
++          <Field label="Dimensione pagina" fieldKey="pageSize" value={f('pageSize') || '500'} type="number" {...p} />
++        </div>
++      </Section>
++
++      <Section label="Test">
++        <button
++          onClick={runTest}
++          disabled={testing || !f('host')}
++          style={{
++            width: '100%', padding: '8px 12px', borderRadius: 6, cursor: testing ? 'default' : 'pointer',
++            background: '#1d6d40', color: '#eafff2', border: '0.5px solid #2a3349',
++            opacity: testing || !f('host') ? 0.5 : 1, fontSize: 13,
++          }}
++        >
++          {testing ? 'Test in corso…' : 'Test connessione'}
++        </button>
++        {result && (
++          <div style={{
++            marginTop: 8, padding: '7px 10px', borderRadius: 6, fontSize: 12, lineHeight: 1.4,
++            background: result.ok ? '#0d3d20' : '#3d1414',
++            border: `0.5px solid ${result.ok ? '#1d6d40' : '#6d1d1d'}`,
++            color: result.ok ? '#3ddc84' : '#ff8080', wordBreak: 'break-word',
++          }}>
++            {result.message}
++          </div>
++        )}
++      </Section>
++    </>
++  )
++}
++
+ function DbConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
+   const c = res.config
+   const f = (k: string) => c[k] ?? ''
+@@ -535,6 +622,7 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
+         {liveResource.kind === 'mqtt'    && <MqttConfig    res={liveResource} laneId={laneId} />}
+         {liveResource.kind === 'ftp'     && <FtpConfig     res={liveResource} laneId={laneId} />}
+         {liveResource.kind === 'webhook' && <WebhookConfig res={liveResource} laneId={laneId} />}
++        {liveResource.kind === 'ldap'    && <LdapConfig    res={liveResource} laneId={laneId} />}
+ 
+         <ActionButtons resource={liveResource} laneId={laneId} />
+         {/* UsedBy è ridondante per Webhook — WebhookConfig mostra già i Receiver collegati */}
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 1c9cb1d..d873aac 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -298,7 +298,7 @@ export interface ResourceAction {
+ 
+ // ─── Risorsa configurata nella resource strip ─────────────────────
+ 
+-export type ResourceKind = 'db' | 'http' | 'kafka' | 'mqtt' | 'ftp' | 'webhook' | 'ssh'
++export type ResourceKind = 'db' | 'http' | 'kafka' | 'mqtt' | 'ftp' | 'webhook' | 'ssh' | 'ldap'
+ 
+ export interface LaneResource {
+   id: string
