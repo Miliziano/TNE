@@ -1108,6 +1108,10 @@ function TbDivider() {
 
 // ─── Toolbar ──────────────────────────────────────────────────────
 
+// Versionamento in-file: quante versioni precedenti tenere nel ramo `history`
+// del .ffplan. Snapshot COMPLETI (non diff) → confronto side-by-side banale.
+const PLAN_HISTORY_LIMIT = 20
+
 export function Toolbar() {
   const {
     nodes, edges, running,
@@ -1212,14 +1216,36 @@ export function Toolbar() {
   // Scrive lo scenario nel percorso dato e lo RICORDA come file corrente,
   // così i salvataggi successivi sovrascrivono quello senza ridomandarlo.
   const scriviProgetto = async (path: string) => {
-    const state   = useFlowStore.getState()
+    const state = useFlowStore.getState()
+    const now   = new Date().toISOString()
+    const currentPlan = { pool: state.pool, nodes: state.nodes, edges: state.edges }
+
+    // Versionamento in-file: prima di sovrascrivere, il piano precedentemente
+    // salvato in `path` scala nel ramo `history` (snapshot COMPLETO, non diff),
+    // tenendo gli ultimi PLAN_HISTORY_LIMIT. Legge sia il nuovo involucro sia il
+    // vecchio formato flat, così la cronologia sopravvive ai salvataggi.
+    let history: Array<{ version: unknown; plan: unknown }> = []
+    try {
+      const prev = JSON.parse(await readFile(path))
+      const prevPlan = prev.plan
+        ?? (prev.pool ? { pool: prev.pool, nodes: prev.nodes, edges: prev.edges } : null)
+      if (prevPlan) {
+        const prevVersion = prev.version
+          ?? { id: `v${Date.parse(prev.savedAt) || Date.now()}`, savedAt: prev.savedAt ?? now, label: '' }
+        history = [{ version: prevVersion, plan: prevPlan }, ...(Array.isArray(prev.history) ? prev.history : [])]
+          .slice(0, PLAN_HISTORY_LIMIT)
+      }
+    } catch { /* file nuovo o illeggibile → cronologia vuota */ }
+
     const payload = JSON.stringify({
-      version: '1.0', savedAt: new Date().toISOString(),
-      pool: state.pool, nodes: state.nodes, edges: state.edges,
+      formatVersion: 2,
+      version: { id: `v${Date.now()}`, savedAt: now, label: '' },
+      plan: currentPlan,
+      history,
     }, null, 2)
     await writeFile(path, payload)
     useFlowStore.setState({ currentPath: path })
-    addLog('ok', `Progetto salvato: ${path}`)
+    addLog('ok', `Progetto salvato: ${path}${history.length ? ` (cronologia: ${history.length})` : ''}`)
   }
 
   // "Salva con nome": chiede sempre dove salvare.
@@ -1271,17 +1297,21 @@ export function Toolbar() {
       if (!path) return
       const content = await readFile(path)
       const data    = JSON.parse(content)
-      if (!data.pool || !data.nodes || !data.edges) {
+      // Nuovo involucro: { plan:{pool,nodes,edges}, history }. Vecchio: flat {pool,nodes,edges}.
+      const plan = data.plan
+        ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
+      if (!plan || !plan.pool || !plan.nodes || !plan.edges) {
         addLog('error', 'File non valido — mancano pool, nodes o edges.')
         return
       }
       useFlowStore.setState({
-        pool: data.pool, nodes: data.nodes, edges: data.edges,
+        pool: plan.pool, nodes: plan.nodes, edges: plan.edges,
         selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
         currentPath: path,
       })
-      resyncNodeCounter(data.nodes)
-      addLog('ok', `Progetto aperto: ${path}`)
+      resyncNodeCounter(plan.nodes)
+      const histN = Array.isArray(data.history) ? data.history.length : 0
+      addLog('ok', `Progetto aperto: ${path}${histN ? ` (${histN} versioni in cronologia)` : ''}`)
     } catch (e) {
       addLog('error', `Errore apertura: ${e}`)
     } finally {
