@@ -188,6 +188,7 @@ pub fn run() {
         ssh_exec,
         ssh_test,
         ldap_test,
+        github_test,
         get_memory_info,
     ])
     .run(tauri::generate_context!())
@@ -2807,4 +2808,75 @@ pub async fn ldap_test_impl(connection: LdapConnection) -> Result<LdapTestResult
 #[tauri::command]
 async fn ldap_test(connection: LdapConnection) -> Result<LdapTestResult, String> {
     ldap_test_impl(connection).await
+}
+
+// ─── GitHub (lettura) ─────────────────────────────────────────────
+// Infrastruttura di connessione condivisa per i nodi GitHub in LETTURA
+// (github_repos / github_issues / github_commits). Solo HTTPS+JSON via reqwest
+// (già nel progetto) — nessun crate nuovo. Il comando `github_test` è il
+// round-trip per il pulsante "Testa connessione" della risorsa: GET /rate_limit
+// con il token. GitHub ESIGE un header User-Agent, altrimenti rifiuta.
+
+#[derive(serde::Deserialize, Clone)]
+pub struct GithubConnection {
+    pub token:    String,   // PAT (idealmente fine-grained, sola lettura)
+    pub base_url: String,   // "" → https://api.github.com (per Enterprise: .../api/v3)
+}
+
+#[derive(serde::Serialize)]
+pub struct GithubTestResult {
+    pub ok:      bool,
+    pub message: String,
+}
+
+/// Base URL normalizzata (default api.github.com, senza slash finale).
+pub fn github_base(conn: &GithubConnection) -> String {
+    if conn.base_url.trim().is_empty() {
+        "https://api.github.com".to_string()
+    } else {
+        conn.base_url.trim().trim_end_matches('/').to_string()
+    }
+}
+
+/// Client reqwest con gli header standard GitHub (User-Agent obbligatorio,
+/// Accept + versione API) e il Bearer token se presente. Condiviso dai nodi.
+pub fn github_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("FlowPilot")
+        .build()
+        .map_err(|e| format!("client GitHub: {}", e))
+}
+
+pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTestResult, String> {
+    let client = github_client()?;
+    let mut req = client
+        .get(format!("{}/rate_limit", github_base(&connection)))
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28");
+    if !connection.token.trim().is_empty() {
+        req = req.bearer_auth(connection.token.trim());
+    }
+
+    let resp = req.send().await.map_err(|e| format!("richiesta a GitHub fallita: {}", e))?;
+    let status = resp.status();
+
+    if status.is_success() {
+        let remaining = resp.json::<serde_json::Value>().await.ok()
+            .and_then(|v| v.get("rate").and_then(|r| r.get("remaining")).and_then(|x| x.as_i64()));
+        let message = match remaining {
+            Some(n) => format!("Connesso a GitHub — {} richieste/ora rimaste", n),
+            None    => "Connesso a GitHub".to_string(),
+        };
+        Ok(GithubTestResult { ok: true, message })
+    } else if status.as_u16() == 401 {
+        Ok(GithubTestResult { ok: false, message: "Token non valido o assente (401)".to_string() })
+    } else {
+        Ok(GithubTestResult { ok: false, message: format!("GitHub ha risposto HTTP {}", status.as_u16()) })
+    }
+}
+
+#[tauri::command]
+async fn github_test(connection: GithubConnection) -> Result<GithubTestResult, String> {
+    github_test_impl(connection).await
 }

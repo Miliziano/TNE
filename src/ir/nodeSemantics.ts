@@ -281,6 +281,22 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     preferredRuntimes: ['typescript'],
     pushdownCapable:   [],
   },
+  github_source: {
+    uiType:                 'github_source',
+    operations:             ['scan'],
+    executionSemantics:     'row',        // GET REST paginata = insieme finito
+    producesMultipleOutputs: false,
+    acceptsMultipleInputs:  false,
+    acceptsDynamicInputs:   false,
+    staticInputPorts: [
+      { id: 'input', label: 'input', role: 'data', maxEdges: 1, maxRows: 1 },
+    ],
+    staticOutputPorts: [
+      { id: 'output', label: 'output', role: 'data' },
+    ],
+    preferredRuntimes: ['typescript'],
+    pushdownCapable:   [],
+  },
   source_kafka: {
     uiType:                 'source_kafka',
     operations:             ['scan', 'parse'],   // consume  deserializza

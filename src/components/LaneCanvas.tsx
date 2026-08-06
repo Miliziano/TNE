@@ -234,6 +234,20 @@ function ResourceStrip({ lane }: { lane: Lane }) {
         actions: actionsForKind('ldap'),   // fonte unica in resourceActions.ts (auth→ldap_auth in fetta 3)
       }),
     },
+    {
+      kind: 'github' as const,
+      label: '⑃ GitHub (lettura)',
+      build: () => ({
+        kind: 'github' as const,
+        label: 'GitHub',
+        config: {
+          token:   '',
+          baseUrl: 'https://api.github.com',
+          perPage: '100',
+        },
+        actions: actionsForKind('github'),   // i nodi (repos/issues/commits) arrivano nelle fette successive
+      }),
+    },
     { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'Nuovo DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Aggiungi come input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Aggiungi come output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },
     { kind: 'http', label: '⇄ HTTP / REST API', build: () => ({ kind: 'http' as const, label: 'Nuova API', config: { url: HTTP_DEFAULTS.url, method: HTTP_DEFAULTS.method, authType: HTTP_DEFAULTS.authType, headers: HTTP_DEFAULTS.headers }, actions: [ { id: 'in', label: 'Aggiungi come source HTTP', nodeType: 'source_http', propsOverride: {} as Record<string, string> } ] }) },
     { kind: 'kafka', label: '≋ Kafka', build: () => ({ kind: 'kafka' as const, label: 'Nuovo Kafka', config: { broker: 'localhost:9092' }, actions: [ 

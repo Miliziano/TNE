@@ -1608,6 +1608,31 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       return
     }
 
+    // GitHub — GET /rate_limit col token (aggiorna badge + log come gli altri)
+    if (res.kind === 'github') {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const cfg = res.config ?? {}
+        const result = await invoke<{ ok: boolean; message: string }>('github_test', {
+          connection: {
+            token:    cfg.token ?? '',
+            base_url: cfg.baseUrl ?? '',
+          },
+        })
+        if (result.ok) {
+          setResourceStatus(laneId, resourceId, 'ok')
+          addLog('ok', `"${res.label}" — ${result.message}`, undefined, laneId)
+        } else {
+          setResourceStatus(laneId, resourceId, 'error')
+          addLog('error', `"${res.label}" — ${result.message}`, undefined, laneId)
+        }
+      } catch (err) {
+        setResourceStatus(laneId, resourceId, 'error')
+        addLog('error', `"${res.label}" — ${err instanceof Error ? err.message : String(err)}`, undefined, laneId)
+      }
+      return
+    }
+
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       const cfg = res.config ?? {}

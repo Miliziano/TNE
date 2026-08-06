@@ -125,6 +125,23 @@ function StatusBadge({ status }: { status: ResourceStatus }) {
 }
 
 // ─── Config DB ────────────────────────────────────────────────────
+function GithubConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
+  const c = res.config
+  const f = (k: string) => c[k] ?? ''
+  const p = { laneId, resourceId: res.id }
+  return (
+    <>
+      <Section label="Autenticazione">
+        <Field label="Token (PAT)" fieldKey="token" value={f('token')} type="password" {...p} />
+      </Section>
+      <Section label="Server">
+        <Field label="Base URL" fieldKey="baseUrl" value={f('baseUrl') || 'https://api.github.com'} {...p} />
+        <Field label="Elementi per pagina" fieldKey="perPage" value={f('perPage') || '100'} type="number" {...p} />
+      </Section>
+    </>
+  )
+}
+
 function LdapConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
   const c = res.config
   const f = (k: string) => c[k] ?? ''
@@ -578,6 +595,7 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
         {liveResource.kind === 'ftp'     && <FtpConfig     res={liveResource} laneId={laneId} />}
         {liveResource.kind === 'webhook' && <WebhookConfig res={liveResource} laneId={laneId} />}
         {liveResource.kind === 'ldap'    && <LdapConfig    res={liveResource} laneId={laneId} />}
+        {liveResource.kind === 'github'  && <GithubConfig  res={liveResource} laneId={laneId} />}
 
         <ActionButtons resource={liveResource} laneId={laneId} />
         {/* UsedBy è ridondante per Webhook — WebhookConfig mostra già i Receiver collegati */}

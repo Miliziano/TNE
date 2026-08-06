@@ -16,6 +16,9 @@ export const RESOURCE_ACTIONS: Partial<Record<ResourceKind, ResourceAction[]>> =
     { id: 'query', label: 'Aggiungi come query (source)', nodeType: 'ldap_source', propsOverride: {} },
     { id: 'auth',  label: 'Aggiungi come autenticatore',   nodeType: 'ldap_auth',   propsOverride: {} },
   ],
+  github: [
+    { id: 'source', label: 'Aggiungi come source GitHub', nodeType: 'github_source', propsOverride: {} },
+  ],
 }
 
 export function actionsForKind(kind: ResourceKind): ResourceAction[] {

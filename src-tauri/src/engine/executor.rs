@@ -808,6 +808,12 @@ async fn run_node(
             super::nodes::ldap_source::run(ctx, rx, tx).await
         }
 
+        "github_source" => {
+            let rx = take_single_input(&mut inputs);
+            let tx = take_primary_output(&mut outputs);
+            super::nodes::github_source::run(ctx, rx, tx).await
+        }
+
         "ldap_auth" => {
             let rx = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("ldap_auth {} richiede un input collegato", ctx.node_id.0))?;
