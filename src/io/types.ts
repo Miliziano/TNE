@@ -17,7 +17,9 @@
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
 import type { Lane } from '../types'
-import type { TransactionGroupState } from '../runner/transactionCoordinator'
+// TransactionGroupState: il coordinatore transazionale vive nel motore Rust;
+// qui basta un tipo opaco (il runner TS di riferimento è stato rimosso).
+type TransactionGroupState = unknown
 
 export type Row = Record<string, unknown>
 
