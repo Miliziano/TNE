@@ -1,17 +1,15 @@
 /**
  * src/nodes/types/github_source/Panel.tsx
  *
- * Sorgente GitHub (lettura) — UN nodo configurabile con selettore di ENTITÀ:
- *   • repos   → GET /orgs|users/{owner}/repos
- *   • issues  → GET /repos/{owner}/{repo}/issues   (include i PR: filtrabili)
- *   • commits → GET /repos/{owner}/{repo}/commits
- * La connessione (token, baseUrl) viene dalla risorsa `kind:'github'` collegata.
- * Al cambio entità il pannello scrive lo `outputSchema` giusto (colonne di quella
- * entità) così il valle vede subito le colonne — inizializzato via useEffect,
- * quindi presente anche senza toccare i campi.
- *
- * NB: il MOTORE non esegue ancora questo nodo (fetta successiva). Fino ad allora
- * lo studio avvisa via MOTORE_NON_IMPLEMENTA.
+ * Sorgente GitHub (lettura) — UN nodo, tre entità (repos / issues / commits) e
+ * DUE modalità:
+ *   • config   → owner/repo dalla configurazione (un target fisso);
+ *   • per-riga → owner/repo dai CAMPI della riga in ingresso (fan-out da una
+ *                lista, es. source_file → github_source). In per-riga ogni riga
+ *                emessa porta anche `_repo` (owner/repo di provenienza), utile
+ *                per aggregare a valle.
+ * Connessione (token, baseUrl) dalla risorsa `kind:'github'` collegata.
+ * Lo `outputSchema` è scritto per entità (via useEffect, anche al mount).
  */
 import { useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
@@ -87,8 +85,10 @@ const SCHEMAS: Record<string, Col[]> = {
   ],
 }
 
-function schemaFor(entity: string): string {
-  return JSON.stringify(SCHEMAS[entity] ?? SCHEMAS.repos)
+function schemaFor(entity: string, mode: string): string {
+  const cols = [...(SCHEMAS[entity] ?? SCHEMAS.repos)]
+  if (mode === 'per_row') cols.push({ id: '_repo', name: '_repo', type: 'string' })
+  return JSON.stringify(cols)
 }
 
 export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
@@ -97,16 +97,16 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
   const pool       = useFlowStore((s) => s.pool)
 
   const entity = node?.data.props.entity ?? 'repos'
+  const mode   = node?.data.props.mode ?? 'config'
 
-  // Mantiene outputSchema allineato all'entità (anche al mount, senza toccare i campi).
   useEffect(() => {
     if (!node) return
-    const want = schemaFor(entity)
+    const want = schemaFor(entity, mode)
     if ((node.data.props.outputSchema ?? '') !== want) {
       updateProp(nodeId, 'outputSchema', want)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entity, nodeId])
+  }, [entity, mode, nodeId])
 
   if (!node) return null
 
@@ -118,6 +118,9 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
   const resourceId = node.data.config?.resourceId ?? ''
   const lane       = pool.lanes.find((l) => l.id === laneId)
   const resource   = (lane?.resources ?? []).filter((r) => r.kind === 'github').find((r) => r.id === resourceId)
+
+  const perRow    = mode === 'per_row'
+  const needsRepo = entity === 'issues' || entity === 'commits'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -136,6 +139,13 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
         </div>
       )}
 
+      <Field label="Modalità" hint={perRow ? 'owner/repo presi dalle righe in ingresso (fan-out)' : 'owner/repo dalla configurazione (target fisso)'}>
+        <CustomSelect style={inputStyle} value={mode} onChange={u('mode')}>
+          <option value="config">Da configurazione</option>
+          <option value="per_row">Per-riga (dalla lista in ingresso)</option>
+        </CustomSelect>
+      </Field>
+
       <Field label="Entità" hint="cosa prelevare da GitHub">
         <CustomSelect style={inputStyle} value={entity} onChange={u('entity')}>
           <option value="repos">Repos (di un'org o utente)</option>
@@ -145,28 +155,38 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {entity === 'repos' && (
-        <>
-          <Field label="Tipo owner">
-            <CustomSelect style={inputStyle} value={p('ownerType', 'org')} onChange={u('ownerType')}>
-              <option value="org">Organizzazione</option>
-              <option value="user">Utente</option>
-            </CustomSelect>
-          </Field>
+        <Field label="Tipo owner">
+          <CustomSelect style={inputStyle} value={p('ownerType', 'org')} onChange={u('ownerType')}>
+            <option value="org">Organizzazione</option>
+            <option value="user">Utente</option>
+          </CustomSelect>
+        </Field>
+      )}
+
+      {!perRow ? (
+        // Modalità config: owner/repo statici
+        needsRepo ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Field label="Owner"><input style={inputStyle} value={p('owner')} onChange={u('owner')} placeholder="Miliziano" /></Field>
+            <Field label="Repo"><input style={inputStyle} value={p('repo')} onChange={u('repo')} placeholder="TNE" /></Field>
+          </div>
+        ) : (
           <Field label="Owner" hint="nome dell'org o dell'utente">
             <input style={inputStyle} value={p('owner')} onChange={u('owner')} placeholder="Miliziano" />
           </Field>
-        </>
-      )}
-
-      {(entity === 'issues' || entity === 'commits') && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Owner">
-            <input style={inputStyle} value={p('owner')} onChange={u('owner')} placeholder="Miliziano" />
+        )
+      ) : (
+        // Modalità per-riga: quali campi della riga contengono owner/repo
+        needsRepo ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <Field label="Campo owner" hint="colonna con l'owner"><input style={inputStyle} value={p('ownerField', 'owner')} onChange={u('ownerField')} placeholder="owner" /></Field>
+            <Field label="Campo repo" hint="colonna con il repo"><input style={inputStyle} value={p('repoField', 'repo')} onChange={u('repoField')} placeholder="repo" /></Field>
+          </div>
+        ) : (
+          <Field label="Campo owner" hint="colonna della riga con l'org/utente">
+            <input style={inputStyle} value={p('ownerField', 'owner')} onChange={u('ownerField')} placeholder="owner" />
           </Field>
-          <Field label="Repo">
-            <input style={inputStyle} value={p('repo')} onChange={u('repo')} placeholder="TNE" />
-          </Field>
-        </div>
+        )
       )}
 
       {entity === 'issues' && (
@@ -197,7 +217,7 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
         <Field label="Elementi per pagina" hint={`default risorsa: ${resource?.config?.perPage ?? '100'}`}>
           <input style={inputStyle} type="number" value={p('perPage', resource?.config?.perPage ?? '100')} onChange={u('perPage')} />
         </Field>
-        <Field label="Max elementi (opz.)" hint="0/vuoto = tutte le pagine">
+        <Field label="Max elementi (opz.)" hint={perRow ? '0/vuoto = tutti, per repo' : '0/vuoto = tutte le pagine'}>
           <input style={inputStyle} type="number" value={p('maxItems', '')} onChange={u('maxItems')} placeholder="0" />
         </Field>
       </div>
