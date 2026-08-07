@@ -13,6 +13,8 @@ import { compileQueryParams, queryHasParams } from '../ir/queryParams'
 import type { TMapConfig } from '../types'
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
+import type { Pool } from '../types'
+import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
@@ -1122,6 +1124,8 @@ export function Toolbar() {
 
   const [saving,  setSaving]  = useState(false)
   const [opening, setOpening] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const currentPath = useFlowStore((s) => s.currentPath)
 
   // ── Run — usa Rust Engine ─────────────────────────────────────
   const handleRun = async () => {
@@ -1215,7 +1219,7 @@ export function Toolbar() {
   // ── Salva / Salva con nome ────────────────────────────────────
   // Scrive lo scenario nel percorso dato e lo RICORDA come file corrente,
   // così i salvataggi successivi sovrascrivono quello senza ridomandarlo.
-  const scriviProgetto = async (path: string) => {
+  const scriviProgetto = async (path: string, label = '') => {
     const state = useFlowStore.getState()
     const now   = new Date().toISOString()
     const currentPlan = { pool: state.pool, nodes: state.nodes, edges: state.edges }
@@ -1239,13 +1243,77 @@ export function Toolbar() {
 
     const payload = JSON.stringify({
       formatVersion: 2,
-      version: { id: `v${Date.now()}`, savedAt: now, label: '' },
+      version: { id: `v${Date.now()}`, savedAt: now, label },
       plan: currentPlan,
       history,
     }, null, 2)
     await writeFile(path, payload)
     useFlowStore.setState({ currentPath: path })
     addLog('ok', `Progetto salvato: ${path}${history.length ? ` (cronologia: ${history.length})` : ''}`)
+  }
+
+  // Ripristina una versione dalla cronologia nel canvas (poi si salva per persistere).
+  const restoreVersion = (plan: PlanSnapshot) => {
+    useFlowStore.setState({
+      pool:  plan.pool  as Pool,
+      nodes: plan.nodes as FlowNode<NodeData>[],
+      edges: plan.edges as Edge[],
+      selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
+    })
+    resyncNodeCounter(plan.nodes as FlowNode<NodeData>[])
+    addLog('ok', 'Versione ripristinata — salva per persistere.')
+    setHistoryOpen(false)
+  }
+
+  // Salva lo stato attuale come versione con NOME (checkpoint).
+  const handleCheckpoint = async (label: string) => {
+    const path = useFlowStore.getState().currentPath
+    if (!path) { addLog('warn', 'Salva prima il progetto.'); return }
+    await scriviProgetto(path, label)
+  }
+
+  // Aggiorna il commento (label) della versione CORRENTE nel file, SENZA creare
+  // una nuova versione né toccare la cronologia (riscrive stesso plan + history).
+  const labelCurrentVersion = async (label: string) => {
+    const path = useFlowStore.getState().currentPath
+    if (!path) { addLog('warn', 'Salva prima il progetto.'); return }
+    try {
+      const data = JSON.parse(await readFile(path))
+      const plan = data.plan ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
+      if (!plan) { addLog('error', 'File non valido — impossibile aggiornare il commento.'); return }
+      const version = (data.version && typeof data.version === 'object')
+        ? data.version
+        : { id: `v${Date.now()}`, savedAt: data.savedAt ?? new Date().toISOString() }
+      const history = Array.isArray(data.history) ? data.history : []
+      const payload = JSON.stringify({ formatVersion: 2, version: { ...version, label }, plan, history }, null, 2)
+      await writeFile(path, payload)
+      addLog('ok', label ? `Commento aggiornato: "${label}"` : 'Commento rimosso.')
+    } catch (e) {
+      addLog('error', `Impossibile aggiornare il commento: ${e}`)
+    }
+  }
+
+  // Elimina una versione dalla cronologia (per indice). Riscrive stesso plan +
+  // stessa versione corrente, con la voce rimossa dalla history.
+  const deleteVersion = async (index: number) => {
+    const path = useFlowStore.getState().currentPath
+    if (!path) { addLog('warn', 'Salva prima il progetto.'); return }
+    try {
+      const data = JSON.parse(await readFile(path))
+      const plan = data.plan ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
+      if (!plan) { addLog('error', 'File non valido.'); return }
+      const version = (data.version && typeof data.version === 'object')
+        ? data.version
+        : { id: `v${Date.now()}`, savedAt: data.savedAt ?? new Date().toISOString(), label: '' }
+      const history = Array.isArray(data.history) ? data.history : []
+      if (index < 0 || index >= history.length) return
+      const next = history.filter((_: unknown, i: number) => i !== index)
+      const payload = JSON.stringify({ formatVersion: 2, version, plan, history: next }, null, 2)
+      await writeFile(path, payload)
+      addLog('ok', 'Versione eliminata dalla cronologia.')
+    } catch (e) {
+      addLog('error', `Impossibile eliminare la versione: ${e}`)
+    }
   }
 
   // "Salva con nome": chiede sempre dove salvare.
@@ -1392,6 +1460,10 @@ export function Toolbar() {
         <i className="ti ti-file-export" style={{ fontSize: 13 }} aria-hidden="true" />
         Salva con nome
       </TbBtn>
+      <TbBtn onClick={() => setHistoryOpen(true)} title="Cronologia versioni">
+        <i className="ti ti-history" style={{ fontSize: 13 }} aria-hidden="true" />
+        Cronologia
+      </TbBtn>
 
       <TbDivider />
 
@@ -1455,6 +1527,16 @@ export function Toolbar() {
           </>
         )}
       </div>
+
+      <VersionHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        currentPath={currentPath}
+        onRestore={restoreVersion}
+        onSaveCheckpoint={handleCheckpoint}
+        onLabelCurrent={labelCurrentVersion}
+        onDeleteVersion={deleteVersion}
+      />
 
     </div>
     
