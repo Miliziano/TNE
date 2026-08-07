@@ -15,6 +15,7 @@ import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData } from '../types'
 import type { Pool } from '../types'
 import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
+import { EnvironmentsModal } from './EnvironmentsModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
@@ -1143,6 +1144,7 @@ export function Toolbar() {
   const [saving,  setSaving]  = useState(false)
   const [opening, setOpening] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [envOpen, setEnvOpen] = useState(false)
   const currentPath = useFlowStore((s) => s.currentPath)
 
   // ── Run — usa Rust Engine ─────────────────────────────────────
@@ -1484,6 +1486,10 @@ export function Toolbar() {
         <i className="ti ti-history" style={{ fontSize: 13 }} aria-hidden="true" />
         Cronologia
       </TbBtn>
+      <TbBtn onClick={() => setEnvOpen(true)} title="Ambienti / profili (test, dev, prod)">
+        <i className="ti ti-adjustments" style={{ fontSize: 13 }} aria-hidden="true" />
+        Ambienti
+      </TbBtn>
 
       <TbDivider />
 
@@ -1557,6 +1563,8 @@ export function Toolbar() {
         onLabelCurrent={labelCurrentVersion}
         onDeleteVersion={deleteVersion}
       />
+
+      <EnvironmentsModal open={envOpen} onClose={() => setEnvOpen(false)} />
 
     </div>
     

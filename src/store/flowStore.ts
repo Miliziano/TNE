@@ -248,6 +248,10 @@ interface FlowState {
   editingNodeId:      string | null
   currentPath:        string | null   // file .ffplan aperto/salvato → "Salva" lo sovrascrive
   environments:       EnvironmentsState
+  setActiveProfile:   (name: string) => void
+  addProfile:         (name: string) => void
+  deleteProfile:      (name: string) => void
+  setProfileValue:    (profile: string, key: string, value: string) => void
   logs:               LogEntry[]
   running:            boolean
 
@@ -413,6 +417,16 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   editingNodeId:      null,
   currentPath:        null,
   environments:       { active: '', profiles: {} },
+  setActiveProfile: (name) => set((s) => ({ environments: { ...s.environments, active: name } })),
+  addProfile: (name) => set((s) => (s.environments.profiles[name] ? {} : { environments: { ...s.environments, profiles: { ...s.environments.profiles, [name]: {} } } })),
+  deleteProfile: (name) => set((s) => {
+    const profiles = { ...s.environments.profiles }
+    delete profiles[name]
+    return { environments: { active: s.environments.active === name ? '' : s.environments.active, profiles } }
+  }),
+  setProfileValue: (profile, key, value) => set((s) => ({
+    environments: { ...s.environments, profiles: { ...s.environments.profiles, [profile]: { ...(s.environments.profiles[profile] ?? {}), [key]: value } } },
+  })),
   logs:               [],
   running:            false,
   nodeStats:          {},
