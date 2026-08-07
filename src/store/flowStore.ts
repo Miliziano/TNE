@@ -228,6 +228,14 @@ const DEFAULT_NODES: FlowNode<NodeData>[] = [
 ]
 
 // ─── interfaccia store ────────────────────────────────────────────
+/** Ambienti: il profilo ATTIVO + i profili (value-set per test/dev/prod) che
+ *  rimpiazzano i VALORI delle variabili di POOL prima del run. Il piano tiene
+ *  solo riferimenti/dichiarazioni; i valori per ambiente stanno qui. */
+export interface EnvironmentsState {
+  active:   string
+  profiles: Record<string, Record<string, string>>
+}
+
 interface FlowState {
   nodes:              FlowNode<NodeData>[]
   edges:              Edge[]
@@ -239,6 +247,7 @@ interface FlowState {
   selectedResourceId: string | null
   editingNodeId:      string | null
   currentPath:        string | null   // file .ffplan aperto/salvato → "Salva" lo sovrascrive
+  environments:       EnvironmentsState
   logs:               LogEntry[]
   running:            boolean
 
@@ -403,6 +412,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   selectedResourceId: null,
   editingNodeId:      null,
   currentPath:        null,
+  environments:       { active: '', profiles: {} },
   logs:               [],
   running:            false,
   nodeStats:          {},

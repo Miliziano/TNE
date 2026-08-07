@@ -696,3 +696,38 @@ sicurezza reale. L'utente ha anticipato che chiederà anche un nodo **LDAP**
 (sarebbe un nodo NUOVO, non in palette). Debiti motore ancora aperti: reject
 dichiarati inerti (explode/join/materialize/sink_*), retry da collaudare,
 `let _ = tx.send()` ingoiati, `conn_id` negli eventi Connection*.
+
+
+## AGGIORNAMENTO — stato al P146 (7 agosto)
+
+**TL;DR:** Dopo il P127 sono state chiuse tre grosse aree — la famiglia di nodi **LDAP** (risorsa + source + autenticatore), il nodo **GitHub** in lettura (sorgente unica configurabile), e un **audit** completo studio↔Rust con rimozione del codice morto. È poi iniziato il lavoro **pre-distribuzione** (ambienti, sicurezza segreti, versionamento): il **versionamento è implementato**; ambienti e segreti sono **decisi a livello di design ma non ancora implementati**. Il porting è FINITO (ogni nodo di palette ha il suo arm Rust); `src/runner/` è stato CANCELLATO.
+
+### Correzioni a sezioni precedenti di questo documento
+- **§7 (`src/runner/` — codice morto, NON cancellare)**: SUPERATA. Il runner è stato **cancellato in P142** (porting finito). L'unico riferimento esterno era un import orfano di `TransactionGroupState` in `src/io/types.ts` (da un file già inesistente) → sostituito con un tipo locale. `tsc -b` è sceso da 134 a **113 errori** (−21, zero nuovi; i 113 restanti sono quasi tutti TS6133 "unused" pre-esistenti).
+- **§6.2 (FASE PORTING quasi finita)**: FINITA. Audit confermato: ogni nodo reale ha un arm; `transform` è coperto dall'arm combinato `"transform"|"transform_fields"`; `lane_start`/`lane_end` sono boundary non eseguiti; `NOT_IMPLEMENTED` (Rust) e `MOTORE_NON_IMPLEMENTA` (TS) sono entrambe VUOTE.
+
+### LDAP — COMPLETO (P131–P137) → nota memoria `flowpilot-ldap`
+Famiglia di 3 nodi + risorsa condivisa. Crate `ldap3` (native-tls). Ethos "mai finto": LDAPS default + verifica cert, rifiuto password vuota (bind anonimo mascherato), escape RFC 4515 anti-injection, TLS.
+- **Risorsa `kind:'ldap'` + `ldap_test`** (P131-132): `LdapConnection`, helper condiviso `ldap_connect_and_bind` (connetti + bind di servizio), comando `ldap_test`. "Testa connessione" via il ramo `ldap` di `testResource` (flowStore).
+- **`ldap_source`** (P133 studio, P135 motore): sorgente, search PAGINATA (`streaming_search_with` + adapter `EntriesOnly`+`PagedResults`), una riga per voce (dn + attributi; multi-valore array/join/first).
+- **`ldap_auth`** (P136 studio, P137 motore): transform con porte output/reject, **search-then-bind** (bind servizio → cerca l'utente per attributo di login → secondo bind con la password utente), `requireGroup` via `memberOf`; password mai loggata né lasciata nella riga.
+- **Fix azioni-risorsa per-kind** (P134): fonte unica `src/nodes/resourceActions.ts` (`actionsForKind`), usata sia dal template sia da `ActionButtons`. GOTCHA durevole: `resource.actions` è inciso alla CREAZIONE della risorsa → aggiungere un'azione al template NON la mostra sulle risorse già create; derivarla dal kind lo risolve.
+
+### GitHub (lettura) — COMPLETO (P138–P141) → nota memoria `flowpilot-github`
+UN nodo `github_source` configurabile (non tre): stessa operazione (GET REST paginata), cambia solo entità/endpoint/colonne — come `source_http`/`source_db`. NIENTE crate nuovo: solo `reqwest` (già nel progetto).
+- **Risorsa `kind:'github'` + `github_test`** (P138): solo TOKEN (GitHub non ha password), header `User-Agent` OBBLIGATORIO, `Bearer`. Helper `github_client()`/`github_base()`.
+- **`github_source`** (P139 studio, P140 motore, P141 per-riga): selettore **Entità** (repos / issue+PR / commits) con campi condizionali; **due modalità** — *da config* (owner/repo fissi) e *per-riga* (owner/repo dai campi della riga in ingresso → fan-out da una lista, ogni riga taggata con `_repo`). Paginazione via header `Link` rel="next", tetto `maxItems`. Le issue includono i PR (`is_pull_request` = presenza campo `pull_request`, filtrabile).
+- Pattern sbloccato: `source_file(lista owner,repo) → github_source per-riga → aggregate/tmap` (raggruppa per `_repo`), schedulato da ESTERNO (FlowPilot non ha nodi timer/cron; trigger disponibili: dir_watcher, webhook_receiver, watchdog).
+
+### Pre-distribuzione (P143–P146 + design) → nota memoria `flowpilot-distribuzione`
+Tre cose prima di pubblicare. **Perno architetturale**: separare il PIANO (struttura, versionato, condiviso, SENZA segreti) dall'AMBIENTE (valori + segreti, per test/dev/prod, scelti a run-time). Sblocca tutto: versioni/distribuisci senza segreti, esegui ovunque cambiando profilo.
+- **Ambienti** — DECISO, non implementato: profilo attivo a livello di **POOL**; le variabili restano a livello pool (fonte unica), le lane le leggono per scope (vista read-only, no copie). Gancio esistente: `Variable{scope:'pool'|'lane'}` (già nei tipi) + risoluzione `${VAR}`.
+- **Segreti** — DECISO (principio), non implementato: l'artifact contiene solo RIFERIMENTI (`${DB_PASSWORD}`), mai valori; risoluzione a run-time ALLA DESTINAZIONE da **keychain del SO** (desktop, hardware-backed via Secure Enclave/TPM) o env-var / secret-manager esterno (server), dietro un'astrazione "provider di segreti". Anti-pattern VIETATO: cifrare il piano con una chiave incorporata nell'app (la chiave non deve mai viaggiare). Variabile `type:'secret'` = solo il nome nel file, mai il valore.
+- **Versionamento** — IMPLEMENTATO (P143–P146): cronologia IN-FILE nel `.ffplan`. Involucro `{ formatVersion:2, version:{id,savedAt,label}, plan:{pool,nodes,edges}, history:[snapshot COMPLETI, più recente in cima, tetto 20] }`, compatibile col vecchio formato flat. UI in `src/components/VersionHistoryModal.tsx` (bottone "Cronologia" in Toolbar): **ripristina**, **commenta** la versione corrente, salva **nuovo checkpoint** con nome, **elimina** versioni. Logica save/load/relabel/delete in `Toolbar.tsx`. Manca solo il **confronto side-by-side** (rimandato; lo schema è già pronto perché gli snapshot sono completi). NB: l'UI è stata solo typecheckata, non collaudata visivamente.
+- Involucro proposto COMPLETO (quando si faranno ambienti/segreti): `{ formatVersion, version, plan:{pool,nodes,edges}, environments:{active, profiles:{test,dev,prod → {VAR:valore} solo non-segreti}}, history }`.
+
+### Metodo (invariato — vedi §2)
+Ogni consegna è un `.patch` verificato con `git apply --check` su clone fresco del remoto; l'utente applica/compila/pusha (il remoto avanza a ogni turno → clonare sempre fresco e controllare lo stato reale). Il TS si verifica con `tsc --noEmit` (0 = pulito); il **Rust NON è compilabile in sandbox** (nessuna toolchain), quindi il collaudo Rust è il cancello dell'utente. Numerazione patch sequenziale (ora a P146).
+
+### Da dove ripartire
+Le due cose pre-distribuzione ancora da implementare: **AMBIENTI** (risoluzione `${VAR}` con scope di pool + profili — è il cuore) oppure **SEGRETI** (il provider col keychain/env). Rifiniture rimandate dall'utente: il **confronto side-by-side** delle versioni e un **editor dedicato delle variabili** di pool. Debiti minori invariati (§8): porte reject inerti su alcuni nodi, dedup campi TMap (P121), e i ~113 errori TS6133 pre-esistenti (ripulibili in un passaggio dedicato).

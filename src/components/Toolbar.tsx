@@ -440,6 +440,12 @@ function buildRustPlan(
   // ── Lane
   const laneIds = [...new Set(nodes.map(n => n.data.laneId).filter(Boolean))]
 
+  // Profilo ambiente ATTIVO: i suoi valori rimpiazzano quelli di default delle
+  // variabili di POOL (test/dev/prod). Nessun profilo attivo → valori di default.
+  const env = useFlowStore.getState().environments
+  const activeProfile: Record<string, string> =
+    (env.active && env.profiles[env.active]) || {}
+
   const lanes = laneIds.map(laneId => {
     const laneConfig = pool.lanes.find(l => l.id === laneId)
 
@@ -450,6 +456,18 @@ function buildRustPlan(
     const variables: Record<string, unknown> = {}
     const datasets: Array<{ name: string; node_id: string }> = []
 
+    // Scope delle variabili: le variabili di POOL fanno da base (fonte unica,
+    // viste in sola lettura da OGNI lane); quelle locali della lane possono
+    // ombreggiarle (scoping lessicale: a parità di nome vince la lane). Realizza
+    // la decisione "variabili a livello di pool, propagate per SCOPE alle lane"
+    // senza duplicarle nel dato di ogni lane.
+    for (const v of pool.variables ?? []) {
+      if (v.type === 'materialize') {
+        datasets.push({ name: v.name, node_id: v.value })
+      } else {
+        variables[v.name] = activeProfile[v.name] ?? v.value
+      }
+    }
     for (const v of laneConfig?.variables ?? []) {
       if (v.type === 'materialize') {
         datasets.push({ name: v.name, node_id: v.value })
@@ -1245,6 +1263,7 @@ export function Toolbar() {
       formatVersion: 2,
       version: { id: `v${Date.now()}`, savedAt: now, label },
       plan: currentPlan,
+      environments: state.environments,
       history,
     }, null, 2)
     await writeFile(path, payload)
@@ -1285,7 +1304,7 @@ export function Toolbar() {
         ? data.version
         : { id: `v${Date.now()}`, savedAt: data.savedAt ?? new Date().toISOString() }
       const history = Array.isArray(data.history) ? data.history : []
-      const payload = JSON.stringify({ formatVersion: 2, version: { ...version, label }, plan, history }, null, 2)
+      const payload = JSON.stringify({ formatVersion: 2, version: { ...version, label }, plan, environments: data.environments ?? { active: '', profiles: {} }, history }, null, 2)
       await writeFile(path, payload)
       addLog('ok', label ? `Commento aggiornato: "${label}"` : 'Commento rimosso.')
     } catch (e) {
@@ -1308,7 +1327,7 @@ export function Toolbar() {
       const history = Array.isArray(data.history) ? data.history : []
       if (index < 0 || index >= history.length) return
       const next = history.filter((_: unknown, i: number) => i !== index)
-      const payload = JSON.stringify({ formatVersion: 2, version, plan, history: next }, null, 2)
+      const payload = JSON.stringify({ formatVersion: 2, version, plan, environments: data.environments ?? { active: '', profiles: {} }, history: next }, null, 2)
       await writeFile(path, payload)
       addLog('ok', 'Versione eliminata dalla cronologia.')
     } catch (e) {
@@ -1375,6 +1394,7 @@ export function Toolbar() {
       useFlowStore.setState({
         pool: plan.pool, nodes: plan.nodes, edges: plan.edges,
         selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
+        environments: data.environments ?? { active: '', profiles: {} },
         currentPath: path,
       })
       resyncNodeCounter(plan.nodes)
