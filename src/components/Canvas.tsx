@@ -99,39 +99,6 @@ function PoolHeader() {
       }}>
         {pool.lanes.length} lane · {pool.variables.length} variabili condivise
       </span>
-
-      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-        <span style={{
-          fontSize: 10,
-          fontWeight: 600,
-          color: 'var(--color-text-tertiary)',
-          textTransform: 'uppercase',
-          letterSpacing: '.07em',
-        }}>
-          Pool
-        </span>
-        {pool.variables.slice(0, 3).map((v) => (
-          <span
-            key={v.id}
-            title={`${v.name} = ${v.value}`}
-            style={{
-              fontSize: 11,
-              padding: '2px 8px',
-              borderRadius: 12,
-              background: 'var(--color-background-info)',
-              color: 'var(--color-text-info)',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {v.name}
-          </span>
-        ))}
-        {pool.variables.length > 3 && (
-          <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-            +{pool.variables.length - 3} altri
-          </span>
-        )}
-      </div>
     </div>
   )
 }

@@ -114,7 +114,9 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
     if (!editingProfile) return
     const path = await saveFileDialog({ title: 'Esporta profilo', defaultPath: `${editingProfile}.env.json`, filters: [{ name: 'Profilo', extensions: ['json'] }] })
     if (!path) return
-    const payload = JSON.stringify({ profile: editingProfile, values }, null, 2)
+    const exported: Record<string, string> = {}
+    for (const v of profileVars) exported[v.name] = values[v.name] ?? v.value ?? ''
+    const payload = JSON.stringify({ profile: editingProfile, values: exported }, null, 2)
     const ok = await writeFile(path, payload).then(() => true).catch(() => false)
     setMsg(ok ? `Profilo «${editingProfile}» esportato in ${basename(path)}.` : 'Impossibile scrivere il file.')
   }
