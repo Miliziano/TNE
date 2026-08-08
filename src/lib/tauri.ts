@@ -31,6 +31,20 @@ export async function readFile(path: string): Promise<string> {
   return invoke<string>('read_file', { path })
 }
 
+// ── Segreti (keychain del SO, provider in Rust) ───────────────────
+export async function secretSet(name: string, value: string): Promise<void> {
+  if (!isTauri()) throw new Error('secretSet disponibile solo in app desktop')
+  return invoke<void>('secret_set', { name, value })
+}
+export async function secretHas(name: string): Promise<boolean> {
+  if (!isTauri()) return false
+  return invoke<boolean>('secret_has', { name })
+}
+export async function secretDelete(name: string): Promise<void> {
+  if (!isTauri()) throw new Error('secretDelete disponibile solo in app desktop')
+  return invoke<void>('secret_delete', { name })
+}
+
 /**
  * Legge un file binario dal filesystem locale.
  * Restituisce un ArrayBuffer — usabile da SheetJS, PDF.js, ecc.

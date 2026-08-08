@@ -12,10 +12,10 @@
  *      auto-reload all'apertura (il progetto vince, niente sorprese).
  * Legge/scrive lo store direttamente. Tutto si persiste col progetto (Salva).
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useFlowStore } from '../store/flowStore'
 import { CustomSelect } from './CustomSelect'
-import { openFileDialog, saveFileDialog, readFile, writeFile, isTauri } from '../lib/tauri'
+import { openFileDialog, saveFileDialog, readFile, writeFile, isTauri, secretSet, secretHas, secretDelete } from '../lib/tauri'
 
 const inputStyle: React.CSSProperties = {
   flex: 1, background: '#1e2535', border: '1px solid #3a4a6a', borderRadius: 4,
@@ -54,6 +54,21 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
 
   const [editing, setEditing] = useState('')
   const [msg, setMsg]         = useState<string | null>(null)
+  const [secretStatus, setSecretStatus] = useState<Record<string, boolean>>({})
+  const [secretInputs, setSecretInputs] = useState<Record<string, string>>({})
+
+  const secrets = (pool.variables ?? []).filter((v) => v.type === 'secret')
+  const secretNamesKey = secrets.map((s) => s.name).join(',')
+  const refreshSecretStatus = async () => {
+    if (!isTauri()) return
+    const status: Record<string, boolean> = {}
+    for (const s of secrets) status[s.name] = await secretHas(s.name).catch(() => false)
+    setSecretStatus(status)
+  }
+  useEffect(() => {
+    if (open) void refreshSecretStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, secretNamesKey])
 
   if (!open) return null
 
@@ -128,6 +143,19 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
     importProfile(editingProfile, vv, ref)
     setMsg(`Profilo «${editingProfile}» ricaricato da ${basename(ref)}.`)
   }
+  const handleSetSecret = async (name: string) => {
+    const val = secretInputs[name] ?? ''
+    if (!val) return
+    const ok = await secretSet(name, val).then(() => true).catch(() => false)
+    if (ok) { setSecretInputs((p) => ({ ...p, [name]: '' })); setMsg(`Segreto «${name}» salvato nel keychain.`); await refreshSecretStatus() }
+    else setMsg(`Impossibile salvare il segreto «${name}».`)
+  }
+  const handleDeleteSecret = async (name: string) => {
+    if (!confirm(`Rimuovere il segreto «${name}» dal keychain di questa macchina?`)) return
+    await secretDelete(name).catch(() => {})
+    setMsg(`Segreto «${name}» rimosso dal keychain.`)
+    await refreshSecretStatus()
+  }
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -169,6 +197,31 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           </div>
 
           <div style={{ height: 1, background: '#2a3349' }} />
+
+          {secrets.length > 0 && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={labelStyle}>Segreti — valori su questa macchina (keychain)</div>
+                {!isTauri() && <div style={{ fontSize: 10, color: '#c8a060', fontStyle: 'italic' }}>Disponibile solo nell'app desktop.</div>}
+                {secrets.map((sv) => {
+                  const present = !!secretStatus[sv.name]
+                  const val = secretInputs[sv.name] ?? ''
+                  return (
+                    <div key={sv.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <div style={{ width: 150, fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden' }}>
+                        <i className="ti ti-lock" aria-hidden="true" /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sv.name}</span>
+                      </div>
+                      <span style={{ width: 64, fontSize: 10, color: present ? '#3ddc84' : '#c8a060' }}>{present ? '✓ presente' : 'mancante'}</span>
+                      <input type="password" value={val} placeholder="nuovo valore…" onChange={(e) => setSecretInputs((p) => ({ ...p, [sv.name]: e.target.value }))} style={inputStyle} />
+                      <button onClick={() => handleSetSecret(sv.name)} disabled={!isTauri() || !val.length} style={{ ...addBtnStyle, opacity: (!isTauri() || !val.length) ? 0.5 : 1 }}>Salva</button>
+                      <button onClick={() => handleDeleteSecret(sv.name)} disabled={!isTauri() || !present} title="Rimuovi dal keychain" style={{ ...trashStyle, opacity: (!isTauri() || !present) ? 0.5 : 1 }}><i className="ti ti-trash" aria-hidden="true" /></button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ height: 1, background: '#2a3349' }} />
+            </>
+          )}
 
           {/* 2) Profilo attivo */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
