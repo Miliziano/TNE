@@ -23,6 +23,10 @@ log        = "0.4"
 tauri      = { version = "2.11.2", features = [] }
 tauri-plugin-log    = "2"
 tauri-plugin-fs     = { version = "2.5.1", features = ["watch"] }
+# keychain del SO per i segreti (macOS Keychain / Windows Credential Manager / Linux Secret Service).
+# ⚠️ VERIFICARE versione/feature per le proprie piattaforme di build; se il build fallisce,
+# il provider da variabili d'ambiente (secrets.rs) resta comunque funzionante.
+keyring             = "2"
 tauri-plugin-dialog = "2.7.1"
 tauri-plugin-shell  = "2.3.5"
 base64     = "0.22"

@@ -21,7 +21,14 @@ mod db_transactions;
 mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
 mod engine;
-mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; keychain in arrivo)
+mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
+
+#[tauri::command]
+fn secret_set(name: String, value: String) -> Result<(), String> { crate::secrets::set_secret(&name, &value) }
+#[tauri::command]
+fn secret_has(name: String) -> bool { crate::secrets::has_secret(&name) }
+#[tauri::command]
+fn secret_delete(name: String) -> Result<(), String> { crate::secrets::delete_secret(&name) }
 
 #[derive(Debug, Serialize)]
 struct MemoryInfo {
@@ -151,6 +158,9 @@ pub fn run() {
         write_file_bytes,
         list_directory,
         get_app_data_dir,
+        secret_set,
+        secret_has,
+        secret_delete,
         db_query,
         db_infer_schema,
         db_list_constraints,   // ← aggiungere

@@ -10,15 +10,46 @@
 // più i comandi per impostare/leggere un segreto — l'unico punto da estendere è
 // `resolve_secret` qui sotto.
 
+/// Nome del "service" nel keychain del SO (namespace dei segreti di FlowPilot).
+const SERVICE: &str = "flowpilot";
+
 /// Legge un segreto per nome. Ordine di risoluzione:
-///   1. variabile d'ambiente `NOME` (iniettata dall'orchestratore/CI);
-///   (2. keychain del SO — desktop — in arrivo).
-/// Ritorna None se il segreto non è disponibile.
+///   1. variabile d'ambiente `NOME` (server/CI, stile 12-factor);
+///   2. keychain del SO (desktop: Keychain macOS / Credential Manager Windows /
+///      Secret Service Linux), service `flowpilot`.
+/// Ritorna None se il segreto non è disponibile da nessuna fonte. Gli errori del
+/// keychain (assente/non sbloccato) degradano a None: la risoluzione non crasha.
 pub fn resolve_secret(name: &str) -> Option<String> {
-    match std::env::var(name) {
-        Ok(v) if !v.is_empty() => Some(v),
-        _ => None,
+    if let Ok(v) = std::env::var(name) {
+        if !v.is_empty() {
+            return Some(v);
+        }
     }
+    keyring::Entry::new(SERVICE, name)
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .filter(|v| !v.is_empty())
+}
+
+/// Imposta un segreto nel keychain del SO (provisioning sulla macchina).
+pub fn set_secret(name: &str, value: &str) -> Result<(), String> {
+    keyring::Entry::new(SERVICE, name)
+        .map_err(|e| e.to_string())?
+        .set_password(value)
+        .map_err(|e| e.to_string())
+}
+
+/// Vero se il segreto è disponibile (env var o keychain).
+pub fn has_secret(name: &str) -> bool {
+    resolve_secret(name).is_some()
+}
+
+/// Rimuove un segreto dal keychain del SO.
+pub fn delete_secret(name: &str) -> Result<(), String> {
+    keyring::Entry::new(SERVICE, name)
+        .map_err(|e| e.to_string())?
+        .delete_password()
+        .map_err(|e| e.to_string())
 }
 
 /// Sostituisce ogni `${NOME}` nella stringa col segreto risolto. Se un segreto
