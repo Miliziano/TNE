@@ -179,6 +179,7 @@ impl Spec {
             .and_then(json_to_string)
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
+            .map(|s| crate::secrets::resolve_secret_refs(&s))
             .unwrap_or_else(|| default.to_string())
     }
 

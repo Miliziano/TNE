@@ -274,7 +274,7 @@ export interface IRRef {
   irVersion:     string
 }
 // ─── Variabili con scope ─────────────────────────────────────────
-export type VariableType  = 'string' | 'number' | 'boolean' | 'json' | 'object' | 'materialize'
+export type VariableType  = 'string' | 'number' | 'boolean' | 'json' | 'object' | 'materialize' | 'secret'
 export type VariableScope = 'pool' | 'lane'
 
 export interface Variable {

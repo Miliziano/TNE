@@ -59,7 +59,8 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
 
   const profileNames = Object.keys(environments.profiles)
   const editingProfile = editing && environments.profiles[editing] ? editing : (profileNames[0] ?? '')
-  const vars = (pool.variables ?? []).filter((v) => v.type !== 'materialize')
+  const poolVars = (pool.variables ?? []).filter((v) => v.type !== 'materialize')
+  const profileVars = poolVars.filter((v) => v.type !== 'secret')
   const values = environments.profiles[editingProfile] ?? {}
   const ref = environments.profileRefs[editingProfile]
 
@@ -68,6 +69,12 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
     const taken = new Set((pool.variables ?? []).map((v) => v.name))
     while (taken.has(name)) { name = `${base}_${i++}` }
     addVariable('pool', null, { name, type: 'string', value: '' })
+  }
+  const handleAddSecret = () => {
+    const base = 'NUOVO_SEGRETO'; let name = base, i = 2
+    const taken = new Set((pool.variables ?? []).map((v) => v.name))
+    while (taken.has(name)) { name = `${base}_${i++}` }
+    addVariable('pool', null, { name, type: 'secret', value: '' })
   }
   const handleAddProfile = () => {
     const name = window.prompt('Nome del nuovo profilo (es. prod):')?.trim()
@@ -135,16 +142,25 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={labelStyle}>Variabili condivise (pool)</div>
-              <button onClick={handleAddVar} style={addBtnStyle}>+ aggiungi variabile</button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={handleAddVar} style={addBtnStyle}>+ variabile</button>
+                <button onClick={handleAddSecret} style={{ ...addBtnStyle, background: '#5a3a10', border: '1px solid #7a5a20' }} title="Aggiungi un segreto (solo il nome; il valore arriva dal keychain a run-time)">+ segreto</button>
+              </div>
             </div>
-            {vars.length === 0 ? (
+            {poolVars.length === 0 ? (
               <div style={{ fontSize: 11, color: '#4a5a7a', fontStyle: 'italic' }}>Nessuna variabile condivisa. Aggiungine una: sarà referenziabile con <code style={{ color: '#8aa' }}>{'${nome}'}</code> in ogni lane.</div>
             ) : (
-              vars.map((v) => (
+              poolVars.map((v) => (
                 <div key={v.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input value={v.name} onChange={(e) => updateVariable('pool', null, v.id, { name: e.target.value })} placeholder="nome" style={{ ...inputStyle, flex: '0 0 170px' }} />
-                  <input value={v.value} onChange={(e) => updateVariable('pool', null, v.id, { value: e.target.value })} placeholder="valore di default" style={inputStyle} />
-                  <button onClick={() => deleteVariable('pool', null, v.id)} title="Elimina variabile" style={trashStyle}><i className="ti ti-trash" aria-hidden="true" /></button>
+                  {v.type === 'secret' ? (
+                    <div style={{ flex: 1, fontSize: 10, color: '#c8a060', display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <i className="ti ti-lock" aria-hidden="true" /> segreto — valore dal keychain a run-time, mai salvato nel file
+                    </div>
+                  ) : (
+                    <input value={v.value} onChange={(e) => updateVariable('pool', null, v.id, { value: e.target.value })} placeholder="valore di default" style={inputStyle} />
+                  )}
+                  <button onClick={() => deleteVariable('pool', null, v.id)} title="Elimina" style={trashStyle}><i className="ti ti-trash" aria-hidden="true" /></button>
                 </div>
               ))
             )}
@@ -185,10 +201,10 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           </div>
 
           {/* 4) Valori del profilo per variabile */}
-          {profileNames.length > 0 && vars.length > 0 && (
+          {profileNames.length > 0 && profileVars.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={labelStyle}>Valori per «{editingProfile}» — vuoto = usa il default</div>
-              {vars.map((v) => (
+              {profileVars.map((v) => (
                 <div key={v.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <div style={{ width: 170, fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
                   <input value={values[v.name] ?? ''} placeholder={v.value ? `default: ${v.value}` : '(default vuoto)'} onChange={(e) => setProfileValue(editingProfile, v.name, e.target.value)} style={inputStyle} />

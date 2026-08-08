@@ -453,7 +453,7 @@ function buildRustPlan(
   // i segreti si risolveranno nel motore Rust, non qui (mai in chiaro nello studio).
   const poolResolved: Record<string, string> = {}
   for (const pv of pool.variables ?? []) {
-    if (pv.type !== 'materialize') poolResolved[pv.name] = activeProfile[pv.name] ?? pv.value
+    if (pv.type !== 'materialize' && pv.type !== 'secret') poolResolved[pv.name] = activeProfile[pv.name] ?? pv.value
   }
   const resolveResourceRefs = (cfg: Record<string, string> | null): Record<string, string> | null => {
     if (!cfg) return null

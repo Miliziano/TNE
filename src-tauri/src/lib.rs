@@ -21,6 +21,7 @@ mod db_transactions;
 mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
 mod engine;
+mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; keychain in arrivo)
 
 #[derive(Debug, Serialize)]
 struct MemoryInfo {
