@@ -1,0 +1,42 @@
+diff --git a/src/components/Toolbar.tsx b/src/components/Toolbar.tsx
+index 54f0c65..b0c4e20 100644
+--- a/src/components/Toolbar.tsx
++++ b/src/components/Toolbar.tsx
+@@ -447,6 +447,28 @@ function buildRustPlan(
+   const activeProfile: Record<string, string> =
+     (env.active && env.profiles[env.active]) || {}
+ 
++  // Risoluzione ${VAR} nei config delle RISORSE (host/porta/… sensibili
++  // all'ambiente), contro le variabili di POOL col profilo attivo applicato.
++  // Un riferimento IGNOTO (es. un futuro ${SEGRETO}) viene lasciato INTATTO:
++  // i segreti si risolveranno nel motore Rust, non qui (mai in chiaro nello studio).
++  const poolResolved: Record<string, string> = {}
++  for (const pv of pool.variables ?? []) {
++    if (pv.type !== 'materialize') poolResolved[pv.name] = activeProfile[pv.name] ?? pv.value
++  }
++  const resolveResourceRefs = (cfg: Record<string, string> | null): Record<string, string> | null => {
++    if (!cfg) return null
++    const out: Record<string, string> = {}
++    for (const [k, val] of Object.entries(cfg)) {
++      out[k] = typeof val === 'string'
++        ? val.replace(/\$\{([^}]+)\}/g, (m, name) => {
++            const key = String(name).trim()
++            return key in poolResolved ? poolResolved[key] : m
++          })
++        : val
++    }
++    return out
++  }
++
+   const lanes = laneIds.map(laneId => {
+     const laneConfig = pool.lanes.find(l => l.id === laneId)
+ 
+@@ -536,7 +558,7 @@ function buildRustPlan(
+       // per i connettori futuri, senza selezione di campi.
+       const specResourceId = node.data.config?.resourceId as string | undefined
+       const specResource   = specResourceId
+-        ? (laneConfig?.resources.find(r => r.id === specResourceId)?.config ?? null)
++        ? resolveResourceRefs(laneConfig?.resources.find(r => r.id === specResourceId)?.config ?? null)
+         : null
+       switch (node.data.type) {
+ 
