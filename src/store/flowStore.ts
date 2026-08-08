@@ -232,8 +232,9 @@ const DEFAULT_NODES: FlowNode<NodeData>[] = [
  *  rimpiazzano i VALORI delle variabili di POOL prima del run. Il piano tiene
  *  solo riferimenti/dichiarazioni; i valori per ambiente stanno qui. */
 export interface EnvironmentsState {
-  active:   string
-  profiles: Record<string, Record<string, string>>
+  active:      string
+  profiles:    Record<string, Record<string, string>>
+  profileRefs: Record<string, string>   // profilo → percorso file esterno di origine (opz.)
 }
 
 interface FlowState {
@@ -252,6 +253,7 @@ interface FlowState {
   addProfile:         (name: string) => void
   deleteProfile:      (name: string) => void
   setProfileValue:    (profile: string, key: string, value: string) => void
+  importProfile:      (name: string, values: Record<string, string>, filePath: string) => void
   logs:               LogEntry[]
   running:            boolean
 
@@ -416,17 +418,32 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   selectedResourceId: null,
   editingNodeId:      null,
   currentPath:        null,
-  environments:       { active: '', profiles: {} },
+  environments:       { active: '', profiles: {}, profileRefs: {} },
   setActiveProfile: (name) => set((s) => ({ environments: { ...s.environments, active: name } })),
   addProfile: (name) => set((s) => (s.environments.profiles[name] ? {} : { environments: { ...s.environments, profiles: { ...s.environments.profiles, [name]: {} } } })),
   deleteProfile: (name) => set((s) => {
-    const profiles = { ...s.environments.profiles }
-    delete profiles[name]
-    return { environments: { active: s.environments.active === name ? '' : s.environments.active, profiles } }
+    const profiles = { ...s.environments.profiles }; delete profiles[name]
+    const profileRefs = { ...s.environments.profileRefs }; delete profileRefs[name]
+    return { environments: { active: s.environments.active === name ? '' : s.environments.active, profiles, profileRefs } }
   }),
   setProfileValue: (profile, key, value) => set((s) => ({
     environments: { ...s.environments, profiles: { ...s.environments.profiles, [profile]: { ...(s.environments.profiles[profile] ?? {}), [key]: value } } },
   })),
+  importProfile: (name, values, filePath) => set((s) => {
+    // crea le variabili di pool MANCANTI referenziate dal profilo importato
+    const existing = new Set(s.pool.variables.map((v) => v.name))
+    const newVars = Object.keys(values)
+      .filter((k) => !existing.has(k))
+      .map((vn) => ({ id: varUid(), name: vn, type: 'string' as const, value: '', scope: 'pool' as const }))
+    return {
+      pool: { ...s.pool, variables: [...s.pool.variables, ...newVars] },
+      environments: {
+        ...s.environments,
+        profiles:    { ...s.environments.profiles, [name]: values },
+        profileRefs: { ...s.environments.profileRefs, [name]: filePath },
+      },
+    }
+  }),
   logs:               [],
   running:            false,
   nodeStats:          {},

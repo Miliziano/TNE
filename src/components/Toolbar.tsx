@@ -1396,7 +1396,11 @@ export function Toolbar() {
       useFlowStore.setState({
         pool: plan.pool, nodes: plan.nodes, edges: plan.edges,
         selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
-        environments: data.environments ?? { active: '', profiles: {} },
+        environments: {
+          active:      data.environments?.active ?? '',
+          profiles:    data.environments?.profiles ?? {},
+          profileRefs: data.environments?.profileRefs ?? {},
+        },
         currentPath: path,
       })
       resyncNodeCounter(plan.nodes)
