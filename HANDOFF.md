@@ -731,3 +731,34 @@ Ogni consegna è un `.patch` verificato con `git apply --check` su clone fresco 
 
 ### Da dove ripartire
 Le due cose pre-distribuzione ancora da implementare: **AMBIENTI** (risoluzione `${VAR}` con scope di pool + profili — è il cuore) oppure **SEGRETI** (il provider col keychain/env). Rifiniture rimandate dall'utente: il **confronto side-by-side** delle versioni e un **editor dedicato delle variabili** di pool. Debiti minori invariati (§8): porte reject inerti su alcuni nodi, dedup campi TMap (P121), e i ~113 errori TS6133 pre-esistenti (ripulibili in un passaggio dedicato).
+
+
+## AGGIORNAMENTO — stato al P158 (7 agosto)
+
+**TL;DR:** I **tre pilastri pre-distribuzione** — versionamento, ambienti, segreti — sono ora **IMPLEMENTATI** (P143–P158). La sezione "stato al P146" li dava come "design deciso ma non implementato" per ambienti/segreti: **superata**. Il nucleo per pubblicare c'è tutto; restano solo rifiniture rimandate. Tutta la UI è verificata col typecheck ma **non collaudata visivamente** (aspetto da confermare); il Rust dei segreti (P155/P157) **compila** (confermato).
+
+### Perno architetturale (tutti e tre i pilastri)
+Separare il **PIANO** (struttura: lane/nodi/wiring + riferimenti `${...}`, versionato, condiviso, SENZA segreti) dall'**AMBIENTE** (valori + segreti, per test/dev/prod, scelti a run-time). Da qui: si versiona/distribuisce senza segreti, si esegue ovunque cambiando profilo. Involucro `.ffplan` finale: `{ formatVersion:2, version:{id,savedAt,label}, plan:{pool,nodes,edges}, environments:{active, profiles, profileRefs}, history:[…] }`. Compatibile all'indietro col vecchio formato flat.
+
+### Versionamento — IMPLEMENTATO (P143–P146)
+Cronologia **dentro il `.ffplan`** (ramo `history` di snapshot COMPLETI, più recente in cima, tetto 20). Persistenza in `src/components/Toolbar.tsx` (`scriviProgetto`/`handleOpen`, non flowStore). UI in `src/components/VersionHistoryModal.tsx` (bottone "Cronologia" in Toolbar): **ripristina**, **commenta** la versione corrente (senza creare una nuova versione), salva **nuovo checkpoint** con nome, **elimina** versioni. Manca solo il confronto **side-by-side** (rimandato; lo schema è pronto perché gli snapshot sono completi).
+
+### Ambienti — IMPLEMENTATO (P148–P152)
+- **Variabili di POOL = fonte unica**, risolte per SCOPE da ogni lane (P148: `buildRustPlan` mette `pool.variables` come base dello scope; la lane può ombreggiare). Prima le pool-var erano inerti a run-time.
+- **Profili** test/dev/prod (P149 motore, P150 UI): `environments.profiles` = value-set che al Run rimpiazzano i valori di default delle pool-var; `environments.active` = profilo in uso.
+- **Editor "Ambienti"** (`src/components/EnvironmentsModal.tsx`, bottone "Ambienti" in Toolbar): crea/rinomina/elimina variabili di pool (P151), gestisce profili e i loro valori, seleziona l'attivo.
+- **Import/export su FILE** (P152): il **progetto è il padrone** (valori inline nel `.ffplan`); il file esterno è comodità (esporta/importa un profilo, formato `{ "profile":"prod", "values":{…} }`). Il progetto ricorda il percorso (`profileRefs`); all'apertura valgono i valori del progetto, l'utente **ricarica a mano** dal file (nessun auto-reload). L'import crea le variabili di pool mancanti referenziate.
+- Le variabili non appaiono più in alto vicino a "Pool" nel Canvas (P156): con decine ingombravano; si gestiscono nel modale.
+
+### Segreti — IMPLEMENTATO (P153–P158)
+- **Risoluzione `${VAR}` nei config delle RISORSE** (P153, studio, in `buildRustPlan`): host/porta/… diventano **sensibili all'ambiente** (`${API_HOST}` cambia per profilo — prima NON funzionava). I riferimenti IGNOTI (i `${SEGRETO}`) vengono **lasciati intatti** → risolti nel motore, mai in chiaro nello studio.
+- **Dichiarazione** (P154): `'secret'` aggiunto a `VariableType`; nell'editor Ambienti il bottone **"+ segreto"** crea una variabile di cui il file conserva **solo il nome** (valore mai salvato). Esclusi dai valori-per-profilo.
+- **Provider in Rust** (`src-tauri/src/secrets.rs`): P155 = variabili d'ambiente; P157 = fallback **keychain** del SO (crate `keyring` in Cargo.toml — ⚠️ verificare versione/feature per-piattaforma; l'env-var resta fallback). `spec.rs res_str_or` risolve i `${SEGRETO}` **nel backend** (il segreto non torna mai al lato JS).
+- **Provisioning** (P157 comandi + P158 UI): comandi Tauri `secret_set`/`secret_has`/`secret_delete`; sezione "Segreti" nel modale Ambienti per inserire i valori **sulla macchina** (keychain), vederne lo stato (✓/mancante) e rimuoverli.
+- Risultato: il piano **elenca i segreti necessari** (nomi) SENZA contenerne i valori → distribuibile e a prova di leak.
+
+### Metodo (invariato — vedi §2)
+Ogni consegna è un `.patch` verificato con `git apply --check` su clone fresco del remoto; TS con `tsc --noEmit`; il Rust è il cancello dell'utente. La UI si verifica solo col typecheck (aspetto visivo a carico dell'utente). Numerazione ora a P158.
+
+### Da dove ripartire
+Rifiniture rimandate: **confronto side-by-side** delle versioni; **editor variabili/"contesti classici"** più ampio. Estensioni future eventuali: cifratura dei profili che portano segreti, backend provider aggiuntivi (Vault/KMS/secret-manager esterni). Debiti minori invariati (§8): porte reject inerti su alcuni nodi, dedup campi TMap (P121), ~113 errori TS6133 pre-esistenti. Nota: il pre-distribuzione ha il suo dettaglio nella nota di memoria `flowpilot-distribuzione`.
