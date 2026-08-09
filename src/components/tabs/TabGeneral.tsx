@@ -56,7 +56,6 @@ function SectionTitle({ label }: { label: string }) {
 export function TabGeneral({ nodeId }: { nodeId: string }) {
   const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
   const updateConfig   = useFlowStore((s) => s.updateNodeConfig)
-  const updateAdvanced = useFlowStore((s) => s.updateNodeAdvanced)
 
   if (!node) return null
   const c = node.data.config
@@ -95,13 +94,6 @@ export function TabGeneral({ nodeId }: { nodeId: string }) {
             onChange={(e) => updateConfig(nodeId, { enabled: e.target.value as 'true' | 'false' })}>
             <option value="true">Sì</option>
             <option value="false">No — salta durante l'esecuzione</option>
-          </CustomSelect>
-        </Field>
-        <Field label="Esegui in parallelo">
-          <CustomSelect style={inputStyle} value={c.advanced?.parallel ?? 'false'}
-            onChange={(e) => updateAdvanced(nodeId, 'parallel', e.target.value)}>
-            <option value="false">No — sequenziale</option>
-            <option value="true">Sì — parallelo</option>
           </CustomSelect>
         </Field>
       </Row>

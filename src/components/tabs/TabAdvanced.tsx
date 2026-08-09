@@ -234,13 +234,6 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
           <input type="number" style={inputStyle} value={adv?.batchSize ?? '1000'}
             onChange={(e) => updateAdvanced(nodeId, 'batchSize', e.target.value)} />
         </Field>
-        <Field label="Esecuzione parallela">
-          <CustomSelect style={inputStyle} value={adv?.parallel ?? 'false'}
-            onChange={(e) => updateAdvanced(nodeId, 'parallel', e.target.value)}>
-            <option value="false">Sequenziale</option>
-            <option value="true">Parallela</option>
-          </CustomSelect>
-        </Field>
       </Row>
       <NodeStatusSection nodeId={nodeId} />
     </div>
