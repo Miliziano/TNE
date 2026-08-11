@@ -5,6 +5,7 @@ import {
   isTauri,
   openPlanDialog,
   savePlanDialog,
+  saveFileDialog,
   readFile,
   writeFile,
 } from '../lib/tauri'
@@ -1169,6 +1170,36 @@ export function Toolbar() {
   const [envOpen, setEnvOpen] = useState(false)
   const currentPath = useFlowStore((s) => s.currentPath)
 
+  // Esporta l'ARTIFACT runnable: il piano compilato (stesso JSON di engine_run,
+  // col profilo attivo CONGELATO e i ${SEGRETO}/${MONITOR_URL} intatti) + un
+  // piccolo manifesto. È il dato che il runner headless eseguirà.
+  const esportaArtifact = async () => {
+    if (!isTauri()) { addLog('error', 'Esportazione disponibile solo nell\'app desktop.'); return }
+    const { nodes, edges, pool, environments } = useFlowStore.getState()
+    const runId = `export-${Date.now()}`
+    let plan
+    try {
+      plan = buildRustPlan(nodes, edges, pool, runId)
+    } catch (e) {
+      addLog('error', `Compilazione del flusso fallita: ${(e as Error).message}`)
+      return
+    }
+    const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
+    const artifact = {
+      formatVersion: 1,
+      kind:          'flowpilot-artifact',
+      exportedAt:    new Date().toISOString(),
+      profile:       environments.active || '(default)',
+      requiredSecrets,
+      plan,
+    }
+    const path = await saveFileDialog({ title: 'Esporta artifact', defaultPath: 'artifact.ffart', filters: [{ name: 'Artifact FlowPilot', extensions: ['ffart', 'json'] }] })
+    if (!path) return
+    const ok = await writeFile(path, JSON.stringify(artifact, null, 2)).then(() => true).catch(() => false)
+    if (ok) addLog('ok', `Artifact esportato: ${path} (profilo: ${artifact.profile})${requiredSecrets.length ? ` — richiede i segreti: ${requiredSecrets.join(', ')}` : ''}`)
+    else addLog('error', 'Impossibile scrivere l\'artifact.')
+  }
+
   // ── Run — usa Rust Engine ─────────────────────────────────────
   const handleRun = async () => {
     if (running) return
@@ -1515,6 +1546,10 @@ export function Toolbar() {
       <TbBtn onClick={() => setEnvOpen(true)} title="Ambienti / profili (test, dev, prod)">
         <i className="ti ti-adjustments" style={{ fontSize: 13 }} aria-hidden="true" />
         Ambienti
+      </TbBtn>
+      <TbBtn onClick={esportaArtifact} title="Esporta artifact (piano runnable, profilo attivo congelato)">
+        <i className="ti ti-package" style={{ fontSize: 13 }} aria-hidden="true" />
+        Esporta artifact
       </TbBtn>
 
       <TbDivider />
