@@ -20,7 +20,7 @@ use engine::{
 mod db_transactions;
 mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
-mod engine;
+pub mod engine;   // esposto: usato anche dal binario runner headless (src/bin/flowpilot_runner.rs)
 mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
 
 #[tauri::command]

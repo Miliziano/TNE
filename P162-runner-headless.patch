@@ -1,0 +1,122 @@
+diff --git a/src-tauri/src/bin/flowpilot_runner.rs b/src-tauri/src/bin/flowpilot_runner.rs
+new file mode 100644
+index 0000000..5f7b912
+--- /dev/null
++++ b/src-tauri/src/bin/flowpilot_runner.rs
+@@ -0,0 +1,103 @@
++// src-tauri/src/bin/flowpilot_runner.rs
++//
++// Runner HEADLESS di FlowPilot (P162, primo passo).
++// Esegue un artifact `.ffart` (o direttamente un piano JSON) riusando lo STESSO
++// motore dello studio (`engine_run` di app_lib): nessuna logica duplicata. Drena
++// il bus eventi e lo stampa in NDJSON su stdout (una riga = un EngineEvent).
++// I segreti e i `${...}` rimasti nel piano si risolvono a run-time NEL motore
++// (provider env-var/keychain), sulla macchina di destinazione.
++//
++// (!) Questo primo runner LINKA `app_lib` (quindi Tauri): compila e gira sulla
++//     macchina di sviluppo per validare la LOGICA del runner. Lo scollegamento
++//     da Tauri (build headless/leggero per server, senza webview) e' la fetta dopo.
++//
++// Uso:   flowpilot_runner <artifact.ffart | piano.json>
++// Uscita: 0 = run completato, 1 = run fallito, 2 = errore d'uso/lettura.
++
++use std::time::Duration;
++
++use app_lib::engine::bus::global_bus;
++use app_lib::engine::engine_run;
++use app_lib::engine::events::EngineEvent;
++
++fn main() {
++    let path = match std::env::args().nth(1) {
++        Some(p) => p,
++        None => {
++            eprintln!("uso: flowpilot_runner <artifact.ffart | piano.json>");
++            std::process::exit(2);
++        }
++    };
++
++    let raw = match std::fs::read_to_string(&path) {
++        Ok(s) => s,
++        Err(e) => {
++            eprintln!("errore lettura {}: {}", path, e);
++            std::process::exit(2);
++        }
++    };
++
++    // Il file puo' essere un artifact `{ kind, plan, ... }` oppure direttamente
++    // il piano: in entrambi i casi estraggo il piano da passare al motore.
++    let root: serde_json::Value = match serde_json::from_str(&raw) {
++        Ok(v) => v,
++        Err(e) => {
++            eprintln!("JSON non valido: {}", e);
++            std::process::exit(2);
++        }
++    };
++    let plan = root.get("plan").cloned().unwrap_or(root);
++    let plan_json = plan.to_string();
++
++    // Runtime multi-thread (il motore fa spawn di task per lane/nodo).
++    let rt = match tokio::runtime::Runtime::new() {
++        Ok(r) => r,
++        Err(e) => {
++            eprintln!("errore runtime tokio: {}", e);
++            std::process::exit(2);
++        }
++    };
++
++    let code: i32 = rt.block_on(async move {
++        // Avvia il run: il motore fa spawn dei task ed emette gli eventi sul bus.
++        if let Err(e) = engine_run(plan_json).await {
++            eprintln!("avvio run fallito: {}", e);
++            return 1;
++        }
++
++        // Drena il bus fino a fine run, stampando ogni evento in NDJSON.
++        let bus = global_bus();
++        let mut cursor: u64 = 0;
++        loop {
++            // Sezione critica breve: prendo gli eventi e RILASCIO subito il lock
++            // (mai tenerlo attraverso lo sleep/await).
++            let batch = {
++                let guard = match bus.lock() {
++                    Ok(g) => g,
++                    Err(e) => {
++                        eprintln!("bus lock error: {}", e);
++                        return 1;
++                    }
++                };
++                let (events, new_cursor) = guard.drain_since(cursor);
++                cursor = new_cursor;
++                events
++            };
++
++            for te in &batch {
++                if let Ok(line) = serde_json::to_string(&te.event) {
++                    println!("{}", line);
++                }
++                match &te.event {
++                    EngineEvent::RunCompleted { .. } => return 0,
++                    EngineEvent::RunFailed { .. } => return 1,
++                    _ => {}
++                }
++            }
++
++            tokio::time::sleep(Duration::from_millis(100)).await;
++        }
++    });
++
++    std::process::exit(code);
++}
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 24172bb..dd1867d 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -20,7 +20,7 @@ use engine::{
+ mod db_transactions;
+ mod db_stream;
+ mod memory_monitor;  // aggiungere vicino agli altri mod
+-mod engine;
++pub mod engine;   // esposto: usato anche dal binario runner headless (src/bin/flowpilot_runner.rs)
+ mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
+ 
+ #[tauri::command]

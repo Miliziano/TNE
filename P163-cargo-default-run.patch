@@ -1,0 +1,11 @@
+diff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml
+index b73d0c7..c97dc1f 100644
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -1,5 +1,6 @@
+ [package]
+ name = "app"
++default-run = "app"   # `cargo run` (dev Tauri, senza --bin) esegue l'app; il runner: --bin flowpilot_runner
+ version = "0.1.0"
+ description = "A Tauri App"
+ authors = ["you"]

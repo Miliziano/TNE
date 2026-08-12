@@ -1,5 +1,6 @@
 [package]
 name = "app"
+default-run = "app"   # `cargo run` (dev Tauri, senza --bin) esegue l'app; il runner: --bin flowpilot_runner
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
