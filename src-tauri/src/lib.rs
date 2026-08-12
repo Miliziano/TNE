@@ -1,3 +1,4 @@
+#[cfg(feature = "desktop")]
 use tauri::Manager;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use serde::{Deserialize, Serialize};
@@ -17,16 +18,21 @@ use engine::{
   };
 
 
+#[cfg(feature = "desktop")]
 mod db_transactions;
+#[cfg(feature = "desktop")]
 mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
 pub mod engine;   // esposto: usato anche dal binario runner headless (src/bin/flowpilot_runner.rs)
 mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 fn secret_set(name: String, value: String) -> Result<(), String> { crate::secrets::set_secret(&name, &value) }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 fn secret_has(name: String) -> bool { crate::secrets::has_secret(&name) }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 fn secret_delete(name: String) -> Result<(), String> { crate::secrets::delete_secret(&name) }
 
@@ -44,6 +50,7 @@ struct MemoryInfo {
     timestamp:   u64,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn get_memory_info() -> Result<memory_monitor::AppMemoryInfo, String> {
     Ok(memory_monitor::get_app_memory_info())
@@ -136,6 +143,7 @@ fn get_webkit_rss(_our_pid: u32) -> u64 {
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[cfg(feature = "desktop")]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
@@ -255,6 +263,7 @@ struct DbConstraintInfo {
   constraint_type:  String,      // "primary_key" | "unique"
   columns:          Vec<String>, // ordinate secondo l'indice
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn db_list_constraints(request: DbListConstraintsRequest) -> Result<Vec<DbConstraintInfo>, String> {
   let conn_str = build_connection_string(&request.connection)?;
@@ -301,6 +310,7 @@ pub(crate) fn build_connection_string(conn: &DbConnectionParams) -> Result<Strin
   }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn db_query(request: DbQueryRequest) -> Result<Vec<serde_json::Value>, String> {
   let conn_str = build_connection_string(&request.connection)?;
@@ -312,6 +322,7 @@ async fn db_query(request: DbQueryRequest) -> Result<Vec<serde_json::Value>, Str
   }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn db_infer_schema(request: DbQueryRequest) -> Result<Vec<DbColumnInfo>, String> {
   let conn_str = build_connection_string(&request.connection)?;
@@ -379,6 +390,7 @@ pub struct DbWriteResult {
     pub generated_keys: Vec<serde_json::Value>,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn db_write(request: DbWriteRequest) -> Result<DbWriteResult, String> {
   let conn_str = build_connection_string(&request.connection)?;
@@ -1467,17 +1479,20 @@ async fn sqlite_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>, 
   }).collect())
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn read_file(path: String) -> Result<String, String> {
   std::fs::read_to_string(&path).map_err(|e| format!("Errore lettura {}: {}", path, e))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn read_file_bytes(path: String) -> Result<String, String> {
   let bytes = std::fs::read(&path).map_err(|e| format!("Errore lettura {}: {}", path, e))?;
   Ok(BASE64.encode(&bytes))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn write_file(path: String, content: String) -> Result<(), String> {
   if let Some(parent) = std::path::Path::new(&path).parent() {
@@ -1486,6 +1501,7 @@ async fn write_file(path: String, content: String) -> Result<(), String> {
   std::fs::write(&path, content.into_bytes()).map_err(|e| format!("Errore scrittura {}: {}", path, e))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn write_file_bytes(path: String, content_base64: String) -> Result<(), String> {
   if let Some(parent) = std::path::Path::new(&path).parent() {
@@ -1495,6 +1511,7 @@ async fn write_file_bytes(path: String, content_base64: String) -> Result<(), St
   std::fs::write(&path, bytes).map_err(|e| format!("Errore scrittura {}: {}", path, e))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn list_directory(path: String) -> Result<Vec<FileEntry>, String> {
   let entries = std::fs::read_dir(&path).map_err(|e| format!("Errore lettura directory {}: {}", path, e))?;
@@ -1517,6 +1534,7 @@ async fn list_directory(path: String) -> Result<Vec<FileEntry>, String> {
   Ok(result)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
   app.path().app_data_dir()
@@ -1567,6 +1585,7 @@ pub struct FtpFileEntry {
   pub modified_at: Option<String>,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ftp_test(connection: FtpConnectionParams) -> Result<FtpTestResult, String> {
   let start = std::time::Instant::now();
@@ -1594,6 +1613,7 @@ pub async fn ftp_list_impl(
   }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ftp_list(
   connection:  FtpConnectionParams,
@@ -1612,6 +1632,7 @@ pub async fn ftp_read_impl(connection: FtpConnectionParams, remote_path: String)
   }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ftp_read(connection: FtpConnectionParams, remote_path: String) -> Result<String, String> {
   ftp_read_impl(connection, remote_path).await
@@ -1631,6 +1652,7 @@ pub async fn ftp_write_impl(
   }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ftp_write(
   connection:  FtpConnectionParams,
@@ -1832,6 +1854,7 @@ pub struct MailSendRequest {
     pub attachments: Vec<MailAttachmentRequest>,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn mail_send(request: MailSendRequest) -> Result<(), String> {
     mail_send_impl(request).await
@@ -1924,6 +1947,7 @@ pub async fn mqtt_subscribe_impl(request: MqttSubscribeRequest) -> Result<Vec<Mq
     Ok(messages)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn mqtt_subscribe(request: MqttSubscribeRequest) -> Result<Vec<MqttMessage>, String> {
     mqtt_subscribe_impl(request).await
@@ -1959,6 +1983,7 @@ pub async fn mqtt_publish_impl(request: MqttPublishRequest) -> Result<(), String
     Ok(())
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn mqtt_publish(request: MqttPublishRequest) -> Result<(), String> {
     mqtt_publish_impl(request).await
@@ -1973,6 +1998,7 @@ pub struct StompMessage { pub destination: String, pub payload: String, pub head
 #[derive(Debug, Deserialize)]
 pub struct StompPublishRequest { pub connection: StompConnectionParams, pub destination: String, pub dest_type: String, pub payload: String, pub persistent: bool, pub priority: u8, pub ttl: u64, pub correlation_id: Option<String> }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn stomp_subscribe(request: StompSubscribeRequest) -> Result<Vec<StompMessage>, String> {
     stomp_subscribe_impl(request).await
@@ -2020,6 +2046,7 @@ pub async fn stomp_subscribe_impl(request: StompSubscribeRequest) -> Result<Vec<
     Ok(messages)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn stomp_publish(request: StompPublishRequest) -> Result<(), String> {
     stomp_publish_impl(request).await
@@ -2202,6 +2229,7 @@ fn webhook_event_id(headers: &std::collections::HashMap<String, String>, body: &
 #[derive(Debug, Deserialize)]
 pub struct WebhookServerStartRequest { pub resource_id: String, pub port: u16, pub ip_whitelist: Vec<String> }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_server_start(request: WebhookServerStartRequest) -> Result<(), String> {
     webhook_server_start_impl(request).await
@@ -2274,6 +2302,7 @@ pub async fn webhook_server_start_impl(request: WebhookServerStartRequest) -> Re
     Ok(())
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_server_stop(resource_id: String) -> Result<(), String> {
     if let Some(entry) = webhook_servers().lock().unwrap().remove(&resource_id) { let _ = entry.shutdown_tx.send(()); }
@@ -2283,6 +2312,7 @@ async fn webhook_server_stop(resource_id: String) -> Result<(), String> {
 #[derive(Debug, Deserialize)]
 pub struct WebhookSubscribeRequest { pub resource_id: String, pub node_id: String, pub path: String, pub secret: String, pub sig_header: String, pub sig_algo: String, pub dedup_ttl_sec: u64, pub max_buffer: usize, pub overflow: String }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_subscribe(request: WebhookSubscribeRequest) -> Result<(), String> {
     webhook_subscribe_impl(request).await
@@ -2298,6 +2328,7 @@ pub async fn webhook_subscribe_impl(request: WebhookSubscribeRequest) -> Result<
     Ok(())
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_unsubscribe(resource_id: String, node_id: String) -> Result<(), String> {
     webhook_unsubscribe_impl(resource_id, node_id).await
@@ -2312,6 +2343,7 @@ pub async fn webhook_unsubscribe_impl(resource_id: String, node_id: String) -> R
 #[derive(Debug, Serialize)]
 pub struct WebhookPopResult { pub event: Option<WebhookEvent>, pub queued: usize }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_pop(resource_id: String, node_id: String) -> Result<WebhookPopResult, String> {
     webhook_pop_impl(resource_id, node_id).await
@@ -2338,6 +2370,7 @@ pub struct WebhookResponderStartRequest {
     #[serde(default)] pub expose_body: bool,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_responder_start(request: WebhookResponderStartRequest) -> Result<(), String> {
     webhook_responder_start_impl(request).await
@@ -2422,6 +2455,7 @@ pub async fn webhook_responder_start_impl(request: WebhookResponderStartRequest)
 /// Aggiorna gli header esposti dal Responder senza riavviarlo.
 /// Chiamato dall'executor TypeScript sia in modalità flow (per ogni riga)
 /// che in modalità monitor (ad ogni ciclo di polling delle variabili di lane).
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_responder_update_headers(
     node_id: String,
@@ -2441,12 +2475,14 @@ pub async fn webhook_responder_update_headers_impl(
     Ok(())
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_responder_request_count(node_id: String) -> Result<u64, String> {
     Ok(webhook_responders().lock().unwrap().get(&node_id)
         .map(|(_, cnt, _)| cnt.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(0))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn webhook_responder_stop(node_id: String) -> Result<(), String> {
     webhook_responder_stop_impl(node_id).await
@@ -2468,6 +2504,7 @@ pub struct WatchdogCheckRequest {
 #[derive(Debug, Serialize)]
 pub struct WatchdogCheckResult { pub matched: bool, pub header_found: Option<String>, pub status_code: u16, pub elapsed_ms: u64 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn watchdog_check(request: WatchdogCheckRequest) -> Result<WatchdogCheckResult, String> {
     watchdog_check_impl(request).await
@@ -2517,6 +2554,7 @@ pub struct ShellResult {
 }
 
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn shell_exec(request: ShellExecRequest) -> Result<ShellResult, String> {
     shell_exec_impl(request).await
@@ -2648,6 +2686,7 @@ fn build_ssh_session(conn: &SshConnection) -> Result<ssh2::Session, String> {
     Ok(sess)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ssh_exec(request: SshExecRequest) -> Result<ShellResult, String> {
     ssh_exec_impl(request).await
@@ -2696,6 +2735,7 @@ pub async fn ssh_exec_impl(request: SshExecRequest) -> Result<ShellResult, Strin
     Ok(result)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ssh_test(connection: SshConnection) -> Result<SshTestResult, String> {
     let start = Instant::now();
@@ -2816,6 +2856,7 @@ pub async fn ldap_test_impl(connection: LdapConnection) -> Result<LdapTestResult
     }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn ldap_test(connection: LdapConnection) -> Result<LdapTestResult, String> {
     ldap_test_impl(connection).await
@@ -2887,6 +2928,7 @@ pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTest
     }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 async fn github_test(connection: GithubConnection) -> Result<GithubTestResult, String> {
     github_test_impl(connection).await

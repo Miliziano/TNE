@@ -46,21 +46,21 @@ use events::EngineEvent;
 
 // ── Fase 0-2 (invariati) ─────────────────────────────────────────
 
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_ping(delay_ms: u64) -> Result<String, String> {
     let start = Instant::now();
     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
     Ok(format!("pong dopo {}ms (richiesti {}ms)", start.elapsed().as_millis(), delay_ms))
 }
 
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_ping_parallel(id: u32, delay_ms: u64) -> Result<String, String> {
     let start = Instant::now();
     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
     Ok(format!("task #{id} completato dopo {}ms", start.elapsed().as_millis()))
 }
 
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_validate_plan(plan_json: String) -> Result<String, String> {
     let plan: Plan = serde_json::from_str(&plan_json)
         .map_err(|e| format!("Plan non valido: {}", e))?;
@@ -70,7 +70,7 @@ pub async fn engine_validate_plan(plan_json: String) -> Result<String, String> {
     ))
 }
 
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_poll_events(cursor: u64) -> Result<PollResult, String> {
     let bus = global_bus();
     let bus_guard = bus.lock().map_err(|e| format!("Bus lock error: {}", e))?;
@@ -79,7 +79,7 @@ pub async fn engine_poll_events(cursor: u64) -> Result<PollResult, String> {
     Ok(PollResult { events, cursor: new_cursor, bus_len })
 }
 
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_test_bus(event_count: u32, interval_ms: u64) -> Result<String, String> {
     tokio::spawn(async move {
         for i in 0..event_count {
@@ -108,7 +108,7 @@ pub async fn engine_test_bus(event_count: u32, interval_ms: u64) -> Result<Strin
 
 // ── Fase 3-4 — engine_run con multi-lane e bridge ─────────────────
 
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_run(plan_json: String) -> Result<String, String> {
     let plan: Plan = serde_json::from_str(&plan_json)
         .map_err(|e| format!("Plan non valido: {}", e))?;
@@ -395,7 +395,7 @@ fn run_cancels() -> &'static std::sync::Mutex<std::collections::HashMap<String, 
 
 /// Ferma un run in corso: scatena il token di cancellazione. I nodi-servizio
 /// (watch fase 2, webhook) lo attendono in `select!` per uscire puliti.
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn stop_run(run_id: String) -> Result<(), String> {
     let tok = run_cancels().lock().unwrap().get(&run_id).cloned();
     match tok {

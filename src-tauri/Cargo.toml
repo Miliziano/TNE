@@ -21,15 +21,15 @@ tauri-build = { version = "2.6.2", features = [] }
 serde_json =  { version = "1.0", features = ["preserve_order"] }
 serde      = { version = "1.0", features = ["derive"] }
 log        = "0.4"
-tauri      = { version = "2.11.2", features = [] }
-tauri-plugin-log    = "2"
-tauri-plugin-fs     = { version = "2.5.1", features = ["watch"] }
+tauri      = { version = "2.11.2", features = [], optional = true }
+tauri-plugin-log    = { version = "2", optional = true }
+tauri-plugin-fs     = { version = "2.5.1", features = ["watch"], optional = true }
 # keychain del SO per i segreti (macOS Keychain / Windows Credential Manager / Linux Secret Service).
 # ⚠️ VERIFICARE versione/feature per le proprie piattaforme di build; se il build fallisce,
 # il provider da variabili d'ambiente (secrets.rs) resta comunque funzionante.
 keyring             = "2"
-tauri-plugin-dialog = "2.7.1"
-tauri-plugin-shell  = "2.3.5"
+tauri-plugin-dialog = { version = "2.7.1", optional = true }
+tauri-plugin-shell  = { version = "2.3.5", optional = true }
 base64     = "0.22"
 rust_xlsxwriter = "0.96"
 lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder", "hostname",] }
@@ -73,3 +73,9 @@ tokio        = { version = "1",   features = ["full"] }
 suppaftp     = { version = "6", features = ["async", "async-native-tls"] }
 futures-util = { version = "0.3", features = ["io"] }
 
+
+[features]
+# `desktop` (default) = lo STUDIO Tauri. Il runner headless si costruisce SENZA:
+#   cargo build --bin flowpilot_runner --no-default-features --release
+default = ["desktop"]
+desktop = ["dep:tauri", "dep:tauri-plugin-log", "dep:tauri-plugin-fs", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
