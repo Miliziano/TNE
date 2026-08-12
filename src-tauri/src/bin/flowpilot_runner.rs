@@ -27,6 +27,35 @@ use app_lib::engine::events::EngineEvent;
 
 const FALLBACK_FILE: &str = "flowpilot-monitor-fallback.ndjson";
 
+/// Risolve i riferimenti `${NAME}` nell'endpoint del monitor usando le variabili
+/// d'ambiente della macchina di destinazione. Se un riferimento non e' risolto,
+/// o il risultato e' vuoto, ritorna None (nessun monitor).
+fn resolve_monitor(raw: &str) -> Option<String> {
+    let mut out = String::new();
+    let mut rest = raw;
+    while let Some(start) = rest.find("${") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        match after.find('}') {
+            Some(end) => {
+                let name = after[..end].trim();
+                match std::env::var(name) {
+                    Ok(v) if !v.is_empty() => out.push_str(&v),
+                    _ => return None, // riferimento non risolto -> niente monitor
+                }
+                rest = &after[end + 1..];
+            }
+            None => {
+                out.push_str("${");
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    let out = out.trim().to_string();
+    if out.is_empty() { None } else { Some(out) }
+}
+
 fn main() {
     let path = match std::env::args().nth(1) {
         Some(p) => p,
@@ -51,12 +80,19 @@ fn main() {
             std::process::exit(2);
         }
     };
+    // Monitor dal MANIFESTO dell'artifact (prima di consumare root per il piano).
+    let manifest_monitor = root.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
     let plan = root.get("plan").cloned().unwrap_or(root);
     let plan_json = plan.to_string();
 
-    // Endpoint del monitor (opzionale). Per ora da MONITOR_URL; in seguito la
-    // scheda di compilazione potra' bakarlo nel manifesto dell'artifact.
-    let monitor_url = std::env::var("MONITOR_URL").ok().filter(|s| !s.trim().is_empty());
+    // Endpoint del monitor (opzionale):
+    //   1) dal MANIFESTO dell'artifact (`monitor`), risolvendo i ${NAME} dalle
+    //      variabili d'ambiente sulla macchina di destinazione;
+    //   2) altrimenti dalla variabile d'ambiente MONITOR_URL (override/retrocompat).
+    let monitor_url = manifest_monitor
+        .as_deref()
+        .and_then(resolve_monitor)
+        .or_else(|| std::env::var("MONITOR_URL").ok().filter(|s| !s.trim().is_empty()));
 
     let rt = match tokio::runtime::Runtime::new() {
         Ok(r) => r,
