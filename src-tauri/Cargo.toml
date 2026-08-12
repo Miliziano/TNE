@@ -79,3 +79,14 @@ futures-util = { version = "0.3", features = ["io"] }
 #   cargo build --bin flowpilot_runner --no-default-features --release
 default = ["desktop"]
 desktop = ["dep:tauri", "dep:tauri-plugin-log", "dep:tauri-plugin-fs", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
+
+# Profilo per il RUNNER headless: ottimizzato per DIMENSIONE (non tocca il
+# profilo release dello studio). Build:
+#   cargo build --bin flowpilot_runner --no-default-features --profile release-lean
+[profile.release-lean]
+inherits      = "release"
+opt-level     = "z"      # ottimizza per dimensione
+lto           = true     # link-time optimization
+codegen-units = 1        # meno unità = binario più piccolo/ottimizzato
+panic         = "abort"  # niente unwinding (più piccolo; togliere se un dep lo richiede)
+strip         = true     # rimuove i simboli di debug
