@@ -762,3 +762,38 @@ Ogni consegna è un `.patch` verificato con `git apply --check` su clone fresco 
 
 ### Da dove ripartire
 Rifiniture rimandate: **confronto side-by-side** delle versioni; **editor variabili/"contesti classici"** più ampio. Estensioni future eventuali: cifratura dei profili che portano segreti, backend provider aggiuntivi (Vault/KMS/secret-manager esterni). Debiti minori invariati (§8): porte reject inerti su alcuni nodi, dedup campi TMap (P121), ~113 errori TS6133 pre-esistenti. Nota: il pre-distribuzione ha il suo dettaglio nella nota di memoria `flowpilot-distribuzione`.
+
+
+## AGGIORNAMENTO — stato al P170 (8 agosto)
+
+**TL;DR:** Dopo i tre pilastri pre-distribuzione (stato al P158), due cose grosse. **(1)** Una pulizia di consistenza: rimosso un campo di config morto (`parallel`, P160). **(2)** L'intero **tema RILASCIO / eseguibile** (P161–P170): dallo studio **generi un artifact**, un **runner headless** lo esegue anche su un server nudo (senza Tauri), che **pusha i log a un monitor centralizzato**; più la **CI cross-platform** e un **manuale operativo**. Il dettaglio patch-per-patch di questo tema è nella nota di memoria **`flowpilot-rilascio`** — leggerla per lavorare qui. Come sempre: il Rust è il cancello di compilazione dell'utente (non compilabile in sandbox), il TS si verifica con `tsc --noEmit`, e ogni consegna è un `.patch` validato con `git apply --check`.
+
+### Pulizia consistenza (P160)
+Rimosso il campo `advanced.parallel`: era **dead-config** — reso in DUE tab (TabGeneral "Esegui in parallelo" + TabAdvanced "Esecuzione parallela", stesso campo) e **mai letto** né da `buildRustPlan` né dal motore. Il motore è **sempre-parallelo per costruzione** (ogni nodo/lane = task Tokio; il sequenziamento nasce dalle dipendenze di dati), quindi il toggle era fuorviante. Rimosso dai 2 tab + dal tipo `NodeAdvanced`. NON toccati: l'`execMode` del nodo **filter** (per i suoi rami — vivo) e i campi **retry** (vivi).
+
+### Tema RILASCIO — l'eseguibile degli artifact (P161–P169)
+Modello scelto = **BUNDLE**: un **runner GENERICO condiviso** (un binario per piattaforma, con dentro TUTTI i driver), compilato una volta; l'**artifact è il PIANO** (KB), **portabile** — lo stesso runner esegue qualsiasi piano. Un **ambiente congelato per artifact**. Fatto chiave: la costruzione del piano vive nello STUDIO (`buildRustPlan` in TS); il motore Rust ESEGUE un piano già pronto (`engine_run(planJson)`). Quindi il runner NON riscrive nulla: lo studio **esporta** il piano compilato, il runner lo esegue.
+
+- **Export + scheda di compilazione** (P161, P167): bottone **"Compila"** nella Toolbar → modale `CompileModal` (scegli profilo da congelare / endpoint monitor / piattaforma) → genera un **`.ffart`**: `{ formatVersion, kind, exportedAt, profile, platform, monitor, requiredSecrets, plan }`. Riusa `buildRustPlan` (profilo attivo congelato; `${SEGRETO}`/`${MONITOR_URL}` lasciati intatti). Mostra il **manifesto** (segreti richiesti, ecc.).
+- **Runner headless** (P162, P163): nuovo binario **`src-tauri/src/bin/flowpilot_runner.rs`** — riusa `engine_run`, drena il **bus eventi** (`global_bus().drain_since`) e stampa **NDJSON** su stdout. `default-run = "app"` nel Cargo.toml perché ora ci sono due binari.
+- **Scollegamento da Tauri** (P164, P165): `tauri` + i 4 tauri-plugin resi **opzionali** dietro la feature **`desktop`** (default ON). Gatati con `#[cfg(feature="desktop")]` `run()`, i ~38 comandi dell'app e i `mod db_*` in lib.rs; `cfg_attr` sui 7 comandi del motore (restano chiamabili). `build.rs` gatato (`CARGO_FEATURE_DESKTOP`). → il runner si compila **`--no-default-features`** = **SENZA Tauri/webview** (per i server); lo studio resta identico.
+- **Push al monitor** (P166, P168): il runner, per ogni batch, oltre a stampare NDJSON fa **POST** al monitor (best-effort, timeout, **mai bloccante**, fallback su `flowpilot-monitor-fallback.ndjson`). Legge l'endpoint **dal manifesto** (`monitor`; `${MONITOR_URL}` risolto dalle env della macchina) con fallback su env `MONITOR_URL`.
+- **CI cross-platform** (P169): `.github/workflows/runner.yml` compila il runner per **Linux+Windows** (`--no-default-features --profile release-lean`), size-optimized. Deps di sistema Linux (solo per runner/monitor, niente webview): `pkg-config libssl-dev libdbus-1-dev`. Trigger: manuale o tag `vX.Y.Z` (allega i binari alla Release). Profilo `[profile.release-lean]` in Cargo.toml (opt-level="z", lto, strip, ecc.), separato dal release dello studio.
+
+### Il MONITOR (P170)
+Nuovo binario **`src-tauri/src/bin/flowpilot_monitor.rs`** — servizio **standalone** (dipende solo da `tiny_http`+`serde_json`, NO Tauri/app_lib), dietro la feature **`monitor`** (`required-features`, così non appesantisce studio/runner). Riceve i push (`POST /ingest`, NDJSON), aggrega per `run_id`, offre `GET /api/runs`, `GET /api/runs/<id>` e una **vista web** minimale (`GET /`). Store **IN MEMORIA** (persistenza = prossimo passo). Decisione: la *vista* potrà riusare l'UI dello studio, ma il *ricevitore* è un servizio always-on separato (il desktop non riceve push da una flotta).
+
+### Comandi chiave (dal manuale operativo)
+Da **`src-tauri/`** per i `cargo`, dalla radice per gli `npm`:
+- Studio: `npm run tauri dev` (sviluppo), `npm run tauri build` (app).
+- Runner: `cargo build --bin flowpilot_runner --no-default-features --profile release-lean` → `target/release-lean/`.
+- Monitor: `cargo build --bin flowpilot_monitor --no-default-features --features monitor --release` → `target/release/`, poi `flowpilot_monitor [porta=8787]`.
+- Artifact: NON da CLI — dallo studio, bottone "Compila".
+
+### Manuale operativo
+Scritto un **manuale operativo** (documento a parte, consegnato all'utente, NON nel repo): copre compilazione/esecuzione di studio/runner/monitor/artifact con parametri, più i capitoli **segreti** (dichiarazione, `${}` nelle risorse, risoluzione env-poi-keychain nel backend, provisioning) e **profili di esecuzione** (variabili di pool, profili, congelamento, import/export su file, involucro `.ffplan`).
+
+### Da dove ripartire
+- **TEMA 2 (manuali) — resta la metà per-nodo:** un **generatore di schede-nodo** dal registry + `nodeSemantics` + Panel (scheletro auto-generato per i ~40 nodi, poi arricchito) e **progetti di esempio** curati (che sono anche test del runner). Il lato *operativo* del tema 2 è già coperto dal manuale.
+- **Monitor:** persistenza (ora volatile), riuso dell'UI dello studio come vista, auth/retention.
+- **Rimandato/da valutare:** far **assemblare il bundle alla scheda** (copiare accanto al `.ffart` un runner pre-compilato per la piattaforma — NON compilare Rust dallo studio); "sapori" di runner (snello/completo); scelta congela-un-profilo confermata.

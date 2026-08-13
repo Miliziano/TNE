@@ -28,6 +28,7 @@ tauri-plugin-fs     = { version = "2.5.1", features = ["watch"], optional = true
 # ⚠️ VERIFICARE versione/feature per le proprie piattaforme di build; se il build fallisce,
 # il provider da variabili d'ambiente (secrets.rs) resta comunque funzionante.
 keyring             = "2"
+tiny_http           = { version = "0.12", optional = true }   # solo per il binario monitor
 tauri-plugin-dialog = { version = "2.7.1", optional = true }
 tauri-plugin-shell  = { version = "2.3.5", optional = true }
 base64     = "0.22"
@@ -79,6 +80,7 @@ futures-util = { version = "0.3", features = ["io"] }
 #   cargo build --bin flowpilot_runner --no-default-features --release
 default = ["desktop"]
 desktop = ["dep:tauri", "dep:tauri-plugin-log", "dep:tauri-plugin-fs", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
+monitor = ["dep:tiny_http"]
 
 # Profilo per il RUNNER headless: ottimizzato per DIMENSIONE (non tocca il
 # profilo release dello studio). Build:
@@ -90,3 +92,11 @@ lto           = true     # link-time optimization
 codegen-units = 1        # meno unità = binario più piccolo/ottimizzato
 panic         = "abort"  # niente unwinding (più piccolo; togliere se un dep lo richiede)
 strip         = true     # rimuove i simboli di debug
+
+# Il monitor si compila solo con la feature `monitor` (evita di tirarsi
+# dietro tiny_http nei build di studio/runner):
+#   cargo build --bin flowpilot_monitor --no-default-features --features monitor --release
+[[bin]]
+name = "flowpilot_monitor"
+path = "src/bin/flowpilot_monitor.rs"
+required-features = ["monitor"]
