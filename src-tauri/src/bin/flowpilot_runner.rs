@@ -56,6 +56,34 @@ fn resolve_monitor(raw: &str) -> Option<String> {
     if out.is_empty() { None } else { Some(out) }
 }
 
+/// Invia un blocco NDJSON al monitor (best-effort, mai bloccante). Se il push
+/// fallisce (o il monitor e' irraggiungibile) i log NON si perdono: vengono
+/// appesi al file di fallback locale. Nessun monitor configurato -> no-op.
+async fn push_ndjson(client: Option<&reqwest::Client>, url: Option<&str>, payload: &str) {
+    if payload.is_empty() {
+        return;
+    }
+    if let (Some(client), Some(url)) = (client, url) {
+        let ok = client
+            .post(url)
+            .header("content-type", "application/x-ndjson")
+            .body(payload.to_string())
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false);
+        if !ok {
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(FALLBACK_FILE)
+            {
+                let _ = f.write_all(payload.as_bytes());
+            }
+        }
+    }
+}
+
 fn main() {
     let path = match std::env::args().nth(1) {
         Some(p) => p,
@@ -82,6 +110,30 @@ fn main() {
     };
     // Monitor dal MANIFESTO dell'artifact (prima di consumare root per il piano).
     let manifest_monitor = root.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+    // Intestazione autodescrittiva del log (self-contained): versione del formato,
+    // metadati del runner e dell'artifact. Emessa UNA volta, in testa al log, cosi'
+    // un file NDJSON salvato e' interpretabile a freddo (usata dalla persistenza e
+    // dall'apertura di log gia' eseguiti). Costruita PRIMA di consumare `root`.
+    let header_line = serde_json::json!({
+        "kind":       "flowpilot-log-header",
+        "logFormat":  1,
+        "emittedAt":  EngineEvent::timestamp_ms(),
+        "runner": {
+            "os":      std::env::consts::OS,
+            "arch":    std::env::consts::ARCH,
+            "version": env!("CARGO_PKG_VERSION"),
+        },
+        "artifact": {
+            "formatVersion":   root.get("formatVersion"),
+            "profile":         root.get("profile"),
+            "platform":        root.get("platform"),
+            "exportedAt":      root.get("exportedAt"),
+            "requiredSecrets": root.get("requiredSecrets"),
+        },
+    })
+    .to_string();
+
     let plan = root.get("plan").cloned().unwrap_or(root);
     let plan_json = plan.to_string();
 
@@ -115,6 +167,10 @@ fn main() {
             None => None,
         };
 
+        // Intestazione in testa al log: stdout + push (best-effort), una volta.
+        println!("{}", header_line);
+        push_ndjson(http.as_ref(), monitor_url.as_deref(), &format!("{}\n", header_line)).await;
+
         if let Err(e) = engine_run(plan_json).await {
             eprintln!("avvio run fallito: {}", e);
             return 1;
@@ -141,11 +197,19 @@ fn main() {
             let mut ndjson = String::new();
             let mut exit_code: Option<i32> = None;
             for te in &batch {
-                if let Ok(line) = serde_json::to_string(&te.event) {
-                    println!("{}", line);
-                    ndjson.push_str(&line);
-                    ndjson.push('\n');
-                }
+                // Riga INCAPSULATA: il timestamp d'ORIGINE (preso dal bus al momento
+                // dell'evento) viaggia con l'evento -> il monitor sa QUANDO e' successo
+                // davvero, non quando l'ha ricevuto (importante se era giu' e i log
+                // arrivano dopo dal fallback). L'evento resta {type, payload} dentro `event`.
+                let line = serde_json::json!({
+                    "timestamp": te.timestamp,
+                    "event":     serde_json::to_value(&te.event).unwrap_or(serde_json::Value::Null),
+                })
+                .to_string();
+                println!("{}", line);
+                ndjson.push_str(&line);
+                ndjson.push('\n');
+
                 match &te.event {
                     EngineEvent::RunCompleted { .. } => exit_code = Some(0),
                     EngineEvent::RunFailed { .. } => exit_code = Some(1),
@@ -154,28 +218,7 @@ fn main() {
             }
 
             // Push al monitor (best-effort): include anche il batch finale.
-            if !ndjson.is_empty() {
-                if let (Some(url), Some(client)) = (monitor_url.as_ref(), http.as_ref()) {
-                    let ok = client
-                        .post(url)
-                        .header("content-type", "application/x-ndjson")
-                        .body(ndjson.clone())
-                        .send()
-                        .await
-                        .map(|r| r.status().is_success())
-                        .unwrap_or(false);
-                    if !ok {
-                        // Non perdere i log: append al fallback locale.
-                        if let Ok(mut f) = std::fs::OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(FALLBACK_FILE)
-                        {
-                            let _ = f.write_all(ndjson.as_bytes());
-                        }
-                    }
-                }
-            }
+            push_ndjson(http.as_ref(), monitor_url.as_deref(), &ndjson).await;
 
             if let Some(c) = exit_code {
                 return c;

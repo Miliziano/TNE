@@ -1,0 +1,3441 @@
+diff --git a/docs/nodes/README.md b/docs/nodes/README.md
+new file mode 100644
+index 0000000..3e797de
+--- /dev/null
++++ b/docs/nodes/README.md
+@@ -0,0 +1,74 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Riferimento nodi FlowPilot
++
++Schede generate automaticamente dal registry (`NODE_DEFS`) e dalla semantica (`NODE_SEMANTICS`). Rigenera con `npm run docs:nodes`. La sezione «Approfondimento» di ogni scheda è scritta a mano e viene preservata.
++
++**47 nodi.**
++
++## Input
++
++- [`source_kafka`](./source_kafka.md) — **Kafka Source** · Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione
++- [`source_db`](./source_db.md) — **DB Source** · Legge righe da una tabella di database
++- [`source_file`](./source_file.md) — **File Input** · Legge record da un file locale
++- [`source_http`](./source_http.md) — **HTTP Source** · Recupera dati da un endpoint HTTP
++- [`source_ftp`](./source_ftp.md) — **FTP/SFTP Source** · Legge file da server FTP, FTPS o SFTP
++- [`ldap_source`](./ldap_source.md) — **LDAP Source** · Interroga una directory LDAP e produce una riga per voce
++- [`github_source`](./github_source.md) — **GitHub Source** · Preleva dati da GitHub (repo, issue/PR, commit) via API REST
++- [`dir_watcher`](./dir_watcher.md) — **Dir Watcher** · Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan)
++- [`source_activemq`](./source_activemq.md) — **ActiveMQ** · Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP
++- [`source_mqtt`](./source_mqtt.md) — **MQTT** · Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS
++- [`webhook_receiver`](./webhook_receiver.md) — **Webhook Receiver** · Riceve webhook — server condiviso con HMAC, buffer e dedup
++- [`watchdog`](./watchdog.md) — **Watchdog** · Monitora servizi via HEAD — sblocca il flusso sull'header atteso
++- [`bridge_in`](./bridge_in.md) — **Bridge In** · Porta di ingresso da un'altra lane — riceve dal canale bridge
++
++## Transform
++
++- [`log`](./log.md) — **Log** · Nodo trasparente — logga le righe in transito per debug
++- [`data_quality`](./data_quality.md) — **Data Quality** · Valida ogni riga contro regole configurabili — output valid e reject
++- [`union`](./union.md) — **Union** · Fonde N flussi in uno — modalità concat, interleave o zip
++- [`filter`](./filter.md) — **Filter** · Smista le righe su N uscite in base a condizioni — first-match
++- [`transform`](./transform.md) — **Transform fields** · Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL
++- [`join`](./join.md) — **Join** · Unisce due flussi su un campo chiave
++- [`tmap`](./tmap.md) — **TMap** · Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale
++- [`aggregate`](./aggregate.md) — **Aggregate** · Raggruppa le righe e calcola funzioni aggregate
++- [`json_parser`](./json_parser.md) — **JSON Parser** · Estrae e trasforma dati JSON in flussi strutturati
++- [`xml_parser`](./xml_parser.md) — **XML Parser** · Estrae e trasforma dati XML in flussi strutturati
++- [`script`](./script.md) — **Script** · Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni
++- [`window`](./window.md) — **Window** · Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG
++- [`materialize`](./materialize.md) — **Materialize** · Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context
++- [`explode`](./explode.md) — **Explode** · Trasforma strutture dense (Materialize, variabili lane, campi object) in un flusso di righe
++- [`report_generator`](./report_generator.md) — **Report Generator** · Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici
++- [`pivot`](./pivot.md) — **Pivot / Unpivot** · Trasforma la struttura della tabella — righe in colonne (Pivot) o colonne in righe (Unpivot)
++- [`ldap_auth`](./ldap_auth.md) — **LDAP Auth** · Autentica le credenziali di ogni riga contro LDAP (search-then-bind)
++
++## Output
++
++- [`json_serializer`](./json_serializer.md) — **JSON Serializer** · Serializza righe del flusso in stringhe JSON con struttura configurabile
++- [`xml_serializer`](./xml_serializer.md) — **XML Serializer** · Serializza righe del flusso in stringhe XML con struttura e namespace configurabili
++- [`sink_db`](./sink_db.md) — **DB Sink** · Scrive righe in una tabella di database
++- [`sink_kafka`](./sink_kafka.md) — **Kafka** · Pubblica righe su un topic Kafka
++- [`sink_file`](./sink_file.md) — **File Output** · Scrive righe su file
++- [`sink_activemq`](./sink_activemq.md) — **ActiveMQ Sink** · Producer ActiveMQ — pubblica messaggi su queue o topic
++- [`sink_mqtt`](./sink_mqtt.md) — **MQTT Sink** · Publisher MQTT — pubblica messaggi su topic
++- [`sink_ftp`](./sink_ftp.md) — **FTP/SFTP Sink** · Scrive file su server FTP, FTPS o SFTP
++- [`mail_sink`](./mail_sink.md) — **Mail Sink** · Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun
++- [`webhook_responder`](./webhook_responder.md) — **Webhook Responder** · Risponde HEAD/GET con header sintetici dalla riga corrente
++- [`bridge_out`](./bridge_out.md) — **Bridge Out** · Porta di uscita dal flusso della lane — pubblica sul canale bridge
++
++## Flusso
++
++- [`stop`](./stop.md) — **Stop** · Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo
++
++## DevOps
++
++- [`shell_exec`](./shell_exec.md) — **Shell** · Esegue comandi bash/shell locali — output nel flusso
++- [`ssh_exec`](./ssh_exec.md) — **SSH** · Esegue comandi su host remoto via SSH
++
++## Altri
++
++- [`error_handler`](./error_handler.md) — **Error Handler** · Collettore centrale degli errori della lane — sempre attivo, non eliminabile
++- [`lane_end`](./lane_end.md) — **End** · Punto di fine della lane
++- [`lane_start`](./lane_start.md) — **Start** · Punto di avvio della lane
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
+diff --git a/docs/nodes/aggregate.md b/docs/nodes/aggregate.md
+new file mode 100644
+index 0000000..fa18494
+--- /dev/null
++++ b/docs/nodes/aggregate.md
+@@ -0,0 +1,38 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Aggregate  `aggregate`
++
++**Categoria:** Transform  ·  **Icona:** `Σ`  ·  **Colore:** `#ffb347`
++
++Raggruppa le righe e calcola funzioni aggregate.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `group_by` | Raggruppa per | text | `region` | — | — |
++| `functions` | Funzioni | code | `{"count": "*", "sum": "amount"}` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `aggregate`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `python_polars` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Aggregate**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/bridge_in.md b/docs/nodes/bridge_in.md
+new file mode 100644
+index 0000000..edf1396
+--- /dev/null
++++ b/docs/nodes/bridge_in.md
+@@ -0,0 +1,40 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Bridge In  `bridge_in`
++
++**Categoria:** Input  ·  **Icona:** `←`  ·  **Colore:** `#a78bfa`
++
++Porta di ingresso da un'altra lane — riceve dal canale bridge.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `channelName` | Nome canale | text | — | — | — |
++| `channelColor` | Colore | text | `#a78bfa` | — | — |
++| `syncMode` | Sincronismo | text | `fire_and_forget` | — | — |
++| `timeoutSec` | Timeout (sec) | number | `30` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++_Nessuna._
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Bridge In**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/bridge_out.md b/docs/nodes/bridge_out.md
+new file mode 100644
+index 0000000..03329b0
+--- /dev/null
++++ b/docs/nodes/bridge_out.md
+@@ -0,0 +1,43 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Bridge Out  `bridge_out`
++
++**Categoria:** Output  ·  **Icona:** `→`  ·  **Colore:** `#a78bfa`
++
++Porta di uscita dal flusso della lane — pubblica sul canale bridge.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `channelName` | Nome canale | text | — | — | — |
++| `channelColor` | Colore | text | `#a78bfa` | — | — |
++| `syncMode` | Sincronismo | text | `fire_and_forget` | — | — |
++| `transferMode` | Trasferimento | text | `content` | — | — |
++| `batchSize` | Batch size | number | `100` | — | — |
++| `bufferSize` | Buffer size | number | `0` | — | — |
++| `outputMode` | Output mode | text | `none` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Bridge Out**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/data_quality.md b/docs/nodes/data_quality.md
+new file mode 100644
+index 0000000..52f14e6
+--- /dev/null
++++ b/docs/nodes/data_quality.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Data Quality  `data_quality`
++
++**Categoria:** Transform  ·  **Icona:** `✓`  ·  **Colore:** `#3ddc84`
++
++Valida ogni riga contro regole configurabili — output valid e reject.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Data Quality**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/dir_watcher.md b/docs/nodes/dir_watcher.md
+new file mode 100644
+index 0000000..2190e32
+--- /dev/null
++++ b/docs/nodes/dir_watcher.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Dir Watcher  `dir_watcher`
++
++**Categoria:** Input  ·  **Icona:** `📁`  ·  **Colore:** `#22d3ee`
++
++Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Dir Watcher**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/error_handler.md b/docs/nodes/error_handler.md
+new file mode 100644
+index 0000000..881ad6e
+--- /dev/null
++++ b/docs/nodes/error_handler.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Error Handler  `error_handler`
++
++**Categoria:** Transform  ·  **Icona:** `⚠`  ·  **Colore:** `#ff5f57`
++
++Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se "Log centralizzato" è attivo).
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `catch` · ruolo catch
++
++**Porte di uscita (statiche):**
++
++- `error_out` · «error» · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Error Handler**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/explode.md b/docs/nodes/explode.md
+new file mode 100644
+index 0000000..b5416f7
+--- /dev/null
++++ b/docs/nodes/explode.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Explode  `explode`
++
++**Categoria:** Transform  ·  **Icona:** `⊕`  ·  **Colore:** `#a78bfa`
++
++Trasforma strutture dense (Materialize, variabili lane, campi object) in un flusso di righe.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · «rows» · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Explode**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/filter.md b/docs/nodes/filter.md
+new file mode 100644
+index 0000000..b11f00f
+--- /dev/null
++++ b/docs/nodes/filter.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Filter  `filter`
++
++**Categoria:** Transform  ·  **Icona:** `⊻`  ·  **Colore:** `#ffb347`
++
++Smista le righe su N uscite in base a condizioni — first-match.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `branch`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** sì
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Filter**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/github_source.md b/docs/nodes/github_source.md
+new file mode 100644
+index 0000000..2dac8e8
+--- /dev/null
++++ b/docs/nodes/github_source.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# GitHub Source  `github_source`
++
++**Categoria:** Input  ·  **Icona:** `⑃`  ·  **Colore:** `#4a9eff`
++
++Preleva dati da GitHub (repo, issue/PR, commit) via API REST.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **GitHub Source**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/join.md b/docs/nodes/join.md
+new file mode 100644
+index 0000000..5883866
+--- /dev/null
++++ b/docs/nodes/join.md
+@@ -0,0 +1,40 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Join  `join`
++
++**Categoria:** Transform  ·  **Icona:** `⋈`  ·  **Colore:** `#ffb347`
++
++Unisce due flussi su un campo chiave.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `join_type` | Tipo join | select | `inner` | `inner`, `left`, `right`, `full` | — |
++| `key` | Campo chiave | text | `user_id` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `join`
++- **Esecuzione:** con stato (`stateful`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** sì
++- **Runtime preferiti:** `python_polars` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input_left` · ruolo data · archi: 1
++- `input_right` · ruolo data · archi: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · «non-matched» · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Join**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/json_parser.md b/docs/nodes/json_parser.md
+new file mode 100644
+index 0000000..13120f0
+--- /dev/null
++++ b/docs/nodes/json_parser.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# JSON Parser  `json_parser`
++
++**Categoria:** Transform  ·  **Icona:** `{ }`  ·  **Colore:** `#22d3ee`
++
++Estrae e trasforma dati JSON in flussi strutturati.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `parse`, `projection`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** sì
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **JSON Parser**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/json_serializer.md b/docs/nodes/json_serializer.md
+new file mode 100644
+index 0000000..f10daba
+--- /dev/null
++++ b/docs/nodes/json_serializer.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# JSON Serializer  `json_serializer`
++
++**Categoria:** Output  ·  **Icona:** `{ }`  ·  **Colore:** `#22d3ee`
++
++Serializza righe del flusso in stringhe JSON con struttura configurabile.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** sì · **ingressi dinamici** (handle `input_new`)
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **JSON Serializer**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/lane_end.md b/docs/nodes/lane_end.md
+new file mode 100644
+index 0000000..8b2b4d7
+--- /dev/null
++++ b/docs/nodes/lane_end.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# End  `lane_end`
++
++**Categoria:** Output  ·  **Icona:** `⏹`  ·  **Colore:** `#ff5f57`
++
++Punto di fine della lane. Ha solo un handle di ingresso.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `label` | Etichetta | text | `End` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **End**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/lane_start.md b/docs/nodes/lane_start.md
+new file mode 100644
+index 0000000..4b40e37
+--- /dev/null
++++ b/docs/nodes/lane_start.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Start  `lane_start`
++
++**Categoria:** Input  ·  **Icona:** `▶`  ·  **Colore:** `#3ddc84`
++
++Punto di avvio della lane. Ha solo un handle di uscita.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `label` | Etichetta | text | `Start` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++_Nessuna._
++
++**Porte di uscita (statiche):**
++
++- `output` · «start» · ruolo signal
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Start**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/ldap_auth.md b/docs/nodes/ldap_auth.md
+new file mode 100644
+index 0000000..993ef37
+--- /dev/null
++++ b/docs/nodes/ldap_auth.md
+@@ -0,0 +1,38 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# LDAP Auth  `ldap_auth`
++
++**Categoria:** Transform  ·  **Icona:** `⊞`  ·  **Colore:** `#ffb347`
++
++Autentica le credenziali di ogni riga contro LDAP (search-then-bind).
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** sì
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · «authenticated» · ruolo data
++- `reject` · ruolo reject
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **LDAP Auth**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/ldap_source.md b/docs/nodes/ldap_source.md
+new file mode 100644
+index 0000000..077375a
+--- /dev/null
++++ b/docs/nodes/ldap_source.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# LDAP Source  `ldap_source`
++
++**Categoria:** Input  ·  **Icona:** `⧉`  ·  **Colore:** `#4a9eff`
++
++Interroga una directory LDAP e produce una riga per voce.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **LDAP Source**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/log.md b/docs/nodes/log.md
+new file mode 100644
+index 0000000..171983a
+--- /dev/null
++++ b/docs/nodes/log.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Log  `log`
++
++**Categoria:** Transform  ·  **Icona:** `📋`  ·  **Colore:** `#a78bfa`
++
++Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars` → `python_pandas` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Log**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/mail_sink.md b/docs/nodes/mail_sink.md
+new file mode 100644
+index 0000000..43cc0a3
+--- /dev/null
++++ b/docs/nodes/mail_sink.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Mail Sink  `mail_sink`
++
++**Categoria:** Output  ·  **Icona:** `✉`  ·  **Colore:** `#4a9eff`
++
++Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Mail Sink**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/materialize.md b/docs/nodes/materialize.md
+new file mode 100644
+index 0000000..1bde039
+--- /dev/null
++++ b/docs/nodes/materialize.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Materialize  `materialize`
++
++**Categoria:** Transform  ·  **Icona:** `◈`  ·  **Colore:** `#22d3ee`
++
++Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context.materialize().
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `aggregate`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Materialize**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/pivot.md b/docs/nodes/pivot.md
+new file mode 100644
+index 0000000..4b8af1f
+--- /dev/null
++++ b/docs/nodes/pivot.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Pivot / Unpivot  `pivot`
++
++**Categoria:** Transform  ·  **Icona:** `⊞`  ·  **Colore:** `#f97316`
++
++Trasforma la struttura della tabella — righe in colonne (Pivot) o colonne in righe (Unpivot).
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `aggregate`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `python_polars` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Pivot / Unpivot**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/report_generator.md b/docs/nodes/report_generator.md
+new file mode 100644
+index 0000000..1434ba2
+--- /dev/null
++++ b/docs/nodes/report_generator.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Report Generator  `report_generator`
++
++**Categoria:** Transform  ·  **Icona:** `📊`  ·  **Colore:** `#f472b6`
++
++Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `aggregate`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · «report» · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Report Generator**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/script.md b/docs/nodes/script.md
+new file mode 100644
+index 0000000..34203a8
+--- /dev/null
++++ b/docs/nodes/script.md
+@@ -0,0 +1,40 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Script  `script`
++
++**Categoria:** Transform  ·  **Icona:** `λ`  ·  **Colore:** `#a78bfa`
++
++Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `sourceMode` | Sorgente delle righe | select | `flusso` | `flusso`, `genera` | — |
++| `code` | Istruzioni | code | `// I campi si usano per nome; "let" per i valori intermedi. // Istruzioni: let, assegnazione, if/else, skip, reject, log, error. ` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · _condizionata_
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data · _condizionata_
++- `output` · «innesco» · ruolo signal · _condizionata_
++- `reject` · ruolo reject · _condizionata_
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Script**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/shell_exec.md b/docs/nodes/shell_exec.md
+new file mode 100644
+index 0000000..41909ea
+--- /dev/null
++++ b/docs/nodes/shell_exec.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Shell  `shell_exec`
++
++**Categoria:** Transform  ·  **Icona:** `>_`  ·  **Colore:** `#22d3ee`
++
++Esegue comandi bash/shell locali — output nel flusso.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Shell**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/sink_activemq.md b/docs/nodes/sink_activemq.md
+new file mode 100644
+index 0000000..591b77c
+--- /dev/null
++++ b/docs/nodes/sink_activemq.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# ActiveMQ Sink  `sink_activemq`
++
++**Categoria:** Output  ·  **Icona:** `⊛`  ·  **Colore:** `#fb923c`
++
++Producer ActiveMQ — pubblica messaggi su queue o topic.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **ActiveMQ Sink**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/sink_db.md b/docs/nodes/sink_db.md
+new file mode 100644
+index 0000000..4a25a0c
+--- /dev/null
++++ b/docs/nodes/sink_db.md
+@@ -0,0 +1,42 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# DB Sink  `sink_db`
++
++**Categoria:** Output  ·  **Icona:** `⬡`  ·  **Colore:** `#3ddc84`
++
++Scrive righe in una tabella di database.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `schema` | Schema | text | `public` | — | — |
++| `table` | Tabella | text | — | — | — |
++| `mode` | Modalità | select | `insert` | `insert`, `upsert`, `update`, `truncate_insert`, `merge` | — |
++| `keyFields` | Campi chiave | text | `id` | — | — |
++| `batchSize` | Batch size | number | `1000` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **DB Sink**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/sink_file.md b/docs/nodes/sink_file.md
+new file mode 100644
+index 0000000..e42d524
+--- /dev/null
++++ b/docs/nodes/sink_file.md
+@@ -0,0 +1,43 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# File Output  `sink_file`
++
++**Categoria:** Output  ·  **Icona:** `▤`  ·  **Colore:** `#3ddc84`
++
++Scrive righe su file.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `path` | Percorso | text | `/data/output.csv` | — | — |
++| `format` | Formato | select | `csv` | `csv`, `json`, `jsonl`, `parquet`, `tsv`, `xml`, `excel` | — |
++| `mode` | Modalità | select | `overwrite` | `overwrite`, `append`, `new`, `error` | — |
++| `partition` | Partizione | select | `none` | `none`, `field`, `date`, `size` | — |
++| `processingMode` | Elaborazione | select | `streaming` | `streaming`, `batch` | — |
++| `passthrough` | Pass-through | text | `false` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **File Output**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/sink_ftp.md b/docs/nodes/sink_ftp.md
+new file mode 100644
+index 0000000..93b76c9
+--- /dev/null
++++ b/docs/nodes/sink_ftp.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# FTP/SFTP Sink  `sink_ftp`
++
++**Categoria:** Output  ·  **Icona:** `⇄`  ·  **Colore:** `#3ddc84`
++
++Scrive file su server FTP, FTPS o SFTP.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **FTP/SFTP Sink**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/sink_kafka.md b/docs/nodes/sink_kafka.md
+new file mode 100644
+index 0000000..ddf831a
+--- /dev/null
++++ b/docs/nodes/sink_kafka.md
+@@ -0,0 +1,41 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Kafka  `sink_kafka`
++
++**Categoria:** Output  ·  **Icona:** `≋`  ·  **Colore:** `#3ddc84`
++
++Pubblica righe su un topic Kafka.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `topic` | Topic | text | `pipeline-out` | — | — |
++| `key_field` | Campo chiave | text | `id` | — | — |
++| `valueFormat` | Formato | select | `json` | `json`, `avro`, `protobuf`, `string` | — |
++| `acks` | Acks | select | `all` | `0`, `1`, `all` | — |
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Kafka**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/sink_mqtt.md b/docs/nodes/sink_mqtt.md
+new file mode 100644
+index 0000000..967e149
+--- /dev/null
++++ b/docs/nodes/sink_mqtt.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# MQTT Sink  `sink_mqtt`
++
++**Categoria:** Output  ·  **Icona:** `⊙`  ·  **Colore:** `#84cc16`
++
++Publisher MQTT — pubblica messaggi su topic.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **MQTT Sink**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_activemq.md b/docs/nodes/source_activemq.md
+new file mode 100644
+index 0000000..6680f7a
+--- /dev/null
++++ b/docs/nodes/source_activemq.md
+@@ -0,0 +1,36 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# ActiveMQ  `source_activemq`
++
++**Categoria:** Input  ·  **Icona:** `⊛`  ·  **Colore:** `#fb923c`
++
++Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **ActiveMQ**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_db.md b/docs/nodes/source_db.md
+new file mode 100644
+index 0000000..5ae2f35
+--- /dev/null
++++ b/docs/nodes/source_db.md
+@@ -0,0 +1,41 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# DB Source  `source_db`
++
++**Categoria:** Input  ·  **Icona:** `⬡`  ·  **Colore:** `#4a9eff`
++
++Legge righe da una tabella di database.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `schema` | Schema | text | `public` | — | `query` valorizzato |
++| `table` | Tabella | text | — | — | `query` valorizzato |
++| `limit` | Limite righe | number | `0` | — | `query` valorizzato |
++| `orderBy` | Ordina per | text | — | — | `query` valorizzato |
++| `query` | Query SQL | code | `SELECT * FROM ` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars` → `java_beam`
++- **Pushdown alla sorgente:** `filter`, `projection`, `sort`, `limit`
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **DB Source**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_file.md b/docs/nodes/source_file.md
+new file mode 100644
+index 0000000..22d564e
+--- /dev/null
++++ b/docs/nodes/source_file.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# File Input  `source_file`
++
++**Categoria:** Input  ·  **Icona:** `▤`  ·  **Colore:** `#4a9eff`
++
++Legge record da un file locale.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **File Input**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_ftp.md b/docs/nodes/source_ftp.md
+new file mode 100644
+index 0000000..0cc3266
+--- /dev/null
++++ b/docs/nodes/source_ftp.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# FTP/SFTP Source  `source_ftp`
++
++**Categoria:** Input  ·  **Icona:** `⇄`  ·  **Colore:** `#4a9eff`
++
++Legge file da server FTP, FTPS o SFTP.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** `projection`, `limit`
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **FTP/SFTP Source**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_http.md b/docs/nodes/source_http.md
+new file mode 100644
+index 0000000..5ab9777
+--- /dev/null
++++ b/docs/nodes/source_http.md
+@@ -0,0 +1,42 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# HTTP Source  `source_http`
++
++**Categoria:** Input  ·  **Icona:** `⇄`  ·  **Colore:** `#4a9eff`
++
++Recupera dati da un endpoint HTTP.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `url` | URL | text | `https://jsonplaceholder.typicode.com/users` | — | — |
++| `method` | Metodo | select | `GET` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` | — |
++| `responseType` | Tipo risposta | select | `json` | `json`, `text`, `xml`, `binary`, `pdf`, `csv` | — |
++| `authType` | Auth | select | `none` | `none`, `basic`, `bearer`, `api_key`, `digest`, `oauth2_cc`, `oauth2_ac` | — |
++| `customFields` | Campi JSON | text | `[]` | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `scan`, `parse`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++- `reject` · ruolo reject
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **HTTP Source**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_kafka.md b/docs/nodes/source_kafka.md
+new file mode 100644
+index 0000000..a1abfd0
+--- /dev/null
++++ b/docs/nodes/source_kafka.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Kafka Source  `source_kafka`
++
++**Categoria:** Input  ·  **Icona:** `≋`  ·  **Colore:** `#4a9eff`
++
++Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`, `parse`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `java_beam`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Kafka Source**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/source_mqtt.md b/docs/nodes/source_mqtt.md
+new file mode 100644
+index 0000000..afc950f
+--- /dev/null
++++ b/docs/nodes/source_mqtt.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# MQTT  `source_mqtt`
++
++**Categoria:** Input  ·  **Icona:** `⊙`  ·  **Colore:** `#84cc16`
++
++Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **MQTT**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/ssh_exec.md b/docs/nodes/ssh_exec.md
+new file mode 100644
+index 0000000..926f01d
+--- /dev/null
++++ b/docs/nodes/ssh_exec.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# SSH  `ssh_exec`
++
++**Categoria:** Transform  ·  **Icona:** `⌁`  ·  **Colore:** `#a78bfa`
++
++Esegue comandi su host remoto via SSH.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **SSH**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/stop.md b/docs/nodes/stop.md
+new file mode 100644
+index 0000000..b100edb
+--- /dev/null
++++ b/docs/nodes/stop.md
+@@ -0,0 +1,38 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Stop  `stop`
++
++**Categoria:** Transform  ·  **Icona:** `⏹`  ·  **Colore:** `#ff5f57`
++
++Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `trigger` | Innesco | select | `immediate` | `immediate`, `after_input` | — |
++| `message` | Messaggio | text | — | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Stop**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/tmap.md b/docs/nodes/tmap.md
+new file mode 100644
+index 0000000..229247f
+--- /dev/null
++++ b/docs/nodes/tmap.md
+@@ -0,0 +1,39 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# TMap  `tmap`
++
++**Categoria:** Transform  ·  **Icona:** `⇌`  ·  **Colore:** `#a78bfa`
++
++Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.
++
++## Configurazione
++
++| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |
++|---|---|---|---|---|---|
++| `shortLabel` | Etichetta | text | — | — | — |
++
++## Semantica
++
++- **Operazioni logiche:** `projection`, `filter`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** sì
++- **Più ingressi:** sì · **ingressi dinamici** (handle `input_new`)
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** `filter`, `projection`
++
++**Porte di ingresso (statiche):**
++
++- `input_main` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **TMap**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/transform.md b/docs/nodes/transform.md
+new file mode 100644
+index 0000000..0db4398
+--- /dev/null
++++ b/docs/nodes/transform.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Transform fields  `transform`
++
++**Categoria:** Transform  ·  **Icona:** `↦`  ·  **Colore:** `#ffb347`
++
++Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `projection`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** `projection`
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Transform fields**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/union.md b/docs/nodes/union.md
+new file mode 100644
+index 0000000..1bd8ad3
+--- /dev/null
++++ b/docs/nodes/union.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Union  `union`
++
++**Categoria:** Transform  ·  **Icona:** `⊕`  ·  **Colore:** `#a78bfa`
++
++Fonde N flussi in uno — modalità concat, interleave o zip.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `union`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** sì · **ingressi dinamici** (handle `input_new`)
++- **Runtime preferiti:** `python_polars` → `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input_main` · «flusso 1» · ruolo data · archi: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Union**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/watchdog.md b/docs/nodes/watchdog.md
+new file mode 100644
+index 0000000..100047d
+--- /dev/null
++++ b/docs/nodes/watchdog.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Watchdog  `watchdog`
++
++**Categoria:** Input  ·  **Icona:** `👁`  ·  **Colore:** `#ffb347`
++
++Monitora servizi via HEAD — sblocca il flusso sull'header atteso.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Watchdog**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/webhook_receiver.md b/docs/nodes/webhook_receiver.md
+new file mode 100644
+index 0000000..4377e39
+--- /dev/null
++++ b/docs/nodes/webhook_receiver.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Webhook Receiver  `webhook_receiver`
++
++**Categoria:** Input  ·  **Icona:** `⤵`  ·  **Colore:** `#3ddc84`
++
++Riceve webhook — server condiviso con HMAC, buffer e dedup.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `scan`, `parse`
++- **Esecuzione:** a flusso (`stream`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data · archi: 1 · righe: 1
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Webhook Receiver**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/webhook_responder.md b/docs/nodes/webhook_responder.md
+new file mode 100644
+index 0000000..27ae9d2
+--- /dev/null
++++ b/docs/nodes/webhook_responder.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Webhook Responder  `webhook_responder`
++
++**Categoria:** Output  ·  **Icona:** `⤴`  ·  **Colore:** `#4a9eff`
++
++Risponde HEAD/GET con header sintetici dalla riga corrente.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `sink`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Webhook Responder**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/window.md b/docs/nodes/window.md
+new file mode 100644
+index 0000000..32716ea
+--- /dev/null
++++ b/docs/nodes/window.md
+@@ -0,0 +1,35 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# Window  `window`
++
++**Categoria:** Transform  ·  **Icona:** `W`  ·  **Colore:** `#a78bfa`
++
++Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `window`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** no
++- **Runtime preferiti:** `python_polars` → `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Window**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/xml_parser.md b/docs/nodes/xml_parser.md
+new file mode 100644
+index 0000000..7b3194e
+--- /dev/null
++++ b/docs/nodes/xml_parser.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# XML Parser  `xml_parser`
++
++**Categoria:** Transform  ·  **Icona:** `</>`  ·  **Colore:** `#f97316`
++
++Estrae e trasforma dati XML in flussi strutturati.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `parse`, `projection`
++- **Esecuzione:** riga-per-riga (`row`)
++- **Più output con schema diverso:** sì
++- **Più ingressi:** no
++- **Runtime preferiti:** `typescript` → `python_polars`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++_Nessuna._
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **XML Parser**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/docs/nodes/xml_serializer.md b/docs/nodes/xml_serializer.md
+new file mode 100644
+index 0000000..ef73301
+--- /dev/null
++++ b/docs/nodes/xml_serializer.md
+@@ -0,0 +1,37 @@
++<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->
++
++# XML Serializer  `xml_serializer`
++
++**Categoria:** Output  ·  **Icona:** `</>`  ·  **Colore:** `#f97316`
++
++Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.
++
++## Configurazione
++
++_Nessun campo di configurazione._
++
++## Semantica
++
++- **Operazioni logiche:** `transform`
++- **Esecuzione:** sull'intero dataset (`dataset`)
++- **Più output con schema diverso:** no
++- **Più ingressi:** sì · **ingressi dinamici** (handle `input_new`)
++- **Runtime preferiti:** `typescript`
++- **Pushdown alla sorgente:** nessuno
++
++**Porte di ingresso (statiche):**
++
++- `input` · ruolo data
++
++**Porte di uscita (statiche):**
++
++- `output` · ruolo data
++
++> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla configurazione a run-time): l'elenco statico qui sopra può essere parziale.
++
++<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->
++
++## Approfondimento
++
++_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **XML Serializer**.
++Questa sezione è scritta a mano e sopravvive alle rigenerazioni.
+diff --git a/package.json b/package.json
+index 622de37..7443e9d 100644
+--- a/package.json
++++ b/package.json
+@@ -8,7 +8,8 @@
+     "build": "tsc -b && vite build",
+     "lint": "eslint .",
+     "preview": "vite preview",
+-    "tauri": "tauri"
++    "tauri": "tauri",
++    "docs:nodes": "tsx scripts/gen-node-docs.ts"
+   },
+   "dependencies": {
+     "@dnd-kit/core": "^6.3.1",
+@@ -38,6 +39,7 @@
+     "eslint-plugin-react-hooks": "^7.1.1",
+     "eslint-plugin-react-refresh": "^0.5.2",
+     "globals": "^17.5.0",
++    "tsx": "^4.19.2",
+     "typescript": "~6.0.2",
+     "typescript-eslint": "^8.58.2",
+     "vite": "^8.0.10"
+diff --git a/scripts/gen-node-docs.ts b/scripts/gen-node-docs.ts
+new file mode 100644
+index 0000000..681424f
+--- /dev/null
++++ b/scripts/gen-node-docs.ts
+@@ -0,0 +1,226 @@
++/**
++ * gen-node-docs.ts — generatore di SCHEDE-NODO (manuale di riferimento per-nodo).
++ *
++ * Fonti (dati puri, nessun React):
++ *   - NODE_DEFS + PALETTE_SECTIONS  (src/nodes/nodeDefs.ts) — label, categoria,
++ *     icona, colore, campi di configurazione, descrizione.
++ *   - NODE_SEMANTICS                (src/ir/nodeSemantics.ts) — operazioni logiche,
++ *     execution semantics, porte statiche in/out, multi-output, input multipli/
++ *     dinamici, runtime preferiti, pushdown.
++ *
++ * Output: docs/nodes/<type>.md (una scheda per nodo) + docs/nodes/README.md (indice).
++ *
++ * MODELLO robusto (non una toppa "dump & overwrite"):
++ *   ogni scheda ha un BLOCCO AUTO delimitato dai marcatori qui sotto, rigenerato
++ *   a ogni run; TUTTO ciò che sta DOPO il marcatore di fine (la sezione
++ *   "Approfondimento") è scritto a mano e viene PRESERVATO verbatim a ogni
++ *   rigenerazione. Così lo scheletro auto per i ~43 nodi si arricchisce nel
++ *   tempo senza che una rigenerazione cancelli il lavoro umano.
++ *
++ * Uso:  npm run docs:nodes      (equivale a  tsx scripts/gen-node-docs.ts)
++ */
++import { writeFileSync, readFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
++import { join, dirname } from 'node:path'
++import { fileURLToPath } from 'node:url'
++
++import { NODE_DEFS, PALETTE_SECTIONS } from '../src/nodes/nodeDefs'
++import { NODE_SEMANTICS } from '../src/ir/nodeSemantics'
++import type { FieldDef } from '../src/types'
++import type { PortSpec } from '../src/ir/types'
++
++const HERE = dirname(fileURLToPath(import.meta.url))
++const OUT_DIR = join(HERE, '..', 'docs', 'nodes')
++
++const AUTO_BEGIN = '<!-- gen-node-docs: BLOCCO AUTO — rigenerato da `npm run docs:nodes`. Non modificare a mano. -->'
++const AUTO_END   = '<!-- gen-node-docs: FINE BLOCCO AUTO — sotto questa riga scrivi liberamente: viene preservato. -->'
++
++// Coda di default, usata SOLO alla prima generazione di una scheda nuova.
++function seedTail(label: string): string {
++  return [
++    '',
++    '',
++    '## Approfondimento',
++    '',
++    `_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **${label}**.`,
++    'Questa sezione è scritta a mano e sopravvive alle rigenerazioni.',
++    '',
++  ].join('\n')
++}
++
++/** Etichette leggibili per l'execution semantics. */
++const EXEC_LABEL: Record<string, string> = {
++  row:      'riga-per-riga (`row`)',
++  dataset:  'sull\'intero dataset (`dataset`)',
++  stateful: 'con stato (`stateful`)',
++  stream:   'a flusso (`stream`)',
++}
++
++const CATEGORY_LABEL: Record<string, string> = {
++  input: 'Input', transform: 'Transform', output: 'Output',
++}
++
++function esc(s: string): string {
++  // pipe e newline romperebbero le tabelle markdown
++  return String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
++}
++
++function fieldsTable(fields: FieldDef[]): string {
++  if (!fields || fields.length === 0) return '_Nessun campo di configurazione._\n'
++  const head =
++    '| Chiave | Etichetta | Tipo | Default | Opzioni | Inerte quando |\n' +
++    '|---|---|---|---|---|---|\n'
++  const rows = fields.map(f => {
++    const opts = f.options && f.options.length ? f.options.map(o => `\`${esc(o)}\``).join(', ') : '—'
++    const def  = f.default !== '' ? `\`${esc(f.default)}\`` : '—'
++    const inert = f.ignoredWhenSet ? `\`${esc(f.ignoredWhenSet)}\` valorizzato` : '—'
++    return `| \`${esc(f.key)}\` | ${esc(f.label)} | ${f.type} | ${def} | ${opts} | ${inert} |`
++  })
++  return head + rows.join('\n') + '\n'
++}
++
++function portsList(ports: PortSpec[] | undefined): string {
++  if (!ports || ports.length === 0) return '_Nessuna._'
++  return ports.map(p => {
++    const bits: string[] = [`\`${esc(p.id)}\``]
++    if (p.label && p.label !== p.id) bits.push(`«${esc(p.label)}»`)
++    bits.push(`ruolo ${esc(p.role)}`)
++    if (p.maxEdges) bits.push(`archi: ${p.maxEdges}`)
++    if (p.maxRows)  bits.push(`righe: ${p.maxRows}`)
++    if (p.when)     bits.push('_condizionata_')
++    return `- ${bits.join(' · ')}`
++  }).join('\n')
++}
++
++function autoBlock(type: string): string {
++  const def = NODE_DEFS[type]
++  const sem = NODE_SEMANTICS[type]
++  const L: string[] = []
++
++  L.push(AUTO_BEGIN)
++  L.push('')
++  L.push(`# ${def.label}  \`${type}\``)
++  L.push('')
++  const cat = CATEGORY_LABEL[def.category] ?? def.category
++  L.push(`**Categoria:** ${cat}  ·  **Icona:** \`${esc(def.icon)}\`  ·  **Colore:** \`${def.color}\``)
++  L.push('')
++  L.push(def.description || '_Nessuna descrizione nel registry._')
++  L.push('')
++  L.push('## Configurazione')
++  L.push('')
++  L.push(fieldsTable(def.fields))
++  L.push('## Semantica')
++  L.push('')
++  if (!sem) {
++    L.push('> ⚠️ Nessuna semantica dichiarata in `NODE_SEMANTICS` per questo nodo.')
++    L.push('')
++  } else {
++    const ops = sem.operations && sem.operations.length ? sem.operations.map(o => `\`${o}\``).join(', ') : '—'
++    const runtimes = sem.preferredRuntimes && sem.preferredRuntimes.length
++      ? sem.preferredRuntimes.map(r => `\`${r}\``).join(' → ') : '—'
++    const pushdown = sem.pushdownCapable && sem.pushdownCapable.length
++      ? sem.pushdownCapable.map(p => `\`${p}\``).join(', ') : 'nessuno'
++    L.push(`- **Operazioni logiche:** ${ops}`)
++    L.push(`- **Esecuzione:** ${EXEC_LABEL[sem.executionSemantics] ?? sem.executionSemantics}`)
++    L.push(`- **Più output con schema diverso:** ${sem.producesMultipleOutputs ? 'sì' : 'no'}`)
++    L.push(`- **Più ingressi:** ${sem.acceptsMultipleInputs ? 'sì' : 'no'}` +
++           `${sem.acceptsDynamicInputs ? ' · **ingressi dinamici** (handle `input_new`)' : ''}`)
++    L.push(`- **Runtime preferiti:** ${runtimes}`)
++    L.push(`- **Pushdown alla sorgente:** ${pushdown}`)
++    L.push('')
++    L.push('**Porte di ingresso (statiche):**')
++    L.push('')
++    L.push(portsList(sem.staticInputPorts))
++    L.push('')
++    L.push('**Porte di uscita (statiche):**')
++    L.push('')
++    L.push(portsList(sem.staticOutputPorts))
++    L.push('')
++    if (sem.producesMultipleOutputs || sem.acceptsDynamicInputs) {
++      L.push('> Alcune porte di questo nodo sono **dinamiche** (calcolate dalla' +
++             ' configurazione a run-time): l\'elenco statico qui sopra può essere parziale.')
++      L.push('')
++    }
++  }
++  L.push(AUTO_END)
++  return L.join('\n')
++}
++
++/** Legge la coda "Approfondimento" da un file esistente; altrimenti il seed. */
++function existingTail(path: string, label: string): string {
++  if (!existsSync(path)) return seedTail(label)
++  const prev = readFileSync(path, 'utf-8')
++  const idx = prev.indexOf(AUTO_END)
++  if (idx === -1) return seedTail(label)          // file legacy senza marcatore
++  return prev.slice(idx + AUTO_END.length)         // tutto dopo il marcatore di fine
++}
++
++function paletteSectionOf(type: string): string | null {
++  for (const sec of PALETTE_SECTIONS) if (sec.types.includes(type)) return sec.label
++  return null
++}
++
++// ─── generazione ──────────────────────────────────────────────────
++mkdirSync(OUT_DIR, { recursive: true })
++
++const types = Object.keys(NODE_DEFS).sort()
++let preserved = 0, seeded = 0, missingSem = 0
++
++for (const type of types) {
++  const def = NODE_DEFS[type]
++  const path = join(OUT_DIR, `${type}.md`)
++  const hadFile = existsSync(path)
++  const tail = existingTail(path, def.label)
++  if (hadFile && readFileSync(path, 'utf-8').includes(AUTO_END)) preserved++; else seeded++
++  if (!NODE_SEMANTICS[type]) missingSem++
++  writeFileSync(path, autoBlock(type) + tail, 'utf-8')
++}
++
++// ─── indice ───────────────────────────────────────────────────────
++const idx: string[] = []
++idx.push(AUTO_BEGIN)
++idx.push('')
++idx.push('# Riferimento nodi FlowPilot')
++idx.push('')
++idx.push(`Schede generate automaticamente dal registry (\`NODE_DEFS\`) e dalla semantica ` +
++         `(\`NODE_SEMANTICS\`). Rigenera con \`npm run docs:nodes\`. La sezione ` +
++         `«Approfondimento» di ogni scheda è scritta a mano e viene preservata.`)
++idx.push('')
++idx.push(`**${types.length} nodi.**`)
++idx.push('')
++
++const seen = new Set<string>()
++for (const sec of PALETTE_SECTIONS) {
++  const inSec = sec.types.filter(t => NODE_DEFS[t])
++  if (inSec.length === 0) continue
++  idx.push(`## ${sec.label}`)
++  idx.push('')
++  for (const t of inSec) {
++    seen.add(t)
++    const d = NODE_DEFS[t]
++    const desc = (d.description || '').split(/[.·]/)[0].trim()
++    idx.push(`- [\`${t}\`](./${t}.md) — **${d.label}**${desc ? ` · ${esc(desc)}` : ''}`)
++  }
++  idx.push('')
++}
++const others = types.filter(t => !seen.has(t))
++if (others.length) {
++  idx.push('## Altri')
++  idx.push('')
++  for (const t of others) {
++    const d = NODE_DEFS[t]
++    const desc = (d.description || '').split(/[.·]/)[0].trim()
++    idx.push(`- [\`${t}\`](./${t}.md) — **${d.label}**${desc ? ` · ${esc(desc)}` : ''}`)
++  }
++  idx.push('')
++}
++idx.push(AUTO_END)
++idx.push('')
++writeFileSync(join(OUT_DIR, 'README.md'), idx.join('\n'), 'utf-8')
++
++// ─── resoconto ────────────────────────────────────────────────────
++const orphanSem = Object.keys(NODE_SEMANTICS).filter(t => !NODE_DEFS[t])
++console.log(`schede-nodo: ${types.length} scritte in docs/nodes/`)
++console.log(`  · coda preservata: ${preserved}   · scheletro nuovo: ${seeded}`)
++console.log(`  · senza semantica: ${missingSem}`)
++if (orphanSem.length) console.log(`  · semantica senza registry (ignorata): ${orphanSem.join(', ')}`)
++console.log('indice: docs/nodes/README.md')
+diff --git a/src/nodes/nodeDefs.ts b/src/nodes/nodeDefs.ts
+new file mode 100644
+index 0000000..9968c6a
+--- /dev/null
++++ b/src/nodes/nodeDefs.ts
+@@ -0,0 +1,531 @@
++import type { NodeDef } from '../types'
++import { HTTP_DEFAULTS } from './resourceDefaults'
++
++// ─────────────────────────────────────────────────────────────────
++// DATI PURI del registry dei nodi — nessuna dipendenza da React.
++// Estratto da registry.ts (che ora li ri-esporta) così che strumenti
++// esterni (es. il generatore di schede-nodo in scripts/gen-node-docs.ts,
++// e in prospettiva il pre-compilatore coverage/metriche) possano
++// importare i metadati dei nodi senza trascinare i Panel .tsx.
++// Fonte unica: modificare QUI type/label/categoria/campi/descrizione.
++// ─────────────────────────────────────────────────────────────────
++
++export const NODE_DEFS: Record<string, NodeDef> = {
++  
++  json_serializer: {
++    type:        'json_serializer',
++    label:       'JSON Serializer',
++    icon:        '{ }',
++    color:       '#22d3ee',
++    category:    'output',
++    description: 'Serializza righe del flusso in stringhe JSON con struttura configurabile.',
++    fields:      [],
++  },
++   log: {
++    type:        'log',
++    label:       'Log',
++    icon:        '📋',
++    color:       '#a78bfa',
++    category:    'transform',
++    description: 'Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.',
++    fields:      [],
++  },
++
++  xml_serializer: {
++    type:        'xml_serializer',
++    label:       'XML Serializer',
++    icon:        '</>',
++    color:       '#f97316',
++    category:    'output',
++    description: 'Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.',
++    fields:      [],
++  },
++
++  data_quality: {
++    type:        'data_quality',
++    label:       'Data Quality',
++    icon:        '✓',
++    color:       '#3ddc84',
++    category:    'transform',
++    description: 'Valida ogni riga contro regole configurabili — output valid e reject.',
++    fields:      [],
++  },
++
++  source_kafka: {
++    type:        'source_kafka',
++    label:       'Kafka Source',
++    icon:        '≋',
++    color:       '#4a9eff',
++    category:    'input',
++    description: 'Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.',
++    fields:      [],
++  },
++
++  union: {
++    type:        'union',
++    label:       'Union',
++    icon:        '⊕',
++    color:       '#a78bfa',
++    category:    'transform',
++    description: 'Fonde N flussi in uno — modalità concat, interleave o zip.',
++    fields:      [],
++  },
++
++  source_ftp: {
++    type:        'source_ftp',
++    label:       'FTP/SFTP Source',
++    icon:        '⇄',
++    color:       '#4a9eff',
++    category:    'input',
++    description: 'Legge file da server FTP, FTPS o SFTP.',
++    fields:      [],
++  },
++
++  ldap_source: {
++    type:        'ldap_source',
++    label:       'LDAP Source',
++    icon:        '⧉',
++    color:       '#4a9eff',
++    category:    'input',
++    description: 'Interroga una directory LDAP e produce una riga per voce.',
++    fields:      [],
++  },
++
++  github_source: {
++    type:        'github_source',
++    label:       'GitHub Source',
++    icon:        '⑃',
++    color:       '#4a9eff',
++    category:    'input',
++    description: 'Preleva dati da GitHub (repo, issue/PR, commit) via API REST.',
++    fields:      [],
++  },
++
++  sink_ftp: {
++    type:        'sink_ftp',
++    label:       'FTP/SFTP Sink',
++    icon:        '⇄',
++    color:       '#3ddc84',
++    category:    'output',
++    description: 'Scrive file su server FTP, FTPS o SFTP.',
++    fields:      [],
++  },
++  pivot: {
++    type:        'pivot',
++    label:       'Pivot / Unpivot',
++    icon:        '⊞',
++    color:       '#f97316',
++    category:    'transform',
++    description: 'Trasforma la struttura della tabella — righe in colonne (Pivot) o colonne in righe (Unpivot).',
++    fields:      [],
++  },
++
++  source_db: {
++    type: 'source_db',
++    label: 'DB Source',
++    category: 'input',
++    icon: '⬡',
++    color: '#4a9eff',
++    description: 'Legge righe da una tabella di database.',
++    fields: [
++      // ignoredWhenSet: 'query' — con una query personalizzata il motore
++      // esegue quella e basta (source_db.rs: "custom verbatim se presente").
++      { key: 'schema',       label: 'Schema',          type: 'text',   default: 'public', ignoredWhenSet: 'query' },
++      { key: 'table',        label: 'Tabella',         type: 'text',   default: '',       ignoredWhenSet: 'query' },
++      { key: 'limit',        label: 'Limite righe',    type: 'number', default: '0',      ignoredWhenSet: 'query' },
++      { key: 'orderBy',      label: 'Ordina per',      type: 'text',   default: '',       ignoredWhenSet: 'query' },
++      { key: 'query',        label: 'Query SQL',       type: 'code',   default: 'SELECT * FROM ' },
++    ],
++  },
++  source_file: {
++    type: 'source_file',
++    label: 'File Input',
++    category: 'input',
++    icon: '▤',
++    color: '#4a9eff',
++    description: 'Legge record da un file locale.',
++    fields: [
++    ],
++  },
++
++  explode: {
++    type:        'explode',
++    label:       'Explode',
++    category:    'transform',
++    icon:        '⊕',
++    color:       '#a78bfa',
++    description: 'Trasforma strutture dense (Materialize, variabili lane, campi object) in un flusso di righe.',
++    fields:      [],
++  },
++  source_http: {
++    type: 'source_http',
++    label: 'HTTP Source',
++    category: 'input',
++    icon: '⇄',
++    color: '#4a9eff',
++    description: 'Recupera dati da un endpoint HTTP.',
++    fields: [
++    { key: 'url',          label: 'URL',           type: 'text',   default: HTTP_DEFAULTS.url  },
++    { key: 'method',       label: 'Metodo',        type: 'select', default: 'GET', options: ['GET','POST','PUT','PATCH','DELETE'] },
++    { key: 'responseType', label: 'Tipo risposta', type: 'select', default: 'json', options: ['json','text','xml','binary','pdf','csv'] },
++    { key: 'authType',     label: 'Auth',          type: 'select', default: 'none', options: ['none','basic','bearer','api_key','digest','oauth2_cc','oauth2_ac'] },
++    { key: 'customFields', label: 'Campi JSON',    type: 'text',   default: '[]' },
++   ],
++  },
++
++  filter: {
++      type: 'filter',
++      label: 'Filter',
++      category: 'transform',
++      icon: '⊻',
++      color: '#ffb347',
++      description: 'Smista le righe su N uscite in base a condizioni — first-match.',
++      fields: [],
++  },
++
++  ldap_auth: {
++      type: 'ldap_auth',
++      label: 'LDAP Auth',
++      category: 'transform',
++      icon: '⊞',
++      color: '#ffb347',
++      description: 'Autentica le credenziali di ogni riga contro LDAP (search-then-bind).',
++      fields: [],
++  },
++  
++  
++  join: {
++    type: 'join',
++    label: 'Join',
++    category: 'transform',
++    icon: '⋈',
++    color: '#ffb347',
++    description: 'Unisce due flussi su un campo chiave.',
++    fields: [
++      { key: 'join_type', label: 'Tipo join', type: 'select', default: 'inner', options: ['inner','left','right','full'] },
++      { key: 'key',       label: 'Campo chiave', type: 'text', default: 'user_id' },
++    ],
++  },
++  aggregate: {
++    type: 'aggregate',
++    label: 'Aggregate',
++    category: 'transform',
++    icon: 'Σ',
++    color: '#ffb347',
++    description: 'Raggruppa le righe e calcola funzioni aggregate.',
++    fields: [
++      { key: 'group_by',  label: 'Raggruppa per', type: 'text', default: 'region' },
++      { key: 'functions', label: 'Funzioni',       type: 'code', default: '{"count": "*", "sum": "amount"}' },
++    ],
++  },
++  script: {
++    type: 'script',
++    label: 'Script',
++    category: 'transform',
++    icon: 'λ',
++    color: '#a78bfa',
++    description: 'Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni.',
++    // `lang` è sparito: prometteva TypeScript o Java, ma nessun codegen ha
++    // mai avuto un generatore per lo Script e il motore non ha mai eseguito
++    // né l'uno né l'altro. Il corpo è ora un linguaggio di istruzioni su
++    // FPEL — v. src-tauri/docs/design-nodo-script.md.
++    fields: [
++      { key: 'sourceMode', label: 'Sorgente delle righe', type: 'select', default: 'flusso',
++        options: ['flusso', 'genera'] },
++      { key: 'code', label: 'Istruzioni', type: 'code',
++        default: '// I campi si usano per nome; "let" per i valori intermedi.\n// Istruzioni: let, assegnazione, if/else, skip, reject, log, error.\n' },
++    ],
++  },
++  tmap: {
++      type: 'tmap',
++      label: 'TMap',
++      category: 'transform',
++      icon: '⇌',
++      color: '#a78bfa',
++      description: 'Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.',
++      fields: [
++        { key: 'shortLabel', label: 'Etichetta', type: 'text', default: '' },
++      ],
++    },
++  sink_db: {
++    type: 'sink_db',
++    label: 'DB Sink',
++    category: 'output',
++    icon: '⬡',
++    color: '#3ddc84',
++    description: 'Scrive righe in una tabella di database.',
++    fields: [
++      { key: 'schema',    label: 'Schema',           type: 'text',   default: 'public' },
++      { key: 'table',     label: 'Tabella',          type: 'text',   default: '' },
++      { key: 'mode',      label: 'Modalità',         type: 'select', default: 'insert', options: ['insert','upsert','update','truncate_insert','merge'] },
++      { key: 'keyFields', label: 'Campi chiave',     type: 'text',   default: 'id' },
++      { key: 'batchSize', label: 'Batch size',       type: 'number', default: '1000' },
++    ],
++  },
++  sink_kafka: {
++    type: 'sink_kafka',
++    label: 'Kafka',
++    category: 'output',
++    icon: '≋',
++    color: '#3ddc84',
++    description: 'Pubblica righe su un topic Kafka.',
++    fields: [
++      { key: 'topic',       label: 'Topic',          type: 'text',   default: 'pipeline-out' },
++      { key: 'key_field',   label: 'Campo chiave',   type: 'text',   default: 'id' },
++      { key: 'valueFormat', label: 'Formato',        type: 'select', default: 'json', options: ['json','avro','protobuf','string'] },
++      { key: 'acks',        label: 'Acks',           type: 'select', default: 'all', options: ['0','1','all'] },
++    ],
++  },
++  sink_file: {
++    type: 'sink_file',
++    label: 'File Output',
++    category: 'output',
++    icon: '▤',
++    color: '#3ddc84',
++    description: 'Scrive righe su file.',
++    fields: [
++      { key: 'path',           label: 'Percorso',    type: 'text',   default: '/data/output.csv' },
++      { key: 'format',         label: 'Formato',     type: 'select', default: 'csv',       options: ['csv','json','jsonl','parquet','tsv','xml','excel'] },
++      { key: 'mode',           label: 'Modalità',    type: 'select', default: 'overwrite', options: ['overwrite','append','new','error'] },
++      { key: 'partition',      label: 'Partizione',  type: 'select', default: 'none',      options: ['none','field','date','size'] },
++      { key: 'processingMode', label: 'Elaborazione',type: 'select', default: 'streaming', options: ['streaming','batch'] },
++      { key: 'passthrough',    label: 'Pass-through', type: 'text',  default: 'false' },
++    ],
++  },
++    lane_start: {
++    type: 'lane_start',
++    label: 'Start',
++    category: 'input',
++    icon: '▶',
++    color: '#3ddc84',
++    description: 'Punto di avvio della lane. Ha solo un handle di uscita.',
++    fields: [
++      { key: 'label', label: 'Etichetta', type: 'text', default: 'Start' },
++    ],
++  },
++  lane_end: {
++    type: 'lane_end',
++    label: 'End',
++    category: 'output',
++    icon: '⏹',
++    color: '#ff5f57',
++    description: 'Punto di fine della lane. Ha solo un handle di ingresso.',
++    fields: [
++      { key: 'label', label: 'Etichetta', type: 'text', default: 'End' },
++    ],
++  },
++  bridge_out: {
++    type:        'bridge_out',
++    label:       'Bridge Out',
++    icon:        '→',
++    color:       '#a78bfa',
++    category:    'output',
++    description: 'Porta di uscita dal flusso della lane — pubblica sul canale bridge.',
++    fields: [
++      { key: 'channelName',  label: 'Nome canale',   type: 'text',   default: '' },
++      { key: 'channelColor', label: 'Colore',        type: 'text',   default: '#a78bfa' },
++      { key: 'syncMode',     label: 'Sincronismo',   type: 'text',   default: 'fire_and_forget' },
++      { key: 'transferMode', label: 'Trasferimento', type: 'text',   default: 'content' },
++      { key: 'batchSize',    label: 'Batch size',    type: 'number', default: '100' },
++      { key: 'bufferSize',   label: 'Buffer size',   type: 'number', default: '0' },
++      { key: 'outputMode', label: 'Output mode', type: 'text', default: 'none' },
++    ],
++  },
++  bridge_in: {
++    type:        'bridge_in',
++    label:       'Bridge In',
++    icon:        '←',
++    color:       '#a78bfa',
++    category:    'input',
++    description: "Porta di ingresso da un'altra lane — riceve dal canale bridge.",
++    fields: [
++      { key: 'channelName',  label: 'Nome canale',    type: 'text',   default: '' },
++      { key: 'channelColor', label: 'Colore',         type: 'text',   default: '#a78bfa' },
++      { key: 'syncMode',     label: 'Sincronismo',    type: 'text',   default: 'fire_and_forget' },
++      { key: 'timeoutSec',   label: 'Timeout (sec)',  type: 'number', default: '30' },
++    ],
++  },
++  json_parser: {
++    type:        'json_parser',
++    label:       'JSON Parser',
++    category:    'transform',
++    icon:        '{ }',
++    color:       '#22d3ee',
++    description: 'Estrae e trasforma dati JSON in flussi strutturati.',////
++    fields:      [],
++  },
++  xml_parser: {
++    type: 'xml_parser', label: 'XML Parser', category: 'transform',
++    icon: '</>', color: '#f97316',
++    description: 'Estrae e trasforma dati XML in flussi strutturati.',
++    fields: [],
++  },
++   dir_watcher: {
++    type: 'dir_watcher',
++    label: 'Dir Watcher',
++    category: 'input',
++    icon: '📁',
++    color: '#22d3ee',
++    description: 'Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).',
++    fields: [],
++  },
++
++  window: {
++    type: 'window',
++    label: 'Window',
++    category: 'transform',
++    icon: 'W',
++    color: '#a78bfa',
++    description: 'Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).',
++    fields: [],
++  },
++
++  materialize: {
++    type: 'materialize',
++    label: 'Materialize',
++    category: 'transform',
++    icon: '◈',
++    color: '#22d3ee',
++    description: 'Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context.materialize().',
++    fields: [],
++  },
++
++  source_activemq: {
++    type: 'source_activemq',
++    label: 'ActiveMQ',
++    category: 'input',
++    icon: '⊛',
++    color: '#fb923c',
++    description: 'Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.',
++    fields: [],
++  },
++
++  sink_activemq: {
++    type: 'sink_activemq',
++    label: 'ActiveMQ Sink',
++    category: 'output',
++    icon: '⊛',
++    color: '#fb923c',
++    description: 'Producer ActiveMQ — pubblica messaggi su queue o topic.',
++    fields: [],
++  },
++
++  source_mqtt: {
++    type: 'source_mqtt',
++    label: 'MQTT',
++    category: 'input',
++    icon: '⊙',
++    color: '#84cc16',
++    description: 'Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.',
++    fields: [],
++  },
++
++  sink_mqtt: {
++    type: 'sink_mqtt',
++    label: 'MQTT Sink',
++    category: 'output',
++    icon: '⊙',
++    color: '#84cc16',
++    description: 'Publisher MQTT — pubblica messaggi su topic.',
++    fields: [],
++  },
++    report_generator: {
++    type: 'report_generator',
++    label: 'Report Generator',
++    category: 'transform',
++    icon: '📊',
++    color: '#f472b6',
++    description: 'Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici.',
++    fields: [],
++  },
++
++  mail_sink: {
++    type: 'mail_sink',
++    label: 'Mail Sink',
++    category: 'output',
++    icon: '✉',
++    color: '#4a9eff',
++    description: 'Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.',
++    fields: [],
++  },
++
++
++  transform: {
++    type: 'transform',
++    label: 'Transform fields',
++    category: 'transform',
++    icon: '↦',
++    color: '#ffb347',
++    description: 'Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.',
++
++    fields: [
++    
++    ],
++  },
++  webhook_receiver: {
++    type: 'webhook_receiver', label: 'Webhook Receiver',
++    icon: '⤵', color: '#3ddc84', category: 'input',
++    description: 'Riceve webhook — server condiviso con HMAC, buffer e dedup.',
++    fields: [],
++  },
++  webhook_responder: {
++    type: 'webhook_responder', label: 'Webhook Responder',
++    icon: '⤴', color: '#4a9eff', category: 'output',
++    description: 'Risponde HEAD/GET con header sintetici dalla riga corrente.',
++    fields: [],
++  },
++  watchdog: {
++    type: 'watchdog', label: 'Watchdog',
++    icon: '👁', color: '#ffb347', category: 'input',
++    description: 'Monitora servizi via HEAD — sblocca il flusso sull\'header atteso.',
++    fields: [],
++  },
++  shell_exec: {
++    type:        'shell_exec',
++    label:       'Shell',
++    icon:        '>_',
++    color:       '#22d3ee',
++    category:    'transform' as const,
++    description: 'Esegue comandi bash/shell locali — output nel flusso.',
++    fields:      [],
++  },
++  ssh_exec: {
++    type:        'ssh_exec',
++    label:       'SSH',
++    icon:        '⌁',
++    color:       '#a78bfa',
++    category:    'transform' as const,
++    description: 'Esegue comandi su host remoto via SSH.',
++    fields:      [],
++  },
++  error_handler: {
++    type:        'error_handler',
++    label:       'Error Handler',
++    icon:        '⚠',
++    color:       '#ff5f57',
++    category:    'transform' as const,
++    description: 'Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se "Log centralizzato" è attivo).',
++    fields:      [],
++  },
++
++  stop: {
++    type:        'stop',
++    label:       'Stop',
++    icon:        '⏹',
++    color:       '#ff5f57',
++    category:    'transform' as const,   // border neutro; la validazione va per _uiRef.type, non per category
++    description: 'Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.',
++    fields: [
++      { key: 'trigger', label: 'Innesco', type: 'select', default: 'immediate', options: ['immediate', 'after_input'] },
++      { key: 'message', label: 'Messaggio', type: 'text', default: '' },
++    ],
++  },
++}
++
++export const PALETTE_SECTIONS = [
++  { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','github_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
++  { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot','ldap_auth'] },
++  { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
++  { label: 'Flusso', types: ['stop'] },
++  { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
++]
+diff --git a/src/nodes/registry.ts b/src/nodes/registry.ts
+index aa06d87..c8b2c14 100644
+--- a/src/nodes/registry.ts
++++ b/src/nodes/registry.ts
+@@ -1,4 +1,3 @@
+-import type { NodeDef } from '../types'
+ // ─── Pannelli personalizzati per tipo di nodo ─────────────────────
+ import type { ComponentType } from 'react'
+ import { SourceDbPanel }   from './types/source_db/Panel'
+@@ -14,7 +13,6 @@ import { SinkKafkaPanel }  from './types/sink_kafka/Panel'
+ import { SinkFilePanel }   from './types/sink_file/Panel'
+ import { ScriptMappingPanel } from './types/script/MappingPanel'
+ import { HttpMappingPanel } from './types/source_http/HttpMappingPanel'
+-import { HTTP_DEFAULTS } from '../nodes/resourceDefaults'
+ import { DbMappingPanel } from './types/source_db/DbMappingPanel'
+ import { SourceDbQueryPanel } from './types/source_db/QueryPanel'
+ import { SinkDbQueryPanel } from './types/sink_db/QueryPanel'
+@@ -69,529 +67,9 @@ import { StopPanel } from './types/stop/Panel'
+ import { ErrorHandlerNodesPanel } from './types/error_handler/MappingPanel'
+ import { UnionPreviewPanel } from './types/union/PreviewPanel'
+ 
+-export const NODE_DEFS: Record<string, NodeDef> = {
+-  
+-  json_serializer: {
+-    type:        'json_serializer',
+-    label:       'JSON Serializer',
+-    icon:        '{ }',
+-    color:       '#22d3ee',
+-    category:    'output',
+-    description: 'Serializza righe del flusso in stringhe JSON con struttura configurabile.',
+-    fields:      [],
+-  },
+-   log: {
+-    type:        'log',
+-    label:       'Log',
+-    icon:        '📋',
+-    color:       '#a78bfa',
+-    category:    'transform',
+-    description: 'Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.',
+-    fields:      [],
+-  },
+-
+-  xml_serializer: {
+-    type:        'xml_serializer',
+-    label:       'XML Serializer',
+-    icon:        '</>',
+-    color:       '#f97316',
+-    category:    'output',
+-    description: 'Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.',
+-    fields:      [],
+-  },
+-
+-  data_quality: {
+-    type:        'data_quality',
+-    label:       'Data Quality',
+-    icon:        '✓',
+-    color:       '#3ddc84',
+-    category:    'transform',
+-    description: 'Valida ogni riga contro regole configurabili — output valid e reject.',
+-    fields:      [],
+-  },
+-
+-  source_kafka: {
+-    type:        'source_kafka',
+-    label:       'Kafka Source',
+-    icon:        '≋',
+-    color:       '#4a9eff',
+-    category:    'input',
+-    description: 'Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.',
+-    fields:      [],
+-  },
+-
+-  union: {
+-    type:        'union',
+-    label:       'Union',
+-    icon:        '⊕',
+-    color:       '#a78bfa',
+-    category:    'transform',
+-    description: 'Fonde N flussi in uno — modalità concat, interleave o zip.',
+-    fields:      [],
+-  },
+-
+-  source_ftp: {
+-    type:        'source_ftp',
+-    label:       'FTP/SFTP Source',
+-    icon:        '⇄',
+-    color:       '#4a9eff',
+-    category:    'input',
+-    description: 'Legge file da server FTP, FTPS o SFTP.',
+-    fields:      [],
+-  },
+-
+-  ldap_source: {
+-    type:        'ldap_source',
+-    label:       'LDAP Source',
+-    icon:        '⧉',
+-    color:       '#4a9eff',
+-    category:    'input',
+-    description: 'Interroga una directory LDAP e produce una riga per voce.',
+-    fields:      [],
+-  },
+-
+-  github_source: {
+-    type:        'github_source',
+-    label:       'GitHub Source',
+-    icon:        '⑃',
+-    color:       '#4a9eff',
+-    category:    'input',
+-    description: 'Preleva dati da GitHub (repo, issue/PR, commit) via API REST.',
+-    fields:      [],
+-  },
+-
+-  sink_ftp: {
+-    type:        'sink_ftp',
+-    label:       'FTP/SFTP Sink',
+-    icon:        '⇄',
+-    color:       '#3ddc84',
+-    category:    'output',
+-    description: 'Scrive file su server FTP, FTPS o SFTP.',
+-    fields:      [],
+-  },
+-  pivot: {
+-    type:        'pivot',
+-    label:       'Pivot / Unpivot',
+-    icon:        '⊞',
+-    color:       '#f97316',
+-    category:    'transform',
+-    description: 'Trasforma la struttura della tabella — righe in colonne (Pivot) o colonne in righe (Unpivot).',
+-    fields:      [],
+-  },
+-
+-  source_db: {
+-    type: 'source_db',
+-    label: 'DB Source',
+-    category: 'input',
+-    icon: '⬡',
+-    color: '#4a9eff',
+-    description: 'Legge righe da una tabella di database.',
+-    fields: [
+-      // ignoredWhenSet: 'query' — con una query personalizzata il motore
+-      // esegue quella e basta (source_db.rs: "custom verbatim se presente").
+-      { key: 'schema',       label: 'Schema',          type: 'text',   default: 'public', ignoredWhenSet: 'query' },
+-      { key: 'table',        label: 'Tabella',         type: 'text',   default: '',       ignoredWhenSet: 'query' },
+-      { key: 'limit',        label: 'Limite righe',    type: 'number', default: '0',      ignoredWhenSet: 'query' },
+-      { key: 'orderBy',      label: 'Ordina per',      type: 'text',   default: '',       ignoredWhenSet: 'query' },
+-      { key: 'query',        label: 'Query SQL',       type: 'code',   default: 'SELECT * FROM ' },
+-    ],
+-  },
+-  source_file: {
+-    type: 'source_file',
+-    label: 'File Input',
+-    category: 'input',
+-    icon: '▤',
+-    color: '#4a9eff',
+-    description: 'Legge record da un file locale.',
+-    fields: [
+-    ],
+-  },
+-
+-  explode: {
+-    type:        'explode',
+-    label:       'Explode',
+-    category:    'transform',
+-    icon:        '⊕',
+-    color:       '#a78bfa',
+-    description: 'Trasforma strutture dense (Materialize, variabili lane, campi object) in un flusso di righe.',
+-    fields:      [],
+-  },
+-  source_http: {
+-    type: 'source_http',
+-    label: 'HTTP Source',
+-    category: 'input',
+-    icon: '⇄',
+-    color: '#4a9eff',
+-    description: 'Recupera dati da un endpoint HTTP.',
+-    fields: [
+-    { key: 'url',          label: 'URL',           type: 'text',   default: HTTP_DEFAULTS.url  },
+-    { key: 'method',       label: 'Metodo',        type: 'select', default: 'GET', options: ['GET','POST','PUT','PATCH','DELETE'] },
+-    { key: 'responseType', label: 'Tipo risposta', type: 'select', default: 'json', options: ['json','text','xml','binary','pdf','csv'] },
+-    { key: 'authType',     label: 'Auth',          type: 'select', default: 'none', options: ['none','basic','bearer','api_key','digest','oauth2_cc','oauth2_ac'] },
+-    { key: 'customFields', label: 'Campi JSON',    type: 'text',   default: '[]' },
+-   ],
+-  },
+-
+-  filter: {
+-      type: 'filter',
+-      label: 'Filter',
+-      category: 'transform',
+-      icon: '⊻',
+-      color: '#ffb347',
+-      description: 'Smista le righe su N uscite in base a condizioni — first-match.',
+-      fields: [],
+-  },
+-
+-  ldap_auth: {
+-      type: 'ldap_auth',
+-      label: 'LDAP Auth',
+-      category: 'transform',
+-      icon: '⊞',
+-      color: '#ffb347',
+-      description: 'Autentica le credenziali di ogni riga contro LDAP (search-then-bind).',
+-      fields: [],
+-  },
+-  
+-  
+-  join: {
+-    type: 'join',
+-    label: 'Join',
+-    category: 'transform',
+-    icon: '⋈',
+-    color: '#ffb347',
+-    description: 'Unisce due flussi su un campo chiave.',
+-    fields: [
+-      { key: 'join_type', label: 'Tipo join', type: 'select', default: 'inner', options: ['inner','left','right','full'] },
+-      { key: 'key',       label: 'Campo chiave', type: 'text', default: 'user_id' },
+-    ],
+-  },
+-  aggregate: {
+-    type: 'aggregate',
+-    label: 'Aggregate',
+-    category: 'transform',
+-    icon: 'Σ',
+-    color: '#ffb347',
+-    description: 'Raggruppa le righe e calcola funzioni aggregate.',
+-    fields: [
+-      { key: 'group_by',  label: 'Raggruppa per', type: 'text', default: 'region' },
+-      { key: 'functions', label: 'Funzioni',       type: 'code', default: '{"count": "*", "sum": "amount"}' },
+-    ],
+-  },
+-  script: {
+-    type: 'script',
+-    label: 'Script',
+-    category: 'transform',
+-    icon: 'λ',
+-    color: '#a78bfa',
+-    description: 'Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni.',
+-    // `lang` è sparito: prometteva TypeScript o Java, ma nessun codegen ha
+-    // mai avuto un generatore per lo Script e il motore non ha mai eseguito
+-    // né l'uno né l'altro. Il corpo è ora un linguaggio di istruzioni su
+-    // FPEL — v. src-tauri/docs/design-nodo-script.md.
+-    fields: [
+-      { key: 'sourceMode', label: 'Sorgente delle righe', type: 'select', default: 'flusso',
+-        options: ['flusso', 'genera'] },
+-      { key: 'code', label: 'Istruzioni', type: 'code',
+-        default: '// I campi si usano per nome; "let" per i valori intermedi.\n// Istruzioni: let, assegnazione, if/else, skip, reject, log, error.\n' },
+-    ],
+-  },
+-  tmap: {
+-      type: 'tmap',
+-      label: 'TMap',
+-      category: 'transform',
+-      icon: '⇌',
+-      color: '#a78bfa',
+-      description: 'Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.',
+-      fields: [
+-        { key: 'shortLabel', label: 'Etichetta', type: 'text', default: '' },
+-      ],
+-    },
+-  sink_db: {
+-    type: 'sink_db',
+-    label: 'DB Sink',
+-    category: 'output',
+-    icon: '⬡',
+-    color: '#3ddc84',
+-    description: 'Scrive righe in una tabella di database.',
+-    fields: [
+-      { key: 'schema',    label: 'Schema',           type: 'text',   default: 'public' },
+-      { key: 'table',     label: 'Tabella',          type: 'text',   default: '' },
+-      { key: 'mode',      label: 'Modalità',         type: 'select', default: 'insert', options: ['insert','upsert','update','truncate_insert','merge'] },
+-      { key: 'keyFields', label: 'Campi chiave',     type: 'text',   default: 'id' },
+-      { key: 'batchSize', label: 'Batch size',       type: 'number', default: '1000' },
+-    ],
+-  },
+-  sink_kafka: {
+-    type: 'sink_kafka',
+-    label: 'Kafka',
+-    category: 'output',
+-    icon: '≋',
+-    color: '#3ddc84',
+-    description: 'Pubblica righe su un topic Kafka.',
+-    fields: [
+-      { key: 'topic',       label: 'Topic',          type: 'text',   default: 'pipeline-out' },
+-      { key: 'key_field',   label: 'Campo chiave',   type: 'text',   default: 'id' },
+-      { key: 'valueFormat', label: 'Formato',        type: 'select', default: 'json', options: ['json','avro','protobuf','string'] },
+-      { key: 'acks',        label: 'Acks',           type: 'select', default: 'all', options: ['0','1','all'] },
+-    ],
+-  },
+-  sink_file: {
+-    type: 'sink_file',
+-    label: 'File Output',
+-    category: 'output',
+-    icon: '▤',
+-    color: '#3ddc84',
+-    description: 'Scrive righe su file.',
+-    fields: [
+-      { key: 'path',           label: 'Percorso',    type: 'text',   default: '/data/output.csv' },
+-      { key: 'format',         label: 'Formato',     type: 'select', default: 'csv',       options: ['csv','json','jsonl','parquet','tsv','xml','excel'] },
+-      { key: 'mode',           label: 'Modalità',    type: 'select', default: 'overwrite', options: ['overwrite','append','new','error'] },
+-      { key: 'partition',      label: 'Partizione',  type: 'select', default: 'none',      options: ['none','field','date','size'] },
+-      { key: 'processingMode', label: 'Elaborazione',type: 'select', default: 'streaming', options: ['streaming','batch'] },
+-      { key: 'passthrough',    label: 'Pass-through', type: 'text',  default: 'false' },
+-    ],
+-  },
+-    lane_start: {
+-    type: 'lane_start',
+-    label: 'Start',
+-    category: 'input',
+-    icon: '▶',
+-    color: '#3ddc84',
+-    description: 'Punto di avvio della lane. Ha solo un handle di uscita.',
+-    fields: [
+-      { key: 'label', label: 'Etichetta', type: 'text', default: 'Start' },
+-    ],
+-  },
+-  lane_end: {
+-    type: 'lane_end',
+-    label: 'End',
+-    category: 'output',
+-    icon: '⏹',
+-    color: '#ff5f57',
+-    description: 'Punto di fine della lane. Ha solo un handle di ingresso.',
+-    fields: [
+-      { key: 'label', label: 'Etichetta', type: 'text', default: 'End' },
+-    ],
+-  },
+-  bridge_out: {
+-    type:        'bridge_out',
+-    label:       'Bridge Out',
+-    icon:        '→',
+-    color:       '#a78bfa',
+-    category:    'output',
+-    description: 'Porta di uscita dal flusso della lane — pubblica sul canale bridge.',
+-    fields: [
+-      { key: 'channelName',  label: 'Nome canale',   type: 'text',   default: '' },
+-      { key: 'channelColor', label: 'Colore',        type: 'text',   default: '#a78bfa' },
+-      { key: 'syncMode',     label: 'Sincronismo',   type: 'text',   default: 'fire_and_forget' },
+-      { key: 'transferMode', label: 'Trasferimento', type: 'text',   default: 'content' },
+-      { key: 'batchSize',    label: 'Batch size',    type: 'number', default: '100' },
+-      { key: 'bufferSize',   label: 'Buffer size',   type: 'number', default: '0' },
+-      { key: 'outputMode', label: 'Output mode', type: 'text', default: 'none' },
+-    ],
+-  },
+-  bridge_in: {
+-    type:        'bridge_in',
+-    label:       'Bridge In',
+-    icon:        '←',
+-    color:       '#a78bfa',
+-    category:    'input',
+-    description: "Porta di ingresso da un'altra lane — riceve dal canale bridge.",
+-    fields: [
+-      { key: 'channelName',  label: 'Nome canale',    type: 'text',   default: '' },
+-      { key: 'channelColor', label: 'Colore',         type: 'text',   default: '#a78bfa' },
+-      { key: 'syncMode',     label: 'Sincronismo',    type: 'text',   default: 'fire_and_forget' },
+-      { key: 'timeoutSec',   label: 'Timeout (sec)',  type: 'number', default: '30' },
+-    ],
+-  },
+-  json_parser: {
+-    type:        'json_parser',
+-    label:       'JSON Parser',
+-    category:    'transform',
+-    icon:        '{ }',
+-    color:       '#22d3ee',
+-    description: 'Estrae e trasforma dati JSON in flussi strutturati.',////
+-    fields:      [],
+-  },
+-  xml_parser: {
+-    type: 'xml_parser', label: 'XML Parser', category: 'transform',
+-    icon: '</>', color: '#f97316',
+-    description: 'Estrae e trasforma dati XML in flussi strutturati.',
+-    fields: [],
+-  },
+-   dir_watcher: {
+-    type: 'dir_watcher',
+-    label: 'Dir Watcher',
+-    category: 'input',
+-    icon: '📁',
+-    color: '#22d3ee',
+-    description: 'Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).',
+-    fields: [],
+-  },
+-
+-  window: {
+-    type: 'window',
+-    label: 'Window',
+-    category: 'transform',
+-    icon: 'W',
+-    color: '#a78bfa',
+-    description: 'Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).',
+-    fields: [],
+-  },
+-
+-  materialize: {
+-    type: 'materialize',
+-    label: 'Materialize',
+-    category: 'transform',
+-    icon: '◈',
+-    color: '#22d3ee',
+-    description: 'Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context.materialize().',
+-    fields: [],
+-  },
+-
+-  source_activemq: {
+-    type: 'source_activemq',
+-    label: 'ActiveMQ',
+-    category: 'input',
+-    icon: '⊛',
+-    color: '#fb923c',
+-    description: 'Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.',
+-    fields: [],
+-  },
+-
+-  sink_activemq: {
+-    type: 'sink_activemq',
+-    label: 'ActiveMQ Sink',
+-    category: 'output',
+-    icon: '⊛',
+-    color: '#fb923c',
+-    description: 'Producer ActiveMQ — pubblica messaggi su queue o topic.',
+-    fields: [],
+-  },
+-
+-  source_mqtt: {
+-    type: 'source_mqtt',
+-    label: 'MQTT',
+-    category: 'input',
+-    icon: '⊙',
+-    color: '#84cc16',
+-    description: 'Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.',
+-    fields: [],
+-  },
+-
+-  sink_mqtt: {
+-    type: 'sink_mqtt',
+-    label: 'MQTT Sink',
+-    category: 'output',
+-    icon: '⊙',
+-    color: '#84cc16',
+-    description: 'Publisher MQTT — pubblica messaggi su topic.',
+-    fields: [],
+-  },
+-    report_generator: {
+-    type: 'report_generator',
+-    label: 'Report Generator',
+-    category: 'transform',
+-    icon: '📊',
+-    color: '#f472b6',
+-    description: 'Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici.',
+-    fields: [],
+-  },
+-
+-  mail_sink: {
+-    type: 'mail_sink',
+-    label: 'Mail Sink',
+-    category: 'output',
+-    icon: '✉',
+-    color: '#4a9eff',
+-    description: 'Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.',
+-    fields: [],
+-  },
+-
+-
+-  transform: {
+-    type: 'transform',
+-    label: 'Transform fields',
+-    category: 'transform',
+-    icon: '↦',
+-    color: '#ffb347',
+-    description: 'Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.',
+-
+-    fields: [
+-    
+-    ],
+-  },
+-  webhook_receiver: {
+-    type: 'webhook_receiver', label: 'Webhook Receiver',
+-    icon: '⤵', color: '#3ddc84', category: 'input',
+-    description: 'Riceve webhook — server condiviso con HMAC, buffer e dedup.',
+-    fields: [],
+-  },
+-  webhook_responder: {
+-    type: 'webhook_responder', label: 'Webhook Responder',
+-    icon: '⤴', color: '#4a9eff', category: 'output',
+-    description: 'Risponde HEAD/GET con header sintetici dalla riga corrente.',
+-    fields: [],
+-  },
+-  watchdog: {
+-    type: 'watchdog', label: 'Watchdog',
+-    icon: '👁', color: '#ffb347', category: 'input',
+-    description: 'Monitora servizi via HEAD — sblocca il flusso sull\'header atteso.',
+-    fields: [],
+-  },
+-  shell_exec: {
+-    type:        'shell_exec',
+-    label:       'Shell',
+-    icon:        '>_',
+-    color:       '#22d3ee',
+-    category:    'transform' as const,
+-    description: 'Esegue comandi bash/shell locali — output nel flusso.',
+-    fields:      [],
+-  },
+-  ssh_exec: {
+-    type:        'ssh_exec',
+-    label:       'SSH',
+-    icon:        '⌁',
+-    color:       '#a78bfa',
+-    category:    'transform' as const,
+-    description: 'Esegue comandi su host remoto via SSH.',
+-    fields:      [],
+-  },
+-  error_handler: {
+-    type:        'error_handler',
+-    label:       'Error Handler',
+-    icon:        '⚠',
+-    color:       '#ff5f57',
+-    category:    'transform' as const,
+-    description: 'Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se "Log centralizzato" è attivo).',
+-    fields:      [],
+-  },
+-
+-  stop: {
+-    type:        'stop',
+-    label:       'Stop',
+-    icon:        '⏹',
+-    color:       '#ff5f57',
+-    category:    'transform' as const,   // border neutro; la validazione va per _uiRef.type, non per category
+-    description: 'Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.',
+-    fields: [
+-      { key: 'trigger', label: 'Innesco', type: 'select', default: 'immediate', options: ['immediate', 'after_input'] },
+-      { key: 'message', label: 'Messaggio', type: 'text', default: '' },
+-    ],
+-  },
+-}
+- 
+-
+- 
+-
+-
+-export const PALETTE_SECTIONS = [
+-  { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','github_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
+-  { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot','ldap_auth'] },
+-  { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
+-  { label: 'Flusso', types: ['stop'] },
+-  { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
+-]
++// NODE_DEFS + PALETTE_SECTIONS vivono ora in ./nodeDefs (dati puri, senza React);
++// qui li ri-esportiamo così gli importatori storici (`from '.../registry'`) non cambiano.
++export { NODE_DEFS, PALETTE_SECTIONS } from './nodeDefs'
+ 
+ // ─── Pannelli personalizzati per tipo di nodo ─────────────────────
+ 

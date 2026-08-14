@@ -53,10 +53,33 @@ fn ingest(body: &str, store: &Store) {
         if line.is_empty() {
             continue;
         }
-        let ev: Value = match serde_json::from_str(line) {
+        let raw: Value = match serde_json::from_str(line) {
             Ok(v) => v,
             Err(_) => continue,
         };
+
+        // Intestazione autodescrittiva del log: NON e' un evento. La si riconosce e
+        // salta (non crea un run fasullo). I suoi metadati (runner/artifact) verranno
+        // usati quando aggiungeremo la persistenza e l'apertura di log gia' eseguiti.
+        if raw.get("kind").and_then(|v| v.as_str()) == Some("flowpilot-log-header") {
+            continue;
+        }
+
+        // Una riga puo' essere INCAPSULATA `{ timestamp, event: {type, payload} }`
+        // (nuovo formato, col timestamp d'ORIGINE) oppure un evento NUDO `{type, payload}`
+        // (retrocompatibilita' con log piu' vecchi). Calcolo prima i valori POSSEDUTI
+        // (niente prestito vivo su `raw`), poi o clono l'evento interno o muovo `raw`.
+        let src_ts = raw.get("timestamp").and_then(|v| v.as_u64());
+        let wrapped = src_ts.is_some()
+            && raw.get("event").map(|e| e.is_object()).unwrap_or(false);
+        let mut ev = if wrapped {
+            raw.get("event").cloned().unwrap_or(Value::Null)
+        } else {
+            raw
+        };
+        // Tempo d'origine se presente; altrimenti (log nudo) ripiego sul tempo di ricezione.
+        let event_ts = src_ts.unwrap_or_else(now_ms);
+
         // run_id: nel payload (variante RunStarted/... ) o al livello superiore.
         let run_id = ev
             .get("payload").and_then(|p| p.get("run_id")).and_then(|v| v.as_str())
@@ -64,6 +87,13 @@ fn ingest(body: &str, store: &Store) {
             .unwrap_or("sconosciuto")
             .to_string();
         let ty = ev.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+        // Timbro il tempo d'origine su OGNI evento memorizzato (campo `ts`): cosi' le
+        // viste future potranno ordinare/aggregare per tempo reale, uniformemente sia
+        // per i log nuovi (tempo d'origine) sia per quelli nudi (tempo di ricezione).
+        if let Some(obj) = ev.as_object_mut() {
+            obj.insert("ts".to_string(), Value::from(event_ts));
+        }
 
         let entry = s.entry(run_id).or_default();
         if entry.status.is_empty() {
@@ -74,7 +104,9 @@ fn ingest(body: &str, store: &Store) {
             "RunFailed" => entry.status = "failed".to_string(),
             _ => {}
         }
-        entry.last_seen_ms = now_ms();
+        // last_seen = tempo d'ORIGINE quando disponibile (piu' onesto del tempo di
+        // ricezione: il monitor poteva essere giu' e i log arrivare dopo dal fallback).
+        entry.last_seen_ms = event_ts;
         entry.events.push(ev);
     }
 }
