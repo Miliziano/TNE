@@ -1,0 +1,142 @@
+diff --git a/src-tauri/src/bin/flowpilot_monitor.rs b/src-tauri/src/bin/flowpilot_monitor.rs
+index 229f8e4..2374025 100644
+--- a/src-tauri/src/bin/flowpilot_monitor.rs
++++ b/src-tauri/src/bin/flowpilot_monitor.rs
+@@ -29,6 +29,7 @@ struct RunState {
+     events: Vec<Value>,
+     status: String, // "running" | "completed" | "failed"
+     last_seen_ms: u64,
++    plan_name: String, // nome del piano (da RunStarted.payload.plan_name), se noto
+ }
+ 
+ type Store = Arc<Mutex<HashMap<String, RunState>>>;
+@@ -74,6 +75,15 @@ fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, e
+         "RunFailed" => entry.status = "failed".to_string(),
+         _ => {}
+     }
++    // Nome del piano: arriva in RunStarted.payload.plan_name (iniettato dal runner).
++    // Lo fisso la prima volta che lo vedo; non lo sovrascrivo con un valore vuoto.
++    if entry.plan_name.is_empty() {
++        if let Some(pn) = ev.get("payload").and_then(|p| p.get("plan_name")).and_then(|v| v.as_str()) {
++            if !pn.is_empty() {
++                entry.plan_name = pn.to_string();
++            }
++        }
++    }
+     entry.last_seen_ms = event_ts;
+     entry.events.push(ev);
+ }
+@@ -195,6 +205,7 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
+                 .map(|(id, r)| {
+                     serde_json::json!({
+                         "run_id": id,
++                        "plan_name": r.plan_name,
+                         "status": r.status,
+                         "events": r.events.len(),
+                         "last_seen_ms": r.last_seen_ms,
+@@ -205,12 +216,37 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
+             runs.sort_by(|a, b| b["last_seen_ms"].as_u64().cmp(&a["last_seen_ms"].as_u64()));
+             json_resp(&serde_json::json!({ "runs": runs }))
+         }
++        // Scarica il log NDJSON di un run (per salvarlo e riaprirlo con "Apri log").
++        (Method::Get, p) if p.starts_with("/api/runs/") && p.ends_with("/download") => {
++            let id = &p["/api/runs/".len()..p.len() - "/download".len()];
++            let s = store.lock().unwrap();
++            match s.get(id) {
++                Some(r) => {
++                    let mut body = String::new();
++                    for ev in &r.events {
++                        body.push_str(&ev.to_string());
++                        body.push('\n');
++                    }
++                    let fname = format!("{}.ndjson", safe_name(id));
++                    Response::from_string(body)
++                        .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/x-ndjson"[..]).unwrap())
++                        .with_header(
++                            Header::from_bytes(
++                                &b"Content-Disposition"[..],
++                                format!("attachment; filename=\"{}\"", fname).as_bytes(),
++                            )
++                            .unwrap(),
++                        )
++                }
++                None => Response::from_string("run non trovato").with_status_code(404),
++            }
++        }
+         (Method::Get, p) if p.starts_with("/api/runs/") => {
+             let id = &p["/api/runs/".len()..];
+             let s = store.lock().unwrap();
+             match s.get(id) {
+                 Some(r) => json_resp(&serde_json::json!({
+-                    "run_id": id, "status": r.status, "events": r.events
++                    "run_id": id, "plan_name": r.plan_name, "status": r.status, "events": r.events
+                 })),
+                 None => json_resp(&serde_json::json!({ "error": "run non trovato" })),
+             }
+@@ -276,6 +312,8 @@ const INDEX_HTML: &str = r#"<!doctype html>
+   .ev{border-bottom:1px solid #1e2535;padding:6px 0;font-family:'JetBrains Mono',monospace;font-size:11px;white-space:pre-wrap;word-break:break-word}
+   .ty{color:#c8a060;margin-right:8px}
+   .muted{color:#5a6a8a}
++  .pname{font-weight:600;color:#c8d4f0;font-size:12px;margin-bottom:2px}
++  .dl{margin-left:auto;color:#8aa4d0;text-decoration:none;font-size:12px}.dl:hover{color:#c8d4f0}
+ </style></head><body>
+ <header><span class="dot"></span> FlowPilot Monitor <span class="muted" id="cnt"></span>
+   <label class="openbtn" style="margin-left:auto;cursor:pointer;font-weight:400;font-size:12px;color:#8aa4d0">&#128194; Apri log&#8230;<input type="file" accept=".ndjson,.json,.log,.txt" style="display:none" onchange="onFile(this)"></label>
+@@ -290,7 +328,7 @@ let opened=null;     // { name, header, run_id, status, events } aperto DA FILE
+ let active='none';   // 'run' | 'file' | 'none' — cosa mostra il pannello dettaglio
+ 
+ function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+-function fmtTs(ts){ if(typeof ts!=='number') return ''; try{ return new Date(ts).toLocaleTimeString('it-IT'); }catch(e){ return ''; } }
++function fmtTs(ts){ if(typeof ts!=='number') return ''; const d=new Date(ts), p=(n,l)=>String(n).padStart(l,'0'); return p(d.getHours(),2)+':'+p(d.getMinutes(),2)+':'+p(d.getSeconds(),2)+'.'+p(d.getMilliseconds(),3); }
+ function renderEvents(events){
+   return events.map(e=>{
+     const t=fmtTs(e&&e.ts), ty=(e&&e.type)||'?', pl=(e&&e.payload)||{};
+@@ -310,6 +348,7 @@ async function loadRuns(){
+         +'<span class="muted">'+opened.events.length+' eventi &middot; da file</span></div></div>';
+     }
+     html+=d.runs.map(x=>'<div class="run '+((active==='run'&&x.run_id===sel)?'sel':'')+'" onclick="openRun(\''+x.run_id+'\')">'
++      +(x.plan_name?('<div class="pname">'+esc(x.plan_name)+'</div>'):'')
+       +'<div class="rid">'+esc(x.run_id)+'</div>'
+       +'<div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center">'
+       +'<span class="badge '+x.status+'">'+x.status+'</span>'
+@@ -324,7 +363,14 @@ async function openRun(id){
+     if(active!=='run'||sel!==id) return; // vista cambiata nel frattempo
+     const el=document.getElementById('detail');
+     if(d.error){el.innerHTML='<div class="muted">'+esc(d.error)+'</div>';return;}
+-    el.innerHTML=renderEvents(d.events);
++    const banner='<div style="border-bottom:1px solid #2a3349;padding-bottom:8px;margin-bottom:8px">'
++      +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
++      +(d.plan_name?('<b>'+esc(d.plan_name)+'</b> '):'')
++      +'<span class="rid">'+esc(d.run_id||id)+'</span> '
++      +(d.status?('<span class="badge '+d.status+'">'+d.status+'</span> '):'')
++      +'<span class="muted">'+((d.events&&d.events.length)||0)+' eventi</span>'
++      +'<a class="dl" href="/api/runs/'+encodeURIComponent(id)+'/download" download>&#128190; Salva log</a></div></div>';
++    el.innerHTML=banner+renderEvents(d.events);
+   }catch(e){}
+ }
+ function showOpened(){
+@@ -339,7 +385,9 @@ function showOpened(){
+                      : '<div class="muted" style="margin-top:4px">nessuna intestazione nel file</div>';
+   const banner='<div style="border-bottom:1px solid #2a3349;padding-bottom:8px;margin-bottom:8px">'
+     +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+-    +'<b>&#128194; '+esc(opened.name)+'</b> <span class="rid">'+esc(opened.run_id)+'</span> '
++    +'<b>&#128194; '+esc(opened.name)+'</b> '
++    +(opened.plan_name?('<b>'+esc(opened.plan_name)+'</b> '):'')
++    +'<span class="rid">'+esc(opened.run_id)+'</span> '
+     +'<span class="badge '+opened.status+'">'+opened.status+'</span> '
+     +'<span class="muted">'+opened.events.length+' eventi</span>'
+     +'<button onclick="closeOpened()" style="margin-left:auto">&#10005; chiudi</button></div>'+metaLine+'</div>';
+@@ -365,10 +413,12 @@ function parseLog(text){
+   }
+   let run_id='(sconosciuto)';
+   for(const e of events){ const rid=(e&&e.payload&&e.payload.run_id)||(e&&e.run_id); if(rid){run_id=rid;break;} }
++  let plan_name='';
++  for(const e of events){ const pn=e&&e.payload&&e.payload.plan_name; if(pn){plan_name=pn;break;} }
+   let status='running';
+   if(events.some(e=>e&&e.type==='RunFailed')) status='failed';
+   else if(events.some(e=>e&&e.type==='RunCompleted')) status='completed';
+-  return {header:header, run_id:run_id, status:status, events:events};
++  return {header:header, run_id:run_id, plan_name:plan_name, status:status, events:events};
+ }
+ function onFile(input){
+   const f=input.files&&input.files[0]; if(!f) return;

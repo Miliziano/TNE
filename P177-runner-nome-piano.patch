@@ -1,0 +1,43 @@
+diff --git a/src-tauri/src/bin/flowpilot_runner.rs b/src-tauri/src/bin/flowpilot_runner.rs
+index 8471ad4..17f59ee 100644
+--- a/src-tauri/src/bin/flowpilot_runner.rs
++++ b/src-tauri/src/bin/flowpilot_runner.rs
+@@ -110,6 +110,9 @@ fn main() {
+     };
+     // Monitor dal MANIFESTO dell'artifact (prima di consumare root per il piano).
+     let manifest_monitor = root.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
++    // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per
++    // arricchire l'intestazione E l'evento RunStarted, cosi' il monitor mostra il nome.
++    let plan_name = root.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
+ 
+     // Intestazione autodescrittiva del log (self-contained): versione del formato,
+     // metadati del runner e dell'artifact. Emessa UNA volta, in testa al log, cosi'
+@@ -126,6 +129,7 @@ fn main() {
+         },
+         "artifact": {
+             "formatVersion":   root.get("formatVersion"),
++            "planName":        root.get("planName"),
+             "profile":         root.get("profile"),
+             "platform":        root.get("platform"),
+             "exportedAt":      root.get("exportedAt"),
+@@ -201,9 +205,19 @@ fn main() {
+                 // dell'evento) viaggia con l'evento -> il monitor sa QUANDO e' successo
+                 // davvero, non quando l'ha ricevuto (importante se era giu' e i log
+                 // arrivano dopo dal fallback). L'evento resta {type, payload} dentro `event`.
++                let mut ev_val = serde_json::to_value(&te.event).unwrap_or(serde_json::Value::Null);
++                // Arricchisco RunStarted col NOME del piano (una volta per run, cosi' il
++                // monitor associa il nome al run_id in modo esatto e a costo nullo).
++                if let Some(pn) = &plan_name {
++                    if ev_val.get("type").and_then(|v| v.as_str()) == Some("RunStarted") {
++                        if let Some(payload) = ev_val.get_mut("payload").and_then(|p| p.as_object_mut()) {
++                            payload.insert("plan_name".to_string(), serde_json::Value::from(pn.clone()));
++                        }
++                    }
++                }
+                 let line = serde_json::json!({
+                     "timestamp": te.timestamp,
+-                    "event":     serde_json::to_value(&te.event).unwrap_or(serde_json::Value::Null),
++                    "event":     ev_val,
+                 })
+                 .to_string();
+                 println!("{}", line);
