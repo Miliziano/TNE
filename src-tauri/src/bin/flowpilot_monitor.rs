@@ -11,7 +11,7 @@
 //
 // Build:  cargo build --bin flowpilot_monitor --no-default-features --features monitor --release
 // Uso:    flowpilot_monitor [porta]        (default 8787)
-//   Env:  MONITOR_DATA_DIR=<cartella>      (default: flowpilot-monitor-data)
+//   Env:  MONITOR_DATA_DIR=<cartella>      (default: ~/.flowpilot/monitor-data)
 //   - i runner pushano su:  POST http://<host>:<porta>/ingest   (body NDJSON)
 //   - vista web:            GET  http://<host>:<porta>/
 //   - API:                  GET /api/runs   e   GET /api/runs/<run_id>
@@ -30,6 +30,17 @@ struct RunState {
     status: String, // "running" | "completed" | "failed"
     last_seen_ms: u64,
     plan_name: String, // nome del piano (da RunStarted.payload.plan_name), se noto
+    // ── provenienza ──────────────────────────────────────────────
+    // DICHIARATI dall'artifact/runner (riportati, non verificati):
+    studio_label: String,
+    studio_id: String,
+    studio_version: String,
+    plan_version: String,
+    plan_hash: String,
+    runner_host: String,
+    // OSSERVATO dal monitor sulla connessione HTTP (non falsificabile dal payload;
+    // dietro reverse proxy e' l'IP del proxy):
+    observed_ip: String,
 }
 
 type Store = Arc<Mutex<HashMap<String, RunState>>>;
@@ -37,6 +48,22 @@ type Resp = Response<Cursor<Vec<u8>>>;
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+/// Cartella dati di DEFAULT: `~/.flowpilot/monitor-data` (HOME su Unix, USERPROFILE
+/// su Windows), come il reporter dei run. IMPORTANTE: fuori dall'albero del progetto,
+/// cosi' le scritture del monitor NON attivano il file-watcher di `tauri dev` (che
+/// altrimenti ricompila e riavvia lo studio a ogni evento ricevuto). Override con
+/// la variabile d'ambiente MONITOR_DATA_DIR.
+fn default_data_dir() -> String {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+    std::path::Path::new(&home)
+        .join(".flowpilot")
+        .join("monitor-data")
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn json_resp(v: &Value) -> Resp {
@@ -75,13 +102,28 @@ fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, e
         "RunFailed" => entry.status = "failed".to_string(),
         _ => {}
     }
-    // Nome del piano: arriva in RunStarted.payload.plan_name (iniettato dal runner).
-    // Lo fisso la prima volta che lo vedo; non lo sovrascrivo con un valore vuoto.
-    if entry.plan_name.is_empty() {
-        if let Some(pn) = ev.get("payload").and_then(|p| p.get("plan_name")).and_then(|v| v.as_str()) {
-            if !pn.is_empty() {
-                entry.plan_name = pn.to_string();
+    // Provenienza. I campi `payload.*` sono DICHIARATI dall'artifact (riportati dal
+    // runner); `_observed_ip` e' aggiunto dal monitor guardando la connessione.
+    // Si fissano la prima volta che si vedono; niente sovrascritture con valori vuoti.
+    {
+        let mut prendi = |dest: &mut String, chiave: &str| {
+            if dest.is_empty() {
+                if let Some(v) = ev.get("payload").and_then(|p| p.get(chiave)).and_then(|v| v.as_str()) {
+                    if !v.is_empty() { *dest = v.to_string(); }
+                }
             }
+        };
+        prendi(&mut entry.plan_name, "plan_name");
+        prendi(&mut entry.studio_label, "studio_label");
+        prendi(&mut entry.studio_id, "studio_id");
+        prendi(&mut entry.studio_version, "studio_version");
+        prendi(&mut entry.plan_version, "plan_version");
+        prendi(&mut entry.plan_hash, "plan_hash");
+        prendi(&mut entry.runner_host, "runner_host");
+    }
+    if entry.observed_ip.is_empty() {
+        if let Some(ip) = ev.get("_observed_ip").and_then(|v| v.as_str()) {
+            if !ip.is_empty() { entry.observed_ip = ip.to_string(); }
         }
     }
     entry.last_seen_ms = event_ts;
@@ -160,14 +202,23 @@ fn load_persisted(store: &Store, data_dir: &str) {
     }
 }
 
-fn ingest(body: &str, store: &Store, data_dir: &str) {
+fn ingest(body: &str, store: &Store, data_dir: &str, peer_ip: Option<&str>) {
     // Fase 1 (sotto lock): applica in memoria e accumula per run le righe da persistere.
     let mut to_persist: HashMap<String, String> = HashMap::new();
     {
         let mut s = store.lock().unwrap();
         for line in body.lines() {
-            if let Some((run_id, ty, event_ts, ev)) = process_line(line) {
-                let persisted = ev.to_string(); // l'evento gia' con `ts`
+            if let Some((run_id, ty, event_ts, mut ev)) = process_line(line) {
+                // IP OSSERVATO sulla connessione: lo timbro sul RunStarted (una volta per
+                // run) con un nome che dice chi l'ha messo (`_observed_ip`, prefisso _ =
+                // aggiunto dal monitor, non dichiarato dal runner). Finisce anche nel file
+                // persistito, cosi' sopravvive alla ricarica.
+                if ty == "RunStarted" {
+                    if let (Some(ip), Some(obj)) = (peer_ip, ev.as_object_mut()) {
+                        obj.insert("_observed_ip".to_string(), Value::from(ip));
+                    }
+                }
+                let persisted = ev.to_string(); // l'evento gia' con `ts` (e `_observed_ip`)
                 apply_to_store(&mut s, run_id.clone(), &ty, event_ts, ev);
                 let buf = to_persist.entry(run_id).or_default();
                 buf.push_str(&persisted);
@@ -193,9 +244,13 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
 
     match (method, path.as_str()) {
         (Method::Post, "/ingest") => {
+            // IP OSSERVATO: preso dalla connessione, non dal corpo del messaggio.
+            // Dietro un reverse proxy questo e' l'IP del proxy (X-Forwarded-For
+            // andrebbe considerato solo se il proxy e' tuo: qui non lo assumiamo).
+            let peer_ip = req.remote_addr().map(|a| a.ip().to_string());
             let mut body = String::new();
             let _ = req.as_reader().read_to_string(&mut body);
-            ingest(&body, store, data_dir);
+            ingest(&body, store, data_dir, peer_ip.as_deref());
             json_resp(&serde_json::json!({ "ok": true }))
         }
         (Method::Get, "/api/runs") => {
@@ -206,6 +261,8 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
                     serde_json::json!({
                         "run_id": id,
                         "plan_name": r.plan_name,
+                        "studio_label": r.studio_label,
+                        "observed_ip": r.observed_ip,
                         "status": r.status,
                         "events": r.events.len(),
                         "last_seen_ms": r.last_seen_ms,
@@ -246,7 +303,12 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
             let s = store.lock().unwrap();
             match s.get(id) {
                 Some(r) => json_resp(&serde_json::json!({
-                    "run_id": id, "plan_name": r.plan_name, "status": r.status, "events": r.events
+                    "run_id": id, "plan_name": r.plan_name, "status": r.status,
+                    "studio_label": r.studio_label, "studio_id": r.studio_id,
+                    "studio_version": r.studio_version, "plan_version": r.plan_version,
+                    "plan_hash": r.plan_hash, "runner_host": r.runner_host,
+                    "observed_ip": r.observed_ip,
+                    "events": r.events
                 })),
                 None => json_resp(&serde_json::json!({ "error": "run non trovato" })),
             }
@@ -258,8 +320,7 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
 
 fn main() {
     let port: u16 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(8787);
-    let data_dir = std::env::var("MONITOR_DATA_DIR")
-        .unwrap_or_else(|_| "flowpilot-monitor-data".to_string());
+    let data_dir = std::env::var("MONITOR_DATA_DIR").unwrap_or_else(|_| default_data_dir());
     let addr = format!("0.0.0.0:{}", port);
     let server = match Server::http(&addr) {
         Ok(s) => s,
@@ -352,7 +413,12 @@ async function loadRuns(){
       +'<div class="rid">'+esc(x.run_id)+'</div>'
       +'<div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center">'
       +'<span class="badge '+x.status+'">'+x.status+'</span>'
-      +'<span class="muted">'+x.events+' eventi</span></div></div>').join('');
+      +'<span class="muted">'+x.events+' eventi</span></div>'
+      +((x.studio_label||x.observed_ip)?('<div class="muted" style="margin-top:3px;font-size:10px">'
+        +(x.studio_label?('&#128187; '+esc(x.studio_label)):'')
+        +(x.studio_label&&x.observed_ip?' &middot; ':'')
+        +(x.observed_ip?('&#127760; '+esc(x.observed_ip)):'')+'</div>'):'')
+      +'</div>').join('');
     document.getElementById('runs').innerHTML=html;
   }catch(e){}
 }
@@ -363,13 +429,23 @@ async function openRun(id){
     if(active!=='run'||sel!==id) return; // vista cambiata nel frattempo
     const el=document.getElementById('detail');
     if(d.error){el.innerHTML='<div class="muted">'+esc(d.error)+'</div>';return;}
+    const prov=[];
+    if(d.studio_label) prov.push('compilato da <b>'+esc(d.studio_label)+'</b>'+(d.studio_version?(' v'+esc(d.studio_version)):''));
+    if(d.plan_version) prov.push('versione piano '+esc(d.plan_version));
+    if(d.runner_host)  prov.push('host dichiarato '+esc(d.runner_host));
+    if(d.plan_hash)    prov.push('integrità '+esc(String(d.plan_hash).replace(/^sha256:/,'').slice(0,12))+'…');
+    const provLine = prov.length
+      ? '<div class="muted" style="margin-top:4px">'+prov.join(' &middot; ')+'</div>' : '';
+    const ipLine = d.observed_ip
+      ? '<div class="muted" style="margin-top:2px">IP osservato <b>'+esc(d.observed_ip)+'</b> <span style="opacity:.7">(visto dal monitor sulla connessione, non dichiarato dal runner)</span></div>' : '';
     const banner='<div style="border-bottom:1px solid #2a3349;padding-bottom:8px;margin-bottom:8px">'
       +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
       +(d.plan_name?('<b>'+esc(d.plan_name)+'</b> '):'')
       +'<span class="rid">'+esc(d.run_id||id)+'</span> '
       +(d.status?('<span class="badge '+d.status+'">'+d.status+'</span> '):'')
       +'<span class="muted">'+((d.events&&d.events.length)||0)+' eventi</span>'
-      +'<a class="dl" href="/api/runs/'+encodeURIComponent(id)+'/download" download>&#128190; Salva log</a></div></div>';
+      +'<a class="dl" href="/api/runs/'+encodeURIComponent(id)+'/download" download>&#128190; Salva log</a></div>'
+      +provLine+ipLine+'</div>';
     el.innerHTML=banner+renderEvents(d.events);
   }catch(e){}
 }

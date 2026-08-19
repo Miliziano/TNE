@@ -11,7 +11,8 @@
  * Il "Genera" costruisce il piano col profilo attivo congelato (buildRustPlan) e
  * salva il `.ffart`. La logica di export sta in Toolbar (onGenerate).
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../store/flowStore'
 import { CustomSelect } from './CustomSelect'
 
@@ -35,6 +36,30 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
   const [monitorUrl, setMonitorUrl] = useState('')
   const [platform, setPlatform]     = useState('linux')
+
+  // Identita' dello STUDIO (provenienza): id fisso + etichetta modificabile.
+  // Vive in ~/.flowpilot/studio.json, condivisa da tutti i progetti di questa
+  // installazione. Caricata all'apertura della scheda.
+  const [studioId, setStudioId]       = useState('')
+  const [studioLabel, setStudioLabel] = useState('')
+  const [labelSaved, setLabelSaved]   = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let vivo = true
+    invoke<{ id: string; label: string }>('studio_identity')
+      .then((idn) => { if (vivo) { setStudioId(idn.id); setStudioLabel(idn.label); setLabelSaved(false) } })
+      .catch(() => { if (vivo) { setStudioId(''); setStudioLabel('') } })
+    return () => { vivo = false }
+  }, [open])
+
+  const salvaEtichetta = async () => {
+    try {
+      const idn = await invoke<{ id: string; label: string }>('studio_identity_set_label', { label: studioLabel })
+      setStudioId(idn.id); setStudioLabel(idn.label); setLabelSaved(true)
+      setTimeout(() => setLabelSaved(false), 1800)
+    } catch { /* best-effort: l'export usa comunque il valore su file */ }
+  }
 
   if (!open) return null
 
@@ -62,6 +87,28 @@ export function CompileModal({ open, onClose, onGenerate }: {
             </CustomSelect>
           </div>
 
+          {/* Identita' dello studio (provenienza) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={labelStyle}>Compilato da — etichetta di questo studio</div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                value={studioLabel}
+                onChange={(e) => setStudioLabel(e.target.value)}
+                onBlur={salvaEtichetta}
+                placeholder="es. marco-portatile"
+                style={inputStyle}
+              />
+              <button
+                onClick={salvaEtichetta}
+                style={{ background: 'transparent', color: labelSaved ? '#4ade80' : '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >{labelSaved ? '✓ salvata' : 'Salva'}</button>
+            </div>
+            <div style={{ fontSize: 10, color: '#5a6a8a' }}>
+              Identifica questa <b>installazione</b> nel monitor (id <code style={{ color: '#8aa' }}>{studioId ? studioId.slice(0, 8) + '…' : '—'}</code>).
+              Vale per tutti i progetti di questo computer. Non è autenticazione: è un'etichetta di provenienza.
+            </div>
+          </div>
+
           {/* Endpoint monitor */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={labelStyle}>Monitor — dove pushare i log (opzionale)</div>
@@ -85,6 +132,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
             <div style={labelStyle}>Manifesto dell'artifact</div>
             <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", background: '#141c2c', border: '1px solid #2a3349', borderRadius: 6, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div>profilo congelato: <span style={{ color: '#8aa4d0' }}>{frozenProfile}</span></div>
+              <div>compilato da: <span style={{ color: '#8aa4d0' }}>{studioLabel || '—'}</span></div>
               <div>piattaforma: <span style={{ color: '#8aa4d0' }}>{platform}</span></div>
               <div>monitor: <span style={{ color: '#8aa4d0' }}>{monitorUrl.trim() || '— nessuno —'}</span></div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>

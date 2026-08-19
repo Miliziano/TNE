@@ -1193,11 +1193,49 @@ export function Toolbar() {
       return
     }
     const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
+
+    // ── PROVENIENZA (fase A) ─────────────────────────────────────
+    // CHI ha compilato: identita' dello studio (UUID + etichetta leggibile), da
+    // ~/.flowpilot/studio.json. Identifica l'INSTALLAZIONE, non la persona.
+    let studio: { id: string; label: string } | null = null
+    try { studio = await invoke<{ id: string; label: string }>('studio_identity') } catch { studio = null }
+
+    // Versione dello STUDIO che compila (da tauri.conf.json, letta a runtime).
+    let studioVersion: string | null = null
+    try {
+      const { getVersion } = await import('@tauri-apps/api/app')
+      studioVersion = await getVersion()
+    } catch { studioVersion = null }
+
+    // QUALE versione del piano: presa dal versionamento in-file (P143), best-effort.
+    let planVersion: { id?: string; savedAt?: string; label?: string } | null = null
+    if (currentPath) {
+      try {
+        const data = JSON.parse(await readFile(currentPath))
+        if (data?.version) planVersion = data.version
+      } catch { planVersion = null }
+    }
+
+    // INTEGRITA' (non autenticita'): sha-256 del piano. Dice "e' esattamente il piano
+    // esportato" e permette di correlare run dello stesso piano. NON prova CHI l'ha
+    // prodotto: chi modifica il piano puo' ricalcolare l'hash. Per l'autenticita'
+    // servirebbe una firma asimmetrica (fase separata).
+    const planJson = JSON.stringify(plan)
+    let planHash: string | null = null
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(planJson))
+      planHash = 'sha256:' + Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    } catch { planHash = null }
+
     const artifact = {
       formatVersion: 1,
       kind:          'flowpilot-artifact',
       exportedAt:    new Date().toISOString(),
       planName,
+      planVersion,
+      studio,
+      studioVersion,
+      planHash,
       profile:       environments.active || '(default)',
       platform,
       monitor:       monitorUrl || null,

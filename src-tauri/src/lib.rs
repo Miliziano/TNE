@@ -36,6 +36,77 @@ fn secret_has(name: String) -> bool { crate::secrets::has_secret(&name) }
 #[tauri::command]
 fn secret_delete(name: String) -> Result<(), String> { crate::secrets::delete_secret(&name) }
 
+// ─── Identita' dello STUDIO (provenienza degli artifact) ──────────
+// Un artifact compilato qui porta con se' CHI l'ha compilato, cosi' che un monitor
+// centralizzato possa distinguere artifact prodotti da studi/sviluppatori diversi.
+// - `id`    = UUID generato UNA volta e conservato in ~/.flowpilot/studio.json
+// - `label` = etichetta LEGGIBILE modificabile dall'utente (es. "marco-portatile");
+//             al primo avvio si propone hostname/utente del sistema operativo.
+// ⚠️ ONESTA': identifica l'INSTALLAZIONE, non la persona (chi reinstalla cambia id,
+// chi copia il file si spaccia per un altro). Non e' autenticazione: per quella
+// servirebbe una firma (chiave privata) o un canale autenticato.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StudioIdentity {
+    id:    String,
+    label: String,
+}
+
+fn studio_identity_path() -> std::path::PathBuf {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(home).join(".flowpilot").join("studio.json")
+}
+
+/// Etichetta proposta al primo avvio: hostname del sistema, altrimenti l'utente.
+fn default_studio_label() -> String {
+    if let Ok(h) = std::env::var("HOSTNAME") {
+        if !h.trim().is_empty() { return h.trim().to_string() }
+    }
+    if let Ok(h) = std::env::var("COMPUTERNAME") {
+        if !h.trim().is_empty() { return h.trim().to_string() }
+    }
+    if let Ok(h) = std::fs::read_to_string("/etc/hostname") {
+        if !h.trim().is_empty() { return h.trim().to_string() }
+    }
+    std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_else(|_| "studio".to_string())
+}
+
+fn load_or_create_studio_identity() -> StudioIdentity {
+    let path = studio_identity_path();
+    if let Ok(txt) = std::fs::read_to_string(&path) {
+        if let Ok(idn) = serde_json::from_str::<StudioIdentity>(&txt) {
+            if !idn.id.is_empty() { return idn }
+        }
+    }
+    let idn = StudioIdentity {
+        id:    uuid::Uuid::new_v4().to_string(),
+        label: default_studio_label(),
+    };
+    if let Some(dir) = path.parent() { let _ = std::fs::create_dir_all(dir); }
+    let _ = std::fs::write(&path, serde_json::to_string_pretty(&idn).unwrap_or_default());
+    idn
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn studio_identity() -> Result<StudioIdentity, String> {
+    Ok(load_or_create_studio_identity())
+}
+
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn studio_identity_set_label(label: String) -> Result<StudioIdentity, String> {
+    let mut idn = load_or_create_studio_identity();
+    let label = label.trim().to_string();
+    idn.label = if label.is_empty() { default_studio_label() } else { label };
+    let path = studio_identity_path();
+    if let Some(dir) = path.parent() { std::fs::create_dir_all(dir).map_err(|e| e.to_string())?; }
+    std::fs::write(&path, serde_json::to_string_pretty(&idn).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    Ok(idn)
+}
+
 #[derive(Debug, Serialize)]
 struct MemoryInfo {
     /// RSS processo Tauri principale (bytes)
@@ -169,6 +240,8 @@ pub fn run() {
         secret_set,
         secret_has,
         secret_delete,
+        studio_identity,
+        studio_identity_set_label,
         db_query,
         db_infer_schema,
         db_list_constraints,   // ← aggiungere

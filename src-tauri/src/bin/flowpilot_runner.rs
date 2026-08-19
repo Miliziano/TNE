@@ -113,6 +113,22 @@ fn main() {
     // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per
     // arricchire l'intestazione E l'evento RunStarted, cosi' il monitor mostra il nome.
     let plan_name = root.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
+    // PROVENIENZA (fase A): chi ha compilato, con quale versione, quale piano.
+    // Il runner li RIPORTA e basta: sono dati DICHIARATI dall'artifact, non verificati.
+    let studio_id    = root.get("studio").and_then(|s| s.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string());
+    let studio_label = root.get("studio").and_then(|s| s.get("label")).and_then(|v| v.as_str()).map(|s| s.to_string());
+    let plan_hash    = root.get("planHash").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let plan_version = root.get("planVersion").and_then(|v| v.get("label")).and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| root.get("planVersion").and_then(|v| v.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string()));
+    // Host DICHIARATO da questa macchina (hostname del sistema). E' auto-dichiarato:
+    // il dato affidabile sull'origine e' l'IP che il monitor OSSERVA sulla connessione.
+    let runner_host = std::env::var("HOSTNAME").ok()
+        .or_else(|| std::env::var("COMPUTERNAME").ok())
+        .or_else(|| std::fs::read_to_string("/etc/hostname").ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
 
     // Intestazione autodescrittiva del log (self-contained): versione del formato,
     // metadati del runner e dell'artifact. Emessa UNA volta, in testa al log, cosi'
@@ -126,10 +142,15 @@ fn main() {
             "os":      std::env::consts::OS,
             "arch":    std::env::consts::ARCH,
             "version": env!("CARGO_PKG_VERSION"),
+            "host":    runner_host,
         },
         "artifact": {
             "formatVersion":   root.get("formatVersion"),
             "planName":        root.get("planName"),
+            "planVersion":     root.get("planVersion"),
+            "studio":          root.get("studio"),
+            "studioVersion":   root.get("studioVersion"),
+            "planHash":        root.get("planHash"),
             "profile":         root.get("profile"),
             "platform":        root.get("platform"),
             "exportedAt":      root.get("exportedAt"),
@@ -206,13 +227,21 @@ fn main() {
                 // davvero, non quando l'ha ricevuto (importante se era giu' e i log
                 // arrivano dopo dal fallback). L'evento resta {type, payload} dentro `event`.
                 let mut ev_val = serde_json::to_value(&te.event).unwrap_or(serde_json::Value::Null);
-                // Arricchisco RunStarted col NOME del piano (una volta per run, cosi' il
-                // monitor associa il nome al run_id in modo esatto e a costo nullo).
-                if let Some(pn) = &plan_name {
-                    if ev_val.get("type").and_then(|v| v.as_str()) == Some("RunStarted") {
-                        if let Some(payload) = ev_val.get_mut("payload").and_then(|p| p.as_object_mut()) {
-                            payload.insert("plan_name".to_string(), serde_json::Value::from(pn.clone()));
-                        }
+                // Arricchisco RunStarted con NOME e PROVENIENZA del piano (una volta per
+                // run, cosi' il monitor li associa al run_id in modo esatto e a costo nullo).
+                if ev_val.get("type").and_then(|v| v.as_str()) == Some("RunStarted") {
+                    if let Some(payload) = ev_val.get_mut("payload").and_then(|p| p.as_object_mut()) {
+                        let mut set = |k: &str, v: &Option<String>| {
+                            if let Some(s) = v {
+                                payload.insert(k.to_string(), serde_json::Value::from(s.clone()));
+                            }
+                        };
+                        set("plan_name", &plan_name);
+                        set("studio_id", &studio_id);
+                        set("studio_label", &studio_label);
+                        set("plan_hash", &plan_hash);
+                        set("plan_version", &plan_version);
+                        set("runner_host", &runner_host);
                     }
                 }
                 let line = serde_json::json!({
