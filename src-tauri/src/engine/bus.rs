@@ -74,7 +74,12 @@ impl EventBus {
     pub fn new() -> Self {
         EventBus {
             events:   VecDeque::new(),
-            next_seq: 0,
+            // ⚠️ PARTE DA 1, NON DA 0. `drain_since(after_seq)` restituisce gli eventi
+            // con `seq > after_seq` e ogni lettore parte con cursore 0: se il primo
+            // evento avesse seq 0 non verrebbe MAI consegnato. Nel runner headless il
+            // primo evento del processo e' proprio `RunStarted` — quello che porta
+            // nome del piano e provenienza — e spariva sistematicamente dal log.
+            next_seq: 1,
         }
     }
 

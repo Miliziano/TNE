@@ -271,7 +271,10 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
                 .collect();
             // piu' recenti in cima
             runs.sort_by(|a, b| b["last_seen_ms"].as_u64().cmp(&a["last_seen_ms"].as_u64()));
-            json_resp(&serde_json::json!({ "runs": runs }))
+            // `data_dir`: la vista lo mostra, cosi' e' sempre chiaro DA DOVE il monitor
+            // legge/scrive i log (evita l'equivoco "ho cancellato i file ma vedo ancora
+            // i run": lo store e' in memoria, il disco si rilegge solo all'avvio).
+            json_resp(&serde_json::json!({ "runs": runs, "data_dir": data_dir }))
         }
         // Scarica il log NDJSON di un run (per salvarlo e riaprirlo con "Apri log").
         (Method::Get, p) if p.starts_with("/api/runs/") && p.ends_with("/download") => {
@@ -379,6 +382,7 @@ const INDEX_HTML: &str = r#"<!doctype html>
 <header><span class="dot"></span> FlowPilot Monitor <span class="muted" id="cnt"></span>
   <label class="openbtn" style="margin-left:auto;cursor:pointer;font-weight:400;font-size:12px;color:#8aa4d0">&#128194; Apri log&#8230;<input type="file" accept=".ndjson,.json,.log,.txt" style="display:none" onchange="onFile(this)"></label>
 </header>
+<div id="ddir" class="muted" style="padding:4px 14px;border-bottom:1px solid #2a3349;font-size:10px;font-family:'JetBrains Mono',monospace"></div>
 <main>
   <div id="runs"></div>
   <div id="detail"><div class="muted">Seleziona un run a sinistra, oppure apri un file di log.</div></div>
@@ -400,6 +404,9 @@ async function loadRuns(){
   try{
     const r=await fetch('/api/runs'); const d=await r.json();
     document.getElementById('cnt').textContent=d.runs.length+' run';
+    const dd=document.getElementById('ddir');
+    if(dd) dd.innerHTML='&#128193; dati in <b>'+esc(d.data_dir||'\u2014')+'</b>'
+      +' <span style="opacity:.75">\u2014 i run sono tenuti in memoria: cancellare i file NON svuota questa lista, serve riavviare il monitor</span>';
     let html='';
     if(opened){
       html+='<div class="run '+(active==='file'?'sel':'')+'" onclick="showOpened()" style="border-left:3px solid #c8a060">'
