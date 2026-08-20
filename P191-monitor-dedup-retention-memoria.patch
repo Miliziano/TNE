@@ -1,0 +1,158 @@
+diff --git a/src-tauri/src/bin/flowpilot_monitor.rs b/src-tauri/src/bin/flowpilot_monitor.rs
+index 761df5e..ac41d51 100644
+--- a/src-tauri/src/bin/flowpilot_monitor.rs
++++ b/src-tauri/src/bin/flowpilot_monitor.rs
+@@ -12,6 +12,10 @@
+ // Build:  cargo build --bin flowpilot_monitor --no-default-features --features monitor --release
+ // Uso:    flowpilot_monitor [porta]        (default 8787)
+ //   Env:  MONITOR_DATA_DIR=<cartella>      (default: ~/.flowpilot/monitor-data)
++//   Env:  MONITOR_MAX_RUNS=<n>             (default 200: oltre, i run piu' vecchi
++//         escono dalla memoria; i loro file NON vengono cancellati)
++//   Env:  MONITOR_MAX_EVENTS=<n>           (default 50000: tetto eventi in memoria
++//         per run — oltre, si tengono i piu' recenti; il file resta completo)
+ //   Env:  MONITOR_TOKEN=<segreto>          (se impostato, /ingest LO ESIGE:
+ //         i runner devono inviare `Authorization: Bearer <segreto>`; senza token
+ //         configurato /ingest resta APERTO — comodo in locale, da NON usare in rete)
+@@ -20,6 +24,8 @@
+ //   - API:                  GET /api/runs   e   GET /api/runs/<run_id>
+ 
+ use std::collections::HashMap;
++use std::collections::HashSet;
++use std::hash::{Hash, Hasher};
+ use std::io::{Cursor, Read, Write};
+ use std::sync::{Arc, Mutex};
+ use std::time::{SystemTime, UNIX_EPOCH};
+@@ -42,6 +48,10 @@ struct RunState {
+     plan_hash: String,
+     runner_host: String,
+     log_level: String, // livello di dettaglio con cui il runner ha FILTRATO l'invio
++    // Impronte degli eventi gia' visti: il runner RI-INVIA il file di fallback quando
++    // il monitor torna su, e l'append era puro → stesso evento due volte. Qui lo
++    // scartiamo. Costo: 8 byte per evento.
++    impronte: HashSet<u64>,
+     // OSSERVATO dal monitor sulla connessione HTTP (non falsificabile dal payload;
+     // dietro reverse proxy e' l'IP del proxy):
+     observed_ip: String,
+@@ -94,10 +104,28 @@ fn run_file_path(dir: &str, run_id: &str) -> std::path::PathBuf {
+     std::path::Path::new(dir).join(format!("{}.ndjson", safe_name(run_id)))
+ }
+ 
++/// Impronta di un evento per il dedup: hash del JSON canonico (l'evento arriva
++/// gia' normalizzato da `process_line`, con `ts` incluso ⇒ due invii dello stesso
++/// evento danno la stessa impronta, due eventi diversi quasi certamente no).
++fn impronta(ev: &Value) -> u64 {
++    let mut h = std::collections::hash_map::DefaultHasher::new();
++    ev.to_string().hash(&mut h);
++    h.finish()
++}
++
++fn limite_env(nome: &str, default: usize) -> usize {
++    std::env::var(nome).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
++}
++
+ /// Applica un evento gia' elaborato allo store in memoria (stato + last_seen + append).
+ /// Condiviso da ingest (push dai runner) e load_persisted (ricarica da disco).
+-fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, event_ts: u64, ev: Value) {
++/// Ritorna `true` se l'evento e' NUOVO (da persistere), `false` se e' un duplicato.
++fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, event_ts: u64, ev: Value) -> bool {
+     let entry = s.entry(run_id).or_default();
++    // DEDUP: il re-invio del fallback non deve duplicare nulla.
++    if !entry.impronte.insert(impronta(&ev)) {
++        return false;
++    }
+     if entry.status.is_empty() {
+         entry.status = "running".to_string();
+     }
+@@ -133,6 +161,27 @@ fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, e
+     }
+     entry.last_seen_ms = event_ts;
+     entry.events.push(ev);
++    // TETTO eventi in memoria per run: si tengono i piu' recenti (il file su disco
++    // resta completo, quindi la storia non si perde davvero).
++    let max_ev = limite_env("MONITOR_MAX_EVENTS", 50_000);
++    if entry.events.len() > max_ev {
++        let taglia = entry.events.len() - max_ev;
++        entry.events.drain(0..taglia);
++    }
++    true
++}
++
++/// RETENTION: tiene in memoria al massimo N run (i piu' recenti per `last_seen_ms`).
++/// I FILE NON vengono toccati — sfoltire la memoria non e' cancellare la storia.
++fn applica_retention(s: &mut HashMap<String, RunState>) {
++    let max_run = limite_env("MONITOR_MAX_RUNS", 200);
++    if s.len() <= max_run { return }
++    let mut per_eta: Vec<(String, u64)> = s.iter().map(|(k, v)| (k.clone(), v.last_seen_ms)).collect();
++    per_eta.sort_by_key(|(_, ts)| *ts);            // piu' vecchi in testa
++    let da_togliere = s.len() - max_run;
++    for (id, _) in per_eta.into_iter().take(da_togliere) {
++        s.remove(&id);
++    }
+ }
+ 
+ /// Elabora una riga NDJSON grezza -> (run_id, tipo, timestamp, evento-con-`ts`).
+@@ -200,7 +249,9 @@ fn load_persisted(store: &Store, data_dir: &str) {
+         if let Ok(content) = std::fs::read_to_string(&path) {
+             for line in content.lines() {
+                 if let Some((run_id, ty, event_ts, ev)) = process_line(line) {
+-                    apply_to_store(&mut s, run_id, &ty, event_ts, ev);
++                    // Il valore di ritorno (nuovo/duplicato) qui non serve: la ricarica
++                    // beneficia comunque del dedup (file con righe doppie da prima).
++                    let _ = apply_to_store(&mut s, run_id, &ty, event_ts, ev);
+                 }
+             }
+         }
+@@ -224,12 +275,15 @@ fn ingest(body: &str, store: &Store, data_dir: &str, peer_ip: Option<&str>) {
+                     }
+                 }
+                 let persisted = ev.to_string(); // l'evento gia' con `ts` (e `_observed_ip`)
+-                apply_to_store(&mut s, run_id.clone(), &ty, event_ts, ev);
+-                let buf = to_persist.entry(run_id).or_default();
+-                buf.push_str(&persisted);
+-                buf.push('\n');
++                // Solo gli eventi NUOVI finiscono sul file: niente righe doppie.
++                if apply_to_store(&mut s, run_id.clone(), &ty, event_ts, ev) {
++                    let buf = to_persist.entry(run_id).or_default();
++                    buf.push_str(&persisted);
++                    buf.push('\n');
++                }
+             }
+         }
++        applica_retention(&mut s);
+     } // rilascio il lock PRIMA dell'I/O su file (non blocca le altre richieste)
+ 
+     // Fase 2 (fuori dal lock): append best-effort, un file per run. Una scrittura
+@@ -543,6 +597,24 @@ function applicaFiltro(events){
+ function toggleFiltro(k){ filtro[k]=!filtro[k]; mostraDettaglio(); }
+ function filtraNodo(v){ filtro.nodo=v; mostraDettaglio(); }
+ 
++function mb(b){ return (typeof b==='number') ? (b/1048576).toFixed(1)+' MB' : '?'; }
++
++/// Corpo leggibile di un evento. I MemorySample hanno un payload enorme (elenco
++/// processi + totali di sistema) che rende il log illeggibile: se ne mostra la
++/// SOSTANZA in una riga. Tutto il resto resta il JSON del payload.
++function corpoEvento(e){
++  const pl=e.payload||{};
++  if(e.type==='MemorySample'){
++    const d=pl.detail||{};
++    const parti=['RSS <b>'+mb(pl.rss!=null?pl.rss:d.total_rss)+'</b>'];
++    if(d.total_pss!=null)     parti.push('PSS '+mb(d.total_pss));
++    if(d.total_private!=null) parti.push('privata '+mb(d.total_private));
++    if(Array.isArray(d.processes)&&d.processes.length>1) parti.push(d.processes.length+' processi');
++    return parti.join(' &middot; ');
++  }
++  return esc(JSON.stringify(pl));
++}
++
+ /// Disegna il pannello dettaglio con lo stato corrente (banner + riepilogo +
+ /// filtri + eventi). Chiamata sia dal caricamento sia dai filtri.
+ function mostraDettaglio(){
+@@ -551,7 +623,7 @@ function mostraDettaglio(){
+     ? visibili.map(e=>{
+         const t=fmtTs(e.ts), ty=e.type||'?', pl=e.payload||{}, g=gravita(e);
+         return '<div class="ev'+(g?(' '+g):'')+'">'+(t?('<span class="muted">'+t+'</span> '):'')
+-             +'<span class="ty">'+esc(ty)+'</span>'+esc(JSON.stringify(pl))+'</div>';
++             +'<span class="ty">'+esc(ty)+'</span>'+corpoEvento(e)+'</div>';
+       }).join('')
+     : '<div class="muted">Nessun evento con questi filtri.</div>';
+   document.getElementById('detail').innerHTML =

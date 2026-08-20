@@ -12,11 +12,20 @@
 // Build:  cargo build --bin flowpilot_monitor --no-default-features --features monitor --release
 // Uso:    flowpilot_monitor [porta]        (default 8787)
 //   Env:  MONITOR_DATA_DIR=<cartella>      (default: ~/.flowpilot/monitor-data)
+//   Env:  MONITOR_MAX_RUNS=<n>             (default 200: oltre, i run piu' vecchi
+//         escono dalla memoria; i loro file NON vengono cancellati)
+//   Env:  MONITOR_MAX_EVENTS=<n>           (default 50000: tetto eventi in memoria
+//         per run — oltre, si tengono i piu' recenti; il file resta completo)
+//   Env:  MONITOR_TOKEN=<segreto>          (se impostato, /ingest LO ESIGE:
+//         i runner devono inviare `Authorization: Bearer <segreto>`; senza token
+//         configurato /ingest resta APERTO — comodo in locale, da NON usare in rete)
 //   - i runner pushano su:  POST http://<host>:<porta>/ingest   (body NDJSON)
 //   - vista web:            GET  http://<host>:<porta>/
 //   - API:                  GET /api/runs   e   GET /api/runs/<run_id>
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::io::{Cursor, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -39,6 +48,10 @@ struct RunState {
     plan_hash: String,
     runner_host: String,
     log_level: String, // livello di dettaglio con cui il runner ha FILTRATO l'invio
+    // Impronte degli eventi gia' visti: il runner RI-INVIA il file di fallback quando
+    // il monitor torna su, e l'append era puro → stesso evento due volte. Qui lo
+    // scartiamo. Costo: 8 byte per evento.
+    impronte: HashSet<u64>,
     // OSSERVATO dal monitor sulla connessione HTTP (non falsificabile dal payload;
     // dietro reverse proxy e' l'IP del proxy):
     observed_ip: String,
@@ -91,10 +104,28 @@ fn run_file_path(dir: &str, run_id: &str) -> std::path::PathBuf {
     std::path::Path::new(dir).join(format!("{}.ndjson", safe_name(run_id)))
 }
 
+/// Impronta di un evento per il dedup: hash del JSON canonico (l'evento arriva
+/// gia' normalizzato da `process_line`, con `ts` incluso ⇒ due invii dello stesso
+/// evento danno la stessa impronta, due eventi diversi quasi certamente no).
+fn impronta(ev: &Value) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    ev.to_string().hash(&mut h);
+    h.finish()
+}
+
+fn limite_env(nome: &str, default: usize) -> usize {
+    std::env::var(nome).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+}
+
 /// Applica un evento gia' elaborato allo store in memoria (stato + last_seen + append).
 /// Condiviso da ingest (push dai runner) e load_persisted (ricarica da disco).
-fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, event_ts: u64, ev: Value) {
+/// Ritorna `true` se l'evento e' NUOVO (da persistere), `false` se e' un duplicato.
+fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, event_ts: u64, ev: Value) -> bool {
     let entry = s.entry(run_id).or_default();
+    // DEDUP: il re-invio del fallback non deve duplicare nulla.
+    if !entry.impronte.insert(impronta(&ev)) {
+        return false;
+    }
     if entry.status.is_empty() {
         entry.status = "running".to_string();
     }
@@ -130,6 +161,27 @@ fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, e
     }
     entry.last_seen_ms = event_ts;
     entry.events.push(ev);
+    // TETTO eventi in memoria per run: si tengono i piu' recenti (il file su disco
+    // resta completo, quindi la storia non si perde davvero).
+    let max_ev = limite_env("MONITOR_MAX_EVENTS", 50_000);
+    if entry.events.len() > max_ev {
+        let taglia = entry.events.len() - max_ev;
+        entry.events.drain(0..taglia);
+    }
+    true
+}
+
+/// RETENTION: tiene in memoria al massimo N run (i piu' recenti per `last_seen_ms`).
+/// I FILE NON vengono toccati — sfoltire la memoria non e' cancellare la storia.
+fn applica_retention(s: &mut HashMap<String, RunState>) {
+    let max_run = limite_env("MONITOR_MAX_RUNS", 200);
+    if s.len() <= max_run { return }
+    let mut per_eta: Vec<(String, u64)> = s.iter().map(|(k, v)| (k.clone(), v.last_seen_ms)).collect();
+    per_eta.sort_by_key(|(_, ts)| *ts);            // piu' vecchi in testa
+    let da_togliere = s.len() - max_run;
+    for (id, _) in per_eta.into_iter().take(da_togliere) {
+        s.remove(&id);
+    }
 }
 
 /// Elabora una riga NDJSON grezza -> (run_id, tipo, timestamp, evento-con-`ts`).
@@ -197,7 +249,9 @@ fn load_persisted(store: &Store, data_dir: &str) {
         if let Ok(content) = std::fs::read_to_string(&path) {
             for line in content.lines() {
                 if let Some((run_id, ty, event_ts, ev)) = process_line(line) {
-                    apply_to_store(&mut s, run_id, &ty, event_ts, ev);
+                    // Il valore di ritorno (nuovo/duplicato) qui non serve: la ricarica
+                    // beneficia comunque del dedup (file con righe doppie da prima).
+                    let _ = apply_to_store(&mut s, run_id, &ty, event_ts, ev);
                 }
             }
         }
@@ -221,12 +275,15 @@ fn ingest(body: &str, store: &Store, data_dir: &str, peer_ip: Option<&str>) {
                     }
                 }
                 let persisted = ev.to_string(); // l'evento gia' con `ts` (e `_observed_ip`)
-                apply_to_store(&mut s, run_id.clone(), &ty, event_ts, ev);
-                let buf = to_persist.entry(run_id).or_default();
-                buf.push_str(&persisted);
-                buf.push('\n');
+                // Solo gli eventi NUOVI finiscono sul file: niente righe doppie.
+                if apply_to_store(&mut s, run_id.clone(), &ty, event_ts, ev) {
+                    let buf = to_persist.entry(run_id).or_default();
+                    buf.push_str(&persisted);
+                    buf.push('\n');
+                }
             }
         }
+        applica_retention(&mut s);
     } // rilascio il lock PRIMA dell'I/O su file (non blocca le altre richieste)
 
     // Fase 2 (fuori dal lock): append best-effort, un file per run. Una scrittura
@@ -239,13 +296,43 @@ fn ingest(body: &str, store: &Store, data_dir: &str, peer_ip: Option<&str>) {
     }
 }
 
-fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
+/// Confronto a tempo ~costante: evita di far dedurre il token dal tempo di risposta.
+/// (Non e' crittografia, ma non regaliamo un oracolo byte-per-byte.)
+fn token_valido(atteso: &str, dato: &str) -> bool {
+    if atteso.len() != dato.len() { return false }
+    let mut diff = 0u8;
+    for (a, b) in atteso.bytes().zip(dato.bytes()) { diff |= a ^ b; }
+    diff == 0
+}
+
+/// Estrae il token dalla richiesta: header `Authorization: Bearer <t>`
+/// (accettato anche `X-Flowpilot-Token: <t>` per client semplici).
+fn token_richiesta(req: &tiny_http::Request) -> String {
+    for h in req.headers() {
+        let nome = h.field.as_str().as_str().to_ascii_lowercase();
+        if nome == "authorization" {
+            let v = h.value.as_str();
+            return v.strip_prefix("Bearer ").unwrap_or(v).trim().to_string();
+        }
+        if nome == "x-flowpilot-token" {
+            return h.value.as_str().trim().to_string();
+        }
+    }
+    String::new()
+}
+
+fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str, token: &str) -> Resp {
     let method = req.method().clone();
     let url = req.url().to_string();
     let path = url.split('?').next().unwrap_or(&url).to_string();
 
     match (method, path.as_str()) {
         (Method::Post, "/ingest") => {
+            // FASE B: se un token e' configurato, l'ingest lo ESIGE. Senza token
+            // configurato il comportamento resta quello di prima (aperto).
+            if !token.is_empty() && !token_valido(token, &token_richiesta(req)) {
+                return Response::from_string("token mancante o non valido").with_status_code(401);
+            }
             // IP OSSERVATO: preso dalla connessione, non dal corpo del messaggio.
             // Dietro un reverse proxy questo e' l'IP del proxy (X-Forwarded-For
             // andrebbe considerato solo se il proxy e' tuo: qui non lo assumiamo).
@@ -326,6 +413,8 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
 fn main() {
     let port: u16 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(8787);
     let data_dir = std::env::var("MONITOR_DATA_DIR").unwrap_or_else(|_| default_data_dir());
+    // Token di ingest (fase B). Vuoto = nessuna autenticazione (default storico).
+    let token = std::env::var("MONITOR_TOKEN").unwrap_or_default().trim().to_string();
     let addr = format!("0.0.0.0:{}", port);
     let server = match Server::http(&addr) {
         Ok(s) => s,
@@ -348,13 +437,20 @@ fn main() {
         "FlowPilot monitor su http://{}  (ingest: POST /ingest, vista: GET /; dati in '{}', run caricati: {})",
         addr, data_dir, loaded
     );
+    if token.is_empty() {
+        eprintln!("⚠  MONITOR_TOKEN non impostato: /ingest accetta da CHIUNQUE raggiunga questa porta.");
+    } else {
+        eprintln!("🔒 /ingest protetto da token (Authorization: Bearer …). Le viste di LETTURA restano aperte.");
+    }
 
     let data_dir = Arc::new(data_dir);
+    let token = Arc::new(token);
     for mut req in server.incoming_requests() {
         let store = store.clone();
         let data_dir = data_dir.clone();
+        let token = token.clone();
         std::thread::spawn(move || {
-            let resp = route(&mut req, &store, &data_dir);
+            let resp = route(&mut req, &store, &data_dir, &token);
             let _ = req.respond(resp);
         });
     }
@@ -396,6 +492,12 @@ const INDEX_HTML: &str = r#"<!doctype html>
   .filt button{background:#1a2233;color:#8aa4d0;border:1px solid #2a3349;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer}
   .filt button.on{background:#1e2a44;color:#dce6ff;border-color:#3a4a6a}
   .filt select{background:#1a2233;color:#8aa4d0;border:1px solid #2a3349;border-radius:5px;padding:3px 6px;font-size:11px}
+  .filt input{background:#1a2233;color:#dce6ff;border:1px solid #2a3349;border-radius:5px;padding:3px 8px;font-size:11px;min-width:190px;font-family:'JetBrains Mono',monospace}
+  .filt input::placeholder{color:#5a6a8a}
+  mark{background:#5a4a12;color:#ffe9a8;border-radius:2px;padding:0 1px}
+  .cerca{margin-bottom:8px;padding:7px 10px;background:#151c2c;border:1px solid #2a3349;border-radius:6px;font-size:11px;color:#8aa4d0}
+  .cerca b{color:#dce6ff}
+  .cerca .tag{display:inline-block;background:#1e2a44;border-radius:10px;padding:1px 8px;margin:2px 4px 0 0;font-family:'JetBrains Mono',monospace;font-size:10px;color:#c8d4f0}
 </style></head><body>
 <header><span class="dot"></span> FlowPilot Monitor <span class="muted" id="cnt"></span>
   <label class="openbtn" style="margin-left:auto;cursor:pointer;font-weight:400;font-size:12px;color:#8aa4d0">&#128194; Apri log&#8230;<input type="file" accept=".ndjson,.json,.log,.txt" style="display:none" onchange="onFile(this)"></label>
@@ -415,7 +517,7 @@ function fmtTs(ts){ if(typeof ts!=='number') return ''; const d=new Date(ts), p=
 // ── Stato della vista dettaglio: gli eventi correnti + i filtri scelti.
 // Tenuti fuori dal rendering cosi' i filtri sopravvivono al refresh automatico.
 let vistaEventi=[], vistaBanner='';
-const filtro={ soloErrori:false, nascondiMemoria:true, nodo:'' };
+const filtro={ soloErrori:false, nascondiMemoria:true, nodo:'', testo:'' };
 
 /// Gravita' di un evento: 'err' | 'warn' | 'done' | ''.
 function gravita(e){
@@ -477,6 +579,7 @@ function renderRiepilogo(r){
 function renderFiltri(events){
   const nodi=[...new Set(events.map(e=>(e&&e.payload&&e.payload.node_id)||'').filter(Boolean))].sort();
   let h='<div class="filt">';
+  h+='<input id="q" type="search" placeholder="cerca nel testo degli eventi…" value="'+esc(filtro.testo)+'" oninput="cerca(this.value)">';
   h+='<button class="'+(filtro.soloErrori?'on':'')+'" onclick="toggleFiltro(\'soloErrori\')">&#9888; solo errori</button>';
   h+='<button class="'+(filtro.nascondiMemoria?'on':'')+'" onclick="toggleFiltro(\'nascondiMemoria\')">&#128190; nascondi memoria</button>';
   if(nodi.length){
@@ -494,12 +597,89 @@ function applicaFiltro(events){
     if(filtro.nascondiMemoria && e.type==='MemorySample') return false;
     if(filtro.nodo && ((e.payload&&e.payload.node_id)||'')!==filtro.nodo) return false;
     if(filtro.soloErrori){ const g=gravita(e); if(g!=='err'&&g!=='warn') return false; }
+    // RICERCA: sottostringa (senza distinzione maiuscole) su TUTTO il testo
+    // dell'evento — tipo e payload insieme, come il log che si vede a schermo.
+    if(filtro.testo && !testoEvento(e).includes(filtro.testo.toLowerCase())) return false;
     return true;
   });
 }
 
+/// Testo su cui cerca la ricerca: tipo + payload serializzato, minuscolo.
+function testoEvento(e){
+  return ((e&&e.type)||'').toLowerCase()+' '+JSON.stringify((e&&e.payload)||{}).toLowerCase();
+}
+
+/// SINTESI dei risultati: quanti eventi, di che tipo, su quali nodi, in che
+/// intervallo di tempo. Serve a capire "cosa" ha trovato la ricerca senza
+/// dover scorrere l'elenco.
+function renderSintesiRicerca(tutti, trovati){
+  if(!filtro.testo) return '';
+  if(!trovati.length){
+    return '<div class="cerca">Nessun evento contiene <b>'+esc(filtro.testo)+'</b> '
+         +'<span class="muted">(su '+tutti.length+' eventi; attenzione agli altri filtri attivi)</span></div>';
+  }
+  const perTipo={}, perNodo={};
+  let primo=null, ultimo=null, errori=0;
+  for(const e of trovati){
+    perTipo[e.type||'?']=(perTipo[e.type||'?']||0)+1;
+    const n=(e.payload&&e.payload.node_id)||null;
+    if(n) perNodo[n]=(perNodo[n]||0)+1;
+    if(gravita(e)==='err') errori++;
+    if(typeof e.ts==='number'){ if(primo===null||e.ts<primo) primo=e.ts; if(ultimo===null||e.ts>ultimo) ultimo=e.ts; }
+  }
+  const ord=(o)=>Object.entries(o).sort((a,b)=>b[1]-a[1]);
+  let h='<div class="cerca"><b>'+trovati.length+'</b> eventi su '+tutti.length+' contengono <b>'+esc(filtro.testo)+'</b>';
+  if(errori) h+=' &middot; <span style="color:#ffb0b0">'+errori+' con errore</span>';
+  if(primo!==null) h+=' &middot; da '+fmtTs(primo)+(ultimo!==primo?(' a '+fmtTs(ultimo)):'')
+                     +(ultimo>primo?(' <span class="muted">('+(ultimo-primo)+' ms)</span>'):'');
+  h+='<div>'+ord(perTipo).map(([k,v])=>'<span class="tag">'+esc(k)+' '+v+'</span>').join('')+'</div>';
+  const nodi=ord(perNodo);
+  if(nodi.length) h+='<div>'+nodi.map(([k,v])=>'<span class="tag">&#9679; '+esc(k)+' '+v+'</span>').join('')+'</div>';
+  h+='</div>';
+  return h;
+}
+
+/// Evidenzia il testo cercato in una stringa GIA' sfuggita (esc) — non si puo'
+/// evidenziare prima, o si romperebbe l'escaping.
+function evidenzia(htmlSicuro){
+  if(!filtro.testo) return htmlSicuro;
+  const ago=esc(filtro.testo).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return htmlSicuro.replace(new RegExp(ago,'gi'), m=>'<mark>'+m+'</mark>');
+}
+
+let _timerCerca=null;
+function cerca(v){
+  filtro.testo=v;
+  // piccolo ritardo: non ridisegnare a ogni tasto su log lunghi
+  clearTimeout(_timerCerca);
+  _timerCerca=setTimeout(()=>{ mostraDettaglio(); ripristinaFuoco(); }, 150);
+}
+/// Il pannello si ridisegna per intero: rimetto il cursore nel campo di ricerca
+/// dov'era, altrimenti scrivere diventa impossibile.
+function ripristinaFuoco(){
+  const q=document.getElementById('q');
+  if(q){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); }
+}
 function toggleFiltro(k){ filtro[k]=!filtro[k]; mostraDettaglio(); }
 function filtraNodo(v){ filtro.nodo=v; mostraDettaglio(); }
+
+function mb(b){ return (typeof b==='number') ? (b/1048576).toFixed(1)+' MB' : '?'; }
+
+/// Corpo leggibile di un evento. I MemorySample hanno un payload enorme (elenco
+/// processi + totali di sistema) che rende il log illeggibile: se ne mostra la
+/// SOSTANZA in una riga. Tutto il resto resta il JSON del payload.
+function corpoEvento(e){
+  const pl=e.payload||{};
+  if(e.type==='MemorySample'){
+    const d=pl.detail||{};
+    const parti=['RSS <b>'+mb(pl.rss!=null?pl.rss:d.total_rss)+'</b>'];
+    if(d.total_pss!=null)     parti.push('PSS '+mb(d.total_pss));
+    if(d.total_private!=null) parti.push('privata '+mb(d.total_private));
+    if(Array.isArray(d.processes)&&d.processes.length>1) parti.push(d.processes.length+' processi');
+    return parti.join(' &middot; ');
+  }
+  return esc(JSON.stringify(pl));
+}
 
 /// Disegna il pannello dettaglio con lo stato corrente (banner + riepilogo +
 /// filtri + eventi). Chiamata sia dal caricamento sia dai filtri.
@@ -509,11 +689,12 @@ function mostraDettaglio(){
     ? visibili.map(e=>{
         const t=fmtTs(e.ts), ty=e.type||'?', pl=e.payload||{}, g=gravita(e);
         return '<div class="ev'+(g?(' '+g):'')+'">'+(t?('<span class="muted">'+t+'</span> '):'')
-             +'<span class="ty">'+esc(ty)+'</span>'+esc(JSON.stringify(pl))+'</div>';
+             +'<span class="ty">'+esc(ty)+'</span>'+evidenzia(corpoEvento(e))+'</div>';
       }).join('')
     : '<div class="muted">Nessun evento con questi filtri.</div>';
   document.getElementById('detail').innerHTML =
-    vistaBanner + renderRiepilogo(riepilogo(vistaEventi)) + renderFiltri(vistaEventi) + corpo;
+    vistaBanner + renderRiepilogo(riepilogo(vistaEventi)) + renderFiltri(vistaEventi)
+    + renderSintesiRicerca(vistaEventi, visibili) + corpo;
 }
 async function loadRuns(){
   try{

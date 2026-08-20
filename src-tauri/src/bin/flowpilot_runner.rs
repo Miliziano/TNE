@@ -59,14 +59,21 @@ fn resolve_monitor(raw: &str) -> Option<String> {
 /// Invia un blocco NDJSON al monitor (best-effort, mai bloccante). Se il push
 /// fallisce (o il monitor e' irraggiungibile) i log NON si perdono: vengono
 /// appesi al file di fallback locale. Nessun monitor configurato -> no-op.
-async fn push_ndjson(client: Option<&reqwest::Client>, url: Option<&str>, payload: &str) {
+async fn push_ndjson(client: Option<&reqwest::Client>, url: Option<&str>, token: Option<&str>, payload: &str) {
     if payload.is_empty() {
         return;
     }
     if let (Some(client), Some(url)) = (client, url) {
-        let ok = client
+        let mut rq = client
             .post(url)
-            .header("content-type", "application/x-ndjson")
+            .header("content-type", "application/x-ndjson");
+        // Token di ingest: NON viaggia mai nell'artifact (sarebbe un segreto in un
+        // file distribuibile). Viene dall'AMBIENTE della macchina che esegue,
+        // esattamente come i segreti del piano.
+        if let Some(t) = token {
+            if !t.is_empty() { rq = rq.header("authorization", format!("Bearer {}", t)); }
+        }
+        let ok = rq
             .body(payload.to_string())
             .send()
             .await
@@ -231,9 +238,16 @@ fn main() {
 
     let code: i32 = rt.block_on(async move {
         // Client HTTP per il push (timeout breve: il monitor non deve mai bloccare il run).
+        // Token di ingest dall'AMBIENTE della macchina che esegue (mai dall'artifact:
+        // sarebbe un segreto dentro un file distribuibile).
+        let monitor_token = std::env::var("MONITOR_TOKEN").ok().filter(|t| !t.trim().is_empty());
         let http = match &monitor_url {
             Some(url) => {
-                eprintln!("monitor: push verso {} (fallback locale: {})", url, FALLBACK_FILE);
+                eprintln!(
+                    "monitor: push verso {} (fallback locale: {}){}",
+                    url, FALLBACK_FILE,
+                    if monitor_token.is_some() { " [con token]" } else { "" }
+                );
                 reqwest::Client::builder()
                     .timeout(Duration::from_secs(5))
                     .build()
@@ -244,7 +258,7 @@ fn main() {
 
         // Intestazione in testa al log: stdout + push (best-effort), una volta.
         println!("{}", header_line);
-        push_ndjson(http.as_ref(), monitor_url.as_deref(), &format!("{}\n", header_line)).await;
+        push_ndjson(http.as_ref(), monitor_url.as_deref(), monitor_token.as_deref(), &format!("{}\n", header_line)).await;
 
         if let Err(e) = engine_run(plan_json).await {
             eprintln!("avvio run fallito: {}", e);
@@ -318,7 +332,7 @@ fn main() {
             }
 
             // Push al monitor (best-effort): include anche il batch finale.
-            push_ndjson(http.as_ref(), monitor_url.as_deref(), &ndjson).await;
+            push_ndjson(http.as_ref(), monitor_url.as_deref(), monitor_token.as_deref(), &ndjson).await;
 
             if let Some(c) = exit_code {
                 return c;
