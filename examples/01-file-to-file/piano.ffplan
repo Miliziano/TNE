@@ -1,9 +1,9 @@
 {
   "formatVersion": 2,
   "version": {
-    "id": "v1787257400817",
-    "savedAt": "2026-08-20T20:23:20.796Z",
-    "label": ""
+    "id": "v1787259453354",
+    "savedAt": "2026-08-20T20:57:33.321Z",
+    "label": "Aggiunto profilo Test"
   },
   "plan": {
     "pool": {
@@ -357,8 +357,8 @@
         "id": "node_53",
         "type": "endNode",
         "position": {
-          "x": 743.5596755504056,
-          "y": 301.46002317497107
+          "x": 816.0013917577712,
+          "y": 327.0796545166004
         },
         "data": {
           "type": "lane_end",
@@ -465,7 +465,9 @@
           "label": "Sorgente clienti",
           "props": {
             "path": "/home/marco/Progetti/TNE/examples/01-file-to-file/dati/clienti.csv",
-            "outputSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"physicalName\":\"codice\",\"type\":\"string\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"physicalName\":\"nome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"physicalName\":\"cognome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"physicalName\":\"citta\",\"type\":\"string\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"physicalName\":\"eta\",\"type\":\"integer\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"integer\"}]"
+            "outputSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"physicalName\":\"codice\",\"type\":\"string\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"physicalName\":\"nome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"physicalName\":\"cognome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"physicalName\":\"citta\",\"type\":\"string\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"physicalName\":\"eta\",\"type\":\"integer\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"decimal\",\"_misto\":\"integer/decimal\"}]",
+            "schemaAvvisi": "[\"importo: valori misti (integer/decimal) → dedotto decimal\"]",
+            "tipiDedotti": "{\"codice\":\"string\",\"nome\":\"string\",\"cognome\":\"string\",\"citta\":\"string\",\"eta\":\"integer\",\"importo\":\"decimal\"}"
           },
           "config": {
             "displayName": "Sorgente clienti",
@@ -491,9 +493,16 @@
           "uiState": {
             "hasErrors": false,
             "errorCount": 0,
-            "hasWarnings": false,
-            "warningCount": 0,
-            "issues": []
+            "hasWarnings": true,
+            "warningCount": 1,
+            "issues": [
+              {
+                "severity": "warning",
+                "message": "\"Sorgente clienti\": tipo dedotto da valori non omogenei — importo: valori misti (integer/decimal) → dedotto decimal",
+                "code": "SCHEMA_TIPO_AMBIGUO",
+                "hint": "Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore."
+              }
+            ]
           }
         }
       },
@@ -508,7 +517,7 @@
           "type": "transform",
           "label": "Arrichimento",
           "props": {
-            "incomingSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"type\":\"string\",\"physicalName\":\"codice\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"type\":\"string\",\"physicalName\":\"nome\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"type\":\"string\",\"physicalName\":\"cognome\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"type\":\"integer\",\"physicalName\":\"eta\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"type\":\"integer\",\"physicalName\":\"importo\"}]",
+            "incomingSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"type\":\"string\",\"physicalName\":\"codice\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"type\":\"string\",\"physicalName\":\"nome\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"type\":\"string\",\"physicalName\":\"cognome\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"type\":\"integer\",\"physicalName\":\"eta\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"type\":\"decimal\",\"physicalName\":\"importo\"}]",
             "_propagatedIds": "[\"field_1787256694680_0\",\"field_1787256694680_1\",\"field_1787256694680_2\",\"field_1787256694680_3\",\"field_1787256694680_4\",\"field_1787256694680_5\"]",
             "transformFields": "[{\"id\":\"f_1787256743675_ljvk\",\"source\":\"codice\",\"output\":\"codice\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_nzqc\",\"source\":\"nome\",\"output\":\"nome\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_aln8\",\"source\":\"cognome\",\"output\":\"cognome\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_uwv1\",\"source\":\"citta\",\"output\":\"citta\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_e5iu\",\"source\":\"eta\",\"output\":\"eta\",\"type\":\"integer\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_zunw\",\"source\":\"importo\",\"output\":\"importo\",\"type\":\"integer\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256754535_lxpe\",\"source\":\"\",\"output\":\"nome_completo\",\"type\":\"any\",\"presetId\":\"expr\",\"params\":{},\"expression\":\"concat(nome, \\\" \\\", cognome)\",\"enabled\":true},{\"id\":\"f_1787256756304_nlic\",\"source\":\"\",\"output\":\"importo_ivato\",\"type\":\"any\",\"presetId\":\"expr\",\"params\":{},\"expression\":\"round(cast(importo as decimal) * 1.22, 2)\",\"enabled\":true}]",
             "outputSchema": "[{\"id\":\"f_1787256743675_ljvk\",\"name\":\"codice\",\"type\":\"string\"},{\"id\":\"f_1787256743675_nzqc\",\"name\":\"nome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_aln8\",\"name\":\"cognome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_uwv1\",\"name\":\"citta\",\"type\":\"string\"},{\"id\":\"f_1787256743675_e5iu\",\"name\":\"eta\",\"type\":\"integer\"},{\"id\":\"f_1787256743675_zunw\",\"name\":\"importo\",\"type\":\"integer\"},{\"id\":\"f_1787256754535_lxpe\",\"name\":\"nome_completo\",\"type\":\"any\"},{\"id\":\"f_1787256756304_nlic\",\"name\":\"importo_ivato\",\"type\":\"any\"}]"
@@ -560,7 +569,7 @@
             "partition": "none",
             "processingMode": "streaming",
             "passthrough": "false",
-            "incomingSchema": "[{\"id\":\"f_1787256743675_ljvk\",\"name\":\"codice\",\"type\":\"string\",\"physicalName\":\"codice\"},{\"id\":\"f_1787256743675_nzqc\",\"name\":\"nome\",\"type\":\"string\",\"physicalName\":\"nome\"},{\"id\":\"f_1787256743675_aln8\",\"name\":\"cognome\",\"type\":\"string\",\"physicalName\":\"cognome\"},{\"id\":\"f_1787256743675_uwv1\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"f_1787256743675_e5iu\",\"name\":\"eta\",\"type\":\"integer\",\"physicalName\":\"eta\"},{\"id\":\"f_1787256743675_zunw\",\"name\":\"importo\",\"type\":\"integer\",\"physicalName\":\"importo\"},{\"id\":\"f_1787256754535_lxpe\",\"name\":\"nome_completo\",\"type\":\"any\",\"physicalName\":\"nome_completo\"},{\"id\":\"f_1787256756304_nlic\",\"name\":\"importo_ivato\",\"type\":\"any\",\"physicalName\":\"importo_ivato\"}]",
+            "incomingSchema": "[{\"id\":\"f_1787256743675_ljvk\",\"name\":\"codice\",\"type\":\"string\"},{\"id\":\"f_1787256743675_nzqc\",\"name\":\"nome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_aln8\",\"name\":\"cognome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_uwv1\",\"name\":\"citta\",\"type\":\"string\"},{\"id\":\"f_1787256743675_e5iu\",\"name\":\"eta\",\"type\":\"integer\"},{\"id\":\"f_1787256743675_zunw\",\"name\":\"importo\",\"type\":\"integer\"},{\"id\":\"f_1787256754535_lxpe\",\"name\":\"nome_completo\",\"type\":\"any\"},{\"id\":\"f_1787256756304_nlic\",\"name\":\"importo_ivato\",\"type\":\"any\"}]",
             "_propagatedIds": "[\"f_1787256743675_ljvk\",\"f_1787256743675_nzqc\",\"f_1787256743675_aln8\",\"f_1787256743675_uwv1\",\"f_1787256743675_e5iu\",\"f_1787256743675_zunw\",\"f_1787256754535_lxpe\",\"f_1787256756304_nlic\"]"
           },
           "config": {
@@ -649,16 +658,18 @@
     ]
   },
   "environments": {
-    "active": "",
-    "profiles": {},
+    "active": "TEST",
+    "profiles": {
+      "TEST": {}
+    },
     "profileRefs": {}
   },
   "history": [
     {
       "version": {
-        "id": "v1787257157366",
-        "savedAt": "2026-08-20T20:19:17.348Z",
-        "label": ""
+        "id": "v1787259367332",
+        "savedAt": "2026-08-20T20:56:07.308Z",
+        "label": "Versione corretta per il problema decimal"
       },
       "plan": {
         "pool": {
@@ -803,7 +814,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_a",
               "uiState": {
                 "hasErrors": false,
@@ -945,7 +956,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_b",
               "uiState": {
                 "hasErrors": false,
@@ -1012,8 +1023,8 @@
             "id": "node_53",
             "type": "endNode",
             "position": {
-              "x": 743.5596755504056,
-              "y": 301.46002317497107
+              "x": 816.0013917577712,
+              "y": 327.0796545166004
             },
             "data": {
               "type": "lane_end",
@@ -1088,7 +1099,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1120,7 +1131,9 @@
               "label": "Sorgente clienti",
               "props": {
                 "path": "/home/marco/Progetti/TNE/examples/01-file-to-file/dati/clienti.csv",
-                "outputSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"physicalName\":\"codice\",\"type\":\"string\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"physicalName\":\"nome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"physicalName\":\"cognome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"physicalName\":\"citta\",\"type\":\"string\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"physicalName\":\"eta\",\"type\":\"integer\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"integer\"}]"
+                "outputSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"physicalName\":\"codice\",\"type\":\"string\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"physicalName\":\"nome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"physicalName\":\"cognome\",\"type\":\"string\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"physicalName\":\"citta\",\"type\":\"string\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"physicalName\":\"eta\",\"type\":\"integer\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"decimal\",\"_misto\":\"integer/decimal\"}]",
+                "schemaAvvisi": "[\"importo: valori misti (integer/decimal) → dedotto decimal\"]",
+                "tipiDedotti": "{\"codice\":\"string\",\"nome\":\"string\",\"cognome\":\"string\",\"citta\":\"string\",\"eta\":\"integer\",\"importo\":\"decimal\"}"
               },
               "config": {
                 "displayName": "Sorgente clienti",
@@ -1141,14 +1154,21 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
                 "errorCount": 0,
-                "hasWarnings": false,
-                "warningCount": 0,
-                "issues": []
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "\"Sorgente clienti\": tipo dedotto da valori non omogenei — importo: valori misti (integer/decimal) → dedotto decimal",
+                    "code": "SCHEMA_TIPO_AMBIGUO",
+                    "hint": "Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore."
+                  }
+                ]
               }
             }
           },
@@ -1163,7 +1183,7 @@
               "type": "transform",
               "label": "Arrichimento",
               "props": {
-                "incomingSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"type\":\"string\",\"physicalName\":\"codice\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"type\":\"string\",\"physicalName\":\"nome\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"type\":\"string\",\"physicalName\":\"cognome\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"type\":\"integer\",\"physicalName\":\"eta\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"type\":\"integer\",\"physicalName\":\"importo\"}]",
+                "incomingSchema": "[{\"id\":\"field_1787256694680_0\",\"name\":\"codice\",\"type\":\"string\",\"physicalName\":\"codice\"},{\"id\":\"field_1787256694680_1\",\"name\":\"nome\",\"type\":\"string\",\"physicalName\":\"nome\"},{\"id\":\"field_1787256694680_2\",\"name\":\"cognome\",\"type\":\"string\",\"physicalName\":\"cognome\"},{\"id\":\"field_1787256694680_3\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1787256694680_4\",\"name\":\"eta\",\"type\":\"integer\",\"physicalName\":\"eta\"},{\"id\":\"field_1787256694680_5\",\"name\":\"importo\",\"type\":\"decimal\",\"physicalName\":\"importo\"}]",
                 "_propagatedIds": "[\"field_1787256694680_0\",\"field_1787256694680_1\",\"field_1787256694680_2\",\"field_1787256694680_3\",\"field_1787256694680_4\",\"field_1787256694680_5\"]",
                 "transformFields": "[{\"id\":\"f_1787256743675_ljvk\",\"source\":\"codice\",\"output\":\"codice\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_nzqc\",\"source\":\"nome\",\"output\":\"nome\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_aln8\",\"source\":\"cognome\",\"output\":\"cognome\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_uwv1\",\"source\":\"citta\",\"output\":\"citta\",\"type\":\"string\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_e5iu\",\"source\":\"eta\",\"output\":\"eta\",\"type\":\"integer\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256743675_zunw\",\"source\":\"importo\",\"output\":\"importo\",\"type\":\"integer\",\"presetId\":\"passthrough\",\"params\":{},\"expression\":\"\",\"enabled\":true},{\"id\":\"f_1787256754535_lxpe\",\"source\":\"\",\"output\":\"nome_completo\",\"type\":\"any\",\"presetId\":\"expr\",\"params\":{},\"expression\":\"concat(nome, \\\" \\\", cognome)\",\"enabled\":true},{\"id\":\"f_1787256756304_nlic\",\"source\":\"\",\"output\":\"importo_ivato\",\"type\":\"any\",\"presetId\":\"expr\",\"params\":{},\"expression\":\"round(cast(importo as decimal) * 1.22, 2)\",\"enabled\":true}]",
                 "outputSchema": "[{\"id\":\"f_1787256743675_ljvk\",\"name\":\"codice\",\"type\":\"string\"},{\"id\":\"f_1787256743675_nzqc\",\"name\":\"nome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_aln8\",\"name\":\"cognome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_uwv1\",\"name\":\"citta\",\"type\":\"string\"},{\"id\":\"f_1787256743675_e5iu\",\"name\":\"eta\",\"type\":\"integer\"},{\"id\":\"f_1787256743675_zunw\",\"name\":\"importo\",\"type\":\"integer\"},{\"id\":\"f_1787256754535_lxpe\",\"name\":\"nome_completo\",\"type\":\"any\"},{\"id\":\"f_1787256756304_nlic\",\"name\":\"importo_ivato\",\"type\":\"any\"}]"
@@ -1187,7 +1207,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1209,13 +1229,13 @@
               "type": "sink_file",
               "label": "Uscita clienti",
               "props": {
-                "path": "_out/clienti_arricchiti.csv",
+                "path": "/home/marco/Progetti/TNE/examples/01-file-to-file/_out/clienti_arricchiti.csv",
                 "format": "csv",
                 "mode": "overwrite",
                 "partition": "none",
                 "processingMode": "streaming",
                 "passthrough": "false",
-                "incomingSchema": "[{\"id\":\"f_1787256743675_ljvk\",\"name\":\"codice\",\"type\":\"string\",\"physicalName\":\"codice\"},{\"id\":\"f_1787256743675_nzqc\",\"name\":\"nome\",\"type\":\"string\",\"physicalName\":\"nome\"},{\"id\":\"f_1787256743675_aln8\",\"name\":\"cognome\",\"type\":\"string\",\"physicalName\":\"cognome\"},{\"id\":\"f_1787256743675_uwv1\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"f_1787256743675_e5iu\",\"name\":\"eta\",\"type\":\"integer\",\"physicalName\":\"eta\"},{\"id\":\"f_1787256743675_zunw\",\"name\":\"importo\",\"type\":\"integer\",\"physicalName\":\"importo\"},{\"id\":\"f_1787256754535_lxpe\",\"name\":\"nome_completo\",\"type\":\"any\",\"physicalName\":\"nome_completo\"},{\"id\":\"f_1787256756304_nlic\",\"name\":\"importo_ivato\",\"type\":\"any\",\"physicalName\":\"importo_ivato\"}]",
+                "incomingSchema": "[{\"id\":\"f_1787256743675_ljvk\",\"name\":\"codice\",\"type\":\"string\"},{\"id\":\"f_1787256743675_nzqc\",\"name\":\"nome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_aln8\",\"name\":\"cognome\",\"type\":\"string\"},{\"id\":\"f_1787256743675_uwv1\",\"name\":\"citta\",\"type\":\"string\"},{\"id\":\"f_1787256743675_e5iu\",\"name\":\"eta\",\"type\":\"integer\"},{\"id\":\"f_1787256743675_zunw\",\"name\":\"importo\",\"type\":\"integer\"},{\"id\":\"f_1787256754535_lxpe\",\"name\":\"nome_completo\",\"type\":\"any\"},{\"id\":\"f_1787256756304_nlic\",\"name\":\"importo_ivato\",\"type\":\"any\"}]",
                 "_propagatedIds": "[\"f_1787256743675_ljvk\",\"f_1787256743675_nzqc\",\"f_1787256743675_aln8\",\"f_1787256743675_uwv1\",\"f_1787256743675_e5iu\",\"f_1787256743675_zunw\",\"f_1787256754535_lxpe\",\"f_1787256756304_nlic\"]"
               },
               "config": {
@@ -1237,7 +1257,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1306,8 +1326,8 @@
     },
     {
       "version": {
-        "id": "v1787257056025",
-        "savedAt": "2026-08-20T20:17:36.022Z",
+        "id": "v1787257400817",
+        "savedAt": "2026-08-20T20:23:20.796Z",
         "label": ""
       },
       "plan": {
@@ -1453,7 +1473,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_a",
               "uiState": {
                 "hasErrors": false,
@@ -1595,7 +1615,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_b",
               "uiState": {
                 "hasErrors": false,
@@ -1738,7 +1758,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1791,7 +1811,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1837,7 +1857,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1852,14 +1872,14 @@
             "id": "node_56",
             "type": "flowNode",
             "position": {
-              "x": 614,
-              "y": 163
+              "x": 591.9536500579375,
+              "y": 264.8331402085747
             },
             "data": {
               "type": "sink_file",
               "label": "Uscita clienti",
               "props": {
-                "path": "/data/output.csv",
+                "path": "/home/marco/Progetti/TNE/examples/01-file-to-file/_out/clienti_arricchiti.csv",
                 "format": "csv",
                 "mode": "overwrite",
                 "partition": "none",
@@ -1887,7 +1907,7 @@
                   "critical": "false"
                 }
               },
-              "status": "idle",
+              "status": "done",
               "laneId": "lane_1787256352256_s4d1",
               "uiState": {
                 "hasErrors": false,
@@ -1896,7 +1916,8 @@
                 "warningCount": 0,
                 "issues": []
               }
-            }
+            },
+            "dragging": false
           }
         ],
         "edges": [

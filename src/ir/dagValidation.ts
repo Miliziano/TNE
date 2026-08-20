@@ -33,6 +33,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkMissingSinks(plan))
   issues.push(...checkNotImplemented(plan))
   issues.push(...checkSchemaDedotto(plan))
+  issues.push(...checkTipiIncompatibili(plan))
 
   // NB: lo schema si assume GIÀ propagato dal chiamante (runValidation /
   // runCompilation lo fanno prima di chiamare validateDAG). NON ri-propaghiamo
@@ -669,6 +670,59 @@ function checkSchemaDedotto(plan: LogicalPlan): ValidationIssue[] {
       message:  `"${label}": tipo dedotto da valori non omogenei — ${colonne.join(' · ')}`,
       severity: 'warning',
       hint:     'Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore.',
+    })
+  }
+  return issues
+}
+
+/**
+ * ERRORE: il tipo DICHIARATO per un campo non regge i valori letti dal file.
+ * Non e' una pignoleria: `coerce()` (source_file.rs) converte in base al tipo
+ * dichiarato e, se fallisce, mette **NULL** senza sollevare nulla. Un `integer`
+ * su una colonna scritta "1200.00" quindi non fa rumore: azzera gli importi.
+ * Confronta il tipo in uso (`outputSchema`) con i tipi dedotti dall'ultimo
+ * campione letto (`tipiDedotti`, scritti dal pannello di mapping) — cosi'
+ * l'avviso resta valido anche se il tipo viene rimesso a mano piu' tardi.
+ */
+function checkTipiIncompatibili(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  // `string` regge tutto; `decimal` regge anche gli interi. Il resto, se diverso, perde.
+  const perde = (dichiarato: string, dedotto: string): boolean => {
+    if (dichiarato === dedotto) return false
+    if (dichiarato === 'string') return false
+    if (dichiarato === 'decimal' && dedotto === 'integer') return false
+    return true
+  }
+  for (const node of plan.nodes) {
+    const props = node._uiRef?.props
+    const rawDedotti = props?.['tipiDedotti']
+    const rawSchema  = props?.['outputSchema']
+    if (typeof rawDedotti !== 'string' || typeof rawSchema !== 'string') continue
+    if (!rawDedotti.trim() || !rawSchema.trim()) continue
+    let dedotti: Record<string, string>
+    let campi: Array<{ name?: string; type?: string }>
+    try {
+      dedotti = JSON.parse(rawDedotti)
+      campi   = JSON.parse(rawSchema)
+    } catch { continue }
+    if (!Array.isArray(campi)) continue
+
+    const rotti: string[] = []
+    for (const c of campi) {
+      if (!c?.name || !c?.type) continue
+      const dedotto = dedotti[c.name]
+      if (dedotto && perde(c.type, dedotto)) {
+        rotti.push(`${c.name}: dichiarato ${c.type}, nel file è ${dedotto}`)
+      }
+    }
+    if (rotti.length === 0) continue
+    const label = node._uiRef?.label ?? node.id
+    issues.push({
+      nodeId:   canvasNodeId(node.id),
+      code:     'SCHEMA_TIPO_INCOMPATIBILE',
+      message:  `"${label}": il tipo dichiarato non regge i valori del file — ${rotti.join(' · ')}. Al Run quei campi diventano NULL, senza errore.`,
+      severity: 'error',
+      hint:     'Correggi il tipo nel pannello di mapping (o ricarica il campione dal file: il tipo viene riallineato ai dati). Il motore converte in base al tipo dichiarato e, se la conversione fallisce, scrive NULL invece di fermarsi.',
     })
   }
   return issues

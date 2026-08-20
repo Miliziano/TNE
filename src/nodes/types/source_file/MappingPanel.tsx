@@ -49,6 +49,19 @@ function inferType(value: unknown): TMapFieldType {
   return 'string'
 }
 
+// ─── Il tipo dichiarato regge i valori osservati? ─────────────────
+// Serve perche' il motore converte in base al tipo DICHIARATO e, se la
+// conversione fallisce, NON solleva un errore: scrive **NULL** al posto del
+// valore (coerce() in source_file.rs). Quindi un tipo troppo stretto non rompe:
+// cancella dati in silenzio. `string` regge tutto; `decimal` regge anche gli
+// interi; `integer` NON regge i decimali ("1200.00" → NULL).
+function perdeDati(dichiarato: TMapFieldType, dedotto: TMapFieldType): boolean {
+  if (dichiarato === dedotto) return false
+  if (dichiarato === 'string') return false          // la stringa tiene tutto
+  if (dichiarato === 'decimal' && dedotto === 'integer') return false
+  return true
+}
+
 // ─── Inferisce schema da un campione di righe ─────────────────────
 function inferSchema(rows: Record<string, unknown>[]): TMapInputField[] {
   if (rows.length === 0) return []
@@ -254,9 +267,17 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
 
       // Sostituisci schema esistente con quello reale
       // Mantieni personalizzazioni (tipo, nome logico) se il campo fisico coincide
+      // Il tipo scelto a mano si conserva — MA non quando non regge i valori del
+      // file: in quel caso vincono i dati, perche' l'alternativa e' ritrovarsi
+      // NULL al posto degli importi. La correzione viene detta, non fatta di nascosto.
+      const corretti: string[] = []
       const merged = inferred.map((newField) => {
         const existing = schema.find((f) => (f as any).physicalName === newField.physicalName || f.name === newField.name)
         if (existing) {
+          if (perdeDati(existing.type, newField.type)) {
+            corretti.push(`${newField.name}: ${existing.type} → ${newField.type} (i valori del file non stanno in ${existing.type})`)
+            return { ...newField, id: existing.id, name: existing.name }   // tipo NUOVO
+          }
           return { ...newField, id: existing.id, name: existing.name, type: existing.type }
         }
         return newField
@@ -276,7 +297,15 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
             ? `${f.name}: solo valori vuoti nel campione → dedotto ${finale}`
             : `${f.name}: valori misti (${f._misto}) → dedotto ${finale}`
         })
-      updateProp(nodeId, 'schemaAvvisi', ambigue.length ? JSON.stringify(ambigue) : '')
+      const avvisi = [...corretti.map((c) => `tipo corretto — ${c}`), ...ambigue]
+      updateProp(nodeId, 'schemaAvvisi', avvisi.length ? JSON.stringify(avvisi) : '')
+
+      // Tipi DEDOTTI dal file, conservati nel nodo: la validazione li confronta
+      // col tipo dichiarato e sa dire se un campo verra' azzerato al Run — anche
+      // se il tipo viene rimesso a mano dopo, senza ricaricare il campione.
+      updateProp(nodeId, 'tipiDedotti', JSON.stringify(
+        Object.fromEntries(inferred.map((f) => [f.name, f.type]))
+      ))
 
       setLoadError(null)
 
