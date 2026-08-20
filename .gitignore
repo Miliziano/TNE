@@ -132,3 +132,8 @@ dist
 src-tauri/target/
 dist/
 *.log
+
+# Esempi: uscite dei run, artifact generati e log (non vanno nel repo)
+examples/**/_out/
+examples/**/*.ffart
+examples/**/run*.ndjson

@@ -27,10 +27,19 @@ function inferType(value: unknown): TMapFieldType {
   if (value === null || value === undefined) return 'string'
   if (typeof value === 'boolean') return 'boolean'
   if (typeof value === 'object') return 'object'
+  // Numero VERO (da JSON, non da CSV): il valore e' la fonte giusta.
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'decimal'
+  }
   const str = String(value).trim()
   if (str === '') return 'string'
   if (!isNaN(Number(str))) {
-    return Number.isInteger(Number(str)) ? 'integer' : 'decimal'
+    // ⚠️ Per una STRINGA decide COME E' SCRITTA, non quanto vale: "1200.00"
+    // vale 1200 (intero) ma e' scritto come decimale, e dedurre `integer`
+    // sarebbe un disastro silenzioso — il motore fa `parse::<i64>("1200.00")`,
+    // fallisce e mette **NULL** al posto del dato (v. coerce() in source_file.rs).
+    // Un separatore decimale o la notazione esponenziale ⇒ decimal.
+    return /[.,eE]/.test(str) ? 'decimal' : 'integer'
   }
   // Date — pattern semplice
   if (/^\d{4}-\d{2}-\d{2}/.test(str) || /^\d{2}[\/\-]\d{2}[\/\-]\d{4}/.test(str)) {
@@ -49,24 +58,41 @@ function inferSchema(rows: Record<string, unknown>[]): TMapInputField[] {
   const keys   = Object.keys(rows[0])
 
   return keys.map((key, i) => {
-    // Conta i tipi nelle righe campione
+    // Conta i tipi nelle righe campione (i vuoti non votano: una cella vuota
+    // non dice nulla sul tipo della colonna).
     const typeCounts = new Map<TMapFieldType, number>()
+    let vuoti = 0
     for (const row of sample) {
-      const t = inferType(row[key])
+      const v = row[key]
+      if (v === null || v === undefined || String(v).trim() === '') { vuoti++; continue }
+      const t = inferType(v)
       typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1)
     }
-    // Tipo più frequente
+
     let bestType: TMapFieldType = 'string'
-    let bestCount = 0
-    for (const [type, count] of typeCounts) {
-      if (count > bestCount) { bestType = type; bestCount = count }
+    if (typeCounts.size === 1) {
+      bestType = [...typeCounts.keys()][0]
+    } else if (typeCounts.size > 1) {
+      // COLONNA MISTA. Regola PRUDENTE: non vince "il più frequente" (19 numeri
+      // e 1 "N/D" darebbero numero, e quell'unico valore diventerebbe NULL a
+      // run-time). Vince il tipo che non perde dati.
+      const tipi = new Set(typeCounts.keys())
+      // integer + decimal = tutti numeri scritti in modi diversi ⇒ decimal li tiene entrambi.
+      if (tipi.size === 2 && tipi.has('integer') && tipi.has('decimal')) bestType = 'decimal'
+      else bestType = 'string'
     }
+    // Se la colonna è solo vuoti, resta 'string' (nessuna informazione).
+
     return {
       id:           `field_${Date.now()}_${i}`,
       name:         key,
       physicalName: key,
       type:         bestType,
-    }
+      // Traccia per l'avviso sul nodo: quali colonne sono state dedotte da valori
+      // eterogenei (o non deducibili). Non cambia il tipo, lo racconta.
+      _misto:       typeCounts.size > 1 ? [...typeCounts.keys()].join('/') : undefined,
+      _soloVuoti:   typeCounts.size === 0 && vuoti > 0 ? true : undefined,
+    } as TMapInputField & { _misto?: string; _soloVuoti?: boolean }
   })
 }
 
@@ -237,6 +263,21 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       })
 
       saveSchema(merged)
+
+      // AVVISO SUL NODO: registra le colonne il cui tipo e' stato dedotto da
+      // valori eterogenei (o non deducibile). Non blocca nulla — ma la
+      // validazione lo mostrera' sul nodo nel canvas, perche' un tipo dedotto
+      // male non fallisce: mette NULL al posto del dato, in silenzio.
+      const ambigue = (inferred as Array<TMapInputField & { _misto?: string; _soloVuoti?: boolean }>)
+        .filter((f) => f._misto || f._soloVuoti)
+        .map((f) => {
+          const finale = merged.find((m) => m.name === f.name)?.type ?? f.type
+          return f._soloVuoti
+            ? `${f.name}: solo valori vuoti nel campione → dedotto ${finale}`
+            : `${f.name}: valori misti (${f._misto}) → dedotto ${finale}`
+        })
+      updateProp(nodeId, 'schemaAvvisi', ambigue.length ? JSON.stringify(ambigue) : '')
+
       setLoadError(null)
 
     } catch (err) {

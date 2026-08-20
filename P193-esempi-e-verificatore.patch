@@ -1,0 +1,528 @@
+diff --git a/.gitignore b/.gitignore
+index 566a077..16a08dc 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -132,3 +132,8 @@ dist
+ src-tauri/target/
+ dist/
+ *.log
++
++# Esempi: uscite dei run, artifact generati e log (non vanno nel repo)
++examples/**/_out/
++examples/**/*.ffart
++examples/**/run*.ndjson
+diff --git a/examples/01-file-to-file/NOTE.md b/examples/01-file-to-file/NOTE.md
+new file mode 100644
+index 0000000..e57fe37
+--- /dev/null
++++ b/examples/01-file-to-file/NOTE.md
+@@ -0,0 +1,74 @@
++# 01 — Da file a file
++
++Il "ciao mondo" di FlowPilot: leggi un CSV, aggiungi due campi calcolati, scrivi
++un CSV. È il ciclo minimo completo — e la prova che l'intera catena (studio →
++export → runner → monitor → verificatore) funziona.
++
++**Livello L0**: nessuna dipendenza esterna, gira ovunque.
++
++---
++
++## Il piano da disegnare
++
++Tre nodi in fila. **Le etichette contano**: il verificatore confronta le
++statistiche per etichetta, quindi vanno scritte esattamente così.
++
++| Nodo | Etichetta | Configurazione |
++|---|---|---|
++| `source_file` | **Sorgente clienti** | `dati/clienti.csv`, formato CSV, separatore `,`, prima riga = intestazione |
++| `transform` | **Arricchimento** | due campi nuovi (sotto) |
++| `sink_file` | **Uscita clienti** | `_out/clienti_arricchiti.csv`, CSV con intestazione |
++
++I due campi calcolati nel transform, in FPEL:
++
++```
++nome_completo  =  concat(nome, " ", cognome)
++importo_ivato  =  round(cast(importo as decimal) * 1.22, 2)
++```
++
++I percorsi sono **relativi alla cartella dell'esempio**: esegui il runner da qui.
++
++---
++
++## I dati
++
++`dati/clienti.csv` — 20 righe più l'intestazione, valori fissi (nessuna data,
++nessun valore casuale: due esecuzioni devono dare gli stessi numeri).
++Per curiosità: 17 clienti sono maggiorenni e 3 minorenni — servirà all'esempio 02.
++
++---
++
++## Cosa deve succedere
++
++Uscita **0**, esito **completato**, 20 righe dentro e 20 fuori da ogni nodo, e un
++file di 21 righe (intestazione + 20) che contiene la colonna `nome_completo`.
++
++## Come si esegue
++
++```bash
++cd examples/01-file-to-file
++mkdir -p _out
++# nello studio: apri piano.ffplan → "Compila" → genera artifact.ffart qui
++/percorso/al/flowpilot_runner artifact.ffart > run.ndjson
++echo "uscita: $?"
++node ../verifica.mjs . run.ndjson --exit 0
++```
++
++## Se qualcosa non torna
++
++Il verificatore dice **quale** numero non torna. Prima di correggere il piano,
++verifica le attese sui valori veri:
++
++```bash
++node ../verifica.mjs . run.ndjson --exit 0 --taratura
++```
++
++stampa ciò che ha osservato, nella forma di `atteso.json`. Alla **prima**
++esecuzione è normale doverlo usare: le righe attese del file di uscita
++dipendono da come il sink scrive l'intestazione, e vanno tarate una volta sola.
++
++## Cosa guardare nel monitor
++
++Il riepilogo deve dire *completato*, durata di poche centinaia di millisecondi,
++**righe (max per nodo) 20**, 3 nodi. Con il livello di log *normale* non deve
++comparire nessun contenuto di riga: nessun nome, nessun importo.
+diff --git a/examples/01-file-to-file/atteso.json b/examples/01-file-to-file/atteso.json
+new file mode 100644
+index 0000000..d1a401e
+--- /dev/null
++++ b/examples/01-file-to-file/atteso.json
+@@ -0,0 +1,16 @@
++{
++  "descrizione": "01 — Da file a file: CSV in ingresso, arricchimento, CSV in uscita",
++  "livello": "L0",
++  "exit_code": 0,
++  "esito": "completato",
++  "nodi": {
++    "Sorgente clienti": { "rows_out": 20 },
++    "Arricchimento":    { "rows_in": 20, "rows_out": 20, "rows_rejected": 0 },
++    "Uscita clienti":   { "rows_in": 20 }
++  },
++  "file_attesi": [
++    { "path": "_out/clienti_arricchiti.csv", "righe": 21, "contiene": "nome_completo" }
++  ],
++  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeCompleted", "RunCompleted"],
++  "invarianti": ["nessun_dato_di_riga"]
++}
+diff --git a/examples/01-file-to-file/dati/clienti.csv b/examples/01-file-to-file/dati/clienti.csv
+new file mode 100644
+index 0000000..dac1628
+--- /dev/null
++++ b/examples/01-file-to-file/dati/clienti.csv
+@@ -0,0 +1,21 @@
++codice,nome,cognome,citta,eta,importo
++C001,Marta,Bellini,Genova,34,1200.00
++C002,Luca,Ferraro,Torino,29,340.50
++C003,Sofia,Riva,Milano,41,87.90
++C004,Andrea,Costa,Genova,17,55.00
++C005,Giulia,Moretti,Bologna,52,2310.75
++C006,Paolo,Vitale,Napoli,23,410.00
++C007,Elena,Fabbri,Genova,38,75.25
++C008,Marco,Sartori,Verona,61,1890.00
++C009,Chiara,Longo,Milano,16,120.00
++C010,Davide,Rinaldi,Torino,45,640.40
++C011,Alice,Grassi,Padova,27,99.99
++C012,Simone,Palmieri,Genova,33,1520.10
++C013,Federica,Coppola,Bari,49,260.00
++C014,Tommaso,Barbieri,Milano,19,48.00
++C015,Irene,Mancini,Firenze,36,780.60
++C016,Nicola,Gatti,Genova,58,3050.00
++C017,Serena,De Luca,Napoli,24,133.30
++C018,Alberto,Pagano,Trieste,47,920.00
++C019,Valentina,Testa,Milano,31,66.70
++C020,Stefano,Neri,Genova,15,210.00
+diff --git a/examples/04-fallimento-governato/NOTE.md b/examples/04-fallimento-governato/NOTE.md
+new file mode 100644
+index 0000000..9d0f23b
+--- /dev/null
++++ b/examples/04-fallimento-governato/NOTE.md
+@@ -0,0 +1,55 @@
++# 04 — Fallimento governato
++
++Questo esempio **deve fallire**. È l'unico modo di verificare che error handler,
++codice d'uscita e riepilogo del monitor si comportino bene quando le cose vanno
++male — la parte che nessuno collauda mai, e che serve proprio nel momento
++peggiore.
++
++**Livello L0**: nessuna dipendenza esterna.
++
++---
++
++## Il piano da disegnare
++
++| Nodo | Etichetta | Configurazione |
++|---|---|---|
++| `source_file` | **Sorgente mancante** | `dati/questo-file-non-esiste.csv` (di proposito) |
++| `sink_file` | **Uscita mai scritta** | `_out/mai_creato.csv` |
++| `error_handler` | *(quello della lane)* | collegato alla lane, per raccogliere l'errore |
++
++La cartella `dati/` è volutamente vuota: **non creare quel file**, o l'esempio
++smette di provare ciò che deve provare.
++
++---
++
++## Cosa deve succedere
++
++Uscita **1**, esito **fallito**, e nel log devono comparire `NodeFailed` (il nodo
++che non ha trovato il file) e `RunFailed`. Il file di uscita **non** deve essere
++creato.
++
++Nota sulle statistiche: `nodi` è volutamente **vuoto** in `atteso.json`. Un run
++fallito può non avere statistiche complete per tutti i nodi, e pretenderle
++renderebbe la prova fragile per il motivo sbagliato. Qui contano l'esito, il
++codice d'uscita e la presenza degli eventi di fallimento.
++
++## Come si esegue
++
++```bash
++cd examples/04-fallimento-governato
++# nello studio: apri piano.ffplan → "Compila" → genera artifact.ffart qui
++/percorso/al/flowpilot_runner artifact.ffart > run.ndjson
++echo "uscita: $?"        # deve essere 1
++node ../verifica.mjs . run.ndjson --exit 1
++```
++
++Attenzione: qui il verde significa "ha fallito **come doveva**". Se questo
++esempio passasse con uscita 0, sarebbe **quello** il problema.
++
++## Cosa guardare nel monitor
++
++Il run deve apparire **fallito** (badge rosso), il riepilogo deve mostrare il
++messaggio d'errore in evidenza — leggibile, non sepolto nel JSON — e le righe
++degli eventi di errore devono essere colorate di rosso. È anche il modo di
++verificare il filtro "⚠ solo errori": deve restituire pochi eventi, tutti
++pertinenti.
+diff --git a/examples/04-fallimento-governato/atteso.json b/examples/04-fallimento-governato/atteso.json
+new file mode 100644
+index 0000000..13fa39a
+--- /dev/null
++++ b/examples/04-fallimento-governato/atteso.json
+@@ -0,0 +1,10 @@
++{
++  "descrizione": "04 — Fallimento governato: sorgente inesistente, error handler collegato",
++  "livello": "L0",
++  "exit_code": 1,
++  "esito": "fallito",
++  "nodi": {},
++  "file_attesi": [],
++  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeFailed", "RunFailed"],
++  "invarianti": ["nessun_dato_di_riga"]
++}
+diff --git a/examples/04-fallimento-governato/dati/.gitkeep b/examples/04-fallimento-governato/dati/.gitkeep
+new file mode 100644
+index 0000000..cd9d80e
+--- /dev/null
++++ b/examples/04-fallimento-governato/dati/.gitkeep
+@@ -0,0 +1,2 @@
++Cartella volutamente VUOTA: l'esempio 04 punta a un file che non esiste.
++Non aggiungere qui il file mancante, o l'esempio smette di provare ciò che deve provare.
+diff --git a/examples/README.md b/examples/README.md
+new file mode 100644
+index 0000000..ee565e0
+--- /dev/null
++++ b/examples/README.md
+@@ -0,0 +1,87 @@
++# Esempi FlowPilot
++
++Progetti di esempio che servono **due scopi insieme**: si aprono nello studio e
++si leggono come documentazione, e sono la **prova ripetibile** da eseguire dopo
++ogni ricompilazione.
++
++Ogni esempio dichiara cosa deve succedere in `atteso.json`, e uno script
++(`verifica.mjs`) confronta il log di un run con quelle attese. Senza un risultato
++atteso, un esempio è una demo — non un test.
++
++---
++
++## Gli esempi
++
++| | Cosa dimostra | Livello | Esito atteso |
++|---|---|---|---|
++| **01-file-to-file** | Il ciclo minimo: sorgente CSV → trasformazione → sink CSV | L0 | riuscito |
++| **04-fallimento-governato** | Error handler, run fallito **onestamente**, uscita 1 | L0 | **fallito** |
++
++*(In arrivo: filtro e scarti, script FPEL, due ingressi, aggregazione, ambienti e
++segreti.)*
++
++**Livelli.** **L0** non dipende da nulla fuori dalla macchina — è la prova di
++regressione, ed è ciò che un giorno girerà in CI. **L1** richiede servizi che
++puoi alzare tu, **L2** infrastruttura vera (database, code, LDAP): utili da
++leggere, mai un cancello.
++
++---
++
++## Come si esegue un esempio
++
++```bash
++cd examples/01-file-to-file
++mkdir -p _out
++
++# 1. nello studio: apri piano.ffplan → "Compila" → salva artifact.ffart qui
++# 2. esegui, tenendo il log
++/percorso/al/flowpilot_runner artifact.ffart > run.ndjson
++echo "uscita: $?"
++
++# 3. confronta con le attese
++node ../verifica.mjs . run.ndjson --exit 0
++```
++
++Esito verde = tutto torna. Esito rosso = il verificatore dice **quale** valore non
++torna, non solo che qualcosa non va.
++
++### Tarare le attese
++
++Alla prima esecuzione di un esempio nuovo (o quando lo cambi di proposito) i
++numeri attesi vanno presi dalla realtà, non indovinati:
++
++```bash
++node ../verifica.mjs . run.ndjson --exit 0 --taratura
++```
++
++stampa i valori **osservati** già nella forma di `atteso.json`.
++
++---
++
++## Cosa controlla il verificatore
++
++- **codice d'uscita** ed **esito** del run;
++- **statistiche per nodo** (righe in / out / scartate), indicate per **etichetta**
++  del nodo — non per id, che cambia se ridisegni il flusso;
++- **eventi richiesti**: per esempio `RunStarted` deve esserci. Sembra ovvio, ma è
++  esattamente il bug che ci è sfuggito per tre giri;
++- **file prodotti**: esistenza, numero di righe, un frammento atteso;
++- **invarianti**, in particolare `nessun_dato_di_riga`: al livello di log normale
++  nessun evento deve trasportare contenuto di riga. La protezione dati smette di
++  essere una promessa e diventa un controllo.
++
++---
++
++## Convenzioni
++
++- I percorsi dentro un piano sono **relativi alla cartella dell'esempio**:
++  esegui il runner da lì.
++- Le uscite vanno in **`_out/`** (ignorata da git): una prova non sporca il repo.
++- I dati sono **finti, piccoli e fissi**: nessuna data di oggi, nessun valore
++  casuale. Due esecuzioni devono dare gli stessi numeri.
++- Le **etichette dei nodi** fanno parte del contratto: se le cambi, aggiorna
++  `atteso.json`.
++
++Il disegno completo della suite (principi, formato delle attese, esempi
++successivi, procedura di collaudo) sta nel documento *Suite di esempi e prova di
++collaudo*.
+diff --git a/examples/verifica.mjs b/examples/verifica.mjs
+new file mode 100644
+index 0000000..38c456f
+--- /dev/null
++++ b/examples/verifica.mjs
+@@ -0,0 +1,202 @@
++#!/usr/bin/env node
++/**
++ * verifica.mjs — confronta il LOG di un run con il suo `atteso.json`.
++ *
++ * Non serve strumentazione nuova: il log contiene già tutto (statistiche per nodo
++ * dentro RunCompleted, eventi, etichette dei nodi).
++ *
++ * USO
++ *   node verifica.mjs <cartella-esempio> <log.ndjson> [--exit N] [--taratura]
++ *
++ *   --exit N     codice d'uscita del runner (confrontato con `exit_code`).
++ *                Ometterlo salta quel controllo.
++ *   --taratura   NON verifica: stampa i valori OSSERVATI nella forma di
++ *                `atteso.json`, da incollare la prima volta o quando l'esempio
++ *                cambia di proposito. Serve a tarare le attese sui numeri veri
++ *                invece di indovinarli.
++ *
++ * ESITO: 0 se tutto torna, 1 altrimenti (con l'elenco preciso delle differenze).
++ *
++ * I nodi si indicano per ETICHETTA, non per id: `node_4` cambia se ridisegni il
++ * flusso, "Filtro maggiorenni" no. Le etichette si ricavano dagli eventi.
++ */
++import { readFileSync, existsSync } from 'node:fs';
++import { join, resolve } from 'node:path';
++
++// ─── lettura del log ──────────────────────────────────────────────
++/** Righe NDJSON → eventi normalizzati. Tollera: intestazione, righe
++ *  incapsulate `{timestamp,event}`, righe nude `{type,payload}`, righe sporche. */
++export function leggiLog(testo) {
++  const eventi = [];
++  let intestazione = null;
++  for (const riga of testo.split(/\r?\n/)) {
++    const t = riga.trim();
++    if (!t) continue;
++    let o;
++    try { o = JSON.parse(t); } catch { continue; }        // righe non-JSON: ignorate
++    if (o && o.kind === 'flowpilot-log-header') { intestazione = o; continue; }
++    const ts = typeof o.timestamp === 'number' ? o.timestamp : null;
++    const ev = (ts !== null && o.event && typeof o.event === 'object') ? o.event : o;
++    if (!ev || typeof ev !== 'object' || !ev.type) continue;
++    if (ev.ts == null && ts !== null) ev.ts = ts;
++    eventi.push(ev);
++  }
++  return { intestazione, eventi };
++}
++
++/** Mappa id-nodo → etichetta, ricavata dagli eventi che la portano. */
++export function etichettePerId(eventi) {
++  const m = new Map();
++  for (const e of eventi) {
++    const p = e.payload || {};
++    const et = p.label || p.node_label;
++    if (p.node_id && et && !m.has(p.node_id)) m.set(p.node_id, et);
++  }
++  return m;
++}
++
++/** Statistiche per ETICHETTA, prese da RunCompleted/RunFailed (o dai NodeCompleted). */
++export function statistichePerEtichetta(eventi) {
++  const etichette = etichettePerId(eventi);
++  const out = {};
++  const metti = (nodeId, st) => {
++    const nome = etichette.get(nodeId) || nodeId;
++    out[nome] = {
++      rows_in: st.rows_in ?? 0,
++      rows_out: st.rows_out ?? 0,
++      rows_rejected: st.rows_rejected ?? 0,
++    };
++  };
++  for (const e of eventi) {
++    if (e.type === 'NodeCompleted' && e.payload?.stats && e.payload.node_id) {
++      metti(e.payload.node_id, e.payload.stats);
++    }
++  }
++  // Il riepilogo finale ha la parola definitiva.
++  const fine = eventi.find(e => e.type === 'RunCompleted' || e.type === 'RunFailed');
++  const ns = fine?.payload?.stats?.node_stats;
++  if (ns) for (const [id, st] of Object.entries(ns)) metti(id, st);
++  return out;
++}
++
++export function esitoDelRun(eventi) {
++  if (eventi.some(e => e.type === 'RunFailed')) return 'fallito';
++  if (eventi.some(e => e.type === 'RunCompleted')) return 'completato';
++  return 'incompleto';
++}
++
++/** Un evento contiene contenuto di riga? (dump destinati alla finestra dello studio) */
++const portaDatiDiRiga = (e) => e.type === 'NodeLog' && e.payload?.target === 'window';
++
++// ─── controlli ────────────────────────────────────────────────────
++export function verifica(atteso, eventi, cartella, exitCode) {
++  const errori = [];
++  const ok = [];
++
++  if (atteso.exit_code != null && exitCode != null) {
++    if (exitCode !== atteso.exit_code) errori.push(`codice d'uscita: atteso ${atteso.exit_code}, trovato ${exitCode}`);
++    else ok.push(`codice d'uscita ${exitCode}`);
++  }
++
++  if (atteso.esito) {
++    const e = esitoDelRun(eventi);
++    if (e !== atteso.esito) errori.push(`esito: atteso "${atteso.esito}", trovato "${e}"`);
++    else ok.push(`esito ${e}`);
++  }
++
++  for (const tipo of atteso.eventi_richiesti || []) {
++    if (!eventi.some(e => e.type === tipo)) errori.push(`manca l'evento richiesto: ${tipo}`);
++    else ok.push(`evento ${tipo} presente`);
++  }
++
++  const stats = statistichePerEtichetta(eventi);
++  for (const [etichetta, attese] of Object.entries(atteso.nodi || {})) {
++    const trovate = stats[etichetta];
++    if (!trovate) {
++      errori.push(`nodo "${etichetta}": nessuna statistica nel log (etichetta cambiata? nodo mai eseguito?)`);
++      continue;
++    }
++    for (const [campo, valore] of Object.entries(attese)) {
++      if (trovate[campo] !== valore) errori.push(`"${etichetta}" ${campo}: atteso ${valore}, trovato ${trovate[campo]}`);
++      else ok.push(`"${etichetta}" ${campo}=${valore}`);
++    }
++  }
++
++  for (const f of atteso.file_attesi || []) {
++    const p = resolve(cartella, f.path);
++    if (!existsSync(p)) { errori.push(`file mancante: ${f.path}`); continue; }
++    const testo = readFileSync(p, 'utf8');
++    const righe = testo.split(/\r?\n/).filter(r => r.trim() !== '').length;
++    if (f.righe != null && righe !== f.righe) errori.push(`${f.path}: righe attese ${f.righe}, trovate ${righe}`);
++    else if (f.righe != null) ok.push(`${f.path} ${righe} righe`);
++    if (f.contiene && !testo.includes(f.contiene)) errori.push(`${f.path}: non contiene "${f.contiene}"`);
++    else if (f.contiene) ok.push(`${f.path} contiene "${f.contiene}"`);
++  }
++
++  for (const inv of atteso.invarianti || []) {
++    if (inv === 'nessun_dato_di_riga') {
++      const colpevoli = eventi.filter(portaDatiDiRiga);
++      if (colpevoli.length) {
++        errori.push(`invariante "nessun_dato_di_riga": ${colpevoli.length} eventi trasportano contenuto di riga ` +
++                    `(primo: nodo "${colpevoli[0].payload?.node_label || '?'}") — livello di log troppo alto?`);
++      } else ok.push('invariante nessun_dato_di_riga');
++    } else {
++      errori.push(`invariante sconosciuta: "${inv}"`);
++    }
++  }
++
++  return { errori, ok };
++}
++
++/** Modalità taratura: i valori osservati, nella forma di atteso.json. */
++export function taratura(eventi, exitCode) {
++  return {
++    exit_code: exitCode ?? null,
++    esito: esitoDelRun(eventi),
++    nodi: statistichePerEtichetta(eventi),
++    eventi_richiesti: [...new Set(eventi.map(e => e.type))].sort(),
++    invarianti: eventi.some(portaDatiDiRiga) ? [] : ['nessun_dato_di_riga'],
++  };
++}
++
++// ─── riga di comando ──────────────────────────────────────────────
++const eseguitoDaCLI = import.meta.url === `file://${process.argv[1]}`;
++if (eseguitoDaCLI) {
++  const args = process.argv.slice(2);
++  const modoTaratura = args.includes('--taratura');
++  const iExit = args.indexOf('--exit');
++  const exitCode = iExit >= 0 ? Number(args[iExit + 1]) : null;
++  const posizionali = args.filter((a, i) =>
++    !a.startsWith('--') && !(iExit >= 0 && i === iExit + 1));
++  const [cartella, logPath] = posizionali;
++
++  if (!cartella || !logPath) {
++    console.error('uso: node verifica.mjs <cartella-esempio> <log.ndjson> [--exit N] [--taratura]');
++    process.exit(2);
++  }
++  if (!existsSync(logPath)) { console.error(`log non trovato: ${logPath}`); process.exit(2); }
++
++  const { eventi } = leggiLog(readFileSync(logPath, 'utf8'));
++  if (!eventi.length) { console.error('il log non contiene eventi leggibili'); process.exit(2); }
++
++  if (modoTaratura) {
++    console.log(JSON.stringify(taratura(eventi, exitCode), null, 2));
++    process.exit(0);
++  }
++
++  const attesoPath = join(cartella, 'atteso.json');
++  if (!existsSync(attesoPath)) { console.error(`atteso.json non trovato in ${cartella}`); process.exit(2); }
++  const atteso = JSON.parse(readFileSync(attesoPath, 'utf8'));
++
++  const { errori, ok } = verifica(atteso, eventi, cartella, exitCode);
++  const nome = atteso.descrizione || cartella;
++
++  if (errori.length === 0) {
++    console.log(`✅ ${nome} — ${ok.length} controlli superati`);
++    process.exit(0);
++  }
++  console.log(`❌ ${nome} — ${errori.length} differenze (${ok.length} controlli ok)`);
++  for (const e of errori) console.log(`   · ${e}`);
++  console.log(`\nSuggerimento: "node verifica.mjs ${cartella} ${logPath} --taratura" mostra i valori osservati.`);
++  process.exit(1);
++}

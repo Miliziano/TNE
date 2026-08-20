@@ -1,0 +1,10 @@
+{
+  "descrizione": "04 — Fallimento governato: sorgente inesistente, error handler collegato",
+  "livello": "L0",
+  "exit_code": 1,
+  "esito": "fallito",
+  "nodi": {},
+  "file_attesi": [],
+  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeFailed", "RunFailed"],
+  "invarianti": ["nessun_dato_di_riga"]
+}

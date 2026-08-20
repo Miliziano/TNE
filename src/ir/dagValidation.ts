@@ -32,6 +32,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkBridgeJoinPattern(plan))
   issues.push(...checkMissingSinks(plan))
   issues.push(...checkNotImplemented(plan))
+  issues.push(...checkSchemaDedotto(plan))
 
   // NB: lo schema si assume GIÀ propagato dal chiamante (runValidation /
   // runCompilation lo fanno prima di chiamare validateDAG). NON ri-propaghiamo
@@ -645,6 +646,34 @@ const MOTORE_NON_IMPLEMENTA = new Set<string>([
  * blocco duro darebbe più fastidio che aiuto. Ma lo dice, invece di
  * lasciarlo scoprire dai dati.
  */
+/**
+ * Tipi dedotti da un file con valori ETEROGENEI (o non deducibili).
+ * Perche' e' un avviso e non un dettaglio: il motore converte in base al tipo
+ * DICHIARATO e, se la conversione fallisce, non solleva un errore — scrive
+ * **NULL** al posto del valore (`coerce()` in source_file.rs). Un tipo dedotto
+ * male quindi non fa rumore: cancella dati in silenzio. Meglio dirlo sul nodo.
+ * L'elenco lo scrive il pannello di mapping quando legge il file campione.
+ */
+function checkSchemaDedotto(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    const raw = node._uiRef?.props?.['schemaAvvisi']
+    if (typeof raw !== 'string' || raw.trim() === '') continue
+    let colonne: string[] = []
+    try { colonne = JSON.parse(raw) } catch { continue }
+    if (!Array.isArray(colonne) || colonne.length === 0) continue
+    const label = node._uiRef?.label ?? node.id
+    issues.push({
+      nodeId:   canvasNodeId(node.id),
+      code:     'SCHEMA_TIPO_AMBIGUO',
+      message:  `"${label}": tipo dedotto da valori non omogenei — ${colonne.join(' · ')}`,
+      severity: 'warning',
+      hint:     'Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore.',
+    })
+  }
+  return issues
+}
+
 function checkNotImplemented(plan: LogicalPlan): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   for (const node of plan.nodes) {
