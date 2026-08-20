@@ -84,6 +84,51 @@ async fn push_ndjson(client: Option<&reqwest::Client>, url: Option<&str>, payloa
     }
 }
 
+/// Decide se un evento va EMESSO (stdout + push al monitor) al livello scelto.
+///
+/// Filtra solo cio' che ESCE dalla macchina: il log integrale resta comunque su
+/// disco in ~/.flowpilot/runs (lo scrive il reporter, che riceve ogni push_event
+/// a monte di questo filtro). Cosi' la diagnosi locale non perde nulla e il
+/// monitor centrale non si riempie di rumore — ne' di DATI.
+///
+/// - `essenziale`  ciclo di vita + errori + statistiche. Niente contenuto delle
+///                 righe, niente memoria, niente avanzamento.
+/// - `normale`     + avanzamento e messaggi dei nodi, MA senza il contenuto delle
+///                 righe (i NodeLog con `target: "window"` sono dump di dati) e
+///                 senza campioni di memoria.
+/// - `diagnostico` tutto, come prima.
+fn evento_da_emettere(ev: &serde_json::Value, livello: &str) -> bool {
+    if livello == "diagnostico" {
+        return true;
+    }
+    let tipo = ev.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    let payload = ev.get("payload");
+    let campo = |k: &str| payload.and_then(|p| p.get(k)).and_then(|v| v.as_str()).unwrap_or("");
+
+    match tipo {
+        // Campioni di memoria: strumento da debugger, mai nel log di campo.
+        "MemorySample" => false,
+        // Avanzamento: utile a vedere il flusso vivo, superfluo nell'essenziale.
+        "NodeProgress" => livello != "essenziale",
+        "NodeLog" => {
+            let level  = campo("level");
+            let target = campo("target");
+            // `target: "window"` = riga di dato stampata per la finestra dello
+            // studio: NON deve uscire dalla macchina (contiene i dati veri).
+            if target == "window" {
+                return false;
+            }
+            match livello {
+                "essenziale" => level == "error" || level == "warn",
+                _            => true, // normale: anche info/ok, ma mai i dump di riga
+            }
+        }
+        // Tutto il resto (RunStarted/Completed/Failed, Node*, stats, Lane*,
+        // Connection*, Edge*) e' ciclo di vita o esito: passa sempre.
+        _ => true,
+    }
+}
+
 fn main() {
     let path = match std::env::args().nth(1) {
         Some(p) => p,
@@ -113,6 +158,10 @@ fn main() {
     // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per
     // arricchire l'intestazione E l'evento RunStarted, cosi' il monitor mostra il nome.
     let plan_name = root.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
+    // Livello di dettaglio di cio' che il runner EMETTE (stdout + monitor).
+    // Default prudente: "normale" (niente dati di riga, niente memoria) anche per
+    // gli artifact vecchi che non portano il campo.
+    let log_level = root.get("logLevel").and_then(|v| v.as_str()).unwrap_or("normale").to_string();
     // PROVENIENZA (fase A): chi ha compilato, con quale versione, quale piano.
     // Il runner li RIPORTA e basta: sono dati DICHIARATI dall'artifact, non verificati.
     let studio_id    = root.get("studio").and_then(|s| s.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -151,6 +200,7 @@ fn main() {
             "studio":          root.get("studio"),
             "studioVersion":   root.get("studioVersion"),
             "planHash":        root.get("planHash"),
+            "logLevel":        log_level.clone(),
             "profile":         root.get("profile"),
             "platform":        root.get("platform"),
             "exportedAt":      root.get("exportedAt"),
@@ -242,16 +292,23 @@ fn main() {
                         set("plan_hash", &plan_hash);
                         set("plan_version", &plan_version);
                         set("runner_host", &runner_host);
+                        // Il monitor deve poter DIRE che il log e' filtrato, altrimenti
+                        // sembra che manchino eventi.
+                        payload.insert("log_level".to_string(), serde_json::Value::from(log_level.clone()));
                     }
                 }
-                let line = serde_json::json!({
-                    "timestamp": te.timestamp,
-                    "event":     ev_val,
-                })
-                .to_string();
-                println!("{}", line);
-                ndjson.push_str(&line);
-                ndjson.push('\n');
+                // FILTRO per livello: decide cosa esce (stdout + monitor). Gli eventi
+                // scartati restano comunque nel log locale scritto dal reporter.
+                if evento_da_emettere(&ev_val, &log_level) {
+                    let line = serde_json::json!({
+                        "timestamp": te.timestamp,
+                        "event":     ev_val,
+                    })
+                    .to_string();
+                    println!("{}", line);
+                    ndjson.push_str(&line);
+                    ndjson.push('\n');
+                }
 
                 match &te.event {
                     EngineEvent::RunCompleted { .. } => exit_code = Some(0),

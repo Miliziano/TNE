@@ -38,6 +38,7 @@ struct RunState {
     plan_version: String,
     plan_hash: String,
     runner_host: String,
+    log_level: String, // livello di dettaglio con cui il runner ha FILTRATO l'invio
     // OSSERVATO dal monitor sulla connessione HTTP (non falsificabile dal payload;
     // dietro reverse proxy e' l'IP del proxy):
     observed_ip: String,
@@ -120,6 +121,7 @@ fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, e
         prendi(&mut entry.plan_version, "plan_version");
         prendi(&mut entry.plan_hash, "plan_hash");
         prendi(&mut entry.runner_host, "runner_host");
+        prendi(&mut entry.log_level, "log_level");
     }
     if entry.observed_ip.is_empty() {
         if let Some(ip) = ev.get("_observed_ip").and_then(|v| v.as_str()) {
@@ -309,7 +311,7 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str) -> Resp {
                     "run_id": id, "plan_name": r.plan_name, "status": r.status,
                     "studio_label": r.studio_label, "studio_id": r.studio_id,
                     "studio_version": r.studio_version, "plan_version": r.plan_version,
-                    "plan_hash": r.plan_hash, "runner_host": r.runner_host,
+                    "plan_hash": r.plan_hash, "runner_host": r.runner_host, "log_level": r.log_level,
                     "observed_ip": r.observed_ip,
                     "events": r.events
                 })),
@@ -378,6 +380,22 @@ const INDEX_HTML: &str = r#"<!doctype html>
   .muted{color:#5a6a8a}
   .pname{font-weight:600;color:#c8d4f0;font-size:12px;margin-bottom:2px}
   .dl{margin-left:auto;color:#8aa4d0;text-decoration:none;font-size:12px}.dl:hover{color:#c8d4f0}
+  /* gravita': la riga si riconosce a colpo d'occhio, senza leggere il JSON */
+  .ev.err{border-left:3px solid #d05555;padding-left:8px;background:#2a1a1a}
+  .ev.err .ty{color:#ff8f8f}
+  .ev.warn{border-left:3px solid #c8a060;padding-left:8px}
+  .ev.warn .ty{color:#ffd08a}
+  .ev.done .ty{color:#7ef0a8}
+  /* riepilogo del run */
+  .sum{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 6px;padding:8px 10px;background:#151c2c;border:1px solid #2a3349;border-radius:6px}
+  .sum div{font-size:11px;color:#8aa4d0}
+  .sum b{display:block;font-size:14px;color:#dce6ff;font-family:'JetBrains Mono',monospace;font-weight:600}
+  .sum .bad b{color:#ffb0b0}
+  /* filtri */
+  .filt{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .filt button{background:#1a2233;color:#8aa4d0;border:1px solid #2a3349;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer}
+  .filt button.on{background:#1e2a44;color:#dce6ff;border-color:#3a4a6a}
+  .filt select{background:#1a2233;color:#8aa4d0;border:1px solid #2a3349;border-radius:5px;padding:3px 6px;font-size:11px}
 </style></head><body>
 <header><span class="dot"></span> FlowPilot Monitor <span class="muted" id="cnt"></span>
   <label class="openbtn" style="margin-left:auto;cursor:pointer;font-weight:400;font-size:12px;color:#8aa4d0">&#128194; Apri log&#8230;<input type="file" accept=".ndjson,.json,.log,.txt" style="display:none" onchange="onFile(this)"></label>
@@ -394,11 +412,108 @@ let active='none';   // 'run' | 'file' | 'none' — cosa mostra il pannello dett
 
 function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 function fmtTs(ts){ if(typeof ts!=='number') return ''; const d=new Date(ts), p=(n,l)=>String(n).padStart(l,'0'); return p(d.getHours(),2)+':'+p(d.getMinutes(),2)+':'+p(d.getSeconds(),2)+'.'+p(d.getMilliseconds(),3); }
-function renderEvents(events){
-  return events.map(e=>{
-    const t=fmtTs(e&&e.ts), ty=(e&&e.type)||'?', pl=(e&&e.payload)||{};
-    return '<div class="ev">'+(t?('<span class="muted">'+t+'</span> '):'')+'<span class="ty">'+esc(ty)+'</span>'+esc(JSON.stringify(pl))+'</div>';
-  }).join('');
+// ── Stato della vista dettaglio: gli eventi correnti + i filtri scelti.
+// Tenuti fuori dal rendering cosi' i filtri sopravvivono al refresh automatico.
+let vistaEventi=[], vistaBanner='';
+const filtro={ soloErrori:false, nascondiMemoria:true, nodo:'' };
+
+/// Gravita' di un evento: 'err' | 'warn' | 'done' | ''.
+function gravita(e){
+  const t=(e&&e.type)||'', p=(e&&e.payload)||{};
+  if(t==='RunFailed'||t==='NodeFailed') return 'err';
+  if(t==='NodeInterrupted') return 'warn';
+  if(t==='NodeLog'){
+    if(p.level==='error') return 'err';
+    if(p.level==='warn')  return 'warn';
+  }
+  if(t==='RunCompleted'||t==='NodeCompleted') return 'done';
+  return '';
+}
+
+/// Riepilogo del run ricavato dagli eventi (i dati ci sono gia' tutti:
+/// RunCompleted/RunFailed portano stats con node_stats, total_ms, lanes_*).
+function riepilogo(events){
+  let fine=null, esito='in corso', inizio=null;
+  for(const e of events){
+    if(!e) continue;
+    if(e.type==='RunStarted'){ inizio=(e.payload&&e.payload.started_at)||e.ts||null; }
+    if(e.type==='RunCompleted'){ fine=e; esito='completato'; }
+    if(e.type==='RunFailed'){ fine=e; esito='fallito'; }
+  }
+  const st=(fine&&fine.payload&&fine.payload.stats)||{};
+  const ns=st.node_stats||{};
+  let rin=0, rout=0, rrej=0, nodi=0, picco=0;
+  for(const k in ns){
+    nodi++;
+    rin+=ns[k].rows_in||0; rout+=ns[k].rows_out||0; rrej+=ns[k].rows_rejected||0;
+    // Le stesse righe attraversano piu' nodi: la SOMMA le conta piu' volte. Il
+    // massimo prodotto da un singolo nodo e' la scala reale del flusso.
+    if((ns[k].rows_out||0)>picco) picco=ns[k].rows_out||0;
+  }
+  const durata=(fine&&fine.payload&&fine.payload.elapsed_ms)||st.total_ms||
+               ((inizio&&fine&&fine.ts)?(fine.ts-inizio):null);
+  return { esito, durata, nodi, rin, rout, rrej, picco,
+           lanesOk:st.lanes_ok, lanesKo:st.lanes_failed,
+           errore:(fine&&fine.payload&&fine.payload.error)||'' };
+}
+
+function renderRiepilogo(r){
+  if(r.esito==='in corso' && !r.nodi) return '';
+  const ms=(v)=>v==null?'—':(v<1000?(v+' ms'):((v/1000).toFixed(2)+' s'));
+  const bad=r.esito==='fallito';
+  let h='<div class="sum">';
+  h+='<div class="'+(bad?'bad':'')+'">esito<b>'+esc(r.esito)+'</b></div>';
+  h+='<div>durata<b>'+ms(r.durata)+'</b></div>';
+  if(r.nodi) h+='<div>righe (max per nodo)<b>'+r.picco+'</b></div>';
+  h+='<div>somma righe nodi in/out<b>'+r.rin+' / '+r.rout+'</b></div>';
+  if(r.rrej) h+='<div class="bad">scartate<b>'+r.rrej+'</b></div>';
+  h+='<div>nodi<b>'+r.nodi+'</b></div>';
+  if(r.lanesOk!=null) h+='<div class="'+(r.lanesKo?'bad':'')+'">lane ok / ko<b>'+r.lanesOk+' / '+(r.lanesKo||0)+'</b></div>';
+  h+='</div>';
+  if(bad&&r.errore) h+='<div class="ev err" style="margin-bottom:8px">'+esc(r.errore)+'</div>';
+  return h;
+}
+
+function renderFiltri(events){
+  const nodi=[...new Set(events.map(e=>(e&&e.payload&&e.payload.node_id)||'').filter(Boolean))].sort();
+  let h='<div class="filt">';
+  h+='<button class="'+(filtro.soloErrori?'on':'')+'" onclick="toggleFiltro(\'soloErrori\')">&#9888; solo errori</button>';
+  h+='<button class="'+(filtro.nascondiMemoria?'on':'')+'" onclick="toggleFiltro(\'nascondiMemoria\')">&#128190; nascondi memoria</button>';
+  if(nodi.length){
+    h+='<select onchange="filtraNodo(this.value)"><option value="">tutti i nodi</option>'
+      +nodi.map(n=>'<option value="'+esc(n)+'"'+(filtro.nodo===n?' selected':'')+'>'+esc(n)+'</option>').join('')
+      +'</select>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function applicaFiltro(events){
+  return events.filter(e=>{
+    if(!e) return false;
+    if(filtro.nascondiMemoria && e.type==='MemorySample') return false;
+    if(filtro.nodo && ((e.payload&&e.payload.node_id)||'')!==filtro.nodo) return false;
+    if(filtro.soloErrori){ const g=gravita(e); if(g!=='err'&&g!=='warn') return false; }
+    return true;
+  });
+}
+
+function toggleFiltro(k){ filtro[k]=!filtro[k]; mostraDettaglio(); }
+function filtraNodo(v){ filtro.nodo=v; mostraDettaglio(); }
+
+/// Disegna il pannello dettaglio con lo stato corrente (banner + riepilogo +
+/// filtri + eventi). Chiamata sia dal caricamento sia dai filtri.
+function mostraDettaglio(){
+  const visibili=applicaFiltro(vistaEventi);
+  const corpo = visibili.length
+    ? visibili.map(e=>{
+        const t=fmtTs(e.ts), ty=e.type||'?', pl=e.payload||{}, g=gravita(e);
+        return '<div class="ev'+(g?(' '+g):'')+'">'+(t?('<span class="muted">'+t+'</span> '):'')
+             +'<span class="ty">'+esc(ty)+'</span>'+esc(JSON.stringify(pl))+'</div>';
+      }).join('')
+    : '<div class="muted">Nessun evento con questi filtri.</div>';
+  document.getElementById('detail').innerHTML =
+    vistaBanner + renderRiepilogo(riepilogo(vistaEventi)) + renderFiltri(vistaEventi) + corpo;
 }
 async function loadRuns(){
   try{
@@ -440,6 +555,8 @@ async function openRun(id){
     if(d.studio_label) prov.push('compilato da <b>'+esc(d.studio_label)+'</b>'+(d.studio_version?(' v'+esc(d.studio_version)):''));
     if(d.plan_version) prov.push('versione piano '+esc(d.plan_version));
     if(d.runner_host)  prov.push('host dichiarato '+esc(d.runner_host));
+    if(d.log_level && d.log_level!=='diagnostico')
+      prov.push('log <b>'+esc(d.log_level)+'</b> (filtrato: dati di riga e memoria non inviati)');
     if(d.plan_hash)    prov.push('integrità '+esc(String(d.plan_hash).replace(/^sha256:/,'').slice(0,12))+'…');
     const provLine = prov.length
       ? '<div class="muted" style="margin-top:4px">'+prov.join(' &middot; ')+'</div>' : '';
@@ -453,7 +570,8 @@ async function openRun(id){
       +'<span class="muted">'+((d.events&&d.events.length)||0)+' eventi</span>'
       +'<a class="dl" href="/api/runs/'+encodeURIComponent(id)+'/download" download>&#128190; Salva log</a></div>'
       +provLine+ipLine+'</div>';
-    el.innerHTML=banner+renderEvents(d.events);
+    vistaBanner=banner; vistaEventi=d.events||[];
+    mostraDettaglio();
   }catch(e){}
 }
 function showOpened(){
@@ -474,10 +592,11 @@ function showOpened(){
     +'<span class="badge '+opened.status+'">'+opened.status+'</span> '
     +'<span class="muted">'+opened.events.length+' eventi</span>'
     +'<button onclick="closeOpened()" style="margin-left:auto">&#10005; chiudi</button></div>'+metaLine+'</div>';
-  document.getElementById('detail').innerHTML=banner+renderEvents(opened.events);
+  vistaBanner=banner; vistaEventi=opened.events||[];
+  mostraDettaglio();
 }
 function closeOpened(){
-  opened=null; active='none';
+  opened=null; active='none'; vistaEventi=[]; vistaBanner='';
   document.getElementById('detail').innerHTML='<div class="muted">Seleziona un run a sinistra, oppure apri un file di log.</div>';
   loadRuns();
 }

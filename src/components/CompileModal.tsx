@@ -28,7 +28,7 @@ const labelStyle: React.CSSProperties = {
 export function CompileModal({ open, onClose, onGenerate }: {
   open: boolean
   onClose: () => void
-  onGenerate: (monitorUrl: string, platform: string) => void
+  onGenerate: (monitorUrl: string, platform: string, logLevel: string) => void
 }) {
   const environments     = useFlowStore((s) => s.environments)
   const setActiveProfile = useFlowStore((s) => s.setActiveProfile)
@@ -36,6 +36,9 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
   const [monitorUrl, setMonitorUrl] = useState('')
   const [platform, setPlatform]     = useState('linux')
+  // Quanto dettaglio esce dalla macchina che esegue (stdout + push al monitor).
+  // NON tocca il log completo salvato in locale dal reporter (~/.flowpilot/runs).
+  const [logLevel, setLogLevel]     = useState('normale')
 
   // Identita' dello STUDIO (provenienza): id fisso + etichetta modificabile.
   // Vive in ~/.flowpilot/studio.json, condivisa da tutti i progetti di questa
@@ -125,6 +128,21 @@ export function CompileModal({ open, onClose, onGenerate }: {
             </CustomSelect>
           </div>
 
+          {/* Livello di dettaglio del log che ESCE dalla macchina */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={labelStyle}>Dettaglio del log inviato</div>
+            <CustomSelect value={logLevel} onChange={(e) => setLogLevel(e.target.value)} style={selectStyle}>
+              <option value="essenziale">Essenziale — ciclo di vita, errori, statistiche</option>
+              <option value="normale">Normale — + avanzamento e messaggi dei nodi</option>
+              <option value="diagnostico">Diagnostico — tutto, incluse righe e memoria</option>
+            </CustomSelect>
+            <div style={{ fontSize: 10, color: '#5a6a8a' }}>
+              Filtra ciò che il runner stampa e invia al monitor. <b>Essenziale</b> e <b>Normale</b> non
+              trasmettono il <b>contenuto delle righe</b> (dati) né i campioni di memoria: usali in produzione.
+              Il log completo resta comunque sulla macchina che esegue, in <code style={{ color: '#8aa' }}>~/.flowpilot/runs</code>.
+            </div>
+          </div>
+
           <div style={{ height: 1, background: '#2a3349' }} />
 
           {/* Manifesto in anteprima */}
@@ -134,6 +152,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
               <div>profilo congelato: <span style={{ color: '#8aa4d0' }}>{frozenProfile}</span></div>
               <div>compilato da: <span style={{ color: '#8aa4d0' }}>{studioLabel || '—'}</span></div>
               <div>piattaforma: <span style={{ color: '#8aa4d0' }}>{platform}</span></div>
+              <div>dettaglio log: <span style={{ color: '#8aa4d0' }}>{logLevel}</span></div>
               <div>monitor: <span style={{ color: '#8aa4d0' }}>{monitorUrl.trim() || '— nessuno —'}</span></div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>
                 <span>segreti richiesti:</span>
@@ -150,7 +169,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
         <div style={{ padding: '10px 16px', borderTop: '1px solid #2a3349', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose} style={{ background: 'transparent', color: '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Annulla</button>
-          <button onClick={() => onGenerate(monitorUrl.trim(), platform)} style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '6px 16px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Genera →</button>
+          <button onClick={() => onGenerate(monitorUrl.trim(), platform, logLevel)} style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '6px 16px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Genera →</button>
         </div>
       </div>
     </div>

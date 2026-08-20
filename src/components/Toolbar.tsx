@@ -1175,7 +1175,7 @@ export function Toolbar() {
   // Esporta l'ARTIFACT runnable: il piano compilato (stesso JSON di engine_run,
   // col profilo attivo CONGELATO e i ${SEGRETO}/${MONITOR_URL} intatti) + un
   // piccolo manifesto. È il dato che il runner headless eseguirà.
-  const esportaArtifact = async (monitorUrl: string, platform: string) => {
+  const esportaArtifact = async (monitorUrl: string, platform: string, logLevel = 'normale') => {
     if (!isTauri()) { addLog('error', 'Esportazione disponibile solo nell\'app desktop.'); return }
     const { nodes, edges, pool, environments, currentPath } = useFlowStore.getState()
     const runId = `export-${Date.now()}`
@@ -1238,6 +1238,9 @@ export function Toolbar() {
       planHash,
       profile:       environments.active || '(default)',
       platform,
+      // Quanto dettaglio il runner stampa/invia (essenziale|normale|diagnostico).
+      // Il log integrale resta comunque su disco locale (reporter).
+      logLevel,
       monitor:       monitorUrl || null,
       requiredSecrets,
       plan,
