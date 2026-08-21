@@ -48,6 +48,9 @@ struct RunState {
     plan_hash: String,
     runner_host: String,
     log_level: String, // livello di dettaglio con cui il runner ha FILTRATO l'invio
+    // Artifact di provenienza: il run_id ora è per ESECUZIONE, questo dice da
+    // quale artifact arriva (più esecuzioni dello stesso piano lo condividono).
+    artifact_id: String,
     // Impronte degli eventi gia' visti: il runner RI-INVIA il file di fallback quando
     // il monitor torna su, e l'append era puro → stesso evento due volte. Qui lo
     // scartiamo. Costo: 8 byte per evento.
@@ -153,6 +156,7 @@ fn apply_to_store(s: &mut HashMap<String, RunState>, run_id: String, ty: &str, e
         prendi(&mut entry.plan_hash, "plan_hash");
         prendi(&mut entry.runner_host, "runner_host");
         prendi(&mut entry.log_level, "log_level");
+        prendi(&mut entry.artifact_id, "artifact_id");
     }
     if entry.observed_ip.is_empty() {
         if let Some(ip) = ev.get("_observed_ip").and_then(|v| v.as_str()) {
@@ -399,6 +403,7 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str, token: &st
                     "studio_label": r.studio_label, "studio_id": r.studio_id,
                     "studio_version": r.studio_version, "plan_version": r.plan_version,
                     "plan_hash": r.plan_hash, "runner_host": r.runner_host, "log_level": r.log_level,
+                    "artifact_id": r.artifact_id,
                     "observed_ip": r.observed_ip,
                     "events": r.events
                 })),
@@ -736,6 +741,7 @@ async function openRun(id){
     if(d.studio_label) prov.push('compilato da <b>'+esc(d.studio_label)+'</b>'+(d.studio_version?(' v'+esc(d.studio_version)):''));
     if(d.plan_version) prov.push('versione piano '+esc(d.plan_version));
     if(d.runner_host)  prov.push('host dichiarato '+esc(d.runner_host));
+    if(d.artifact_id)  prov.push('artifact '+esc(d.artifact_id));
     if(d.log_level && d.log_level!=='diagnostico')
       prov.push('log <b>'+esc(d.log_level)+'</b> (filtrato: dati di riga e memoria non inviati)');
     if(d.plan_hash)    prov.push('integrità '+esc(String(d.plan_hash).replace(/^sha256:/,'').slice(0,12))+'…');

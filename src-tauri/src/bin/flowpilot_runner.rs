@@ -169,6 +169,14 @@ fn main() {
     // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per
     // arricchire l'intestazione E l'evento RunStarted, cosi' il monitor mostra il nome.
     let plan_name = root.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
+    // Id dell'ARTIFACT = il run_id inciso dallo studio all'export. Serve prima
+    // dell'intestazione, quindi si legge qui (dal piano, o dalla radice se il
+    // file è un piano nudo senza manifesto).
+    let artifact_id = root
+        .get("plan").and_then(|p| p.get("run_id")).and_then(|v| v.as_str())
+        .or_else(|| root.get("run_id").and_then(|v| v.as_str()))
+        .unwrap_or("piano")
+        .to_string();
     // Livello di dettaglio di cio' che il runner EMETTE (stdout + monitor).
     // Default prudente: "normale" (niente dati di riga, niente memoria) anche per
     // gli artifact vecchi che non portano il campo.
@@ -212,6 +220,7 @@ fn main() {
             "studioVersion":   root.get("studioVersion"),
             "planHash":        root.get("planHash"),
             "logLevel":        log_level.clone(),
+            "artifactId":      artifact_id.clone(),
             "profile":         root.get("profile"),
             "platform":        root.get("platform"),
             "exportedAt":      root.get("exportedAt"),
@@ -220,7 +229,28 @@ fn main() {
     })
     .to_string();
 
-    let plan = root.get("plan").cloned().unwrap_or(root);
+    let mut plan = root.get("plan").cloned().unwrap_or(root);
+
+    // ─── UN run_id PER ESECUZIONE ────────────────────────────────
+    // Nel piano il `run_id` viene inciso dallo STUDIO al momento dell'export
+    // (`export-<timestamp>`): identifica l'ARTIFACT, non l'esecuzione. Eseguendo
+    // due volte lo stesso .ffart, tutti gli eventi finivano sotto lo stesso id →
+    // nel monitor le esecuzioni si accavallavano in un unico run (e in produzione
+    // un piano notturno avrebbe accumulato per sempre), col dedup che scartava gli
+    // eventi identici e accodava i diversi: un run "misto".
+    // Qui il runner lo sostituisce con un id proprio dell'ESECUZIONE, tenendo il
+    // riferimento all'artifact come prefisso (resta leggibile la provenienza).
+    // `FLOWPILOT_RUN_ID` permette di imporne uno (utile in CI o per rieseguire
+    // un id noto).
+    let run_id = match std::env::var("FLOWPILOT_RUN_ID") {
+        Ok(v) if !v.trim().is_empty() => v.trim().to_string(),
+        _ => format!("{}-{}", artifact_id, EngineEvent::timestamp_ms()),
+    };
+    if let Some(obj) = plan.as_object_mut() {
+        obj.insert("run_id".to_string(), serde_json::Value::from(run_id.clone()));
+    }
+    eprintln!("run: {} (artifact: {})", run_id, artifact_id);
+
     let plan_json = plan.to_string();
 
     // Endpoint del monitor (opzionale):
@@ -313,6 +343,10 @@ fn main() {
                         // Il monitor deve poter DIRE che il log e' filtrato, altrimenti
                         // sembra che manchino eventi.
                         payload.insert("log_level".to_string(), serde_json::Value::from(log_level.clone()));
+                        // Riferimento all'ARTIFACT: il run_id ora è per esecuzione,
+                        // questo dice DA QUALE artifact proviene (permette di
+                        // raggruppare le esecuzioni dello stesso piano).
+                        payload.insert("artifact_id".to_string(), serde_json::Value::from(artifact_id.clone()));
                     }
                 }
                 // FILTRO per livello: decide cosa esce (stdout + monitor). Gli eventi
