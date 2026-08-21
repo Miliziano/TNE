@@ -37,11 +37,19 @@ codice d'uscita e la presenza degli eventi di fallimento.
 
 ```bash
 cd examples/04-fallimento-governato
+mkdir -p _out          # IMPORTANTE: senza, fallisce il SINK (cartella mancante)
+                       # invece della sorgente, e l'esempio prova un'altra cosa
 # nello studio: apri piano.ffplan → "Compila" → genera artifact.ffart qui
 /percorso/al/flowpilot_runner artifact.ffart > run.ndjson
 echo "uscita: $?"        # deve essere 1
 node ../verifica.mjs . run.ndjson --exit 1
 ```
+
+Le attese includono **`errore_contiene`**: non basta che il run fallisca, il
+messaggio d'errore deve parlare del file sorgente mancante. Senza quel controllo
+l'esempio resterebbe verde anche fallendo per tutt'altro motivo — e siccome i
+nodi partono in parallelo, due difetti contemporanei fanno a gara: vince quello
+che si manifesta prima.
 
 Attenzione: qui il verde significa "ha fallito **come doveva**". Se questo
 esempio passasse con uscita 0, sarebbe **quello** il problema.

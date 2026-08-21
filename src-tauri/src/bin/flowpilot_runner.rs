@@ -120,9 +120,13 @@ fn evento_da_emettere(ev: &serde_json::Value, livello: &str) -> bool {
         "NodeLog" => {
             let level  = campo("level");
             let target = campo("target");
-            // `target: "window"` = riga di dato stampata per la finestra dello
-            // studio: NON deve uscire dalla macchina (contiene i dati veri).
-            if target == "window" {
+            // Contenuto di riga destinato alla FINESTRA dello studio: non deve
+            // uscire dalla macchina (sono i dati veri).
+            // ⚠️ `target` ha TRE valori: "panel" | "window" | "both_window".
+            // Bloccarne solo uno lasciava passare `both_window`, che trasporta
+            // esattamente lo stesso contenuto (trovato dal verificatore
+            // dell'esempio 04, invariante `nessun_dato_di_riga`).
+            if target.contains("window") {
                 return false;
             }
             match livello {

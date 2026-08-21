@@ -86,7 +86,9 @@ export function esitoDelRun(eventi) {
 }
 
 /** Un evento contiene contenuto di riga? (dump destinati alla finestra dello studio) */
-const portaDatiDiRiga = (e) => e.type === 'NodeLog' && e.payload?.target === 'window';
+// `target` vale "panel" | "window" | "both_window": tutto ciò che finisce nella
+// FINESTRA porta il contenuto della riga, quindi si guarda la sottostringa.
+const portaDatiDiRiga = (e) => e.type === 'NodeLog' && String(e.payload?.target ?? '').includes('window');
 
 // ─── controlli ────────────────────────────────────────────────────
 export function verifica(atteso, eventi, cartella, exitCode) {
@@ -102,6 +104,20 @@ export function verifica(atteso, eventi, cartella, exitCode) {
     const e = esitoDelRun(eventi);
     if (e !== atteso.esito) errori.push(`esito: atteso "${atteso.esito}", trovato "${e}"`);
     else ok.push(`esito ${e}`);
+  }
+
+  // PERCHE' e' fallito, non solo CHE e' fallito. Senza questo, un esempio che
+  // deve provare "sorgente mancante" resta verde anche se fallisce per tutt'altro
+  // motivo (i nodi partono in parallelo: vince il primo difetto che si manifesta).
+  if (atteso.errore_contiene) {
+    const msg = eventi
+      .filter(e => e.type === 'RunFailed' || e.type === 'NodeFailed')
+      .map(e => String(e.payload?.error ?? ''))
+      .join(' | ');
+    if (!msg) errori.push(`errore_contiene: nessun messaggio d'errore nel log (il run non è fallito?)`);
+    else if (!msg.toLowerCase().includes(String(atteso.errore_contiene).toLowerCase()))
+      errori.push(`è fallito, ma per un altro motivo: atteso un errore su "${atteso.errore_contiene}", trovato "${msg.slice(0, 160)}"`);
+    else ok.push(`errore su "${atteso.errore_contiene}"`);
   }
 
   for (const tipo of atteso.eventi_richiesti || []) {

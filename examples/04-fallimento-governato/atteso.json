@@ -3,6 +3,7 @@
   "livello": "L0",
   "exit_code": 1,
   "esito": "fallito",
+  "errore_contiene": "questo-file-non-esiste.csv",
   "nodi": {},
   "file_attesi": [],
   "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeFailed", "RunFailed"],
