@@ -492,6 +492,12 @@ const INDEX_HTML: &str = r#"<!doctype html>
   .sum div{font-size:11px;color:#8aa4d0}
   .sum b{display:block;font-size:14px;color:#dce6ff;font-family:'JetBrains Mono',monospace;font-weight:600}
   .sum .bad b{color:#ffb0b0}
+  .nodi{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+  .nodo{background:#151c2c;border:1px solid #2a3349;border-radius:5px;padding:2px 8px;font-size:11px;color:#8aa4d0}
+  .nodo b{color:#dce6ff;font-family:'JetBrains Mono',monospace;font-weight:600}
+  .nodo i{color:#c8a060;font-style:normal}
+  .nodo.err{border-color:#d05555;background:#2a1a1a;color:#ffb0b0}
+  .nodo.warn{border-color:#c8a060;color:#ffd08a}
   /* filtri */
   .filt{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
   .filt button{background:#1a2233;color:#8aa4d0;border:1px solid #2a3349;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer}
@@ -539,6 +545,17 @@ function gravita(e){
 
 /// Riepilogo del run ricavato dagli eventi (i dati ci sono gia' tutti:
 /// RunCompleted/RunFailed portano stats con node_stats, total_ms, lanes_*).
+/// id-nodo → etichetta leggibile, ricavata dagli eventi che la portano.
+function etichette(events){
+  const m=new Map();
+  for(const e of events){
+    const p=e.payload||{};
+    const et=p.label||p.node_label;
+    if(p.node_id && et && !m.has(p.node_id)) m.set(p.node_id, et);
+  }
+  return m;
+}
+
 function riepilogo(events){
   let fine=null, esito='in corso', inizio=null;
   for(const e of events){
@@ -548,18 +565,58 @@ function riepilogo(events){
     if(e.type==='RunFailed'){ fine=e; esito='fallito'; }
   }
   const st=(fine&&fine.payload&&fine.payload.stats)||{};
-  const ns=st.node_stats||{};
-  let rin=0, rout=0, rrej=0, nodi=0, picco=0;
-  for(const k in ns){
-    nodi++;
-    rin+=ns[k].rows_in||0; rout+=ns[k].rows_out||0; rrej+=ns[k].rows_rejected||0;
-    // Le stesse righe attraversano piu' nodi: la SOMMA le conta piu' volte. Il
-    // massimo prodotto da un singolo nodo e' la scala reale del flusso.
-    if((ns[k].rows_out||0)>picco) picco=ns[k].rows_out||0;
+  const etich=etichette(events);
+
+  // Statistiche per nodo. Il riepilogo finale e' la fonte migliore, MA un run
+  // FALLITO arriva quasi sempre senza `node_stats`: proprio quando il riepilogo
+  // serve di piu' resterebbe vuoto. In quel caso si ricostruisce dagli eventi
+  // NodeCompleted, che ci sono comunque.
+  let perNodo={};
+  const ns=st.node_stats;
+  if(ns && Object.keys(ns).length){
+    for(const id in ns) perNodo[id]={...ns[id]};
+  } else {
+    for(const e of events){
+      if(e.type==='NodeCompleted' && e.payload && e.payload.node_id && e.payload.stats)
+        perNodo[e.payload.node_id]={...e.payload.stats};
+    }
   }
+
+  // Esito per nodo (vale per entrambe le fonti): chi e' partito, chi e' stato
+  // interrotto, chi e' fallito.
+  const avviati=new Set(), interrotti=new Set(), falliti=new Set();
+  for(const e of events){
+    const id=e.payload&&e.payload.node_id; if(!id) continue;
+    if(e.type==='NodeStarted') avviati.add(id);
+    if(e.type==='NodeInterrupted') interrotti.add(id);
+    if(e.type==='NodeFailed') falliti.add(id);
+  }
+
+  let rrej=0, picco=0;
+  const righe=[];
+  for(const id in perNodo){
+    const v=perNodo[id];
+    rrej+=v.rows_rejected||0;
+    // Le stesse righe attraversano piu' nodi: sommarle le conterebbe piu' volte.
+    // Il massimo prodotto da un singolo nodo e' la scala reale del flusso.
+    if((v.rows_out||0)>picco) picco=v.rows_out||0;
+    righe.push({ nome: etich.get(id)||id, in: v.rows_in||0, out: v.rows_out||0,
+                 rej: v.rows_rejected||0,
+                 stato: falliti.has(id)?'err':(interrotti.has(id)?'warn':'') });
+  }
+  // i nodi mai completati (interrotti/falliti) non hanno statistiche: compaiono lo stesso
+  for(const id of [...interrotti, ...falliti]){
+    if(perNodo[id]) continue;
+    righe.push({ nome: etich.get(id)||id, in:null, out:null, rej:0,
+                 stato: falliti.has(id)?'err':'warn' });
+  }
+
   const durata=(fine&&fine.payload&&fine.payload.elapsed_ms)||st.total_ms||
                ((inizio&&fine&&fine.ts)?(fine.ts-inizio):null);
-  return { esito, durata, nodi, rin, rout, rrej, picco,
+  return { esito, durata, picco, rrej, righe,
+           nodi: righe.length,
+           nAvviati: avviati.size, nInterrotti: interrotti.size, nFalliti: falliti.size,
+           daEventi: !(ns && Object.keys(ns).length),
            lanesOk:st.lanes_ok, lanesKo:st.lanes_failed,
            errore:(fine&&fine.payload&&fine.payload.error)||'' };
 }
@@ -571,13 +628,33 @@ function renderRiepilogo(r){
   let h='<div class="sum">';
   h+='<div class="'+(bad?'bad':'')+'">esito<b>'+esc(r.esito)+'</b></div>';
   h+='<div>durata<b>'+ms(r.durata)+'</b></div>';
-  if(r.nodi) h+='<div>righe (max per nodo)<b>'+r.picco+'</b></div>';
-  h+='<div>somma righe nodi in/out<b>'+r.rin+' / '+r.rout+'</b></div>';
-  if(r.rrej) h+='<div class="bad">scartate<b>'+r.rrej+'</b></div>';
-  h+='<div>nodi<b>'+r.nodi+'</b></div>';
+  if(r.picco) h+='<div>righe (max per nodo)<b>'+r.picco+'</b></div>';
+  if(r.rrej)  h+='<div class="bad">scartate<b>'+r.rrej+'</b></div>';
+  // nodi: quanti sono partiti e come sono finiti (piu' utile del solo conteggio)
+  let dettNodi=String(r.nAvviati||r.nodi);
+  const coda=[];
+  if(r.nInterrotti) coda.push(r.nInterrotti+' interrotti');
+  if(r.nFalliti)    coda.push(r.nFalliti+' falliti');
+  h+='<div class="'+(r.nFalliti?'bad':'')+'">nodi<b>'+dettNodi+(coda.length?(' <span style="font-size:11px;font-weight:400">('+coda.join(', ')+')</span>'):'')+'</b></div>';
   if(r.lanesOk!=null) h+='<div class="'+(r.lanesKo?'bad':'')+'">lane ok / ko<b>'+r.lanesOk+' / '+(r.lanesKo||0)+'</b></div>';
   h+='</div>';
   if(bad&&r.errore) h+='<div class="ev err" style="margin-bottom:8px">'+esc(r.errore)+'</div>';
+
+  // DETTAGLIO PER NODO. Sostituisce la vecchia "somma righe nodi": sommare i nodi
+  // di una pipeline conta piu' volte le STESSE righe (20 righe su 3 nodi facevano
+  // "60 in uscita"). Qui ogni nodo dice i suoi numeri: per un nodo terminale
+  // `out` sono le righe consegnate a destinazione.
+  if(r.righe && r.righe.length){
+    const cella=(x)=>x==null?'—':x;
+    h+='<div class="nodi">'+r.righe.map(n=>
+      '<span class="nodo'+(n.stato?(' '+n.stato):'')+'">'+esc(n.nome)
+      +' <b>'+cella(n.in)+' → '+cella(n.out)+'</b>'
+      +(n.rej?(' <i>'+n.rej+' scartate</i>'):'')
+      +(n.stato==='err'?' ✖':(n.stato==='warn'?' ⏸':''))
+      +'</span>').join('')+'</div>';
+    if(r.daEventi) h+='<div class="muted" style="font-size:10px;margin:-4px 0 8px">'
+      +'numeri ricostruiti dagli eventi dei nodi (il riepilogo finale del run non li conteneva)</div>';
+  }
   return h;
 }
 
@@ -739,7 +816,7 @@ async function openRun(id){
     if(d.error){el.innerHTML='<div class="muted">'+esc(d.error)+'</div>';return;}
     const prov=[];
     if(d.studio_label) prov.push('compilato da <b>'+esc(d.studio_label)+'</b>'+(d.studio_version?(' v'+esc(d.studio_version)):''));
-    if(d.plan_version) prov.push('versione piano '+esc(d.plan_version));
+    if(d.plan_version) prov.push('versione piano: '+esc(d.plan_version));
     if(d.runner_host)  prov.push('host dichiarato '+esc(d.runner_host));
     if(d.artifact_id)  prov.push('artifact '+esc(d.artifact_id));
     if(d.log_level && d.log_level!=='diagnostico')
