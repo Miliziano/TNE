@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * verifica.mjs — confronta il LOG di un run con il suo `atteso.json`.
+ * verifica.mjs — confronta il LOG di un run (e, se richiesto, l'ARTIFACT) con
+ * il suo `atteso.json`.
  *
  * Non serve strumentazione nuova: il log contiene già tutto (statistiche per nodo
  * dentro RunCompleted, eventi, etichette dei nodi).
@@ -147,6 +148,42 @@ export function verifica(atteso, eventi, cartella, exitCode) {
     else if (f.righe != null) ok.push(`${f.path} ${righe} righe`);
     if (f.contiene && !testo.includes(f.contiene)) errori.push(`${f.path}: non contiene "${f.contiene}"`);
     else if (f.contiene) ok.push(`${f.path} contiene "${f.contiene}"`);
+  }
+
+  // L'ARTIFACT stesso, non solo il log. Serve a verificare due proprietà che nel
+  // log non si vedono: quale profilo è stato congelato e — soprattutto — che il
+  // VALORE dei segreti NON sia finito dentro un file che si distribuisce.
+  if (atteso.artifact) {
+    const a = atteso.artifact;
+    const p = resolve(cartella, a.path || 'artifact.ffart');
+    if (!existsSync(p)) {
+      errori.push(`artifact mancante: ${a.path || 'artifact.ffart'} (generalo dalla scheda "Compila")`);
+    } else {
+      const grezzo = readFileSync(p, 'utf8');
+      let man = null;
+      try { man = JSON.parse(grezzo); } catch { errori.push('artifact: non è un JSON leggibile'); }
+      if (man) {
+        if (man.kind !== 'flowpilot-artifact') errori.push(`artifact: "kind" atteso flowpilot-artifact, trovato "${man.kind}"`);
+        else ok.push('artifact riconosciuto');
+
+        if (a.profilo != null) {
+          if (man.profile !== a.profilo) errori.push(`artifact: profilo congelato atteso "${a.profilo}", trovato "${man.profile}"`);
+          else ok.push(`profilo congelato ${man.profile}`);
+        }
+        for (const nome of a.segreti_richiesti || []) {
+          if (!(man.requiredSecrets || []).includes(nome))
+            errori.push(`artifact: il segreto "${nome}" non compare in requiredSecrets`);
+          else ok.push(`segreto "${nome}" dichiarato`);
+        }
+      }
+      // Il controllo che conta davvero: sul TESTO GREZZO, così vale anche se il
+      // valore finisse in un punto inatteso del file.
+      for (const proibito of a.non_contiene || []) {
+        if (grezzo.includes(proibito))
+          errori.push(`⚠ SICUREZZA — l'artifact contiene "${proibito}": un valore che non deve mai uscire dallo studio`);
+        else ok.push(`l'artifact non contiene "${proibito}"`);
+      }
+    }
   }
 
   for (const inv of atteso.invarianti || []) {

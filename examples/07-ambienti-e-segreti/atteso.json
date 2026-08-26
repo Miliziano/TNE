@@ -1,0 +1,22 @@
+{
+  "descrizione": "07 — Ambienti e segreti: il profilo cambia il risultato, il segreto non entra nell'artifact",
+  "livello": "L0",
+  "exit_code": 0,
+  "esito": "completato",
+  "nodi": {
+    "Sorgente clienti": { "rows_out": 20 },
+    "Marca ambiente":   { "rows_in": 20, "rows_out": 20 },
+    "Uscita marcata":   { "rows_in": 20 }
+  },
+  "file_attesi": [
+    { "path": "_out/clienti_marcati.csv", "righe": 21, "contiene": "TEST" }
+  ],
+  "artifact": {
+    "path": "artifact.ffart",
+    "profilo": "test",
+    "segreti_richiesti": ["PAROLA_SEGRETA"],
+    "non_contiene": ["non-deve-uscire-di-qui"]
+  },
+  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeCompleted", "RunCompleted"],
+  "invarianti": ["nessun_dato_di_riga"]
+}

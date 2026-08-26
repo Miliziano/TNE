@@ -20,8 +20,7 @@ atteso, un esempio è una demo — non un test.
 | **04-fallimento-governato** | Error handler, run fallito **onestamente**, uscita 1 | L0 | **fallito** |
 | **05-due-ingressi** | Due sorgenti unite su una chiave; righe senza corrispondenza | L0 | riuscito |
 | **06-aggregazione** | Raggruppa e somma: il nodo che lavora sul dataset | L0 | riuscito |
-
-*(In arrivo: ambienti e segreti.)*
+| **07-ambienti-e-segreti** | Il profilo cambia il risultato; il segreto **non** entra nell'artifact | L0 | riuscito |
 
 **Livelli.** **L0** non dipende da nulla fuori dalla macchina — è la prova di
 regressione, ed è ciò che un giorno girerà in CI. **L1** richiede servizi che
@@ -69,6 +68,9 @@ stampa i valori **osservati** già nella forma di `atteso.json`.
 - **eventi richiesti**: per esempio `RunStarted` deve esserci. Sembra ovvio, ma è
   esattamente il bug che ci è sfuggito per tre giri;
 - **file prodotti**: esistenza, numero di righe, un frammento atteso;
+- **l'artifact** (sezione `artifact`, solo dove serve): profilo congelato, segreti
+  dichiarati e — soprattutto — che il **valore** di un segreto non compaia nel
+  file. Una promessa di sicurezza verificata a macchina, non a memoria;
 - **invarianti**, in particolare `nessun_dato_di_riga`: al livello di log normale
   nessun evento deve trasportare contenuto di riga. La protezione dati smette di
   essere una promessa e diventa un controllo.
