@@ -797,3 +797,55 @@ Scritto un **manuale operativo** (documento a parte, consegnato all'utente, NON 
 - **TEMA 2 (manuali) — resta la metà per-nodo:** un **generatore di schede-nodo** dal registry + `nodeSemantics` + Panel (scheletro auto-generato per i ~40 nodi, poi arricchito) e **progetti di esempio** curati (che sono anche test del runner). Il lato *operativo* del tema 2 è già coperto dal manuale.
 - **Monitor:** persistenza (ora volatile), riuso dell'UI dello studio come vista, auth/retention.
 - **Rimandato/da valutare:** far **assemblare il bundle alla scheda** (copiare accanto al `.ffart` un runner pre-compilato per la piattaforma — NON compilare Rust dallo studio); "sapori" di runner (snello/completo); scelta congela-un-profilo confermata.
+
+
+## AGGIORNAMENTO — stato al P207 (24 agosto)
+
+**TL;DR:** Tre filoni. **(1)** Il **TEMA 2** è partito davvero: un **generatore di schede-nodo** (47 schede in `docs/nodes/`) e una **suite di esempi** `examples/` con un **verificatore** — che è la prima prova ripetibile del progetto. **(2)** Il **monitor** è cresciuto da prototipo a strumento usabile: timestamp d'origine, persistenza, apertura di log salvati, provenienza dei run, livelli di log, riepilogo/filtri/ricerca, token sull'ingest. **(3)** Una serie di **correzioni nate dai test**, alcune serie. Il dettaglio patch-per-patch sta nelle note di memoria **`flowpilot-rilascio`** (monitor/rilascio) e **`flowpilot-esempi`** (esempi, verificatore, correzioni recenti). Metodo invariato: un `.patch` per consegna validato con `git apply --check` su clone fresco, TS con `tsc --noEmit`, il Rust è il cancello di compilazione dell'utente.
+
+### Tema 2 — riferimento per-nodo (P172)
+`NODE_DEFS` + `PALETTE_SECTIONS` estratti da `registry.ts` in **`src/nodes/nodeDefs.ts`** (dati puri, senza React; `registry.ts` li ri-esporta → importatori invariati). Nuovo **`scripts/gen-node-docs.ts`** (`npm run docs:nodes`, gira con `tsx`): legge registry + `nodeSemantics` e produce **`docs/nodes/<tipo>.md`** (47 schede: campi, semantica, porte) + indice. Ogni scheda ha un **blocco AUTO** rigenerabile e una sezione **`## Approfondimento`** scritta a mano **preservata** a ogni rigenerazione. I nodi reali sono **47**, non ~40.
+
+### Esempi e verificatore (P193, P197, P200, P204, P207)
+`examples/` con **7 esempi L0** (nessuna dipendenza esterna): 01 file→file · 02 filtro e reject · 03 script FPEL (fan-out con `emit`) · 04 fallimento governato (**deve fallire**, uscita 1) · 05 due ingressi · 06 aggregazione · 07 ambienti e segreti. Ogni esempio porta **dati**, **`atteso.json`** e **`NOTE.md`**; i `piano.ffplan` li disegna l'utente nello studio (un `.ffplan` non è scrivibile a mano in modo affidabile).
+
+**`examples/verifica.mjs`** (node puro, zero dipendenze) confronta il log NDJSON di un run con le attese: codice d'uscita, esito, **statistiche per nodo indicate per ETICHETTA** (non per id, che cambia se ridisegni), eventi richiesti, file prodotti, `errore_contiene` (fallire *per il motivo giusto*), l'**artifact** (profilo congelato, segreti dichiarati, e che il **valore** di un segreto non compaia nel `.ffart`) e le **invarianti** — la prima: `nessun_dato_di_riga`. Modalità **`--taratura`**: stampa i valori osservati nella forma di `atteso.json`.
+
+Procedura: disegna il piano → "Compila" nella cartella dell'esempio → `runner artifact.ffart > run.ndjson` → `node ../verifica.mjs . run.ndjson --exit 0`. **01 e 02 e 04 già collaudati verdi.**
+
+### Monitor — da prototipo a strumento (P173–P199)
+Deciso con l'utente: monitoraggio dello **studio** (debugger) e **monitor centralizzato** (log di campo) sono **due mondi**; in comune solo il **formato degli eventi**.
+
+- **Contratto del log** (P173): ogni evento viaggia **incapsulato** `{timestamp, event}` col **tempo d'origine** (prima si perdeva e valeva l'ora di ricezione); il log si apre con un'**intestazione autodescrittiva** (runner, artifact).
+- **Persistenza** (P174, P179): un file NDJSON **per run** in **`~/.flowpilot/monitor-data/`** (env `MONITOR_DATA_DIR`), append a ogni ingest, **ricarica all'avvio**. ⚠️ Il default sta **fuori dai progetti** apposta: scrivendo dentro un progetto aperto con `tauri dev`, il file-watcher di Tauri **riavviava lo studio a ogni evento**.
+- **Salva / Apri log** (P175, P178): download NDJSON di un run + apertura di un file **lato client** (vista temporanea, non importa nulla nell'archivio).
+- **Provenienza** (P176–P183): nome del piano, **identità dello studio** (UUID + etichetta modificabile in `~/.flowpilot/studio.json`), versione studio/piano, **hash del piano** etichettato *integrità* (mai "autentico"), host **dichiarato** dal runner e **IP osservato** dal monitor — dichiarato e osservato tenuti distinti.
+- **Livelli di log** (P186–P188, P196): scelta in "Compila" fra *essenziale / normale / diagnostico*. Filtra ciò che **esce dalla macchina**; il log integrale resta sempre in `~/.flowpilot/runs/`. **Essenziale e normale non trasmettono il contenuto delle righe** (protezione dati): su un run reale si passa da 65 eventi con 42 righe di dato a 17 eventi con zero.
+- **Viste** (P184, P189, P191, P192, P199): cartella dati dichiarata a schermo; **riepilogo del run** (esito, durata, righe, nodi con interrotti/falliti, lane) **ricostruito dagli eventi** quando il riepilogo finale è vuoto — cioè proprio quando il run fallisce; **dettaglio per nodo** (`nome in → out`) al posto di una somma che contava più volte le stesse righe; colori per gravità; filtri (solo errori, nascondi memoria, per nodo); **ricerca testuale con sintesi** dei risultati; campioni di memoria in forma compatta.
+- **Sicurezza e tenuta** (P190, P191): **`MONITOR_TOKEN`** → `/ingest` esige `Authorization: Bearer` (vuoto = aperto, come prima). Il token **non entra nell'artifact**: il runner lo prende dall'ambiente. **Dedup** degli eventi (il re-invio del fallback non duplica più), tetto eventi per run e **retention** dei run — **solo in memoria: i file non si cancellano mai**. ⚠️ Limite dichiarato: protetta la **scrittura**, la lettura resta aperta.
+- **Identità dei run** (P198): il `run_id` era inciso nell'**artifact** → ogni esecuzione dello stesso `.ffart` finiva nello stesso run. Ora il runner ne genera uno **per esecuzione** (`<artifact>-<istante>`) e porta l'`artifact_id` nella provenienza; `FLOWPILOT_RUN_ID` per imporlo.
+
+### Correzioni nate dai test
+- 🐞 **P185 — il primo evento del processo veniva sempre perso.** Il bus numerava da 0 e i lettori partono da cursore 0 (`seq > cursore`): l'evento 0 non veniva **mai** consegnato. Nel runner era `RunStarted` — e con lui **tutta la provenienza**, che viaggia lì dentro. Corretto facendo partire la numerazione da 1.
+- 🐞 **P196 — dati di riga che uscivano lo stesso.** Il filtro dei livelli bloccava `target == "window"`, ma i valori sono **tre**: `both_window` passava. **Trovato dal verificatore** (invariante `nessun_dato_di_riga`), non da un'ispezione a occhio.
+- 🐞 **P194 + P195 — tipi dedotti dal CSV.** L'inferenza guardava il *valore* invece del *testo*: `"1200.00"` diventava `integer`, e il motore su un intero non convertibile scrive **NULL senza errore** (dati cancellati in silenzio). Ora per le stringhe decide la forma scritta; colonne miste → tipo prudente; il tipo salvato che non regge i dati viene **autocorretto** e segnalato, e resta un **errore bloccante** se lo si rimette a mano.
+- **P201** — schema propagato anche sul **reject del filter** (lì escono le stesse righe dell'ingresso): spariva l'avviso "non riceve campi" su un nodo che a run-time funziona. Per TMap/parser l'esclusione resta giusta.
+- **P202** — i **nodi disabilitati** ora si escludono davvero (`config.enabled` era scritto e mai letto): bypass monte→valle con un ingresso, rimozione per sorgenti/sink, e **avviso** quando ha più ingressi (ricucire sarebbe arbitrario). Il sottotitolo dello Script dice **FPEL** (non più "typescript"); nuovo **errore** se uno Script è dichiarato *generatore* ma ha un arco in ingresso.
+- **P203** — il motore **onora `sourceMode`**: prima la natura del nodo (generatore o trasformatore) la decideva la presenza del canale, quindi dichiarazione e comportamento potevano divergere in silenzio.
+- **P205 + P206b** — il **nome del progetto** ora si vede: accanto al *Main Pool* (con separatore) e nel titolo della finestra.
+
+### Documenti esterni (NON nel repo)
+Consegnati all'utente: **Manuale operativo** (studio/runner/monitor/artifact, segreti, profili, generazione schede), **Manuale del linguaggio FPEL** (grammatica, 84 funzioni, template, editor), **Manuale del Monitor** (avvio, env, ingestione, persistenza, sicurezza, viste, API, diagnosi rapida), **Disegno della suite di esempi**, **Studio FPEL — funzioni proprie e librerie**. Valutare se portarli sotto `docs/` nel repo: fuori si scollegano dal codice.
+
+### Lezioni operative (costate tempo più volte)
+- **Binario vecchio**: eventi "nudi" senza l'intestazione `flowpilot-log-header` ⇒ runner anteriore a P173. Test: `strings <binario> | grep -c flowpilot-log-header`. Attenzione al profilo: `--profile release-lean` scrive in `target/release-lean/`, non in `target/release/`.
+- **La vista del monitor è compilata dentro il binario**: applicare una patch e ricaricare la pagina non basta — va ricompilato **e riavviato** il monitor.
+- **Base delle patch**: verificare se la precedente è nel **remoto** o solo nell'albero locale dell'utente, altrimenti il `.patch` non applica.
+- Il monitor tiene i run **in memoria**: cancellare i file non svuota la lista (fermare → cancellare → riavviare).
+
+### Da dove ripartire
+- **Esempi**: disegnare i `piano.ffplan` mancanti (03, 05, 06, 07) e tarare le attese al primo run. Poi valutare uno **smoke test in CI** (serve un modo di esportare un artifact da riga di comando).
+- **Tema 2**: arricchire a mano le sezioni *Approfondimento* delle 47 schede.
+- **FPEL**: le funzioni definite dall'utente e le librerie `.ffpel` (vedi lo studio dedicato). Fatto chiave: si compilano **nello studio** ed è possibile **espanderle a compile-time** → nessuna modifica al motore.
+- **Monitor**: protezione in **lettura**; eventuale firma degli artifact (fase C).
+- **Debiti**: molti nodi portati in Rust (webhook, watchdog, ActiveMQ, Kafka, mail, ssh) **non sono mai stati collaudati a runtime**; la **CI non è mai stata eseguita** (mettere un tag `v0.1.0` e vedere se sforna i binari); `sink_file` non crea le cartelle mancanti (rimandato di proposito); allineare anche i run **dello studio** al `run_id` per esecuzione.
