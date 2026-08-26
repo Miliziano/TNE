@@ -50,9 +50,23 @@ export function propagateSchema(
 
   const s = getStore ? getStore() : store
 
+  // Il ramo `reject` è escluso per DEFAULT, e per buone ragioni: in TMap e nei
+  // parser trasporta righe malformate, con una forma propria — propagarci lo
+  // schema principale sarebbe una bugia.
+  // Il FILTER però è un altro caso: non tocca lo schema, e sul reject escono le
+  // STESSE righe dell'ingresso (solo quelle che non hanno passato la condizione).
+  // Escluderlo faceva comparire "non riceve campi in ingresso" sui nodi a valle
+  // del reject — avviso ingiustificato, visto che a run-time le righe arrivano
+  // regolarmente (la validazione strutturale infatti lo sa già: per il filter
+  // lo schema d'uscita è `inputSchema` su TUTTE le porte).
+  const nodoSorgente = s.nodes.find((n) => n.id === sourceNodeId)
+  const esclusi = nodoSorgente?.data?.type === 'filter'
+    ? excludeHandles.filter((h) => h !== 'reject')
+    : excludeHandles
+
   const outEdges = s.edges.filter((e) =>
     e.source === sourceNodeId &&
-    !excludeHandles.includes(e.sourceHandle ?? '')
+    !esclusi.includes(e.sourceHandle ?? '')
   )
 
   for (const edge of outEdges) {

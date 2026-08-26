@@ -121,6 +121,32 @@ pub async fn run(
     let mut rows_out      = 0u64;
     let mut rows_rejected = 0u64;
 
+    // ── Chi comanda: la DICHIARAZIONE, non la presenza del canale ──
+    // Prima le due nature si distinguevano dal solo `rx`: "genera" nello studio
+    // toglie la porta, quindi si dava per scontato che senza porta non ci fosse
+    // canale. Ma un arco disegnato PRIMA di cambiare modalità resta nel piano:
+    // il nodo continuava a lavorare riga-per-riga mentre lo studio dichiarava
+    // "generatore" — dichiarazione e comportamento divergenti, in silenzio.
+    // Ora `sourceMode` decide: da generatore l'eventuale ingresso viene ignorato
+    // (e detto nel log, che è un'incongruenza del piano, non un dettaglio).
+    let genera = spec.str_or("sourceMode", "flusso") == "genera";
+    let rx = if genera {
+        if rx.is_some() {
+            ctx.emit_log(
+                &ctx.label,
+                "warn",
+                0,
+                "Dichiarato come GENERATORE ma ha un collegamento in ingresso: le righe in \
+                 arrivo vengono ignorate. Scollega l'arco, oppure riporta il nodo in modalità 'flusso'."
+                    .to_string(),
+                "panel",
+            );
+        }
+        None
+    } else {
+        rx
+    };
+
     match rx {
         // ── Caso normale: una passata per ogni riga in ingresso ──
         Some(mut rx) => {

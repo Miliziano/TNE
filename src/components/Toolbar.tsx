@@ -389,12 +389,76 @@ function topologicalOrder(
   return result
 }
 
-function buildRustPlan(
+/**
+ * Nodi DISABILITATI (tab Generale → "comportamento"): finora la scelta veniva
+ * salvata e ignorata da tutti — il nodo girava lo stesso. Qui viene onorata,
+ * togliendo il nodo dal piano PRIMA di costruirlo:
+ *
+ * - nodo con **un** ingresso → **BYPASS**: chi stava a monte viene ricucito a
+ *   chi sta a valle, e i dati passano oltre come se il nodo non ci fosse.
+ * - nodo **senza** ingressi (una sorgente) → sparisce con i suoi archi: quel
+ *   ramo semplicemente non produce dati (la validazione avvisa i nodi a valle
+ *   rimasti scollegati).
+ * - nodo **senza** uscite (un sink) → sparisce e basta.
+ * - nodo a **più ingressi** (join/tmap/union) → NON si ricuce: quale ingresso
+ *   dovrebbe proseguire? Ambiguo, quindi lo si lascia com'è e la validazione
+ *   segnala l'incongruenza (v. checkNodiDisabilitati in dagValidation).
+ *
+ * I confini di lane e gli error handler non sono disabilitabili: si saltano.
+ */
+function togliNodiDisabilitati(
   nodes: FlowNode<NodeData>[],
   edges: Edge[],
+): { nodes: FlowNode<NodeData>[]; edges: Edge[] } {
+  const nonDisattivabile = (t: string) =>
+    t === 'lane_start' || t === 'lane_end' || t === 'error_handler'
+
+  const spenti = nodes.filter(
+    (n) => String((n.data as any)?.config?.enabled ?? 'true') === 'false' &&
+           !nonDisattivabile(n.data.type),
+  )
+  if (spenti.length === 0) return { nodes, edges }
+
+  let archi = [...edges]
+  const rimossi = new Set<string>()
+
+  for (const n of spenti) {
+    const entranti = archi.filter((e) => e.target === n.id)
+    const uscenti  = archi.filter((e) => e.source === n.id)
+
+    // più ingressi: ricucire sarebbe una scelta arbitraria → si lascia attivo
+    if (entranti.length > 1) continue
+
+    rimossi.add(n.id)
+    const monte = entranti[0]
+    archi = archi.filter((e) => e.source !== n.id && e.target !== n.id)
+
+    if (monte) {
+      // BYPASS: ogni uscita del nodo spento riparte da chi stava a monte,
+      // conservando l'handle di partenza di quest'ultimo.
+      for (const u of uscenti) {
+        archi.push({
+          ...u,
+          id:           `${u.id}__bypass_${n.id}`,
+          source:       monte.source,
+          sourceHandle: monte.sourceHandle,
+        })
+      }
+    }
+  }
+
+  return { nodes: nodes.filter((n) => !rimossi.has(n.id)), edges: archi }
+}
+
+function buildRustPlan(
+  nodesOriginali: FlowNode<NodeData>[],
+  edgesOriginali: Edge[],
   pool:  ReturnType<typeof useFlowStore.getState>['pool'],
   runId: string,
 ): object {
+  // I nodi disabilitati escono di scena prima di ogni altra cosa: vale sia per
+  // il Run sia per l'export dell'artifact, che passano entrambi di qui.
+  const { nodes, edges } = togliNodiDisabilitati(nodesOriginali, edgesOriginali)
 
  // ── Bridge tra lane — accoppiati per channelName condiviso.
   // I bridge NON hanno un edge nel canvas: collegano lane diverse e

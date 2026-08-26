@@ -1,0 +1,16 @@
+{
+  "descrizione": "03 — Script FPEL: campi calcolati e fan-out con emit",
+  "livello": "L0",
+  "exit_code": 0,
+  "esito": "completato",
+  "nodi": {
+    "Sorgente ordini": { "rows_out": 6 },
+    "Esplosione unità": { "rows_in": 6, "rows_out": 10 },
+    "Uscita unità":     { "rows_in": 10 }
+  },
+  "file_attesi": [
+    { "path": "_out/unita.csv", "righe": 11, "contiene": "numero_unita" }
+  ],
+  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeCompleted", "RunCompleted"],
+  "invarianti": ["nessun_dato_di_riga"]
+}

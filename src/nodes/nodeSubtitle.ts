@@ -202,9 +202,14 @@ export function getNodeSubtitle(data: NodeData): string {
     }
 
     case 'script': {
-      const lang      = p('lang', 'typescript')
+      // Il linguaggio è UNO solo: FPEL. La vecchia prop `lang` (typescript/
+      // python/java) è un residuo della barra dei linguaggi rimossa in P63 —
+      // quei linguaggi non venivano mai eseguiti. Al suo posto si mostra la
+      // cosa che cambia davvero il comportamento del nodo: la modalità.
+      const genera    = p('sourceMode', 'flusso') === 'genera'
       const hasReject = p('hasReject') === 'true'
-      return withCatch(hasReject ? `${lang} · +reject` : lang, data)
+      const base      = genera ? 'FPEL · genera' : 'FPEL'
+      return withCatch(hasReject ? `${base} · +reject` : base, data)
     }
 
     case 'materialize': {

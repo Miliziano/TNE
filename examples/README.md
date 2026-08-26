@@ -15,10 +15,11 @@ atteso, un esempio è una demo — non un test.
 | | Cosa dimostra | Livello | Esito atteso |
 |---|---|---|---|
 | **01-file-to-file** | Il ciclo minimo: sorgente CSV → trasformazione → sink CSV | L0 | riuscito |
+| **02-filtro-e-scarti** | Porta **reject**: le righe non valide non si perdono | L0 | riuscito |
+| **03-script-fpel** | Il linguaggio e il **fan-out** con `emit` (1 riga → N) | L0 | riuscito |
 | **04-fallimento-governato** | Error handler, run fallito **onestamente**, uscita 1 | L0 | **fallito** |
 
-*(In arrivo: filtro e scarti, script FPEL, due ingressi, aggregazione, ambienti e
-segreti.)*
+*(In arrivo: due ingressi, aggregazione, ambienti e segreti.)*
 
 **Livelli.** **L0** non dipende da nulla fuori dalla macchina — è la prova di
 regressione, ed è ciò che un giorno girerà in CI. **L1** richiede servizi che

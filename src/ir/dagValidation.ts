@@ -34,6 +34,8 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkNotImplemented(plan))
   issues.push(...checkSchemaDedotto(plan))
   issues.push(...checkTipiIncompatibili(plan))
+  issues.push(...checkNodiDisabilitati(plan))
+  issues.push(...checkScriptGeneratoreConIngresso(plan))
 
   // NB: lo schema si assume GIÀ propagato dal chiamante (runValidation /
   // runCompilation lo fanno prima di chiamare validateDAG). NON ri-propaghiamo
@@ -723,6 +725,58 @@ function checkTipiIncompatibili(plan: LogicalPlan): ValidationIssue[] {
       message:  `"${label}": il tipo dichiarato non regge i valori del file — ${rotti.join(' · ')}. Al Run quei campi diventano NULL, senza errore.`,
       severity: 'error',
       hint:     'Correggi il tipo nel pannello di mapping (o ricarica il campione dal file: il tipo viene riallineato ai dati). Il motore converte in base al tipo dichiarato e, se la conversione fallisce, scrive NULL invece di fermarsi.',
+    })
+  }
+  return issues
+}
+
+/**
+ * Nodo DISABILITATO che non si può togliere dal flusso senza scegliere al posto
+ * dell'utente. Il bypass ricuce monte→valle solo con UN ingresso: con più
+ * ingressi (join, tmap, union) quale dei due dovrebbe proseguire? Nel dubbio il
+ * nodo resta ATTIVO — e va detto, altrimenti si crede di averlo escluso.
+ */
+function checkNodiDisabilitati(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    const cfg = node._uiRef?.config as { enabled?: string } | undefined
+    if (String(cfg?.enabled ?? 'true') !== 'false') continue
+    const id = canvasNodeId(node.id)
+    const entranti = plan.edges.filter((e) => canvasNodeId(e.target) === id).length
+    if (entranti <= 1) continue
+    const label = node._uiRef?.label ?? node.id
+    issues.push({
+      nodeId:   id,
+      code:     'NODO_DISABILITATO_NON_ESCLUDIBILE',
+      message:  `"${label}" è segnato come disabilitato ma ha ${entranti} ingressi: resta ATTIVO ed elabora comunque.`,
+      severity: 'warning',
+      hint:     'Un nodo si esclude ricucendo chi sta a monte con chi sta a valle: con più ingressi la scelta sarebbe arbitraria. Scollega gli ingressi in eccesso, oppure elimina il nodo.',
+    })
+  }
+  return issues
+}
+
+/**
+ * ERRORE: Script dichiarato **generatore** ma con un arco in ingresso collegato.
+ * Il motore distingue le due nature dalla PRESENZA del canale d'ingresso, non
+ * dalla proprietà: con l'arco attaccato lavora riga-per-riga anche se lo studio
+ * dice "genera". Dichiarazione e comportamento divergerebbero in silenzio.
+ */
+function checkScriptGeneratoreConIngresso(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    if (node._uiRef?.type !== 'script') continue
+    if (String(node._uiRef?.props?.['sourceMode'] ?? 'flusso') !== 'genera') continue
+    const id = canvasNodeId(node.id)
+    const entranti = plan.edges.filter((e) => canvasNodeId(e.target) === id).length
+    if (entranti === 0) continue
+    const label = node._uiRef?.label ?? node.id
+    issues.push({
+      nodeId:   id,
+      code:     'SCRIPT_GENERATORE_CON_INGRESSO',
+      message:  `"${label}" è configurato come generatore, ma ha ancora un collegamento in ingresso: al Run si comporterà da trasformatore (una passata per riga), non da generatore.`,
+      severity: 'error',
+      hint:     'Togliere la modalità "genera" nasconde la porta ma NON cancella l\'arco già disegnato: scollegalo, oppure riporta il nodo in modalità "flusso".',
     })
   }
   return issues

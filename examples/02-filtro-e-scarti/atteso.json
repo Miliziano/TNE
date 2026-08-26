@@ -1,0 +1,18 @@
+{
+  "descrizione": "02 — Filtro e scarti: le righe non valide vanno alla porta reject",
+  "livello": "L0",
+  "exit_code": 0,
+  "esito": "completato",
+  "nodi": {
+    "Sorgente clienti":   { "rows_out": 20 },
+    "Filtro maggiorenni": { "rows_in": 20, "rows_out": 17, "rows_rejected": 3 },
+    "Clienti validi":     { "rows_in": 17 },
+    "Clienti scartati":   { "rows_in": 3 }
+  },
+  "file_attesi": [
+    { "path": "_out/validi.csv",    "righe": 18, "contiene": "codice" },
+    { "path": "_out/scartati.csv",  "righe": 4 }
+  ],
+  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeCompleted", "RunCompleted"],
+  "invarianti": ["nessun_dato_di_riga"]
+}
