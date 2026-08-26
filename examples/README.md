@@ -18,8 +18,10 @@ atteso, un esempio è una demo — non un test.
 | **02-filtro-e-scarti** | Porta **reject**: le righe non valide non si perdono | L0 | riuscito |
 | **03-script-fpel** | Il linguaggio e il **fan-out** con `emit` (1 riga → N) | L0 | riuscito |
 | **04-fallimento-governato** | Error handler, run fallito **onestamente**, uscita 1 | L0 | **fallito** |
+| **05-due-ingressi** | Due sorgenti unite su una chiave; righe senza corrispondenza | L0 | riuscito |
+| **06-aggregazione** | Raggruppa e somma: il nodo che lavora sul dataset | L0 | riuscito |
 
-*(In arrivo: due ingressi, aggregazione, ambienti e segreti.)*
+*(In arrivo: ambienti e segreti.)*
 
 **Livelli.** **L0** non dipende da nulla fuori dalla macchina — è la prova di
 regressione, ed è ciò che un giorno girerà in CI. **L1** richiede servizi che

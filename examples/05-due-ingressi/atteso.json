@@ -1,0 +1,17 @@
+{
+  "descrizione": "05 — Due ingressi: movimenti arricchiti con l'anagrafica (join interno)",
+  "livello": "L0",
+  "exit_code": 0,
+  "esito": "completato",
+  "nodi": {
+    "Anagrafica clienti": { "rows_out": 20 },
+    "Movimenti":          { "rows_out": 12 },
+    "Unione":             { "rows_out": 10 },
+    "Uscita arricchita":  { "rows_in": 10 }
+  },
+  "file_attesi": [
+    { "path": "_out/movimenti_arricchiti.csv", "righe": 11, "contiene": "cognome" }
+  ],
+  "eventi_richiesti": ["RunStarted", "NodeStarted", "NodeCompleted", "RunCompleted"],
+  "invarianti": ["nessun_dato_di_riga"]
+}

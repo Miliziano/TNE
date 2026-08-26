@@ -58,8 +58,17 @@ export function Canvas() {
 }
 
 function PoolHeader() {
-  const pool       = useFlowStore((s) => s.pool)
-  const updatePool = useFlowStore((s) => s.updatePool)
+  const pool        = useFlowStore((s) => s.pool)
+  const updatePool  = useFlowStore((s) => s.updatePool)
+  const currentPath = useFlowStore((s) => s.currentPath)
+
+  // Nome del PROGETTO (il file .ffplan aperto) — da non confondere col nome del
+  // POOL, che è un'etichetta interna al progetto e si modifica lì accanto.
+  // Stessa regola del `planName` dell'artifact: studio, log e monitor chiamano
+  // il progetto allo stesso modo.
+  const nomeProgetto = currentPath
+    ? currentPath.split(/[\\/]/).pop()!.replace(/\.ffplan$/i, '')
+    : null
 
   return (
     <div style={{
@@ -98,6 +107,27 @@ function PoolHeader() {
         marginLeft: 4,
       }}>
         {pool.lanes.length} lane · {pool.variables.length} variabili condivise
+      </span>
+
+      {/* separatore + nome del progetto aperto */}
+      <span style={{
+        width: 1, alignSelf: 'stretch', margin: '0 2px',
+        background: 'var(--color-border-secondary)',
+      }} aria-hidden="true" />
+
+      <span
+        title={currentPath ?? 'Progetto non ancora salvato'}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontSize: 12,
+          fontWeight: nomeProgetto ? 600 : 400,
+          fontStyle: nomeProgetto ? 'normal' : 'italic',
+          color: nomeProgetto ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)',
+          maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}
+      >
+        <i className="ti ti-file-text" style={{ fontSize: 13, opacity: 0.7 }} aria-hidden="true" />
+        {nomeProgetto ?? 'progetto non salvato'}
       </span>
     </div>
   )

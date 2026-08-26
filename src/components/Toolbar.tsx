@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useFlowStore, resyncNodeCounter } from '../store/flowStore'
 import { invoke } from '@tauri-apps/api/core'
 import {
@@ -1235,6 +1235,34 @@ export function Toolbar() {
   const [envOpen, setEnvOpen] = useState(false)
   const [compileOpen, setCompileOpen] = useState(false)
   const currentPath = useFlowStore((s) => s.currentPath)
+
+  // Nome del progetto = nome del file .ffplan aperto (stessa regola usata per
+  // il `planName` dell'artifact, così studio, log e monitor lo chiamano allo
+  // stesso modo). `null` finché il progetto non è mai stato salvato.
+  // Qui serve al TITOLO DELLA FINESTRA; a schermo è mostrato accanto al nome
+  // del pool (PoolHeader in Canvas.tsx), dove si legge come intestazione del
+  // documento invece di confondersi tra i pulsanti della barra.
+  const nomeProgetto = currentPath
+    ? currentPath.split(/[\\/]/).pop()!.replace(/\.ffplan$/i, '')
+    : null
+
+  // Lo stesso nome nel titolo della finestra: è lì che lo si cerca quando ci
+  // sono più istanze aperte o si passa da un'applicazione all'altra.
+  useEffect(() => {
+    let annullato = false
+    ;(async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        if (annullato) return
+        await getCurrentWindow().setTitle(
+          nomeProgetto ? `FlowPilot Studio — ${nomeProgetto}` : 'FlowPilot Studio',
+        )
+      } catch {
+        /* fuori da Tauri (o API non disponibile): l'etichetta in barra basta */
+      }
+    })()
+    return () => { annullato = true }
+  }, [nomeProgetto])
 
   // Esporta l'ARTIFACT runnable: il piano compilato (stesso JSON di engine_run,
   // col profilo attivo CONGELATO e i ${SEGRETO}/${MONITOR_URL} intatti) + un
