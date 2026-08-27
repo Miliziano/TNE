@@ -336,6 +336,9 @@ interface FlowState {
   addVariable:    (scope: 'pool' | 'lane', laneId: string | null, variable: Omit<Variable, 'id' | 'scope'>) => void
   deleteVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string) => void
   updateVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string, patch: Partial<Variable>) => void
+  /** Promuove una variabile di lane a variabile CONDIVISA (pool).
+   *  Ritorna un messaggio d'errore se non è possibile, `null` se è andata. */
+  promuoviVariabile: (laneId: string, variableId: string) => string | null
   updateLaneVariable: (laneId: string, varName: string, value: string) => void
 
   // Pools
@@ -1758,6 +1761,35 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         },
       }))
     }
+  },
+
+  // Da locale a condivisa. È uno SPOSTAMENTO, non una copia: se la variabile
+  // restasse anche nella lane continuerebbe a ombreggiare quella di pool (a
+  // parità di nome vince la lane) e la promozione non avrebbe effetto visibile
+  // — si cambierebbero i valori nei profili senza veder cambiare nulla.
+  // Il valore attuale diventa il DEFAULT della variabile condivisa; da lì si
+  // differenzia per profilo nella matrice di «Ambienti».
+  promuoviVariabile: (laneId, variableId) => {
+    const st0 = get()
+    const lane = st0.pool.lanes.find((l) => l.id === laneId)
+    const v = lane?.variables.find((x) => x.id === variableId)
+    if (!lane || !v) return 'Variabile non trovata.'
+    if (v.type === 'materialize') return 'Le variabili di materializzazione sono legate a un nodo: non si promuovono.'
+    if ((st0.pool.variables ?? []).some((pv) => pv.name === v.name))
+      return `Esiste già una variabile condivisa chiamata "${v.name}".`
+
+    set((st) => ({
+      pool: {
+        ...st.pool,
+        variables: [...(st.pool.variables ?? []), {
+          id: varUid(), name: v.name, type: v.type, value: v.value, scope: 'pool' as const,
+        }],
+        lanes: st.pool.lanes.map((l) =>
+          l.id === laneId ? { ...l, variables: l.variables.filter((x) => x.id !== variableId) } : l,
+        ),
+      },
+    }))
+    return null
   },
 
   deleteVariable: (scope, laneId, variableId) => {

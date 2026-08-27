@@ -113,7 +113,7 @@ function MatVarChip({ variable, onDelete, onNavigate }: {
 // ─── Variable editor ──────────────────────────────────────────────
 function VariableEditor({
   variables, materializeVars = [], ereditate = [], onAdd, onDelete, onUpdate,
-  onDeleteMat, onNavigateMat, emptyMessage,
+  onDeleteMat, onNavigateMat, onPromote, emptyMessage,
 }: {
   variables:        Variable[]
   materializeVars?: Variable[]
@@ -126,6 +126,8 @@ function VariableEditor({
   onUpdate:         (id: string, key: keyof Variable, value: string) => void
   onDeleteMat?:     (id: string) => void
   onNavigateMat?:   (nodeId: string) => void
+  /** Promuove la variabile locale a condivisa (pool). Assente = niente bottone. */
+  onPromote?:       (id: string) => void
   emptyMessage:     string
 }) {
   const types: VariableType[] = ['string', 'number', 'boolean', 'json', 'object']
@@ -283,6 +285,15 @@ function VariableEditor({
                 } : {}),
               }}
             />
+            {/* Promuovi a condivisa — la variabile ESCE dalla lane ed entra nel
+                pool, dove può avere un valore diverso per ogni profilo. */}
+            {!running && onPromote && (
+              <button onClick={() => onPromote(v.id)}
+                title={`Promuovi "${v.name}" a variabile condivisa (pool): potrà avere un valore per profilo. Esce da questa lane.`}
+                style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '0 6px', cursor: 'pointer', color: '#8aa4d0', fontSize: 12 }}>
+                <i className="ti ti-arrow-up" style={{ fontSize: 11 }} aria-hidden="true" />
+              </button>
+            )}
             {/* Delete — disabilitato durante il run */}
             {!running && (
               <button onClick={() => onDelete(v.id)}
@@ -363,6 +374,8 @@ export function PropertyPanel() {
   const selectedResourceId = useFlowStore((s) => s.selectedResourceId)
   const pool               = useFlowStore((s) => s.pool)
   const environments       = useFlowStore((s) => s.environments)
+  const promuoviVariabile  = useFlowStore((s) => s.promuoviVariabile)
+  const addLog             = useFlowStore((s) => s.addLog)
   const updateNodeProp     = useFlowStore((s) => s.updateNodeProp)
   const deleteNode         = useFlowStore((s) => s.deleteNode)
   const addVariable        = useFlowStore((s) => s.addVariable)
@@ -590,6 +603,11 @@ export function PropertyPanel() {
                 onUpdate={(id, key, value) => updateVariable('lane', currentLane.id, id, { [key]: value } as Partial<Variable>)}
                 onDeleteMat={(id) => deleteVariable('lane', currentLane.id, id)}
                 onNavigateMat={navigateToMatNode}
+                onPromote={(id) => {
+                  const errore = promuoviVariabile(currentLane.id, id)
+                  if (errore) addLog('warn', `Promozione non riuscita — ${errore}`)
+                  else addLog('info', 'Variabile promossa a condivisa: ora ha un valore per profilo (editor «Ambienti»).')
+                }}
               />
             </>
           )}
