@@ -36,6 +36,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkTipiIncompatibili(plan))
   issues.push(...checkNodiDisabilitati(plan))
   issues.push(...checkScriptGeneratoreConIngresso(plan))
+  issues.push(...checkAutoJoin(plan))
 
   // NB: lo schema si assume GIÀ propagato dal chiamante (runValidation /
   // runCompilation lo fanno prima di chiamare validateDAG). NON ri-propaghiamo
@@ -777,6 +778,37 @@ function checkScriptGeneratoreConIngresso(plan: LogicalPlan): ValidationIssue[] 
       message:  `"${label}" è configurato come generatore, ma ha ancora un collegamento in ingresso: al Run si comporterà da trasformatore (una passata per riga), non da generatore.`,
       severity: 'error',
       hint:     'Togliere la modalità "genera" nasconde la porta ma NON cancella l\'arco già disegnato: scollegalo, oppure riporta il nodo in modalità "flusso".',
+    })
+  }
+  return issues
+}
+
+/**
+ * AUTO-JOIN: la stessa sorgente alimenta ENTRAMBI gli ingressi di un join.
+ * Non è vietato — unire un flusso con sé stesso è un'operazione legittima
+ * (il classico "dipendente → suo responsabile" preso dalla stessa tabella).
+ * Ma nella maggior parte dei casi è un collegamento sbagliato, e fallisce in
+ * modo silenzioso: nessun errore, solo righe moltiplicate se la chiave non è
+ * univoca — e il lato destro viene **materializzato interamente in memoria**
+ * (v. join.rs), quindi l'errore costa anche RAM.
+ */
+function checkAutoJoin(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    if (node._uiRef?.type !== 'join') continue
+    const entranti = plan.edges.filter((e) => e.target === node.id)
+    const sinistra = entranti.find((e) => e.targetPort === 'input_left')?.source
+    const destra   = entranti.find((e) => e.targetPort === 'input_right')?.source
+    if (!sinistra || !destra || sinistra !== destra) continue
+
+    const label     = node._uiRef?.label ?? node.id
+    const sorgente  = plan.nodes.find((n) => n.id === sinistra)?._uiRef?.label ?? sinistra
+    issues.push({
+      nodeId:   canvasNodeId(node.id),
+      code:     'AUTO_JOIN',
+      message:  `"${label}": "${sorgente}" alimenta ENTRAMBI gli ingressi (auto-join). Se non è voluto, uno dei due collegamenti è di troppo.`,
+      severity: 'warning',
+      hint:     'Unire un flusso con sé stesso è legittimo (es. mettere in relazione righe dello stesso insieme), ma se è un errore di collegamento non se ne accorge nessuno: il join riesce lo stesso e restituisce righe moltiplicate. Ricorda che il lato destro viene tenuto INTERAMENTE in memoria.',
     })
   }
   return issues

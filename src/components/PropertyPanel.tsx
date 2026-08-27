@@ -112,11 +112,15 @@ function MatVarChip({ variable, onDelete, onNavigate }: {
 
 // ─── Variable editor ──────────────────────────────────────────────
 function VariableEditor({
-  variables, materializeVars = [], onAdd, onDelete, onUpdate,
+  variables, materializeVars = [], ereditate = [], onAdd, onDelete, onUpdate,
   onDeleteMat, onNavigateMat, emptyMessage,
 }: {
   variables:        Variable[]
   materializeVars?: Variable[]
+  /** Variabili di POOL viste da questa lane: a run-time sono leggibili qui
+   *  (il builder le fonde e la lane può ombreggiarle), quindi vanno mostrate —
+   *  in sola lettura, perché si modificano nell'editor "Ambienti". */
+  ereditate?:       Array<{ name: string; value: string; type: string; ombreggiata: boolean }>
   onAdd:            () => void
   onDelete:         (id: string) => void
   onUpdate:         (id: string, key: keyof Variable, value: string) => void
@@ -197,6 +201,48 @@ function VariableEditor({
       {variables.length === 0 && materializeVars.length > 0 && (
         <div style={{ margin: '4px 12px', padding: '8px', fontSize: 10, color: '#2a3349', textAlign: 'center', fontStyle: 'italic' }}>
           Nessuna variabile normale
+        </div>
+      )}
+
+      {/* Ereditate dal pool — sola lettura. Prima non comparivano affatto:
+          sembrava che in questa lane non ci fossero, mentre a run-time
+          `var("NOME")` le legge senza problemi. */}
+      {ereditate.length > 0 && (
+        <div style={{ margin: '4px 8px 8px' }}>
+          <div style={{ fontSize: 10, color: '#5a6a8a', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <i className="ti ti-arrow-down-left" aria-hidden="true" />
+            dal pool — leggibili qui, si modificano in «Ambienti»
+          </div>
+          {ereditate.map((e) => (
+            <div key={e.name} title={e.ombreggiata
+              ? `Una variabile locale con lo stesso nome ha la precedenza in questa lane`
+              : `Variabile condivisa: valore del profilo attivo`}
+              style={{
+                margin: '3px 0', padding: '5px 8px',
+                background: '#151c2c', borderRadius: 5,
+                border: '0.5px dashed #2a3349',
+                display: 'flex', alignItems: 'center', gap: 6,
+                opacity: e.ombreggiata ? 0.55 : 1,
+              }}>
+              <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8aa4d0', textDecoration: e.ombreggiata ? 'line-through' : 'none' }}>
+                {e.name}
+              </span>
+              {e.type === 'secret' ? (
+                <span style={{ fontSize: 10, color: '#c8a060', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <i className="ti ti-lock" aria-hidden="true" /> segreto
+                </span>
+              ) : (
+                <span style={{ fontSize: 10, color: '#5a6a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {e.value || '(vuoto)'}
+                </span>
+              )}
+              {e.ombreggiata && (
+                <span style={{ marginLeft: 'auto', fontSize: 9, color: '#c8a060', whiteSpace: 'nowrap' }}>
+                  coperta dalla lane
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -316,6 +362,7 @@ export function PropertyPanel() {
   const selectedLaneId     = useFlowStore((s) => s.selectedLaneId)
   const selectedResourceId = useFlowStore((s) => s.selectedResourceId)
   const pool               = useFlowStore((s) => s.pool)
+  const environments       = useFlowStore((s) => s.environments)
   const updateNodeProp     = useFlowStore((s) => s.updateNodeProp)
   const deleteNode         = useFlowStore((s) => s.deleteNode)
   const addVariable        = useFlowStore((s) => s.addVariable)
@@ -526,6 +573,17 @@ export function PropertyPanel() {
               <VariableEditor
                 variables={currentLane.variables.filter((v) => v.type !== 'materialize')}
                 materializeVars={currentLane.variables.filter((v) => v.type === 'materialize')}
+                ereditate={(pool.variables ?? [])
+                  .filter((v) => v.type !== 'materialize')
+                  .map((v) => ({
+                    name:  v.name,
+                    // stessa risoluzione del builder: valore del profilo attivo,
+                    // altrimenti il default della variabile.
+                    value: v.type === 'secret' ? '' : (environments.profiles[environments.active]?.[v.name] ?? v.value),
+                    type:  v.type,
+                    // scoping lessicale: a parità di nome vince la lane
+                    ombreggiata: currentLane.variables.some((lv) => lv.name === v.name),
+                  }))}
                 emptyMessage="Nessuna variabile locale in questa lane."
                 onAdd={() => addVariable('lane', currentLane.id, { name: 'nuova_var', type: 'string', value: '' })}
                 onDelete={(id) => deleteVariable('lane', currentLane.id, id)}

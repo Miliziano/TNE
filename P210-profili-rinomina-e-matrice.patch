@@ -1,0 +1,161 @@
+diff --git a/src/components/EnvironmentsModal.tsx b/src/components/EnvironmentsModal.tsx
+index 10cf77d..a39fded 100644
+--- a/src/components/EnvironmentsModal.tsx
++++ b/src/components/EnvironmentsModal.tsx
+@@ -12,7 +12,7 @@
+  *      auto-reload all'apertura (il progetto vince, niente sorprese).
+  * Legge/scrive lo store direttamente. Tutto si persiste col progetto (Salva).
+  */
+-import { useState, useEffect } from 'react'
++import { useState, useEffect, Fragment } from 'react'
+ import { useFlowStore } from '../store/flowStore'
+ import { CustomSelect } from './CustomSelect'
+ import { openFileDialog, saveFileDialog, readFile, writeFile, isTauri, secretSet, secretHas, secretDelete } from '../lib/tauri'
+@@ -47,6 +47,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
+   const addProfile       = useFlowStore((s) => s.addProfile)
+   const deleteProfile    = useFlowStore((s) => s.deleteProfile)
+   const setProfileValue  = useFlowStore((s) => s.setProfileValue)
++  const renameProfile    = useFlowStore((s) => s.renameProfile)
+   const importProfile    = useFlowStore((s) => s.importProfile)
+   const addVariable      = useFlowStore((s) => s.addVariable)
+   const deleteVariable   = useFlowStore((s) => s.deleteVariable)
+@@ -79,6 +80,16 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
+   const values = environments.profiles[editingProfile] ?? {}
+   const ref = environments.profileRefs[editingProfile]
+ 
++  const handleRenameProfile = () => {
++    if (!editingProfile) return
++    const nuovo = window.prompt('Nuovo nome del profilo:', editingProfile)?.trim()
++    if (!nuovo || nuovo === editingProfile) return
++    if (environments.profiles[nuovo]) { setMsg(`Esiste già un profilo "${nuovo}".`); return }
++    renameProfile(editingProfile, nuovo)
++    setEditing(nuovo)
++    setMsg(`Profilo rinominato in "${nuovo}" — valori conservati.`)
++  }
++
+   const handleAddVar = () => {
+     const base = 'nuova_var'; let name = base, i = 2
+     const taken = new Set((pool.variables ?? []).map((v) => v.name))
+@@ -241,6 +252,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
+                 {profileNames.map((n) => <option key={n} value={n}>{n}</option>)}
+               </CustomSelect>
+               <button onClick={handleAddProfile} title="Nuovo profilo" style={addBtnStyle}>+ nuovo</button>
++              <button onClick={handleRenameProfile} disabled={!editingProfile} title="Rinomina il profilo (i valori restano)" style={{ ...ghostBtnStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-pencil" aria-hidden="true" /></button>
+               <button onClick={handleDeleteProfile} disabled={!editingProfile} title="Elimina profilo" style={{ ...trashStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-trash" aria-hidden="true" /></button>
+             </div>
+             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+@@ -255,16 +267,64 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
+             )}
+           </div>
+ 
+-          {/* 4) Valori del profilo per variabile */}
++          {/* 4) MATRICE variabili × profili.
++                 Prima si vedeva un profilo per volta e il campo vuoto mostrava il
++                 default come segnaposto: sembrava che il valore fosse lo stesso per
++                 tutti i profili — e chi lo cambiava lo cambiava nella sezione
++                 "Variabili condivise", che è il DEFAULT comune, non il valore del
++                 profilo. Affiancando i profili la differenza si vede, e si capisce
++                 subito quali celle sono personalizzate e quali ereditano. */}
+           {profileNames.length > 0 && profileVars.length > 0 && (
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+-              <div style={labelStyle}>Valori per «{editingProfile}» — vuoto = usa il default</div>
+-              {profileVars.map((v) => (
+-                <div key={v.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+-                  <div style={{ width: 170, fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
+-                  <input value={values[v.name] ?? ''} placeholder={v.value ? `default: ${v.value}` : '(default vuoto)'} onChange={(e) => setProfileValue(editingProfile, v.name, e.target.value)} style={inputStyle} />
++              <div style={labelStyle}>
++                Valori per profilo — cella vuota = eredita il default; il default si cambia sopra, in «Variabili condivise»
++              </div>
++              <div style={{ overflowX: 'auto' }}>
++                <div style={{ display: 'grid', gridTemplateColumns: `170px repeat(${profileNames.length}, minmax(150px, 1fr))`, gap: 6, minWidth: 'min-content' }}>
++                  {/* intestazione */}
++                  <div />
++                  {profileNames.map((n) => (
++                    <div key={n} style={{
++                      fontSize: 11, fontWeight: 600, padding: '2px 4px',
++                      color: n === environments.active ? '#3ddc84' : '#8aa4d0',
++                      display: 'flex', alignItems: 'center', gap: 4,
++                    }}>
++                      {n === environments.active && <i className="ti ti-player-play" title="profilo attivo" aria-hidden="true" />}
++                      {n}
++                    </div>
++                  ))}
++
++                  {/* una riga per variabile */}
++                  {profileVars.map((v) => (
++                    <Fragment key={v.id}>
++                      <div title={v.value ? `default: ${v.value}` : 'nessun default'} style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }}>
++                        {v.name}
++                      </div>
++                      {profileNames.map((n) => {
++                        const proprio = environments.profiles[n]?.[v.name]
++                        const personalizzato = proprio !== undefined && proprio !== ''
++                        return (
++                          <input
++                            key={n}
++                            value={proprio ?? ''}
++                            placeholder={v.value ? `↳ ${v.value}` : '(vuoto)'}
++                            onChange={(e) => setProfileValue(n, v.name, e.target.value)}
++                            title={personalizzato ? `valore proprio del profilo "${n}"` : `eredita il default${v.value ? `: ${v.value}` : ''}`}
++                            style={{
++                              ...inputStyle,
++                              color: personalizzato ? '#dce6ff' : '#8aa4d0',
++                              borderColor: personalizzato ? '#3a5a8a' : undefined,
++                            }}
++                          />
++                        )
++                      })}
++                    </Fragment>
++                  ))}
+                 </div>
+-              ))}
++              </div>
++              <div style={{ fontSize: 10, color: '#5a6a8a' }}>
++                Le modifiche entrano subito nel progetto: diventano permanenti quando <b>salvi il progetto</b>.
++              </div>
+             </div>
+           )}
+ 
+diff --git a/src/store/flowStore.ts b/src/store/flowStore.ts
+index 1acc981..91ad573 100644
+--- a/src/store/flowStore.ts
++++ b/src/store/flowStore.ts
+@@ -252,6 +252,7 @@ interface FlowState {
+   setActiveProfile:   (name: string) => void
+   addProfile:         (name: string) => void
+   deleteProfile:      (name: string) => void
++  renameProfile:      (oldName: string, newName: string) => void
+   setProfileValue:    (profile: string, key: string, value: string) => void
+   importProfile:      (name: string, values: Record<string, string>, filePath: string) => void
+   logs:               LogEntry[]
+@@ -421,6 +422,30 @@ export const useFlowStore = create<FlowState>((set, get) => ({
+   environments:       { active: '', profiles: {}, profileRefs: {} },
+   setActiveProfile: (name) => set((s) => ({ environments: { ...s.environments, active: name } })),
+   addProfile: (name) => set((s) => (s.environments.profiles[name] ? {} : { environments: { ...s.environments, profiles: { ...s.environments.profiles, [name]: {} } } })),
++  // Rinomina un profilo CONSERVANDO i suoi valori, il profilo attivo e
++  // l'eventuale collegamento al file di origine. Prima si poteva solo
++  // cancellare e ricreare — perdendo tutti i valori già impostati.
++  renameProfile: (oldName, newName) => set((s) => {
++    const nuovo = newName.trim()
++    if (!nuovo || nuovo === oldName) return {}
++    if (!s.environments.profiles[oldName]) return {}
++    if (s.environments.profiles[nuovo]) return {}          // nome già in uso: non sovrascrivere
++    const profiles: Record<string, Record<string, string>> = {}
++    // ricostruito nell'ORDINE originale, così il profilo non salta in fondo alla lista
++    for (const [k, v] of Object.entries(s.environments.profiles)) {
++      profiles[k === oldName ? nuovo : k] = v
++    }
++    const refs = { ...(s.environments.profileRefs ?? {}) }
++    if (refs[oldName] !== undefined) { refs[nuovo] = refs[oldName]; delete refs[oldName] }
++    return {
++      environments: {
++        ...s.environments,
++        active: s.environments.active === oldName ? nuovo : s.environments.active,
++        profiles,
++        profileRefs: refs,
++      },
++    }
++  }),
+   deleteProfile: (name) => set((s) => {
+     const profiles = { ...s.environments.profiles }; delete profiles[name]
+     const profileRefs = { ...s.environments.profileRefs }; delete profileRefs[name]

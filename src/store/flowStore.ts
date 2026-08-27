@@ -252,6 +252,7 @@ interface FlowState {
   setActiveProfile:   (name: string) => void
   addProfile:         (name: string) => void
   deleteProfile:      (name: string) => void
+  renameProfile:      (oldName: string, newName: string) => void
   setProfileValue:    (profile: string, key: string, value: string) => void
   importProfile:      (name: string, values: Record<string, string>, filePath: string) => void
   logs:               LogEntry[]
@@ -421,6 +422,30 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   environments:       { active: '', profiles: {}, profileRefs: {} },
   setActiveProfile: (name) => set((s) => ({ environments: { ...s.environments, active: name } })),
   addProfile: (name) => set((s) => (s.environments.profiles[name] ? {} : { environments: { ...s.environments, profiles: { ...s.environments.profiles, [name]: {} } } })),
+  // Rinomina un profilo CONSERVANDO i suoi valori, il profilo attivo e
+  // l'eventuale collegamento al file di origine. Prima si poteva solo
+  // cancellare e ricreare — perdendo tutti i valori già impostati.
+  renameProfile: (oldName, newName) => set((s) => {
+    const nuovo = newName.trim()
+    if (!nuovo || nuovo === oldName) return {}
+    if (!s.environments.profiles[oldName]) return {}
+    if (s.environments.profiles[nuovo]) return {}          // nome già in uso: non sovrascrivere
+    const profiles: Record<string, Record<string, string>> = {}
+    // ricostruito nell'ORDINE originale, così il profilo non salta in fondo alla lista
+    for (const [k, v] of Object.entries(s.environments.profiles)) {
+      profiles[k === oldName ? nuovo : k] = v
+    }
+    const refs = { ...(s.environments.profileRefs ?? {}) }
+    if (refs[oldName] !== undefined) { refs[nuovo] = refs[oldName]; delete refs[oldName] }
+    return {
+      environments: {
+        ...s.environments,
+        active: s.environments.active === oldName ? nuovo : s.environments.active,
+        profiles,
+        profileRefs: refs,
+      },
+    }
+  }),
   deleteProfile: (name) => set((s) => {
     const profiles = { ...s.environments.profiles }; delete profiles[name]
     const profileRefs = { ...s.environments.profileRefs }; delete profileRefs[name]
