@@ -1,0 +1,120 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index 7d87e3f..d14b0e9 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -185,52 +185,54 @@ interface SnippetDef {
+ // Script e Transform — un solo parser, un solo IR.
+ //
+ // Usano SOLO funzioni presenti in `expr_functions.rs`, verificate una a una.
+-const SCRIPT_SNIPPETS: SnippetDef[] = [
+-  // ── Conversioni ─────────────────────────────────────────────
+-  { id: 'tpl_str',      group: 'Template',   label: '→ testo',                 code: 'to_string($value)' },
+-  { id: 'tpl_int',      group: 'Template',   label: '→ intero',                code: 'to_int($value)' },
+-  { id: 'tpl_dec',      group: 'Template',   label: '→ decimale',              code: 'to_float($value)' },
+-  { id: 'tpl_bool',     group: 'Template',   label: '→ booleano',              code: 'to_bool($value)' },
+-  { id: 'tpl_date',     group: 'Template',   label: '→ data ISO',              code: 'date_format(parse_date($value), "yyyy-MM-dd")' },
+-  { id: 'tpl_null',     group: 'Template',   label: 'null se vuoto',           code: 'nullif(trim(to_string($value)), "")' },
+-  { id: 'tpl_default',  group: 'Template',   label: 'valore predefinito',      code: 'coalesce($value, "")' },
+-  { id: 'tpl_if',       group: 'Template',   label: 'se / altrimenti',         code: 'iif($value is null, "mancante", $value)' },
+-  // ── Stringhe ────────────────────────────────────────────────
+-  { id: 'fn_upper',     group: 'Stringa',    label: 'MAIUSCOLO',               code: 'upper($sel)' },
+-  { id: 'fn_lower',     group: 'Stringa',    label: 'minuscolo',               code: 'lower($sel)' },
+-  { id: 'fn_trim',      group: 'Stringa',    label: 'trim',                    code: 'trim($sel)' },
+-  { id: 'fn_cap',       group: 'Stringa',    label: 'Prima maiuscola',         code: 'capitalize($sel)' },
+-  { id: 'fn_title',     group: 'Stringa',    label: 'Ogni Parola Maiuscola',   code: 'title_case($sel)' },
+-  { id: 'fn_slug',      group: 'Stringa',    label: 'slug',                    code: 'to_slug($sel)' },
+-  { id: 'fn_pad',       group: 'Stringa',    label: 'riempi a sinistra',       code: 'pad_left(to_string($sel), 8, "0")' },
+-  { id: 'fn_replace',   group: 'Stringa',    label: 'sostituisci',             code: 'replace($sel, "cerca", "sostituisci")' },
+-  { id: 'fn_regex',     group: 'Stringa',    label: 'sostituisci (regex)',     code: 'replace_regex($sel, "[^0-9]", "")' },
+-  { id: 'fn_substr',    group: 'Stringa',    label: 'primi N caratteri',       code: 'left($sel, 8)' },
+-  { id: 'fn_len',       group: 'Stringa',    label: 'lunghezza',               code: 'length($sel)' },
+-  { id: 'fn_mask',      group: 'Stringa',    label: 'maschera email',          code: 'mask_email($sel)' },
+-  // ── Numeri ──────────────────────────────────────────────────
+-  { id: 'fn_toint',     group: 'Numero',     label: 'a intero',                code: 'to_int($sel)' },
+-  { id: 'fn_todec',     group: 'Numero',     label: 'a decimale',              code: 'to_float($sel)' },
+-  { id: 'fn_round',     group: 'Numero',     label: 'arrotonda a 2',           code: 'round($sel, 2)' },
+-  { id: 'fn_abs',       group: 'Numero',     label: 'valore assoluto',         code: 'abs($sel)' },
+-  { id: 'fn_clamp',     group: 'Numero',     label: 'limita fra 0 e 100',      code: 'clamp($sel, 0, 100)' },
+-  // ── Date ────────────────────────────────────────────────────
+-  { id: 'fn_quarter',   group: 'Data',       label: 'trimestre',               code: 'quarter($sel)' },
+-  { id: 'fn_fmtdate',   group: 'Data',       label: 'formatta gg/mm/aaaa',     code: 'date_format($sel, "dd/MM/yyyy")' },
+-  { id: 'fn_parsedate', group: 'Data',       label: 'da testo a data',         code: 'parse_date($sel)' },
+-  { id: 'fn_adddays',   group: 'Data',       label: 'aggiungi 30 giorni',      code: 'add_days($sel, 30)' },
+-  { id: 'fn_diffdays',  group: 'Data',       label: 'giorni da oggi',          code: 'diff_days(today(), $sel)' },
+-  // ── Condizioni ──────────────────────────────────────────────
+-  { id: 'fn_isnull',    group: 'Condizioni', label: 'è null?',                 code: '$sel is null' },
+-  { id: 'fn_coalesce',  group: 'Condizioni', label: 'primo non nullo',         code: 'coalesce($sel, "predefinito")' },
+-  { id: 'fn_ternary',   group: 'Condizioni', label: 'condizione ? a : b',      code: 'iif($sel is null, "vuoto", "pieno")' },
+-  // ── Lane ────────────────────────────────────────────────────
+-  // Il gruppo aveva quattro voci: una lettura inesistente e TRE scritture.
+-  // Resta l'unica forma vera, ed è in sola lettura — scrivere una variabile
+-  // di lane non è previsto oggi in nessuna superficie.
+-  { id: 'lane_read',    group: 'Lane',       label: 'leggi variabile di lane', code: 'var("$sel")' },
++// Gli snippet delle FUNZIONI vengono dal CATALOGO CONDIVISO: erano una terza
++// lista scritta a mano (35 voci) che duplicava le stesse trasformazioni del
++// nodo Transform e del menu del TMap. Il contenuto era già FPEL corretto, ma
++// una lista separata divergerebbe alla prima aggiunta — è esattamente ciò che
++// era successo ai `jsTemplate`. Ora la fonte è una sola: `TRANSFORM_CATALOG`.
++//
++// Restano scritti qui solo i costrutti del LINGUAGGIO, che non sono
++// trasformazioni di campo e nel catalogo non hanno posto.
++const SNIPPET_LINGUAGGIO: SnippetDef[] = [
++  { id: 'fn_isnull',   group: 'Condizioni', label: 'è null?',                 code: '$sel is null' },
++  { id: 'fn_coalesce', group: 'Condizioni', label: 'primo non nullo',         code: 'coalesce($sel, "predefinito")' },
++  { id: 'fn_ternary',  group: 'Condizioni', label: 'se… allora… altrimenti',  code: 'iif($sel is null, "vuoto", "pieno")' },
++  { id: 'fn_case',     group: 'Condizioni', label: 'case when…',              code: 'case when $sel > 0 then "positivo" else "altro" end' },
++  { id: 'lane_read',   group: 'Lane',       label: 'leggi variabile di lane', code: 'var("nome_variabile")' },
+ ]
+ 
++/** Categoria del catalogo → gruppo mostrato nella tendina. */
++const GRUPPO_PER_CATEGORIA: Record<string, string> = {
++  string: 'Stringa', integer: 'Numero', decimal: 'Numero',
++  number: 'Numero',  boolean: 'Condizioni', date: 'Data', datetime: 'Data',
++}
++
++/**
++ * Snippet proposti per il tipo del campo: prima le trasformazioni del catalogo
++ * (già in FPEL, con `$value` risolto all'inserimento), poi i costrutti del
++ * linguaggio. Una funzione aggiunta al catalogo compare qui da sola.
++ */
++function snippetPerTipo(tipo: string): SnippetDef[] {
++  const daCatalogo = getPresetsForType(tipo as FieldType).map((t) => {
++    // I parametri del template (`$param_<key>`) vanno risolti coi loro valori
++    // predefiniti — e con le virgolette dove servono, cosa che sa fare solo
++    // `resolveTemplate`. Inserirli grezzi produrrebbe espressioni non valide,
++    // com'era per `$value` prima di P217.
++    // `$value` invece si LASCIA: lo sostituisce l'inserimento col campo vero.
++    const valoriDefault = Object.fromEntries(
++      (t.params ?? []).map((p) => [p.key, p.default ?? '']),
++    )
++    return {
++      id:    t.id,
++      label: t.label,
++      group: GRUPPO_PER_CATEGORIA[t.outputType ?? tipo] ?? 'Template',
++      code:  resolveTemplate(t, '$value', valoriDefault),
++    }
++  })
++  return [...daCatalogo, ...SNIPPET_LINGUAGGIO]
++}
++
++
+ const SNIPPET_GROUPS = ['Template', 'Stringa', 'Numero', 'Data', 'Condizioni', 'Lane']
+ 
+ // ─── ScriptEditor con selettore snippet ──────────────────────────
+@@ -305,14 +307,14 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
+         <CustomSelect
+           value={snippetSel}
+           onChange={e => {
+-            const snippet = SCRIPT_SNIPPETS.find(s => s.id === e.target.value)
++            const snippet = snippetPerTipo(outputType).find(s => s.id === e.target.value)
+             if (snippet) insertAtCursor(snippet)
+             setSnippetSel('')
+           }}
+           style={{ ...iStyle, fontSize: 9, flex: 1, minWidth: 120, maxWidth: 200 }}>
+           <option value="" disabled>ƒ inserisci snippet…</option>
+           {SNIPPET_GROUPS.map(grp => {
+-            const items = SCRIPT_SNIPPETS.filter(s => s.group === grp)
++            const items = snippetPerTipo(outputType).filter(s => s.group === grp)
+             return (
+               <optgroup key={grp} label={grp}>
+                 {items.map(s => (

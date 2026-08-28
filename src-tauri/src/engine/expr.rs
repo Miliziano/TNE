@@ -169,17 +169,30 @@ pub struct EvalContext<'a> {
     pub inputs:    HashMap<&'a str, &'a Row>,
     // Variabili di lane
     pub variables: &'a HashMap<String, Value>,
+    /// Chiave dell'input PRINCIPALE, quando esiste (TMap). Serve a risolvere in
+    /// modo DETERMINISTICO un campo scritto senza indicare la sorgente.
+    pub main_input: Option<&'a str>,
 }
 
 impl<'a> EvalContext<'a> {
     pub fn single(row: &'a Row, variables: &'a HashMap<String, Value>) -> Self {
         let mut inputs = HashMap::new();
         inputs.insert("row", row);
-        EvalContext { inputs, variables }
+        EvalContext { inputs, variables, main_input: None }
     }
 
     pub fn multi(inputs: HashMap<&'a str, &'a Row>, variables: &'a HashMap<String, Value>) -> Self {
-        EvalContext { inputs, variables }
+        EvalContext { inputs, variables, main_input: None }
+    }
+
+    /// Come `multi`, ma dichiara quale input è il principale: un campo scritto
+    /// senza sorgente viene cercato PRIMA lì.
+    pub fn multi_con_main(
+        inputs:     HashMap<&'a str, &'a Row>,
+        variables:  &'a HashMap<String, Value>,
+        main_input: &'a str,
+    ) -> Self {
+        EvalContext { inputs, variables, main_input: Some(main_input) }
     }
 }
 
@@ -210,10 +223,30 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
                     return v.clone();
                 }
             }
-            // Infine cerca in tutti gli altri input
-            ctx.inputs.iter()
-                .filter(|(k, _)| **k != "__transforms__" && **k != "row")
-                .find_map(|(_, row)| row.get(field))
+            // Infine gli altri input, in ORDINE DEFINITO.
+            // ⚠️ Prima si iterava direttamente `ctx.inputs`, che è una HashMap:
+            // in Rust l'ordine di iterazione è randomizzato, quindi con due
+            // sorgenti che hanno un campo omonimo il vincitore poteva cambiare
+            // DA UN'ESECUZIONE ALL'ALTRA — stesso piano, stessi dati, risultato
+            // diverso. Ora: prima l'input PRINCIPALE (la scelta che l'utente si
+            // aspetta), poi gli altri in ordine alfabetico di chiave.
+            // NB: nel TMap lo studio pretende comunque il riferimento per esteso
+            // (`Anagrafica.nome`); questo ripiego vale per gli altri nodi e per
+            // i piani costruiti a mano.
+            if let Some(main) = ctx.main_input {
+                if let Some(row) = ctx.inputs.get(main) {
+                    if let Some(v) = row.get(field) {
+                        return v.clone();
+                    }
+                }
+            }
+            let mut chiavi: Vec<&str> = ctx.inputs.keys()
+                .copied()
+                .filter(|k| *k != "__transforms__" && *k != "row" && Some(*k) != ctx.main_input)
+                .collect();
+            chiavi.sort_unstable();
+            chiavi.into_iter()
+                .find_map(|k| ctx.inputs.get(k).and_then(|row| row.get(field)))
                 .cloned()
                 .unwrap_or(Value::Null)
         }

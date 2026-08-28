@@ -222,7 +222,7 @@ pub async fn run(
                 let mut inputs: HashMap<String, Row> = HashMap::new();
                 inputs.insert(plan.main_input_id.clone(), main_row.clone());
                 let transform_row = compute_transforms(
-                    &plan.transforms, &inputs, &mut lane_vars);
+                    &plan.transforms, &inputs, &mut lane_vars, plan.main_input_id.as_str());
                 inputs.insert("__transforms__".to_string(), transform_row.clone());
                 if let Some(tx) = output_txs.get(i) {
                     let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars);
@@ -243,7 +243,7 @@ pub async fn run(
             }
 
             let transform_row = compute_transforms(
-                &plan.transforms, &inputs, &mut lane_vars);
+                &plan.transforms, &inputs, &mut lane_vars, plan.main_input_id.as_str());
             inputs.insert("__transforms__".to_string(), transform_row.clone());
 
             // Routing MULTI-MATCH: ogni output valuta il proprio
@@ -257,7 +257,10 @@ pub async fn run(
                     let input_refs: HashMap<&str, &Row> = inputs.iter()
                         .map(|(k, v)| (k.as_str(), v))
                         .collect();
-                    let eval_ctx = EvalContext::multi(input_refs, &lane_vars);
+                    // Il main dichiarato ⇒ un campo scritto senza sorgente si
+                    // risolve prima lì, non a caso (v. expr.rs).
+                    let eval_ctx = EvalContext::multi_con_main(
+                        input_refs, &lane_vars, plan.main_input_id.as_str());
                     is_truthy(&eval(filter, &eval_ctx))
                 } else {
                     true
@@ -296,9 +299,10 @@ pub async fn run(
 /// Calcola le transform nell'ordine dichiarato, aggiornando i
 /// contatori di lane. Restituisce la riga __transforms__.
 fn compute_transforms(
-    transforms: &[TMapTransformPlan],
-    inputs:     &HashMap<String, Row>,
-    lane_vars:  &mut HashMap<String, Value>,
+    transforms:    &[TMapTransformPlan],
+    inputs:        &HashMap<String, Row>,
+    lane_vars:     &mut HashMap<String, Value>,
+    main_input_id: &str,
 ) -> Row {
     let mut transform_row = Row::new();
 
@@ -328,7 +332,7 @@ fn compute_transforms(
             .map(|(k, v)| (k.as_str(), v))
             .chain(std::iter::once(("__transforms__", &transform_row as &Row)))
             .collect();
-        let eval_ctx = EvalContext::multi(input_refs, lane_vars);
+        let eval_ctx = EvalContext::multi_con_main(input_refs, lane_vars, main_input_id);
         let result   = eval(&tr.expr, &eval_ctx);
         transform_row.set(tr.output_name.clone(), result);
     }
