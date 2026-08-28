@@ -4,6 +4,7 @@ import { TabGeneral }  from '../../../components/tabs/TabGeneral'
 import { TabAdvanced } from '../../../components/tabs/TabAdvanced'
 import '@xyflow/react/dist/style.css'
 import { updateNode, useFlowStore } from '../../../store/flowStore'
+import { riferimentoInput } from '../../../ir/exprParser'
 import type { TMapConfig, TMapInputField, TMapFieldType, TMapConnection, TMapTransformNode } from '../../../types'
 import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
 import { FieldTransformEditor } from '../../../components/FieldTransformEditor'
@@ -1642,7 +1643,14 @@ function CenterZone({ nodeId, width, height, onDropTransform, onAddInputToTransf
       )}
       <div style={{ padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4, position: 'relative', zIndex: 15 }}>
         {transforms.map((tr) => {
-          const inputVars  = tr.inputs.map((inp) => { const lbl = tmap?.inputs.find((ti) => ti.id === inp.inputId)?.label ?? inp.inputId; return `$${lbl}.${inp.fieldName}` })
+          // Riferimento nella FORMA UNICA di FPEL: `Etichetta.campo`, con le
+          // virgolette solo se l'etichetta ha spazi ("Anagrafica clienti".nome).
+          // Prima si componeva `$Etichetta.campo`: il `$` non esiste in FPEL e
+          // con etichette che hanno spazi il risultato era doppiamente invalido.
+          const inputVars  = tr.inputs.map((inp) => {
+            const lbl = tmap?.inputs.find((ti) => ti.id === inp.inputId)?.label ?? inp.inputId
+            return `${riferimentoInput(lbl)}.${inp.fieldName}`
+          })
           const inputType  = (tmap?.inputs.find((i) => i.id === tr.inputs[0]?.inputId)?.fields.find((f) => f.name === tr.inputs[0]?.fieldName)?.type ?? 'string') as TransformCategory
           const inputTypes = tr.inputs.map((inp) => {
             const field = tmap?.inputs

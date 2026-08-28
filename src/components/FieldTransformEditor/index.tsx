@@ -386,7 +386,7 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
             border: 'none', outline: 'none', color: '#c8d4f0',
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
             lineHeight: '15px', padding: '4px 6px', tabSize: 2 }}
-          placeholder={`// js — usa $value per il valore, $label.campo per i campi\nreturn $value`}
+          placeholder={'espressione FPEL — es: upper(trim(Anagrafica.nome))\ncampo di un ingresso: Anagrafica.nome · con spazi: "Anagrafica clienti".nome · trasformazione: imponibile'}
           spellCheck={false}
         />
       </div>

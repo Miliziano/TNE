@@ -18,7 +18,7 @@
 
 import type { TMapConfig, TMapInput, TMapOutput, TMapOutputField } from '../types'
 import type { JoinPair, JoinFieldExpr } from '../nodes/types/tmap/TMapModal'
-import { parseExpression, ExprParseError } from './exprParser'
+import { parseExpression, ExprParseError, riferimentoInput } from './exprParser'
 import { inferExprType as inferTipoCondiviso, type InferCtx } from './exprTypes'
 import type { FieldType } from '../types/fieldTypes'
 
@@ -325,11 +325,12 @@ function buildTransforms(
   labelToInputId: Map<string, string>,
   inputFields:    Map<string, Map<string, string>>,
 ): TMapTransformPlan[] {
+  const nomiTransform = new Set((tmap.transforms ?? []).map(t => t.outputName).filter(Boolean))
   return (tmap.transforms ?? []).map(tr => ({
     id:          tr.id,
     output_name: tr.outputName,
     output_type: tr.outputType,
-    expr:        parseTransformExpression(tr.expression, labelToInputId, inputFields),
+    expr:        parseTransformExpression(tr.expression, labelToInputId, inputFields, nomiTransform),
   }))
 }
 
@@ -342,12 +343,23 @@ function buildOutputs(
   transformByOutputName: Map<string, { id: string; outputType: string }>,
 ): TMapOutputPlan[] {
   return tmap.outputs.map(out => {
+    const nomiTransform = new Set([...transformByOutputName.keys()])
+    const idToLabel = inverti(labelToInputId)
+
     const filterExpr = out.filter?.trim()
-      ? parseExpressionString(out.filter, labelToInputId, inputFields)
+      ? (() => {
+          const e = parseExpressionString(out.filter!, labelToInputId, inputFields)
+          verificaRiferimentiQualificati(e, out.filter!, nomiTransform, inputFields, idToLabel)
+          return e
+        })()
       : null
 
     const fields: TMapOutputFieldPlan[] = out.fields.map(f => {
       const expr = parseOutputFieldExpression(f, tmap, labelToInputId, inputFields, transformByOutputName)
+      // Stessa regola dei transform: i campi degli ingressi vanno qualificati.
+      // (Le scorciatoie di `parseOutputFieldExpression` producono già FieldRef
+      // quando il campo ha un input esplicito: passano indenni.)
+      verificaRiferimentiQualificati(expr, f.expression ?? f.name, nomiTransform, inputFields, idToLabel)
       // Inferenza CONDIVISA (la stessa dello Script e degli altri nodi).
       // `'any'` → null, così resta valida la regola di prima: tipo dedotto se
       // c'è, altrimenti quello scelto a mano nel pannello.
@@ -441,109 +453,148 @@ function parseOutputFieldExpression(
 //           "lane.counter++"
 //           espressioni più complesse
 
+/**
+ * Espressione di una TRASFORMAZIONE del TMap → `ExprNode`.
+ *
+ * 🔴 Prima qui c'era un tokenizzatore casalingo (`tokenizeExpr`) che riconosceva
+ * solo `$etichetta.campo`, stringhe, numeri e identificatori, **saltando ogni
+ * altro carattere**. Due conseguenze silenziose:
+ *   - le funzioni non esistevano: `cast(importo as decimal)` diventava la somma
+ *     dei quattro "campi" `cast`, `importo`, `as`, `decimal` → sempre null;
+ *   - gli operatori venivano ignorati ("usiamo ADD come default"): `prezzo *
+ *     1.22` SOMMAVA.
+ * Cioè il TMap aveva un linguaggio proprio, diverso da quello che l'utente
+ * legge nel manuale e usa nel nodo Script — e l'editor gli proponeva perfino
+ * snippet FPEL che poi nessuno interpretava.
+ *
+ * Ora la strada è UNA sola: `parseExpression` (FPEL), la stessa dei campi in
+ * uscita, dei filtri, del nodo Transform e del nodo Script. Stesso testo →
+ * stesso albero → stesso risultato, ovunque lo si scriva.
+ */
 function parseTransformExpression(
-  expr:           string,
-  labelToInputId: Map<string, string>,
-  inputFields:    Map<string, Map<string, string>>,
+  expr:            string,
+  labelToInputId:  Map<string, string>,
+  inputFields:     Map<string, Map<string, string>>,
+  nomiTransform:   Set<string> = new Set(),
 ): ExprNode {
-  if (!expr?.trim()) return { kind: 'Literal', value: null }
+  const testo = (expr ?? '').trim()
+  if (!testo) return { kind: 'Literal', value: null }
 
-  // "lane.variabile++" → variabile di lane
-  const laneMatch = expr.match(/^lane\.(\w+)\+\+$/)
+  // "lane.variabile++" NON è un'espressione: è un effetto collaterale (incrementa
+  // un contatore). Resta riconosciuto PRIMA del parser e fuori dal linguaggio —
+  // FPEL descrive valori, non azioni.
+  const laneMatch = testo.match(/^lane\.(\w+)\+\+$/)
   if (laneMatch) {
     return { kind: 'DirectFieldRef', field: `lane.${laneMatch[1]}` }
   }
 
-  // Tokenizza l'espressione in parti: $label.campo, "stringa", operatori
-  // Esempio: '$DBActor.first_name +"-"+ $DBActor.last_name'
-  // → [FieldRef(DBActor,first_name), Literal("-"), FieldRef(DBActor,last_name)]
-  const tokens = tokenizeExpr(expr, labelToInputId)
-  if (tokens.length === 0) return { kind: 'Literal', value: null }
-  if (tokens.length === 1) return tokens[0]
-
-  // Costruisce un albero di BinaryOp da sinistra a destra
-  // per tutti i token separati da operatori
-  return buildBinaryTree(tokens)
+  segnalaSintassiNonFpel(testo)
+  const albero = parseExpression(testo, { labelToInputId })
+  verificaRiferimentiQualificati(albero, testo, nomiTransform, inputFields,
+                                 inverti(labelToInputId))
+  return albero
 }
 
-function tokenizeExpr(
-  expr:           string,
-  labelToInputId: Map<string, string>,
-): ExprNode[] {
-  const nodes: ExprNode[] = []
-  let remaining = expr.trim()
+/** id-ingresso → etichetta (per comporre il suggerimento nei messaggi). */
+function inverti(labelToInputId: Map<string, string>): Map<string, string> {
+  const m = new Map<string, string>()
+  for (const [label, id] of labelToInputId) m.set(id, label)
+  return m
+}
 
-  while (remaining.length > 0) {
-    remaining = remaining.trimStart()
-    if (!remaining) break
-
-    // Stringa quoted "..." o '...'
-    if (remaining[0] === '"' || remaining[0] === "'") {
-      const q   = remaining[0]
-      let i     = 1
-      let value = ''
-      while (i < remaining.length && remaining[i] !== q) {
-        if (remaining[i] === '\\') { i++; value += remaining[i] ?? '' }
-        else value += remaining[i]
-        i++
+/**
+ * Vecchie forme del dialetto TMap: invece di lasciarle fallire con un messaggio
+ * oscuro del parser ("input sconosciuto: $Anagrafica"), si dice subito qual è la
+ * forma giusta. Il modo di leggere un campo è UNO, ovunque:
+ *   campo · Etichetta.campo · "Con spazi".campo · var("nome")
+ */
+/**
+ * REGOLA DEL TMAP: un campo che viene da un INGRESSO va sempre scritto per
+ * esteso — `Anagrafica.nome`, oppure `"Anagrafica clienti".nome` se l'etichetta
+ * ha spazi. Restano nudi solo i nomi che NON appartengono a un ingresso: le
+ * TRASFORMAZIONI (calcolate qui) e i contatori `lane.x`.
+ *
+ * Perché è un errore e non un avviso: un nome nudo oggi funziona perché quel
+ * campo esiste in una sola sorgente; il giorno in cui se ne aggiunge un'altra
+ * con lo stesso nome, la STESSA espressione cambia significato senza che nessuno
+ * l'abbia toccata. E la scelta non è nemmeno prevedibile: il motore cerca in
+ * tutti gli ingressi iterando una HashMap, il cui ordine in Rust è randomizzato.
+ *
+ * Nudo = calcolato qui. Qualificato = viene da fuori. Si legge il flusso senza
+ * doverlo indovinare.
+ */
+function verificaRiferimentiQualificati(
+  expr:         ExprNode,
+  testo:        string,
+  nomiTransform: Set<string>,
+  inputFields:  Map<string, Map<string, string>>,
+  idToLabel:    Map<string, string>,
+): void {
+  const visita = (n: ExprNode): void => {
+    switch (n.kind) {
+      case 'DirectFieldRef': {
+        const nome = n.field
+        if (nomiTransform.has(nome)) return               // trasformazione: ok nudo
+        if (nome.startsWith('lane.')) return              // contatore di lane
+        // In quali ingressi esiste questo campo?
+        const dove: string[] = []
+        for (const [inputId, campi] of inputFields) {
+          if (campi.has(nome)) dove.push(idToLabel.get(inputId) ?? inputId)
+        }
+        const comeScriverlo = dove.length
+          ? dove.map((l) => `${riferimentoInput(l)}.${nome}`).join('  oppure  ')
+          : null
+        throw new ExprParseError(
+          comeScriverlo
+            ? `"${nome}" è un campo in ingresso: indica la sorgente — ${comeScriverlo}`
+            : `"${nome}" non è né una trasformazione né un campo di un ingresso`,
+          Math.max(0, testo.indexOf(nome)), testo,
+        )
       }
-      nodes.push({ kind: 'Literal', value })
-      remaining = remaining.slice(i + 1)
-      continue
+      case 'BinaryOp':   visita(n.left); visita(n.right); return
+      case 'UnaryOp':    visita(n.expr); return
+      case 'Cast':       visita(n.expr); return
+      case 'IsNull':     visita(n.expr); return
+      case 'IsNotNull':  visita(n.expr); return
+      case 'FunctionCall': n.args.forEach(visita); return
+      case 'Coalesce':     n.args.forEach(visita); return
+      case 'CaseWhen':
+        n.branches.forEach((b) => { visita(b.condition); visita(b.value) })
+        if (n.default) visita(n.default)
+        return
+      default: return                                     // Literal, FieldRef: ok
     }
-
-    // $label.campo
-    const dollarMatch = remaining.match(/^\$(\w+)\.(\w+)/)
-    if (dollarMatch) {
-      const inputId = labelToInputId.get(dollarMatch[1])
-      if (inputId) {
-        nodes.push({ kind: 'FieldRef', input: inputId, field: dollarMatch[2] })
-      } else {
-        nodes.push({ kind: 'DirectFieldRef', field: dollarMatch[2] })
-      }
-      remaining = remaining.slice(dollarMatch[0].length)
-      continue
-    }
-
-    // Operatore + - * /
-    const opMatch = remaining.match(/^(\s*[+\-*\/]\s*)/)
-    if (opMatch) {
-      remaining = remaining.slice(opMatch[0].length)
-      continue  // gli operatori vengono ignorati — usiamo ADD come default
-    }
-
-    // Numero
-    const numMatch = remaining.match(/^(\d+\.?\d*)/)
-    if (numMatch) {
-      nodes.push({ kind: 'Literal', value: parseFloat(numMatch[1]) })
-      remaining = remaining.slice(numMatch[0].length)
-      continue
-    }
-
-    // Identifier semplice (campo diretto)
-    const identMatch = remaining.match(/^(\w+)/)
-    if (identMatch) {
-      nodes.push({ kind: 'DirectFieldRef', field: identMatch[1] })
-      remaining = remaining.slice(identMatch[0].length)
-      continue
-    }
-
-    // Carattere non riconosciuto — salta
-    remaining = remaining.slice(1)
   }
-
-  return nodes
+  visita(expr)
 }
 
-function buildBinaryTree(nodes: ExprNode[]): ExprNode {
-  if (nodes.length === 1) return nodes[0]
-  // Concatenazione/somma da sinistra a destra con ADD
-  let result = nodes[0]
-  for (let i = 1; i < nodes.length; i++) {
-    result = { kind: 'BinaryOp', op: 'ADD', left: result, right: nodes[i] }
+function segnalaSintassiNonFpel(expr: string): void {
+  // I controlli valgono solo FUORI dalle stringhe: "$5,00" è testo, non un campo.
+  const fuoriDaStringhe = expr.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => ' '.repeat(m.length))
+
+  const dollaroCampo = fuoriDaStringhe.match(/\$(\w+)\.(\w+)/)
+  if (dollaroCampo) {
+    throw new ExprParseError(
+      `"$${dollaroCampo[1]}.${dollaroCampo[2]}" non è valido: scrivi "${dollaroCampo[1]}.${dollaroCampo[2]}" (senza il $)`,
+      fuoriDaStringhe.indexOf(dollaroCampo[0]), expr,
+    )
   }
-  return result
+  const segnaposto = fuoriDaStringhe.match(/\$value\b/)
+  if (segnaposto) {
+    throw new ExprParseError(
+      '"$value" è un segnaposto degli snippet: sostituiscilo col nome del campo (es. "importo" oppure "Anagrafica.importo")',
+      fuoriDaStringhe.indexOf('$value'), expr,
+    )
+  }
+  const riga = fuoriDaStringhe.match(/\browt?\.(\w+)/) ?? fuoriDaStringhe.match(/\brow\.(\w+)/)
+  if (riga) {
+    throw new ExprParseError(
+      `"row.${riga[1]}" non è valido: il campo della riga si scrive "${riga[1]}"`,
+      fuoriDaStringhe.indexOf(riga[0]), expr,
+    )
+  }
 }
+
 
 // ─── Parser generico per espressioni JavaScript-like ─────────────
 // Tokenizer minimale che gestisce i pattern comuni del TMap.

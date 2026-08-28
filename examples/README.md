@@ -21,6 +21,7 @@ atteso, un esempio è una demo — non un test.
 | **05-due-ingressi** | Due sorgenti unite su una chiave; righe senza corrispondenza | L0 | riuscito |
 | **06-aggregazione** | Raggruppa e somma: il nodo che lavora sul dataset | L0 | riuscito |
 | **07-ambienti-e-segreti** | Il profilo cambia il risultato; il segreto **non** entra nell'artifact | L0 | riuscito |
+| **08-tmap** | Il TMap al completo: due ingressi, campi calcolati, due uscite | L0 | riuscito |
 
 **Livelli.** **L0** non dipende da nulla fuori dalla macchina — è la prova di
 regressione, ed è ciò che un giorno girerà in CI. **L1** richiede servizi che

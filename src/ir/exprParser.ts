@@ -189,6 +189,18 @@ export interface ParseOptions {
   labelToInputId?: Map<string, string>
 }
 
+/**
+ * Come si SCRIVE il riferimento a un input in FPEL — regola unica, condivisa da
+ * chi genera testo (l'interfaccia) e da chi lo legge (questo parser).
+ * Etichetta identificatore → nuda (`Anagrafica`); con spazi o punteggiatura →
+ * fra virgolette (`"Anagrafica clienti"`).
+ */
+export function riferimentoInput(label: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(label)
+    ? label
+    : `"${label.replace(/"/g, '\\"')}"`
+}
+
 export function parseExpression(src: string, opts: ParseOptions = {}): ExprNode {
   const p = new Parser(src, opts)
   const node = p.parseExpr(0)
