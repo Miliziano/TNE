@@ -12,7 +12,9 @@
 import { useRef, useCallback, useState } from 'react'
 import type { TMapTransformInput, TMapFieldType } from '../../types'
 import type { TransformCategory } from '../../transforms/catalog'
-import { TRANSFORM_CATALOG } from '../../transforms/catalog'
+import type { TransformTemplate } from '../../transforms/catalog'
+import { getPresetsForType, findPreset } from '../../transforms/presets'
+import { resolveTemplate } from '../../transforms/templateCompiler'
 import { TYPE_META, type FieldType } from '../../transforms/presets'
 import { CustomSelect } from '../CustomSelect'
 
@@ -62,7 +64,8 @@ interface FnDef {
   label:      string
   outputType: string
   sameType?:  boolean
-  jsTemplate: string
+  /** Espressione FPEL dal catalogo condiviso: `$value`, `$param_<key>`. */
+  expression: string
   params?:    ParamDef[]
 }
 
@@ -75,95 +78,47 @@ interface ParamDef {
   width?:   number
 }
 
-const FN_CATALOG: FnDef[] = [
-  { id: 'none', label: 'nessuna', outputType: '__same__', sameType: true, jsTemplate: '$v' },
-  // → string
-  { id: 'to_string',    label: '→ stringa',            outputType: 'string',  jsTemplate: 'String($v??"")' },
-  { id: 'upper',        label: '→ MAIUSCOLO',           outputType: 'string',  sameType: true, jsTemplate: 'String($v??"").toUpperCase()' },
-  { id: 'lower',        label: '→ minuscolo',           outputType: 'string',  sameType: true, jsTemplate: 'String($v??"").toLowerCase()' },
-  { id: 'capitalize',   label: '→ Prima maiuscola',     outputType: 'string',  sameType: true, jsTemplate: '(()=>{const _s=String($v??"").toLowerCase();return _s.charAt(0).toUpperCase()+_s.slice(1)})()' },
-  { id: 'trim',         label: 'trim spazi',            outputType: 'string',  sameType: true, jsTemplate: 'String($v??"").trim()' },
-  { id: 'slug',         label: '→ slug',                outputType: 'string',  sameType: true, jsTemplate: 'String($v??"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-")' },
-  { id: 'format_date_str', label: '→ data formattata', outputType: 'string',
-    jsTemplate: '(()=>{const _d=new Date($v);if(isNaN(_d.getTime()))return null;const _p=n=>String(n).padStart(2,"0");return "$p_fmt".replace("DD",_p(_d.getDate())).replace("MM",_p(_d.getMonth()+1)).replace("YYYY",String(_d.getFullYear()))})())',
-    params: [{ key: 'fmt', label: 'Formato', type: 'select', default: 'DD/MM/YYYY', options: ['DD/MM/YYYY','YYYY-MM-DD','MM/DD/YYYY','DD-MM-YYYY'] }],
-  },
-  { id: 'format_number_str', label: '→ numero formattato', outputType: 'string',
-    jsTemplate: '(()=>{const _n=Number($v??0).toFixed($p_dec);const[_i,_d]=_n.split(".");return _i.replace(/\\B(?=(\\d{3})+(?!\\d))/g,"$p_ts")+(_d?"$p_ds"+_d:"")})())',
-    params: [
-      { key: 'dec', label: 'Decimali', type: 'number', default: '2', width: 44 },
-      { key: 'ds',  label: 'Sep. dec', type: 'text',   default: ',', width: 36 },
-      { key: 'ts',  label: 'Sep. mig', type: 'text',   default: '.', width: 36 },
-    ],
-  },
-  { id: 'pad_left', label: 'pad sinistra', outputType: 'string', sameType: true,
-    jsTemplate: 'String($v??"").padStart($p_n,"$p_ch")',
-    params: [
-      { key: 'n',  label: 'Lunghezza', type: 'number', default: '8',  width: 44 },
-      { key: 'ch', label: 'Carattere', type: 'text',   default: '0',  width: 36 },
-    ],
-  },
-  { id: 'json_str',   label: '→ JSON stringa', outputType: 'string',  jsTemplate: 'JSON.stringify($v)' },
-  // → integer
-  { id: 'to_int',    label: '→ intero',         outputType: 'integer', jsTemplate: 'parseInt(String($v??"0").replace(",",""),10)' },
-  { id: 'get_year',  label: '→ anno',           outputType: 'integer', jsTemplate: '(()=>{const _d=new Date($v);return isNaN(_d.getTime())?null:_d.getFullYear()})()' },
-  { id: 'get_month', label: '→ mese',           outputType: 'integer', jsTemplate: '(()=>{const _d=new Date($v);return isNaN(_d.getTime())?null:_d.getMonth()+1})()' },
-  { id: 'get_day',   label: '→ giorno',         outputType: 'integer', jsTemplate: '(()=>{const _d=new Date($v);return isNaN(_d.getTime())?null:_d.getDate()})()' },
-  { id: 'str_len',   label: '→ lunghezza str',  outputType: 'integer', jsTemplate: 'String($v??"").length' },
-  { id: 'abs',       label: '→ valore assoluto',outputType: 'integer', jsTemplate: 'Math.abs(Number($v??0))' },
-  { id: 'round',     label: '→ arrotondato',    outputType: 'integer', jsTemplate: 'Math.round(Number($v??0))' },
-  // → decimal
-  { id: 'to_decimal', label: '→ decimale',      outputType: 'decimal', jsTemplate: 'parseFloat(String($v??"0").replace(",","."))' },
-  { id: 'round_dec',  label: '→ arrotonda dec', outputType: 'decimal',
-    jsTemplate: 'Math.round(Number($v??0)*Math.pow(10,$p_dec))/Math.pow(10,$p_dec)',
-    params: [{ key: 'dec', label: 'Decimali', type: 'number', default: '2', width: 44 }],
-  },
-  // → boolean
-  { id: 'to_bool',  label: '→ booleano',     outputType: 'boolean', jsTemplate: '["true","1","yes","si","sì","on"].includes(String($v??"").toLowerCase())' },
-  { id: 'is_null',  label: '→ è null?',      outputType: 'boolean', jsTemplate: '($v==null)' },
-  { id: 'not_null', label: '→ non è null?',  outputType: 'boolean', jsTemplate: '($v!=null)' },
-  { id: 'is_empty', label: '→ è vuoto?',     outputType: 'boolean', jsTemplate: '(!$v||String($v).trim()==="")' },
-  { id: 'is_even',  label: '→ è pari?',      outputType: 'boolean', jsTemplate: '(Number($v??0)%2===0)' },
-  { id: 'is_odd',   label: '→ è dispari?',   outputType: 'boolean', jsTemplate: '(Number($v??0)%2!==0)' },
-  // → date
-  { id: 'to_date',    label: '→ data (ISO)',   outputType: 'date',   jsTemplate: '(()=>{const _d=new Date($v);return isNaN(_d.getTime())?null:_d.toISOString().split("T")[0]})()' },
-  { id: 'parse_date', label: '→ parse data',  outputType: 'date',
-    jsTemplate: '(()=>{const _s=String($v??"");const _p=_s.match(/^(\\d{2})[\\/-](\\d{2})[\\/-](\\d{4})$/);if(_p&&"$p_fmt"==="DD/MM/YYYY")return _p[3]+"-"+_p[2]+"-"+_p[1];const _d=new Date(_s);return isNaN(_d.getTime())?null:_d.toISOString().split("T")[0]})())',
-    params: [{ key: 'fmt', label: 'Formato input', type: 'select', default: 'DD/MM/YYYY', options: ['DD/MM/YYYY','MM/DD/YYYY','YYYY-MM-DD','DD-MM-YYYY'] }],
-  },
-  // → object
-  { id: 'parse_json', label: '→ parse JSON',   outputType: 'object',  jsTemplate: '(()=>{try{return JSON.parse(String($v))}catch{return null}})()' },
-]
+// ─── Le funzioni offerte VENGONO DAL CATALOGO CONDIVISO ───────────
+//
+// Prima qui c'erano due liste locali (`FN_CATALOG`, `FINAL_FNS`) con un campo
+// `jsTemplate` che conteneva **JavaScript** (`String($v??"").toUpperCase()`), e
+// quel testo finiva DENTRO l'espressione salvata nel piano. Ma il motore è Rust
+// e valuta alberi FPEL: quel codice non veniva mai eseguito — attraversava il
+// parser producendo risultati senza senso, e senza errore.
+//
+// Ora le voci sono generate da `getPresetsForType` (che a sua volta legge
+// `TRANSFORM_CATALOG`, la fonte unica usata anche dal nodo Transform): una
+// funzione aggiunta là compare subito in ENTRAMBI, con la stessa etichetta e lo
+// stesso comportamento. Un catalogo solo, un linguaggio solo.
+const NESSUNA: FnDef = {
+  id: 'none', label: 'nessuna', outputType: '__same__', sameType: true, expression: '$value',
+}
 
-const FN_GROUPS: Array<{ label: string; ids: string[] }> = [
-  { label: '— nessuna —',  ids: ['none'] },
-  { label: '→ stringa',    ids: ['to_string','upper','lower','capitalize','trim','slug','format_date_str','format_number_str','pad_left','json_str'] },
-  { label: '→ intero',     ids: ['to_int','get_year','get_month','get_day','str_len','abs','round'] },
-  { label: '→ decimale',   ids: ['to_decimal','round_dec'] },
-  { label: '→ booleano',   ids: ['to_bool','is_null','not_null','is_empty','is_even','is_odd'] },
-  { label: '→ data',       ids: ['to_date','parse_date'] },
-  { label: '→ oggetto',    ids: ['parse_json'] },
-]
+/** Voce del catalogo condiviso → voce nella forma usata da questa interfaccia. */
+function daTemplate(t: TransformTemplate): FnDef {
+  return {
+    id:         t.id,
+    label:      t.label,
+    outputType: t.outputType ?? '__same__',
+    sameType:   !t.outputType,
+    expression: t.expression,
+    params:     t.params as ParamDef[] | undefined,
+  }
+}
 
-// ─── Funzioni finali ──────────────────────────────────────────────
+/** Funzioni proposte per un tipo di campo (preset universali + catalogo). */
+function funzioniPerTipo(tipo: string): FnDef[] {
+  return [NESSUNA, ...getPresetsForType(tipo as FieldType).map(daTemplate)]
+}
 
-const FINAL_FNS: FnDef[] = [
-  { id: 'none',       label: '— nessuna —',     outputType: '__same__', sameType: true, jsTemplate: '$v' },
-  { id: 'trim',       label: 'trim',             outputType: 'string',   sameType: true, jsTemplate: 'String($v??"").trim()' },
-  { id: 'upper',      label: 'MAIUSCOLO',        outputType: 'string',   sameType: true, jsTemplate: 'String($v??"").toUpperCase()' },
-  { id: 'lower',      label: 'minuscolo',        outputType: 'string',   sameType: true, jsTemplate: 'String($v??"").toLowerCase()' },
-  { id: 'capitalize', label: 'Prima maiuscola',  outputType: 'string',   sameType: true, jsTemplate: '(()=>{const _s=String($v??"").toLowerCase();return _s.charAt(0).toUpperCase()+_s.slice(1)})()' },
-  { id: 'slug',       label: '→ slug',           outputType: 'string',   sameType: true, jsTemplate: 'String($v??"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-")' },
-  { id: 'null_empty', label: 'null se vuoto',    outputType: '__same__', sameType: true, jsTemplate: '($v===\'\'||$v==null?null:$v)' },
-  { id: 'to_string',  label: '→ stringa',        outputType: 'string',   jsTemplate: 'String($v??"")' },
-  { id: 'to_int',     label: '→ intero',         outputType: 'integer',  jsTemplate: 'parseInt(String($v??"0").replace(",",""),10)' },
-  { id: 'to_decimal', label: '→ decimale',       outputType: 'decimal',  jsTemplate: 'parseFloat(String($v??"0").replace(",","."))' },
-  { id: 'to_bool',    label: '→ booleano',       outputType: 'boolean',  jsTemplate: '["true","1","yes","si","sì","on"].includes(String($v??"").toLowerCase())' },
-  { id: 'to_date',    label: '→ data ISO',       outputType: 'date',     jsTemplate: '(()=>{const _d=new Date($v);return isNaN(_d.getTime())?null:_d.toISOString().split("T")[0]})()' },
-]
+/** Funzione "finale": si applica al risultato — stesse voci, tipo generico. */
+const FINAL_FNS: FnDef[] = [{ ...NESSUNA, label: '— nessuna —' },
+                            ...getPresetsForType('string' as FieldType).map(daTemplate)]
 
 function fnDef(id: string | undefined): FnDef {
-  return FN_CATALOG.find(f => f.id === id) ?? FN_CATALOG[0]
+  if (!id || id === 'none') return NESSUNA
+  const t = findPreset(id)
+  return t ? daTemplate(t) : NESSUNA
 }
 function finalFnDef(id: string | undefined): FnDef {
   return FINAL_FNS.find(f => f.id === id) ?? FINAL_FNS[0]
@@ -171,24 +126,20 @@ function finalFnDef(id: string | undefined): FnDef {
 
 function buildVarExpr(varName: string, fn: FnDef, params: Record<string, string>): string {
   if (fn.id === 'none') return varName
-  let tpl = fn.jsTemplate
-  if (fn.params) {
-    for (const p of fn.params) {
-      tpl = tpl.split(`$p_${p.key}`).join(params[p.key] ?? p.default ?? '')
-    }
-  }
-  return tpl.split('$v').join(varName)
+  // Stesso compilatore del nodo Transform: sostituisce `$param_<key>` (con le
+  // virgolette dove servono) e `$value`.
+  return resolveTemplate(
+    { id: fn.id, label: fn.label, description: '', expression: fn.expression, params: fn.params },
+    varName, params,
+  )
 }
 
 function applyFinalFnToExpr(expr: string, fn: FnDef, params: Record<string, string>): string {
   if (fn.id === 'none') return expr
-  let tpl = fn.jsTemplate
-  if (fn.params) {
-    for (const p of fn.params) {
-      tpl = tpl.split(`$p_${p.key}`).join(params[p.key] ?? p.default ?? '')
-    }
-  }
-  return tpl.split('$v').join(`(${expr})`)
+  return resolveTemplate(
+    { id: fn.id, label: fn.label, description: '', expression: fn.expression, params: fn.params },
+    `(${expr})`, params,
+  )
 }
 
 function rebuildExpression(
