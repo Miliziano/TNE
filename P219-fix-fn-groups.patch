@@ -1,0 +1,27 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index a96fddb..7d87e3f 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -391,15 +391,13 @@ function FieldRow({ varName, fieldType, fnId, fnParams, varExpr, onChange }: {
+           title={varName}>{varName}</span>
+         <CustomSelect value={fnId} onChange={e => applyFn(e.target.value, fnParams)}
+           style={{ ...iStyle, flex: 1, fontSize: 9, minWidth: 0 }}>
+-          {FN_GROUPS.map(grp => {
+-            const items = grp.ids.map(id => FN_CATALOG.find(f => f.id === id)).filter(Boolean) as FnDef[]
+-            if (!items.length) return null
+-            return (
+-              <optgroup key={grp.label} label={grp.label}>
+-                {items.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+-              </optgroup>
+-            )
+-          })}
++          {/* Le voci sono quelle del CATALOGO CONDIVISO valide per il tipo di
++              questo campo. Prima erano gruppi fissi con gli id elencati a mano
++              (`FN_GROUPS`), che andavano tenuti allineati alla lista locale: una
++              funzione aggiunta al catalogo non sarebbe comparsa qui. */}
++          {funzioniPerTipo(fieldType).map(f => (
++            <option key={f.id} value={f.id}>{f.label}</option>
++          ))}
+         </CustomSelect>
+         {hasConvert && (
+           <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
