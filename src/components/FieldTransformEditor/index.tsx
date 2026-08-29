@@ -95,10 +95,19 @@ const NESSUNA: FnDef = {
 }
 
 /** Voce del catalogo condiviso → voce nella forma usata da questa interfaccia. */
+/** Nome della funzione FPEL usata da un template (`concat_ws(...)` → concat_ws). */
+function funzioneUsata(expression: string): string | null {
+  const m = expression.match(/^\s*([a-z_][a-z0-9_]*)\s*\(/i)
+  return m ? m[1] : null
+}
+
 function daTemplate(t: TransformTemplate): FnDef {
+  // L'etichetta mostra anche la FUNZIONE che verrà scritta: senza, non c'è modo
+  // di sapere quale voce corrisponde a `concat_ws` — si sceglie a tentativi.
+  const fn = funzioneUsata(t.expression)
   return {
     id:         t.id,
-    label:      t.label,
+    label:      fn ? `${t.label}  ·  ${fn}` : t.label,
     outputType: t.outputType ?? '__same__',
     sameType:   !t.outputType,
     expression: t.expression,
@@ -448,7 +457,7 @@ function buildSummary(value: FieldTransform, inputVars: string[]): string {
     return line.length > 50 ? line.slice(0, 50) + '…' : (line || 'script')
   }
   const ff   = finalFnDef(value.finalFn)
-  const expr = value.expression || inputVars.join(' + ')
+  const expr = value.expression || inputVars.join(' + ') || '(vuota)'
   const full = ff.id !== 'none' ? applyFinalFnToExpr(expr, ff, value.finalParams ?? {}) : expr
   return full.length > 60 ? full.slice(0, 60) + '…' : full
 }
@@ -526,7 +535,10 @@ export function FieldTransformEditor({
     }
   }
 
-  const isCollapsed = !!(value.collapsed && nInputs > 0)
+  // Si collassa SEMPRE, anche senza ingressi collegati: le trasformazioni
+  // scritte a mano (che usano altre trasformazioni, o solo letterali) non ne
+  // hanno, ed erano proprio quelle che restavano aperte occupando spazio.
+  const isCollapsed = !!value.collapsed
   const om = tmeta(effectiveOutputType)
 
   // ── Collapsed ────────────────────────────────────────────────────
