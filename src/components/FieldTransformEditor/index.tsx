@@ -145,9 +145,16 @@ function buildVarExpr(varName: string, fn: FnDef, params: Record<string, string>
 
 function applyFinalFnToExpr(expr: string, fn: FnDef, params: Record<string, string>): string {
   if (fn.id === 'none') return expr
+  // Le parentesi servono solo se l'espressione è composta: attorno a una
+  // chiamata o a un riferimento producevano `upper((replace(…)))`, corretto ma
+  // illeggibile — ed è proprio il testo che l'utente si trova sotto gli occhi.
+  const gia = /^[A-Za-z_][\w.]*\s*\(.*\)$/.test(expr.trim())
+              || /^"[^"]*"\.[\w]+$/.test(expr.trim())
+              || /^[\w.]+$/.test(expr.trim())
+  const base = gia ? expr.trim() : `(${expr})`
   return resolveTemplate(
     { id: fn.id, label: fn.label, description: '', expression: fn.expression, params: fn.params },
-    `(${expr})`, params,
+    base, params,
   )
 }
 
@@ -503,18 +510,19 @@ export function FieldTransformEditor({
   }
 
   const ff        = finalFnDef(value.finalFn)
-  const ffParams  = value.finalParams ?? {}
   const ffHasType = ff.id !== 'none' && !ff.sameType && ff.outputType !== '__same__'
   const fn0OutType = fieldOutputType(0)
   const effectiveOutputType: TMapFieldType = (ffHasType ? ff.outputType : fn0OutType) as TMapFieldType
 
   const type0        = fieldOutputType(0)
   const type1        = nInputs >= 2 ? fieldOutputType(1) : null
-  const typesMismatch = type1 !== null && type0 !== type1 && type0 !== 'any' && type1 !== 'any'
-
-  const exprWithFinal = ff.id !== 'none'
-    ? applyFinalFnToExpr(currentExpr, ff, ffParams)
-    : currentExpr
+  // ⚠️ Qui erano rimaste due righe orfane di un ternario (residuo di una
+  // variabile eliminata): JavaScript non spezza la riga prima di `?`, quindi le
+  // attaccava a questa — e `typesMismatch` diventava una STRINGA invece di un
+  // booleano. Effetto: l'avviso "Tipi diversi" compariva quasi sempre, con il
+  // secondo tipo vuoto ("decimal e —").
+  const typesMismatch = type1 !== null && type1 !== '' && type0 !== ''
+                        && type0 !== type1 && type0 !== 'any' && type1 !== 'any'
 
   const handlePatch = useCallback((patch: Partial<FieldTransform>) => {
     const merged = { ...value, ...patch }
@@ -546,7 +554,12 @@ export function FieldTransformEditor({
   // scritte a mano (che usano altre trasformazioni, o solo letterali) non ne
   // hanno, ed erano proprio quelle che restavano aperte occupando spazio.
   const isCollapsed = !!value.collapsed
-  const om = tmeta(effectiveOutputType)
+  // Il badge dell'intestazione mostra il tipo DICHIARATO per la trasformazione
+  // (quello scelto nella tendina). Prima mostrava `effectiveOutputType`, che è
+  // dedotto dai campi collegati: per una trasformazione scritta a mano (nessun
+  // campo) ricadeva sempre su 'string' — così da collassata tutte sembravano
+  // stringhe, e riaprendole ricomparivano decimal/boolean.
+  const om = tmeta((value.outputType ?? effectiveOutputType) as TMapFieldType)
 
   // ── Collapsed ────────────────────────────────────────────────────
   if (isCollapsed) {
@@ -666,6 +679,7 @@ export function FieldTransformEditor({
               {/* Righe per-campo */}
               {inputVars.map((varName, i) => (
                 <FieldRow key={i}
+                  passo={i + 1}
                   varName={varName}
                   fieldType={inputTypes[i] ?? 'any'}
                   fnId={fieldFns[i]?.fnId ?? 'none'}
@@ -774,20 +788,6 @@ export function FieldTransformEditor({
                   <code style={{ color: '#a78bfa', opacity: 0.7 }}>var("prefisso") + "/" + codice</code>
                 </div>
 
-                {/* Anteprima con funzione finale applicata */}
-                {ff.id !== 'none' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: 9, color: '#a78bfa', textTransform: 'uppercase',
-                      letterSpacing: '.05em' }}>risultato con funzione finale</span>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-                      color: '#a78bfa', padding: '3px 6px', background: '#1a1030',
-                      borderRadius: 4, border: '1px solid #3a2a6a',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      title={exprWithFinal}>
-                      {exprWithFinal}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* RISULTATO: l'espressione che finirà nel piano, sempre in vista
