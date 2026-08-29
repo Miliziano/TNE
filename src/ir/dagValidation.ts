@@ -32,6 +32,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkBridgeJoinPattern(plan))
   issues.push(...checkMissingSinks(plan))
   issues.push(...checkNotImplemented(plan))
+  issues.push(...checkOrdineTrasformazioni(plan))
   issues.push(...checkFiltroSuCampoDiUscita(plan))
   issues.push(...checkSchemaDedotto(plan))
   issues.push(...checkTipiIncompatibili(plan))
@@ -854,6 +855,47 @@ function checkFiltroSuCampoDiUscita(plan: LogicalPlan): ValidationIssue[] {
         hint:     'Il filtro viene valutato prima che la riga d\'uscita sia costruita, quindi legge solo ingressi e trasformazioni. Sposta quel valore fra le trasformazioni (a sinistra): da lì è leggibile sia dal filtro sia dai campi d\'uscita.',
       })
     }
+  }
+  return issues
+}
+
+/**
+ * TMap: una trasformazione che ne usa un'altra definita DOPO di lei.
+ *
+ * Il motore calcola le trasformazioni nell'ordine dell'elenco e passa a ciascuna
+ * solo quelle già calcolate (`compute_transforms`). Citarne una che viene dopo
+ * non dà errore: dà **vuoto**, in silenzio. È la trappola tipica quando si
+ * collega una trasformazione a un'altra.
+ */
+function checkOrdineTrasformazioni(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    if (node._uiRef?.type !== 'tmap') continue
+    const trs = ((node._uiRef?.config as { tmap?: {
+      transforms?: Array<{ outputName?: string; expression?: string }>
+    } } | undefined)?.tmap?.transforms) ?? []
+    if (trs.length < 2) continue
+
+    const problemi: string[] = []
+    trs.forEach((tr, i) => {
+      const espr = tr.expression ?? ''
+      trs.slice(i + 1).forEach((dopo) => {
+        const nome = dopo.outputName
+        if (!nome) return
+        if (new RegExp(`(^|[^\\w."'])${nome}\\b(?!\\s*\\.)`).test(espr)) {
+          problemi.push(`"${tr.outputName}" usa "${nome}", che è definita dopo`)
+        }
+      })
+    })
+    if (problemi.length === 0) continue
+    const label = node._uiRef?.label ?? node.id
+    issues.push({
+      nodeId:   canvasNodeId(node.id),
+      code:     'TMAP_ORDINE_TRASFORMAZIONI',
+      message:  `"${label}": ${problemi.join('; ')} — al Run quel valore risulterà vuoto.`,
+      severity: 'warning',
+      hint:     'Le trasformazioni si calcolano nell\'ordine in cui sono elencate: una può usare solo quelle che vengono PRIMA. Sposta più in alto quella citata.',
+    })
   }
   return issues
 }

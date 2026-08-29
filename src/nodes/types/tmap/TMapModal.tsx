@@ -1678,7 +1678,7 @@ function CenterZone({ nodeId, width, height, onDropTransform, onAddInputToTransf
           return (
             <div key={tr.id}
               style={{ display: 'flex', alignItems: 'flex-start', gap: 4, background: '#1a2030', border: `1px solid color-mix(in srgb, ${inputColor2} 30%, #2a3349)`, borderRadius: 6, padding: '3px 6px', position: 'relative' }}
-              onMouseUp={(e) => { e.stopPropagation(); if (!dragging) return; onAddInputToTransform(tr.id) }}>
+              onMouseUp={(e) => { e.stopPropagation(); if (!dragging && !transformDragging) return; onAddInputToTransform(tr.id) }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0, paddingTop: 4 }}>
                 {tr.inputs.map((inp, i) => {
                   const inpColor = tmap ? getInputColor(tmap, inp.inputId) : '#4a5a7a'
@@ -1957,20 +1957,49 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
   const handleDropTransform = useCallback((_x: number, _y: number) => {
     if (!dragging) return
     const newId = `transform_${Date.now()}`; const fieldType = tmap?.inputs.find((i) => i.id === dragging.inputId)?.fields.find((f) => f.name === dragging.fieldName)?.type ?? 'string'
-    const varName = `$${tmap?.inputs.find((i) => i.id === dragging.inputId)?.label ?? dragging.inputId}.${dragging.fieldName}`
+    // Forma unica di FPEL (`Etichetta.campo`, con virgolette se l'etichetta ha
+    // spazi): il vecchio `$Etichetta.campo` non è più valido.
+    const varName = `${riferimentoInput(tmap?.inputs.find((i) => i.id === dragging.inputId)?.label ?? dragging.inputId)}.${dragging.fieldName}`
     useFlowStore.getState().addTMapTransform(nodeId, { id: newId, label: `trasf_${Math.random().toString(36).slice(2, 5)}`, mode: 'inline', inputs: [{ inputId: dragging.inputId, fieldName: dragging.fieldName }], expression: varName, outputName: dragging.fieldName, outputType: fieldType as TMapFieldType })
     setDragging(null)
   }, [dragging, nodeId, tmap])
 
+  /**
+   * Aggiunge un ingresso a una trasformazione. Due sorgenti possibili:
+   *  - un CAMPO di un ingresso (trascinamento dalla colonna di sinistra);
+   *  - un'altra TRASFORMAZIONE (trascinamento dal suo pallino d'uscita).
+   * Il secondo caso prima non era accettato — si poteva collegare una
+   * trasformazione solo a un campo d'uscita — mentre il motore lo supporta già:
+   * `compute_transforms` passa a ogni trasformazione quelle calcolate FINORA,
+   * quindi una trasformazione può usarne una precedente. ⚠️ Conta l'ORDINE:
+   * il riferimento vale solo se la trasformazione citata viene PRIMA.
+   */
   const handleAddInputToTransform = useCallback((transformId: string) => {
-    if (!dragging) return; const tr = tmap?.transforms?.find((t) => t.id === transformId); if (!tr) return
+    const tr = tmap?.transforms?.find((t) => t.id === transformId); if (!tr) return
+
+    // ── da un'altra trasformazione ──
+    if (transformDragging) {
+      const sorgente = tmap?.transforms?.find((t) => t.id === transformDragging.transformId)
+      setTransformDragging(null)
+      if (!sorgente || sorgente.id === tr.id) return
+      const sep2 = tr.mode === 'script' ? '\n' : ' + '
+      const nuovo = (!tr.expression.trim() || tr.expression.trim() === '$1')
+        ? sorgente.outputName
+        : tr.expression + sep2 + sorgente.outputName
+      useFlowStore.getState().updateTMapTransform(nodeId, transformId, { expression: nuovo })
+      return
+    }
+
+    if (!dragging) return
     if (tr.inputs.some((i) => i.inputId === dragging.inputId && i.fieldName === dragging.fieldName)) { setDragging(null); return }
     const newInputs = [...tr.inputs, { inputId: dragging.inputId, fieldName: dragging.fieldName }]
-    const inputLabel = tmap?.inputs.find((i) => i.id === dragging.inputId)?.label ?? dragging.inputId; const newVar = `$${inputLabel}.${dragging.fieldName}`; const sep = tr.mode === 'script' ? '\n' : ' + '
+    const inputLabel = tmap?.inputs.find((i) => i.id === dragging.inputId)?.label ?? dragging.inputId
+    const newVar = `${riferimentoInput(inputLabel)}.${dragging.fieldName}`
+    const sep = tr.mode === 'script' ? '\n' : ' + '
     // Costruisce sempre l'espressione con tutti i campi quando è vuota o auto
     const autoExpr = newInputs.map((inp) => {
       const lbl = tmap?.inputs.find((ti) => ti.id === inp.inputId)?.label ?? inp.inputId
-      return `$${lbl}.${inp.fieldName}`
+      return `${riferimentoInput(lbl)}.${inp.fieldName}`
     }).join(sep)
     const newExpression = (!tr.expression.trim() || tr.expression.trim() === '$1')
       ? autoExpr
