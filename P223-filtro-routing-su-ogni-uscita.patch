@@ -1,0 +1,101 @@
+diff --git a/src/ir/dagValidation.ts b/src/ir/dagValidation.ts
+index b65674d..026e78c 100644
+--- a/src/ir/dagValidation.ts
++++ b/src/ir/dagValidation.ts
+@@ -32,6 +32,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
+   issues.push(...checkBridgeJoinPattern(plan))
+   issues.push(...checkMissingSinks(plan))
+   issues.push(...checkNotImplemented(plan))
++  issues.push(...checkFiltroSuCampoDiUscita(plan))
+   issues.push(...checkSchemaDedotto(plan))
+   issues.push(...checkTipiIncompatibili(plan))
+   issues.push(...checkNodiDisabilitati(plan))
+@@ -814,6 +815,49 @@ function checkAutoJoin(plan: LogicalPlan): ValidationIssue[] {
+   return issues
+ }
+ 
++/**
++ * TMap: filtro di un'uscita che nomina un CAMPO DI QUELL'USCITA.
++ *
++ * Il filtro decide se la riga compete a quell'uscita, e viene valutato PRIMA che
++ * la riga d'uscita sia costruita: legge quindi i campi degli ingressi e le
++ * trasformazioni, non le colonne calcolate lì. Scrivere `nome_completo > ""`
++ * dove `nome_completo` è un campo dell'uscita non dà errore: dà un valore vuoto,
++ * e il filtro si comporta in modo inatteso — in silenzio.
++ * (È lo stesso confine della tabella Var di Talend: se un valore serve per
++ * filtrare, è una variabile intermedia, non una colonna d'uscita.)
++ */
++function checkFiltroSuCampoDiUscita(plan: LogicalPlan): ValidationIssue[] {
++  const issues: ValidationIssue[] = []
++  for (const node of plan.nodes) {
++    if (node._uiRef?.type !== 'tmap') continue
++    const cfg = (node._uiRef?.config as { tmap?: {
++      transforms?: Array<{ outputName?: string }>
++      outputs?: Array<{ label?: string; filter?: string; fields?: Array<{ name?: string }> }>
++    } } | undefined)?.tmap
++    if (!cfg?.outputs) continue
++
++    const nomiTransform = new Set((cfg.transforms ?? []).map((t) => t.outputName).filter(Boolean))
++    for (const out of cfg.outputs) {
++      const filtro = out.filter?.trim()
++      if (!filtro) continue
++      const colpevoli = (out.fields ?? [])
++        .map((f) => f.name)
++        .filter((n): n is string => !!n && !nomiTransform.has(n))
++        .filter((n) => new RegExp(`(^|[^\\w."'])${n}\\b(?!\\s*\\.)`).test(filtro))
++      if (colpevoli.length === 0) continue
++      const label = node._uiRef?.label ?? node.id
++      issues.push({
++        nodeId:   canvasNodeId(node.id),
++        code:     'TMAP_FILTRO_SU_CAMPO_USCITA',
++        message:  `"${label}" — il filtro dell'uscita "${out.label ?? '?'}" usa ${colpevoli.map((c) => `"${c}"`).join(', ')}, che ${colpevoli.length > 1 ? 'sono campi' : 'è un campo'} di quella stessa uscita: al Run risulterà vuoto.`,
++        severity: 'warning',
++        hint:     'Il filtro viene valutato prima che la riga d\'uscita sia costruita, quindi legge solo ingressi e trasformazioni. Sposta quel valore fra le trasformazioni (a sinistra): da lì è leggibile sia dal filtro sia dai campi d\'uscita.',
++      })
++    }
++  }
++  return issues
++}
++
+ function checkNotImplemented(plan: LogicalPlan): ValidationIssue[] {
+   const issues: ValidationIssue[] = []
+   for (const node of plan.nodes) {
+diff --git a/src/nodes/types/tmap/TMapModal.tsx b/src/nodes/types/tmap/TMapModal.tsx
+index ba7456c..e4923f1 100644
+--- a/src/nodes/types/tmap/TMapModal.tsx
++++ b/src/nodes/types/tmap/TMapModal.tsx
+@@ -1436,13 +1436,29 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
+               }>
+               <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 3%, #0f1117)`, borderBottom: `0.5px solid ${color}20` }}>
+                 <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Filtro routing</div>
+-                {idx > 1 ? (
+-                  <input type="text" value={out.filter ?? ''} onChange={(e) => updateTMapOutput(nodeId, out.id, { filter: e.target.value })}
+-                    style={{ ...iStyle, fontSize: 10 }}
+-                    placeholder={idx === 0 ? 'default — tutte le righe' : 'es: main.status == "error"'} />
++                {out.id !== 'output_rejected' ? (
++                  /* Il filtro vale per OGNI uscita, non solo dalla terza in poi:
++                     il motore lo valuta per tutte tranne il reject (che riceve
++                     per costruzione le righe senza corrispondenza). Prima la
++                     casella era modificabile solo con `idx > 1`, quindi sulla
++                     prima uscita non si poteva scrivere alcuna condizione — pur
++                     essendo il caso più comune.
++                     Il filtro legge i campi degli INGRESSI e le TRASFORMAZIONI,
++                     non i campi calcolati di questa uscita (che vengono
++                     costruiti dopo): un valore su cui filtrare va messo fra le
++                     trasformazioni. */
++                  <>
++                    <input type="text" value={out.filter ?? ''}
++                      onChange={(e) => updateTMapOutput(nodeId, out.id, { filter: e.target.value })}
++                      style={{ ...iStyle, fontSize: 10 }}
++                      placeholder='vuoto = tutte le righe — es: main.stato == "attivo"' />
++                    <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 2 }}>
++                      legge ingressi e trasformazioni (non i campi di questa uscita)
++                    </div>
++                  </>
+                 ) : (
+                   <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+-                    {idx === 0 ? 'default — tutte le righe con match' : 'righe senza match dalla join'}
++                    righe senza match dalla join
+                   </div>
+                 )}
+               </div>

@@ -1436,13 +1436,29 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
               }>
               <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 3%, #0f1117)`, borderBottom: `0.5px solid ${color}20` }}>
                 <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Filtro routing</div>
-                {idx > 1 ? (
-                  <input type="text" value={out.filter ?? ''} onChange={(e) => updateTMapOutput(nodeId, out.id, { filter: e.target.value })}
-                    style={{ ...iStyle, fontSize: 10 }}
-                    placeholder={idx === 0 ? 'default — tutte le righe' : 'es: main.status == "error"'} />
+                {out.id !== 'output_rejected' ? (
+                  /* Il filtro vale per OGNI uscita, non solo dalla terza in poi:
+                     il motore lo valuta per tutte tranne il reject (che riceve
+                     per costruzione le righe senza corrispondenza). Prima la
+                     casella era modificabile solo con `idx > 1`, quindi sulla
+                     prima uscita non si poteva scrivere alcuna condizione — pur
+                     essendo il caso più comune.
+                     Il filtro legge i campi degli INGRESSI e le TRASFORMAZIONI,
+                     non i campi calcolati di questa uscita (che vengono
+                     costruiti dopo): un valore su cui filtrare va messo fra le
+                     trasformazioni. */
+                  <>
+                    <input type="text" value={out.filter ?? ''}
+                      onChange={(e) => updateTMapOutput(nodeId, out.id, { filter: e.target.value })}
+                      style={{ ...iStyle, fontSize: 10 }}
+                      placeholder='vuoto = tutte le righe — es: main.stato == "attivo"' />
+                    <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 2 }}>
+                      legge ingressi e trasformazioni (non i campi di questa uscita)
+                    </div>
+                  </>
                 ) : (
                   <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-                    {idx === 0 ? 'default — tutte le righe con match' : 'righe senza match dalla join'}
+                    righe senza match dalla join
                   </div>
                 )}
               </div>

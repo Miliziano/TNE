@@ -32,6 +32,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkBridgeJoinPattern(plan))
   issues.push(...checkMissingSinks(plan))
   issues.push(...checkNotImplemented(plan))
+  issues.push(...checkFiltroSuCampoDiUscita(plan))
   issues.push(...checkSchemaDedotto(plan))
   issues.push(...checkTipiIncompatibili(plan))
   issues.push(...checkNodiDisabilitati(plan))
@@ -810,6 +811,49 @@ function checkAutoJoin(plan: LogicalPlan): ValidationIssue[] {
       severity: 'warning',
       hint:     'Unire un flusso con sé stesso è legittimo (es. mettere in relazione righe dello stesso insieme), ma se è un errore di collegamento non se ne accorge nessuno: il join riesce lo stesso e restituisce righe moltiplicate. Ricorda che il lato destro viene tenuto INTERAMENTE in memoria.',
     })
+  }
+  return issues
+}
+
+/**
+ * TMap: filtro di un'uscita che nomina un CAMPO DI QUELL'USCITA.
+ *
+ * Il filtro decide se la riga compete a quell'uscita, e viene valutato PRIMA che
+ * la riga d'uscita sia costruita: legge quindi i campi degli ingressi e le
+ * trasformazioni, non le colonne calcolate lì. Scrivere `nome_completo > ""`
+ * dove `nome_completo` è un campo dell'uscita non dà errore: dà un valore vuoto,
+ * e il filtro si comporta in modo inatteso — in silenzio.
+ * (È lo stesso confine della tabella Var di Talend: se un valore serve per
+ * filtrare, è una variabile intermedia, non una colonna d'uscita.)
+ */
+function checkFiltroSuCampoDiUscita(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const node of plan.nodes) {
+    if (node._uiRef?.type !== 'tmap') continue
+    const cfg = (node._uiRef?.config as { tmap?: {
+      transforms?: Array<{ outputName?: string }>
+      outputs?: Array<{ label?: string; filter?: string; fields?: Array<{ name?: string }> }>
+    } } | undefined)?.tmap
+    if (!cfg?.outputs) continue
+
+    const nomiTransform = new Set((cfg.transforms ?? []).map((t) => t.outputName).filter(Boolean))
+    for (const out of cfg.outputs) {
+      const filtro = out.filter?.trim()
+      if (!filtro) continue
+      const colpevoli = (out.fields ?? [])
+        .map((f) => f.name)
+        .filter((n): n is string => !!n && !nomiTransform.has(n))
+        .filter((n) => new RegExp(`(^|[^\\w."'])${n}\\b(?!\\s*\\.)`).test(filtro))
+      if (colpevoli.length === 0) continue
+      const label = node._uiRef?.label ?? node.id
+      issues.push({
+        nodeId:   canvasNodeId(node.id),
+        code:     'TMAP_FILTRO_SU_CAMPO_USCITA',
+        message:  `"${label}" — il filtro dell'uscita "${out.label ?? '?'}" usa ${colpevoli.map((c) => `"${c}"`).join(', ')}, che ${colpevoli.length > 1 ? 'sono campi' : 'è un campo'} di quella stessa uscita: al Run risulterà vuoto.`,
+        severity: 'warning',
+        hint:     'Il filtro viene valutato prima che la riga d\'uscita sia costruita, quindi legge solo ingressi e trasformazioni. Sposta quel valore fra le trasformazioni (a sinistra): da lì è leggibile sia dal filtro sia dai campi d\'uscita.',
+      })
+    }
   }
   return issues
 }
