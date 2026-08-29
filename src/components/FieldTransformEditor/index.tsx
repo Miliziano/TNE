@@ -373,7 +373,9 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
 
 // ─── FieldRow ──────────────────────────────────────────────────────
 
-function FieldRow({ varName, fieldType, fnId, fnParams, varExpr, onChange }: {
+function FieldRow({ passo, varName, fieldType, fnId, fnParams, varExpr, onChange }: {
+  /** Numero del passo nella scaletta (1, 2, …). */
+  passo?:    number
   varName:   string; fieldType: TransformCategory
   fnId:      string; fnParams:  Record<string, string>
   varExpr:   string
@@ -397,6 +399,11 @@ function FieldRow({ varName, fieldType, fnId, fnParams, varExpr, onChange }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
           flexShrink: 0, background: fm.bg, color: fm.color }}>{fieldType}</span>
+        {passo != null && (
+          <span title={`passo ${passo}`} style={{ fontSize: 9, fontWeight: 700, color: '#4a5a7a',
+            width: 14, height: 14, lineHeight: '14px', textAlign: 'center', flexShrink: 0,
+            background: '#0f1117', border: '1px solid #2a3349', borderRadius: 4 }}>{passo}</span>
+        )}
         <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#9a9aaa',
           flexShrink: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           title={varName}>{varName}</span>
@@ -687,8 +694,13 @@ export function FieldTransformEditor({
                         const ins = currentVarExprs[i]
                         handlePatch({ expression: currentExpr ? currentExpr + ' + ' + ins : ins })
                       }}
+                      /* Colore per ORIGINE: viola = calcolato qui (una
+                         trasformazione, che si scrive nuda), azzurro = viene da
+                         un ingresso (e si scrive qualificato). È la stessa
+                         distinzione del linguaggio, resa visibile. */
                       style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: '#0f1117',
-                        border: '1px solid #2a3349', color: '#4a9eff', cursor: 'pointer',
+                        border: '1px solid #2a3349',
+                        color: v.includes('.') ? '#4a9eff' : '#a78bfa', cursor: 'pointer',
                         fontFamily: 'monospace', flexShrink: 0 }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}
@@ -778,11 +790,34 @@ export function FieldTransformEditor({
                 )}
               </div>
 
+              {/* RISULTATO: l'espressione che finirà nel piano, sempre in vista
+                  e in sola lettura. Prima la si vedeva solo passando a script:
+                  così invece si impara il linguaggio guardando cosa si compone,
+                  e si controlla subito cosa verrà eseguito. */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5,
+                padding: '4px 6px', background: '#0f1117', borderRadius: 4,
+                border: '0.5px solid #2a3349' }}>
+                <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0,
+                  textTransform: 'uppercase', letterSpacing: '.05em', paddingTop: 1 }}>risultato</span>
+                <code style={{ fontSize: 10, color: '#8aa4d0', wordBreak: 'break-all', lineHeight: 1.4 }}>
+                  {buildSummary(value, inputVars) || '(vuota)'}
+                </code>
+              </div>
+
               {/* Funzione finale */}
               <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 5,
                 display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>finale:</span>
+                  {/* Non più un concetto a parte ("finale"), ma l'ULTIMO PASSO
+                      della scaletta: si applica al risultato dei passi
+                      precedenti. Stesso badge numerato dei campi. */}
+                  <span title={`passo ${inputVars.length + 1} — si applica al risultato`}
+                    style={{ fontSize: 9, fontWeight: 700, color: '#4a5a7a',
+                      width: 14, height: 14, lineHeight: '14px', textAlign: 'center', flexShrink: 0,
+                      background: '#0f1117', border: '1px solid #2a3349', borderRadius: 4 }}>
+                    {inputVars.length + 1}
+                  </span>
+                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>poi</span>
                   <CustomSelect
                     value={value.finalFn ?? 'none'}
                     onChange={e => {
