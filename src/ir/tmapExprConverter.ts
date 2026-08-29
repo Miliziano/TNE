@@ -19,6 +19,8 @@
 import type { TMapConfig, TMapInput, TMapOutput, TMapOutputField } from '../types'
 import type { JoinPair, JoinFieldExpr } from '../nodes/types/tmap/TMapModal'
 import { parseExpression, ExprParseError, riferimentoInput } from './exprParser'
+import { findPreset } from '../transforms/presets'
+import { resolveTemplate } from '../transforms/templateCompiler'
 import { inferExprType as inferTipoCondiviso, type InferCtx } from './exprTypes'
 import type { FieldType } from '../types/fieldTypes'
 
@@ -320,6 +322,31 @@ function parseJoinTransformExpr(
 
 // ─── Transforms ───────────────────────────────────────────────────
 
+/**
+ * 🔴 L'ULTIMO PASSO ("funzione finale") va applicato all'espressione PRIMA di
+ * compilarla. Il piano usa solo `expression`; `finalFn`/`finalParams` sono campi
+ * dell'interfaccia che il motore non vede mai. Finora quindi la funzione finale
+ * compariva nell'anteprima ma **non veniva eseguita**: si sceglieva "MAIUSCOLO"
+ * e al Run il valore restava minuscolo, senza alcun errore.
+ *
+ * Si compone QUI (e non nell'editor) per non rischiare di annidarla più volte a
+ * ogni modifica: `expression` resta l'espressione dei passi, la funzione finale
+ * si applica una volta sola, al momento di costruire il piano.
+ */
+function espressioneConUltimoPasso(tr: {
+  expression?: string; finalFn?: string; finalParams?: Record<string, string>
+}): string {
+  const base = (tr.expression ?? '').trim()
+  if (!tr.finalFn || tr.finalFn === 'none' || !base) return base
+  const template = findPreset(tr.finalFn)
+  if (!template) return base
+  // Parentesi solo se servono (una chiamata o un riferimento non ne ha bisogno).
+  const semplice = /^[A-Za-z_][\w.]*\s*\(.*\)$/.test(base)
+                   || /^"[^"]*"\.[\w]+$/.test(base)
+                   || /^[\w.]+$/.test(base)
+  return resolveTemplate(template, semplice ? base : `(${base})`, tr.finalParams ?? {})
+}
+
 function buildTransforms(
   tmap:           TMapConfig,
   labelToInputId: Map<string, string>,
@@ -330,7 +357,8 @@ function buildTransforms(
     id:          tr.id,
     output_name: tr.outputName,
     output_type: tr.outputType,
-    expr:        parseTransformExpression(tr.expression, labelToInputId, inputFields, nomiTransform),
+    expr:        parseTransformExpression(
+      espressioneConUltimoPasso(tr), labelToInputId, inputFields, nomiTransform),
   }))
 }
 
