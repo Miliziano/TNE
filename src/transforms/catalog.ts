@@ -23,7 +23,10 @@ export type { TransformCategory, FieldType } from '../types/fieldTypes'
 export interface TransformParam {
   key:      string
   label:    string
-  type:     'text' | 'select' | 'number'
+  /** `expr` = il valore è un'ESPRESSIONE (es. il riferimento a un altro campo):
+   *  viene inserito così com'è, senza virgolette. Gli altri tipi diventano
+   *  letterali. */
+  type:     'text' | 'select' | 'number' | 'expr'
   options?: string[]
   default?: string
 }
@@ -153,6 +156,19 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       params: [
         { key: 'sep',    label: 'Separatore', type: 'text', default: ' ' },
         { key: 'suffix', label: 'Suffisso',   type: 'text', default: ''  },
+      ],
+    },
+    {
+      // `concat_ws` esiste da sempre fra le funzioni FPEL ma non era offerta dal
+      // menu: chi voleva unire più campi doveva scriverla a mano (o ripiegare su
+      // `concat`, che è equivalente ma vuole il separatore ripetuto ogni volta).
+      // È il caso più comune del TMap — accorpare campi — e merita una voce.
+      id: 'str_join', label: 'Unisci con separatore',
+      description: 'Unisce il valore con un altro campo o testo, usando un separatore scritto una volta sola',
+      expression: 'concat_ws($param_sep, $value, $param_altro)',
+      params: [
+        { key: 'sep',   label: 'Separatore', type: 'text', default: ' ' },
+        { key: 'altro', label: 'Con (campo o "testo")', type: 'expr', default: '""' },
       ],
     },
     {

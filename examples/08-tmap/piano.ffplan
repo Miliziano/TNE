@@ -1,8 +1,8 @@
 {
   "formatVersion": 2,
   "version": {
-    "id": "v1788006617588",
-    "savedAt": "2026-08-29T12:30:17.514Z",
+    "id": "v1788030093513",
+    "savedAt": "2026-08-29T19:01:33.482Z",
     "label": ""
   },
   "plan": {
@@ -676,7 +676,9 @@
                       "id": "field_1788005898681",
                       "name": "nome_completo",
                       "type": "string",
-                      "expression": "nome_completo"
+                      "expression": "nome_completo",
+                      "sourceInputId": "input_1787873020893_y7y2",
+                      "sourceFieldName": "nome_completo"
                     },
                     {
                       "id": "field_1788006260575",
@@ -694,13 +696,17 @@
                       "id": "field_1788006432302",
                       "name": "importo_ivato",
                       "type": "integer",
-                      "expression": "importo_ivato"
+                      "expression": "importo_ivato",
+                      "sourceInputId": "",
+                      "sourceFieldName": "importo_ivato"
                     },
                     {
                       "id": "field_1788006529776",
                       "name": "sopra_soglia",
                       "type": "boolean",
-                      "expression": "sopra_soglia"
+                      "expression": "sopra_soglia",
+                      "sourceInputId": "",
+                      "sourceFieldName": "sopra_soglia"
                     }
                   ]
                 },
@@ -791,16 +797,24 @@
                   "color": "#a78bfa"
                 },
                 {
-                  "id": "transform_1788006370174__output_main__field_1788006432302",
-                  "inputId": "transform__transform_1788006370174",
+                  "id": "transform_1788005748753__output_main__field_1788005898681",
+                  "inputId": "transform__transform_1788005748753",
+                  "fieldName": "nome_completo",
+                  "outputId": "output_main",
+                  "fieldId": "field_1788005898681",
+                  "color": "#a78bfa"
+                },
+                {
+                  "id": "transform_1788029883753__output_main__field_1788006432302",
+                  "inputId": "transform__transform_1788029883753",
                   "fieldName": "importo_ivato",
                   "outputId": "output_main",
                   "fieldId": "field_1788006432302",
                   "color": "#a78bfa"
                 },
                 {
-                  "id": "transform_1788006447647__output_main__field_1788006529776",
-                  "inputId": "transform__transform_1788006447647",
+                  "id": "transform_1788030026136__output_main__field_1788006529776",
+                  "inputId": "transform__transform_1788030026136",
                   "fieldName": "sopra_soglia",
                   "outputId": "output_main",
                   "fieldId": "field_1788006529776",
@@ -862,34 +876,22 @@
                   "collapsed": true
                 },
                 {
-                  "id": "transform_1788006370174",
-                  "label": "campo_5xd",
+                  "id": "transform_1788029883753",
+                  "label": "campo_6x2",
                   "mode": "inline",
-                  "inputs": [
-                    {
-                      "inputId": "input_main",
-                      "fieldName": "importo"
-                    }
-                  ],
-                  "expression": "round(cast(main.importo as decimal *1.22,2) ",
+                  "inputs": [],
+                  "expression": "round(imponibile *1.22,2)",
                   "outputName": "importo_ivato",
-                  "outputType": "decimal",
-                  "collapsed": false
+                  "outputType": "decimal"
                 },
                 {
-                  "id": "transform_1788006447647",
-                  "label": "campo_1qo",
+                  "id": "transform_1788030026136",
+                  "label": "campo_sdd",
                   "mode": "inline",
-                  "inputs": [
-                    {
-                      "inputId": "input_main",
-                      "fieldName": "importo"
-                    }
-                  ],
-                  "expression": "main.importo>50",
+                  "inputs": [],
+                  "expression": "imponibile > 50",
                   "outputName": "sopra_soglia",
-                  "outputType": "decimal",
-                  "collapsed": false
+                  "outputType": "boolean"
                 }
               ]
             }
@@ -1199,5 +1201,1202 @@
     "profiles": {},
     "profileRefs": {}
   },
-  "history": []
+  "history": [
+    {
+      "version": {
+        "id": "v1788006617588",
+        "savedAt": "2026-08-29T12:30:17.514Z",
+        "label": ""
+      },
+      "plan": {
+        "pool": {
+          "id": "pool_main",
+          "label": "Main Pool",
+          "variables": [],
+          "lanes": [
+            {
+              "id": "lane_a",
+              "label": "Lane A",
+              "color": "#185FA5",
+              "order": 0,
+              "collapsed": false,
+              "height": 334,
+              "variables": [],
+              "resources": [],
+              "transactions": []
+            },
+            {
+              "id": "lane_b",
+              "label": "Lane B",
+              "color": "#993C1D",
+              "order": 1,
+              "collapsed": false,
+              "height": 200,
+              "variables": [],
+              "resources": [],
+              "transactions": []
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "start_lane_a",
+            "type": "startNode",
+            "position": {
+              "x": -41.1186046511628,
+              "y": 53.67906976744186
+            },
+            "data": {
+              "type": "lane_start",
+              "label": "Start",
+              "props": {
+                "label": "Start"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false,
+            "dragging": false
+          },
+          {
+            "id": "end_lane_a",
+            "type": "endNode",
+            "position": {
+              "x": 1058.8755813953487,
+              "y": 224.47587209302333
+            },
+            "data": {
+              "type": "lane_end",
+              "label": "End",
+              "props": {
+                "label": "End"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false,
+            "dragging": false
+          },
+          {
+            "id": "error_handler_lane_a",
+            "type": "errorHandlerNode",
+            "position": {
+              "x": 10.969767441860114,
+              "y": 287.2901162790698
+            },
+            "data": {
+              "type": "error_handler",
+              "label": "Error Handler",
+              "props": {
+                "defaultOnError": "stop",
+                "logAll": "true",
+                "rules": "[]",
+                "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "Il nodo \"Error Handler\" non è collegato a nessun altro nodo",
+                    "code": "ISOLATED_NODE",
+                    "hint": "Collega il nodo alla pipeline o rimuovilo"
+                  }
+                ]
+              }
+            },
+            "deletable": false,
+            "dragging": false
+          },
+          {
+            "id": "start_lane_b",
+            "type": "startNode",
+            "position": {
+              "x": 40,
+              "y": 60
+            },
+            "data": {
+              "type": "lane_start",
+              "label": "Start",
+              "props": {
+                "label": "Start"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_b",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "end_lane_b",
+            "type": "endNode",
+            "position": {
+              "x": 500,
+              "y": 60
+            },
+            "data": {
+              "type": "lane_end",
+              "label": "End",
+              "props": {
+                "label": "End"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_b",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "error_handler_lane_b",
+            "type": "errorHandlerNode",
+            "position": {
+              "x": 760,
+              "y": 60
+            },
+            "data": {
+              "type": "error_handler",
+              "label": "Error Handler",
+              "props": {
+                "defaultOnError": "stop",
+                "logAll": "true",
+                "rules": "[]",
+                "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_b",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "Il nodo \"Error Handler\" non è collegato a nessun altro nodo",
+                    "code": "ISOLATED_NODE",
+                    "hint": "Collega il nodo alla pipeline o rimuovilo"
+                  }
+                ]
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "node_1",
+            "type": "flowNode",
+            "position": {
+              "x": 61.725581395348854,
+              "y": 69.34505813953488
+            },
+            "data": {
+              "type": "source_file",
+              "label": "Anagrafica clienti",
+              "props": {
+                "path": "/home/marco/Progetti/TNE/examples/08-tmap/dati/clienti.csv",
+                "outputSchema": "[{\"id\":\"field_1787872916241_0\",\"name\":\"codice\",\"physicalName\":\"codice\",\"type\":\"string\"},{\"id\":\"field_1787872916241_1\",\"name\":\"nome\",\"physicalName\":\"nome\",\"type\":\"string\"},{\"id\":\"field_1787872916241_2\",\"name\":\"cognome\",\"physicalName\":\"cognome\",\"type\":\"string\"},{\"id\":\"field_1787872916241_3\",\"name\":\"citta\",\"physicalName\":\"citta\",\"type\":\"string\"},{\"id\":\"field_1787872916241_4\",\"name\":\"eta\",\"physicalName\":\"eta\",\"type\":\"integer\"},{\"id\":\"field_1787872916242_5\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"decimal\",\"_misto\":\"integer/decimal\"}]",
+                "schemaAvvisi": "[\"importo: valori misti (integer/decimal) → dedotto decimal\"]",
+                "tipiDedotti": "{\"codice\":\"string\",\"nome\":\"string\",\"cognome\":\"string\",\"citta\":\"string\",\"eta\":\"integer\",\"importo\":\"decimal\"}"
+              },
+              "config": {
+                "displayName": "Anagrafica clienti",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "true"
+                }
+              },
+              "status": "warning",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "\"Anagrafica clienti\": tipo dedotto da valori non omogenei — importo: valori misti (integer/decimal) → dedotto decimal",
+                    "code": "SCHEMA_TIPO_AMBIGUO",
+                    "hint": "Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore."
+                  }
+                ]
+              },
+              "statusMessage": "errore critico su node_3"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_2",
+            "type": "flowNode",
+            "position": {
+              "x": 101.68837209302328,
+              "y": -42.776453488372006
+            },
+            "data": {
+              "type": "source_file",
+              "label": "Movimenti",
+              "props": {
+                "path": "/home/marco/Progetti/TNE/examples/08-tmap/dati/movimenti.csv",
+                "outputSchema": "[{\"id\":\"field_1787872953604_0\",\"name\":\"movimento\",\"physicalName\":\"movimento\",\"type\":\"string\"},{\"id\":\"field_1787872953604_1\",\"name\":\"cliente\",\"physicalName\":\"cliente\",\"type\":\"string\"},{\"id\":\"field_1787872953604_2\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"decimal\",\"_misto\":\"integer/decimal\"}]",
+                "schemaAvvisi": "[\"importo: valori misti (integer/decimal) → dedotto decimal\"]",
+                "tipiDedotti": "{\"movimento\":\"string\",\"cliente\":\"string\",\"importo\":\"decimal\"}"
+              },
+              "config": {
+                "displayName": "Movimenti",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "true"
+                }
+              },
+              "status": "warning",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "\"Movimenti\": tipo dedotto da valori non omogenei — importo: valori misti (integer/decimal) → dedotto decimal",
+                    "code": "SCHEMA_TIPO_AMBIGUO",
+                    "hint": "Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore."
+                  }
+                ]
+              },
+              "statusMessage": "errore critico su node_3"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_3",
+            "type": "tmapNode",
+            "position": {
+              "x": 368.0418604651164,
+              "y": 26.053488372093028
+            },
+            "data": {
+              "type": "tmap",
+              "label": "Arricchimento TMap",
+              "props": {
+                "shortLabel": "",
+                "_propagatedIds_input_main": "[\"field_1787872953604_0\",\"field_1787872953604_1\",\"field_1787872953604_2\"]",
+                "_propagatedIds_input_1787873020893_y7y2": "[\"field_1787872916241_0\",\"field_1787872916241_1\",\"field_1787872916241_2\",\"field_1787872916241_3\",\"field_1787872916241_4\",\"field_1787872916242_5\"]",
+                "_schemaLocked": "true"
+              },
+              "config": {
+                "displayName": "Arricchimento TMap",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "true"
+                },
+                "tmap": {
+                  "inputs": [
+                    {
+                      "id": "input_main",
+                      "label": "main",
+                      "isMain": true,
+                      "joinType": "none",
+                      "fields": [
+                        {
+                          "id": "status_ok",
+                          "name": "status.ok",
+                          "type": "boolean"
+                        },
+                        {
+                          "id": "status_rows_processed",
+                          "name": "status.rows_processed",
+                          "type": "integer"
+                        },
+                        {
+                          "id": "status_duration_ms",
+                          "name": "status.duration_ms",
+                          "type": "integer"
+                        },
+                        {
+                          "id": "status_error_message",
+                          "name": "status.error_message",
+                          "type": "string"
+                        },
+                        {
+                          "id": "status_node_id",
+                          "name": "status.node_id",
+                          "type": "string"
+                        },
+                        {
+                          "id": "status_node_type",
+                          "name": "status.node_type",
+                          "type": "string"
+                        },
+                        {
+                          "id": "status_timestamp",
+                          "name": "status.timestamp",
+                          "type": "date"
+                        },
+                        {
+                          "id": "status_rows_read",
+                          "name": "status.rows_read",
+                          "type": "integer"
+                        },
+                        {
+                          "id": "field_1787872953604_0",
+                          "name": "movimento",
+                          "type": "string",
+                          "physicalName": "movimento"
+                        },
+                        {
+                          "id": "field_1787872953604_1",
+                          "name": "cliente",
+                          "type": "string",
+                          "physicalName": "cliente"
+                        },
+                        {
+                          "id": "field_1787872953604_2",
+                          "name": "importo",
+                          "type": "decimal",
+                          "physicalName": "importo"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "input_1787873020893_y7y2",
+                      "label": "Anagrafica clienti",
+                      "isMain": false,
+                      "joinType": "inner",
+                      "joinKey": "",
+                      "sourceJoinKey": "",
+                      "fields": [
+                        {
+                          "id": "status_ok",
+                          "name": "status.ok",
+                          "type": "boolean"
+                        },
+                        {
+                          "id": "status_rows_processed",
+                          "name": "status.rows_processed",
+                          "type": "integer"
+                        },
+                        {
+                          "id": "status_duration_ms",
+                          "name": "status.duration_ms",
+                          "type": "integer"
+                        },
+                        {
+                          "id": "status_error_message",
+                          "name": "status.error_message",
+                          "type": "string"
+                        },
+                        {
+                          "id": "status_node_id",
+                          "name": "status.node_id",
+                          "type": "string"
+                        },
+                        {
+                          "id": "status_node_type",
+                          "name": "status.node_type",
+                          "type": "string"
+                        },
+                        {
+                          "id": "status_timestamp",
+                          "name": "status.timestamp",
+                          "type": "date"
+                        },
+                        {
+                          "id": "status_rows_read",
+                          "name": "status.rows_read",
+                          "type": "integer"
+                        },
+                        {
+                          "id": "field_1787872916241_0",
+                          "name": "codice",
+                          "type": "string",
+                          "physicalName": "codice"
+                        },
+                        {
+                          "id": "field_1787872916241_1",
+                          "name": "nome",
+                          "type": "string",
+                          "physicalName": "nome"
+                        },
+                        {
+                          "id": "field_1787872916241_2",
+                          "name": "cognome",
+                          "type": "string",
+                          "physicalName": "cognome"
+                        },
+                        {
+                          "id": "field_1787872916241_3",
+                          "name": "citta",
+                          "type": "string",
+                          "physicalName": "citta"
+                        },
+                        {
+                          "id": "field_1787872916241_4",
+                          "name": "eta",
+                          "type": "integer",
+                          "physicalName": "eta"
+                        },
+                        {
+                          "id": "field_1787872916242_5",
+                          "name": "importo",
+                          "type": "decimal",
+                          "physicalName": "importo"
+                        }
+                      ],
+                      "joinPairs": [
+                        {
+                          "id": "jp_1787873065790",
+                          "srcColor": "#4a9eff",
+                          "srcInputId": "input_main",
+                          "srcFields": [
+                            {
+                              "id": "jf_1787873065790",
+                              "field": "cliente",
+                              "fn": "none",
+                              "arg1": "",
+                              "arg2": ""
+                            }
+                          ],
+                          "combineExpr": "",
+                          "dstFields": [
+                            {
+                              "id": "jf_1787873065791",
+                              "field": "codice",
+                              "fn": "none",
+                              "arg1": "",
+                              "arg2": ""
+                            }
+                          ],
+                          "dstCombineExpr": ""
+                        }
+                      ]
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "id": "output_main",
+                      "label": "main_out",
+                      "color": "#3ddc84",
+                      "filter": "",
+                      "fields": [
+                        {
+                          "id": "field_1787873187502",
+                          "name": "movimento",
+                          "type": "string",
+                          "expression": "movimento",
+                          "sourceInputId": "input_main",
+                          "sourceFieldName": "movimento"
+                        },
+                        {
+                          "id": "field_1787873193825",
+                          "name": "cliente",
+                          "type": "string",
+                          "expression": "main.cliente",
+                          "sourceInputId": "input_main",
+                          "sourceFieldName": "cliente"
+                        },
+                        {
+                          "id": "field_1788005898681",
+                          "name": "nome_completo",
+                          "type": "string",
+                          "expression": "nome_completo"
+                        },
+                        {
+                          "id": "field_1788006260575",
+                          "name": "citta",
+                          "type": "string",
+                          "expression": "Anagrafica clienti.citta"
+                        },
+                        {
+                          "id": "field_1788006342637",
+                          "name": "imponibile",
+                          "type": "decimal",
+                          "expression": "imponibile"
+                        },
+                        {
+                          "id": "field_1788006432302",
+                          "name": "importo_ivato",
+                          "type": "integer",
+                          "expression": "importo_ivato"
+                        },
+                        {
+                          "id": "field_1788006529776",
+                          "name": "sopra_soglia",
+                          "type": "boolean",
+                          "expression": "sopra_soglia"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "output_rejected",
+                      "label": "rejected",
+                      "color": "#ff5f57",
+                      "filter": "",
+                      "fields": [
+                        {
+                          "id": "field_1787873279986",
+                          "name": "movimento",
+                          "type": "string",
+                          "expression": "main.movimento"
+                        },
+                        {
+                          "id": "field_1787873283137",
+                          "name": "cliente",
+                          "type": "string",
+                          "expression": "main.cliente",
+                          "sourceInputId": "input_main",
+                          "sourceFieldName": "cliente"
+                        },
+                        {
+                          "id": "field_1787873288009",
+                          "name": "importo",
+                          "type": "decimal",
+                          "expression": "main.importo"
+                        }
+                      ]
+                    }
+                  ],
+                  "connections": [
+                    {
+                      "id": "input_main__movimento__output_rejected__field_1787873279986",
+                      "inputId": "input_main",
+                      "fieldName": "movimento",
+                      "outputId": "output_rejected",
+                      "fieldId": "field_1787873279986",
+                      "color": "#4a9eff"
+                    },
+                    {
+                      "id": "input_main__importo__output_rejected__field_1787873288009",
+                      "inputId": "input_main",
+                      "fieldName": "importo",
+                      "outputId": "output_rejected",
+                      "fieldId": "field_1787873288009",
+                      "color": "#4a9eff"
+                    },
+                    {
+                      "id": "input_main__cliente__output_rejected__field_1787873283137",
+                      "inputId": "input_main",
+                      "fieldName": "cliente",
+                      "outputId": "output_rejected",
+                      "fieldId": "field_1787873283137",
+                      "color": "#4a9eff"
+                    },
+                    {
+                      "id": "input_main__cliente__output_main__field_1787873193825",
+                      "inputId": "input_main",
+                      "fieldName": "cliente",
+                      "outputId": "output_main",
+                      "fieldId": "field_1787873193825",
+                      "color": "#4a9eff"
+                    },
+                    {
+                      "id": "input_1787873020893_y7y2__citta__output_main__field_1788006260575",
+                      "inputId": "input_1787873020893_y7y2",
+                      "fieldName": "citta",
+                      "outputId": "output_main",
+                      "fieldId": "field_1788006260575",
+                      "color": "#ffb347"
+                    },
+                    {
+                      "id": "transform_1788005615397__output_main__field_1787873187502",
+                      "inputId": "transform__transform_1788005615397",
+                      "fieldName": "movimento",
+                      "outputId": "output_main",
+                      "fieldId": "field_1787873187502",
+                      "color": "#a78bfa"
+                    },
+                    {
+                      "id": "transform_1788006305997__output_main__field_1788006342637",
+                      "inputId": "transform__transform_1788006305997",
+                      "fieldName": "imponibile",
+                      "outputId": "output_main",
+                      "fieldId": "field_1788006342637",
+                      "color": "#a78bfa"
+                    },
+                    {
+                      "id": "transform_1788006370174__output_main__field_1788006432302",
+                      "inputId": "transform__transform_1788006370174",
+                      "fieldName": "importo_ivato",
+                      "outputId": "output_main",
+                      "fieldId": "field_1788006432302",
+                      "color": "#a78bfa"
+                    },
+                    {
+                      "id": "transform_1788006447647__output_main__field_1788006529776",
+                      "inputId": "transform__transform_1788006447647",
+                      "fieldName": "sopra_soglia",
+                      "outputId": "output_main",
+                      "fieldId": "field_1788006529776",
+                      "color": "#a78bfa"
+                    }
+                  ],
+                  "transforms": [
+                    {
+                      "id": "transform_1788005615397",
+                      "label": "trasf_bey",
+                      "mode": "inline",
+                      "inputs": [
+                        {
+                          "inputId": "input_main",
+                          "fieldName": "movimento",
+                          "perFieldFn": "str_upper",
+                          "perFieldParams": {}
+                        }
+                      ],
+                      "expression": "replace(main.movimento, \"M\", \"MOV-\")",
+                      "outputName": "movimento",
+                      "outputType": "string",
+                      "finalFn": "str_upper",
+                      "finalParams": {},
+                      "collapsed": true
+                    },
+                    {
+                      "id": "transform_1788005748753",
+                      "label": "trasf_aoo",
+                      "mode": "inline",
+                      "inputs": [
+                        {
+                          "inputId": "input_1787873020893_y7y2",
+                          "fieldName": "nome"
+                        },
+                        {
+                          "inputId": "input_1787873020893_y7y2",
+                          "fieldName": "cognome"
+                        }
+                      ],
+                      "expression": "concat(\"Anagrafica clienti\".nome, \" \", \"Anagrafica clienti\".cognome)",
+                      "outputName": "nome_completo",
+                      "outputType": "string",
+                      "collapsed": true
+                    },
+                    {
+                      "id": "transform_1788006305997",
+                      "label": "trasf_7m5",
+                      "mode": "inline",
+                      "inputs": [
+                        {
+                          "inputId": "input_main",
+                          "fieldName": "importo"
+                        }
+                      ],
+                      "expression": "cast(main.importo as decimal)",
+                      "outputName": "imponibile",
+                      "outputType": "decimal",
+                      "collapsed": true
+                    },
+                    {
+                      "id": "transform_1788006370174",
+                      "label": "campo_5xd",
+                      "mode": "inline",
+                      "inputs": [
+                        {
+                          "inputId": "input_main",
+                          "fieldName": "importo"
+                        }
+                      ],
+                      "expression": "round(cast(main.importo as decimal *1.22,2) ",
+                      "outputName": "importo_ivato",
+                      "outputType": "decimal",
+                      "collapsed": false
+                    },
+                    {
+                      "id": "transform_1788006447647",
+                      "label": "campo_1qo",
+                      "mode": "inline",
+                      "inputs": [
+                        {
+                          "inputId": "input_main",
+                          "fieldName": "importo"
+                        }
+                      ],
+                      "expression": "main.importo>50",
+                      "outputName": "sopra_soglia",
+                      "outputType": "decimal",
+                      "collapsed": false
+                    }
+                  ]
+                }
+              },
+              "status": "error",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "5 nuovo/i campo/i in ingresso non mappato/i: importo, codice, nome…",
+                    "code": "SCHEMA_NEW_FIELDS",
+                    "hint": "Nuovi campi disponibili dal sorgente. Valuta se aggiungerli."
+                  }
+                ]
+              },
+              "statusMessage": "tmap node_3: config non valida: missing field `main_input_id`"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_4",
+            "type": "flowNode",
+            "position": {
+              "x": 631.4162790697673,
+              "y": -90.20436046511637
+            },
+            "data": {
+              "type": "log",
+              "label": "Log",
+              "props": {
+                "incomingSchema": "[{\"id\":\"field_1787873187502\",\"name\":\"movimento\",\"type\":\"string\",\"physicalName\":\"movimento\"},{\"id\":\"field_1787873193825\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"field_1788005898681\",\"name\":\"nome_completo\",\"type\":\"string\",\"physicalName\":\"nome_completo\"},{\"id\":\"field_1788006260575\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1788006342637\",\"name\":\"imponibile\",\"type\":\"decimal\",\"physicalName\":\"imponibile\"},{\"id\":\"field_1788006432302\",\"name\":\"importo_ivato\",\"type\":\"integer\",\"physicalName\":\"importo_ivato\"},{\"id\":\"field_1788006529776\",\"name\":\"sopra_soglia\",\"type\":\"boolean\",\"physicalName\":\"sopra_soglia\"}]",
+                "_propagatedIds": "[\"field_1787873187502\",\"field_1787873193825\",\"field_1788005898681\",\"field_1788006260575\",\"field_1788006342637\",\"field_1788006432302\",\"field_1788006529776\"]",
+                "outputSchema": "[{\"id\":\"field_1787873187502\",\"name\":\"movimento\",\"type\":\"string\",\"physicalName\":\"movimento\"},{\"id\":\"field_1787873193825\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"field_1788005898681\",\"name\":\"nome_completo\",\"type\":\"string\",\"physicalName\":\"nome_completo\"},{\"id\":\"field_1788006260575\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1788006342637\",\"name\":\"imponibile\",\"type\":\"decimal\",\"physicalName\":\"imponibile\"},{\"id\":\"field_1788006432302\",\"name\":\"importo_ivato\",\"type\":\"integer\",\"physicalName\":\"importo_ivato\"},{\"id\":\"field_1788006529776\",\"name\":\"sopra_soglia\",\"type\":\"boolean\",\"physicalName\":\"sopra_soglia\"}]",
+                "logTarget": "window"
+              },
+              "config": {
+                "displayName": "Log",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_6",
+            "type": "flowNode",
+            "position": {
+              "x": 711.5930232558139,
+              "y": 58.40843023255813
+            },
+            "data": {
+              "type": "sink_file",
+              "label": "Tutti i movimenti",
+              "props": {
+                "path": "_out/movimenti_tmap.csv",
+                "format": "csv",
+                "mode": "overwrite",
+                "partition": "none",
+                "processingMode": "streaming",
+                "passthrough": "false",
+                "incomingSchema": "[{\"id\":\"field_1787873187502\",\"name\":\"movimento\",\"type\":\"string\",\"physicalName\":\"movimento\"},{\"id\":\"field_1787873193825\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"field_1788005898681\",\"name\":\"nome_completo\",\"type\":\"string\",\"physicalName\":\"nome_completo\"},{\"id\":\"field_1788006260575\",\"name\":\"citta\",\"type\":\"string\",\"physicalName\":\"citta\"},{\"id\":\"field_1788006342637\",\"name\":\"imponibile\",\"type\":\"decimal\",\"physicalName\":\"imponibile\"},{\"id\":\"field_1788006432302\",\"name\":\"importo_ivato\",\"type\":\"integer\",\"physicalName\":\"importo_ivato\"},{\"id\":\"field_1788006529776\",\"name\":\"sopra_soglia\",\"type\":\"boolean\",\"physicalName\":\"sopra_soglia\"}]",
+                "_propagatedIds": "[\"field_1787873187502\",\"field_1787873193825\",\"field_1788005898681\",\"field_1788006260575\",\"field_1788006342637\",\"field_1788006432302\",\"field_1788006529776\"]"
+              },
+              "config": {
+                "displayName": "Tutti i movimenti",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "false",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_7",
+            "type": "flowNode",
+            "position": {
+              "x": 717.679069767442,
+              "y": 183.3255813953488
+            },
+            "data": {
+              "type": "sink_file",
+              "label": "Sopra soglia",
+              "props": {
+                "path": "_out/sopra_soglia.csv",
+                "format": "csv",
+                "mode": "overwrite",
+                "partition": "none",
+                "processingMode": "streaming",
+                "passthrough": "false",
+                "incomingSchema": "[{\"id\":\"field_1787873279986\",\"name\":\"movimento\",\"type\":\"string\",\"physicalName\":\"movimento\"},{\"id\":\"field_1787873283137\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"field_1787873288009\",\"name\":\"importo\",\"type\":\"decimal\",\"physicalName\":\"importo\"}]",
+                "_propagatedIds": "[\"field_1787873279986\",\"field_1787873283137\",\"field_1787873288009\"]"
+              },
+              "config": {
+                "displayName": "Sopra soglia",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "false",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_node_2_output_node_3_input_main_1787873018006",
+            "source": "node_2",
+            "target": "node_3",
+            "sourceHandle": "output",
+            "targetHandle": "input_main",
+            "style": {
+              "stroke": "#185FA5",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#185FA5"
+            },
+            "label": "main",
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_1_output_node_3_input_1787873020893_y7y2_1787873020895",
+            "source": "node_1",
+            "target": "node_3",
+            "sourceHandle": "output",
+            "targetHandle": "input_1787873020893_y7y2",
+            "style": {
+              "stroke": "#185FA5",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#185FA5"
+            },
+            "label": "Anagrafica clienti",
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_3_output_main_node_6_input_1787873465732",
+            "source": "node_3",
+            "target": "node_6",
+            "sourceHandle": "output_main",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#185FA5",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#185FA5"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_3_output_rejected_node_7_input_1787873515125",
+            "source": "node_3",
+            "target": "node_7",
+            "sourceHandle": "output_rejected",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#185FA5",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#185FA5"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_3_output_main_node_4_input_1787874103837",
+            "source": "node_3",
+            "target": "node_4",
+            "sourceHandle": "output_main",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#185FA5",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#185FA5"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          }
+        ]
+      }
+    }
+  ]
 }

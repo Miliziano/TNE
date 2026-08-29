@@ -59,7 +59,16 @@ function quoteString(v: string): string {
  * e un testo con virgolette romperebbe il parsing.
  */
 function paramToLiteral(raw: string, param: TransformParam | undefined): string {
-  const v = (raw ?? param?.default ?? '').trim()
+  const grezzo = raw ?? param?.default ?? ''
+
+  // `expr` = espressione già scritta dall'utente (il riferimento a un campo,
+  // per esempio): va inserita com'è, non trasformata in stringa.
+  if (param?.type === 'expr') return grezzo.trim()
+
+  // ⚠️ Niente `trim()` sui TESTI: per un separatore o un carattere di
+  // riempimento lo spazio È il valore. Prima veniva tagliato, e un separatore
+  // " " diventava "" — in silenzio, anche nella "Concatena" già esistente.
+  const v = param?.type === 'text' ? grezzo : grezzo.trim()
 
   if (param?.type === 'number') {
     if (v === '') return '0'
