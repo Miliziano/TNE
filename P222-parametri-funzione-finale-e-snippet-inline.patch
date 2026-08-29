@@ -1,0 +1,73 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index d14b0e9..9a473dd 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -684,6 +684,33 @@ export function FieldTransformEditor({
+                       {v}
+                     </button>
+                   ))}
++                  {/* Funzioni pronte anche QUI: prima la tendina degli snippet
++                      esisteva solo in modalità script, quindi chi sceglieva
++                      "espressione personalizzata" restava davanti a una casella
++                      vuota senza un elenco da cui pescare. Le voci sono le stesse
++                      del catalogo condiviso; `$value` viene sostituito col primo
++                      campo collegato, come nell'inserimento in modalità script. */}
++                  <CustomSelect
++                    value=""
++                    onChange={e => {
++                      const sn = snippetPerTipo(fn0OutType).find(x => x.id === e.target.value)
++                      if (!sn) return
++                      const campo = inputVars[0] ?? 'campo'
++                      const code  = sn.code.replace(/\$value/g, campo).replace(/\$sel/g, campo)
++                      handlePatch({ expression: currentExpr ? currentExpr + ' + ' + code : code })
++                    }}
++                    style={{ ...iStyle, fontSize: 9, width: 132, flexShrink: 0 }}>
++                    <option value="" disabled>ƒ inserisci funzione…</option>
++                    {SNIPPET_GROUPS.map(grp => {
++                      const items = snippetPerTipo(fn0OutType).filter(x => x.group === grp)
++                      if (!items.length) return null
++                      return (
++                        <optgroup key={grp} label={grp}>
++                          {items.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
++                        </optgroup>
++                      )
++                    })}
++                  </CustomSelect>
+                   {value.expression && value.expression !== autoExpr && (
+                     <button
+                       onClick={() => handlePatch({ expression: currentVarExprs.join(' + ') })}
+@@ -760,6 +787,34 @@ export function FieldTransformEditor({
+                     </span>
+                   )}
+                 </div>
++
++                {/* PARAMETRI della funzione finale — mancavano del tutto: la
++                    funzione veniva applicata coi valori predefiniti e non c'era
++                    modo di dire, per esempio, COSA concatenare. Stessa resa dei
++                    parametri delle funzioni di campo. */}
++                {ff.params && ff.params.length > 0 && (
++                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 34, flexWrap: 'wrap' }}>
++                    {ff.params.map(p => (
++                      <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
++                        <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{p.label}:</span>
++                        {p.type === 'select' ? (
++                          <CustomSelect
++                            value={value.finalParams?.[p.key] ?? p.default ?? ''}
++                            onChange={e => handlePatch({ finalParams: { ...(value.finalParams ?? {}), [p.key]: e.target.value } })}
++                            style={{ ...iStyle, fontSize: 9, width: p.width ?? 100 }}>
++                            {(p.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
++                          </CustomSelect>
++                        ) : (
++                          <input type={p.type === 'number' ? 'number' : 'text'}
++                            value={value.finalParams?.[p.key] ?? p.default ?? ''}
++                            onChange={e => handlePatch({ finalParams: { ...(value.finalParams ?? {}), [p.key]: e.target.value } })}
++                            style={{ ...iStyle, fontSize: 9, width: p.width ?? 80 }}
++                            placeholder={p.default} />
++                        )}
++                      </div>
++                    ))}
++                  </div>
++                )}
+               </div>
+             </>
+           )}
