@@ -17,6 +17,7 @@ import { getPresetsForType, findPreset } from '../../transforms/presets'
 import { resolveTemplate } from '../../transforms/templateCompiler'
 import { TYPE_META, type FieldType } from '../../transforms/presets'
 import { CustomSelect } from '../CustomSelect'
+import { FunctionPicker } from '../FunctionPicker'
 
 type TransformMode = 'inline' | 'script'
 
@@ -483,6 +484,7 @@ export function FieldTransformEditor({
   onChange, onDelete, onDragStart, isDragging,
   transformId, onRegisterOutputHandle,
 }: Props) {
+  const [pickerAperto, setPickerAperto] = useState(false)
 
   const nInputs = inputVars.length
   const inputTypes: TransformCategory[] = value.inputs.map((_, i) =>
@@ -728,27 +730,27 @@ export function FieldTransformEditor({
                       vuota senza un elenco da cui pescare. Le voci sono le stesse
                       del catalogo condiviso; `$value` viene sostituito col primo
                       campo collegato, come nell'inserimento in modalità script. */}
-                  <CustomSelect
-                    value=""
-                    onChange={e => {
-                      const sn = snippetPerTipo(fn0OutType).find(x => x.id === e.target.value)
-                      if (!sn) return
-                      const campo = inputVars[0] ?? 'campo'
-                      const code  = sn.code.replace(/\$value/g, campo).replace(/\$sel/g, campo)
-                      handlePatch({ expression: currentExpr ? currentExpr + ' + ' + code : code })
-                    }}
-                    style={{ ...iStyle, fontSize: 9, width: 132, flexShrink: 0 }}>
-                    <option value="" disabled>ƒ inserisci funzione…</option>
-                    {SNIPPET_GROUPS.map(grp => {
-                      const items = snippetPerTipo(fn0OutType).filter(x => x.group === grp)
-                      if (!items.length) return null
-                      return (
-                        <optgroup key={grp} label={grp}>
-                          {items.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
-                        </optgroup>
-                      )
-                    })}
-                  </CustomSelect>
+                  {/* SELETTORE UNICO: sostituisce la tendina, che mostrava solo
+                      l'etichetta e non permetteva di cercare. La funzione scelta
+                      AVVOLGE l'espressione corrente invece di essere accodata:
+                      è quasi sempre l'intenzione ("prendi questo e mettilo in
+                      maiuscolo"), e permette di applicarne più di una in cascata. */}
+                  <button
+                    onClick={() => setPickerAperto(true)}
+                    title="Scegli una funzione o una trasformazione (con ricerca)"
+                    style={{ ...iStyle, fontSize: 9, width: 132, flexShrink: 0, cursor: 'pointer',
+                      textAlign: 'left', color: '#8aa4d0' }}>
+                    ƒ applica…
+                  </button>
+                  {pickerAperto && (
+                    <FunctionPicker
+                      tipo={fn0OutType}
+                      onChiudi={() => setPickerAperto(false)}
+                      onScegli={(codice) => {
+                        const base = (currentExpr || inputVars[0] || 'campo').trim()
+                        handlePatch({ expression: codice.replace(/\$sel/g, base) })
+                      }} />
+                  )}
                   {value.expression && value.expression !== autoExpr && (
                     <button
                       onClick={() => handlePatch({ expression: currentVarExprs.join(' + ') })}
