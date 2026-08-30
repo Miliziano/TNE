@@ -1,0 +1,252 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index 0700a53..f091864 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -179,14 +179,6 @@ function rebuildExpression(
+   return newExprs.join(' + ')
+ }
+ 
+-// ─── Catalogo snippet per lo ScriptEditor ────────────────────────
+-
+-interface SnippetDef {
+-  id:    string
+-  label: string
+-  group: string
+-  code:  string
+-}
+ 
+ // ─── Snippet delle espressioni ────────────────────────────────────
+ // Erano 32 e ne compilavano DUE: il resto era JavaScript — `String(x ??
+@@ -208,49 +200,9 @@ interface SnippetDef {
+ // una lista separata divergerebbe alla prima aggiunta — è esattamente ciò che
+ // era successo ai `jsTemplate`. Ora la fonte è una sola: `TRANSFORM_CATALOG`.
+ //
+-// Restano scritti qui solo i costrutti del LINGUAGGIO, che non sono
+-// trasformazioni di campo e nel catalogo non hanno posto.
+-const SNIPPET_LINGUAGGIO: SnippetDef[] = [
+-  { id: 'fn_isnull',   group: 'Condizioni', label: 'è null?',                 code: '$sel is null' },
+-  { id: 'fn_coalesce', group: 'Condizioni', label: 'primo non nullo',         code: 'coalesce($sel, "predefinito")' },
+-  { id: 'fn_ternary',  group: 'Condizioni', label: 'se… allora… altrimenti',  code: 'iif($sel is null, "vuoto", "pieno")' },
+-  { id: 'fn_case',     group: 'Condizioni', label: 'case when…',              code: 'case when $sel > 0 then "positivo" else "altro" end' },
+-  { id: 'lane_read',   group: 'Lane',       label: 'leggi variabile di lane', code: 'var("nome_variabile")' },
+-]
+-
+-/** Categoria del catalogo → gruppo mostrato nella tendina. */
+-const GRUPPO_PER_CATEGORIA: Record<string, string> = {
+-  string: 'Stringa', integer: 'Numero', decimal: 'Numero',
+-  number: 'Numero',  boolean: 'Condizioni', date: 'Data', datetime: 'Data',
+-}
+ 
+-/**
+- * Snippet proposti per il tipo del campo: prima le trasformazioni del catalogo
+- * (già in FPEL, con `$value` risolto all'inserimento), poi i costrutti del
+- * linguaggio. Una funzione aggiunta al catalogo compare qui da sola.
+- */
+-function snippetPerTipo(tipo: string): SnippetDef[] {
+-  const daCatalogo = getPresetsForType(tipo as FieldType).map((t) => {
+-    // I parametri del template (`$param_<key>`) vanno risolti coi loro valori
+-    // predefiniti — e con le virgolette dove servono, cosa che sa fare solo
+-    // `resolveTemplate`. Inserirli grezzi produrrebbe espressioni non valide,
+-    // com'era per `$value` prima di P217.
+-    // `$value` invece si LASCIA: lo sostituisce l'inserimento col campo vero.
+-    const valoriDefault = Object.fromEntries(
+-      (t.params ?? []).map((p) => [p.key, p.default ?? '']),
+-    )
+-    return {
+-      id:    t.id,
+-      label: t.label,
+-      group: GRUPPO_PER_CATEGORIA[t.outputType ?? tipo] ?? 'Template',
+-      code:  resolveTemplate(t, '$value', valoriDefault),
+-    }
+-  })
+-  return [...daCatalogo, ...SNIPPET_LINGUAGGIO]
+-}
+ 
+ 
+-const SNIPPET_GROUPS = ['Template', 'Stringa', 'Numero', 'Data', 'Condizioni', 'Lane']
+ 
+ // ─── ScriptEditor con selettore snippet ──────────────────────────
+ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
+@@ -258,32 +210,10 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
+ }) {
+   const textareaRef = useRef<HTMLTextAreaElement>(null)
+   const cursorPos   = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
+-  const [snippetSel, setSnippetSel] = useState('')
++  const [pickerScript, setPickerScript] = useState(false)
+ 
+   const lines = expr.split('\n')
+ 
+-  function insertAtCursor(snippet: SnippetDef) {
+-    const ta    = textareaRef.current
+-    const start = ta ? ta.selectionStart : cursorPos.current.start
+-    const end   = ta ? ta.selectionEnd   : cursorPos.current.end
+-    const sel   = expr.slice(start, end)
+-    // `$value` e `$sel` sono SEGNAPOSTO degli snippet, non sintassi FPEL: vanno
+-    // risolti al momento dell'inserimento, altrimenti finiscono letterali
+-    // nell'espressione (e il parser li rifiuta, giustamente).
+-    // Al loro posto: il testo selezionato se c'è, altrimenti il PRIMO campo
+-    // collegato a questa trasformazione — già nella forma qualificata
+-    // (`Anagrafica.nome`), così lo snippet inserito è subito valido.
+-    const rimpiazzo = sel || inputVars[0] || 'campo'
+-    const code  = snippet.code.replace(/\$sel/g, rimpiazzo).replace(/\$value/g, rimpiazzo)
+-    const newExpr = expr.slice(0, start) + code + expr.slice(end)
+-    onChange(newExpr)
+-    requestAnimationFrame(() => {
+-      if (!ta) return
+-      ta.focus()
+-      const newPos = start + code.length
+-      ta.setSelectionRange(newPos, newPos)
+-    })
+-  }
+ 
+   function insertVar(varName: string) {
+     const ta    = textareaRef.current
+@@ -321,26 +251,28 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
+             <div style={{ width: 1, height: 12, background: '#2a3349', flexShrink: 0 }} />
+           </>
+         )}
+-        <CustomSelect
+-          value={snippetSel}
+-          onChange={e => {
+-            const snippet = snippetPerTipo(outputType).find(s => s.id === e.target.value)
+-            if (snippet) insertAtCursor(snippet)
+-            setSnippetSel('')
+-          }}
+-          style={{ ...iStyle, fontSize: 9, flex: 1, minWidth: 120, maxWidth: 200 }}>
+-          <option value="" disabled>ƒ inserisci snippet…</option>
+-          {SNIPPET_GROUPS.map(grp => {
+-            const items = snippetPerTipo(outputType).filter(s => s.group === grp)
+-            return (
+-              <optgroup key={grp} label={grp}>
+-                {items.map(s => (
+-                  <option key={s.id} value={s.id}>{s.label}</option>
+-                ))}
+-              </optgroup>
+-            )
+-          })}
+-        </CustomSelect>
++        {/* Selettore UNICO anche qui: prima la modalità script aveva una tendina
++            propria, con voci ed etichette diverse da quelle del menu inline. */}
++        <button
++          onClick={() => setPickerScript(true)}
++          title="Scegli una funzione o una trasformazione (con ricerca)"
++          style={{ ...iStyle, fontSize: 9, width: 150, cursor: 'pointer', textAlign: 'left', color: '#8aa4d0' }}>
++          ƒ applica…
++        </button>
++        {pickerScript && (
++          <FunctionPicker
++            tipo={outputType}
++            onChiudi={() => setPickerScript(false)}
++            onScegli={(voce) => {
++              const ta = textareaRef.current
++              const start = ta ? ta.selectionStart : cursorPos.current.start
++              const end   = ta ? ta.selectionEnd   : cursorPos.current.end
++              const sel   = expr.slice(start, end)
++              // avvolge la selezione; senza selezione, il primo campo collegato
++              const code  = voce.codice.replace(/\$sel/g, sel || inputVars[0] || 'campo')
++              onChange(expr.slice(0, start) + code + expr.slice(end))
++            }} />
++        )}
+       </div>
+ 
+       {/* ── Textarea con numeri riga ── */}
+@@ -746,9 +678,9 @@ export function FieldTransformEditor({
+                     <FunctionPicker
+                       tipo={fn0OutType}
+                       onChiudi={() => setPickerAperto(false)}
+-                      onScegli={(codice) => {
++                      onScegli={(voce) => {
+                         const base = (currentExpr || inputVars[0] || 'campo').trim()
+-                        handlePatch({ expression: codice.replace(/\$sel/g, base) })
++                        handlePatch({ expression: voce.codice.replace(/\$sel/g, base) })
+                       }} />
+                   )}
+                   {value.expression && value.expression !== autoExpr && (
+diff --git a/src/components/FunctionPicker.tsx b/src/components/FunctionPicker.tsx
+index cd68925..074e642 100644
+--- a/src/components/FunctionPicker.tsx
++++ b/src/components/FunctionPicker.tsx
+@@ -37,7 +37,22 @@ export interface VoceApplicabile {
+   codice:    string
+ }
+ 
+-/** Le due fonti condivise, unite in un elenco solo. */
++/** Costrutti del linguaggio: non stanno nel catalogo (non sono trasformazioni di
++ *  campo) né fra le funzioni (non sono chiamate), ma servono di frequente. */
++const COSTRUTTI: VoceApplicabile[] = [
++  { id: 'c:isnull',   nome: 'è null',            ritorna: 'boolean', uso: 'valore is null',
++    desc: 'Vero se il valore è vuoto',            categoria: 'costrutti', codice: '$sel is null' },
++  { id: 'c:notnull',  nome: 'non è null',        ritorna: 'boolean', uso: 'valore is not null',
++    desc: 'Vero se il valore è valorizzato',      categoria: 'costrutti', codice: '$sel is not null' },
++  { id: 'c:iif',      nome: 'se… allora… altrimenti', ritorna: '—',  uso: 'iif(condizione, a, b)',
++    desc: 'Sceglie fra due valori',               categoria: 'costrutti', codice: 'iif($sel is null, "vuoto", "pieno")' },
++  { id: 'c:case',     nome: 'case when…',        ritorna: '—',       uso: 'case when … then … else … end',
++    desc: 'Più condizioni in cascata',            categoria: 'costrutti', codice: 'case when $sel > 0 then "positivo" else "altro" end' },
++  { id: 'c:var',      nome: 'variabile di lane', ritorna: '—',       uso: 'var("nome")',
++    desc: 'Legge una variabile condivisa',        categoria: 'costrutti', codice: 'var("nome_variabile")' },
++]
++
++/** Le fonti condivise, unite in un elenco solo. */
+ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
+   const voci: VoceApplicabile[] = []
+ 
+@@ -54,7 +69,11 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
+     })
+   }
+ 
+-  // 2) le funzioni del linguaggio
++  // 2) i COSTRUTTI del linguaggio: non sono funzioni né trasformazioni di campo,
++  //    ma servono spesso e prima vivevano in una lista a parte dell'editor.
++  for (const c of COSTRUTTI) voci.push(c)
++
++  // 3) le funzioni del linguaggio
+   for (const f of FUNCTIONS) {
+     voci.push({
+       id: `f:${f.name}`, nome: f.name, ritorna: f.returns ?? '—',
+@@ -71,13 +90,22 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
+   return voci
+ }
+ 
+-export function FunctionPicker({ tipo, onScegli, onChiudi }: {
++export function FunctionPicker({ tipo, soloTrasformazioni, onScegli, onChiudi }: {
+   tipo?:    string
+-  onScegli: (codice: string) => void
++  /** Solo le trasformazioni del catalogo: serve dove la scelta viene SALVATA
++   *  nel modello (funzione di campo, ultimo passo), che sa rappresentare solo
++   *  quelle. Altrove si offrono anche le 84 funzioni del linguaggio. */
++  soloTrasformazioni?: boolean
++  /** Riceve la voce intera: chi inserisce testo usa `codice`, chi salva una
++   *  scelta nel modello usa `id` (`t:<idTemplate>`). */
++  onScegli: (voce: VoceApplicabile) => void
+   onChiudi: () => void
+ }) {
+   const [cerca, setCerca] = useState('')
+-  const voci = useMemo(() => vociApplicabili(tipo), [tipo])
++  const voci = useMemo(() => {
++    const tutte = vociApplicabili(tipo)
++    return soloTrasformazioni ? tutte.filter((v) => v.id.startsWith('t:')) : tutte
++  }, [tipo, soloTrasformazioni])
+ 
+   const filtrate = useMemo(() => {
+     const q = cerca.trim().toLowerCase()
+@@ -99,7 +127,10 @@ export function FunctionPicker({ tipo, onScegli, onChiudi }: {
+     <div
+       onClick={onChiudi}
+       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9000,
+-        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
++        // leggermente più in basso del centro: sopra resta visibile il campo su
++        // cui si sta lavorando, così si vede cosa si sta per trasformare
++        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
++        paddingTop: '14vh' }}>
+       <div
+         onClick={(e) => e.stopPropagation()}
+         style={{ width: 620, maxHeight: '72vh', display: 'flex', flexDirection: 'column',
+@@ -132,7 +163,7 @@ export function FunctionPicker({ tipo, onScegli, onChiudi }: {
+                 textTransform: 'uppercase', letterSpacing: '.06em' }}>{cat}</div>
+               {elenco.map((v) => (
+                 <div key={v.id}
+-                  onClick={() => { onScegli(v.codice); onChiudi() }}
++                  onClick={() => { onScegli(v); onChiudi() }}
+                   style={{ padding: '5px 12px', cursor: 'pointer', display: 'grid',
+                     gridTemplateColumns: '150px 74px 1fr', gap: 8, alignItems: 'baseline' }}
+                   onMouseEnter={(e) => { e.currentTarget.style.background = '#1a2233' }}

@@ -179,14 +179,6 @@ function rebuildExpression(
   return newExprs.join(' + ')
 }
 
-// ─── Catalogo snippet per lo ScriptEditor ────────────────────────
-
-interface SnippetDef {
-  id:    string
-  label: string
-  group: string
-  code:  string
-}
 
 // ─── Snippet delle espressioni ────────────────────────────────────
 // Erano 32 e ne compilavano DUE: il resto era JavaScript — `String(x ??
@@ -208,49 +200,9 @@ interface SnippetDef {
 // una lista separata divergerebbe alla prima aggiunta — è esattamente ciò che
 // era successo ai `jsTemplate`. Ora la fonte è una sola: `TRANSFORM_CATALOG`.
 //
-// Restano scritti qui solo i costrutti del LINGUAGGIO, che non sono
-// trasformazioni di campo e nel catalogo non hanno posto.
-const SNIPPET_LINGUAGGIO: SnippetDef[] = [
-  { id: 'fn_isnull',   group: 'Condizioni', label: 'è null?',                 code: '$sel is null' },
-  { id: 'fn_coalesce', group: 'Condizioni', label: 'primo non nullo',         code: 'coalesce($sel, "predefinito")' },
-  { id: 'fn_ternary',  group: 'Condizioni', label: 'se… allora… altrimenti',  code: 'iif($sel is null, "vuoto", "pieno")' },
-  { id: 'fn_case',     group: 'Condizioni', label: 'case when…',              code: 'case when $sel > 0 then "positivo" else "altro" end' },
-  { id: 'lane_read',   group: 'Lane',       label: 'leggi variabile di lane', code: 'var("nome_variabile")' },
-]
-
-/** Categoria del catalogo → gruppo mostrato nella tendina. */
-const GRUPPO_PER_CATEGORIA: Record<string, string> = {
-  string: 'Stringa', integer: 'Numero', decimal: 'Numero',
-  number: 'Numero',  boolean: 'Condizioni', date: 'Data', datetime: 'Data',
-}
-
-/**
- * Snippet proposti per il tipo del campo: prima le trasformazioni del catalogo
- * (già in FPEL, con `$value` risolto all'inserimento), poi i costrutti del
- * linguaggio. Una funzione aggiunta al catalogo compare qui da sola.
- */
-function snippetPerTipo(tipo: string): SnippetDef[] {
-  const daCatalogo = getPresetsForType(tipo as FieldType).map((t) => {
-    // I parametri del template (`$param_<key>`) vanno risolti coi loro valori
-    // predefiniti — e con le virgolette dove servono, cosa che sa fare solo
-    // `resolveTemplate`. Inserirli grezzi produrrebbe espressioni non valide,
-    // com'era per `$value` prima di P217.
-    // `$value` invece si LASCIA: lo sostituisce l'inserimento col campo vero.
-    const valoriDefault = Object.fromEntries(
-      (t.params ?? []).map((p) => [p.key, p.default ?? '']),
-    )
-    return {
-      id:    t.id,
-      label: t.label,
-      group: GRUPPO_PER_CATEGORIA[t.outputType ?? tipo] ?? 'Template',
-      code:  resolveTemplate(t, '$value', valoriDefault),
-    }
-  })
-  return [...daCatalogo, ...SNIPPET_LINGUAGGIO]
-}
 
 
-const SNIPPET_GROUPS = ['Template', 'Stringa', 'Numero', 'Data', 'Condizioni', 'Lane']
+
 
 // ─── ScriptEditor con selettore snippet ──────────────────────────
 function ScriptEditor({ expr, outputType, inputVars, onChange }: {
@@ -258,32 +210,10 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cursorPos   = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
-  const [snippetSel, setSnippetSel] = useState('')
+  const [pickerScript, setPickerScript] = useState(false)
 
   const lines = expr.split('\n')
 
-  function insertAtCursor(snippet: SnippetDef) {
-    const ta    = textareaRef.current
-    const start = ta ? ta.selectionStart : cursorPos.current.start
-    const end   = ta ? ta.selectionEnd   : cursorPos.current.end
-    const sel   = expr.slice(start, end)
-    // `$value` e `$sel` sono SEGNAPOSTO degli snippet, non sintassi FPEL: vanno
-    // risolti al momento dell'inserimento, altrimenti finiscono letterali
-    // nell'espressione (e il parser li rifiuta, giustamente).
-    // Al loro posto: il testo selezionato se c'è, altrimenti il PRIMO campo
-    // collegato a questa trasformazione — già nella forma qualificata
-    // (`Anagrafica.nome`), così lo snippet inserito è subito valido.
-    const rimpiazzo = sel || inputVars[0] || 'campo'
-    const code  = snippet.code.replace(/\$sel/g, rimpiazzo).replace(/\$value/g, rimpiazzo)
-    const newExpr = expr.slice(0, start) + code + expr.slice(end)
-    onChange(newExpr)
-    requestAnimationFrame(() => {
-      if (!ta) return
-      ta.focus()
-      const newPos = start + code.length
-      ta.setSelectionRange(newPos, newPos)
-    })
-  }
 
   function insertVar(varName: string) {
     const ta    = textareaRef.current
@@ -321,26 +251,28 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
             <div style={{ width: 1, height: 12, background: '#2a3349', flexShrink: 0 }} />
           </>
         )}
-        <CustomSelect
-          value={snippetSel}
-          onChange={e => {
-            const snippet = snippetPerTipo(outputType).find(s => s.id === e.target.value)
-            if (snippet) insertAtCursor(snippet)
-            setSnippetSel('')
-          }}
-          style={{ ...iStyle, fontSize: 9, flex: 1, minWidth: 120, maxWidth: 200 }}>
-          <option value="" disabled>ƒ inserisci snippet…</option>
-          {SNIPPET_GROUPS.map(grp => {
-            const items = snippetPerTipo(outputType).filter(s => s.group === grp)
-            return (
-              <optgroup key={grp} label={grp}>
-                {items.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </optgroup>
-            )
-          })}
-        </CustomSelect>
+        {/* Selettore UNICO anche qui: prima la modalità script aveva una tendina
+            propria, con voci ed etichette diverse da quelle del menu inline. */}
+        <button
+          onClick={() => setPickerScript(true)}
+          title="Scegli una funzione o una trasformazione (con ricerca)"
+          style={{ ...iStyle, fontSize: 9, width: 150, cursor: 'pointer', textAlign: 'left', color: '#8aa4d0' }}>
+          ƒ applica…
+        </button>
+        {pickerScript && (
+          <FunctionPicker
+            tipo={outputType}
+            onChiudi={() => setPickerScript(false)}
+            onScegli={(voce) => {
+              const ta = textareaRef.current
+              const start = ta ? ta.selectionStart : cursorPos.current.start
+              const end   = ta ? ta.selectionEnd   : cursorPos.current.end
+              const sel   = expr.slice(start, end)
+              // avvolge la selezione; senza selezione, il primo campo collegato
+              const code  = voce.codice.replace(/\$sel/g, sel || inputVars[0] || 'campo')
+              onChange(expr.slice(0, start) + code + expr.slice(end))
+            }} />
+        )}
       </div>
 
       {/* ── Textarea con numeri riga ── */}
@@ -746,9 +678,9 @@ export function FieldTransformEditor({
                     <FunctionPicker
                       tipo={fn0OutType}
                       onChiudi={() => setPickerAperto(false)}
-                      onScegli={(codice) => {
+                      onScegli={(voce) => {
                         const base = (currentExpr || inputVars[0] || 'campo').trim()
-                        handlePatch({ expression: codice.replace(/\$sel/g, base) })
+                        handlePatch({ expression: voce.codice.replace(/\$sel/g, base) })
                       }} />
                   )}
                   {value.expression && value.expression !== autoExpr && (

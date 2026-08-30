@@ -37,7 +37,22 @@ export interface VoceApplicabile {
   codice:    string
 }
 
-/** Le due fonti condivise, unite in un elenco solo. */
+/** Costrutti del linguaggio: non stanno nel catalogo (non sono trasformazioni di
+ *  campo) né fra le funzioni (non sono chiamate), ma servono di frequente. */
+const COSTRUTTI: VoceApplicabile[] = [
+  { id: 'c:isnull',   nome: 'è null',            ritorna: 'boolean', uso: 'valore is null',
+    desc: 'Vero se il valore è vuoto',            categoria: 'costrutti', codice: '$sel is null' },
+  { id: 'c:notnull',  nome: 'non è null',        ritorna: 'boolean', uso: 'valore is not null',
+    desc: 'Vero se il valore è valorizzato',      categoria: 'costrutti', codice: '$sel is not null' },
+  { id: 'c:iif',      nome: 'se… allora… altrimenti', ritorna: '—',  uso: 'iif(condizione, a, b)',
+    desc: 'Sceglie fra due valori',               categoria: 'costrutti', codice: 'iif($sel is null, "vuoto", "pieno")' },
+  { id: 'c:case',     nome: 'case when…',        ritorna: '—',       uso: 'case when … then … else … end',
+    desc: 'Più condizioni in cascata',            categoria: 'costrutti', codice: 'case when $sel > 0 then "positivo" else "altro" end' },
+  { id: 'c:var',      nome: 'variabile di lane', ritorna: '—',       uso: 'var("nome")',
+    desc: 'Legge una variabile condivisa',        categoria: 'costrutti', codice: 'var("nome_variabile")' },
+]
+
+/** Le fonti condivise, unite in un elenco solo. */
 export function vociApplicabili(tipo?: string): VoceApplicabile[] {
   const voci: VoceApplicabile[] = []
 
@@ -54,7 +69,11 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
     })
   }
 
-  // 2) le funzioni del linguaggio
+  // 2) i COSTRUTTI del linguaggio: non sono funzioni né trasformazioni di campo,
+  //    ma servono spesso e prima vivevano in una lista a parte dell'editor.
+  for (const c of COSTRUTTI) voci.push(c)
+
+  // 3) le funzioni del linguaggio
   for (const f of FUNCTIONS) {
     voci.push({
       id: `f:${f.name}`, nome: f.name, ritorna: f.returns ?? '—',
@@ -71,13 +90,22 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
   return voci
 }
 
-export function FunctionPicker({ tipo, onScegli, onChiudi }: {
+export function FunctionPicker({ tipo, soloTrasformazioni, onScegli, onChiudi }: {
   tipo?:    string
-  onScegli: (codice: string) => void
+  /** Solo le trasformazioni del catalogo: serve dove la scelta viene SALVATA
+   *  nel modello (funzione di campo, ultimo passo), che sa rappresentare solo
+   *  quelle. Altrove si offrono anche le 84 funzioni del linguaggio. */
+  soloTrasformazioni?: boolean
+  /** Riceve la voce intera: chi inserisce testo usa `codice`, chi salva una
+   *  scelta nel modello usa `id` (`t:<idTemplate>`). */
+  onScegli: (voce: VoceApplicabile) => void
   onChiudi: () => void
 }) {
   const [cerca, setCerca] = useState('')
-  const voci = useMemo(() => vociApplicabili(tipo), [tipo])
+  const voci = useMemo(() => {
+    const tutte = vociApplicabili(tipo)
+    return soloTrasformazioni ? tutte.filter((v) => v.id.startsWith('t:')) : tutte
+  }, [tipo, soloTrasformazioni])
 
   const filtrate = useMemo(() => {
     const q = cerca.trim().toLowerCase()
@@ -99,7 +127,10 @@ export function FunctionPicker({ tipo, onScegli, onChiudi }: {
     <div
       onClick={onChiudi}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9000,
-        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        // leggermente più in basso del centro: sopra resta visibile il campo su
+        // cui si sta lavorando, così si vede cosa si sta per trasformare
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        paddingTop: '14vh' }}>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ width: 620, maxHeight: '72vh', display: 'flex', flexDirection: 'column',
@@ -132,7 +163,7 @@ export function FunctionPicker({ tipo, onScegli, onChiudi }: {
                 textTransform: 'uppercase', letterSpacing: '.06em' }}>{cat}</div>
               {elenco.map((v) => (
                 <div key={v.id}
-                  onClick={() => { onScegli(v.codice); onChiudi() }}
+                  onClick={() => { onScegli(v); onChiudi() }}
                   style={{ padding: '5px 12px', cursor: 'pointer', display: 'grid',
                     gridTemplateColumns: '150px 74px 1fr', gap: 8, alignItems: 'baseline' }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#1a2233' }}
