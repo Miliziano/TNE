@@ -1,0 +1,555 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index a275354..f37964b 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -17,7 +17,7 @@ import { getPresetsForType, findPreset } from '../../transforms/presets'
+ import { resolveTemplate } from '../../transforms/templateCompiler'
+ import { TYPE_META, type FieldType } from '../../transforms/presets'
+ import { CustomSelect } from '../CustomSelect'
+-import { FunctionPicker } from '../FunctionPicker'
++import { FunctionPicker, type VoceApplicabile } from '../FunctionPicker'
+ 
+ type TransformMode = 'inline' | 'script'
+ 
+@@ -129,16 +129,6 @@ function finalFnDef(id: string | undefined): FnDef {
+   return FINAL_FNS.find(f => f.id === id) ?? FINAL_FNS[0]
+ }
+ 
+-function buildVarExpr(varName: string, fn: FnDef, params: Record<string, string>): string {
+-  if (fn.id === 'none') return varName
+-  // Stesso compilatore del nodo Transform: sostituisce `$param_<key>` (con le
+-  // virgolette dove servono) e `$value`.
+-  return resolveTemplate(
+-    { id: fn.id, label: fn.label, description: '', expression: fn.expression, params: fn.params },
+-    varName, params,
+-  )
+-}
+-
+ function applyFinalFnToExpr(expr: string, fn: FnDef, params: Record<string, string>): string {
+   if (fn.id === 'none') return expr
+   // Le parentesi servono solo se l'espressione è composta: attorno a una
+@@ -154,26 +144,6 @@ function applyFinalFnToExpr(expr: string, fn: FnDef, params: Record<string, stri
+   )
+ }
+ 
+-function rebuildExpression(
+-  currentExpr:  string,
+-  inputVars:    string[],
+-  fieldIndex:   number,
+-  newVarExpr:   string,
+-  allVarExprs:  string[],
+-): string {
+-  const newExprs = [...allVarExprs]
+-  newExprs[fieldIndex] = newVarExpr
+-  const oldAutoExpr = allVarExprs.join(' + ')
+-  if (!currentExpr || currentExpr === oldAutoExpr || currentExpr === inputVars.join(' + ')) {
+-    return newExprs.join(' + ')
+-  }
+-  const oldPart = allVarExprs[fieldIndex]
+-  if (oldPart && currentExpr.includes(oldPart)) {
+-    return currentExpr.split(oldPart).join(newVarExpr)
+-  }
+-  return newExprs.join(' + ')
+-}
+-
+ 
+ // ─── Snippet delle espressioni ────────────────────────────────────
+ // Erano 32 e ne compilavano DUE: il resto era JavaScript — `String(x ??
+@@ -306,106 +276,6 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
+   )
+ }
+ 
+-// ─── FieldRow ──────────────────────────────────────────────────────
+-
+-function FieldRow({ passo, varName, fieldType, fnId, fnParams, varExpr, onChange }: {
+-  /** Numero del passo nella scaletta (1, 2, …). */
+-  passo?:    number
+-  varName:   string; fieldType: TransformCategory
+-  fnId:      string; fnParams:  Record<string, string>
+-  varExpr:   string
+-  onChange:  (fnId: string, params: Record<string, string>, newVarExpr: string) => void
+-}) {
+-  const fn         = fnDef(fnId)
+-  const [pk, setPk] = useState(false)
+-  const outputType = fn.sameType ? fieldType : fn.outputType
+-  const hasConvert = !fn.sameType && fn.outputType !== '__same__'
+-  const fm         = tmeta(fieldType)
+-  const tm         = tmeta(outputType)
+-
+-  function applyFn(newFnId: string, newParams: Record<string, string>) {
+-    const newFn   = fnDef(newFnId)
+-    const newExpr = buildVarExpr(varName, newFn, newParams)
+-    onChange(newFnId, newParams, newExpr)
+-  }
+-
+-  return (
+-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3,
+-      background: '#141920', borderRadius: 5, padding: '5px 7px', border: '0.5px solid #2a3349' }}>
+-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+-        <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
+-          flexShrink: 0, background: fm.bg, color: fm.color }}>{fieldType}</span>
+-        {passo != null && (
+-          <span title={`passo ${passo}`} style={{ fontSize: 9, fontWeight: 700, color: '#4a5a7a',
+-            width: 14, height: 14, lineHeight: '14px', textAlign: 'center', flexShrink: 0,
+-            background: '#0f1117', border: '1px solid #2a3349', borderRadius: 4 }}>{passo}</span>
+-        )}
+-        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#9a9aaa',
+-          flexShrink: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+-          title={varName}>{varName}</span>
+-        {/* SELETTORE UNICO (soloTrasformazioni): stessa fonte della vecchia
+-            tendina (`getPresetsForType`), ma con ricerca per nome E descrizione e
+-            identico a ogni altro punto dove si applica qualcosa. La scelta si
+-            SALVA nel modello ⇒ si mappa `voce.id` (`t:<id>`) → id del preset.
+-            La voce "nessuna"/passthrough non sta nel selettore: al suo posto la ✕. */}
+-        <button
+-          onClick={() => setPk(true)}
+-          title="Scegli una trasformazione (con ricerca)"
+-          style={{ ...iStyle, flex: 1, fontSize: 9, minWidth: 0, cursor: 'pointer',
+-            textAlign: 'left', color: fnId === 'none' ? '#8aa4d0' : '#c7d2e8' }}>
+-          {fnId === 'none' ? 'ƒ scegli…' : fn.label}
+-        </button>
+-        {fnId !== 'none' && (
+-          <button onClick={() => applyFn('none', {})} title="Rimuovi la trasformazione"
+-            style={{ ...iStyle, fontSize: 9, width: 20, flexShrink: 0, cursor: 'pointer',
+-              color: '#4a5a7a', padding: 0 }}>✕</button>
+-        )}
+-        {pk && (
+-          <FunctionPicker
+-            tipo={fieldType}
+-            soloTrasformazioni
+-            onChiudi={() => setPk(false)}
+-            onScegli={(voce) => applyFn(voce.id.replace(/^t:/, ''), {})} />
+-        )}
+-        {hasConvert && (
+-          <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
+-            flexShrink: 0, background: tm.bg, color: tm.color, whiteSpace: 'nowrap' }}>
+-            → {outputType}
+-          </span>
+-        )}
+-      </div>
+-      {fn.params && fn.params.length > 0 && (
+-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 4, flexWrap: 'wrap' }}>
+-          {fn.params.map(p => (
+-            <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+-              <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{p.label}:</span>
+-              {p.type === 'select' ? (
+-                <CustomSelect value={fnParams[p.key] ?? p.default ?? ''}
+-                  onChange={e => applyFn(fnId, { ...fnParams, [p.key]: e.target.value })}
+-                  style={{ ...iStyle, fontSize: 9, width: p.width ?? 100 }}>
+-                  {(p.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+-                </CustomSelect>
+-              ) : (
+-                <input type={p.type === 'number' ? 'number' : 'text'}
+-                  value={fnParams[p.key] ?? p.default ?? ''}
+-                  onChange={e => applyFn(fnId, { ...fnParams, [p.key]: e.target.value })}
+-                  style={{ ...iStyle, fontSize: 9, width: p.width ?? 60 }}
+-                  placeholder={p.default} />
+-              )}
+-            </div>
+-          ))}
+-        </div>
+-      )}
+-      {fnId !== 'none' && (
+-        <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#4a9eff',
+-          padding: '2px 5px', background: '#0a0e18', borderRadius: 3,
+-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+-          title={varExpr}>{varExpr}</div>
+-      )}
+-    </div>
+-  )
+-}
+-
+ // ─── Sintesi collapsed ─────────────────────────────────────────────
+ 
+ function buildSummary(value: FieldTransform, inputVars: string[]): string {
+@@ -427,7 +297,10 @@ export function FieldTransformEditor({
+   transformId, onRegisterOutputHandle,
+ }: Props) {
+   const [pickerAperto, setPickerAperto] = useState(false)
+-  const [pickerFinale, setPickerFinale] = useState(false)
++  // Come una voce del selettore si applica alla casella (v. applicaVoce).
++  const [modoApplica, setModoApplica] = useState<'avvolgi' | 'inserisci'>('avvolgi')
++  const exprRef  = useRef<HTMLInputElement>(null)
++  const caretRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
+ 
+   const nInputs = inputVars.length
+   const inputTypes: TransformCategory[] = value.inputs.map((_, i) =>
+@@ -440,35 +313,11 @@ export function FieldTransformEditor({
+     ? (value.expression ?? '')
+     : (value.expression || autoExpr)
+ 
+-  const fieldFns = value.inputs.map(inp => ({
+-    fnId:   (inp as any).perFieldFn ?? 'none',
+-    params: (inp as any).perFieldParams ?? {} as Record<string, string>,
+-  }))
+-
+-  const currentVarExprs = inputVars.map((varName, i) =>
+-    buildVarExpr(varName, fnDef(fieldFns[i]?.fnId), fieldFns[i]?.params ?? {})
+-  )
+-
+-  function fieldOutputType(i: number): string {
+-    const fn = fnDef(fieldFns[i]?.fnId)
+-    return fn.sameType ? (inputTypes[i] ?? inputType) : (fn.outputType === '__same__' ? (inputTypes[i] ?? inputType) : fn.outputType)
+-  }
+-
+   const ff        = finalFnDef(value.finalFn)
+   const ffHasType = ff.id !== 'none' && !ff.sameType && ff.outputType !== '__same__'
+-  const fn0OutType = fieldOutputType(0)
++  const fn0OutType = (inputTypes[0] ?? inputType) as string
+   const effectiveOutputType: TMapFieldType = (ffHasType ? ff.outputType : fn0OutType) as TMapFieldType
+ 
+-  const type0        = fieldOutputType(0)
+-  const type1        = nInputs >= 2 ? fieldOutputType(1) : null
+-  // ⚠️ Qui erano rimaste due righe orfane di un ternario (residuo di una
+-  // variabile eliminata): JavaScript non spezza la riga prima di `?`, quindi le
+-  // attaccava a questa — e `typesMismatch` diventava una STRINGA invece di un
+-  // booleano. Effetto: l'avviso "Tipi diversi" compariva quasi sempre, con il
+-  // secondo tipo vuoto ("decimal e —").
+-  const typesMismatch = type1 !== null && type1 !== '' && type0 !== ''
+-                        && type0 !== type1 && type0 !== 'any' && type1 !== 'any'
+-
+   const handlePatch = useCallback((patch: Partial<FieldTransform>) => {
+     const merged = { ...value, ...patch }
+     const fi     = (merged.inputs[0] as any)?.perFieldFn
+@@ -479,22 +328,55 @@ export function FieldTransformEditor({
+     onChange({ ...merged, outputType: newOut })
+   }, [value, inputType, onChange])
+ 
+-  function handleFieldFnChange(i: number, newFnId: string, newParams: Record<string, string>, newVarExpr: string) {
+-    const newInputs = value.inputs.map((inp, idx) =>
+-      idx === i
+-        ? { ...inp, perFieldFn: newFnId === 'none' ? undefined : newFnId, perFieldParams: newParams }
+-        : inp
+-    )
+-    const newExpr = rebuildExpression(currentExpr, inputVars, i, newVarExpr, currentVarExprs)
+-    handlePatch({ inputs: newInputs as any, expression: newExpr })
+-  }
+-
+   function handleDelete() {
+     if (window.confirm(`Eliminare la trasformazione "${value.outputName || 'senza nome'}"?\nQuesta operazione non è reversibile.`)) {
+       onDelete?.()
+     }
+   }
+ 
++  // ── Applicazione delle funzioni alla casella ──────────────────────
++  // Il caret dell'input è tenuto in un ref, aggiornato a ogni interazione:
++  // quando si clicca il selettore l'input ha già perso il focus, quindi la
++  // selezione "viva" non è affidabile.
++  function aggiornaCaret() {
++    const el = exprRef.current
++    if (el) caretRef.current = { start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 }
++  }
++  function sostituisciTratto(start: number, end: number, testo: string) {
++    const nuovo = currentExpr.slice(0, start) + testo + currentExpr.slice(end)
++    const caret = start + testo.length
++    handlePatch({ expression: nuovo })
++    // Valore controllato: riposiziono il caret dopo il re-render.
++    requestAnimationFrame(() => {
++      const el = exprRef.current
++      if (el) { el.focus(); el.setSelectionRange(caret, caret) }
++    })
++  }
++  /** Chip di un campo: inserisce il suo riferimento qualificato al cursore. */
++  function inserisciCampo(rif: string) {
++    const { start, end } = caretRef.current
++    sostituisciTratto(start, end, rif)
++  }
++  /** Applica una voce del selettore secondo il modo scelto.
++   *  avvolgi + selezione → racchiude la selezione
++   *  avvolgi senza sel.  → racchiude l'INTERA espressione
++   *  inserisci           → cala il codice al cursore (o attorno alla selezione) */
++  function applicaVoce(voce: VoceApplicabile) {
++    const { start, end } = caretRef.current
++    const sel = currentExpr.slice(start, end)
++    if (modoApplica === 'avvolgi' && !sel) {
++      const base  = (currentExpr || inputVars[0] || 'campo').trim()
++      const nuovo = voce.codice.replace(/\$sel/g, base)
++      handlePatch({ expression: nuovo })
++      requestAnimationFrame(() => {
++        const el = exprRef.current
++        if (el) { el.focus(); el.setSelectionRange(nuovo.length, nuovo.length) }
++      })
++      return
++    }
++    sostituisciTratto(start, end, voce.codice.replace(/\$sel/g, sel))
++  }
++
+   // Si collassa SEMPRE, anche senza ingressi collegati: le trasformazioni
+   // scritte a mano (che usano altre trasformazioni, o solo letterali) non ne
+   // hanno, ed erano proprio quelle che restavano aperte occupando spazio.
+@@ -554,7 +436,7 @@ export function FieldTransformEditor({
+             <CustomSelect value={effectiveMode}
+               onChange={e => {
+                 const newMode = e.target.value as TransformMode
+-                const newExpr = newMode === 'script' ? '' : currentVarExprs.join(' + ')
++                const newExpr = newMode === 'script' ? '' : autoExpr
+                 onChange({ ...value, mode: newMode, expression: newExpr, collapsed: false })
+               }}
+               style={{ ...iStyle, width: 90 }}>
+@@ -621,67 +503,68 @@ export function FieldTransformEditor({
+             />
+           ) : (
+             <>
+-              {/* Righe per-campo */}
+-              {inputVars.map((varName, i) => (
+-                <FieldRow key={i}
+-                  passo={i + 1}
+-                  varName={varName}
+-                  fieldType={inputTypes[i] ?? 'any'}
+-                  fnId={fieldFns[i]?.fnId ?? 'none'}
+-                  fnParams={fieldFns[i]?.params ?? {}}
+-                  varExpr={currentVarExprs[i]}
+-                  onChange={(fnId, params, newVarExpr) => handleFieldFnChange(i, fnId, params, newVarExpr)}
+-                />
+-              ))}
+-
+-              {/* Warning tipi misti */}
+-              {typesMismatch && (
+-                <div style={{ fontSize: 9, color: '#ffb347', display: 'flex', alignItems: 'center', gap: 4,
+-                  padding: '3px 6px', background: '#2a1f00', borderRadius: 4, border: '1px solid #3a3000' }}>
+-                  ⚠ Tipi diversi: <b>{type0}</b> e <b>{type1}</b> — concatenati come stringhe
++              {/* INLINE — casella unica.
++                  Prima qui convivevano quattro meccanismi con precedenze
++                  implicite (scaletta di campi · funzione per campo · casella ·
++                  funzione finale). Ora UNO SOLO: si scrive l'espressione e le si
++                  applicano funzioni dal selettore. "Alla selezione" e "a tutto"
++                  sono lo STESSO gesto (avvolgi) con $sel legato a cose diverse,
++                  distinte dalla presenza di selezione; "inserisci" cala il codice
++                  al cursore. I campi collegati sono chip che inseriscono il
++                  proprio riferimento qualificato al punto del cursore. */}
++
++              {/* Chip dei campi collegati */}
++              {inputVars.length > 0 && (
++                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
++                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0,
++                    textTransform: 'uppercase', letterSpacing: '.05em' }}>campi</span>
++                  {inputVars.map((v, i) => (
++                    <button key={i}
++                      onClick={() => inserisciCampo(v)}
++                      title={`Inserisci ${v} al punto del cursore`}
++                      style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: '#0f1117',
++                        border: '1px solid #2a3349', color: '#4a9eff', cursor: 'pointer', flexShrink: 0,
++                        fontFamily: 'monospace' }}>
++                      {v}
++                    </button>
++                  ))}
+                 </div>
+               )}
+ 
+-              {/* Casella espressione */}
++              {/* Casella espressione + selettore con modo avvolgi/inserisci */}
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                   <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0,
+                     textTransform: 'uppercase', letterSpacing: '.05em' }}>espressione</span>
+-                  {inputVars.map((v, i) => (
+-                    <button key={i}
+-                      onClick={() => {
+-                        const ins = currentVarExprs[i]
+-                        handlePatch({ expression: currentExpr ? currentExpr + ' + ' + ins : ins })
+-                      }}
+-                      /* Colore per ORIGINE: viola = calcolato qui (una
+-                         trasformazione, che si scrive nuda), azzurro = viene da
+-                         un ingresso (e si scrive qualificato). È la stessa
+-                         distinzione del linguaggio, resa visibile. */
+-                      style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: '#0f1117',
+-                        border: '1px solid #2a3349',
+-                        color: v.includes('.') ? '#4a9eff' : '#a78bfa', cursor: 'pointer',
+-                        fontFamily: 'monospace', flexShrink: 0 }}
+-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff' }}
+-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}
+-                      title={currentVarExprs[i]}>
+-                      {v}
++                  <div style={{ flex: 1 }} />
++                  {value.expression && value.expression !== autoExpr && inputVars.length > 0 && (
++                    <button
++                      onClick={() => handlePatch({ expression: autoExpr })}
++                      title="Riporta alla concatenazione automatica dei campi"
++                      style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: 'none',
++                        border: '1px solid #2a3349', color: '#4a5a7a', cursor: 'pointer', flexShrink: 0 }}>
++                      ⟳ auto
+                     </button>
+-                  ))}
+-                  {/* Funzioni pronte anche QUI: prima la tendina degli snippet
+-                      esisteva solo in modalità script, quindi chi sceglieva
+-                      "espressione personalizzata" restava davanti a una casella
+-                      vuota senza un elenco da cui pescare. Le voci sono le stesse
+-                      del catalogo condiviso; `$value` viene sostituito col primo
+-                      campo collegato, come nell'inserimento in modalità script. */}
+-                  {/* SELETTORE UNICO: sostituisce la tendina, che mostrava solo
+-                      l'etichetta e non permetteva di cercare. La funzione scelta
+-                      AVVOLGE l'espressione corrente invece di essere accodata:
+-                      è quasi sempre l'intenzione ("prendi questo e mettilo in
+-                      maiuscolo"), e permette di applicarne più di una in cascata. */}
++                  )}
++                  <div style={{ display: 'flex', border: '1px solid #2a3349', borderRadius: 5,
++                    overflow: 'hidden', flexShrink: 0 }}>
++                    {(['avvolgi', 'inserisci'] as const).map(m => (
++                      <button key={m}
++                        onClick={() => setModoApplica(m)}
++                        title={m === 'avvolgi'
++                          ? 'La funzione racchiude la selezione, o l’intera espressione se non c’è selezione'
++                          : 'La funzione viene inserita al punto del cursore'}
++                        style={{ fontSize: 9, padding: '1px 7px', cursor: 'pointer', border: 'none',
++                          background: modoApplica === m ? '#2a3349' : 'transparent',
++                          color: modoApplica === m ? '#c7d2e8' : '#4a5a7a' }}>
++                        {m}
++                      </button>
++                    ))}
++                  </div>
+                   <button
+                     onClick={() => setPickerAperto(true)}
+                     title="Scegli una funzione o una trasformazione (con ricerca)"
+-                    style={{ ...iStyle, fontSize: 9, width: 132, flexShrink: 0, cursor: 'pointer',
++                    style={{ ...iStyle, fontSize: 9, width: 96, flexShrink: 0, cursor: 'pointer',
+                       textAlign: 'left', color: '#8aa4d0' }}>
+                     ƒ applica…
+                   </button>
+@@ -689,139 +572,31 @@ export function FieldTransformEditor({
+                     <FunctionPicker
+                       tipo={fn0OutType}
+                       onChiudi={() => setPickerAperto(false)}
+-                      onScegli={(voce) => {
+-                        const base = (currentExpr || inputVars[0] || 'campo').trim()
+-                        handlePatch({ expression: voce.codice.replace(/\$sel/g, base) })
+-                      }} />
+-                  )}
+-                  {value.expression && value.expression !== autoExpr && (
+-                    <button
+-                      onClick={() => handlePatch({ expression: currentVarExprs.join(' + ') })}
+-                      style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: 'none',
+-                        border: '1px solid #2a3349', color: '#4a5a7a', cursor: 'pointer', flexShrink: 0 }}
+-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#3ddc84'; (e.currentTarget as HTMLElement).style.borderColor = '#3ddc84' }}
+-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+-                      ⟳ auto
+-                    </button>
++                      onScegli={(voce) => applicaVoce(voce)} />
+                   )}
+                 </div>
+ 
+-                {/* Casella espressione base (editabile) */}
+                 <input
++                  ref={exprRef}
+                   value={currentExpr}
+                   onChange={e => handlePatch({ expression: e.target.value })}
+-                  onFocus={() => { if (!value.expression) handlePatch({ expression: currentVarExprs.join(' + ') }) }}
++                  onSelect={aggiornaCaret}
++                  onKeyUp={aggiornaCaret}
++                  onClick={aggiornaCaret}
++                  onFocus={() => { if (!value.expression && inputVars.length > 0) handlePatch({ expression: autoExpr }) }}
+                   style={{ ...iStyle, fontSize: 10, color: '#22d3ee', fontFamily: "'JetBrains Mono', monospace" }}
+-                  placeholder={autoExpr}
++                  placeholder={autoExpr || 'es: upper(campo)'}
+                   spellCheck={false}
+                 />
+ 
+-                {/* ── Variabili di lane ──────────────────────────────────────
+-                    Questa nota prometteva `lane.variabile`, l'alias
+-                    `context.lane.variabile` e perfino `++lane.counter`.
+-                    Nessuna delle tre esiste: passate al parser danno
+-                    "riferimento qualificato non ammesso qui" le prime due
+-                    e "espressione attesa" la terza. L'unica forma vera è
+-                    `var("nome")`, ed è la stessa in Script, Transform e
+-                    TMap — un solo parser, un solo IR.
+-                    E sono in SOLA LETTURA: scriverle non è previsto in
+-                    nessuna delle tre superfici.
+-                ─────────────────────────────────────────────────────────── */}
++                {/* Variabili di lane: l'unica forma è var("nome"), in sola lettura. */}
+                 <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.5 }}>
+                   <code style={{ color: '#a78bfa' }}>var("nome")</code>
+                   {' '}per leggere una variabile di lane · es:{' '}
+                   <code style={{ color: '#a78bfa', opacity: 0.7 }}>var("prefisso") + "/" + codice</code>
+                 </div>
+-
+-              </div>
+-
+-              {/* RISULTATO: l'espressione che finirà nel piano, sempre in vista
+-                  e in sola lettura. Prima la si vedeva solo passando a script:
+-                  così invece si impara il linguaggio guardando cosa si compone,
+-                  e si controlla subito cosa verrà eseguito. */}
+-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5,
+-                padding: '4px 6px', background: '#0f1117', borderRadius: 4,
+-                border: '0.5px solid #2a3349' }}>
+-                <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0,
+-                  textTransform: 'uppercase', letterSpacing: '.05em', paddingTop: 1 }}>risultato</span>
+-                <code style={{ fontSize: 10, color: '#8aa4d0', wordBreak: 'break-all', lineHeight: 1.4 }}>
+-                  {buildSummary(value, inputVars) || '(vuota)'}
+-                </code>
+               </div>
+ 
+-              {/* Funzione finale */}
+-              <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 5,
+-                display: 'flex', flexDirection: 'column', gap: 4 }}>
+-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+-                  {/* Non più un concetto a parte ("finale"), ma l'ULTIMO PASSO
+-                      della scaletta: si applica al risultato dei passi
+-                      precedenti. Stesso badge numerato dei campi. */}
+-                  <span title={`passo ${inputVars.length + 1} — si applica al risultato`}
+-                    style={{ fontSize: 9, fontWeight: 700, color: '#4a5a7a',
+-                      width: 14, height: 14, lineHeight: '14px', textAlign: 'center', flexShrink: 0,
+-                      background: '#0f1117', border: '1px solid #2a3349', borderRadius: 4 }}>
+-                    {inputVars.length + 1}
+-                  </span>
+-                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>poi</span>
+-                  {/* SELETTORE UNICO anche per l'ultimo passo: stessa fonte di
+-                      FINAL_FNS (`getPresetsForType('string')`); scelta salvata nel
+-                      modello ⇒ `voce.id` (`t:<id>`) → finalFn. La ✕ azzera. */}
+-                  <button
+-                    onClick={() => setPickerFinale(true)}
+-                    title="Scegli la trasformazione finale (con ricerca)"
+-                    style={{ ...iStyle, fontSize: 9, width: 140, flexShrink: 0, cursor: 'pointer',
+-                      textAlign: 'left', color: value.finalFn ? '#c7d2e8' : '#8aa4d0' }}>
+-                    {value.finalFn ? ff.label : 'ƒ scegli…'}
+-                  </button>
+-                  {value.finalFn && (
+-                    <button onClick={() => handlePatch({ finalFn: undefined, finalParams: {} })}
+-                      title="Rimuovi il passo finale"
+-                      style={{ ...iStyle, fontSize: 9, width: 20, flexShrink: 0, cursor: 'pointer',
+-                        color: '#4a5a7a', padding: 0 }}>✕</button>
+-                  )}
+-                  {pickerFinale && (
+-                    <FunctionPicker
+-                      tipo="string"
+-                      soloTrasformazioni
+-                      onChiudi={() => setPickerFinale(false)}
+-                      onScegli={(voce) => handlePatch({ finalFn: voce.id.replace(/^t:/, ''), finalParams: {} })} />
+-                  )}
+-                  {ffHasType && (
+-                    <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
+-                      flexShrink: 0, ...(() => { const m = tmeta(ff.outputType); return { background: m.bg, color: m.color } })() }}>
+-                      → {ff.outputType}
+-                    </span>
+-                  )}
+-                </div>
+-
+-                {/* PARAMETRI della funzione finale — mancavano del tutto: la
+-                    funzione veniva applicata coi valori predefiniti e non c'era
+-                    modo di dire, per esempio, COSA concatenare. Stessa resa dei
+-                    parametri delle funzioni di campo. */}
+-                {ff.params && ff.params.length > 0 && (
+-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 34, flexWrap: 'wrap' }}>
+-                    {ff.params.map(p => (
+-                      <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+-                        <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{p.label}:</span>
+-                        {p.type === 'select' ? (
+-                          <CustomSelect
+-                            value={value.finalParams?.[p.key] ?? p.default ?? ''}
+-                            onChange={e => handlePatch({ finalParams: { ...(value.finalParams ?? {}), [p.key]: e.target.value } })}
+-                            style={{ ...iStyle, fontSize: 9, width: p.width ?? 100 }}>
+-                            {(p.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+-                          </CustomSelect>
+-                        ) : (
+-                          <input type={p.type === 'number' ? 'number' : 'text'}
+-                            value={value.finalParams?.[p.key] ?? p.default ?? ''}
+-                            onChange={e => handlePatch({ finalParams: { ...(value.finalParams ?? {}), [p.key]: e.target.value } })}
+-                            style={{ ...iStyle, fontSize: 9, width: p.width ?? 80 }}
+-                            placeholder={p.default} />
+-                        )}
+-                      </div>
+-                    ))}
+-                  </div>
+-                )}
+-              </div>
+             </>
+           )}
+         </div>
