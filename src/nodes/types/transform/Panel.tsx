@@ -10,10 +10,11 @@
  * - Placeholder espressione aggiornato con hint per lane.variabile.
  */
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState, useRef } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { FunctionPicker, type VoceApplicabile } from '../../../components/FunctionPicker'
 import { propagateSchema } from '../../../utils/schemaUtils'
 import {
   getPresetsForType, TYPE_META, FIELD_TYPES,
@@ -199,6 +200,44 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
   const outType   = selectedP?.outputType ?? field.type
   const outMeta   = TYPE_META[outType] ?? TYPE_META.any
   const hasParams = !isExpr && (selectedP?.params?.length ?? 0) > 0
+  const [pickerTrasf, setPickerTrasf] = useState(false)
+  const [pickerExpr,  setPickerExpr]  = useState(false)
+  const exprRef  = useRef<HTMLInputElement>(null)
+  const caretRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
+  function aggiornaCaret() {
+    const el = exprRef.current
+    if (el) caretRef.current = { start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 }
+  }
+  function sostituisciTratto(start: number, end: number, testo: string) {
+    const nuovo = field.expression.slice(0, start) + testo + field.expression.slice(end)
+    const caret = start + testo.length
+    onChange({ expression: nuovo })
+    requestAnimationFrame(() => {
+      const el = exprRef.current
+      if (el) { el.focus(); el.setSelectionRange(caret, caret) }
+    })
+  }
+  /** Chip della sorgente: inserisce il suo nome al punto del cursore. */
+  function inserisciCampo(rif: string) {
+    const { start, end } = caretRef.current
+    sostituisciTratto(start, end, rif)
+  }
+  /** Selettore: avvolge la selezione, o l'intera espressione se non c'è. */
+  function applicaVoce(voce: VoceApplicabile) {
+    const { start, end } = caretRef.current
+    const sel = field.expression.slice(start, end)
+    if (!sel) {
+      const base  = (field.expression || field.source || 'campo').trim()
+      const nuovo = voce.codice.replace(/\$sel/g, base)
+      onChange({ expression: nuovo })
+      requestAnimationFrame(() => {
+        const el = exprRef.current
+        if (el) { el.focus(); el.setSelectionRange(nuovo.length, nuovo.length) }
+      })
+      return
+    }
+    sostituisciTratto(start, end, voce.codice.replace(/\$sel/g, sel))
+  }
 
   const S_input = {
     background: '#1e2535', border: '1px solid #3a4a6a', borderRadius: 4,
@@ -257,14 +296,32 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
           {FIELD_TYPES.map(t => <option key={t} value={t}>{TYPE_META[t].label}</option>)}
         </CustomSelect>
 
-        <CustomSelect
-          style={{ ...S_input, fontSize: 10, opacity: field.enabled ? 1 : 0.45 }}
-          value={field.presetId}
-          onChange={e => onChange({ presetId: e.target.value, params: {}, expression: '' })}>
-          {presets.map(p => (
-            <option key={p.id} value={p.id} title={p.description}>{p.label}</option>
-          ))}
-        </CustomSelect>
+        {/* SELETTORE UNICO (come nel TMap): il bottone mostra la scelta, il
+            picker cerca fra le trasformazioni del catalogo (+ «espressione
+            personalizzata»); la ✕ torna a «passa invariato». */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, minWidth: 0, opacity: field.enabled ? 1 : 0.45 }}>
+          <button
+            onClick={() => setPickerTrasf(true)}
+            title="Scegli la trasformazione (con ricerca)"
+            style={{ ...S_input, fontSize: 10, flex: 1, minWidth: 0, cursor: 'pointer', textAlign: 'left',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              color: field.presetId === 'passthrough' ? '#8aa4d0' : '#c8d4f0' }}>
+            {field.presetId === 'passthrough' ? 'passa invariato…' : (selectedP?.label ?? field.presetId)}
+          </button>
+          {field.presetId !== 'passthrough' && (
+            <button onClick={() => onChange({ presetId: 'passthrough', params: {}, expression: '' })}
+              title="Torna a «passa invariato»"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a',
+                padding: 0, fontSize: 11, flexShrink: 0 }}>✕</button>
+          )}
+          {pickerTrasf && (
+            <FunctionPicker
+              tipo={field.type}
+              soloTrasformazioni
+              onChiudi={() => setPickerTrasf(false)}
+              onScegli={(voce) => onChange({ presetId: voce.id.replace(/^t:/, ''), params: {}, expression: '' })} />
+          )}
+        </div>
 
         <button onClick={onRemove}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -299,10 +356,40 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
       {/* Espressione custom */}
       {isExpr && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            {field.source && (
+              <button
+                onClick={() => inserisciCampo(field.source)}
+                title={`Inserisci ${field.source} al punto del cursore`}
+                style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: '#0f1117',
+                  border: '1px solid #2a3349', color: '#4a9eff', cursor: 'pointer', flexShrink: 0,
+                  fontFamily: 'monospace' }}>
+                {field.source}
+              </button>
+            )}
+            <div style={{ flex: 1 }} />
+            <button
+              onClick={() => setPickerExpr(true)}
+              title="Applica una funzione: avvolge la selezione, o l’intera espressione se non c’è selezione (con ricerca)"
+              style={{ ...S_input, width: 'auto', fontSize: 9, padding: '2px 6px', cursor: 'pointer',
+                color: '#8aa4d0', flexShrink: 0 }}>
+              ƒ applica…
+            </button>
+            {pickerExpr && (
+              <FunctionPicker
+                tipo={field.type}
+                onChiudi={() => setPickerExpr(false)}
+                onScegli={(voce) => applicaVoce(voce)} />
+            )}
+          </div>
           <input
+            ref={exprRef}
             style={{ ...S_input, fontFamily: 'monospace', color: '#ffb347' }}
             value={field.expression}
             onChange={e => onChange({ expression: e.target.value })}
+            onSelect={aggiornaCaret}
+            onKeyUp={aggiornaCaret}
+            onClick={aggiornaCaret}
             placeholder={`${field.source || 'campo'} — es: trim(nome), var("prefisso") + "/" + codice`}
           />
           <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
