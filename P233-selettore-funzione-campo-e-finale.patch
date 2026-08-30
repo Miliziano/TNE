@@ -1,0 +1,112 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index f091864..a275354 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -116,11 +116,6 @@ function daTemplate(t: TransformTemplate): FnDef {
+   }
+ }
+ 
+-/** Funzioni proposte per un tipo di campo (preset universali + catalogo). */
+-function funzioniPerTipo(tipo: string): FnDef[] {
+-  return [NESSUNA, ...getPresetsForType(tipo as FieldType).map(daTemplate)]
+-}
+-
+ /** Funzione "finale": si applica al risultato — stesse voci, tipo generico. */
+ const FINAL_FNS: FnDef[] = [{ ...NESSUNA, label: '— nessuna —' },
+                             ...getPresetsForType('string' as FieldType).map(daTemplate)]
+@@ -322,6 +317,7 @@ function FieldRow({ passo, varName, fieldType, fnId, fnParams, varExpr, onChange
+   onChange:  (fnId: string, params: Record<string, string>, newVarExpr: string) => void
+ }) {
+   const fn         = fnDef(fnId)
++  const [pk, setPk] = useState(false)
+   const outputType = fn.sameType ? fieldType : fn.outputType
+   const hasConvert = !fn.sameType && fn.outputType !== '__same__'
+   const fm         = tmeta(fieldType)
+@@ -347,16 +343,30 @@ function FieldRow({ passo, varName, fieldType, fnId, fnParams, varExpr, onChange
+         <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#9a9aaa',
+           flexShrink: 0, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+           title={varName}>{varName}</span>
+-        <CustomSelect value={fnId} onChange={e => applyFn(e.target.value, fnParams)}
+-          style={{ ...iStyle, flex: 1, fontSize: 9, minWidth: 0 }}>
+-          {/* Le voci sono quelle del CATALOGO CONDIVISO valide per il tipo di
+-              questo campo. Prima erano gruppi fissi con gli id elencati a mano
+-              (`FN_GROUPS`), che andavano tenuti allineati alla lista locale: una
+-              funzione aggiunta al catalogo non sarebbe comparsa qui. */}
+-          {funzioniPerTipo(fieldType).map(f => (
+-            <option key={f.id} value={f.id}>{f.label}</option>
+-          ))}
+-        </CustomSelect>
++        {/* SELETTORE UNICO (soloTrasformazioni): stessa fonte della vecchia
++            tendina (`getPresetsForType`), ma con ricerca per nome E descrizione e
++            identico a ogni altro punto dove si applica qualcosa. La scelta si
++            SALVA nel modello ⇒ si mappa `voce.id` (`t:<id>`) → id del preset.
++            La voce "nessuna"/passthrough non sta nel selettore: al suo posto la ✕. */}
++        <button
++          onClick={() => setPk(true)}
++          title="Scegli una trasformazione (con ricerca)"
++          style={{ ...iStyle, flex: 1, fontSize: 9, minWidth: 0, cursor: 'pointer',
++            textAlign: 'left', color: fnId === 'none' ? '#8aa4d0' : '#c7d2e8' }}>
++          {fnId === 'none' ? 'ƒ scegli…' : fn.label}
++        </button>
++        {fnId !== 'none' && (
++          <button onClick={() => applyFn('none', {})} title="Rimuovi la trasformazione"
++            style={{ ...iStyle, fontSize: 9, width: 20, flexShrink: 0, cursor: 'pointer',
++              color: '#4a5a7a', padding: 0 }}>✕</button>
++        )}
++        {pk && (
++          <FunctionPicker
++            tipo={fieldType}
++            soloTrasformazioni
++            onChiudi={() => setPk(false)}
++            onScegli={(voce) => applyFn(voce.id.replace(/^t:/, ''), {})} />
++        )}
+         {hasConvert && (
+           <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
+             flexShrink: 0, background: tm.bg, color: tm.color, whiteSpace: 'nowrap' }}>
+@@ -417,6 +427,7 @@ export function FieldTransformEditor({
+   transformId, onRegisterOutputHandle,
+ }: Props) {
+   const [pickerAperto, setPickerAperto] = useState(false)
++  const [pickerFinale, setPickerFinale] = useState(false)
+ 
+   const nInputs = inputVars.length
+   const inputTypes: TransformCategory[] = value.inputs.map((_, i) =>
+@@ -752,15 +763,29 @@ export function FieldTransformEditor({
+                     {inputVars.length + 1}
+                   </span>
+                   <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>poi</span>
+-                  <CustomSelect
+-                    value={value.finalFn ?? 'none'}
+-                    onChange={e => {
+-                      const newId = e.target.value
+-                      handlePatch({ finalFn: newId === 'none' ? undefined : newId, finalParams: {} })
+-                    }}
+-                    style={{ ...iStyle, fontSize: 9, width: 140 }}>
+-                    {FINAL_FNS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+-                  </CustomSelect>
++                  {/* SELETTORE UNICO anche per l'ultimo passo: stessa fonte di
++                      FINAL_FNS (`getPresetsForType('string')`); scelta salvata nel
++                      modello ⇒ `voce.id` (`t:<id>`) → finalFn. La ✕ azzera. */}
++                  <button
++                    onClick={() => setPickerFinale(true)}
++                    title="Scegli la trasformazione finale (con ricerca)"
++                    style={{ ...iStyle, fontSize: 9, width: 140, flexShrink: 0, cursor: 'pointer',
++                      textAlign: 'left', color: value.finalFn ? '#c7d2e8' : '#8aa4d0' }}>
++                    {value.finalFn ? ff.label : 'ƒ scegli…'}
++                  </button>
++                  {value.finalFn && (
++                    <button onClick={() => handlePatch({ finalFn: undefined, finalParams: {} })}
++                      title="Rimuovi il passo finale"
++                      style={{ ...iStyle, fontSize: 9, width: 20, flexShrink: 0, cursor: 'pointer',
++                        color: '#4a5a7a', padding: 0 }}>✕</button>
++                  )}
++                  {pickerFinale && (
++                    <FunctionPicker
++                      tipo="string"
++                      soloTrasformazioni
++                      onChiudi={() => setPickerFinale(false)}
++                      onScegli={(voce) => handlePatch({ finalFn: voce.id.replace(/^t:/, ''), finalParams: {} })} />
++                  )}
+                   {ffHasType && (
+                     <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
+                       flexShrink: 0, ...(() => { const m = tmeta(ff.outputType); return { background: m.bg, color: m.color } })() }}>
