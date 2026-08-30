@@ -1,0 +1,48 @@
+diff --git a/src/components/FieldTransformEditor/index.tsx b/src/components/FieldTransformEditor/index.tsx
+index f37964b..24d4e68 100644
+--- a/src/components/FieldTransformEditor/index.tsx
++++ b/src/components/FieldTransformEditor/index.tsx
+@@ -297,8 +297,6 @@ export function FieldTransformEditor({
+   transformId, onRegisterOutputHandle,
+ }: Props) {
+   const [pickerAperto, setPickerAperto] = useState(false)
+-  // Come una voce del selettore si applica alla casella (v. applicaVoce).
+-  const [modoApplica, setModoApplica] = useState<'avvolgi' | 'inserisci'>('avvolgi')
+   const exprRef  = useRef<HTMLInputElement>(null)
+   const caretRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
+ 
+@@ -364,7 +362,7 @@ export function FieldTransformEditor({
+   function applicaVoce(voce: VoceApplicabile) {
+     const { start, end } = caretRef.current
+     const sel = currentExpr.slice(start, end)
+-    if (modoApplica === 'avvolgi' && !sel) {
++    if (!sel) {
+       const base  = (currentExpr || inputVars[0] || 'campo').trim()
+       const nuovo = voce.codice.replace(/\$sel/g, base)
+       handlePatch({ expression: nuovo })
+@@ -546,24 +544,9 @@ export function FieldTransformEditor({
+                       ⟳ auto
+                     </button>
+                   )}
+-                  <div style={{ display: 'flex', border: '1px solid #2a3349', borderRadius: 5,
+-                    overflow: 'hidden', flexShrink: 0 }}>
+-                    {(['avvolgi', 'inserisci'] as const).map(m => (
+-                      <button key={m}
+-                        onClick={() => setModoApplica(m)}
+-                        title={m === 'avvolgi'
+-                          ? 'La funzione racchiude la selezione, o l’intera espressione se non c’è selezione'
+-                          : 'La funzione viene inserita al punto del cursore'}
+-                        style={{ fontSize: 9, padding: '1px 7px', cursor: 'pointer', border: 'none',
+-                          background: modoApplica === m ? '#2a3349' : 'transparent',
+-                          color: modoApplica === m ? '#c7d2e8' : '#4a5a7a' }}>
+-                        {m}
+-                      </button>
+-                    ))}
+-                  </div>
+                   <button
+                     onClick={() => setPickerAperto(true)}
+-                    title="Scegli una funzione o una trasformazione (con ricerca)"
++                    title="Applica una funzione: avvolge la selezione, o l’intera espressione se non c’è selezione (con ricerca)"
+                     style={{ ...iStyle, fontSize: 9, width: 96, flexShrink: 0, cursor: 'pointer',
+                       textAlign: 'left', color: '#8aa4d0' }}>
+                     ƒ applica…
