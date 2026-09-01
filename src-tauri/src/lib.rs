@@ -15,6 +15,7 @@ use engine::{
       engine_ping, engine_ping_parallel, engine_validate_plan,
       engine_poll_events, engine_test_bus,
       engine_run,   // ← nuovo
+    engine_preview_node,
   };
 
 
@@ -259,6 +260,7 @@ pub fn run() {
         engine::engine_poll_events,
         engine::engine_test_bus,
         engine::engine_run,
+        engine::engine_preview_node,
         engine::stop_run,
         mail_send,
         mqtt_subscribe,

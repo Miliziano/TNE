@@ -403,3 +403,98 @@ pub async fn stop_run(run_id: String) -> Result<(), String> {
         None    => Err(format!("run '{}' non trovato (gia' concluso?)", run_id)),
     }
 }
+
+// ── Anteprima di un nodo in ISOLAMENTO (P237) ─────────────────────
+//
+// Principio del progetto: a ESEGUIRE è sempre e solo il motore. Perciò
+// l'anteprima non "simula" nulla nello studio: riceve lo spec COMPILATO
+// del nodo (identico a quello che l'esecutore legge in un run) e alcune
+// righe di mock, e le fa elaborare al nodo VERO. Nessuna I/O, nessuna
+// lane: i registri per-lane sono vuoti, `var()` è una mappa mock. Vale
+// solo per i nodi PURI (transform ora; tmap più avanti), che non toccano
+// risorse/txn/dataset — è ciò che li rende adatti all'anteprima.
+#[cfg_attr(feature = "desktop", tauri::command)]
+pub async fn engine_preview_node(
+    node_type:      String,
+    spec_json:      String,
+    rows_json:      String,
+    variables_json: Option<String>,
+) -> Result<String, String> {
+    use crate::engine::executor::{NodeContext, RowSender, RowReceiver};
+    use crate::engine::types::{Row, Value, LaneId, NodeId};
+
+    // 1) righe di mock → Vec<Row> (stessa conversione dei nodi sorgente)
+    let raw: Vec<serde_json::Value> = serde_json::from_str(&rows_json)
+        .map_err(|e| format!("righe di prova non valide: {}", e))?;
+    let mut rows_in: Vec<Row> = Vec::with_capacity(raw.len());
+    for (i, v) in raw.into_iter().enumerate() {
+        let obj = v.as_object()
+            .ok_or_else(|| format!("la riga {} non è un oggetto JSON", i + 1))?;
+        let mut map: HashMap<String, Value> = HashMap::new();
+        for (k, val) in obj {
+            map.insert(k.clone(), Value::from_json(val.clone()));
+        }
+        rows_in.push(Row(map));
+    }
+
+    // 2) variabili di lane mock, per var()
+    let variables: HashMap<String, Value> = match variables_json {
+        Some(s) if !s.trim().is_empty() => {
+            let obj: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&s)
+                .map_err(|e| format!("variabili di prova non valide: {}", e))?;
+            obj.into_iter().map(|(k, v)| (k, Value::from_json(v))).collect()
+        }
+        _ => HashMap::new(),
+    };
+
+    // 3) spec compilato del nodo (stessa forma dell'esecutore)
+    let spec: serde_json::Value = serde_json::from_str(&spec_json)
+        .map_err(|e| format!("spec del nodo non valido: {}", e))?;
+    let config = spec.get("config").cloned().unwrap_or(serde_json::Value::Null);
+
+    // 4) contesto ISOLATO: registri vuoti, nessun error handler
+    let ctx = NodeContext {
+        run_id:  RunId("preview".to_string()),
+        lane_id: LaneId("preview".to_string()),
+        node_id: NodeId("preview".to_string()),
+        label:   "anteprima".to_string(),
+        config,
+        spec,
+        variables,
+        lane_resources: crate::engine::pool::LaneResources::new(HashMap::new()),
+        lane_txns:      crate::engine::txregistry::LaneTransactions::new(Vec::new(), "preview".to_string()),
+        lane_datasets:  crate::engine::datasets::LaneDatasets::new(&[]),
+        lane_abort:     crate::engine::abort::LaneAbort::new(),
+        cancel:         tokio_util::sync::CancellationToken::new(),
+        err_collector:  None,
+    };
+
+    // 5) due canali; il nodo è eseguito dal MOTORE VERO
+    let (tx_in,  rx_in):      (RowSender, RowReceiver) = tokio::sync::mpsc::channel::<Row>(1024);
+    let (tx_out, mut rx_out): (RowSender, RowReceiver) = tokio::sync::mpsc::channel::<Row>(1024);
+
+    // Alimentatore: invia le righe e CHIUDE il canale (barriera R7 = "ho finito").
+    tokio::spawn(async move {
+        for r in rows_in { let _ = tx_in.send(r).await; }
+    });
+
+    // Il nodo, secondo il tipo. Solo nodi PURI in anteprima.
+    let node = match node_type.as_str() {
+        "transform" => tokio::spawn(async move {
+            crate::engine::nodes::transform::run(ctx, rx_in, tx_out).await
+        }),
+        other => return Err(format!("anteprima non supportata per il nodo «{}»", other)),
+    };
+
+    // Drena l'uscita in parallelo all'elaborazione.
+    let mut out: Vec<Row> = Vec::new();
+    while let Some(r) = rx_out.recv().await { out.push(r); }
+
+    match node.await {
+        Ok(Ok(_stats)) => {}
+        Ok(Err(e))     => return Err(e),
+        Err(e)         => return Err(format!("anteprima interrotta: {}", e)),
+    }
+
+    serde_json::to_string(&out).map_err(|e| format!("serializzazione uscita: {}", e))
+}
