@@ -419,6 +419,7 @@ pub async fn engine_preview_node(
     spec_json:      String,
     rows_json:      String,
     variables_json: Option<String>,
+    limit:          Option<u32>,
 ) -> Result<String, String> {
     use crate::engine::executor::{NodeContext, RowSender, RowReceiver};
     use crate::engine::types::{Row, Value, LaneId, NodeId};
@@ -483,17 +484,36 @@ pub async fn engine_preview_node(
         "transform" => tokio::spawn(async move {
             crate::engine::nodes::transform::run(ctx, rx_in, tx_out).await
         }),
+        // Sorgente PURA (solo I/O su file, nessuna lane): niente ingresso, il
+        // nodo PRODUCE le righe. Il campione è limitato da `limit`.
+        "source_file" => {
+            drop(rx_in);
+            tokio::spawn(async move {
+                crate::engine::nodes::source_file::run(ctx, None, Some(tx_out)).await
+            })
+        }
         other => return Err(format!("anteprima non supportata per il nodo «{}»", other)),
     };
 
-    // Drena l'uscita in parallelo all'elaborazione.
+    // Drena l'uscita fermandosi al tetto di righe: una sorgente ne produce
+    // molte, si prende il campione e si interrompe il nodo.
+    let cap = limit.unwrap_or(100).clamp(1, 10_000) as usize;
     let mut out: Vec<Row> = Vec::new();
-    while let Some(r) = rx_out.recv().await { out.push(r); }
+    let mut capped = false;
+    while let Some(r) = rx_out.recv().await {
+        out.push(r);
+        if out.len() >= cap { capped = true; break; }
+    }
 
-    match node.await {
-        Ok(Ok(_stats)) => {}
-        Ok(Err(e))     => return Err(e),
-        Err(e)         => return Err(format!("anteprima interrotta: {}", e)),
+    if capped {
+        node.abort();   // basta il campione: interrompe la sorgente
+    } else {
+        match node.await {
+            Ok(Ok(_stats))             => {}
+            Ok(Err(e))                 => return Err(e),
+            Err(e) if e.is_cancelled() => {}
+            Err(e)                     => return Err(format!("anteprima interrotta: {}", e)),
+        }
     }
 
     serde_json::to_string(&out).map_err(|e| format!("serializzazione uscita: {}", e))

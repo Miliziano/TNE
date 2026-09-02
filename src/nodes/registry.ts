@@ -68,6 +68,7 @@ import { ErrorHandlerNodesPanel } from './types/error_handler/MappingPanel'
 import { UnionPreviewPanel } from './types/union/PreviewPanel'
 import { TransformPreviewPanel } from './types/transform/PreviewPanel'
 import { SourceDbPreviewPanel } from './types/source_db/PreviewPanel'
+import { SourceFilePreviewPanel } from './types/source_file/PreviewPanel'
 
 // NODE_DEFS + PALETTE_SECTIONS vivono ora in ./nodeDefs (dati puri, senza React);
 // qui li ri-esportiamo così gli importatori storici (`from '.../registry'`) non cambiano.
@@ -158,6 +159,7 @@ export const NODE_PREVIEW_PANELS: Record<string, ComponentType<{ nodeId: string 
   union:   UnionPreviewPanel,
   transform: TransformPreviewPanel,
   source_db: SourceDbPreviewPanel,
+  source_file: SourceFilePreviewPanel,
   
 }
 export const NODE_SIDEBAR_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
