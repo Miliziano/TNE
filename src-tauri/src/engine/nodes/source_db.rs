@@ -386,7 +386,7 @@ pub async fn run(
 
 // ─── Conversione colonna PostgreSQL → Value ───────────────────────
 
-fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value {
+pub(crate) fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value {
     use sqlx::Row as SqlxRow;
     let col       = &row.columns()[idx];
     let type_name = col.type_info().name().to_lowercase();

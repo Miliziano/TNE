@@ -1438,7 +1438,14 @@ async fn pg_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Result<V
   let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("PostgreSQL query fallita: {}", e))?;
   let result = rows.iter().map(|row| {
     let mut obj = serde_json::Map::new();
-    for (i, col) in row.columns().iter().enumerate() { obj.insert(col.name().to_string(), pg_value_to_json(row, i)); }
+    // Un solo lettore: la preview (db_query) decodifica le celle con LO STESSO
+    // convertitore del nodo source_db del run vero (pg_col_to_value) — incluso
+    // il fallback try_get_raw per gli enum/domini Postgres (es. mpaa_rating).
+    // Così l'anteprima è uno specchio fedele di ciò che leggerà l'esecuzione.
+    for (i, col) in row.columns().iter().enumerate() {
+      let v = crate::engine::nodes::source_db::pg_col_to_value(row, i);
+      obj.insert(col.name().to_string(), serde_json::to_value(v).unwrap_or(serde_json::Value::Null));
+    }
     serde_json::Value::Object(obj)
   }).collect();
   pool.close().await;
