@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../../../store/flowStore'
 import { propagateSchema } from '../../../utils/schemaUtils'
+import { downloadSchema } from '../../../schema/schemaFile'
 import type { SchemaField } from '../../../utils/schemaUtils'
 import { DB_DIALECT_LABELS, DB_DIALECT_COLORS, type DbDialect } from '../../../nodes/resourceDefaults'
 import { CustomSelect } from '../../../components/CustomSelect'
@@ -291,6 +292,20 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
               Rilevate automaticamente o aggiunte manualmente · propagate ai nodi successivi
             </div>
           </div>
+          {fields.length > 0 && (
+            <button
+              onClick={() => downloadSchema(
+                fields.map((f) => ({ name: f.name, type: f.type, dbType: f.dbType, nullable: f.nullable })),
+                p('table') || 'source-db',
+                { node: 'source_db', table: p('table') || undefined },
+              )}
+              title="Esporta lo schema dei campi su file (.json)"
+              style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 9, cursor: 'pointer', color: '#8aa4d0' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8aa4d0' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+              <i className="ti ti-download" style={{ fontSize: 9 }} /> esporta
+            </button>
+          )}
           <button onClick={addField}
             style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 9, cursor: 'pointer', color }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = color }}

@@ -65,6 +65,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { SchemaDriftBanner } from '../../../components/SchemaDriftBanner'
 import { detectSchemaDrift, type SchemaField } from '../../../utils/schemaUtils'
+import { downloadSchema } from '../../../schema/schemaFile'
 
 // ─── Traduzione tipo DB nativo → tipo logico ──────────────────────
 export function dbTypeToLogical(dbType: string): string {
@@ -481,6 +482,19 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
           <i className="ti ti-plus" style={{ fontSize: 13 }} />
           Aggiungi riga
         </button>
+
+        {mapping.length > 0 && (
+          <button onClick={() => downloadSchema(
+            mapping.filter((c) => c.dbColumn && c.enabled !== false).map((c) => ({ name: c.dbColumn, type: dbTypeToLogical(c.dbType), dbType: c.dbType })),
+            p('table') || 'sink-db',
+            { node: 'sink_db', table: p('table') || undefined },
+          )}
+            title="Esporta lo schema delle colonne target su file (.json)"
+            style={{ padding: '6px 12px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8aa4d0', border: '1px solid #3a4a6a', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <i className="ti ti-download" style={{ fontSize: 13 }} />
+            Esporta schema
+          </button>
+        )}
 
         {mapping.length > 0 && (
           <span style={{ marginLeft: 'auto', fontSize: 10, color: '#4a5a7a' }}>{enabledCount} / {mapping.length} abilitate</span>

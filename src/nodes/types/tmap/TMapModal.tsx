@@ -12,6 +12,7 @@ import { CustomSelect } from '../../../components/CustomSelect'
 import { TYPE_META } from '../../../types/fieldTypes'
 import type { FieldType } from '../../../types/fieldTypes'
 import { getHandleSchema } from '../../../utils/schemaRegistry'
+import { parseSchema, downloadSchema } from '../../../schema/schemaFile'
 import { registerModuleObjects } from '../../../monitoring/registry'
 
 
@@ -1115,6 +1116,41 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
   // così quando l'utente poi cancella un campo nel TMap output,
   // mergeIncomingSchema lo rimuove correttamente anche dal figlio
   // (perché l'id era in _propagatedIds).
+  // Import da FILE: stesso esito di importFromNode (merge non distruttivo per
+  // nome::tipo), ma i campi vengono da un file di schema — formato condiviso,
+  // v. schema/schemaFile.ts. I campi del file non hanno id → se ne genera uno.
+  const importFromFile = () => {
+    setOpen(false)
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        try {
+          const parsed = parseSchema(String(reader.result))
+          const existingKeys = new Set(outputFields.map((f) => `${f.name}::${f.type}`))
+          const toAdd = parsed
+            .filter((f) => f.name && !existingKeys.has(`${f.name}::${f.type}`))
+            .map((f) => ({
+              id:         `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${f.name}`,
+              name:       f.name,
+              type:       f.type ?? 'string',
+              expression: '',
+            }))
+          if (toAdd.length === 0) return
+          onImport(toAdd)
+        } catch (e) {
+          alert(`Schema non valido: ${e instanceof Error ? e.message : String(e)}`)
+        }
+      }
+      reader.readAsText(file)
+    }
+    input.click()
+  }
+
   const importFromNode = (tgtNode: typeof allNodes[0], targetHandle: string) => {
     setOpen(false)
     const schema = getHandleSchema(tgtNode, targetHandle, true)
@@ -1175,7 +1211,18 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
   const hasTargets = downstreamTargets.length > 0
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div style={{ position: 'relative', flexShrink: 0, display: 'flex', gap: 3 }}>
+      {outputFields.length > 0 && (
+        <button
+          onClick={() => downloadSchema(outputFields.map((f) => ({ name: f.name, type: f.type })), 'tmap-output', { node: 'tmap' })}
+          title="Esporta lo schema di questa uscita su file (.json)"
+          style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 6px',
+            cursor: 'pointer', color: '#4a5a7a', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color; (e.currentTarget as HTMLElement).style.borderColor = color }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+          <i className="ti ti-download" style={{ fontSize: 9 }} />
+        </button>
+      )}
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
@@ -1304,10 +1351,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
 
           {/* Da file esterno — placeholder */}
           <div
-            onClick={() => {
-              setOpen(false)
-              alert('Importazione da file esterno — disponibile prossimamente.')
-            }}
+            onClick={importFromFile}
             style={{
               padding: '7px 10px', fontSize: 11, color: '#9a9aaa',
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
@@ -1315,7 +1359,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
             <i className="ti ti-file-import" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
-            da file esterno…
+            da file (.json)…
           </div>
         </div>,
         document.body
