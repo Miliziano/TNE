@@ -187,6 +187,10 @@ const KEYWORDS = new Set([
 export interface ParseOptions {
   /** Etichette input note (tmap multi-input): "DB Source".campo → FieldRef */
   labelToInputId?: Map<string, string>
+  /** Funzioni utente in scope: nome (minuscolo) → numero di parametri. Se
+      presente, una chiamata a un nome noto è accettata (arità validata) e resta
+      una FunctionCall col nome nudo; l'espansione avviene dopo (userFunctions.ts). */
+  userFunctions?: Map<string, number>
 }
 
 /**
@@ -339,6 +343,19 @@ class Parser {
         // Validazione a design-time: nome esistente e arità corretta.
         // Il motore tollera argomenti mancanti (li tratta come null), quindi
         // se non validiamo qui l'errore passa silenzioso fino al dato.
+        // Funzione UTENTE in scope: nome già noto, valido solo l'arità; resta
+        // una FunctionCall col nome nudo, l'espansione la inlina dopo.
+        const userArity = this.opts.userFunctions?.get(lower)
+        if (userArity !== undefined) {
+          if (args.length !== userArity) {
+            throw new ExprParseError(
+              `${lower} richiede ${userArity} argoment${userArity === 1 ? 'o' : 'i'} (ricevuti ${args.length})`,
+              t.pos, this.src,
+            )
+          }
+          return { kind: 'FunctionCall', name: lower, args }
+        }
+
         const problem = validateCall(lower, args.length)
         if (problem) throw new ExprParseError(problem, t.pos, this.src)
 
