@@ -1,0 +1,66 @@
+diff --git a/src/components/UserFunctionsModal.tsx b/src/components/UserFunctionsModal.tsx
+index 6420ad8..2685893 100644
+--- a/src/components/UserFunctionsModal.tsx
++++ b/src/components/UserFunctionsModal.tsx
+@@ -12,6 +12,8 @@
+ import { useState, useEffect } from 'react'
+ import { useFlowStore } from '../store/flowStore'
+ import { parseUserFunctions } from '../ir/userFunctions'
++import { ScriptEditor } from './ScriptEditor'
++import { FunctionPicker } from './FunctionPicker'
+ 
+ const overlay: React.CSSProperties = {
+   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+@@ -28,6 +30,8 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose:
+   const defs             = useFlowStore((s) => s.pool.userFunctions)
+   const setUserFunctions = useFlowStore((s) => s.setUserFunctions)
+   const [text, setText]  = useState('')
++  const [wrap, setWrap]  = useState<string | undefined>(undefined)
++  const [pickerOpen, setPickerOpen] = useState(false)
+ 
+   useEffect(() => { if (open) setText((defs ?? []).join('\n')) }, [open, defs])
+ 
+@@ -61,17 +65,32 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose:
+             solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.
+           </div>
+ 
+-          <textarea
+-            value={text}
+-            onChange={(e) => setText(e.target.value)}
+-            spellCheck={false}
+-            placeholder={'funzione iva(imponibile, aliquota) { ritorna imponibile * aliquota / 100 }\nfunzione pulisci(s) { ritorna trim(upper(s)) }'}
+-            style={{
+-              width: '100%', minHeight: 180, resize: 'vertical', boxSizing: 'border-box',
+-              background: '#0f1117', border: '1px solid #2a3349', borderRadius: 6, padding: '10px 12px',
+-              color: '#c8d4f0', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6,
+-            }}
+-          />
++          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
++            <div style={{ flex: 1 }} />
++            <button
++              onClick={() => setPickerOpen(true)}
++              title="Applica una funzione: avvolge la selezione nell'editor (con ricerca)"
++              style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
++                       background: 'none', border: `1px solid ${ACCENT}55`, color: ACCENT }}>
++              \u0192 applica…
++            </button>
++            {pickerOpen && (
++              <FunctionPicker
++                tipo="string"
++                onChiudi={() => setPickerOpen(false)}
++                onScegli={(voce) => setWrap(voce.codice.replace(/\$sel/g, '$selection'))} />
++            )}
++          </div>
++          <div style={{ border: '1px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
++            <ScriptEditor
++              value={text}
++              onChange={setText}
++              language="flowpilot"
++              height={200}
++              wrapToInsert={wrap}
++              onWrapInserted={() => setWrap(undefined)}
++            />
++          </div>
+ 
+           {/* esito validazione */}
+           {errors.length > 0 ? (
