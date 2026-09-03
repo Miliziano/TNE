@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../../../store/flowStore'
 import { compileTransformFields, type TransformFieldSpec } from '../../../transforms/templateCompiler'
+import { parseUserFunctions } from '../../../ir/userFunctions'
 
 const ACCENT = '#ffb347'
 
@@ -37,6 +38,7 @@ function fmt(v: unknown): string {
 
 export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
   const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  const userFnDefs = useFlowStore((s) => s.pool.userFunctions)
   const updateProp = useFlowStore((s) => s.updateNodeProp)
 
   // Stessa fonte che usa buildRustPlan: i campi salvati dal Mapping.
@@ -74,7 +76,11 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
 
     // 2) spec del nodo — STESSA ricetta di buildRustPlan (Toolbar):
     //    compileTransformFields + traduzione unmappedFields → mode.
-    const { compiled, errors } = compileTransformFields(fields)
+    const { functions: userFns, errors: fnErrors } = parseUserFunctions(userFnDefs ?? [])
+    if (fnErrors.length > 0) {
+      setErrore(fnErrors.map((e) => `\u2022 ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')); return
+    }
+    const { compiled, errors } = compileTransformFields(fields, userFns)
     if (errors.length > 0) {
       setErrore(errors.map((x) => `\u2022 ${x.message}`).join('\n'))
       return

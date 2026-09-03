@@ -223,6 +223,37 @@ function clone(node: ExprNode): ExprNode {
   return JSON.parse(JSON.stringify(node))
 }
 
+/**
+ * Punto UNICO parse+espansione per i convertitori: parsa `src` con le funzioni
+ * utente in scope (così le chiamate parsano), le inlina, e TOGLIE `_origin`
+ * dall'albero che va al motore. Se non ci sono funzioni utente, è un semplice
+ * parseExpression.
+ */
+export function compileFpel(
+  src: string,
+  opts: { labelToInputId?: Map<string, string>; userFunctions?: UserFunction[] } = {},
+): ExprNode {
+  const fns   = opts.userFunctions ?? []
+  const arity = fns.length ? new Map(fns.map((f) => [f.name, f.params.length])) : undefined
+  const ast   = parseExpression(src, { labelToInputId: opts.labelToInputId, userFunctions: arity })
+  if (!fns.length) return ast
+  const map = new Map(fns.map((f) => [f.name, f]))
+  return stripOrigin(expandUserFunctions(ast, map))
+}
+
+/** Rimuove `_origin` da tutto l'albero: l'origine serve solo alla diagnostica
+ *  dello studio, il motore non deve vederla. */
+export function stripOrigin(node: ExprNode): ExprNode {
+  delete (node as WithOrigin)._origin
+  switch (node.kind) {
+    case 'BinaryOp':  stripOrigin(node.left); stripOrigin(node.right); break
+    case 'UnaryOp': case 'IsNull': case 'IsNotNull': case 'Cast': stripOrigin(node.expr); break
+    case 'FunctionCall': case 'Coalesce': node.args.forEach(stripOrigin); break
+    case 'CaseWhen':  node.branches.forEach((b) => { stripOrigin(b.condition); stripOrigin(b.value) }); if (node.default) stripOrigin(node.default); break
+  }
+  return node
+}
+
 /** Marca ogni nodo privo di origine con `fn` (l'origine più interna, già posta, vince). */
 function tagAll(node: ExprNode, fn: string): ExprNode {
   if (!(node as WithOrigin)._origin) (node as WithOrigin)._origin = { fn }

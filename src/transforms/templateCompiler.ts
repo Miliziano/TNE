@@ -12,7 +12,8 @@
  * Sostituisce `catalogExprToJs` + `eval()`: niente più JavaScript.
  */
 
-import { parseExpression, ExprParseError, type ExprNode } from '../ir/exprParser'
+import { ExprParseError, type ExprNode } from '../ir/exprParser'
+import { compileFpel, type UserFunction } from '../ir/userFunctions'
 import { findPreset, type TransformTemplate, type TransformParam } from './presets'
 import type { FieldType } from '../types/fieldTypes'
 
@@ -122,7 +123,7 @@ export function resolveTemplate(
  * Lancia TemplateCompileError se il template non esiste, un parametro è
  * malformato, o l'espressione non è valida FPEL.
  */
-export function compileField(f: TransformFieldSpec): CompiledField {
+export function compileField(f: TransformFieldSpec, userFunctions: UserFunction[] = []): CompiledField {
   const out = f.output.trim()
   if (!out) throw new TemplateCompileError('(senza nome)', 'nome del campo di output mancante')
 
@@ -147,7 +148,7 @@ export function compileField(f: TransformFieldSpec): CompiledField {
   }
 
   try {
-    return { name: out, expr: parseExpression(exprText) }
+    return { name: out, expr: compileFpel(exprText, { userFunctions }) }
   } catch (e) {
     const detail = e instanceof ExprParseError
       ? `${e.message}\n  ${exprText}\n  ${' '.repeat(Math.max(0, e.pos))}^`
@@ -161,7 +162,7 @@ export function compileField(f: TransformFieldSpec): CompiledField {
  * Raccoglie TUTTI gli errori invece di fermarsi al primo: l'utente vede
  * ogni campo problematico in una volta.
  */
-export function compileTransformFields(fields: TransformFieldSpec[]): {
+export function compileTransformFields(fields: TransformFieldSpec[], userFunctions: UserFunction[] = []): {
   compiled: CompiledField[]
   errors:   TemplateCompileError[]
 } {
@@ -170,7 +171,7 @@ export function compileTransformFields(fields: TransformFieldSpec[]): {
 
   for (const f of fields) {
     if (!f.enabled) continue
-    try { compiled.push(compileField(f)) }
+    try { compiled.push(compileField(f, userFunctions)) }
     catch (e) {
       if (e instanceof TemplateCompileError) errors.push(e)
       else errors.push(new TemplateCompileError(f.output || '?', String(e)))

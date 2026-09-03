@@ -1,0 +1,353 @@
+diff --git a/src/components/Toolbar.tsx b/src/components/Toolbar.tsx
+index 2762497..92235e5 100644
+--- a/src/components/Toolbar.tsx
++++ b/src/components/Toolbar.tsx
+@@ -17,9 +17,11 @@ import type { NodeData } from '../types'
+ import type { Pool } from '../types'
+ import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
+ import { EnvironmentsModal } from './EnvironmentsModal'
++import { UserFunctionsModal } from './UserFunctionsModal'
+ import { CompileModal } from './CompileModal'
+ import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
+ import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
++import { parseUserFunctions } from '../ir/userFunctions'
+  import { parseExpression, ExprParseError } from '../ir/exprParser'
+ import { parseScript, ScriptParseError } from '../ir/scriptParser'
+ 
+@@ -460,6 +462,15 @@ function buildRustPlan(
+   // il Run sia per l'export dell'artifact, che passano entrambi di qui.
+   const { nodes, edges } = togliNodiDisabilitati(nodesOriginali, edgesOriginali)
+ 
++  // Funzioni utente FPEL: parsate UNA volta e inlinate a compile-time nelle
++  // espressioni (transform e — in seguito — TMap/script). Un errore nelle
++  // definizioni blocca il build, come per gli altri errori di compilazione.
++  const { functions: userFns, errors: fnErrors } = parseUserFunctions(pool.userFunctions ?? [])
++  if (fnErrors.length > 0) {
++    const d = fnErrors.map((e) => `  • ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')
++    throw new Error(`Funzioni utente — ${fnErrors.length} errore/i:\n${d}`)
++  }
++
+  // ── Bridge tra lane — accoppiati per channelName condiviso.
+   // I bridge NON hanno un edge nel canvas: collegano lane diverse e
+   // l'accoppiamento è logico, per nome canale (stessa logica di
+@@ -760,7 +771,7 @@ function buildRustPlan(
+             try { fields = JSON.parse(raw as string) }
+             catch { throw new Error(`Transform "${node.data.label}": configurazione campi illeggibile`) }
+ 
+-            const { compiled, errors } = compileTransformFields(fields)
++            const { compiled, errors } = compileTransformFields(fields, userFns)
+             if (errors.length > 0) {
+               const dettagli = errors.map(e => `  • ${e.message}`).join('\n')
+               throw new Error(`Transform "${node.data.label}" — ${errors.length} errore/i:\n${dettagli}`)
+@@ -1233,6 +1244,7 @@ export function Toolbar() {
+   const [opening, setOpening] = useState(false)
+   const [historyOpen, setHistoryOpen] = useState(false)
+   const [envOpen, setEnvOpen] = useState(false)
++  const [funcOpen, setFuncOpen] = useState(false)
+   const [compileOpen, setCompileOpen] = useState(false)
+   const currentPath = useFlowStore((s) => s.currentPath)
+ 
+@@ -1691,6 +1703,10 @@ export function Toolbar() {
+         <i className="ti ti-adjustments" style={{ fontSize: 13 }} aria-hidden="true" />
+         Ambienti
+       </TbBtn>
++      <TbBtn onClick={() => setFuncOpen(true)} title="Funzioni utente FPEL">
++        <i className="ti ti-math-function" style={{ fontSize: 13 }} aria-hidden="true" />
++        Funzioni
++      </TbBtn>
+       <TbBtn onClick={() => setCompileOpen(true)} title="Compila / genera artifact per il runner">
+         <i className="ti ti-package" style={{ fontSize: 13 }} aria-hidden="true" />
+         Compila
+@@ -1770,6 +1786,7 @@ export function Toolbar() {
+       />
+ 
+       <EnvironmentsModal open={envOpen} onClose={() => setEnvOpen(false)} />
++      <UserFunctionsModal open={funcOpen} onClose={() => setFuncOpen(false)} />
+ 
+       <CompileModal open={compileOpen} onClose={() => setCompileOpen(false)} onGenerate={esportaArtifact} />
+ 
+diff --git a/src/components/UserFunctionsModal.tsx b/src/components/UserFunctionsModal.tsx
+new file mode 100644
+index 0000000..6420ad8
+--- /dev/null
++++ b/src/components/UserFunctionsModal.tsx
+@@ -0,0 +1,111 @@
++/**
++ * src/components/UserFunctionsModal.tsx
++ *
++ * Editor delle FUNZIONI UTENTE FPEL (a livello di progetto).
++ *
++ * Una funzione per riga, nella forma
++ *   funzione nome(par1, par2) { ritorna <espressione> }
++ * Vengono espanse a compile-time nelle espressioni (transform e, in seguito,
++ * TMap/script). La validazione è dal vivo: nomi predefiniti non ridefinibili,
++ * niente ricorsione, corpo con soli parametri, arità.
++ */
++import { useState, useEffect } from 'react'
++import { useFlowStore } from '../store/flowStore'
++import { parseUserFunctions } from '../ir/userFunctions'
++
++const overlay: React.CSSProperties = {
++  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
++  display: 'flex', alignItems: 'center', justifyContent: 'center',
++}
++const panel: React.CSSProperties = {
++  width: 640, maxWidth: '92vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
++  background: '#161b26', border: '1px solid #2a3349', borderRadius: 10, overflow: 'hidden',
++  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
++}
++const ACCENT = '#a78bfa'
++
++export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
++  const defs             = useFlowStore((s) => s.pool.userFunctions)
++  const setUserFunctions = useFlowStore((s) => s.setUserFunctions)
++  const [text, setText]  = useState('')
++
++  useEffect(() => { if (open) setText((defs ?? []).join('\n')) }, [open, defs])
++
++  if (!open) return null
++
++  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
++  const { functions, errors } = parseUserFunctions(lines)
++
++  const salva = () => { setUserFunctions(lines); onClose() }
++
++  return (
++    <div style={overlay} onClick={onClose}>
++      <div style={panel} onClick={(e) => e.stopPropagation()}>
++
++        {/* header */}
++        <div style={{ padding: '14px 18px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 10 }}>
++          <i className="ti ti-math-function" style={{ fontSize: 18, color: ACCENT }} />
++          <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ecf4' }}>Funzioni utente</div>
++          <div style={{ flex: 1 }} />
++          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6a7690', cursor: 'pointer', fontSize: 18 }}>
++            <i className="ti ti-x" />
++          </button>
++        </div>
++
++        {/* corpo */}
++        <div style={{ padding: '14px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
++          <div style={{ fontSize: 11, color: '#8a94a8', lineHeight: 1.6 }}>
++            Una funzione per riga:{' '}
++            <code style={{ color: ACCENT }}>funzione nome(par1, par2) {'{'} ritorna espressione {'}'}</code>.
++            Vengono <b>espanse a compile-time</b> nelle espressioni. Il corpo è una sola espressione e può usare
++            solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.
++          </div>
++
++          <textarea
++            value={text}
++            onChange={(e) => setText(e.target.value)}
++            spellCheck={false}
++            placeholder={'funzione iva(imponibile, aliquota) { ritorna imponibile * aliquota / 100 }\nfunzione pulisci(s) { ritorna trim(upper(s)) }'}
++            style={{
++              width: '100%', minHeight: 180, resize: 'vertical', boxSizing: 'border-box',
++              background: '#0f1117', border: '1px solid #2a3349', borderRadius: 6, padding: '10px 12px',
++              color: '#c8d4f0', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6,
++            }}
++          />
++
++          {/* esito validazione */}
++          {errors.length > 0 ? (
++            <div style={{ background: 'color-mix(in srgb, #ff5f57 8%, #0f1117)', border: '1px solid #ff5f5750',
++                          borderRadius: 6, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
++              {errors.map((e, i) => (
++                <div key={i} style={{ fontSize: 11, color: '#ff9a94', fontFamily: 'monospace' }}>
++                  • {e.name ? <b>{e.name}: </b> : null}{e.message}
++                </div>
++              ))}
++            </div>
++          ) : (
++            <div style={{ fontSize: 11, color: '#3ddc84' }}>
++              {functions.length === 0 ? 'Nessuna funzione definita.' : `${functions.length} funzione/i valida/e: ${functions.map((f) => `${f.name}(${f.params.join(', ')})`).join(' · ')}`}
++            </div>
++          )}
++        </div>
++
++        {/* footer */}
++        <div style={{ padding: '12px 18px', borderTop: '1px solid #2a3349', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
++          <button onClick={onClose}
++            style={{ padding: '7px 14px', fontSize: 12, borderRadius: 6, cursor: 'pointer',
++                     background: 'none', border: '1px solid #2a3349', color: '#9aa4b8' }}>
++            Annulla
++          </button>
++          <button onClick={salva} disabled={errors.length > 0}
++            style={{ padding: '7px 16px', fontSize: 12, fontWeight: 600, borderRadius: 6,
++                     cursor: errors.length > 0 ? 'default' : 'pointer',
++                     background: errors.length > 0 ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 24%, #0f1117)`,
++                     color: errors.length > 0 ? '#4a5a7a' : ACCENT, border: `0.5px solid ${ACCENT}55` }}>
++            Salva
++          </button>
++        </div>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/ir/userFunctions.ts b/src/ir/userFunctions.ts
+index b4db656..96c3335 100644
+--- a/src/ir/userFunctions.ts
++++ b/src/ir/userFunctions.ts
+@@ -223,6 +223,37 @@ function clone(node: ExprNode): ExprNode {
+   return JSON.parse(JSON.stringify(node))
+ }
+ 
++/**
++ * Punto UNICO parse+espansione per i convertitori: parsa `src` con le funzioni
++ * utente in scope (così le chiamate parsano), le inlina, e TOGLIE `_origin`
++ * dall'albero che va al motore. Se non ci sono funzioni utente, è un semplice
++ * parseExpression.
++ */
++export function compileFpel(
++  src: string,
++  opts: { labelToInputId?: Map<string, string>; userFunctions?: UserFunction[] } = {},
++): ExprNode {
++  const fns   = opts.userFunctions ?? []
++  const arity = fns.length ? new Map(fns.map((f) => [f.name, f.params.length])) : undefined
++  const ast   = parseExpression(src, { labelToInputId: opts.labelToInputId, userFunctions: arity })
++  if (!fns.length) return ast
++  const map = new Map(fns.map((f) => [f.name, f]))
++  return stripOrigin(expandUserFunctions(ast, map))
++}
++
++/** Rimuove `_origin` da tutto l'albero: l'origine serve solo alla diagnostica
++ *  dello studio, il motore non deve vederla. */
++export function stripOrigin(node: ExprNode): ExprNode {
++  delete (node as WithOrigin)._origin
++  switch (node.kind) {
++    case 'BinaryOp':  stripOrigin(node.left); stripOrigin(node.right); break
++    case 'UnaryOp': case 'IsNull': case 'IsNotNull': case 'Cast': stripOrigin(node.expr); break
++    case 'FunctionCall': case 'Coalesce': node.args.forEach(stripOrigin); break
++    case 'CaseWhen':  node.branches.forEach((b) => { stripOrigin(b.condition); stripOrigin(b.value) }); if (node.default) stripOrigin(node.default); break
++  }
++  return node
++}
++
+ /** Marca ogni nodo privo di origine con `fn` (l'origine più interna, già posta, vince). */
+ function tagAll(node: ExprNode, fn: string): ExprNode {
+   if (!(node as WithOrigin)._origin) (node as WithOrigin)._origin = { fn }
+diff --git a/src/nodes/types/transform/PreviewPanel.tsx b/src/nodes/types/transform/PreviewPanel.tsx
+index 5e2c74f..9782858 100644
+--- a/src/nodes/types/transform/PreviewPanel.tsx
++++ b/src/nodes/types/transform/PreviewPanel.tsx
+@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
+ import { invoke } from '@tauri-apps/api/core'
+ import { useFlowStore } from '../../../store/flowStore'
+ import { compileTransformFields, type TransformFieldSpec } from '../../../transforms/templateCompiler'
++import { parseUserFunctions } from '../../../ir/userFunctions'
+ 
+ const ACCENT = '#ffb347'
+ 
+@@ -37,6 +38,7 @@ function fmt(v: unknown): string {
+ 
+ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
+   const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
++  const userFnDefs = useFlowStore((s) => s.pool.userFunctions)
+   const updateProp = useFlowStore((s) => s.updateNodeProp)
+ 
+   // Stessa fonte che usa buildRustPlan: i campi salvati dal Mapping.
+@@ -74,7 +76,11 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
+ 
+     // 2) spec del nodo — STESSA ricetta di buildRustPlan (Toolbar):
+     //    compileTransformFields + traduzione unmappedFields → mode.
+-    const { compiled, errors } = compileTransformFields(fields)
++    const { functions: userFns, errors: fnErrors } = parseUserFunctions(userFnDefs ?? [])
++    if (fnErrors.length > 0) {
++      setErrore(fnErrors.map((e) => `\u2022 ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')); return
++    }
++    const { compiled, errors } = compileTransformFields(fields, userFns)
+     if (errors.length > 0) {
+       setErrore(errors.map((x) => `\u2022 ${x.message}`).join('\n'))
+       return
+diff --git a/src/store/flowStore.ts b/src/store/flowStore.ts
+index 816dd2b..6670e50 100644
+--- a/src/store/flowStore.ts
++++ b/src/store/flowStore.ts
+@@ -197,6 +197,7 @@ const DEFAULT_LANE_B: Lane = {
+ const DEFAULT_POOL: Pool = {
+   id: 'pool_main', label: 'Main Pool',
+   variables: [],
++  userFunctions: [],
+   lanes: [DEFAULT_LANE_A, DEFAULT_LANE_B],
+ }
+ // ─── Nodo Error Handler — uno per lane, fisso ─────────────────────
+@@ -334,6 +335,7 @@ interface FlowState {
+ 
+   // Variabili
+   addVariable:    (scope: 'pool' | 'lane', laneId: string | null, variable: Omit<Variable, 'id' | 'scope'>) => void
++  setUserFunctions: (defs: string[]) => void
+   deleteVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string) => void
+   updateVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string, patch: Partial<Variable>) => void
+   /** Promuove una variabile di lane a variabile CONDIVISA (pool).
+@@ -1747,6 +1749,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
+   },
+ 
+   // ── Variabili ──
++  setUserFunctions: (defs) => set((s) => ({ pool: { ...s.pool, userFunctions: defs } })),
++
+   addVariable: (scope, laneId, variable) => {
+     const full: Variable = { ...variable, id: varUid(), scope }
+     if (scope === 'pool') {
+diff --git a/src/transforms/templateCompiler.ts b/src/transforms/templateCompiler.ts
+index 39cd0f5..e3eb1cf 100644
+--- a/src/transforms/templateCompiler.ts
++++ b/src/transforms/templateCompiler.ts
+@@ -12,7 +12,8 @@
+  * Sostituisce `catalogExprToJs` + `eval()`: niente più JavaScript.
+  */
+ 
+-import { parseExpression, ExprParseError, type ExprNode } from '../ir/exprParser'
++import { ExprParseError, type ExprNode } from '../ir/exprParser'
++import { compileFpel, type UserFunction } from '../ir/userFunctions'
+ import { findPreset, type TransformTemplate, type TransformParam } from './presets'
+ import type { FieldType } from '../types/fieldTypes'
+ 
+@@ -122,7 +123,7 @@ export function resolveTemplate(
+  * Lancia TemplateCompileError se il template non esiste, un parametro è
+  * malformato, o l'espressione non è valida FPEL.
+  */
+-export function compileField(f: TransformFieldSpec): CompiledField {
++export function compileField(f: TransformFieldSpec, userFunctions: UserFunction[] = []): CompiledField {
+   const out = f.output.trim()
+   if (!out) throw new TemplateCompileError('(senza nome)', 'nome del campo di output mancante')
+ 
+@@ -147,7 +148,7 @@ export function compileField(f: TransformFieldSpec): CompiledField {
+   }
+ 
+   try {
+-    return { name: out, expr: parseExpression(exprText) }
++    return { name: out, expr: compileFpel(exprText, { userFunctions }) }
+   } catch (e) {
+     const detail = e instanceof ExprParseError
+       ? `${e.message}\n  ${exprText}\n  ${' '.repeat(Math.max(0, e.pos))}^`
+@@ -161,7 +162,7 @@ export function compileField(f: TransformFieldSpec): CompiledField {
+  * Raccoglie TUTTI gli errori invece di fermarsi al primo: l'utente vede
+  * ogni campo problematico in una volta.
+  */
+-export function compileTransformFields(fields: TransformFieldSpec[]): {
++export function compileTransformFields(fields: TransformFieldSpec[], userFunctions: UserFunction[] = []): {
+   compiled: CompiledField[]
+   errors:   TemplateCompileError[]
+ } {
+@@ -170,7 +171,7 @@ export function compileTransformFields(fields: TransformFieldSpec[]): {
+ 
+   for (const f of fields) {
+     if (!f.enabled) continue
+-    try { compiled.push(compileField(f)) }
++    try { compiled.push(compileField(f, userFunctions)) }
+     catch (e) {
+       if (e instanceof TemplateCompileError) errors.push(e)
+       else errors.push(new TemplateCompileError(f.output || '?', String(e)))
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 63d90c6..cbe0d1a 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -334,6 +334,9 @@ export interface Pool {
+   label: string
+   variables: Variable[]
+   lanes: Lane[]
++  /** Definizioni FPEL di funzioni utente (testo grezzo, una per elemento).
++      Espanse a compile-time; persistono nel progetto. */
++  userFunctions?: string[]
+ }
+ 
+ // ─── Log e risultati di esecuzione ───────────────────────────────

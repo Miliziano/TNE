@@ -17,9 +17,11 @@ import type { NodeData } from '../types'
 import type { Pool } from '../types'
 import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
 import { EnvironmentsModal } from './EnvironmentsModal'
+import { UserFunctionsModal } from './UserFunctionsModal'
 import { CompileModal } from './CompileModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
+import { parseUserFunctions } from '../ir/userFunctions'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
 
@@ -460,6 +462,15 @@ function buildRustPlan(
   // il Run sia per l'export dell'artifact, che passano entrambi di qui.
   const { nodes, edges } = togliNodiDisabilitati(nodesOriginali, edgesOriginali)
 
+  // Funzioni utente FPEL: parsate UNA volta e inlinate a compile-time nelle
+  // espressioni (transform e — in seguito — TMap/script). Un errore nelle
+  // definizioni blocca il build, come per gli altri errori di compilazione.
+  const { functions: userFns, errors: fnErrors } = parseUserFunctions(pool.userFunctions ?? [])
+  if (fnErrors.length > 0) {
+    const d = fnErrors.map((e) => `  • ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')
+    throw new Error(`Funzioni utente — ${fnErrors.length} errore/i:\n${d}`)
+  }
+
  // ── Bridge tra lane — accoppiati per channelName condiviso.
   // I bridge NON hanno un edge nel canvas: collegano lane diverse e
   // l'accoppiamento è logico, per nome canale (stessa logica di
@@ -760,7 +771,7 @@ function buildRustPlan(
             try { fields = JSON.parse(raw as string) }
             catch { throw new Error(`Transform "${node.data.label}": configurazione campi illeggibile`) }
 
-            const { compiled, errors } = compileTransformFields(fields)
+            const { compiled, errors } = compileTransformFields(fields, userFns)
             if (errors.length > 0) {
               const dettagli = errors.map(e => `  • ${e.message}`).join('\n')
               throw new Error(`Transform "${node.data.label}" — ${errors.length} errore/i:\n${dettagli}`)
@@ -1233,6 +1244,7 @@ export function Toolbar() {
   const [opening, setOpening] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [envOpen, setEnvOpen] = useState(false)
+  const [funcOpen, setFuncOpen] = useState(false)
   const [compileOpen, setCompileOpen] = useState(false)
   const currentPath = useFlowStore((s) => s.currentPath)
 
@@ -1691,6 +1703,10 @@ export function Toolbar() {
         <i className="ti ti-adjustments" style={{ fontSize: 13 }} aria-hidden="true" />
         Ambienti
       </TbBtn>
+      <TbBtn onClick={() => setFuncOpen(true)} title="Funzioni utente FPEL">
+        <i className="ti ti-math-function" style={{ fontSize: 13 }} aria-hidden="true" />
+        Funzioni
+      </TbBtn>
       <TbBtn onClick={() => setCompileOpen(true)} title="Compila / genera artifact per il runner">
         <i className="ti ti-package" style={{ fontSize: 13 }} aria-hidden="true" />
         Compila
@@ -1770,6 +1786,7 @@ export function Toolbar() {
       />
 
       <EnvironmentsModal open={envOpen} onClose={() => setEnvOpen(false)} />
+      <UserFunctionsModal open={funcOpen} onClose={() => setFuncOpen(false)} />
 
       <CompileModal open={compileOpen} onClose={() => setCompileOpen(false)} onGenerate={esportaArtifact} />
 

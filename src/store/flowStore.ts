@@ -197,6 +197,7 @@ const DEFAULT_LANE_B: Lane = {
 const DEFAULT_POOL: Pool = {
   id: 'pool_main', label: 'Main Pool',
   variables: [],
+  userFunctions: [],
   lanes: [DEFAULT_LANE_A, DEFAULT_LANE_B],
 }
 // ─── Nodo Error Handler — uno per lane, fisso ─────────────────────
@@ -334,6 +335,7 @@ interface FlowState {
 
   // Variabili
   addVariable:    (scope: 'pool' | 'lane', laneId: string | null, variable: Omit<Variable, 'id' | 'scope'>) => void
+  setUserFunctions: (defs: string[]) => void
   deleteVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string) => void
   updateVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string, patch: Partial<Variable>) => void
   /** Promuove una variabile di lane a variabile CONDIVISA (pool).
@@ -1747,6 +1749,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   },
 
   // ── Variabili ──
+  setUserFunctions: (defs) => set((s) => ({ pool: { ...s.pool, userFunctions: defs } })),
+
   addVariable: (scope, laneId, variable) => {
     const full: Variable = { ...variable, id: varUid(), scope }
     if (scope === 'pool') {

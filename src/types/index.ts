@@ -334,6 +334,9 @@ export interface Pool {
   label: string
   variables: Variable[]
   lanes: Lane[]
+  /** Definizioni FPEL di funzioni utente (testo grezzo, una per elemento).
+      Espanse a compile-time; persistono nel progetto. */
+  userFunctions?: string[]
 }
 
 // ─── Log e risultati di esecuzione ───────────────────────────────
