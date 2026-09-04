@@ -72,7 +72,7 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
               title="Applica una funzione: avvolge la selezione nell'editor (con ricerca)"
               style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
                        background: 'none', border: `1px solid ${ACCENT}55`, color: ACCENT }}>
-              \u0192 applica…
+              ƒ applica…
             </button>
             {pickerOpen && (
               <FunctionPicker

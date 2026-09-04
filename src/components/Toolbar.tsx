@@ -753,7 +753,7 @@ function buildRustPlan(
           const tmapConfig = node.data.config?.tmap as TMapConfig | undefined
           if (tmapConfig) {
             try {
-              const tmapPlan = buildTMapPlan(tmapConfig)
+              const tmapPlan = buildTMapPlan(tmapConfig, userFns)
               Object.assign(specConfig, tmapPlan as unknown as Record<string, unknown>)
             } catch (e) {
               console.warn('[buildRustPlan] buildTMapPlan fallito:', e)
