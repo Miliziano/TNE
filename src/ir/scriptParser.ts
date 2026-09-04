@@ -15,7 +15,8 @@
  * l'IR, mai il testo.
  */
 
-import { parseExpression, ExprParseError, type ExprNode } from './exprParser'
+import { ExprParseError, type ExprNode } from './exprParser'
+import { compileFpel } from './userFunctions'
 import { inferExprType, unify, type InferCtx } from './exprTypes'
 import type { FieldType } from '../types/fieldTypes'
 
@@ -189,7 +190,7 @@ interface Cursore { i: number }
 function espr(src: string, riga: number, locali: Set<string>): ExprNode {
   let node: ExprNode
   try {
-    node = parseExpression(src)
+    node = compileFpel(src)
   } catch (e) {
     const dettaglio = e instanceof ExprParseError ? e.pretty() : String(e)
     throw new ScriptParseError(dettaglio, riga)

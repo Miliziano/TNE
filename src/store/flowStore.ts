@@ -1,4 +1,5 @@
 import { scheduleCanvasValidation, runCompilation, runCodegen } from '../ir/pipeline'
+import { setActiveUserFunctions } from '../ir/userFunctions'
 import type { ValidationIssue } from '../ir/types'
 import { propagateHandle, getNodeHandles } from '../utils/schemaRegistry'
 import { ERROR_HANDLER_SCHEMA } from '../types'
@@ -1923,6 +1924,18 @@ useFlowStore.subscribe((state) => {
   _lastValidationSig = sig
   triggerValidation()
 })
+
+// Registro FPEL: tiene le funzioni utente ATTIVE sincronizzate col pool, così
+// ogni parsing (script, propagazione schema, validazione) le vede. Copre
+// modifica, caricamento e reidratazione in un punto solo.
+let _prevUserFnsRef: string[] | undefined
+useFlowStore.subscribe((state) => {
+  const fns = state.pool.userFunctions
+  if (fns === _prevUserFnsRef) return
+  _prevUserFnsRef = fns
+  setActiveUserFunctions(fns ?? [])
+})
+setActiveUserFunctions(useFlowStore.getState().pool.userFunctions ?? [])
 
 // Validazione iniziale: lo stato di partenza (o un progetto caricato
 // prima che la subscription fosse attiva) viene validato subito.

@@ -223,6 +223,17 @@ function clone(node: ExprNode): ExprNode {
   return JSON.parse(JSON.stringify(node))
 }
 
+// ── Registro delle funzioni ATTIVE del progetto ──────────────────
+// La "tabella dei simboli" FPEL. Lo store la aggiorna quando
+// pool.userFunctions cambia; compileFpel la usa come default, così le
+// funzioni valgono in OGNI contesto di parsing (script, propagazione
+// schema, validazione) senza infilarle a mano nei chiamanti puri.
+let ACTIVE: UserFunction[] = []
+export function setActiveUserFunctions(defs: string[]): void {
+  ACTIVE = parseUserFunctions(defs).functions
+}
+export function activeUserFunctions(): UserFunction[] { return ACTIVE }
+
 /**
  * Punto UNICO parse+espansione per i convertitori: parsa `src` con le funzioni
  * utente in scope (così le chiamate parsano), le inlina, e TOGLIE `_origin`
@@ -233,7 +244,7 @@ export function compileFpel(
   src: string,
   opts: { labelToInputId?: Map<string, string>; userFunctions?: UserFunction[] } = {},
 ): ExprNode {
-  const fns   = opts.userFunctions ?? []
+  const fns   = opts.userFunctions ?? activeUserFunctions()
   const arity = fns.length ? new Map(fns.map((f) => [f.name, f.params.length])) : undefined
   const ast   = parseExpression(src, { labelToInputId: opts.labelToInputId, userFunctions: arity })
   if (!fns.length) return ast
