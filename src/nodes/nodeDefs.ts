@@ -132,8 +132,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       // esegue quella e basta (source_db.rs: "custom verbatim se presente").
       { key: 'schema',       label: 'Schema',          type: 'text',   default: 'public', ignoredWhenSet: 'query' },
       { key: 'table',        label: 'Tabella',         type: 'text',   default: '',       ignoredWhenSet: 'query' },
-      { key: 'limit',        label: 'Limite righe',    type: 'number', default: '0',      ignoredWhenSet: 'query' },
-      { key: 'orderBy',      label: 'Ordina per',      type: 'text',   default: '',       ignoredWhenSet: 'query' },
+      { key: 'limit',        label: 'Row limit',    type: 'number', default: '0',      ignoredWhenSet: 'query' },
+      { key: 'orderBy',      label: 'Order by',      type: 'text',   default: '',       ignoredWhenSet: 'query' },
       { key: 'query',        label: 'Query SQL',       type: 'code',   default: 'SELECT * FROM ' },
     ],
   },
@@ -166,10 +166,10 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     description: 'Recupera dati da un endpoint HTTP.',
     fields: [
     { key: 'url',          label: 'URL',           type: 'text',   default: HTTP_DEFAULTS.url  },
-    { key: 'method',       label: 'Metodo',        type: 'select', default: 'GET', options: ['GET','POST','PUT','PATCH','DELETE'] },
-    { key: 'responseType', label: 'Tipo risposta', type: 'select', default: 'json', options: ['json','text','xml','binary','pdf','csv'] },
+    { key: 'method',       label: 'Method',        type: 'select', default: 'GET', options: ['GET','POST','PUT','PATCH','DELETE'] },
+    { key: 'responseType', label: 'Response type', type: 'select', default: 'json', options: ['json','text','xml','binary','pdf','csv'] },
     { key: 'authType',     label: 'Auth',          type: 'select', default: 'none', options: ['none','basic','bearer','api_key','digest','oauth2_cc','oauth2_ac'] },
-    { key: 'customFields', label: 'Campi JSON',    type: 'text',   default: '[]' },
+    { key: 'customFields', label: 'JSON fields',    type: 'text',   default: '[]' },
    ],
   },
 
@@ -202,8 +202,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     color: '#ffb347',
     description: 'Unisce due flussi su un campo chiave.',
     fields: [
-      { key: 'join_type', label: 'Tipo join', type: 'select', default: 'inner', options: ['inner','left','right','full'] },
-      { key: 'key',       label: 'Campo chiave', type: 'text', default: 'user_id' },
+      { key: 'join_type', label: 'Join type', type: 'select', default: 'inner', options: ['inner','left','right','full'] },
+      { key: 'key',       label: 'Key field', type: 'text', default: 'user_id' },
     ],
   },
   aggregate: {
@@ -215,7 +215,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     description: 'Raggruppa le righe e calcola funzioni aggregate.',
     fields: [
       { key: 'group_by',  label: 'Raggruppa per', type: 'text', default: 'region' },
-      { key: 'functions', label: 'Funzioni',       type: 'code', default: '{"count": "*", "sum": "amount"}' },
+      { key: 'functions', label: 'Functions',       type: 'code', default: '{"count": "*", "sum": "amount"}' },
     ],
   },
   script: {
@@ -230,9 +230,9 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     // né l'uno né l'altro. Il corpo è ora un linguaggio di istruzioni su
     // FPEL — v. src-tauri/docs/design-nodo-script.md.
     fields: [
-      { key: 'sourceMode', label: 'Sorgente delle righe', type: 'select', default: 'flusso',
+      { key: 'sourceMode', label: 'Row source', type: 'select', default: 'flusso',
         options: ['flusso', 'genera'] },
-      { key: 'code', label: 'Istruzioni', type: 'code',
+      { key: 'code', label: 'Instructions', type: 'code',
         default: '// I campi si usano per nome; "let" per i valori intermedi.\n// Istruzioni: let, assegnazione, if/else, skip, reject, log, error.\n' },
     ],
   },
@@ -244,7 +244,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       color: '#a78bfa',
       description: 'Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.',
       fields: [
-        { key: 'shortLabel', label: 'Etichetta', type: 'text', default: '' },
+        { key: 'shortLabel', label: 'Label', type: 'text', default: '' },
       ],
     },
   sink_db: {
@@ -257,8 +257,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     fields: [
       { key: 'schema',    label: 'Schema',           type: 'text',   default: 'public' },
       { key: 'table',     label: 'Tabella',          type: 'text',   default: '' },
-      { key: 'mode',      label: 'Modalità',         type: 'select', default: 'insert', options: ['insert','upsert','update','truncate_insert','merge'] },
-      { key: 'keyFields', label: 'Campi chiave',     type: 'text',   default: 'id' },
+      { key: 'mode',      label: 'Mode',         type: 'select', default: 'insert', options: ['insert','upsert','update','truncate_insert','merge'] },
+      { key: 'keyFields', label: 'Key fields',     type: 'text',   default: 'id' },
       { key: 'batchSize', label: 'Batch size',       type: 'number', default: '1000' },
     ],
   },
@@ -271,8 +271,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     description: 'Pubblica righe su un topic Kafka.',
     fields: [
       { key: 'topic',       label: 'Topic',          type: 'text',   default: 'pipeline-out' },
-      { key: 'key_field',   label: 'Campo chiave',   type: 'text',   default: 'id' },
-      { key: 'valueFormat', label: 'Formato',        type: 'select', default: 'json', options: ['json','avro','protobuf','string'] },
+      { key: 'key_field',   label: 'Key field',   type: 'text',   default: 'id' },
+      { key: 'valueFormat', label: 'Format',        type: 'select', default: 'json', options: ['json','avro','protobuf','string'] },
       { key: 'acks',        label: 'Acks',           type: 'select', default: 'all', options: ['0','1','all'] },
     ],
   },
@@ -284,11 +284,11 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     color: '#3ddc84',
     description: 'Scrive righe su file.',
     fields: [
-      { key: 'path',           label: 'Percorso',    type: 'text',   default: '/data/output.csv' },
-      { key: 'format',         label: 'Formato',     type: 'select', default: 'csv',       options: ['csv','json','jsonl','parquet','tsv','xml','excel'] },
-      { key: 'mode',           label: 'Modalità',    type: 'select', default: 'overwrite', options: ['overwrite','append','new','error'] },
-      { key: 'partition',      label: 'Partizione',  type: 'select', default: 'none',      options: ['none','field','date','size'] },
-      { key: 'processingMode', label: 'Elaborazione',type: 'select', default: 'streaming', options: ['streaming','batch'] },
+      { key: 'path',           label: 'Path',    type: 'text',   default: '/data/output.csv' },
+      { key: 'format',         label: 'Format',     type: 'select', default: 'csv',       options: ['csv','json','jsonl','parquet','tsv','xml','excel'] },
+      { key: 'mode',           label: 'Mode',    type: 'select', default: 'overwrite', options: ['overwrite','append','new','error'] },
+      { key: 'partition',      label: 'Partition',  type: 'select', default: 'none',      options: ['none','field','date','size'] },
+      { key: 'processingMode', label: 'Processing',type: 'select', default: 'streaming', options: ['streaming','batch'] },
       { key: 'passthrough',    label: 'Pass-through', type: 'text',  default: 'false' },
     ],
   },
@@ -300,7 +300,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     color: '#3ddc84',
     description: 'Punto di avvio della lane. Ha solo un handle di uscita.',
     fields: [
-      { key: 'label', label: 'Etichetta', type: 'text', default: 'Start' },
+      { key: 'label', label: 'Label', type: 'text', default: 'Start' },
     ],
   },
   lane_end: {
@@ -311,7 +311,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     color: '#ff5f57',
     description: 'Punto di fine della lane. Ha solo un handle di ingresso.',
     fields: [
-      { key: 'label', label: 'Etichetta', type: 'text', default: 'End' },
+      { key: 'label', label: 'Label', type: 'text', default: 'End' },
     ],
   },
   bridge_out: {
@@ -322,8 +322,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category:    'output',
     description: 'Porta di uscita dal flusso della lane — pubblica sul canale bridge.',
     fields: [
-      { key: 'channelName',  label: 'Nome canale',   type: 'text',   default: '' },
-      { key: 'channelColor', label: 'Colore',        type: 'text',   default: '#a78bfa' },
+      { key: 'channelName',  label: 'Channel name',   type: 'text',   default: '' },
+      { key: 'channelColor', label: 'Color',        type: 'text',   default: '#a78bfa' },
       { key: 'syncMode',     label: 'Sincronismo',   type: 'text',   default: 'fire_and_forget' },
       { key: 'transferMode', label: 'Trasferimento', type: 'text',   default: 'content' },
       { key: 'batchSize',    label: 'Batch size',    type: 'number', default: '100' },
@@ -339,8 +339,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category:    'input',
     description: "Porta di ingresso da un'altra lane — riceve dal canale bridge.",
     fields: [
-      { key: 'channelName',  label: 'Nome canale',    type: 'text',   default: '' },
-      { key: 'channelColor', label: 'Colore',         type: 'text',   default: '#a78bfa' },
+      { key: 'channelName',  label: 'Channel name',    type: 'text',   default: '' },
+      { key: 'channelColor', label: 'Color',         type: 'text',   default: '#a78bfa' },
       { key: 'syncMode',     label: 'Sincronismo',    type: 'text',   default: 'fire_and_forget' },
       { key: 'timeoutSec',   label: 'Timeout (sec)',  type: 'number', default: '30' },
     ],
@@ -516,8 +516,8 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category:    'transform' as const,   // border neutro; la validazione va per _uiRef.type, non per category
     description: 'Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.',
     fields: [
-      { key: 'trigger', label: 'Innesco', type: 'select', default: 'immediate', options: ['immediate', 'after_input'] },
-      { key: 'message', label: 'Messaggio', type: 'text', default: '' },
+      { key: 'trigger', label: 'Trigger', type: 'select', default: 'immediate', options: ['immediate', 'after_input'] },
+      { key: 'message', label: 'Message', type: 'text', default: '' },
     ],
   },
 }
@@ -526,6 +526,6 @@ export const PALETTE_SECTIONS = [
   { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','github_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
   { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot','ldap_auth'] },
   { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
-  { label: 'Flusso', types: ['stop'] },
+  { label: 'Flow', types: ['stop'] },
   { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
 ]
