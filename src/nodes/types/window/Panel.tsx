@@ -28,7 +28,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -179,7 +179,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Info */}
-      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#4a5a7a', lineHeight: 1.5 }}>
+      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>W</span> Calcola valori usando righe vicine nella stessa partizione.
         Le righe originali passano invariate con i <strong style={{ color: '#c8d4f0' }}>campi calcolati aggiunti</strong>.
       </div>
@@ -213,7 +213,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: dataSource === s.value ? '#22d3ee' : 'transparent', border: `1.5px solid ${dataSource === s.value ? '#22d3ee' : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: dataSource === s.value ? '#22d3ee' : '#c8d4f0' }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{(s as any).hint ?? s.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{(s as any).hint ?? s.desc}</div>
             </div>
           </button>
         ))}
@@ -241,13 +241,13 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
             </div>
           )}
           {matName && materializeFields.length > 0 && (
-            <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 5, alignItems: 'center' }}>
+            <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
               dataset <code style={{ color: '#22d3ee' }}>{matName}</code>
               — {materializeFields.length} campi disponibili
             </div>
           )}
-          <div style={{ padding: '6px 10px', fontSize: 9, color: '#4a5a7a', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
+          <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
             Pattern tipico: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Window</code>.
             Il signal del Materialize arriva come trigger, Window legge i dati dalla lane.
@@ -260,7 +260,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </CustomSelect>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 4, fontStyle: 'italic' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
                 {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
                 {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
               </div>
@@ -281,14 +281,14 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                 const isSelected = partitionFields.includes(f.name)
                 return (
                   <button key={f.name} onClick={() => togglePartition(f.name)}
-                    style={{ padding: '2px 8px', fontSize: 10, borderRadius: 10, cursor: 'pointer', background: isSelected ? '#0d2a4a' : '#1a2030', color: isSelected ? '#4a9eff' : '#4a5a7a', border: isSelected ? '1px solid #1a5a9a' : '1px solid #2a3349', fontFamily: 'monospace', transition: 'all .1s' }}>
+                    style={{ padding: '2px 8px', fontSize: 10, borderRadius: 10, cursor: 'pointer', background: isSelected ? '#0d2a4a' : '#1a2030', color: isSelected ? '#4a9eff' : '#8593b5', border: isSelected ? '1px solid #1a5a9a' : '1px solid #2a3349', fontFamily: 'monospace', transition: 'all .1s' }}>
                     {f.name}
                   </button>
                 )
               })}
             </div>
             {partitionFields.length > 0 && (
-              <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
                 PARTITION BY {partitionFields.map((f) => <code key={f} style={{ color: '#4a9eff', marginRight: 4 }}>{f}</code>)}
               </div>
             )}
@@ -357,14 +357,14 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
               <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 8%, #1a2030)`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <i className={`ti ${catMeta.icon}`} style={{ fontSize: 11, color, flexShrink: 0 }} />
                 <code style={{ fontSize: 11, color, fontWeight: 600 }}>{fnDef?.label ?? w.fn}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a', flex: 1 }}>{fnDef?.desc}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', flex: 1 }}>{fnDef?.desc}</span>
                 <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: `color-mix(in srgb, ${color} 15%, #0f1117)`, color, border: `0.5px solid ${color}30` }}>
                   → {fnDef?.outputType ?? 'any'}
                 </span>
                 <button onClick={() => deleteWindow(w.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                   <i className="ti ti-x" style={{ fontSize: 11 }} />
                 </button>
               </div>
@@ -440,9 +440,9 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                     </div>
                     <input type="number" style={inputStyle} value={w.n ?? 3} min="1"
                       onChange={(e) => updateWindow(w.id, { n: parseInt(e.target.value) })} />
-                    {w.fn === 'moving_avg'  && <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3, fontStyle: 'italic' }}>SMA({w.n ?? 3}) — media delle ultime {w.n ?? 3} righe</div>}
-                    {w.fn === 'sessionize' && <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3, fontStyle: 'italic' }}>Se gap &gt; {w.n ?? 3}s dalla riga precedente → nuova sessione</div>}
-                    {w.fn === 'ntile'      && <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3, fontStyle: 'italic' }}>N=4 quartili · N=5 quintili · N=10 decili · N=100 percentili</div>}
+                    {w.fn === 'moving_avg'  && <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>SMA({w.n ?? 3}) — media delle ultime {w.n ?? 3} righe</div>}
+                    {w.fn === 'sessionize' && <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>Se gap &gt; {w.n ?? 3}s dalla riga precedente → nuova sessione</div>}
+                    {w.fn === 'ntile'      && <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>N=4 quartili · N=5 quintili · N=10 decili · N=100 percentili</div>}
                   </div>
                 )}
 
@@ -452,7 +452,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                     <input style={{ ...inputStyle, color: '#f97316' }} value={w.expr ?? ''}
                       onChange={(e) => updateWindow(w.id, { expr: e.target.value })}
                       placeholder="amount > 0" />
-                    <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3, fontStyle: 'italic' }}>
+                    <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>
                       Conta le righe consecutive dove la condizione è vera. Reset a 0 quando è falsa.
                     </div>
                   </div>
@@ -483,7 +483,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
           <SectionTitle label="Schema output" color="#22d3ee" />
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             {[
-              ...activeFields.map((f) => ({ name: f.name, type: f.type, badge: 'originale', badgeColor: '#4a5a7a' })),
+              ...activeFields.map((f) => ({ name: f.name, type: f.type, badge: 'originale', badgeColor: '#8593b5' })),
               ...windows.map((w) => {
                 const fnDef   = WINDOW_FUNCTIONS.find((f) => f.value === w.fn)
                 const catMeta = fnDef ? CATEGORY_META[fnDef.category] : CATEGORY_META.ranking
@@ -492,14 +492,14 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
             ].map((f, i, arr) => (
               <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.badge === 'originale' ? '#9a9aaa' : f.badgeColor }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `color-mix(in srgb, ${f.badgeColor} 12%, #0f1117)`, color: f.badgeColor, border: `0.5px solid ${f.badgeColor}30`, textAlign: 'center' }}>
                   {f.badge}
                 </span>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', display: 'flex', gap: 5 }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
             <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
             {activeFields.length} campi originali + {windows.length} calcolati → {activeFields.length + windows.length} totali propagati a valle.
           </div>
@@ -507,7 +507,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {windows.length > 0 && (
-        <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+        <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
           {dataSource === 'materialize'
             ? 'Legge tutti i dati dal Materialize in una volta — nessun buffering interno necessario.'

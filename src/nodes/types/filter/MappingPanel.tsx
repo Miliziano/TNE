@@ -42,14 +42,14 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Campi in transito */}
       {fields.length > 0 && (
         <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
             Campi in transito su tutte le uscite
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {fields.map((f) => (
               <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349' }}>
                 <code style={{ fontSize: 10, color: ACCENT }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
               </div>
             ))}
           </div>
@@ -62,7 +62,7 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {conditions.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-filter-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           Nessuna condizione configurata. Configura le condizioni nel tab Configurazione.
           <br />
@@ -94,7 +94,7 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
 
               {/* Codice condizione */}
               <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-                <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
+                <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
                   condizione
                 </div>
                 <code style={{ fontSize: 9, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.6 }}>
@@ -103,7 +103,7 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
               </div>
 
               {/* Campi passthrough */}
-              <div style={{ marginTop: 6, fontSize: 9, color: '#4a5a7a' }}>
+              <div style={{ marginTop: 6, fontSize: 9, color: '#8593b5' }}>
                 Tutti i campi passano invariati →
                 <span style={{ color: cond.color, marginLeft: 4 }}>{fields.length} campi</span>
               </div>
@@ -121,14 +121,14 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
             #{conditions.length + 1} — sempre presente
           </span>
         </div>
-        <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+        <div style={{ fontSize: 9, color: '#8593b5' }}>
           Righe che non soddisfano nessuna delle condizioni precedenti.
           {fields.length > 0 && <span style={{ color: '#ff5f5780', marginLeft: 4 }}>Tutti i campi passano invariati.</span>}
         </div>
       </div>
 
       {/* Nota opzioni */}
-      <div style={{ padding: '6px 10px', fontSize: 9, color: '#4a5a7a', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
         <span>
           Comportamento su null: <strong style={{ color: '#9a9aaa' }}>{config.nullBehavior}</strong>

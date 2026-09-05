@@ -97,7 +97,7 @@ export function VersionHistoryModal({
           )}
 
           {!error && history.length === 0 && (
-            <div style={{ fontSize: 11, color: '#4a5a7a', fontStyle: 'italic', padding: '6px 2px' }}>
+            <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic', padding: '6px 2px' }}>
               Nessuna versione precedente. Ogni salvataggio ne aggiunge una qui.
             </div>
           )}

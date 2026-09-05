@@ -73,7 +73,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {activeFields.length === 0 ? (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
           {dataSource === 'materialize' ? `Il Materialize "${matName || '—'}" non ha ancora ricevuto campi.` : 'Collega un nodo in ingresso.'}
         </div>
@@ -90,7 +90,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
               <div key={f.name}
                 style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center', opacity: role.label === 'ignorato' ? 0.35 : 1 }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: role.color }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `color-mix(in srgb, ${role.color} 12%, #0f1117)`, color: role.color, border: `0.5px solid ${role.color}30`, textAlign: 'center' }}>
                   {role.label}
                 </span>
@@ -111,7 +111,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
           Pivot dinamico — schema determinato a runtime. Non propagabile a design time.
         </div>
       ) : outputSchema.length === 0 ? (
-        <div style={{ padding: '10px', textAlign: 'center', color: '#4a5a7a', fontSize: 10, fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+        <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 10, fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
           Configura i campi nel tab Configurazione.
         </div>
       ) : (
@@ -127,25 +127,25 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
               const isKeyVal   = mode === 'unpivot' && (f.id === 'upv_key' || f.id === 'upv_value')
               const color      = isPivotCol ? ACCENT : isKeyVal ? '#4a9eff' : '#9a9aaa'
               const badge      = isPivotCol ? 'pivot' : isKeyVal ? (f.id === 'upv_key' ? 'chiave' : 'valore') : 'fisso'
-              const bc         = isPivotCol ? ACCENT : isKeyVal ? '#4a9eff' : '#4a5a7a'
+              const bc         = isPivotCol ? ACCENT : isKeyVal ? '#4a9eff' : '#8593b5'
               return (
                 <div key={f.id ?? f.name}
                   style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                   <code style={{ fontFamily: 'monospace', fontSize: 11, color }}>{f.name}</code>
-                  <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                  <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                   <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `color-mix(in srgb, ${bc} 12%, #0f1117)`, color: bc, border: `0.5px solid ${bc}30`, textAlign: 'center' }}>{badge}</span>
                 </div>
               )
             })}
           </div>
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', display: 'flex', gap: 5 }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
             <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
             Schema propagato automaticamente ai nodi a valle.
           </div>
         </>
       )}
 
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
         Modifica campi e modalità nel tab <strong style={{ color: '#c8d4f0' }}>Configurazione</strong>.
       </div>

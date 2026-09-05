@@ -27,7 +27,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -95,9 +95,9 @@ function CompositeKeyEditor({ keys, leftFields, rightFields, onChange }: {
   if (keys.length === 0) {
     return (
       <button onClick={add}
-        style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px dashed #2a3349', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+        style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff'; (e.currentTarget as HTMLElement).style.color = '#4a9eff' }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
         <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi chiave composta
       </button>
     )
@@ -117,7 +117,7 @@ function CompositeKeyEditor({ keys, leftFields, rightFields, onChange }: {
             <input style={{ ...inputStyle, fontSize: 10, padding: '3px 5px' }} value={k.left}
               onChange={(e) => update(k.id, 'left', e.target.value)} placeholder="campo_sx" />
           )}
-          <span style={{ textAlign: 'center', color: '#4a5a7a', fontSize: 10 }}>=</span>
+          <span style={{ textAlign: 'center', color: '#8593b5', fontSize: 10 }}>=</span>
           {rightFields.length > 0 ? (
             <CustomSelect style={{ ...inputStyle, fontSize: 10, padding: '3px 5px' }} value={k.right}
               onChange={(e) => update(k.id, 'right', e.target.value)}>
@@ -129,17 +129,17 @@ function CompositeKeyEditor({ keys, leftFields, rightFields, onChange }: {
               onChange={(e) => update(k.id, 'right', e.target.value)} placeholder="campo_dx" />
           )}
           <button onClick={() => remove(k.id)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
             <i className="ti ti-x" style={{ fontSize: 10 }} />
           </button>
         </div>
       ))}
       <button onClick={add}
-        style={{ padding: '4px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+        style={{ padding: '4px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff'; (e.currentTarget as HTMLElement).style.color = '#4a9eff' }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
         <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi chiave
       </button>
     </div>
@@ -235,7 +235,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Info */}
-      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.5 }}>
+      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <span style={{ color: '#4a9eff', fontWeight: 600 }}>⋈</span> Combina righe di due dataset in base a una chiave comune.
         Il flusso principale (sinistra) viene elaborato riga per riga.
         Il dataset destro deve essere accessibile come lookup — tramite Materialize o flusso connesso.
@@ -259,12 +259,12 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             style={{
               padding: '6px 4px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
               background: joinType === t.value ? `color-mix(in srgb, ${t.color} 15%, #1a2030)` : '#1a2030',
-              color:      joinType === t.value ? t.color : '#4a5a7a',
+              color:      joinType === t.value ? t.color : '#8593b5',
               border: joinType === t.value ? `1px solid ${t.color}60` : '1px solid #2a3349',
               fontWeight: joinType === t.value ? 600 : 400,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             }}>
-            <i className={`ti ${t.icon}`} style={{ fontSize: 12, color: joinType === t.value ? t.color : '#4a5a7a' }} />
+            <i className={`ti ${t.icon}`} style={{ fontSize: 12, color: joinType === t.value ? t.color : '#8593b5' }} />
             {t.label}
           </button>
         ))}
@@ -281,7 +281,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             onChange={u('customCondition')}
             placeholder="left.price >= right.min_price AND left.price <= right.max_price"
             spellCheck={false} />
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
             Usa <code style={{ color: '#a78bfa' }}>left.campo</code> e <code style={{ color: '#a78bfa' }}>right.campo</code> per riferirsi ai due dataset.
             Attenzione: richiede nested loop — potenzialmente lento su dataset grandi.
           </div>
@@ -324,7 +324,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: rightSource === s.value ? '#22d3ee' : 'transparent', border: `1.5px solid ${rightSource === s.value ? '#22d3ee' : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: rightSource === s.value ? '#22d3ee' : '#c8d4f0' }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{s.hint ?? s.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{s.hint ?? s.desc}</div>
             </div>
           </button>
         ))}
@@ -342,7 +342,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             </CustomSelect>
           </Field>
           {matName && materializeFields.length > 0 && (
-            <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 5, alignItems: 'center' }}>
+            <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
               dataset <code style={{ color: '#22d3ee' }}>{matName}</code>
               — {materializeFields.length} campi disponibili · accesso O(1)
@@ -362,7 +362,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </CustomSelect>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 4, fontStyle: 'italic' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
                 {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
                 {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
               </div>
@@ -469,7 +469,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
       </Row>
 
       {rightSource === 'materialize' && (
-        <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+        <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-zap" style={{ fontSize: 11, color: '#22d3ee', flexShrink: 0, marginTop: 1 }} />
           Il Materialize è già una hashtable — l'algoritmo è automaticamente Hash Join con accesso O(1).
           Nessun buffering aggiuntivo necessario.
@@ -497,7 +497,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
               <div key={`${f.side}_${f.name}`}
                 style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.side === 'left' ? '#4a9eff' : '#22d3ee' }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: f.side === 'left' ? '#0d2a4a' : '#0d3d3d', color: f.side === 'left' ? '#4a9eff' : '#22d3ee', border: `0.5px solid ${f.side === 'left' ? '#4a9eff' : '#22d3ee'}30`, textAlign: 'center' }}>
                   {f.side === 'left' ? '← sinistra' : '→ destra'}
                 </span>

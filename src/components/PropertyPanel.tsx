@@ -31,7 +31,7 @@ const headerStyle: React.CSSProperties = {
   flexShrink: 0, background: '#1a2030',
 }
 const emptyMsgStyle: React.CSSProperties = {
-  padding: '24px 16px', color: '#4a5a7a', fontSize: 12,
+  padding: '24px 16px', color: '#8593b5', fontSize: 12,
   lineHeight: 1.6, textAlign: 'center',
 }
 
@@ -59,7 +59,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
             flex: 1, background: active === t.id ? '#1e2535' : 'transparent',
             border: 'none', borderBottom: active === t.id ? '2px solid #4a9eff' : '2px solid transparent',
             padding: '7px 4px', fontSize: 11,
-            color: active === t.id ? '#c8d4f0' : '#4a5a7a',
+            color: active === t.id ? '#c8d4f0' : '#8593b5',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             transition: 'all .15s',
           }}>
@@ -90,7 +90,7 @@ function MatVarChip({ variable, onDelete, onNavigate }: {
         <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {variable.name}
         </div>
-        <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+        <div style={{ fontSize: 9, color: '#8593b5' }}>
           materialize · in-memory per esecuzione
         </div>
       </div>
@@ -196,7 +196,7 @@ function VariableEditor({
 
       {/* Variabili normali */}
       {variables.length === 0 && materializeVars.length === 0 && (
-        <div style={{ margin: '8px 12px', padding: '12px', fontSize: 11, color: '#4a5a7a', textAlign: 'center', background: '#1a2030', borderRadius: 6, border: '0.5px dashed #2a3349' }}>
+        <div style={{ margin: '8px 12px', padding: '12px', fontSize: 11, color: '#8593b5', textAlign: 'center', background: '#1a2030', borderRadius: 6, border: '0.5px dashed #2a3349' }}>
           {emptyMessage}
         </div>
       )}
@@ -311,7 +311,7 @@ function VariableEditor({
               <div style={{
                 width: 90, flexShrink: 0,
                 fontSize: 9, padding: '4px 6px', borderRadius: 4,
-                background: '#161b27', color: '#4a5a7a',
+                background: '#161b27', color: '#8593b5',
                 border: '0.5px solid #2a3349',
                 fontFamily: "'JetBrains Mono', monospace",
               }}>
@@ -456,8 +456,8 @@ export function PropertyPanel() {
                     </button>
                   )}
                 </div>
-                <div style={{ fontSize: 10, color: '#4a5a7a', fontFamily: 'monospace', marginBottom: 2 }}>{node.id}</div>
-                <div style={{ fontSize: 10, color: '#4a5a7a', marginBottom: 4 }}>lane: {currentLane?.label ?? node.data.laneId}</div>
+                <div style={{ fontSize: 10, color: '#8593b5', fontFamily: 'monospace', marginBottom: 2 }}>{node.id}</div>
+                <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 4 }}>lane: {currentLane?.label ?? node.data.laneId}</div>
                 <div style={{ fontSize: 11, color: '#9a9aaa', padding: '4px 8px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349' }}>
                   {def.description}
                 </div>
@@ -540,7 +540,7 @@ export function PropertyPanel() {
                         </div>
                       ))}
                       {!isSpecial && (
-                        <div style={{ margin: '8px', padding: '6px 10px', background: '#1a2030', borderRadius: 4, fontSize: 10, color: '#4a5a7a', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div style={{ margin: '8px', padding: '6px 10px', background: '#1a2030', borderRadius: 4, fontSize: 10, color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
                           <i className="ti ti-mouse" style={{ fontSize: 11 }} aria-hidden="true" />
                           Doppio click sul nodo per l'editor completo
                         </div>
@@ -579,7 +579,7 @@ export function PropertyPanel() {
               <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8, background: '#1a2030' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: currentLane.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#c8d4f0' }}>{currentLane.label}</span>
-                <span style={{ fontSize: 10, marginLeft: 'auto', padding: '1px 8px', borderRadius: 8, background: '#1e2535', color: '#4a5a7a', border: '0.5px solid #2a3349' }}>
+                <span style={{ fontSize: 10, marginLeft: 'auto', padding: '1px 8px', borderRadius: 8, background: '#1e2535', color: '#8593b5', border: '0.5px solid #2a3349' }}>
                   {currentLane.variables.length} var
                 </span>
               </div>

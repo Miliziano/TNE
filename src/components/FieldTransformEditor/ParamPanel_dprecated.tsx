@@ -50,7 +50,7 @@ export function ParamPanel({ fn, step, inputVars, onUpdate }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '5px 10px', alignItems: 'center' }}>
         {fn.params.map((p) => (
           <>
-            <span key={`label-${p.key}`} style={{ fontSize: 10, color: '#4a5a7a' }}>{p.label}</span>
+            <span key={`label-${p.key}`} style={{ fontSize: 10, color: '#8593b5' }}>{p.label}</span>
             <div key={`input-${p.key}`}>
               {p.type === 'select' ? (
                 <CustomSelect
@@ -80,7 +80,7 @@ export function ParamPanel({ fn, step, inputVars, onUpdate }: Props) {
 
       {/* Anteprima espressione generata */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: '#0a0e18', borderRadius: 4, fontSize: 10 }}>
-        <span style={{ color: '#4a5a7a', flexShrink: 0 }}>expr:</span>
+        <span style={{ color: '#8593b5', flexShrink: 0 }}>expr:</span>
         <code style={{ color: '#c8d4f0', fontFamily: 'monospace', fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {previewExpr}
         </code>

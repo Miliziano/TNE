@@ -81,9 +81,9 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
               <i className="ti ti-checks" style={{ fontSize: 10 }} /> Tutti i campi (key=value)
             </button>
             <button onClick={buildTableTemplate}
-              style={{ flex: 1, padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+              style={{ flex: 1, padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = ACCENT; (e.currentTarget as HTMLElement).style.borderColor = ACCENT }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className="ti ti-table" style={{ fontSize: 10 }} /> Formato tab-separated
             </button>
             <button onClick={() => updateProp(nodeId, 'logTemplate', '')}
@@ -104,7 +104,7 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ display: 'flex', gap: 3 }}>
             {(['list', 'table'] as const).map((mode) => (
               <button key={mode} onClick={() => setViewMode(mode)}
-                style={{ padding: '2px 8px', fontSize: 9, borderRadius: 4, cursor: 'pointer', background: viewMode === mode ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030', color: viewMode === mode ? ACCENT : '#4a5a7a', border: viewMode === mode ? `1px solid ${ACCENT}50` : '1px solid #2a3349' }}>
+                style={{ padding: '2px 8px', fontSize: 9, borderRadius: 4, cursor: 'pointer', background: viewMode === mode ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030', color: viewMode === mode ? ACCENT : '#8593b5', border: viewMode === mode ? `1px solid ${ACCENT}50` : '1px solid #2a3349' }}>
                 <i className={`ti ${mode === 'list' ? 'ti-list' : 'ti-table'}`} style={{ fontSize: 9, marginRight: 3 }} />
                 {mode === 'list' ? 'Lista' : 'Tabella'}
               </button>
@@ -114,7 +114,7 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {fields.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           Collega un nodo in ingresso per vedere i campi disponibili.
         </div>
@@ -135,10 +135,10 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: ACCENT }}>{f.name}</code>
               </div>
               <div style={{ padding: '5px 10px', borderRight: '0.5px solid #2a3349' }}>
-                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: '#0f1117', color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: '#0f1117', color: '#8593b5' }}>{f.type}</span>
               </div>
               <div style={{ padding: '5px 10px', borderRight: '0.5px solid #2a3349' }}>
-                <code style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace' }}>{f.physicalName ?? f.name}</code>
+                <code style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace' }}>{f.physicalName ?? f.name}</code>
               </div>
               <div style={{ padding: '5px 10px', display: 'flex', justifyContent: 'center' }}>
                 <button onClick={() => insertField(f.name)}
@@ -158,7 +158,7 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: ACCENT, flexShrink: 0 }} />
               <code style={{ fontFamily: 'monospace', fontSize: 11, color: ACCENT, flex: 1 }}>{f.name}</code>
-              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: '#0f1117', color: '#4a5a7a', flexShrink: 0 }}>{f.type}</span>
+              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: '#0f1117', color: '#8593b5', flexShrink: 0 }}>{f.type}</span>
               <span style={{ fontSize: 9, color: '#2a3349', flexShrink: 0, fontFamily: 'monospace' }}>→ invariato</span>
               <button onClick={() => insertField(f.name)}
                 style={{ padding: '1px 7px', fontSize: 9, borderRadius: 6, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}30`, fontFamily: 'monospace', flexShrink: 0 }}
@@ -172,7 +172,7 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Nota schema uscita */}
       {fields.length > 0 && (
-        <div style={{ padding: '6px 10px', fontSize: 9, color: '#4a5a7a', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5, alignItems: 'center' }}>
+        <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5, alignItems: 'center' }}>
           <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
           Schema di uscita identico — {fields.length} campi propagati ai nodi a valle.
         </div>

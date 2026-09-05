@@ -106,7 +106,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 // ─── StatusBadge ──────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ResourceStatus }) {
   const map: Record<ResourceStatus, { color: string; bg: string; border: string; icon: string; label: string }> = {
-    untested: { color: '#4a5a7a', bg: '#1e2535', border: '#2a3349', icon: 'ti-circle-dashed', label: 'non testato' },
+    untested: { color: '#8593b5', bg: '#1e2535', border: '#2a3349', icon: 'ti-circle-dashed', label: 'non testato' },
     testing:  { color: '#ffb347', bg: '#3d2a0a', border: '#854f0b', icon: 'ti-loader',        label: 'test in corso…' },
     ok:       { color: '#3ddc84', bg: '#0d3d20', border: '#1d6d40', icon: 'ti-circle-check',  label: 'connesso' },
     error:    { color: '#ff5f57', bg: '#3d1010', border: '#6d2020', icon: 'ti-circle-x',      label: 'errore' },
@@ -387,7 +387,7 @@ function WebhookConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
         </div>
         <Field label="Porta" fieldKey="port" value={f('port', '9110')} type="number" {...p} />
         <Field label="IP Whitelist" fieldKey="ipWhitelist" value={f('ipWhitelist', '')} type="textarea" {...p} />
-        <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', marginTop: -2, marginBottom: 6, paddingLeft: 2 }}>
+        <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic', marginTop: -2, marginBottom: 6, paddingLeft: 2 }}>
           Un IP per riga. Vuoto = tutti accettati.
         </div>
       </Section>
@@ -419,7 +419,7 @@ function WebhookConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
                 <code style={{ fontSize: 10, color: '#3ddc84', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   :{f('port', '9110')}{r.path}
                 </code>
-                <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>
                   {r.label}
                 </span>
               </div>
@@ -532,7 +532,7 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
 
         {/* Breadcrumb */}
-        <div style={{ fontSize: 10, color: '#4a5a7a', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
           <button onClick={() => selectResource(null)}
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#4a9eff', fontSize: 10, display: 'flex', alignItems: 'center', gap: 3 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#6ab4ff' }}

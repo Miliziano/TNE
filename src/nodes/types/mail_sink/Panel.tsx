@@ -20,7 +20,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -83,7 +83,7 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
               border: provider === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: provider === m.value ? ACCENT : '#4a5a7a' }}>{m.label}</span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: provider === m.value ? ACCENT : '#8593b5' }}>{m.label}</span>
             <span style={{ fontSize: 9, color: provider === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
           </button>
         ))}
@@ -262,7 +262,7 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
 
-      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
         Pattern tipico: <code style={{ color: '#3ddc84', fontSize: 9 }}>Aggregate → Report Generator → Mail Sink</code>
       </div>

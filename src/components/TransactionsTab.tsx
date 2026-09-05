@@ -73,7 +73,7 @@ export function TransactionsTab() {
             </div>
 
             {txs.length === 0 && (
-              <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', padding: '4px 0' }}>
+              <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic', padding: '4px 0' }}>
                 Nessuna transazione in questa lane.
               </div>
             )}
@@ -129,7 +129,7 @@ export function TransactionsTab() {
                     Nodi membri ({members.length})
                   </div>
                   {members.length === 0 ? (
-                    <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
                       Nessun nodo. Associa un DB sink a questa transazione dal suo pannello.
                     </div>
                   ) : (

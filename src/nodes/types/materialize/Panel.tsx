@@ -20,7 +20,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -113,13 +113,13 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
               <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT }}>
                 Pubblicato in Lane come <code style={{ fontFamily: 'monospace' }}>{laneVar!.name}</code>
               </div>
-              <div style={{ fontSize: 10, color: '#4a5a7a' }}>
+              <div style={{ fontSize: 10, color: '#8593b5' }}>
                 Accedi tramite <code style={{ color: ACCENT, fontSize: 9 }}>context.lane.{laneVar!.name}</code>
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#4a5a7a' }}>Non pubblicato nella lane</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#8593b5' }}>Non pubblicato nella lane</div>
               <div style={{ fontSize: 10, color: '#2a3349' }}>
                 Pubblica per rendere accessibile da Window, Aggregate, Pivot, Join, Explode
               </div>
@@ -150,7 +150,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
       <SectionTitle label="Modalità flusso" />
 
       {/* Info architetturale */}
-      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#4a5a7a', lineHeight: 1.5 }}>
+      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>◈ Materialize</span> accumula righe in memoria.
         Come i dati vengono letti è responsabilità del <strong style={{ color: '#c8d4f0' }}>nodo consumer</strong> —
         che sceglie tra <code style={{ color: ACCENT }}>dataset</code>, <code style={{ color: ACCENT }}>iterator</code> o <code style={{ color: ACCENT }}>lookup</code>.
@@ -169,7 +169,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, marginTop: 4, background: mode === m.value ? ACCENT : 'transparent', border: `1.5px solid ${mode === m.value ? ACCENT : '#2a3349'}` }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: mode === m.value ? ACCENT : '#c8d4f0', marginBottom: 3 }}>{m.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4, marginBottom: 4 }}>{m.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4, marginBottom: 4 }}>{m.desc}</div>
               <div style={{ fontSize: 9, color: '#2a3349', lineHeight: 1.4, marginBottom: 4, fontStyle: 'italic' }}>{m.detail}</div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${m.outputColor} 10%, #0f1117)`, border: `0.5px solid ${m.outputColor}30` }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: m.outputColor }} />
@@ -199,7 +199,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
             )}
           </Field>
           {p('keyField') && (
-            <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', padding: '3px 8px' }}>
+            <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', padding: '3px 8px' }}>
               Accesso O(1): <code style={{ color: ACCENT }}>context.lane.{matName || 'nome'}.get(row.{p('keyField')})</code>
             </div>
           )}
@@ -233,7 +233,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
 
           {/* Schema output signal */}
           <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
-            <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
               Schema output — 1 riga di stato
             </div>
             {[
@@ -245,13 +245,13 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
             ].map((f) => (
               <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
                 <code style={{ fontSize: 10, color: '#ffb347', minWidth: 110, flexShrink: 0 }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 50 }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{f.type}</span>
                 <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
               </div>
             ))}
           </div>
 
-          <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.5 }}>
+          <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#ffb347', marginRight: 6 }} />
             Pattern tipico: <code style={{ color: ACCENT }}>Materialize(signal) → BridgeOut → BridgeIn → Window/Aggregate/Pivot</code>.
             Il signal attiva il consumer che legge il dataset completo con <code style={{ color: ACCENT }}>.toDataset()</code>.
@@ -306,7 +306,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
 
             {/* Utility */}
             <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 8 }}>
-              <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Utility</div>
+              <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Utility</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {[
                   { code: `.has(row.${p('keyField') || 'chiave'})`, desc: '→ boolean' },
@@ -339,7 +339,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
         <input type="number" style={inputStyle} value={p('maxRows', '0')} onChange={u('maxRows')} min="0" />
       </Field>
 
-      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
         I dati sono <strong style={{ color: '#c8d4f0' }}>in-memory per esecuzione</strong> — non persistono tra run successivi.
       </div>

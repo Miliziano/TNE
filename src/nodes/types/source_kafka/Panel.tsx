@@ -20,7 +20,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -65,11 +65,11 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
           <i className="ti ti-brand-kafka" style={{ fontSize: 14, color: ACCENT }} />
           <div>
             <div style={{ fontWeight: 600, color: ACCENT }}>{resource.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a' }}>broker: {resource.config?.broker ?? '—'}</div>
+            <div style={{ fontSize: 9, color: '#8593b5' }}>broker: {resource.config?.broker ?? '—'}</div>
           </div>
         </div>
       ) : (
-        <div style={{ padding: '10px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Aggiungi una risorsa Kafka dalla resource strip, poi selezionala nel tab Connessione.
         </div>
       )}
@@ -84,7 +84,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
         <input style={inputStyle} value={p('topicPattern')}
           onChange={u('topicPattern')} placeholder="ordini-.*" />
         {p('topicPattern') && (
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
             Il pattern ha priorità sui topic fissi.
           </div>
         )}
@@ -115,7 +115,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: offsetMode === o.value ? o.color : 'transparent', border: `1.5px solid ${offsetMode === o.value ? o.color : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: offsetMode === o.value ? o.color : '#c8d4f0' }}>{o.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{o.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{o.desc}</div>
             </div>
           </button>
         ))}
@@ -168,7 +168,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
           <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${m.color} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${m.color}60` : '1px solid #2a3349' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: fetchMode === m.value ? m.color : '#c8d4f0' }}>{m.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</div>
+            <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</div>
           </button>
         ))}
       </div>
@@ -187,7 +187,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Campi metadati */}
-      <SectionTitle label="Metadati messaggio" color="#4a5a7a" />
+      <SectionTitle label="Metadati messaggio" color="#8593b5" />
       <Field label="Includi metadati Kafka nel record">
         <CustomSelect style={inputStyle} value={p('includeMetadata', 'false')} onChange={u('includeMetadata')}>
           <option value="false">No — solo il payload deserializzato</option>
@@ -195,7 +195,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
       {p('includeMetadata') === 'true' && (
-        <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 9, color: '#4a5a7a', lineHeight: 1.8 }}>
+        <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 9, color: '#8593b5', lineHeight: 1.8 }}>
           Campi aggiunti: <code style={{ color: ACCENT }}>_kafka_topic</code>, <code style={{ color: ACCENT }}>_kafka_partition</code>,
           <code style={{ color: ACCENT }}> _kafka_offset</code>, <code style={{ color: ACCENT }}>_kafka_timestamp</code>,
           <code style={{ color: ACCENT }}> _kafka_key</code>
@@ -203,7 +203,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Commit offset */}
-      <SectionTitle label="Commit offset" color="#4a5a7a" />
+      <SectionTitle label="Commit offset" color="#8593b5" />
       <Row>
         <Field label="Auto commit">
           <CustomSelect style={inputStyle} value={p('autoCommit', 'true')} onChange={u('autoCommit')}>
@@ -219,7 +219,7 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
         )}
       </Row>
 
-      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.5 }}>
+      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
         Con <strong style={{ color: '#c8d4f0' }}>auto commit disabilitato</strong> il commit avviene solo dopo che la riga ha
         attraversato l'intera pipeline con successo — garantisce at-least-once processing.

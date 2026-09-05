@@ -201,7 +201,7 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
         {inputVars.length > 0 && (
           <>
-            <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>vars:</span>
+            <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>vars:</span>
             {inputVars.map(v => (
               <button key={v} onClick={() => insertVar(v)}
                 style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: '#0f1117',
@@ -392,7 +392,7 @@ export function FieldTransformEditor({
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#1a2030',
         border: '1px solid #2a3349', borderRadius: 6, padding: '2px 6px' }}>
         <i className="ti ti-bolt" style={{ fontSize: 10, color: '#a78bfa', flexShrink: 0 }} />
-        <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{effectiveMode}</span>
+        <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>{effectiveMode}</span>
         <span style={{ fontSize: 9, color: '#c8d4f0', fontFamily: 'monospace', flex: 1,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {buildSummary(value, inputVars)}
@@ -403,13 +403,13 @@ export function FieldTransformEditor({
           {value.outputName}
         </span>
         <button onClick={() => onChange({ ...value, collapsed: false })}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
           <i className="ti ti-chevron-down" style={{ fontSize: 10 }} />
         </button>
         <button onClick={handleDelete}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 10 }} />
         </button>
         <div ref={el => onRegisterOutputHandle?.(el as HTMLDivElement | null)}
@@ -472,13 +472,13 @@ export function FieldTransformEditor({
             style={{ ...iStyle, width: 72, color: '#3ddc84' }}
             placeholder="nome" />
           <button onClick={() => onChange({ ...value, collapsed: true })}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
             <i className="ti ti-chevron-up" style={{ fontSize: 10 }} />
           </button>
           <button onClick={handleDelete}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
             <i className="ti ti-x" style={{ fontSize: 10 }} />
           </button>
           <div ref={el => onRegisterOutputHandle?.(el as HTMLDivElement | null)}
@@ -514,7 +514,7 @@ export function FieldTransformEditor({
               {/* Chip dei campi collegati */}
               {inputVars.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0,
+                  <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0,
                     textTransform: 'uppercase', letterSpacing: '.05em' }}>campi</span>
                   {inputVars.map((v, i) => (
                     <button key={i}
@@ -532,7 +532,7 @@ export function FieldTransformEditor({
               {/* Casella espressione + selettore con modo avvolgi/inserisci */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0,
+                  <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0,
                     textTransform: 'uppercase', letterSpacing: '.05em' }}>espressione</span>
                   <div style={{ flex: 1 }} />
                   {value.expression && value.expression !== autoExpr && inputVars.length > 0 && (
@@ -540,7 +540,7 @@ export function FieldTransformEditor({
                       onClick={() => handlePatch({ expression: autoExpr })}
                       title="Riporta alla concatenazione automatica dei campi"
                       style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: 'none',
-                        border: '1px solid #2a3349', color: '#4a5a7a', cursor: 'pointer', flexShrink: 0 }}>
+                        border: '1px solid #2a3349', color: '#8593b5', cursor: 'pointer', flexShrink: 0 }}>
                       ⟳ auto
                     </button>
                   )}
@@ -573,7 +573,7 @@ export function FieldTransformEditor({
                 />
 
                 {/* Variabili di lane: l'unica forma è var("nome"), in sola lettura. */}
-                <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.5 }}>
                   <code style={{ color: '#a78bfa' }}>var("nome")</code>
                   {' '}per leggere una variabile di lane · es:{' '}
                   <code style={{ color: '#a78bfa', opacity: 0.7 }}>var("prefisso") + "/" + codice</code>

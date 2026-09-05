@@ -117,11 +117,11 @@ function NodeStatusSection({ nodeId }: { nodeId: string }) {
           <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 1fr', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < statusFields.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
             <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#c8d4f0' }}>{f.name}</span>
             <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#1a3a6a', color: '#4a9eff', textAlign: 'center' }}>{f.type}</span>
-            <span style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{f.desc}</span>
+            <span style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{f.desc}</span>
           </div>
         ))}
       </div>
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, marginRight: 4 }} />
         Tutti i campi status vengono anche scritti nelle variabili di lane come{' '}
         <strong style={{ color: '#9a9aaa' }}>{node.data.type}.{nodeId}.*</strong>
@@ -215,11 +215,11 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
                 <div key={f.name} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
                   <code style={{ fontSize: 10, color: CATCH_COLOR, minWidth: 140, flexShrink: 0 }}>{f.name}</code>
                   <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 4, background: '#1a1000', color: CATCH_COLOR, border: `0.5px solid ${CATCH_COLOR}30`, flexShrink: 0 }}>{f.type}</span>
-                  <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.desc}</span>
+                  <span style={{ fontSize: 9, color: '#8593b5' }}>{f.desc}</span>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 8, padding: '6px 8px', background: '#1a1000', borderRadius: 4, border: `0.5px solid ${CATCH_COLOR}20`, fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ marginTop: 8, padding: '6px 8px', background: '#1a1000', borderRadius: 4, border: `0.5px solid ${CATCH_COLOR}20`, fontSize: 9, color: '#8593b5' }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 9, marginRight: 4, color: CATCH_COLOR }} />
               Se l'handle catch non è collegato a nessun nodo, le eccezioni vengono
               gestite dalla configurazione globale della lane.

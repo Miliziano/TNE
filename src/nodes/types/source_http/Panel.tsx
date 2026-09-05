@@ -31,7 +31,7 @@ function Field({ label, children, hint }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -48,7 +48,7 @@ function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>
 }
 
-function InfoBox({ children, color = '#4a5a7a' }: { children: React.ReactNode; color?: string }) {
+function InfoBox({ children, color = '#8593b5' }: { children: React.ReactNode; color?: string }) {
   return (
     <div style={{ padding: '6px 10px', fontSize: 10, color, fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${color}40`, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
       <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
@@ -66,7 +66,7 @@ function FieldPill({ name, type, onClick }: { name: string; type: string; onClic
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#3ddc84'; (e.currentTarget as HTMLElement).style.background = '#0d1a0d' }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.background = '#0f1117' }}>
       <span>{name}</span>
-      <span style={{ color: '#4a5a7a', fontSize: 9 }}>{type}</span>
+      <span style={{ color: '#8593b5', fontSize: 9 }}>{type}</span>
     </button>
   )
 }
@@ -296,7 +296,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
 
             {/* Campi disponibili */}
             <div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
                 Campi disponibili — clicca per inserire nell'URL
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -309,7 +309,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
 
             {/* Modalità body per ingresso */}
             <div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
                 Come inviare i dati in ingresso nella request
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
@@ -327,7 +327,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                       display: 'flex', flexDirection: 'column', gap: 2,
                     }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <i className={`ti ${m.icon}`} style={{ fontSize: 11, color: bodyMode === m.value ? '#4a9eff' : '#4a5a7a' }} />
+                      <i className={`ti ${m.icon}`} style={{ fontSize: 11, color: bodyMode === m.value ? '#4a9eff' : '#8593b5' }} />
                       <span style={{ fontSize: 10, fontWeight: 600, color: bodyMode === m.value ? '#4a9eff' : '#9a9aaa' }}>{m.label}</span>
                     </div>
                     <span style={{ fontSize: 9, color: bodyMode === m.value ? '#4a7aaa' : '#2a3349' }}>{m.desc}</span>
@@ -339,7 +339,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {/* Configurazione modalità json */}
             {bodyMode === 'json' && (
               <div style={{ background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                   Mapping campi → JSON body
                 </div>
                 <div style={{ fontSize: 10, color: '#9a9aaa' }}>
@@ -410,7 +410,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
 
             {/* Headers dinamici da campi ingresso */}
             <div style={{ background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                 Header dinamici da campi ingresso (opzionale)
               </div>
               <Field label='Mapping campo → header (JSON)' hint='Es: {"tenant_id": "X-Tenant-Id", "token": "Authorization"}'>
@@ -434,7 +434,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                 <span style={{ fontSize: 10, color: '#c8d4f0', fontWeight: 500 }}>
                   Includi campi ingresso nello schema output
                 </span>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>
                   Il nodo successivo vede sia la risposta HTTP che i dati originali della riga
                 </span>
               </div>
@@ -485,7 +485,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                 onClick={() => insertVar('url', f.name)} />
             ))}
             {incomingSchema.length > 6 && (
-              <span style={{ fontSize: 9, color: '#4a5a7a', alignSelf: 'center' }}>+{incomingSchema.length - 6} altri</span>
+              <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>+{incomingSchema.length - 6} altri</span>
             )}
           </div>
         )}
@@ -707,7 +707,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
           cursor: testing || !p('url') ? 'not-allowed' : 'pointer',
           opacity: !p('url') ? 0.5 : 1,
           background: testing ? '#1a2030' : '#0d3d20',
-          color: testing ? '#4a5a7a' : '#3ddc84',
+          color: testing ? '#8593b5' : '#3ddc84',
           border: `1px solid ${testing ? '#2a3349' : '#1d6d40'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           fontWeight: 600, transition: 'all .15s',
@@ -729,7 +729,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                 {testResult.error ? `Errore: ${testResult.error}` : `HTTP ${testResult.statusCode}`}
               </span>
               {!testResult.error && (
-                <span style={{ fontSize: 11, color: '#4a5a7a', marginLeft: 10 }}>
+                <span style={{ fontSize: 11, color: '#8593b5', marginLeft: 10 }}>
                   {testResult.latencyMs}ms · {testResult.contentType || 'content-type sconosciuto'}
                 </span>
               )}
@@ -744,7 +744,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                 {testResult.fields.map((f) => (
                   <div key={f.name} style={{ padding: '2px 8px', background: '#1a2030', borderRadius: 10, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <code style={{ fontSize: 9, color: '#4a9eff' }}>{f.name}</code>
-                    <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                    <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                   </div>
                 ))}
               </div>
@@ -753,7 +753,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
           {testResult.body && (
             <div style={{ padding: '6px 12px' }}>
               <button onClick={() => setShowBody((v) => !v)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
                 <i className={`ti ${showBody ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 10 }} />
                 {showBody ? 'Nascondi' : 'Mostra'} body risposta
               </button>

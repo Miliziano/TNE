@@ -32,7 +32,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -85,11 +85,11 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
         {/* Riordina */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
           <button onClick={() => onMove(rule.id, 'up')} disabled={isFirst}
-            style={{ background: 'none', border: 'none', cursor: isFirst ? 'not-allowed' : 'pointer', color: isFirst ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+            style={{ background: 'none', border: 'none', cursor: isFirst ? 'not-allowed' : 'pointer', color: isFirst ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
             <i className="ti ti-chevron-up" style={{ fontSize: 9 }} />
           </button>
           <button onClick={() => onMove(rule.id, 'down')} disabled={isLast}
-            style={{ background: 'none', border: 'none', cursor: isLast ? 'not-allowed' : 'pointer', color: isLast ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+            style={{ background: 'none', border: 'none', cursor: isLast ? 'not-allowed' : 'pointer', color: isLast ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
             <i className="ti ti-chevron-down" style={{ fontSize: 9 }} />
           </button>
         </div>
@@ -123,14 +123,14 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
         </button>
 
         <button onClick={() => setExpanded((v) => !v)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}>
           <i className={`ti ${expanded ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 10 }} />
         </button>
 
         <button onClick={() => onDelete(rule.id)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 10 }} />
         </button>
       </div>
@@ -200,7 +200,7 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
                 </optgroup>
               ))}
             </CustomSelect>
-            {checkDef && <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3, fontStyle: 'italic' }}>{checkDef.desc}</div>}
+            {checkDef && <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>{checkDef.desc}</div>}
           </div>
 
           {/* Parametri check */}
@@ -457,7 +457,7 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       <SectionTitle label={`Regole — ${config.rules.length}`} />
 
       {config.rules.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-shield-star" style={{ fontSize: 24, display: 'block', marginBottom: 8, color: `${ACCENT}40` }} />
           Aggiungi regole per valutare la qualità dei dati e, se necessario, ripararli automaticamente.
         </div>
@@ -480,8 +480,8 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       </button>
 
       {/* Dimensioni e pesi */}
-      <SectionTitle label="Pesi dimensioni DTS" color="#4a5a7a" />
-      <div style={{ fontSize: 10, color: '#4a5a7a', marginBottom: 4 }}>
+      <SectionTitle label="Pesi dimensioni DTS" color="#8593b5" />
+      <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
         La somma dei pesi determina l'importanza relativa di ogni dimensione nel calcolo del score finale.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -502,7 +502,7 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Soglie */}
-      <SectionTitle label="Soglie di qualità" color="#4a5a7a" />
+      <SectionTitle label="Soglie di qualità" color="#8593b5" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <Field label="Soglia valido (≥)" hint="_dq.valid = true">
           <input type="number" style={{ ...inputStyle, color: '#3ddc84' }} min="0" max="1" step="0.05"
@@ -517,7 +517,7 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Opzioni output */}
-      <SectionTitle label="Output" color="#4a5a7a" />
+      <SectionTitle label="Output" color="#8593b5" />
       <Field label="Nome campo output" hint="Campo aggiunto a ogni riga con il risultato DTS">
         <input style={{ ...inputStyle, color: ACCENT }} value={config.outputField}
           onChange={(e) => saveConfig({ ...config, outputField: e.target.value })} placeholder="_dq" />
@@ -540,7 +540,7 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Preview struttura _dq */}
-      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#4a5a7a', lineHeight: 1.8 }}>
+      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ color: ACCENT, marginBottom: 4 }}>// struttura {config.outputField} aggiunta a ogni riga</div>
         <div><span style={{ color: '#a78bfa' }}>{config.outputField}</span>: {'{'}</div>
         <div style={{ paddingLeft: 12 }}>

@@ -75,7 +75,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
           {dataSource === 'materialize' ? `Materialize "${matName || '—'}"` : 'Flusso in ingresso'}
         </strong>
         {groupByFields.length > 0 && (
-          <span style={{ marginLeft: 8, color: '#4a5a7a' }}>
+          <span style={{ marginLeft: 8, color: '#8593b5' }}>
             GROUP BY: {groupByFields.map((f: string) => (
               <code key={f} style={{ color: '#3ddc84', marginRight: 4 }}>{f}</code>
             ))}
@@ -89,7 +89,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {activeFields.length === 0 ? (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
           {dataSource === 'materialize'
             ? `Il Materialize "${matName || '—'}" non ha ancora ricevuto campi.`
@@ -108,7 +108,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
               <div key={f.name}
                 style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: isGroupBy ? '#3ddc84' : '#c8d4f0', fontWeight: isGroupBy ? 600 : 400 }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 {isGroupBy ? (
                   <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d4060', display: 'inline-block', textAlign: 'center' }}>GROUP BY</span>
                 ) : (
@@ -126,7 +126,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {outputFields.length === 0 ? (
-        <div style={{ padding: '12px', textAlign: 'center', color: '#4a5a7a', fontSize: 10, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349', fontStyle: 'italic' }}>
+        <div style={{ padding: '12px', textAlign: 'center', color: '#8593b5', fontSize: 10, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349', fontStyle: 'italic' }}>
           Configura GROUP BY e funzioni nel tab Configurazione.
         </div>
       ) : (
@@ -151,7 +151,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
                     <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>WHERE {(f as any).filter}</div>
                   )}
                 </div>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 {f.role === 'group' ? (
                   <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d4060', display: 'inline-block', textAlign: 'center' }}>GROUP BY</span>
                 ) : (
@@ -165,7 +165,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
         </div>
       )}
 
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
         Schema derivato automaticamente dalla configurazione. Modifica GROUP BY e funzioni nel tab <strong style={{ color: '#c8d4f0' }}>Configurazione</strong>.
       </div>

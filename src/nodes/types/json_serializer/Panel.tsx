@@ -124,7 +124,7 @@ function TreeRow({ node, depth, flowInputs, selectedFlowHandle, onToggle }: {
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isMapped ? `color-mix(in srgb, ${color} 8%, #0f1117)` : 'transparent' }}>
         {node.children.length > 0 ? (
           <button onClick={() => onToggle(node.id)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, width: 12, flexShrink: 0 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, width: 12, flexShrink: 0 }}>
             <i className={`ti ${node.collapsed ? 'ti-chevron-right' : 'ti-chevron-down'}`} style={{ fontSize: 9 }} />
           </button>
         ) : <div style={{ width: 12, flexShrink: 0 }} />}
@@ -134,7 +134,7 @@ function TreeRow({ node, depth, flowInputs, selectedFlowHandle, onToggle }: {
         <span style={{ fontSize: 10, color, fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {node.key}
         </span>
-        {isLeaf && <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{node.valueType}</span>}
+        {isLeaf && <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>{node.valueType}</span>}
         {isMapped && (
           <i className="ti ti-check" style={{ fontSize: 9, color, flexShrink: 0, marginLeft: 4 }} />
         )}
@@ -200,8 +200,8 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
       {/* Header */}
       <div style={{ padding: '6px 10px', background: isSelected ? `color-mix(in srgb, ${color} 15%, #1a2030)` : `color-mix(in srgb, ${color} 8%, #1a2030)`, borderBottom: collapsed ? 'none' : `0.5px solid ${color}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: isSelected ? color : `${color}50`, border: `1.5px solid ${color}`, flexShrink: 0 }} />
-        <code style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{fi.handle}</code>
-        <span style={{ fontSize: 9, color: '#4a5a7a' }}>→</span>
+        <code style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>{fi.handle}</code>
+        <span style={{ fontSize: 9, color: '#8593b5' }}>→</span>
         <input value={fi.jsonKey} onClick={(e) => e.stopPropagation()}
           onChange={(e) => onUpdate(fi.handle, { jsonKey: e.target.value })}
           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 12, fontWeight: 600, color, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
@@ -216,14 +216,14 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           ].map((m) => (
             <button key={m.v} title={m.title}
               onClick={() => onUpdate(fi.handle, { mode: m.v as any })}
-              style={{ padding: '1px 5px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: fi.mode === m.v ? `color-mix(in srgb, ${color} 20%, #0f1117)` : '#0f1117', color: fi.mode === m.v ? color : '#4a5a7a', border: fi.mode === m.v ? `1px solid ${color}60` : '1px solid #2a3349', fontFamily: 'monospace' }}>
+              style={{ padding: '1px 5px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: fi.mode === m.v ? `color-mix(in srgb, ${color} 20%, #0f1117)` : '#0f1117', color: fi.mode === m.v ? color : '#8593b5', border: fi.mode === m.v ? `1px solid ${color}60` : '1px solid #2a3349', fontFamily: 'monospace' }}>
               {m.l}
             </button>
           ))}
         </div>
 
         <button onClick={(e) => { e.stopPropagation(); setCollapsed((v) => !v) }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
           <i className={`ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'}`} style={{ fontSize: 10 }} />
         </button>
       </div>
@@ -234,12 +234,12 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           {/* Campi in ingresso con pallini */}
           {incomingFields.length > 0 && (
             <div style={{ padding: '6px 10px', borderBottom: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ flex: 1 }}>Campi in ingresso — clicca per mappare</span>
                 <button onClick={autoPopulate} title="Auto-popola tutti i campi"
-                  style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9 }}
+                  style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                   <i className="ti ti-wand" style={{ fontSize: 9 }} /> tutti
                 </button>
               </div>
@@ -250,7 +250,7 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
                     <button key={f.name} onClick={() => toggleField(f.name)}
                       title={isMapped ? `Rimuovi "${f.name}" dal mapping` : `Aggiungi "${f.name}" al mapping`}
                       style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 10, cursor: 'pointer', background: isMapped ? `color-mix(in srgb, ${color} 15%, #0f1117)` : '#1a2030', border: isMapped ? `1px solid ${color}60` : '1px solid #2a3349', transition: 'all .12s' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: isMapped ? color : 'transparent', border: `1.5px solid ${isMapped ? color : '#4a5a7a'}`, flexShrink: 0, transition: 'all .12s' }} />
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: isMapped ? color : 'transparent', border: `1.5px solid ${isMapped ? color : '#8593b5'}`, flexShrink: 0, transition: 'all .12s' }} />
                       <span style={{ fontSize: 10, fontFamily: 'monospace', color: isMapped ? color : '#9a9aaa' }}>{f.name}</span>
                     </button>
                   )
@@ -262,7 +262,7 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           {/* Campo scalare */}
           {fi.mode === 'value' && (
             <div style={{ padding: '6px 10px', borderBottom: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4 }}>Campo sorgente (scalare)</div>
+              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Campo sorgente (scalare)</div>
               {incomingFields.length > 0 ? (
                 <CustomSelect value={fi.field ?? ''} onChange={(e) => onUpdate(fi.handle, { field: e.target.value })}
                   style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }}>
@@ -280,7 +280,7 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           {fi.mode !== 'value' && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '0.5px solid #2a3349' }}>
-                <span style={{ fontSize: 9, color: '#4a5a7a', flex: 1 }}>
+                <span style={{ fontSize: 9, color: '#8593b5', flex: 1 }}>
                   {fi.fields.length === 0 ? 'Nessun campo mappato' : `${fi.fields.length} campi mappati`}
                 </span>
                 <button onClick={addField}
@@ -295,7 +295,7 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 65px 55px 18px', gap: 4, padding: '3px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
                     {['Chiave JSON', 'Campo sorgente', 'Trasforma', 'Null', ''].map((h, i) => (
-                      <div key={i} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
+                      <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
                     ))}
                   </div>
                   <div style={{ overflowY: 'auto', maxHeight: 180 }}>
@@ -332,9 +332,9 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
                           <option value="empty">""</option>
                         </CustomSelect>
                         <button onClick={() => deleteField(f.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                           <i className="ti ti-x" style={{ fontSize: 10 }} />
                         </button>
                       </div>
@@ -346,7 +346,7 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           )}
 
           {isSelected && (
-            <div style={{ padding: '4px 10px', background: `color-mix(in srgb, ${color} 5%, #161b27)`, fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+            <div style={{ padding: '4px 10px', background: `color-mix(in srgb, ${color} 5%, #161b27)`, fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
               Flusso selezionato — i campi mappati sono evidenziati nell'albero a destra
             </div>
           )}
@@ -483,7 +483,7 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
         <span>Ogni flusso in ingresso diventa una chiave del documento JSON.</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'monospace', color: ACCENT }}>→ {p('outputField', 'content')}</span>
         <button onClick={() => setShowOptions((v) => !v)}
-          style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#4a5a7a', fontSize: 9 }}>
+          style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#8593b5', fontSize: 9 }}>
           <i className="ti ti-settings-2" style={{ fontSize: 9, marginRight: 3 }} />opzioni
         </button>
       </div>
@@ -539,7 +539,7 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
             <span style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
               Flussi in ingresso — {flowInputs.length}
             </span>
-            <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+            <span style={{ fontSize: 9, color: '#8593b5' }}>
               usa l'handle grigio tratteggiato sul nodo per aggiungere flussi
             </span>
           </div>
@@ -588,9 +588,9 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
                       <option value="null">null</option>
                     </CustomSelect>
                     <button onClick={() => deleteFixed(f.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                       <i className="ti ti-x" style={{ fontSize: 10 }} />
                     </button>
                   </div>
@@ -627,7 +627,7 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
             value={treeRaw} onChange={(e) => setTreeRaw(e.target.value)}
             placeholder={'Incolla JSON di esempio per visualizzare la struttura target: {"id":1,"nome":"...","ordini":[]}'} spellCheck={false} />
           <button onClick={handleAnalyze} disabled={!treeRaw}
-            style={{ padding: '6px 12px', fontSize: 10, borderRadius: 4, cursor: treeRaw ? 'pointer' : 'not-allowed', background: treeRaw ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: treeRaw ? ACCENT : '#4a5a7a', border: `1px solid ${treeRaw ? ACCENT + '60' : '#2a3349'}`, fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, height: 48 }}>
+            style={{ padding: '6px 12px', fontSize: 10, borderRadius: 4, cursor: treeRaw ? 'pointer' : 'not-allowed', background: treeRaw ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: treeRaw ? ACCENT : '#8593b5', border: `1px solid ${treeRaw ? ACCENT + '60' : '#2a3349'}`, fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, height: 48 }}>
             <i className="ti ti-player-play" style={{ fontSize: 10 }} />
             Analizza
           </button>

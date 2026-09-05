@@ -207,14 +207,14 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
           overflow:     'hidden',
           textOverflow: 'ellipsis',
           whiteSpace:   'nowrap',
-          color:        isPlaceholder ? '#4a5a7a' : 'inherit',
+          color:        isPlaceholder ? '#8593b5' : 'inherit',
           fontStyle:    isPlaceholder ? 'italic' : 'normal',
         }}>
           {displayLabel}
         </span>
         <i
           className={`ti ${open ? 'ti-chevron-up' : 'ti-chevron-down'}`}
-          style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }}
+          style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }}
         />
       </div>
 
@@ -260,7 +260,7 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
 
           <div style={{ overflowY: 'auto', flex: 1 }}>
             {filtered.length === 0 && (
-              <div style={{ padding: '10px 12px', fontSize: 11, color: '#4a5a7a', fontStyle: 'italic' }}>
+              <div style={{ padding: '10px 12px', fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>
                 Nessun risultato
               </div>
             )}
@@ -272,7 +272,7 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
                     padding:       '5px 10px 3px',
                     fontSize:      9,
                     fontWeight:    700,
-                    color:         '#4a5a7a',
+                    color:         '#8593b5',
                     textTransform: 'uppercase',
                     letterSpacing: '.08em',
                     background:    '#161b27',
@@ -295,7 +295,7 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
                         fontSize:     11,
                         cursor:       opt.disabled ? 'not-allowed' : 'pointer',
                         opacity:      opt.disabled ? 0.4 : 1,
-                        color:        isSelected ? '#4a9eff' : isEmpty ? '#4a5a7a' : '#c8d4f0',
+                        color:        isSelected ? '#4a9eff' : isEmpty ? '#8593b5' : '#c8d4f0',
                         fontStyle:    isEmpty ? 'italic' : 'normal',
                         background:   isSelected ? 'color-mix(in srgb, #4a9eff 12%, #1a2030)' : 'transparent',
                         fontFamily:   "'JetBrains Mono', monospace",

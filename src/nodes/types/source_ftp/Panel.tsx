@@ -18,7 +18,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -70,13 +70,13 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           <i className="ti ti-server" style={{ fontSize: 14, color: ACCENT }} />
           <div>
             <div style={{ fontWeight: 600, color: ACCENT }}>{resource.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ fontSize: 9, color: '#8593b5' }}>
               {protocol.toUpperCase()} · {resource.config?.host ?? '—'}:{resource.config?.port ?? (protocol === 'sftp' ? '22' : '21')}
             </div>
           </div>
         </div>
       ) : (
-        <div style={{ padding: '10px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-server-off" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
           Aggiungi una risorsa FTP/SFTP dalla resource strip, poi selezionala nel tab Connessione.
         </div>
@@ -116,14 +116,14 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             }}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: outputMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: outputMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</div>
+            <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</div>
           </button>
         ))}
       </div>
 
       {/* Schema lista file */}
       {isListMode && (
-        <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#4a5a7a' }}>
+        <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5' }}>
           <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 6, fontSize: 10 }}>Schema output — lista file</div>
           {[
             { name: 'name',        type: 'string',  desc: 'Nome del file' },
@@ -134,7 +134,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           ].map((f) => (
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
               <code style={{ color: ACCENT, minWidth: 90 }}>{f.name}</code>
-              <span style={{ color: '#4a5a7a', minWidth: 55 }}>{f.type}</span>
+              <span style={{ color: '#8593b5', minWidth: 55 }}>{f.type}</span>
               <span style={{ color: '#2a3349' }}>{f.desc}</span>
             </div>
           ))}
@@ -153,7 +153,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
               <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: fetchMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</div>
-                <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</div>
+                <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</div>
               </button>
             ))}
           </div>
@@ -234,7 +234,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
 
           {/* Info raw */}
           {isRaw && (
-            <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5' }}>
               Emette <strong style={{ color: ACCENT }}>1 riga per file</strong> con campo <code style={{ color: ACCENT }}>content</code> (stringa intera del file).
               Collegalo a un <strong style={{ color: '#22d3ee' }}>JSON Parser</strong> o <strong style={{ color: '#22d3ee' }}>XML Parser</strong> per estrarne i dati.
             </div>
@@ -278,7 +278,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
                 <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: afterFetch === a.value ? '#ffb347' : 'transparent', border: `1.5px solid ${afterFetch === a.value ? '#ffb347' : '#2a3349'}` }} />
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: afterFetch === a.value ? '#ffb347' : '#c8d4f0' }}>{a.label}</div>
-                  <div style={{ fontSize: 9, color: '#4a5a7a' }}>{a.desc}</div>
+                  <div style={{ fontSize: 9, color: '#8593b5' }}>{a.desc}</div>
                 </div>
               </button>
             ))}
@@ -292,7 +292,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Opzioni avanzate */}
-      <SectionTitle label="Opzioni avanzate" color="#4a5a7a" />
+      <SectionTitle label="Opzioni avanzate" color="#8593b5" />
       <Row>
         <Field label="Timeout connessione (sec)">
           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />

@@ -66,7 +66,7 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-list-details" style={{ fontSize: 16, color: ERR_COLOR }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Nodi della lane — policy errori</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>Configura la gestione errori di ogni nodo senza apriri i singoli editor</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Configura la gestione errori di ogni nodo senza apriri i singoli editor</div>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
       </InfoBox>
 
       {laneNodes.length === 0 && (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Nessun nodo in questa lane.
         </div>
       )}
@@ -120,7 +120,7 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
                   <div style={{ fontSize: 11, color: '#c8d4f0', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {displayName}
                   </div>
-                  <div style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace' }}>{n.data.type}</div>
+                  <div style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace' }}>{n.data.type}</div>
                 </div>
 
                 {/* onError */}

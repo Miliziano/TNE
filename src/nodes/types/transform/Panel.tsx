@@ -152,7 +152,7 @@ export function TransformPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 16px 1fr 82px 1fr 22px', gap: 4, padding: '3px 6px', background: '#161b27', borderRadius: 4 }}>
         {['', 'Sorgente', '', 'Output', 'Tipo', 'Trasformazione', ''].map((h, i) => (
-          <div key={i} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
+          <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
         ))}
       </div>
 
@@ -165,7 +165,7 @@ export function TransformPanel({ nodeId }: { nodeId: string }) {
       ))}
 
       {fields.length === 0 && (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Nessun campo — clicca "+ Campo" o "Importa schema"
         </div>
       )}
@@ -281,7 +281,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             placeholder="campo_input" />
         )}
 
-        <i className="ti ti-arrow-right" style={{ fontSize: 10, color: '#4a5a7a', textAlign: 'center' as const }} />
+        <i className="ti ti-arrow-right" style={{ fontSize: 10, color: '#8593b5', textAlign: 'center' as const }} />
 
         <input
           style={{ ...S_input, color: '#3ddc84', opacity: field.enabled ? 1 : 0.45 }}
@@ -311,7 +311,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
           {field.presetId !== 'passthrough' && (
             <button onClick={() => onChange({ presetId: 'passthrough', params: {}, expression: '' })}
               title="Torna a «passa invariato»"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a',
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5',
                 padding: 0, fontSize: 11, flexShrink: 0 }}>✕</button>
           )}
           {pickerTrasf && (
@@ -324,9 +324,9 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
         </div>
 
         <button onClick={onRemove}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 11 }} />
         </button>
       </div>
@@ -392,7 +392,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             onClick={aggiornaCaret}
             placeholder={`${field.source || 'campo'} — es: trim(nome), var("prefisso") + "/" + codice`}
           />
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
             Usa il <code style={{ color: '#4a9eff' }}>nome del campo</code> così com'è,{' '}
             <code style={{ color: '#a78bfa' }}>var("nome")</code> per le variabili di lane
             (sola lettura).
@@ -407,7 +407,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
           <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: outMeta.bg, color: outMeta.color, fontWeight: 600 }}>
             → {outMeta.label}
           </span>
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>{selectedP.description}</span>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>{selectedP.description}</span>
         </div>
       )}
 

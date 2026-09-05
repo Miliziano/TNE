@@ -62,7 +62,7 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
         const total = inputPorts.length
         const pct   = total === 1 ? 50 : 10 + (idx / (total - 1)) * 80
         const color = declaredInputs.find((i) => i.id === port.id)?.color
-                      ?? (total === 1 ? '#4a5a7a' : FLOW_COLORS[idx % FLOW_COLORS.length])
+                      ?? (total === 1 ? '#8593b5' : FLOW_COLORS[idx % FLOW_COLORS.length])
         return (
           <Handle key={port.id} id={port.id} type="target" position={Position.Left}
             style={{ top: `${pct}%`, background: color, border: '2px solid #0f1117', width: 10, height: 10, left: -5, transform: 'none' }}
@@ -72,20 +72,20 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
 
       {/* Handle servizio */}
       <Handle id="input_new" type="target" position={Position.Left}
-        style={{ top: '75%', background: '#2a3349', border: '2px dashed #4a5a7a', width: 12, height: 12, left: -20, transform: 'none', borderRadius: '50%', opacity: 0.6 }}
+        style={{ top: '75%', background: '#2a3349', border: '2px dashed #8593b5', width: 12, height: 12, left: -20, transform: 'none', borderRadius: '50%', opacity: 0.6 }}
         title="Trascina qui per aggiungere un nuovo flusso" />
 
       {/* Header */}
       <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: `1px solid #4a1a00`, background: selected ? `color-mix(in srgb, ${ACCENT} 12%, #1e2535)` : '#1e2535', borderRadius: '6px 6px 0 0', flexShrink: 0 }}>
         <span style={{ fontSize: 14, color: ACCENT, fontWeight: 700 }}>&lt;/&gt;</span>
         <span style={{ color: ACCENT, fontWeight: 600, fontSize: 12, flex: 1 }}>{displayName}</span>
-        <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: nodeData.status === 'running' ? '#ffb347' : nodeData.status === 'done' ? '#3ddc84' : nodeData.status === 'error' ? '#ff5f57' : '#4a5a7a', animation: nodeData.status === 'running' ? 'nodePulse 0.6s infinite' : undefined }} />
+        <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: nodeData.status === 'running' ? '#ffb347' : nodeData.status === 'done' ? '#3ddc84' : nodeData.status === 'error' ? '#ff5f57' : '#8593b5', animation: nodeData.status === 'running' ? 'nodePulse 0.6s infinite' : undefined }} />
       </div>
 
       {/* Body */}
       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {declaredInputs.length === 0 ? (
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>Collega un flusso</div>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>Collega un flusso</div>
         ) : (
           declaredInputs.map((inp, idx) => {
             const color = inp.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
@@ -97,7 +97,7 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
             )
           })
         )}
-        <div style={{ marginTop: 2, borderTop: '0.5px solid #2a3349', paddingTop: 3, fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace' }}>
+        <div style={{ marginTop: 2, borderTop: '0.5px solid #2a3349', paddingTop: 3, fontSize: 9, color: '#8593b5', fontFamily: 'monospace' }}>
           → <code style={{ color: ACCENT }}>{outputField}</code>
         </div>
       </div>

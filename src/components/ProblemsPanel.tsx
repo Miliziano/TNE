@@ -133,9 +133,9 @@ export function ProblemsView() {
             <div key={laneId}>
               <div onClick={() => toggleLane(laneId)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', cursor: 'pointer', background: '#141a28', borderBottom: '0.5px solid #222a3d', position: 'sticky', top: 0 }}>
-                <i className={`ti ${isColl ? 'ti-chevron-right' : 'ti-chevron-down'}`} style={{ fontSize: 11, color: '#4a5a7a' }} />
+                <i className={`ti ${isColl ? 'ti-chevron-right' : 'ti-chevron-down'}`} style={{ fontSize: 11, color: '#8593b5' }} />
                 <span style={{ fontSize: 10, fontWeight: 600, color: '#8a9ac0', textTransform: 'uppercase', letterSpacing: '.05em' }}>{laneLabel}</span>
-                <span style={{ fontSize: 10, color: '#4a5a7a' }}>{items.length}</span>
+                <span style={{ fontSize: 10, color: '#8593b5' }}>{items.length}</span>
               </div>
               {!isColl && items.map((p, i) => {
                 const color = p.severity === 'error' ? RED : ORANGE
@@ -163,7 +163,7 @@ export function ProblemsView() {
           )
         })}
         {shown.length === 0 && (
-          <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 11 }}>
+          <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11 }}>
             Nessun elemento per questo filtro.
           </div>
         )}

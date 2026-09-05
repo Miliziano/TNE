@@ -107,7 +107,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 10, padding: '2px 10px', borderRadius: 8, background: '#1a1000', color: '#ffb347', border: '0.5px solid #3a2a0a' }}>
             {totalWarns} warn
           </div>
-          <div style={{ fontSize: 10, padding: '2px 10px', borderRadius: 8, background: '#1a2030', color: '#4a5a7a', border: '0.5px solid #2a3349' }}>
+          <div style={{ fontSize: 10, padding: '2px 10px', borderRadius: 8, background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349' }}>
             {rules.length} regole su {rulesByField.size} campi
           </div>
         </div>
@@ -119,7 +119,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {fields.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           Collega un nodo in ingresso per vedere i campi disponibili.
         </div>
@@ -142,7 +142,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
                   <code style={{ fontFamily: 'monospace', fontSize: 11, color: fieldRules.length > 0 ? accent : ACCENT, flex: 1 }}>
                     {field.name}
                   </code>
-                  <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#0f1117', color: '#4a5a7a' }}>
+                  <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#0f1117', color: '#8593b5' }}>
                     {field.type}
                   </span>
                   <span style={{ fontSize: 9, color: '#2a3349', fontFamily: 'monospace' }}>→ invariato</span>
@@ -178,8 +178,8 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Campo _dq_errors aggiunto alle righe reject */}
-      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.8 }}>
-        <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Output del nodo</div>
+      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
+        <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Output del nodo</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#0d3d20', color: ACCENT, border: `0.5px solid #1d6d40`, flexShrink: 0 }}>output</span>
           <span style={{ fontSize: 9 }}>Righe valide — schema identico all'ingresso</span>
@@ -196,7 +196,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
             <div style={{ fontFamily: 'monospace', fontSize: 9 }}>
               {orphanFields.join(', ')}
             </div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3 }}>
+            <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
               Le regole su questi campi potrebbero non funzionare. Verifica il nodo sorgente.
             </div>
           </div>

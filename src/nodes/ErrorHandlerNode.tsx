@@ -25,7 +25,7 @@ import { useFlowStore } from '../store/flowStore'
 const ERR_COLOR = '#ff5f57'
 
 const STATUS_COLORS: Record<NodeStatus, string> = {
-  idle:    '#4a5a7a',
+  idle:    '#8593b5',
   running: '#ffb347',
   done:    '#3ddc84',
   error:   '#ff5f57',

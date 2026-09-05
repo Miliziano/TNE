@@ -206,7 +206,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {fields.length === 0 ? (
-        <div style={{ padding: 20, textAlign: 'center', color: '#4a5a7a', fontSize: 11,
+        <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                       background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           Collega almeno un flusso agli handle sul lato sinistro del nodo.
@@ -248,7 +248,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
                 )}
 
                 <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6,
-                               background: '#0f1117', color: '#4a5a7a', flexShrink: 0 }}>{f.type}</span>
+                               background: '#0f1117', color: '#8593b5', flexShrink: 0 }}>{f.type}</span>
 
                 {shared && (
                   <span title={handles.map((h) => `${h} → ${f.from[h]}`).join('\n')}
@@ -273,7 +273,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
       )}
 
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6,
-                    border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a' }}>
+                    border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8,
                          background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`,

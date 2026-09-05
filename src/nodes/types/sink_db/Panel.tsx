@@ -35,7 +35,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelSt}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -175,7 +175,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
       <SectionTitle label="Risorsa DB" color={color} />
 
       {dbRes.length === 0 ? (
-        <div style={{ padding: 12, textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: 12, textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-database-off" style={{ fontSize: 18, display: 'block', marginBottom: 6 }} />
           Nessuna risorsa DB in questa lane. Aggiungila dalla resource strip.
         </div>
@@ -194,8 +194,8 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
 
       {selectedResource && (
         <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 5%, #161b27)`, borderRadius: 5, border: `1px solid ${color}20`, fontSize: 10, fontFamily: 'monospace', color: '#9a9aaa', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {!isSqlite && <span><span style={{ color: '#4a5a7a' }}>host: </span><span style={{ color: '#c8d4f0' }}>{selectedResource.config?.host}:{selectedResource.config?.port}</span></span>}
-          <span><span style={{ color: '#4a5a7a' }}>db: </span><span style={{ color: '#c8d4f0' }}>{selectedResource.config?.database}</span></span>
+          {!isSqlite && <span><span style={{ color: '#8593b5' }}>host: </span><span style={{ color: '#c8d4f0' }}>{selectedResource.config?.host}:{selectedResource.config?.port}</span></span>}
+          <span><span style={{ color: '#8593b5' }}>db: </span><span style={{ color: '#c8d4f0' }}>{selectedResource.config?.database}</span></span>
           <span style={{ marginLeft: 'auto', color, fontWeight: 600 }}>{dbLabel}</span>
         </div>
       )}
@@ -332,7 +332,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <i className="ti ti-bolt" style={{ fontSize: 13, color: passthroughActive ? PT_COLOR : '#4a5a7a' }} />
+              <i className="ti ti-bolt" style={{ fontSize: 13, color: passthroughActive ? PT_COLOR : '#8593b5' }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: passthroughActive ? PT_COLOR : '#c8d4f0' }}>
                 Pass-through master-detail
               </span>
@@ -402,7 +402,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
               <div style={{ padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                   <i className="ti ti-arrows-exchange"
-                     style={{ fontSize: 14, color: isActive ? TX_COLOR : '#4a5a7a' }} />
+                     style={{ fontSize: 14, color: isActive ? TX_COLOR : '#8593b5' }} />
                   <span style={{ fontSize: 12, fontWeight: 600,
                                  color: isActive ? TX_COLOR : '#c8d4f0' }}>
                     {isActive ? `In transazione: ${activeTx!.name}` : 'Autocommit (nessuna transazione)'}
@@ -449,7 +449,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
                 )}
 
                 {laneTransactions.length === 0 && (
-                  <div style={{ marginTop: 8, fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+                  <div style={{ marginTop: 8, fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
                     Nessuna transazione nella lane. Creane una dal tab "Transazioni" del pannello proprietà.
                   </div>
                 )}

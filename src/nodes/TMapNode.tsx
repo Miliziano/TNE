@@ -130,7 +130,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
         style={{
           top:         '75%',
           background:  '#2a3349',
-          border:      '2px dashed #4a5a7a',
+          border:      '2px dashed #8593b5',
           width:       12,
           height:      12,
           left:        -20,
@@ -164,7 +164,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
           background:   nodeData.status === 'running' ? '#ffb347'
                       : nodeData.status === 'done'    ? '#3ddc84'
                       : nodeData.status === 'error'   ? '#ff5f57'
-                      : '#4a5a7a',
+                      : '#8593b5',
           flexShrink:   0,
           animation:    nodeData.status === 'running' ? 'nodePulse 0.6s infinite' : undefined,
         }} />
@@ -192,7 +192,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
                 {inp.label}
               </span>
               {!inp.isMain && (
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{inp.joinType}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{inp.joinType}</span>
               )}
             </div>
           ))}
@@ -219,7 +219,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
               }}>
                 {out.label}
               </span>
-              <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>
                 {out.fields.length}
               </span>
             </div>
@@ -229,7 +229,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
         <div style={{
           marginTop:  4,
           fontSize:   10,
-          color:      '#4a5a7a',
+          color:      '#8593b5',
           fontFamily: 'monospace',
           textAlign:  'center',
           borderTop:  '0.5px solid #2a3349',

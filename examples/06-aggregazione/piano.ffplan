@@ -1,9 +1,9 @@
 {
   "formatVersion": 2,
   "version": {
-    "id": "v1787829933439",
-    "savedAt": "2026-08-27T11:25:33.416Z",
-    "label": ""
+    "id": "v1788642421149",
+    "savedAt": "2026-09-05T21:07:01.128Z",
+    "label": "viva checkpoint"
   },
   "plan": {
     "pool": {
@@ -827,6 +827,827 @@
     "profileRefs": {}
   },
   "history": [
+    {
+      "version": {
+        "id": "v1787829933439",
+        "savedAt": "2026-08-27T11:25:33.416Z",
+        "label": ""
+      },
+      "plan": {
+        "pool": {
+          "id": "pool_main",
+          "label": "Main Pool",
+          "variables": [],
+          "lanes": [
+            {
+              "id": "lane_1787256352256_s4d1",
+              "label": "Lane 1",
+              "color": "#3B6D11",
+              "order": 0,
+              "collapsed": false,
+              "height": 478,
+              "variables": [],
+              "resources": [
+                {
+                  "kind": "github",
+                  "label": "GitHub",
+                  "config": {
+                    "token": "",
+                    "baseUrl": "https://api.github.com",
+                    "perPage": "100"
+                  },
+                  "actions": [
+                    {
+                      "id": "source",
+                      "label": "Aggiungi come source GitHub",
+                      "nodeType": "github_source",
+                      "propsOverride": {}
+                    }
+                  ],
+                  "id": "res_1787784498317_glse",
+                  "status": "untested"
+                }
+              ],
+              "transactions": []
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "start_lane_a",
+            "type": "startNode",
+            "position": {
+              "x": 40,
+              "y": 60
+            },
+            "data": {
+              "type": "lane_start",
+              "label": "Start",
+              "props": {
+                "label": "Start"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "end_lane_a",
+            "type": "endNode",
+            "position": {
+              "x": 500,
+              "y": 60
+            },
+            "data": {
+              "type": "lane_end",
+              "label": "End",
+              "props": {
+                "label": "End"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "error_handler_lane_a",
+            "type": "errorHandlerNode",
+            "position": {
+              "x": 760,
+              "y": 60
+            },
+            "data": {
+              "type": "error_handler",
+              "label": "Error Handler",
+              "props": {
+                "defaultOnError": "stop",
+                "logAll": "true",
+                "rules": "[]",
+                "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_a",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "Il nodo \"Error Handler\" non è collegato a nessun altro nodo",
+                    "code": "ISOLATED_NODE",
+                    "hint": "Collega il nodo alla pipeline o rimuovilo"
+                  }
+                ]
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "start_lane_b",
+            "type": "startNode",
+            "position": {
+              "x": 40,
+              "y": 60
+            },
+            "data": {
+              "type": "lane_start",
+              "label": "Start",
+              "props": {
+                "label": "Start"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_b",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "end_lane_b",
+            "type": "endNode",
+            "position": {
+              "x": 500,
+              "y": 60
+            },
+            "data": {
+              "type": "lane_end",
+              "label": "End",
+              "props": {
+                "label": "End"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_b",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "error_handler_lane_b",
+            "type": "errorHandlerNode",
+            "position": {
+              "x": 760,
+              "y": 60
+            },
+            "data": {
+              "type": "error_handler",
+              "label": "Error Handler",
+              "props": {
+                "defaultOnError": "stop",
+                "logAll": "true",
+                "rules": "[]",
+                "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_b",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "Il nodo \"Error Handler\" non è collegato a nessun altro nodo",
+                    "code": "ISOLATED_NODE",
+                    "hint": "Collega il nodo alla pipeline o rimuovilo"
+                  }
+                ]
+              }
+            },
+            "deletable": false
+          },
+          {
+            "id": "node_52",
+            "type": "startNode",
+            "position": {
+              "x": -10.788160898211732,
+              "y": -34.10747460550998
+            },
+            "data": {
+              "type": "lane_start",
+              "label": "Start",
+              "props": {
+                "label": "Start"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false,
+            "dragging": false
+          },
+          {
+            "id": "node_53",
+            "type": "endNode",
+            "position": {
+              "x": 988.2828002948424,
+              "y": 478.4482909191138
+            },
+            "data": {
+              "type": "lane_end",
+              "label": "End",
+              "props": {
+                "label": "End"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false,
+            "dragging": false
+          },
+          {
+            "id": "error_handler_lane_1787256352256_s4d1",
+            "type": "errorHandlerNode",
+            "position": {
+              "x": 8.594349072415383,
+              "y": 262.41166175262765
+            },
+            "data": {
+              "type": "error_handler",
+              "label": "Error Handler",
+              "props": {
+                "defaultOnError": "stop",
+                "logAll": "true",
+                "rules": "[]",
+                "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]"
+              },
+              "config": {
+                "displayName": "",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "deletable": false,
+            "dragging": false
+          },
+          {
+            "id": "node_57",
+            "type": "flowNode",
+            "position": {
+              "x": 281.7980152059625,
+              "y": 275.4327492175985
+            },
+            "data": {
+              "type": "log",
+              "label": "Log_errore",
+              "props": {
+                "incomingSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]",
+                "_propagatedIds": "[\"catch_error_message\",\"catch_error_code\",\"catch_error_node_id\",\"catch_error_node_type\",\"catch_error_at\",\"catch_error_row\",\"error_lane_id\",\"error_source\",\"tx_group_id\",\"tx_mode\",\"tx_participants\",\"error_critical\",\"error_excluded\"]",
+                "outputSchema": "[{\"id\":\"catch_error_message\",\"name\":\"_error_message\",\"type\":\"string\",\"physicalName\":\"_error_message\"},{\"id\":\"catch_error_code\",\"name\":\"_error_code\",\"type\":\"string\",\"physicalName\":\"_error_code\"},{\"id\":\"catch_error_node_id\",\"name\":\"_error_node_id\",\"type\":\"string\",\"physicalName\":\"_error_node_id\"},{\"id\":\"catch_error_node_type\",\"name\":\"_error_node_type\",\"type\":\"string\",\"physicalName\":\"_error_node_type\"},{\"id\":\"catch_error_at\",\"name\":\"_error_at\",\"type\":\"date\",\"physicalName\":\"_error_at\"},{\"id\":\"catch_error_row\",\"name\":\"_error_row\",\"type\":\"object\",\"physicalName\":\"_error_row\"},{\"id\":\"error_lane_id\",\"name\":\"_error_lane_id\",\"type\":\"string\",\"physicalName\":\"_error_lane_id\"},{\"id\":\"error_source\",\"name\":\"_error_source\",\"type\":\"string\",\"physicalName\":\"_error_source\"},{\"id\":\"tx_group_id\",\"name\":\"_transaction_group_id\",\"type\":\"string\",\"physicalName\":\"_transaction_group_id\"},{\"id\":\"tx_mode\",\"name\":\"_transaction_mode\",\"type\":\"string\",\"physicalName\":\"_transaction_mode\"},{\"id\":\"tx_participants\",\"name\":\"_transaction_participants\",\"type\":\"object\",\"physicalName\":\"_transaction_participants\"},{\"id\":\"error_critical\",\"name\":\"_error_critical\",\"type\":\"string\",\"physicalName\":\"_error_critical\"},{\"id\":\"error_excluded\",\"name\":\"_error_excluded\",\"type\":\"string\",\"physicalName\":\"_error_excluded\"}]",
+                "logTarget": "window"
+              },
+              "config": {
+                "displayName": "Log_errore",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_59",
+            "type": "flowNode",
+            "position": {
+              "x": 643.1684072289424,
+              "y": 32.506540453221646
+            },
+            "data": {
+              "type": "log",
+              "label": "Log",
+              "props": {
+                "incomingSchema": "[{\"id\":\"agg_gb_cliente\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"agg_fn_1\",\"name\":\"conteggio dei movimenti\",\"type\":\"decimal\",\"physicalName\":\"conteggio dei movimenti\"}]",
+                "_propagatedIds": "[\"agg_gb_cliente\",\"agg_fn_1\"]",
+                "outputSchema": "[{\"id\":\"agg_gb_cliente\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"agg_fn_1\",\"name\":\"conteggio dei movimenti\",\"type\":\"decimal\",\"physicalName\":\"conteggio dei movimenti\"}]",
+                "logTarget": "window"
+              },
+              "config": {
+                "displayName": "Log",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_65",
+            "type": "flowNode",
+            "position": {
+              "x": 110.69537174756195,
+              "y": -9.306873224717204
+            },
+            "data": {
+              "type": "source_file",
+              "label": "Movimenti",
+              "props": {
+                "path": "/home/marco/Progetti/TNE/examples/05-due-ingressi/dati/movimenti.csv",
+                "outputSchema": "[{\"id\":\"field_1787827165514_0\",\"name\":\"movimento\",\"physicalName\":\"movimento\",\"type\":\"string\"},{\"id\":\"field_1787827165514_1\",\"name\":\"cliente\",\"physicalName\":\"cliente\",\"type\":\"string\"},{\"id\":\"field_1787827165514_2\",\"name\":\"importo\",\"physicalName\":\"importo\",\"type\":\"decimal\",\"_misto\":\"integer/decimal\"}]",
+                "schemaAvvisi": "[\"importo: valori misti (integer/decimal) → dedotto decimal\"]",
+                "tipiDedotti": "{\"movimento\":\"string\",\"cliente\":\"string\",\"importo\":\"decimal\"}"
+              },
+              "config": {
+                "displayName": "Movimenti",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "true"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": true,
+                "warningCount": 1,
+                "issues": [
+                  {
+                    "severity": "warning",
+                    "message": "\"Movimenti\": tipo dedotto da valori non omogenei — importo: valori misti (integer/decimal) → dedotto decimal",
+                    "code": "SCHEMA_TIPO_AMBIGUO",
+                    "hint": "Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore."
+                  }
+                ]
+              }
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_67",
+            "type": "flowNode",
+            "position": {
+              "x": 343.2697370736403,
+              "y": 25.823975331153285
+            },
+            "data": {
+              "type": "aggregate",
+              "label": "Totali per cliente",
+              "props": {
+                "group_by": "cliente",
+                "functions": "sum(importo) AS conteggio dei movimenti",
+                "incomingSchema": "[{\"id\":\"field_1787827165514_0\",\"name\":\"movimento\",\"type\":\"string\",\"physicalName\":\"movimento\"},{\"id\":\"field_1787827165514_1\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"field_1787827165514_2\",\"name\":\"importo\",\"type\":\"decimal\",\"physicalName\":\"importo\"}]",
+                "_propagatedIds": "[\"field_1787827165514_0\",\"field_1787827165514_1\",\"field_1787827165514_2\"]",
+                "aggFunctions": "[{\"id\":\"1\",\"field\":\"importo\",\"fn\":\"sum\",\"alias\":\"conteggio dei movimenti\",\"filter\":\"\"}]",
+                "outputSchema": "[{\"id\":\"agg_gb_cliente\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"agg_fn_1\",\"name\":\"conteggio dei movimenti\",\"type\":\"decimal\",\"physicalName\":\"conteggio dei movimenti\"}]"
+              },
+              "config": {
+                "displayName": "Totali per cliente",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "true"
+                }
+              },
+              "status": "done",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_68",
+            "type": "flowNode",
+            "position": {
+              "x": 670.7992360977731,
+              "y": 238.8610841812236
+            },
+            "data": {
+              "type": "sink_file",
+              "label": "Uscita totali",
+              "props": {
+                "path": "_out/totali.csv",
+                "format": "csv",
+                "mode": "overwrite",
+                "partition": "none",
+                "processingMode": "streaming",
+                "passthrough": "false",
+                "incomingSchema": "[{\"id\":\"agg_gb_cliente\",\"name\":\"cliente\",\"type\":\"string\",\"physicalName\":\"cliente\"},{\"id\":\"agg_fn_1\",\"name\":\"conteggio dei movimenti\",\"type\":\"decimal\",\"physicalName\":\"conteggio dei movimenti\"}]",
+                "_propagatedIds": "[\"agg_gb_cliente\",\"agg_fn_1\"]"
+              },
+              "config": {
+                "displayName": "Uscita totali",
+                "shortLabel": "",
+                "description": "",
+                "notes": "",
+                "enabled": "true",
+                "resourceId": "",
+                "mappings": [],
+                "advanced": {
+                  "timeoutSec": "30",
+                  "retryCount": "0",
+                  "retryDelaySec": "5",
+                  "onError": "handler",
+                  "batchSize": "1000",
+                  "parallel": "false",
+                  "excludeFromErrorLog": "false",
+                  "critical": "false"
+                }
+              },
+              "status": "idle",
+              "laneId": "lane_1787256352256_s4d1",
+              "uiState": {
+                "hasErrors": false,
+                "errorCount": 0,
+                "hasWarnings": false,
+                "warningCount": 0,
+                "issues": []
+              }
+            },
+            "dragging": false
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_error_handler_lane_1787256352256_s4d1_error_out_node_57_input_1787332434951",
+            "source": "error_handler_lane_1787256352256_s4d1",
+            "target": "node_57",
+            "sourceHandle": "error_out",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#3B6D11",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#3B6D11"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_65_output_node_67_input_1787829616778",
+            "source": "node_65",
+            "target": "node_67",
+            "sourceHandle": "output",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#3B6D11",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#3B6D11"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_67_output_node_59_input_1787829733066",
+            "source": "node_67",
+            "target": "node_59",
+            "sourceHandle": "output",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#3B6D11",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#3B6D11"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          },
+          {
+            "id": "e_node_67_output_node_68_input_1787829928974",
+            "source": "node_67",
+            "target": "node_68",
+            "sourceHandle": "output",
+            "targetHandle": "input",
+            "style": {
+              "stroke": "#3B6D11",
+              "strokeWidth": 2,
+              "opacity": 0.7
+            },
+            "markerEnd": {
+              "type": "arrowclosed",
+              "color": "#3B6D11"
+            },
+            "labelStyle": {
+              "fontSize": 10,
+              "fill": "#9a9aaa",
+              "fontFamily": "monospace"
+            },
+            "labelBgStyle": {
+              "fill": "#161b27",
+              "fillOpacity": 0.8
+            }
+          }
+        ]
+      }
+    },
     {
       "version": {
         "id": "v1787829845065",

@@ -178,7 +178,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
             {source === 'materialize' ? `Materialize "${matName || '—'}"` : 'Campo Flusso'}
           </strong>
           {matNode && (
-            <span style={{ marginLeft: 8, color: '#4a5a7a' }}>
+            <span style={{ marginLeft: 8, color: '#8593b5' }}>
               modalità: {matMode === 'passthrough' ? 'passthrough' : matMode === 'buffer_signal' ? 'buffer→signal' : 'buffer→replay'}
             </span>
           )}
@@ -188,7 +188,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
           Mapping campi
-          <span style={{ fontSize: 10, color: '#4a5a7a', fontWeight: 400, marginLeft: 8 }}>
+          <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
             — {includedCount} di {mapping.length} selezionati
           </span>
         </div>
@@ -206,7 +206,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ borderBottom: '0.5px solid #2a3349' }} />
 
       {mapping.length === 0 && (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-table-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           {source === 'materialize' && !matName
             ? 'Seleziona un Materialize nel tab Configurazione.'
@@ -230,11 +230,11 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <button onClick={() => moveField(idx, 'up')} disabled={idx === 0}
-                  style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+                  style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
                   <i className="ti ti-chevron-up" style={{ fontSize: 9 }} />
                 </button>
                 <button onClick={() => moveField(idx, 'down')} disabled={idx === mapping.length - 1}
-                  style={{ background: 'none', border: 'none', cursor: idx === mapping.length - 1 ? 'not-allowed' : 'pointer', color: idx === mapping.length - 1 ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+                  style={{ background: 'none', border: 'none', cursor: idx === mapping.length - 1 ? 'not-allowed' : 'pointer', color: idx === mapping.length - 1 ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
                   <i className="ti ti-chevron-down" style={{ fontSize: 9 }} />
                 </button>
               </div>
@@ -246,13 +246,13 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
 
               {source === 'materialize' ? (
                 <div title={field.sourceField}
-                  style={{ fontFamily: 'monospace', fontSize: 10, color: '#4a5a7a', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  style={{ fontFamily: 'monospace', fontSize: 10, color: '#8593b5', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {field.sourceField}
                 </div>
               ) : (
                 <input value={field.sourceField}
                   onChange={(e) => updateField(idx, 'sourceField', e.target.value)}
-                  style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: '#4a5a7a' }}
+                  style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: '#8593b5' }}
                   placeholder="col_sorgente" />
               )}
 
@@ -277,9 +277,9 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
               </CustomSelect>
 
               <button onClick={() => saveMapping(mapping.filter((_, i) => i !== idx))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                 <i className="ti ti-x" style={{ fontSize: 10 }} />
               </button>
             </div>
@@ -294,20 +294,20 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
             <i className="ti ti-checks" style={{ fontSize: 10 }} /> Seleziona tutti
           </button>
           <button onClick={() => saveMapping(mapping.map((f) => ({ ...f, include: false })))}
-            style={{ flex: 1, padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            style={{ flex: 1, padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <i className="ti ti-square" style={{ fontSize: 10 }} /> Deseleziona tutti
           </button>
         </div>
       )}
 
       <button onClick={addManual}
-        style={{ padding: '6px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+        style={{ padding: '6px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
         <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi campo manualmente
       </button>
 
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
         <strong style={{ color: '#9a9aaa' }}>Col. fisica</strong> è il nome del campo nella struttura sorgente.
         Lo schema viene propagato automaticamente ai nodi a valle.

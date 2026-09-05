@@ -290,7 +290,7 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
           style={{ padding: '5px 12px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${color} 10%, #1a2030)`, color, border: `1px solid ${color}50`, display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className="ti ti-refresh" style={{ fontSize: 12 }} /> Rigenera
         </button>
-        <span style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+        <span style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
           Anteprima dell'SQL generato dalla configurazione attuale — sola lettura
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -354,18 +354,18 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
 
         {preview.params.length > 0 && (
           <div>
-            {secLabel('Parametri bind', '#4a5a7a')}
+            {secLabel('Parametri bind', '#8593b5')}
             <div style={{ background: '#0f1117', border: '0.5px solid #2a3349', borderRadius: 5, overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 70px', gap: 6, padding: '4px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
                 {['#', 'Sorgente', 'Tipo DB'].map(h => (
-                  <div key={h} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
+                  <div key={h} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
                 ))}
               </div>
               {preview.params.map((param, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 70px', gap: 6, padding: '4px 8px', borderBottom: i < preview.params.length - 1 ? '0.5px solid #1a2030' : 'none', background: i % 2 === 0 ? '#161b27' : 'transparent' }}>
                   <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#ffb347' }}>{param.pos}</span>
                   <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#9a9aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{param.source}</span>
-                  <span style={{ fontSize: 9, color: '#4a5a7a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{param.type}</span>
+                  <span style={{ fontSize: 9, color: '#8593b5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{param.type}</span>
                 </div>
               ))}
             </div>
@@ -373,7 +373,7 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
         )}
 
         <div>
-          {secLabel('Riepilogo', '#4a5a7a')}
+          {secLabel('Riepilogo', '#8593b5')}
           <div style={{ background: '#0f1117', border: '0.5px solid #2a3349', borderRadius: 5, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
             {Object.entries(preview.summary).map(([k, v]) => {
               const isPassthroughRow = passthroughActive && (
@@ -381,7 +381,7 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
               )
               return (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10 }}>
-                  <span style={{ color: isPassthroughRow ? PT_COLOR : '#4a5a7a', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: isPassthroughRow ? PT_COLOR : '#8593b5', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                     {isPassthroughRow && <i className="ti ti-bolt" style={{ fontSize: 9 }} />}
                     {k}
                   </span>
@@ -411,7 +411,7 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Nota ── */}
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
         {passthroughActive
           ? `L'SQL è costruito dalla configurazione corrente. In modalità pass-through, RETURNING / LAST_INSERT_ID / last_insert_rowid vengono usati automaticamente in base al dialetto (${dialect}).`

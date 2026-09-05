@@ -173,7 +173,7 @@ function TreeNodeRow({
     : node.type === 'string' ? '#3ddc84'
     : node.type === 'number' ? '#4a9eff'
     : node.type === 'boolean' ? '#a78bfa'
-    : '#4a5a7a'
+    : '#8593b5'
 
   const isSelected = selectedId === node.id
   const [editing, setEditing]             = useState(false)
@@ -264,7 +264,7 @@ function TreeNodeRow({
         {/* Chevron per oggetti/array */}
         {!isLeaf ? (
           <button onClick={() => onToggle(node.id)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, width: 12, flexShrink: 0 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, width: 12, flexShrink: 0 }}>
             <i className={`ti ${node.collapsed ? 'ti-chevron-right' : 'ti-chevron-down'}`} style={{ fontSize: 9 }} />
           </button>
         ) : <div style={{ width: 12, flexShrink: 0 }} />}
@@ -302,7 +302,7 @@ function TreeNodeRow({
             <div style={{ display: 'flex', gap: 2, flexShrink: 0, flexWrap: 'wrap', maxWidth: 140 }}>
               {allSources.map((s, si) => {
                 const hIdx = Object.keys(inputs).indexOf(s.handle)
-                const sc   = hIdx >= 0 ? FLOW_COLORS[hIdx % FLOW_COLORS.length] : '#4a5a7a'
+                const sc   = hIdx >= 0 ? FLOW_COLORS[hIdx % FLOW_COLORS.length] : '#8593b5'
                 return (
                   <span key={`${s.handle}:${s.field}`}
                     style={{ fontSize: 9, color: sc, fontFamily: 'monospace',
@@ -363,7 +363,7 @@ function TreeNodeRow({
               onChange={(e) => { onSetIterHandle(node.id, e.target.value) }}
               style={{ fontSize: 9, padding: '1px 3px', width: 68,
                 background: node.iterHandle ? 'color-mix(in srgb, #ffb347 10%, #1e2535)' : 'transparent',
-                color: node.iterHandle ? '#ffb347' : '#4a5a7a',
+                color: node.iterHandle ? '#ffb347' : '#8593b5',
                 border: node.iterHandle ? '0.5px solid #ffb34740' : '0.5px dashed #2a3349',
                 borderRadius: 3, outline: 'none', fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer' }}>
@@ -384,7 +384,7 @@ function TreeNodeRow({
               onChange={(e) => onSetGroupBy(node.id, e.target.value)}
               style={{ fontSize: 9, padding: '1px 3px', width: 72,
                 background: node.groupBy ? 'color-mix(in srgb, #3ddc84 10%, #1e2535)' : 'transparent',
-                color: node.groupBy ? '#3ddc84' : '#4a5a7a',
+                color: node.groupBy ? '#3ddc84' : '#8593b5',
                 border: node.groupBy ? '0.5px solid #3ddc8440' : '0.5px dashed #2a3349',
                 borderRadius: 3, outline: 'none', cursor: 'pointer',
                 fontFamily: "'JetBrains Mono', monospace" }}>
@@ -433,12 +433,12 @@ function TreeNodeRow({
           </button>
           <button onClick={(e) => { e.stopPropagation(); onAddChild(node.id, 'object') }}
             title="Aggiungi oggetto figlio"
-            style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9 }}>
+            style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
             +{'{}'}
           </button>
           <button onClick={(e) => { e.stopPropagation(); onAddChild(node.id, 'array') }}
             title="Aggiungi array figlio"
-            style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9 }}>
+            style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
             +{'[]'}
           </button>
 
@@ -446,17 +446,17 @@ function TreeNodeRow({
           {isLeaf && (
             <button onClick={(e) => { e.stopPropagation(); setCondVal(node.condition ?? ''); setCondEditing(true) }}
               title="Aggiungi condizione (il campo viene omesso se falsa)"
-              style={{ background: 'none', border: '0.5px solid #a78bfa40', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9 }}
+              style={{ background: 'none', border: '0.5px solid #a78bfa40', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#a78bfa' }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
               if
             </button>
           )}
 
           <button onClick={() => onDelete(node.id)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
             <i className="ti ti-x" style={{ fontSize: 9 }} />
           </button>
         </div>
@@ -536,14 +536,14 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
         borderBottom: collapsed ? 'none' : `0.5px solid ${color}30`,
         display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-        <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0, fontFamily: 'monospace' }}>{mapping.handle}</span>
-        <span style={{ fontSize: 9, color: '#4a5a7a', flex: 1 }} />
+        <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0, fontFamily: 'monospace' }}>{mapping.handle}</span>
+        <span style={{ fontSize: 9, color: '#8593b5', flex: 1 }} />
         {/* Bacchetta auto-mappa — inserisce sotto nodo selezionato nell'albero */}
         <button onClick={() => onAutoMap(mapping.handle)}
           title="Auto-mappa tutti i campi nel nodo selezionato dell'albero (o in root se nessuno selezionato)"
-          style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-wand" style={{ fontSize: 9 }} /> auto
         </button>
         {/* Toggle deduplicazione */}
@@ -554,14 +554,14 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
             background: mapping.dedup ? `color-mix(in srgb, ${color} 20%, #0f1117)` : 'none',
             border: `0.5px solid ${mapping.dedup ? color : '#2a3349'}`,
             borderRadius: 3, padding: '1px 6px', cursor: 'pointer',
-            color: mapping.dedup ? color : '#4a5a7a', fontSize: 9,
+            color: mapping.dedup ? color : '#8593b5', fontSize: 9,
             display: 'flex', alignItems: 'center', gap: 3, transition: 'all .15s',
           }}>
           <i className="ti ti-copy-off" style={{ fontSize: 9 }} />
           dedup
         </button>
         <button onClick={() => setCollapsed((v) => !v)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
           <i className={`ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'}`} style={{ fontSize: 10 }} />
         </button>
       </div>
@@ -628,7 +628,7 @@ function FieldRow({ name, type, handle, handleIdx, isMapped, color, isManual,
         title="Trascina sull'albero JSON"
         style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
           background: isMapped ? color : 'transparent',
-          border: `1.5px solid ${isMapped ? color : '#4a5a7a'}`,
+          border: `1.5px solid ${isMapped ? color : '#8593b5'}`,
           cursor: 'grab', transition: 'all .12s',
           boxShadow: isMapped ? `0 0 4px ${color}60` : 'none' }} />
 
@@ -649,7 +649,7 @@ function FieldRow({ name, type, handle, handleIdx, isMapped, color, isManual,
       )}
 
       {/* Tipo originale dal flusso */}
-      <span style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace', textAlign: 'center',
+      <span style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', textAlign: 'center',
         padding: '1px 3px', borderRadius: 2, background: '#1a2030',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         title={type || 'tipo sconosciuto'}>
@@ -659,9 +659,9 @@ function FieldRow({ name, type, handle, handleIdx, isMapped, color, isManual,
       {/* Elimina — solo campi manuali */}
       {onDelete ? (
         <button onClick={onDelete}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 9 }} />
         </button>
       ) : <div />}
@@ -1036,7 +1036,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
         <span>Trascina i campi sull'albero JSON di output a destra.</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'monospace', color: ACCENT }}>→ {p('outputField', 'content')}</span>
         <button onClick={() => setShowOptions((v) => !v)}
-          style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#4a5a7a', fontSize: 9 }}>
+          style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#8593b5', fontSize: 9 }}>
           <i className="ti ti-settings-2" style={{ fontSize: 9, marginRight: 3 }} />opzioni
         </button>
       </div>
@@ -1125,11 +1125,11 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
               +campo
             </button>
             <button onClick={() => handleAddRoot('object')}
-              style={{ background: 'none', border: '0.5px dashed #4a5a7a', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9 }}>
+              style={{ background: 'none', border: '0.5px dashed #8593b5', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
               +{'{}'}
             </button>
             <button onClick={() => handleAddRoot('array')}
-              style={{ background: 'none', border: '0.5px dashed #4a5a7a', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9 }}>
+              style={{ background: 'none', border: '0.5px dashed #8593b5', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
               +{'[]'}
             </button>
             {hasTree && (
@@ -1138,18 +1138,18 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
                   navigator.clipboard?.writeText(json).catch(() => {})
                 }}
                 title="Copia struttura JSON"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 4px' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 4px' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = ACCENT }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                 <i className="ti ti-copy" style={{ fontSize: 11 }} />
               </button>
             )}
             {hasTree && (
               <button onClick={() => { if (confirm('Svuotare l\'albero?')) setTreeNodes(() => []) }}
                 title="Svuota albero"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 4px' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 4px' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                 <i className="ti ti-trash" style={{ fontSize: 11 }} />
               </button>
             )}
@@ -1205,7 +1205,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
 
           {/* Import da sample JSON */}
           <div style={{ borderTop: '1px solid #2a3349', padding: '6px 10px', background: '#1a2030', flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4 }}>IMPORTA STRUTTURA DA JSON DI ESEMPIO</div>
+            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>IMPORTA STRUTTURA DA JSON DI ESEMPIO</div>
             <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
               <textarea style={{ ...iStyle, resize: 'none', height: 44, fontSize: 9, fontFamily: 'monospace', flex: 1 }}
                 value={sampleRaw} onChange={(e) => setSampleRaw(e.target.value)}
@@ -1213,7 +1213,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
               <button onClick={handleImportSample} disabled={!sampleRaw}
                 style={{ padding: '5px 10px', fontSize: 9, borderRadius: 4, cursor: sampleRaw ? 'pointer' : 'not-allowed',
                   background: sampleRaw ? `color-mix(in srgb, #ffb347 20%, #161b27)` : '#1e2535',
-                  color: sampleRaw ? '#ffb347' : '#4a5a7a',
+                  color: sampleRaw ? '#ffb347' : '#8593b5',
                   border: `1px solid ${sampleRaw ? '#ffb34760' : '#2a3349'}`,
                   fontWeight: 600, flexShrink: 0, height: 44, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <i className="ti ti-player-play" style={{ fontSize: 9 }} /> Import
@@ -1282,18 +1282,18 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
           <span style={{ fontSize: 20, color: ACCENT, fontFamily: 'monospace', fontWeight: 700 }}>{'{ }'}</span>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#c8d4f0' }}>{node?.data.config?.displayName || node?.data.label || 'JSON Serializer'}</div>
-            <div style={{ fontSize: 11, color: '#4a5a7a', fontFamily: 'monospace' }}>{nodeId} · {node?.data.laneId}</div>
+            <div style={{ fontSize: 11, color: '#8593b5', fontFamily: 'monospace' }}>{nodeId} · {node?.data.laneId}</div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             <button onClick={() => setIsMaximized((m) => { if (!m) { setModalWidth(null); resetDrag() } return !m })}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', color: '#9a9aaa', display: 'flex', alignItems: 'center' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a5a7a' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className={`ti ${isMaximized ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 13 }} />
             </button>
             <button onClick={onClose}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a5a7a' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
             </button>
@@ -1303,9 +1303,9 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
         <div style={{ display: 'flex', borderBottom: '1px solid #2a3349', flexShrink: 0, background: '#161b27' }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
-              style={{ padding: '9px 16px', fontSize: 11, background: activeTab === t.id ? '#1e2535' : 'transparent', border: 'none', borderBottom: activeTab === t.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === t.id ? '#c8d4f0' : '#4a5a7a', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s' }}
+              style={{ padding: '9px 16px', fontSize: 11, background: activeTab === t.id ? '#1e2535' : 'transparent', border: 'none', borderBottom: activeTab === t.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === t.id ? '#c8d4f0' : '#8593b5', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s' }}
               onMouseEnter={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#9a9aaa' }}
-              onMouseLeave={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+              onMouseLeave={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
               <i className={`ti ${t.icon}`} style={{ fontSize: 13 }} /> {t.label}
             </button>
           ))}
@@ -1318,7 +1318,7 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#4a5a7a', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 25%, #161b27)` }}

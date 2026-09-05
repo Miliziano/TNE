@@ -101,7 +101,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: '#4a9eff', flex: 1 }}>
             Flusso principale — out
           </div>
-          <div style={{ fontSize: 10, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 10, color: '#8593b5' }}>
             {mainEdges.length > 0
               ? `→ ${mainEdges.map((e) => e.target).join(', ')}`
               : 'nessun collegamento'}
@@ -124,7 +124,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
             {/* Intestazione colonne */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, padding: '3px 12px 5px', borderBottom: '0.5px solid #2a3349' }}>
               {['Nome', 'Tipo', ''].map((h, i) => (
-                <div key={i} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
+                <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
               ))}
             </div>
             {outputFields.map((f) => (
@@ -141,9 +141,9 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
                   {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </CustomSelect>
                 <button onClick={() => deleteField(f.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                   <i className="ti ti-x" style={{ fontSize: 10 }} />
                 </button>
               </div>
@@ -164,10 +164,10 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: hasReject ? 16 : 2, transition: 'left .2s' }} />
           </button>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: hasReject ? '#ff5f57' : '#2a3349', flexShrink: 0, transition: 'background .2s' }} />
-          <div style={{ fontSize: 11, fontWeight: 600, color: hasReject ? '#ff5f57' : '#4a5a7a', flex: 1, transition: 'color .2s' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: hasReject ? '#ff5f57' : '#8593b5', flex: 1, transition: 'color .2s' }}>
             Flusso reject — reject
           </div>
-          <div style={{ fontSize: 10, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 10, color: '#8593b5' }}>
             {rejectEdges.length > 0
               ? `→ ${rejectEdges.map((e) => e.target).join(', ')}`
               : hasReject ? 'handle attivo, nessun collegamento' : 'disabilitato'}
@@ -182,7 +182,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
             </div>
           ) : (
             <div style={{ padding: '6px 0' }}>
-              <div style={{ padding: '4px 12px 5px', fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', borderBottom: '0.5px solid #2a3349' }}>
+              <div style={{ padding: '4px 12px 5px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', borderBottom: '0.5px solid #2a3349' }}>
                 Stessi campi del flusso principale — istanze indipendenti con valori distinti
               </div>
               {rejectFields.map((f) => (
@@ -190,7 +190,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
                   <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#ff5f57', padding: '3px 6px', background: '#1a0a0a', borderRadius: 4, border: '0.5px solid #3a1a1a' }}>
                     reject.{f.name}
                   </div>
-                  <div style={{ fontSize: 9, color: '#4a5a7a', padding: '3px 4px', background: '#1a0a0a', borderRadius: 4, border: '0.5px solid #3a1a1a', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: '#8593b5', padding: '3px 4px', background: '#1a0a0a', borderRadius: 4, border: '0.5px solid #3a1a1a', textAlign: 'center' }}>
                     {f.type}
                   </div>
                 </div>
@@ -208,7 +208,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* ══ INFO PROPAGAZIONE ══════════════════════════════════ */}
       {outputFields.length > 0 && (
-        <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
           I campi vengono propagati automaticamente ai nodi collegati.
           Flusso <strong style={{ color: '#4a9eff' }}>out</strong> sull'handle principale,

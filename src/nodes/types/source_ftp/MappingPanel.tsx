@@ -146,7 +146,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
           Schema di uscita
-          <span style={{ fontSize: 10, color: '#4a5a7a', fontWeight: 400, marginLeft: 8 }}>
+          <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
             — campi propagati ai nodi successivi
           </span>
         </div>
@@ -161,14 +161,14 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
         <span style={{ padding: '1px 7px', borderRadius: 8, fontSize: 10, background: '#1a3a6a', color: ACCENT, fontWeight: 600 }}>
           {formatLabel}
         </span>
-        <span style={{ fontSize: 10, color: '#4a5a7a', marginLeft: 4, fontStyle: 'italic' }}>
+        <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>
           {isFixed ? 'schema fisso' : `${schema.length} campi`}
         </span>
       </div>
 
       {/* Hint per formati che vanno al parser */}
       {(fileFormat === 'raw' || fileFormat === 'json' || fileFormat === 'xml') && (
-        <div style={{ padding: '7px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #22d3ee30', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+        <div style={{ padding: '7px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #22d3ee30', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-arrow-right" style={{ fontSize: 10, color: '#22d3ee', flexShrink: 0, marginTop: 1 }} />
           <span>
             Il campo <code style={{ color: '#22d3ee' }}>content</code>{fileFormat === 'json' ? '/raw' : ''} contiene il file grezzo —
@@ -189,7 +189,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
           </div>
           {fixedSchema.map((f, i) => (
             <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < fixedSchema.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 11, color: f.name.startsWith('_') ? '#4a5a7a' : '#c8d4f0' }}>{f.name}</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: f.name.startsWith('_') ? '#8593b5' : '#c8d4f0' }}>{f.name}</span>
               <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#1a3a6a', color: ACCENT, textAlign: 'center' }}>{f.type}</span>
             </div>
           ))}
@@ -200,7 +200,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
       {!isFixed && (
         <>
           {schema.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+            <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
               <i className="ti ti-file-search" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
               Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.
             </div>
@@ -221,9 +221,9 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
                     {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </CustomSelect>
                   <button onClick={() => deleteField(idx)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                     <i className="ti ti-x" style={{ fontSize: 11 }} />
                   </button>
                 </div>
@@ -240,7 +240,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
           </button>
 
           {/* Metadati file sempre presenti */}
-          <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a' }}>
+          <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
             I campi <code style={{ color: ACCENT }}>_filename</code>, <code style={{ color: ACCENT }}>_filepath</code>,
             <code style={{ color: ACCENT }}>_filesize</code>, <code style={{ color: ACCENT }}>_modified_at</code> sono

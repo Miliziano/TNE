@@ -94,7 +94,7 @@ const INPUT_COLORS = ['#4a9eff', '#ffb347', '#a78bfa', '#22d3ee', '#f87171', '#3
 
 function getInputColor(tmap: TMapConfig, inputId: string): string {
   const idx = tmap.inputs.findIndex((i) => i.id === inputId)
-  return INPUT_COLORS[idx % INPUT_COLORS.length] ?? '#4a5a7a'
+  return INPUT_COLORS[idx % INPUT_COLORS.length] ?? '#8593b5'
 }
 
 // ─── FnEditor — editor trasformazione inline ──────────────────────
@@ -267,26 +267,26 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>
               Join — <span style={{ color: dstColor }}>{inp.label}</span>
-              <span style={{ fontSize: 10, color: '#4a5a7a', fontWeight: 400, marginLeft: 8 }}>
+              <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
                 {pairs.length} {pairs.length === 1 ? 'condizione' : 'condizioni'}
               </span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 4 }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 4 }}>
             <i className="ti ti-x" style={{ fontSize: 14 }} />
           </button>
         </div>
 
         {/* Tipo join — sopra lo scroll */}
         <div style={{ padding: '8px 16px', borderBottom: '1px solid #2a3349', background: '#161b27', display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ fontSize: 9, color: '#4a5a7a', marginRight: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Tipo join</span>
+          <span style={{ fontSize: 9, color: '#8593b5', marginRight: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Tipo join</span>
           {(['inner', 'left', 'first'] as const).map((jt) => {
             const jc = JOIN_TYPE_COLORS[jt]
             return (
               <button key={jt} onClick={() => updateTMapInput(nodeId, inp.id, { joinType: jt })}
                 style={{ flex: 1, padding: '4px', fontSize: 10, borderRadius: 4, cursor: 'pointer', fontWeight: 600,
                   background: inp.joinType === jt ? `color-mix(in srgb, ${jc} 20%, #161b27)` : '#1e2535',
-                  color: inp.joinType === jt ? jc : '#4a5a7a',
+                  color: inp.joinType === jt ? jc : '#8593b5',
                   border: inp.joinType === jt ? `1px solid ${jc}60` : '1px solid #2a3349' }}>
                 {jt}
               </button>
@@ -306,7 +306,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
 
           {pairs.map((pair, pairIdx) => {
             const srcInp    = tmap.inputs.find((i) => i.id === pair.srcInputId)
-            const srcColor  = pair.srcInputId ? getInputColor(tmap, pair.srcInputId) : '#4a5a7a'
+            const srcColor  = pair.srcInputId ? getInputColor(tmap, pair.srcInputId) : '#8593b5'
             const srcFields = srcInp?.fields.filter((f) => !f.name.startsWith('status.')) ?? []
 
             return (
@@ -322,7 +322,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                       {srcInp?.label ?? '—'}
                     </span>
                   </div>
-                  <span style={{ fontSize: 11, color: '#4a5a7a' }}>→</span>
+                  <span style={{ fontSize: 11, color: '#8593b5' }}>→</span>
                   {/* Flusso destinatario */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: dstColor }} />
@@ -332,9 +332,9 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                   </div>
                   <span style={{ flex: 1 }} />
                   <button onClick={() => removePair(pair.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                     <i className="ti ti-x" style={{ fontSize: 10 }} />
                   </button>
                 </div>
@@ -343,7 +343,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
 
                   {/* Selettore flusso sorgente */}
                   <div>
-                    <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Flusso sorgente</div>
+                    <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Flusso sorgente</div>
                     <CustomSelect style={{ ...iStyle, fontSize: 10 }} value={pair.srcInputId}
                       onChange={(e) => {
                         const newColor = getInputColor(tmap, e.target.value)
@@ -362,7 +362,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
 
                   {/* Campi sorgente — uno o più (chiave composta) */}
                   <div>
-                    <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: srcColor }}>Campi — {srcInp?.label ?? '?'}</span>
                       <button onClick={() => addSrcField(pair.id)}
                         title="Aggiungi campo per chiave composta (più campi combinati = una sola condizione)"
@@ -393,14 +393,14 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                               style={{ padding: '2px 5px', borderRadius: 3, cursor: 'pointer', fontSize: 9, fontFamily: 'monospace',
                                 border: sf.fn !== 'none' ? `1px solid ${srcColor}60` : '1px solid #2a3349',
                                 background: sf.fn !== 'none' ? `color-mix(in srgb, ${srcColor} 15%, #161b27)` : '#1e2535',
-                                color: sf.fn !== 'none' ? srcColor : '#4a5a7a' }}>
+                                color: sf.fn !== 'none' ? srcColor : '#8593b5' }}>
                               ƒ
                             </button>
                             {pair.srcFields.length > 1 && (
                               <button onClick={() => removeSrcField(pair.id, idx)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                                 <i className="ti ti-x" style={{ fontSize: 9 }} />
                               </button>
                             )}
@@ -424,7 +424,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                       const isAuto  = !pair.combineExpr || pair.combineExpr === auto
                       return (
                         <div style={{ marginTop: 8 }}>
-                          <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span>Combinazione</span>
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 600,
                               background: isAuto ? 'color-mix(in srgb, #3ddc84 15%, #0f1117)' : 'color-mix(in srgb, #ffb347 15%, #0f1117)',
@@ -494,14 +494,14 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                               style={{ padding: '2px 5px', borderRadius: 3, cursor: 'pointer', fontSize: 9, fontFamily: 'monospace',
                                 border: df.fn !== 'none' ? `1px solid ${dstColor}60` : '1px solid #2a3349',
                                 background: df.fn !== 'none' ? `color-mix(in srgb, ${dstColor} 15%, #161b27)` : '#1e2535',
-                                color: df.fn !== 'none' ? dstColor : '#4a5a7a' }}>
+                                color: df.fn !== 'none' ? dstColor : '#8593b5' }}>
                               ƒ
                             </button>
                             {dstArr.length > 1 && (
                               <button onClick={() => removeDstField(pair.id, idx)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0 }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0 }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                                 <i className="ti ti-x" style={{ fontSize: 9 }} />
                               </button>
                             )}
@@ -524,7 +524,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                       const isAuto  = !pair.dstCombineExpr || pair.dstCombineExpr === auto
                       return (
                         <div style={{ marginTop: 8 }}>
-                          <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span>Combinazione</span>
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 600,
                               background: isAuto ? 'color-mix(in srgb, #3ddc84 15%, #0f1117)' : 'color-mix(in srgb, #ffb347 15%, #0f1117)',
@@ -611,7 +611,7 @@ function AddFieldRow({ color, label, onClick }: { color: string; label: string; 
   const [hovered, setHovered] = useState(false)
   return (
     <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ padding: '5px 12px', fontSize: 10, color: hovered ? color : '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, transition: 'color .1s' }}>
+      style={{ padding: '5px 12px', fontSize: 10, color: hovered ? color : '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, transition: 'color .1s' }}>
       <i className="ti ti-plus" style={{ fontSize: 10 }} /> {label}
     </div>
   )
@@ -642,9 +642,9 @@ function StatusFieldsSection({ fields, inputId, containerRef, onDragStart, onHov
         style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', background: '#0f1117', borderBottom: '0.5px solid #1a2030', cursor: 'pointer', userSelect: 'none' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#141920' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0f1117' }}>
-        <i className={`ti ${open ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 9, color: '#4a5a7a' }} />
-        <i className="ti ti-activity" style={{ fontSize: 10, color: '#4a5a7a' }} />
-        <span style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>status ({fields.length} campi)</span>
+        <i className={`ti ${open ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 9, color: '#8593b5' }} />
+        <i className="ti ti-activity" style={{ fontSize: 10, color: '#8593b5' }} />
+        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>status ({fields.length} campi)</span>
       </div>
       {open && fields.map((field) => {
         const key = `${inputId}__${field.name}`; const joinKey = `${inputId}__${field.name}__join`
@@ -653,11 +653,11 @@ function StatusFieldsSection({ fields, inputId, containerRef, onDragStart, onHov
             <div ref={(el) => { if (el) registerJoinHandle(el as HTMLDivElement, joinKey) }}
               data-join-handle={joinKey} data-join-input-id={inputId} data-join-field={field.name}
               onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onJoinDragStart(joinKey, inputId, field.name, color) }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: '#4a5a7a', flexShrink: 0, cursor: 'crosshair', border: '2px solid #0f1117', opacity: 0.6 }} />
-            <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#4a5a7a', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.name}</span>
+              style={{ width: 10, height: 10, borderRadius: '50%', background: '#8593b5', flexShrink: 0, cursor: 'crosshair', border: '2px solid #0f1117', opacity: 0.6 }} />
+            <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#8593b5', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.name}</span>
             <span style={{ fontSize: 9, color: '#2a3349', padding: '1px 4px', background: '#1a2030', borderRadius: 3 }}>{field.type}</span>
             <div ref={(el) => { if (el) registerHandle(el as HTMLDivElement, key) }}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onDragStart(key, inputId, field.name, '#4a5a7a') }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onDragStart(key, inputId, field.name, '#8593b5') }}
               style={{ width: 10, height: 10, borderRadius: '50%', background: '#2a3349', flexShrink: 0, cursor: 'crosshair', border: '2px solid #0f1117', marginRight: 2 }} />
           </FieldRow>
         )
@@ -900,9 +900,9 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
       <div style={{ padding: '8px 12px', fontSize: 9, fontWeight: 600, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.08em', borderBottom: '1px solid #2a3349', background: '#0f1117', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         <span style={{ flex: 1 }}>Input</span>
         <button onClick={() => addTMapInput(nodeId, false)}
-          style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 7px', fontSize: 9, color: '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 7px', fontSize: 9, color: '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ffb347' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-plus" style={{ fontSize: 10 }} /> lookup
         </button>
       </div>
@@ -919,7 +919,7 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
             <FlowCard key={inp.id} color={color} header={
               <>
                 <i className={`ti ${expanded[inp.id] ? 'ti-chevron-down' : 'ti-chevron-right'}`}
-                  style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0, cursor: 'pointer' }} onClick={() => toggle(inp.id)} />
+                  style={{ fontSize: 9, color: '#8593b5', flexShrink: 0, cursor: 'pointer' }} onClick={() => toggle(inp.id)} />
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                 <input value={inp.label} readOnly={isConnected} onClick={(e) => e.stopPropagation()}
                   onChange={(e) => {
@@ -975,24 +975,24 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                     setTimeout(() => { const s2 = useFlowStore.getState(); const cur = (s2.nodes.find((n) => n.id === nodeId)?.data.config?.tmap as TMapConfig | undefined)?.connections ?? []; s2.setTMapConnections(nodeId, [...cur, ...newFields.map((f) => ({ id: `${inp.id}__${f.name}__${newOutputId}__${f.id}`, inputId: inp.id, fieldName: f.name, outputId: newOutputId, fieldId: f.id, color: inp.isMain ? '#4a9eff' : '#ffb347' }))]) }, 50)
                   }}
                   title="Trasferisci tutti i campi in un nuovo output"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px', flexShrink: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px', flexShrink: 0 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                   <i className="ti ti-arrow-bar-right" style={{ fontSize: 11 }} />
                 </button>
                 {!inp.isMain && (
                   <button onClick={(e) => { e.stopPropagation(); onEditLookup(inp) }} title="Configura join"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: joinPairs.length > 0 ? color : '#4a5a7a', padding: '0 2px', flexShrink: 0 }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: joinPairs.length > 0 ? color : '#8593b5', padding: '0 2px', flexShrink: 0 }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = joinPairs.length > 0 ? color : '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = joinPairs.length > 0 ? color : '#8593b5' }}>
                     <i className="ti ti-settings" style={{ fontSize: 11 }} />
                   </button>
                 )}
                 {!inp.isMain && (
                   <button onClick={(e) => { e.stopPropagation(); deleteTMapInput(nodeId, inp.id) }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, flexShrink: 0 }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, flexShrink: 0 }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                     <i className="ti ti-x" style={{ fontSize: 10 }} />
                   </button>
                 )}
@@ -1007,7 +1007,7 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                       <button key={jt} onClick={() => updateTMapInput(nodeId, inp.id, { joinType: jt })}
                         style={{ flex: 1, padding: '3px 4px', fontSize: 9, borderRadius: 4, cursor: 'pointer', fontWeight: 600,
                           background: inp.joinType === jt ? `color-mix(in srgb, ${jc} 20%, #161b27)` : '#1e2535',
-                          color: inp.joinType === jt ? jc : '#4a5a7a',
+                          color: inp.joinType === jt ? jc : '#8593b5',
                           border: inp.joinType === jt ? `1px solid ${jc}60` : '1px solid #2a3349' }}>
                         {jt}
                       </button>
@@ -1034,18 +1034,18 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.6' }}
                           title="Trascina per join" />
-                        <span style={{ fontSize: 11, flex: 1, color: isConnected ? '#4a5a7a' : '#c8d4f0', fontFamily: 'monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 11, flex: 1, color: isConnected ? '#8593b5' : '#c8d4f0', fontFamily: 'monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {field.name}
                         </span>
-                        <span style={{ fontSize: 9, color: '#4a5a7a', padding: '1px 4px', background: '#1a2030', borderRadius: 3, flexShrink: 0 }}>{field.type}</span>
+                        <span style={{ fontSize: 9, color: '#8593b5', padding: '1px 4px', background: '#1a2030', borderRadius: 3, flexShrink: 0 }}>{field.type}</span>
                         <button onClick={() => {
                             deleteTMapInputField(nodeId, inp.id, field.name)
                             const store = useFlowStore.getState(); const t = store.nodes.find((n) => n.id === nodeId)?.data.config?.tmap as TMapConfig | undefined
                             if (t) removeFieldFromTransforms(nodeId, inp.id, field.name, t)
                           }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px', flexShrink: 0 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px', flexShrink: 0 }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                           <i className="ti ti-x" style={{ fontSize: 10 }} />
                         </button>
                         <div ref={(el) => { if (el) registerHandle(el, key) }}
@@ -1227,9 +1227,9 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
           onClick={() => downloadSchema(outputFields.map((f) => ({ name: f.name, type: f.type })), 'tmap-output', { node: 'tmap' })}
           title="Esporta lo schema di questa uscita su file (.json)"
           style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 6px',
-            cursor: 'pointer', color: '#4a5a7a', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
+            cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color; (e.currentTarget as HTMLElement).style.borderColor = color }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
           <i className="ti ti-download" style={{ fontSize: 9 }} />
         </button>
       )}
@@ -1241,7 +1241,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
           background:   open ? `color-mix(in srgb, ${color} 20%, #161b27)` : 'none',
           border:       `0.5px solid ${open ? color : '#2a3349'}`,
           borderRadius: 3, padding: '1px 6px', cursor: 'pointer',
-          color:        open ? color : '#4a5a7a', fontSize: 9,
+          color:        open ? color : '#8593b5', fontSize: 9,
           display: 'flex', alignItems: 'center', gap: 3,
           transition: 'all .12s',
         }}
@@ -1253,7 +1253,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
         }}
         onMouseLeave={(e) => {
           if (!open) {
-            ;(e.currentTarget as HTMLElement).style.color = '#4a5a7a'
+            ;(e.currentTarget as HTMLElement).style.color = '#8593b5'
             ;(e.currentTarget as HTMLElement).style.borderColor = '#2a3349'
           }
         }}>
@@ -1282,7 +1282,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
           {/* Header */}
           <div style={{
             padding: '5px 10px 4px', fontSize: 9, fontWeight: 600,
-            color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.07em',
+            color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.07em',
             borderBottom: `0.5px solid ${color}20`, background: '#1a2030',
           }}>
             Importa schema da
@@ -1309,7 +1309,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
                   style={{
                     padding:      '7px 10px',
                     fontSize:     11,
-                    color:        count > 0 ? '#c8d4f0' : '#4a5a7a',
+                    color:        count > 0 ? '#c8d4f0' : '#8593b5',
                     cursor:       count > 0 ? 'pointer' : 'not-allowed',
                     display:      'flex', alignItems: 'center', gap: 8,
                     borderBottom: '0.5px solid #1a2030',
@@ -1328,22 +1328,22 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
                     }}>
                       {(node.data.config as any)?.displayName || nodeTypeLabel(node.data.type)}
                     </div>
-                    <div style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace' }}>
+                    <div style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace' }}>
                       {node.id.length > 20 ? node.id.slice(0, 20) + '…' : node.id}
                     </div>
                   </div>
                   {count > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, flexShrink: 0 }}>
-                      <span style={{ fontSize: 9, color: '#4a5a7a' }}>{count} campi</span>
+                      <span style={{ fontSize: 9, color: '#8593b5' }}>{count} campi</span>
                       {newCount > 0 && (
                         <span style={{ fontSize: 9, color: '#3ddc84' }}>+{newCount} nuovi</span>
                       )}
                       {newCount === 0 && (
-                        <span style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>già presenti</span>
+                        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>già presenti</span>
                       )}
                     </div>
                   ) : (
-                    <span style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', flexShrink: 0 }}>
                       nessuno schema
                     </span>
                   )}
@@ -1351,7 +1351,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
               )
             })
           ) : (
-            <div style={{ padding: '8px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+            <div style={{ padding: '8px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
               Nessun nodo collegato a questo output
             </div>
           )}
@@ -1368,7 +1368,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
-            <i className="ti ti-file-import" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
+            <i className="ti ti-file-import" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
             da file (.json)…
           </div>
         </div>,
@@ -1406,9 +1406,9 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
       <div style={{ padding: '8px 12px', fontSize: 9, fontWeight: 600, color: '#3ddc84', textTransform: 'uppercase', letterSpacing: '.08em', borderBottom: '1px solid #2a3349', background: '#0f1117', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         <span style={{ flex: 1 }}>Output</span>
         <button onClick={() => addTMapOutput(nodeId)}
-          style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 7px', fontSize: 9, color: '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 7px', fontSize: 9, color: '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#3ddc84' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-plus" style={{ fontSize: 10 }} /> flusso
         </button>
       </div>
@@ -1435,7 +1435,7 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                   <input value={out.label} onChange={(e) => updateTMapOutput(nodeId, out.id, { label: e.target.value })}
                     style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, flex: 1, color, fontFamily: 'monospace', minWidth: 0 }} />
-                  <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>{out.fields.length} campi</span>
+                  <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>{out.fields.length} campi</span>
                   {duplicateNames.size > 0 && (
                     <span title={`${duplicateNames.size} nome/i duplicato/i — verranno rinominati automaticamente in esecuzione`}
                       style={{ fontSize: 9, color: '#ffb347', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
@@ -1480,16 +1480,16 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                     />
                                       {idx > 0 && (
                     <button onClick={() => deleteTMapOutput(nodeId, out.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, flexShrink: 0 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, flexShrink: 0 }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                       <i className="ti ti-x" style={{ fontSize: 10 }} />
                     </button>
                   )}
                 </>
               }>
               <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 3%, #0f1117)`, borderBottom: `0.5px solid ${color}20` }}>
-                <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Filtro routing</div>
+                <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Filtro routing</div>
                 {out.id !== 'output_rejected' ? (
                   /* Il filtro vale per OGNI uscita, non solo dalla terza in poi:
                      il motore lo valuta per tutte tranne il reject (che riceve
@@ -1506,12 +1506,12 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                       onChange={(e) => updateTMapOutput(nodeId, out.id, { filter: e.target.value })}
                       style={{ ...iStyle, fontSize: 10 }}
                       placeholder='vuoto = tutte le righe — es: main.stato == "attivo"' />
-                    <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 2 }}>
+                    <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>
                       legge ingressi e trasformazioni (non i campi di questa uscita)
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+                  <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349' }}>
                     righe senza match dalla join
                   </div>
                 )}
@@ -1600,9 +1600,9 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                           })
                         }, 0)
                       }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px', flexShrink: 0 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px', flexShrink: 0 }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                       <i className="ti ti-x" style={{ fontSize: 10 }} />
                     </button>
                   </FieldRow>
@@ -1655,7 +1655,7 @@ function ConnectionsOverlay({ connections, dragging, onRemove, tick, transforms,
       })}
       {transforms.flatMap((tr) => tr.inputs.map((inp, i) => {
         const from = inputHandleRefs.get(`${inp.inputId}__${inp.fieldName}`); const to = transformInputHandleRefs.get(`${tr.id}__in__${i}`); if (!from || !to) return null
-        const inpColor = tmap ? getInputColor(tmap, inp.inputId) : '#4a5a7a'; const isHilit = hoveredFieldKey === `${inp.inputId}__${inp.fieldName}`
+        const inpColor = tmap ? getInputColor(tmap, inp.inputId) : '#8593b5'; const isHilit = hoveredFieldKey === `${inp.inputId}__${inp.fieldName}`
         return (<path key={`${tr.id}__${inp.inputId}__${inp.fieldName}__${i}`} d={makePath(from.x, from.y, to.x, to.y)} fill="none" stroke={isHilit ? '#3ddc84' : inpColor} strokeWidth={isHilit ? 2 : 1} strokeOpacity={isHilit ? 0.9 : 0.25} strokeDasharray="5 3" />)
       }))}
       {dragging && (() => { const from = inputHandleRefs.get(dragging.fromKey); if (!from) return null; return <path d={makePath(from.x, from.y, dragging.x, dragging.y)} fill="none" stroke={dragging.color} strokeWidth={1.5} strokeOpacity={0.5} strokeDasharray="4 3" /> })()}
@@ -1685,7 +1685,7 @@ function CenterZone({ nodeId, width, height, onDropTransform, onAddInputToTransf
       <div style={{ position: 'sticky', top: 0, fontSize: 9, fontWeight: 600, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '.08em', background: '#0f1117', padding: '6px 10px', borderBottom: '0.5px solid #2a3349', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>Trasformazioni</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {dragging && <span style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', fontWeight: 400 }}>rilascia qui per creare una trasformazione</span>}
+          {dragging && <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', fontWeight: 400 }}>rilascia qui per creare una trasformazione</span>}
           <button
             onClick={() => {
               const newId = `transform_${Date.now()}`
@@ -1728,14 +1728,14 @@ function CenterZone({ nodeId, width, height, onDropTransform, onAddInputToTransf
               .find(f => f.name === inp.fieldName)
               return (field?.type ?? 'any') as TransformCategory
           })
-          const inputColor2 = tr.inputs.length > 0 ? getInputColor(tmap!, tr.inputs[0].inputId) : '#4a5a7a'
+          const inputColor2 = tr.inputs.length > 0 ? getInputColor(tmap!, tr.inputs[0].inputId) : '#8593b5'
           return (
             <div key={tr.id}
               style={{ display: 'flex', alignItems: 'flex-start', gap: 4, background: '#1a2030', border: `1px solid color-mix(in srgb, ${inputColor2} 30%, #2a3349)`, borderRadius: 6, padding: '3px 6px', position: 'relative' }}
               onMouseUp={(e) => { e.stopPropagation(); if (!dragging && !transformDragging) return; onAddInputToTransform(tr.id) }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0, paddingTop: 4 }}>
                 {tr.inputs.map((inp, i) => {
-                  const inpColor = tmap ? getInputColor(tmap, inp.inputId) : '#4a5a7a'
+                  const inpColor = tmap ? getInputColor(tmap, inp.inputId) : '#8593b5'
                   const handleKey = `${tr.id}__in__${i}`; const isHov = hoveredHandle === handleKey
                   return (
                     <div key={i}
@@ -2071,7 +2071,7 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
     useFlowStore.getState().updateTMapTransform(nodeId, transformId, { inputs: newInputs, expression: newExpression })
   }, [nodeId, tmap])
 
-  if (!tmap) return <div style={{ color: '#4a5a7a', padding: 20, fontSize: 12 }}>Nessun TMap configurato.</div>
+  if (!tmap) return <div style={{ color: '#8593b5', padding: 20, fontSize: 12 }}>Nessun TMap configurato.</div>
 
   return (
     <div ref={containerRef} style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
@@ -2197,18 +2197,18 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
           <span style={{ fontSize: 20, color: '#a78bfa' }}>⇌</span>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#c8d4f0' }}>{node?.data.config.displayName || node?.data.label || 'TMap'}</div>
-            <div style={{ fontSize: 11, color: '#4a5a7a', fontFamily: 'monospace' }}>{nodeId} · {node?.data.laneId}</div>
+            <div style={{ fontSize: 11, color: '#8593b5', fontFamily: 'monospace' }}>{nodeId} · {node?.data.laneId}</div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             <button onClick={() => setIsMaximized((m) => { if (!m) { setModalWidth(null); resetDrag() } return !m })}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', color: '#9a9aaa', display: 'flex', alignItems: 'center' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a5a7a' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className={`ti ${isMaximized ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 13 }} />
             </button>
             <button onClick={onClose}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a5a7a' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
             </button>
@@ -2217,9 +2217,9 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
         <div style={{ display: 'flex', borderBottom: '1px solid #2a3349', flexShrink: 0, overflowX: 'auto', background: '#161b27' }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
-              style={{ padding: '9px 16px', fontSize: 11, background: activeTab === t.id ? '#1e2535' : 'transparent', border: 'none', borderBottom: activeTab === t.id ? '2px solid #a78bfa' : '2px solid transparent', color: activeTab === t.id ? '#c8d4f0' : '#4a5a7a', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s' }}
+              style={{ padding: '9px 16px', fontSize: 11, background: activeTab === t.id ? '#1e2535' : 'transparent', border: 'none', borderBottom: activeTab === t.id ? '2px solid #a78bfa' : '2px solid transparent', color: activeTab === t.id ? '#c8d4f0' : '#8593b5', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s' }}
               onMouseEnter={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#9a9aaa' }}
-              onMouseLeave={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+              onMouseLeave={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
               <i className={`ti ${t.icon}`} style={{ fontSize: 13 }} /> {t.label}
             </button>
           ))}
@@ -2230,7 +2230,7 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
           <div style={{ display: activeTab === 'advanced' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'auto', padding: 16 }}><TabAdvanced nodeId={nodeId} /></div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#4a5a7a', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: '#2a1a4a', color: '#a78bfa', border: '1px solid #4a2a8a', fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#3a2a5a' }}

@@ -63,7 +63,7 @@ export function ScriptMode({ value, outputType, onChange, iStyle }: Props) {
           style={{
             fontSize: 9, padding: '2px 8px', borderRadius: 4,
             background: 'none', border: '1px solid #2a3349',
-            color: '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3,
+            color: '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3,
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.borderColor = '#a78bfa'
@@ -71,7 +71,7 @@ export function ScriptMode({ value, outputType, onChange, iStyle }: Props) {
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'
-            ;(e.currentTarget as HTMLElement).style.color = '#4a5a7a'
+            ;(e.currentTarget as HTMLElement).style.color = '#8593b5'
           }}>
           <i className="ti ti-template" style={{ fontSize: 9 }} /> template {outputType}
         </button>

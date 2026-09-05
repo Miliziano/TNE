@@ -34,7 +34,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -89,7 +89,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       {kafkaRes.length === 0 ? (
         <div style={{
           padding: '12px', textAlign: 'center',
-          color: '#4a5a7a', fontSize: 11,
+          color: '#8593b5', fontSize: 11,
           background: '#1a2030', borderRadius: 6,
           border: '1px dashed #2a3349',
         }}>

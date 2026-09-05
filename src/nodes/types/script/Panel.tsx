@@ -58,7 +58,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -104,9 +104,9 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
           <button
             onClick={() => setOpen((v) => !v)}
             title="Trasformazioni disponibili"
-            style={{ padding: '2px 5px 2px 3px', background: open ? `color-mix(in srgb, ${color} 20%, #161b27)` : '#161b27', border: 'none', borderLeft: '1px solid #2a3349', color: open ? color : '#4a5a7a', cursor: 'pointer', fontSize: 9, transition: 'all .1s' }}
+            style={{ padding: '2px 5px 2px 3px', background: open ? `color-mix(in srgb, ${color} 20%, #161b27)` : '#161b27', border: 'none', borderLeft: '1px solid #2a3349', color: open ? color : '#8593b5', cursor: 'pointer', fontSize: 9, transition: 'all .1s' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
-            onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+            onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
             ▾
           </button>
         )}
@@ -121,15 +121,15 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
             style={{ padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #2a3349' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a3349' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
-            <span style={{ fontSize: 9, color: '#4a5a7a' }}>📋</span>
+            <span style={{ fontSize: 9, color: '#8593b5' }}>📋</span>
             <code style={{ fontSize: 9, color }}>{varName}</code>
-            <span style={{ fontSize: 9, color: '#4a5a7a', marginLeft: 'auto' }}>inserisci</span>
+            <span style={{ fontSize: 9, color: '#8593b5', marginLeft: 'auto' }}>inserisci</span>
           </div>
           <div onClick={() => { onWrap(varName); setOpen(false) }}
             style={{ padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #2a3349' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a3349' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
-            <span style={{ fontSize: 9, color: '#4a5a7a' }}>⬡</span>
+            <span style={{ fontSize: 9, color: '#8593b5' }}>⬡</span>
             <span style={{ fontSize: 9, color: '#9a9aaa' }}>wrap selezione nell'editor</span>
           </div>
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
@@ -142,7 +142,7 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
                   <span style={{ fontSize: 9, color: '#a78bfa', flexShrink: 0 }}>⚡</span>
                   <span style={{ fontSize: 10, color: '#c8d4f0', flexShrink: 0, minWidth: 80 }}>{t.label}</span>
-                  <code style={{ fontSize: 9, color: '#4a5a7a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{expr}</code>
+                  <code style={{ fontSize: 9, color: '#8593b5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{expr}</code>
                   {t.outputType && t.outputType !== type && (
                     <span style={{ fontSize: 9, color: '#ffb347', flexShrink: 0, marginLeft: 4 }}>→ {t.outputType}</span>
                   )}
@@ -342,7 +342,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       <div style={{ background: '#161b27', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
 
         <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Sorgente delle righe</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Sorgente delle righe</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
               { value: 'flusso', label: 'Dal flusso', icon: 'ti-arrow-right',
@@ -358,8 +358,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: sourceMode === m.value ? '#4a9eff' : '#4a5a7a' }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: sourceMode === m.value ? '#4a9eff' : '#4a5a7a' }}>{m.label}</span>
+                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: sourceMode === m.value ? '#4a9eff' : '#8593b5' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: sourceMode === m.value ? '#4a9eff' : '#8593b5' }}>{m.label}</span>
                 </div>
                 <span style={{ fontSize: 9, color: sourceMode === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
               </button>
@@ -373,7 +373,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         </div>
 
         <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Uscita verso valle</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Uscita verso valle</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
               { value: 'passthrough', label: 'Dati',    icon: 'ti-table-row',    desc: 'righe elaborate', pronto: true  },
@@ -398,8 +398,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: outputMode === m.value ? '#4a9eff' : '#4a5a7a' }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? '#4a9eff' : '#4a5a7a' }}>{m.label}</span>
+                  <i className={`ti ${m.icon}`} style={{ fontSize: 13, color: outputMode === m.value ? '#4a9eff' : '#8593b5' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? '#4a9eff' : '#8593b5' }}>{m.label}</span>
                 </div>
                 <span style={{ fontSize: 9, color: outputMode === m.value ? '#7a9aaa' : '#2a3349' }}>{m.desc}</span>
               </button>
@@ -439,7 +439,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             ))}
           </CustomSelect>
           <button onClick={() => updateProp(nodeId, 'code', '')}
-            style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', color: '#4a5a7a' }}
+            style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', color: '#8593b5' }}
             title="Svuota editor">
             <i className="ti ti-eraser" style={{ fontSize: 10 }} />
           </button>
@@ -451,7 +451,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
 
       {/* ══ SEZ 2 — VARIABILI DISPONIBILI ══════════════════════ */}
       <div style={{ background: '#161b27', border: '1px solid #2a3349', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+        <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em' }}>
           Variabili disponibili — clicca per inserire · ▾ per trasformazioni
         </div>
 
@@ -540,7 +540,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             La riga sotto compare solo se il pool ne ha, per rispondere alla
             domanda "e le mie variabili di pool?" prima che venga posta. */}
         {poolVars.length > 0 && (
-          <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.5, fontStyle: 'italic' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.5, fontStyle: 'italic' }}>
             Le {poolVars.length} variabili di pool non sono leggibili dalle espressioni:
             usa quelle di lane.
           </div>
@@ -636,14 +636,14 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
 
       {/* ══ SEZ 6 — OPZIONI AVANZATE ════════════════════════════ */}
       <div style={{ background: '#1a2030', border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
-      <div style={{ padding: '5px 10px', fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+      <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
   <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
   I thread non sono permessi in nessuna modalità sandbox. Per il parallelismo usa più lane o più nodi script in pipeline.
 </div>
         <button onClick={() => setShowAdvanced((v) => !v)}
           style={{ width: '100%', background: 'none', border: 'none', padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#9a9aaa', fontSize: 10 }}>
           <i className={`ti ${showAdvanced ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 10 }} />
-          <i className="ti ti-settings-2" style={{ fontSize: 11, color: '#4a5a7a' }} />
+          <i className="ti ti-settings-2" style={{ fontSize: 11, color: '#8593b5' }} />
           Opzioni avanzate
         </button>
         {showAdvanced && (

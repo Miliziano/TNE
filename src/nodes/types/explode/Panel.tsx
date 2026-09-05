@@ -27,7 +27,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -168,7 +168,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: source === s.value ? ACCENT : 'transparent', border: `1.5px solid ${source === s.value ? ACCENT : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: source === s.value ? ACCENT : '#c8d4f0' }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{s.disabled ? s.disabledHint : s.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{s.disabled ? s.disabledHint : s.desc}</div>
             </div>
           </button>
         ))}
@@ -211,11 +211,11 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
                 {materializeSchema.map((f, i, arr) => (
                   <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '4px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                     <code style={{ fontFamily: 'monospace', fontSize: 10, color: '#c8d4f0' }}>{f.name}</code>
-                    <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                    <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ padding: '5px 10px', fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', display: 'flex', gap: 5 }}>
+              <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
                 <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
                 Schema propagato automaticamente ai nodi a valle.
               </div>
@@ -306,7 +306,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
         <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
       </Field>
 
-      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
         Pattern tipico: <code style={{ color: '#22d3ee', fontSize: 9 }}>Materialize → Explode → TMap → Sink</code>
       </div>
@@ -360,9 +360,9 @@ function SchemaEditor({ nodeId, currentSchema, onSave }: {
                 {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </CustomSelect>
               <button onClick={() => deleteField(idx)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                 <i className="ti ti-x" style={{ fontSize: 10 }} />
               </button>
             </div>

@@ -22,7 +22,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -133,7 +133,7 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           <div style={{ fontSize: 11, fontWeight: 600, color: isEnabled ? txColor : '#c8d4f0' }}>
             {isEnabled ? 'Transazione abilitata' : 'Partecipa a una transazione'}
           </div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>
             {isEnabled
               ? `Gruppo "${txId}" · ${txMode === 'xa' ? 'XA two-phase commit' : 'transazione nativa'}`
               : 'Il nodo scrive in modo indipendente — nessun coordinamento transazionale'}
@@ -152,8 +152,8 @@ export function TransactionGroupEditor({ nodeId }: Props) {
               <button key={m.value} onClick={() => saveTx({ mode: m.value })}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: txMode === m.value ? `color-mix(in srgb, ${m.color} 12%, #1a2030)` : '#1a2030', border: txMode === m.value ? `1.5px solid ${m.color}` : '1px solid #2a3349' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: txMode === m.value ? m.color : '#c8d4f0' }}>{m.label}</div>
-                <div style={{ fontSize: 9, color: txMode === m.value ? m.color : '#4a5a7a', fontWeight: 600 }}>{m.desc}</div>
-                <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.detail}</div>
+                <div style={{ fontSize: 9, color: txMode === m.value ? m.color : '#8593b5', fontWeight: 600 }}>{m.desc}</div>
+                <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.detail}</div>
               </button>
             ))}
           </div>
@@ -166,12 +166,12 @@ export function TransactionGroupEditor({ nodeId }: Props) {
                 placeholder="tx_ordine" />
               {existingGroups.filter((g) => g !== txId).length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: '#4a5a7a', alignSelf: 'center' }}>Gruppi esistenti:</span>
+                  <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>Gruppi esistenti:</span>
                   {existingGroups.filter((g) => g !== txId).map((g) => (
                     <button key={g} onClick={() => saveTx({ id: g })}
-                      style={{ padding: '1px 7px', fontSize: 10, borderRadius: 8, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '1px solid #2a3349', fontFamily: 'monospace' }}
+                      style={{ padding: '1px 7px', fontSize: 10, borderRadius: 8, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '1px solid #2a3349', fontFamily: 'monospace' }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = txColor; (e.currentTarget as HTMLElement).style.borderColor = txColor }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
                       {g}
                     </button>
                   ))}
@@ -182,7 +182,7 @@ export function TransactionGroupEditor({ nodeId }: Props) {
 
           {/* Risorsa corrente */}
           {resource && (
-            <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${txColor}20`, fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${txColor}20`, fontSize: 9, color: '#8593b5', display: 'flex', gap: 6, alignItems: 'center' }}>
               <i className="ti ti-database" style={{ fontSize: 10, color: txColor, flexShrink: 0 }} />
               Risorsa: <code style={{ color: txColor }}>{resource.label}</code>
               <span style={{ color: '#2a3349' }}>({resource.kind})</span>
@@ -199,9 +199,9 @@ export function TransactionGroupEditor({ nodeId }: Props) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: `color-mix(in srgb, ${txColor} 8%, #1a2030)` }}>
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: txColor, flexShrink: 0 }} />
                   <code style={{ fontFamily: 'monospace', fontSize: 10, color: txColor, flex: 1 }}>
-                    {node.data.config?.displayName || node.data.label} <span style={{ color: '#4a5a7a' }}>(questo nodo)</span>
+                    {node.data.config?.displayName || node.data.label} <span style={{ color: '#8593b5' }}>(questo nodo)</span>
                   </code>
-                  {resource && <span style={{ fontSize: 9, color: '#4a5a7a' }}>{resource.label}</span>}
+                  {resource && <span style={{ fontSize: 9, color: '#8593b5' }}>{resource.label}</span>}
                 </div>
                 {groupMembers.map((m, i) => {
                   const mResId       = m.data.config?.resourceId ?? ''
@@ -213,7 +213,7 @@ export function TransactionGroupEditor({ nodeId }: Props) {
                       <code style={{ fontFamily: 'monospace', fontSize: 10, color: hasConflict ? '#ff5f57' : '#c8d4f0', flex: 1 }}>
                         {m.data.config?.displayName || m.data.label}
                       </code>
-                      {mRes && <span style={{ fontSize: 9, color: hasConflict ? '#ff5f57' : '#4a5a7a' }}>{mRes.label}</span>}
+                      {mRes && <span style={{ fontSize: 9, color: hasConflict ? '#ff5f57' : '#8593b5' }}>{mRes.label}</span>}
                       {hasConflict && <i className="ti ti-alert-triangle" style={{ fontSize: 10, color: '#ff5f57' }} />}
                     </div>
                   )
@@ -272,7 +272,7 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           </div>
 
           {/* Riepilogo */}
-          <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${txColor}20`, fontSize: 9, fontFamily: 'monospace', color: '#4a5a7a', lineHeight: 1.8 }}>
+          <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${txColor}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
             {txMode === 'native' ? (
               <>
                 <span style={{ color: txColor }}>BEGIN</span> — tutti i sink del gruppo <code style={{ color: txColor }}>{txId || '?'}</code> aprono una transazione condivisa<br />

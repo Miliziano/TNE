@@ -43,7 +43,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -306,7 +306,7 @@ function XmlTreeNodeRow({ node, depth, flows, onToggleFieldInFlow, onGenerateFlo
 
         {node.children.length > 0 ? (
           <button onClick={(e) => { e.stopPropagation(); onToggle(node.id) }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, width: 12, flexShrink: 0 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, width: 12, flexShrink: 0 }}>
             <i className={`ti ${node.collapsed ? 'ti-chevron-right' : 'ti-chevron-down'}`} style={{ fontSize: 9 }} />
           </button>
         ) : (
@@ -320,7 +320,7 @@ function XmlTreeNodeRow({ node, depth, flows, onToggleFieldInFlow, onGenerateFlo
           {node.name}
         </span>
         {node.isRepeating && <span style={{ fontSize: 9, color: '#ffb347', flexShrink: 0, marginRight: 2 }}>×{node.occurrences}</span>}
-        {isLeaf && !isAttr && <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0, marginRight: 4 }}>text</span>}
+        {isLeaf && !isAttr && <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0, marginRight: 4 }}>text</span>}
         {isAttr && <span style={{ fontSize: 9, color: '#a78bfa', flexShrink: 0, marginRight: 4 }}>attr</span>}
 
         {flows.length > 0 && (
@@ -384,23 +384,23 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: isSelected ? color : `${color}50`, border: `1.5px solid ${color}`, flexShrink: 0 }} />
         <input value={flow.label} onClick={(e) => e.stopPropagation()} onChange={(e) => onUpdate({ label: e.target.value })}
           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, color, fontFamily: 'monospace', flex: 1, minWidth: 0 }} />
-        <code style={{ fontSize: 9, color: '#4a5a7a', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{flow.xpath}</code>
+        <code style={{ fontSize: 9, color: '#8593b5', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{flow.xpath}</code>
         {flow.isRepeating && <span style={{ fontSize: 9, color: '#ffb347' }}>[ ]</span>}
         {flow.streaming   && <i className="ti ti-wave-sine" style={{ fontSize: 9, color: '#ffb347' }} />}
         <button onClick={(e) => { e.stopPropagation(); setMaximized((v) => !v) }}
-          style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#4a5a7a' }}
+          style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className={`ti ${maximized ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 9 }} />
         </button>
         <button onClick={(e) => { e.stopPropagation(); setCollapsed((v) => !v) }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
           <i className={`ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'}`} style={{ fontSize: 10 }} />
         </button>
         <button onClick={(e) => { e.stopPropagation(); onDelete() }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 10 }} />
         </button>
       </div>
@@ -415,7 +415,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
               { key: 'streaming',   label: '〜 Stream',     title: 'Streaming'                      },
             ].map((opt) => (
               <button key={opt.key} title={opt.title} onClick={() => onUpdate({ [opt.key]: !(flow as any)[opt.key] })}
-                style={{ padding: '2px 8px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: (flow as any)[opt.key] ? `color-mix(in srgb, ${color} 20%, #161b27)` : '#1e2535', color: (flow as any)[opt.key] ? color : '#4a5a7a', border: (flow as any)[opt.key] ? `1px solid ${color}60` : '1px solid #2a3349' }}>
+                style={{ padding: '2px 8px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: (flow as any)[opt.key] ? `color-mix(in srgb, ${color} 20%, #161b27)` : '#1e2535', color: (flow as any)[opt.key] ? color : '#8593b5', border: (flow as any)[opt.key] ? `1px solid ${color}60` : '1px solid #2a3349' }}>
                 {opt.label}
               </button>
             ))}
@@ -435,7 +435,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(60px, 0.8fr) minmax(120px, 1.3fr) 40px 70px 80px 80px 24px', gap: 4, padding: '3px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', flexShrink: 0 }}>
                 {['Nome', 'XPath', '@', 'Tipo', 'Trasforma', 'Mancante', ''].map((h, i) => (
-                  <div key={i} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
+                  <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
                 ))}
               </div>
               <div style={{ overflowY: 'auto', maxHeight: maximized ? 'none' : 200 }}>
@@ -464,9 +464,9 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                       {ON_MISSING.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </CustomSelect>
                     <button onClick={() => deleteField(f.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                       <i className="ti ti-x" style={{ fontSize: 10 }} />
                     </button>
                   </div>
@@ -774,7 +774,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
           <span style={{ fontSize: 18, color: ACCENT, fontFamily: 'monospace', fontWeight: 700 }}>&lt;/&gt;</span>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#c8d4f0' }}>{node.data.config?.displayName || 'XML Parser'}</div>
-            <div style={{ fontSize: 11, color: '#4a5a7a', fontFamily: 'monospace' }}>{nodeId}</div>
+            <div style={{ fontSize: 11, color: '#8593b5', fontFamily: 'monospace' }}>{nodeId}</div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             <button onClick={() => setIsMaximized((m) => { if (!m) resetDrag(); return !m })}
@@ -791,7 +791,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
         <div style={{ display: 'flex', borderBottom: '1px solid #2a3349', flexShrink: 0, background: '#161b27' }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
-              style={{ padding: '9px 16px', fontSize: 11, background: activeTab === t.id ? '#1e2535' : 'transparent', border: 'none', borderBottom: activeTab === t.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === t.id ? '#c8d4f0' : '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s', whiteSpace: 'nowrap' }}>
+              style={{ padding: '9px 16px', fontSize: 11, background: activeTab === t.id ? '#1e2535' : 'transparent', border: 'none', borderBottom: activeTab === t.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === t.id ? '#c8d4f0' : '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .15s', whiteSpace: 'nowrap' }}>
               <i className={`ti ${t.icon}`} style={{ fontSize: 13 }} />
               {t.label}
             </button>
@@ -822,7 +822,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                     {(['xml', 'xsd'] as InputMode[]).map((m) => (
                       <button key={m}
                         onClick={() => { setInputMode(m); saveConfig({ ...config, inputMode: m } as any) }}
-                        style={{ flex: 1, padding: '3px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: inputMode === m ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: inputMode === m ? ACCENT : '#4a5a7a', border: inputMode === m ? `1px solid ${ACCENT}60` : '1px solid #2a3349', fontWeight: inputMode === m ? 600 : 400 }}>
+                        style={{ flex: 1, padding: '3px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: inputMode === m ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: inputMode === m ? ACCENT : '#8593b5', border: inputMode === m ? `1px solid ${ACCENT}60` : '1px solid #2a3349', fontWeight: inputMode === m ? 600 : 400 }}>
                         {m.toUpperCase()} {m === 'xsd' ? '(schema)' : '(sample)'}
                       </button>
                     ))}
@@ -836,7 +836,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                     spellCheck={false} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button onClick={handleAnalyze} disabled={!rawInput}
-                      style={{ padding: '3px 14px', fontSize: 10, borderRadius: 4, cursor: rawInput ? 'pointer' : 'not-allowed', background: rawInput ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: rawInput ? ACCENT : '#4a5a7a', border: `1px solid ${rawInput ? ACCENT + '60' : '#2a3349'}`, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      style={{ padding: '3px 14px', fontSize: 10, borderRadius: 4, cursor: rawInput ? 'pointer' : 'not-allowed', background: rawInput ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: rawInput ? ACCENT : '#8593b5', border: `1px solid ${rawInput ? ACCENT + '60' : '#2a3349'}`, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <i className="ti ti-player-play" style={{ fontSize: 9 }} />
                       Analizza {inputMode.toUpperCase()} e genera flussi
                     </button>
@@ -849,9 +849,9 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {[
-                    { key: 'hasReject',        label: config.hasReject ? 'Reject attivo' : 'Reject disabilitato', color: config.hasReject ? '#ff5f57' : '#4a5a7a', activeColor: '#ff5f57', border: config.hasReject ? '#3a1a1a' : '#2a3349' },
-                    { key: 'ignoreNamespaces', label: 'Ignora namespace',      color: config.ignoreNamespaces ? ACCENT : '#4a5a7a', activeColor: ACCENT, border: '#2a3349' },
-                    { key: 'trimText',         label: 'Trim testo automatico', color: config.trimText ? ACCENT : '#4a5a7a', activeColor: ACCENT, border: '#2a3349' },
+                    { key: 'hasReject',        label: config.hasReject ? 'Reject attivo' : 'Reject disabilitato', color: config.hasReject ? '#ff5f57' : '#8593b5', activeColor: '#ff5f57', border: config.hasReject ? '#3a1a1a' : '#2a3349' },
+                    { key: 'ignoreNamespaces', label: 'Ignora namespace',      color: config.ignoreNamespaces ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
+                    { key: 'trimText',         label: 'Trim testo automatico', color: config.trimText ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
                   ].map((opt) => (
                     <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `1px solid ${opt.border}` }}>
                       <button onClick={() => updateConfig({ [opt.key]: !(config as any)[opt.key] })}
@@ -902,7 +902,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                     ].map((item) => (
                       <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <code style={{ fontSize: 9, color: item.color, minWidth: 14 }}>{item.icon}</code>
-                        <span style={{ fontSize: 9, color: '#4a5a7a' }}>{item.label}</span>
+                        <span style={{ fontSize: 9, color: '#8593b5' }}>{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -956,7 +956,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#4a5a7a', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 20%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 35%, #161b27)` }}

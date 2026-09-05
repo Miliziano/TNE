@@ -438,7 +438,7 @@ function Layout() {
               width: 16, height: 16,
               cursor: 'nwse-resize', touchAction: 'none',
               display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
-              color: '#4a5a7a',
+              color: '#8593b5',
             }}
           >
             <i className="ti ti-chevron-down-right" style={{ fontSize: 12 }} />

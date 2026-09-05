@@ -337,7 +337,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
           Schema di uscita
-          <span style={{ fontSize: 10, color: '#4a5a7a', fontWeight: 400, marginLeft: 8 }}>
+          <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
             — i campi propagati ai nodi successivi
           </span>
         </div>
@@ -380,14 +380,14 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
         <span style={{ padding: '1px 7px', borderRadius: 8, fontSize: 10, background: '#1a3a6a', color: '#4a9eff', fontWeight: 600 }}>
           {format.toUpperCase()}
         </span>
-        {isFixed && <span style={{ fontSize: 10, color: '#4a5a7a', marginLeft: 4, fontStyle: 'italic' }}>schema fisso</span>}
-        {!isFixed && <span style={{ fontSize: 10, color: '#4a5a7a', marginLeft: 4, fontStyle: 'italic' }}>{schema.length} campi</span>}
+        {isFixed && <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>schema fisso</span>}
+        {!isFixed && <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>{schema.length} campi</span>}
       </div>
 
       {/* Schema fisso */}
       {isFixed && fixedSchema && (
         <>
-          <div style={{ padding: '8px 10px', fontSize: 11, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
+          <div style={{ padding: '8px 10px', fontSize: 11, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 5 }} />
             {FIXED_FORMAT_HINT[format] ?? `Il formato ${format} produce uno schema fisso non modificabile.`}
           </div>
@@ -417,7 +417,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       {!isFixed && (
         <>
           {schema.length === 0 && (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+            <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
               <i className="ti ti-file-search" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} aria-hidden="true" />
               Clicca <strong style={{ color: '#4a9eff' }}>Rileva dal file</strong> per leggere lo schema reale,<br />oppure aggiungi i campi manualmente.
             </div>
@@ -435,17 +435,17 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '24px minmax(80px, 1fr) minmax(80px, 1fr) 80px minmax(80px, 1fr) 24px', gap: 6, alignItems: 'center', padding: '4px 8px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: idx < schema.length - 1 ? '0.5px solid #2a3349' : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <button onClick={() => moveField(idx, 'up')} disabled={idx === 0}
-                      style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+                      style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
                       <i className="ti ti-chevron-up" style={{ fontSize: 9 }} aria-hidden="true" />
                     </button>
                     <button onClick={() => moveField(idx, 'down')} disabled={idx === schema.length - 1}
-                      style={{ background: 'none', border: 'none', cursor: idx === schema.length - 1 ? 'not-allowed' : 'pointer', color: idx === schema.length - 1 ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+                      style={{ background: 'none', border: 'none', cursor: idx === schema.length - 1 ? 'not-allowed' : 'pointer', color: idx === schema.length - 1 ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
                       <i className="ti ti-chevron-down" style={{ fontSize: 9 }} aria-hidden="true" />
                     </button>
                   </div>
 
                   <div title={(field as any).physicalName || field.name}
-                    style={{ fontFamily: 'monospace', fontSize: 10, color: '#4a5a7a', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    style={{ fontFamily: 'monospace', fontSize: 10, color: '#8593b5', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {(field as any).physicalName || field.name}
                   </div>
 
@@ -480,9 +480,9 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
                   </CustomSelect>
 
                   <button onClick={() => deleteField(idx)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                     <i className="ti ti-x" style={{ fontSize: 11 }} aria-hidden="true" />
                   </button>
                 </div>
@@ -498,7 +498,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
             Aggiungi campo manualmente
           </button>
 
-          <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+          <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 11, marginRight: 4 }} aria-hidden="true" />
             <strong style={{ color: '#9a9aaa' }}>Rileva dal file</strong> legge le prime 50 righe e inferisce i tipi automaticamente.
             Puoi modificare nome logico e tipo dopo il rilevamento.

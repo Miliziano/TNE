@@ -29,7 +29,7 @@ function Field({ label, children, hint }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -50,7 +50,7 @@ function SchemaRow({ name, type, desc, color }: { name: string; type: string; de
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
       <code style={{ fontSize: 10, color, minWidth: 130, flexShrink: 0 }}>{name}</code>
-      <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 50 }}>{type}</span>
+      <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{type}</span>
       <span style={{ fontSize: 9, color: '#2a3349' }}>{desc}</span>
     </div>
   )
@@ -88,7 +88,7 @@ function ReceiverPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-webhook" style={{ fontSize: 16, color: ACCENT_RECV }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT_RECV }}>Webhook Receiver</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>Riceve eventi in ingresso, risponde 200 OK immediatamente, propaga row by row</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Riceve eventi in ingresso, risponde 200 OK immediatamente, propaga row by row</div>
         </div>
       </div>
 
@@ -245,7 +245,7 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
           : <>Scrivi il <strong>nome dell'header</strong> a sinistra. Nel valore usa <code style={{ color }}>$nomeCampo</code> per inserire il valore di un {sourceLabel}.</>
         }
         {suggestions.length === 0 && (
-          <div style={{ marginTop: 4, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ marginTop: 4, color: '#8593b5', fontStyle: 'italic' }}>
             {mode === 'monitor'
               ? 'Nessuna variabile definita nella lane. Aggiungine una dalla sidebar delle variabili.'
               : 'Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.'}
@@ -264,7 +264,7 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
               onChange={(e) => setKey(i, e.target.value)}
               placeholder="X-Header-Name"
             />
-            <span style={{ color: '#4a5a7a', fontSize: 11, flexShrink: 0 }}>:</span>
+            <span style={{ color: '#8593b5', fontSize: 11, flexShrink: 0 }}>:</span>
             {/* Valore */}
             <input
               style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10 }}
@@ -293,7 +293,7 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
           {/* Dropdown variabili — appare solo per la riga selezionata */}
           {insertTarget === i && suggestions.length > 0 && (
             <div style={{ marginLeft: 146, display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${color}40` }}>
-              <span style={{ fontSize: 9, color: '#4a5a7a', width: '100%', marginBottom: 2 }}>
+              <span style={{ fontSize: 9, color: '#8593b5', width: '100%', marginBottom: 2 }}>
                 Clicca per inserire nel valore:
               </span>
               {suggestions.map(varName => (
@@ -312,16 +312,16 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
       {/* Aggiungi riga */}
       <button
         onClick={addRow}
-        style={{ padding: '5px 10px', background: '#1a2030', border: `0.5px solid #2a3349`, borderRadius: 4, cursor: 'pointer', color: '#4a5a7a', fontSize: 10, display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}
+        style={{ padding: '5px 10px', background: '#1a2030', border: `0.5px solid #2a3349`, borderRadius: 4, cursor: 'pointer', color: '#8593b5', fontSize: 10, display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#c8d4f0'; (e.currentTarget as HTMLElement).style.borderColor = color }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
         <i className="ti ti-plus" style={{ fontSize: 10 }} />
         Aggiungi header
       </button>
 
       {/* Preview JSON — collassato */}
       <details style={{ marginTop: 2 }}>
-        <summary style={{ fontSize: 9, color: '#4a5a7a', cursor: 'pointer', userSelect: 'none' }}>
+        <summary style={{ fontSize: 9, color: '#8593b5', cursor: 'pointer', userSelect: 'none' }}>
           JSON template (avanzato)
         </summary>
         <textarea
@@ -374,7 +374,7 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-antenna" style={{ fontSize: 16, color: ACCENT_RESP }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT_RESP }}>Webhook Responder</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>Espone un endpoint HEAD/GET con header costruiti dallo stato corrente</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Espone un endpoint HEAD/GET con header costruiti dallo stato corrente</div>
         </div>
       </div>
 
@@ -490,7 +490,7 @@ function WatchdogPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-eye" style={{ fontSize: 16, color: ACCENT_WD }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT_WD }}>Watchdog</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>
             {watchMode === 'gate'   && 'Blocca il flusso finché la condizione non è soddisfatta, poi sblocca e termina'}
             {watchMode === 'stream' && 'Emette una riga ad ogni rilevazione positiva — rimane sempre attivo'}
             {watchMode === 'edge'   && 'Emette una riga solo quando lo stato cambia (falso→vero o vero→falso)'}

@@ -79,7 +79,7 @@ export function BridgeTab() {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
       {/* Header info */}
-      <div style={{ margin: '4px 8px 10px', padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a' }}>
+      <div style={{ margin: '4px 8px 10px', padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5' }}>
         <div style={{ display: 'flex', gap: 5, marginBottom: 4 }}>
           <i className="ti ti-arrows-transfer-up" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
           <span>I canali bridge collegano nodi <code style={{ color: ACCENT }}>BridgeOut</code> e <code style={{ color: ACCENT }}>BridgeIn</code> in lane diverse.</span>
@@ -125,7 +125,7 @@ export function BridgeTab() {
             <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
               {/* Lane OUT */}
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 }}>OUT</div>
+                <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 }}>OUT</div>
                 {ch.outNode ? (
                   <button
                     onClick={() => navigateTo(ch.outNode!.id, ch.outNode!.laneId)}
@@ -140,14 +140,14 @@ export function BridgeTab() {
               {/* Freccia + sync */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                 <div style={{ fontSize: 16, color: ch.isComplete ? ch.color : '#2a3349' }}>→</div>
-                <span style={{ fontSize: 9, color: '#4a5a7a', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 9, color: '#8593b5', whiteSpace: 'nowrap' }}>
                   {syncLabel(ch.syncMode)}
                 </span>
               </div>
 
               {/* Lane IN */}
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3, textAlign: 'right' }}>IN</div>
+                <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3, textAlign: 'right' }}>IN</div>
                 {ch.inNode ? (
                   <button
                     onClick={() => navigateTo(ch.inNode!.id, ch.inNode!.laneId)}
@@ -177,7 +177,7 @@ export function BridgeTab() {
 
       {/* Contatore */}
       {channels.length > 0 && (
-        <div style={{ padding: '8px 12px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>
+        <div style={{ padding: '8px 12px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>
           {channels.filter((c) => c.isComplete).length} / {channels.length} canali completi
         </div>
       )}

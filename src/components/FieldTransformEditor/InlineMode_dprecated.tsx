@@ -48,7 +48,7 @@ export function InlineMode({ value, inputType, inputVars, onChange, iStyle }: Pr
       {/* Suggerimenti dal catalogo */}
       {catalogFns.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0, marginTop: 2 }}>⚡</span>
+          <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0, marginTop: 2 }}>⚡</span>
           {quickFns.map((fn) => (
             <button
               key={fn.id}
@@ -77,10 +77,10 @@ export function InlineMode({ value, inputType, inputVars, onChange, iStyle }: Pr
               style={{
                 fontSize: 9, padding: '2px 7px', borderRadius: 10,
                 background: 'none', border: '1px dashed #2a3349',
-                color: '#4a5a7a', cursor: 'pointer', flexShrink: 0,
+                color: '#8593b5', cursor: 'pointer', flexShrink: 0,
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#a78bfa' }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
               {showAll ? '↑ meno' : `+${catalogFns.length - 6} altri`}
             </button>
           )}
@@ -90,7 +90,7 @@ export function InlineMode({ value, inputType, inputVars, onChange, iStyle }: Pr
       {/* Variabili disponibili */}
       {inputVars.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>vars:</span>
+          <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>vars:</span>
           {inputVars.map((v) => (
             <button
               key={v}

@@ -105,7 +105,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
         <span title={execTitle} style={{ fontSize: 9, color: `${ACCENT}70`, marginRight: 2 }}>{execIcon}</span>
         <div style={{
           width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-          background: nodeData.status === 'running' ? '#ffb347' : nodeData.status === 'done' ? '#3ddc84' : nodeData.status === 'error' ? '#ff5f57' : '#4a5a7a',
+          background: nodeData.status === 'running' ? '#ffb347' : nodeData.status === 'done' ? '#3ddc84' : nodeData.status === 'error' ? '#ff5f57' : '#8593b5',
         }} />
       </div>
 
@@ -125,7 +125,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
               <span style={{ fontSize: 9, fontFamily: 'monospace', color: cond.color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {cond.label}
               </span>
-              <span style={{ fontSize: 7, color: '#4a5a7a', flexShrink: 0 }}>
+              <span style={{ fontSize: 7, color: '#8593b5', flexShrink: 0 }}>
                 {cond.mode === 'code' ? 'λ' : cond.mode === 'template' ? '⚡' : '⊞'}
               </span>
             </div>

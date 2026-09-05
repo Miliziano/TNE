@@ -22,7 +22,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -223,7 +223,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Info */}
-      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 8 }}>
+      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 8 }}>
         <span style={{ fontSize: 16, color: '#4a9eff' }}>Σ</span>
         <div style={{ lineHeight: 1.5 }}>
           Raggruppa le righe per uno o più campi e calcola funzioni per ogni gruppo.
@@ -250,7 +250,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: dataSource === s.value ? '#22d3ee' : 'transparent', border: `1.5px solid ${dataSource === s.value ? '#22d3ee' : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: dataSource === s.value ? '#22d3ee' : '#c8d4f0' }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{s.hint ?? s.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{s.hint ?? s.desc}</div>
             </div>
           </button>
         ))}
@@ -276,7 +276,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
             </div>
           )}
           {matName && materializeFields.length > 0 && (
-            <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 5, alignItems: 'center' }}>
+            <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
               dataset <code style={{ color: '#22d3ee' }}>{matName}</code> — {materializeFields.length} campi disponibili
             </div>
@@ -290,14 +290,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </CustomSelect>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 4, fontStyle: 'italic' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
                 {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
                 {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
               </div>
             </Field>
           )}
 
-          <div style={{ padding: '6px 10px', fontSize: 9, color: '#4a5a7a', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
+          <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
             Pattern tipico: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Aggregate</code>
           </div>
@@ -319,7 +319,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
                       const next = isSelected ? groupByFields.filter((n) => n !== f.name) : [...groupByFields, f.name]
                       updateProp(nodeId, 'group_by', next.join(', '))
                     }}
-                    style={{ padding: '2px 8px', fontSize: 10, borderRadius: 10, cursor: 'pointer', background: isSelected ? '#0d3d20' : '#1a2030', color: isSelected ? '#3ddc84' : '#4a5a7a', border: isSelected ? '1px solid #1d6d40' : '1px solid #2a3349', fontFamily: 'monospace', transition: 'all .1s' }}>
+                    style={{ padding: '2px 8px', fontSize: 10, borderRadius: 10, cursor: 'pointer', background: isSelected ? '#0d3d20' : '#1a2030', color: isSelected ? '#3ddc84' : '#8593b5', border: isSelected ? '1px solid #1d6d40' : '1px solid #2a3349', fontFamily: 'monospace', transition: 'all .1s' }}>
                     {f.name}
                   </button>
                 )
@@ -339,7 +339,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
 
       {/* Funzioni */}
       <SectionTitle label="Funzioni di aggregazione" color="#ffb347" />
-      <div style={{ fontSize: 10, color: '#4a5a7a', marginBottom: 2 }}>
+      <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 2 }}>
         Ogni funzione produce un campo in output. Dai un alias significativo a ciascuna.
       </div>
       {aggFunctions.map((agg, idx) => (
@@ -355,7 +355,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
 
       {/* HAVING */}
       <SectionTitle label="Filtro post-aggregazione (HAVING)" color="#a78bfa" />
-      <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #a78bfa20', fontSize: 10, color: '#4a5a7a', marginBottom: 4 }}>
+      <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #a78bfa20', fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
         <strong style={{ color: '#a78bfa' }}>HAVING</strong> filtra i <strong style={{ color: '#c8d4f0' }}>gruppi</strong> dopo l'aggregazione.
         Usa i nomi alias: <code style={{ color: '#a78bfa' }}>count &gt; 10</code>
       </div>
@@ -407,7 +407,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
               <div key={f.name}
                 style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.role === 'agg' ? (f as any).color : '#3ddc84' }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 {f.role === 'group' ? (
                   <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d4080', display: 'inline-block' }}>GROUP BY</span>
                 ) : (
@@ -418,7 +418,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', display: 'flex', gap: 5 }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
             <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
             Schema propagato automaticamente ai nodi a valle.
           </div>

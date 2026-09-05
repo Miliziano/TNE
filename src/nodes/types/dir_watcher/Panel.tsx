@@ -21,7 +21,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -143,7 +143,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
               border: mode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             }}>
-            <span style={{ fontSize: 12, color: mode === m.value ? ACCENT : '#4a5a7a', fontWeight: 600 }}>{m.label}</span>
+            <span style={{ fontSize: 12, color: mode === m.value ? ACCENT : '#8593b5', fontWeight: 600 }}>{m.label}</span>
             <span style={{ fontSize: 9, color: mode === m.value ? '#7a9aaa' : '#2a3349', textAlign: 'center' }}>{m.desc}</span>
           </button>
         ))}
@@ -170,7 +170,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
               <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: pathSource === s.value ? ACCENT : '#2a3349' }} />
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: pathSource === s.value ? ACCENT : '#c8d4f0' }}>{s.label}</div>
-                <div style={{ fontSize: 9, color: '#4a5a7a' }}>{s.desc}{disabled ? ' — collega un edge prima' : ''}</div>
+                <div style={{ fontSize: 9, color: '#8593b5' }}>{s.desc}{disabled ? ' — collega un edge prima' : ''}</div>
               </div>
             </button>
           )
@@ -294,7 +294,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
               Timeout 0 = rimane attivo finché non clicchi Stop.
             </div>
           )}
-          <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 5 }}>
+          <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5', display: 'flex', gap: 5 }}>
             <i className="ti ti-refresh" style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }} />
             Sincronizzato con <strong style={{ color: ACCENT }}>Timeout</strong> nel tab Avanzate.
           </div>
@@ -329,19 +329,19 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
 
       <SectionTitle label="Schema output (row by row)" />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30` }}>
-        <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+        <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
           Ogni file produce una riga con questi campi
         </div>
         {schema.map((f, i) => (
           <div key={f.name} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: i < schema.length - 1 ? '0.5px solid #1a2030' : 'none' }}>
             <code style={{ fontSize: 10, color: ACCENT, minWidth: 100, flexShrink: 0 }}>{f.name}</code>
-            <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 50, flexShrink: 0 }}>{f.type}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50, flexShrink: 0 }}>{f.type}</span>
             <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
           </div>
         ))}
       </div>
 
-      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
         Il nodo emette una riga per ogni file trovato/rilevato. Collega l'uscita a un nodo <code style={{ color: ACCENT }}>File Input</code> che usa il campo <code style={{ color: ACCENT }}>path</code> per leggere ogni file.
       </div>

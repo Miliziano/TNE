@@ -182,7 +182,7 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
             style={{ padding: '7px 16px', fontSize: 12, fontWeight: 600, borderRadius: 6,
                      cursor: errors.length > 0 ? 'default' : 'pointer',
                      background: errors.length > 0 ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 24%, #0f1117)`,
-                     color: errors.length > 0 ? '#4a5a7a' : ACCENT, border: `0.5px solid ${ACCENT}55` }}>
+                     color: errors.length > 0 ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}55` }}>
             Salva
           </button>
         </div>

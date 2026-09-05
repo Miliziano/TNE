@@ -23,7 +23,7 @@ import type { NodeRunStats } from '../store/flowStore'
 import type { NodeStatus } from '../types'
 
 export const RUNTIME_STATUS_COLORS: Record<NodeStatus, string> = {
-  idle:    '#4a5a7a',
+  idle:    '#8593b5',
   running: '#ffb347',
   done:    '#3ddc84',
   error:   '#ff5f57',
@@ -38,7 +38,7 @@ export function StatusDot({ status }: { status: NodeStatus }) {
   return (
     <div style={{
       width: 7, height: 7, borderRadius: '50%',
-      background: RUNTIME_STATUS_COLORS[status] ?? '#4a5a7a',
+      background: RUNTIME_STATUS_COLORS[status] ?? '#8593b5',
       flexShrink: 0,
       animation: status === 'running' ? 'nodePulse 0.6s infinite' : undefined,
       boxShadow: status === 'running' ? `0 0 6px ${RUNTIME_STATUS_COLORS.running}` : undefined,
@@ -73,7 +73,7 @@ export function fmtRps(n: number): string {
 export function CounterBadge({ stats }: { stats: NodeRunStats }) {
   const active = stats.status !== 'idle' || stats.rowsIn > 0 || stats.rowsOut > 0
   if (!active) return null
-  const color = RUNTIME_STATUS_COLORS[stats.status] ?? '#4a5a7a'
+  const color = RUNTIME_STATUS_COLORS[stats.status] ?? '#8593b5'
   return (
     <div style={{
       position: 'absolute', bottom: -22, left: '50%', transform: 'translateX(-50%)',

@@ -37,7 +37,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -58,7 +58,7 @@ function SchemaRow({ name, type, desc, color }: { name: string; type: string; de
     <div style={{ display: 'flex', gap: 8, marginBottom: 3, alignItems: 'baseline' }}>
       <code style={{ color, fontSize: 10, minWidth: 120, flexShrink: 0 }}>{name}</code>
       <span style={{ color: '#3a4a6a', fontSize: 9, minWidth: 50, flexShrink: 0 }}>{type}</span>
-      <span style={{ color: '#4a5a7a', fontSize: 9 }}>{desc}</span>
+      <span style={{ color: '#8593b5', fontSize: 9 }}>{desc}</span>
     </div>
   )
 }
@@ -88,7 +88,7 @@ export function ShellExecPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-terminal-2" style={{ fontSize: 16, color: SHELL_COLOR }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: SHELL_COLOR }}>Shell Executor</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>Esegue comandi bash/shell locali — output nel flusso</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Esegue comandi bash/shell locali — output nel flusso</div>
         </div>
       </div>
 
@@ -217,7 +217,7 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-server-bolt" style={{ fontSize: 16, color: SSH_COLOR }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: SSH_COLOR }}>SSH Executor</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>Esegue comandi su host remoto via SSH</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Esegue comandi su host remoto via SSH</div>
         </div>
       </div>
 

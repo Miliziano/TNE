@@ -136,7 +136,7 @@ function TabConnection({ nodeId }: { nodeId: string }) {
   const resource  = resources.find((r) => r.id === resId)
 
   const STATUS_COLOR: Record<string, string> = {
-    ok: '#3ddc84', error: '#ff5f57', testing: '#ffb347', untested: '#4a5a7a',
+    ok: '#3ddc84', error: '#ff5f57', testing: '#ffb347', untested: '#8593b5',
   }
   const STATUS_ICON: Record<string, string> = {
     ok: 'ti-circle-check', error: 'ti-circle-x',
@@ -147,7 +147,7 @@ function TabConnection({ nodeId }: { nodeId: string }) {
     <div style={sectionStyle}>
       <SectionTitle label="Risorsa collegata" />
       {resources.length === 0 ? (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Nessuna risorsa disponibile in questa lane. Aggiungine una dalla resource strip.
         </div>
       ) : (
@@ -166,7 +166,7 @@ function TabConnection({ nodeId }: { nodeId: string }) {
           <i className={`ti ${STATUS_ICON[resource.status] ?? 'ti-circle-dashed'}`}
             style={{ fontSize: 14, color: STATUS_COLOR[resource.status] }} aria-hidden="true" />
           <span style={{ fontSize: 12, color: '#c8d4f0', fontWeight: 600 }}>{resource.label}</span>
-          <span style={{ fontSize: 11, color: '#4a5a7a' }}>{resource.kind} · {resource.status}</span>
+          <span style={{ fontSize: 11, color: '#8593b5' }}>{resource.kind} · {resource.status}</span>
         </div>
       )}
       {def.fields.length > 0 && (
@@ -208,7 +208,7 @@ function TabQuery({ nodeId }: { nodeId: string }) {
 
   if (codeFields.length === 0) {
     return (
-      <div style={{ padding: '32px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: '32px', textAlign: 'center', color: '#8593b5', fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <i className="ti ti-code-off" style={{ fontSize: 28, color: '#2a3349' }} aria-hidden="true" />
         Questo tipo di nodo non ha campi codice o query.
       </div>
@@ -236,7 +236,7 @@ function TabQuery({ nodeId }: { nodeId: string }) {
               }
             }}
             spellCheck={false} />
-          <div style={{ fontSize: 10, color: '#4a5a7a' }}>Tab inserisce 2 spazi. Il codice viene eseguito sul server.</div>
+          <div style={{ fontSize: 10, color: '#8593b5' }}>Tab inserisce 2 spazi. Il codice viene eseguito sul server.</div>
         </div>
       ))}
     </div>
@@ -263,7 +263,7 @@ function TabMapping({ nodeId }: { nodeId: string }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid #2a3349', borderTop: 'none', borderRadius: '0 0 6px 6px', overflow: 'hidden' }}>
         {mappings.length === 0 && (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, background: '#1a2030' }}>
+          <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030' }}>
             Nessun mapping definito. Aggiungi una riga per mappare i campi.
           </div>
         )}
@@ -271,7 +271,7 @@ function TabMapping({ nodeId }: { nodeId: string }) {
           <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 24px 1fr 90px 32px', gap: 8, alignItems: 'center', padding: '6px 10px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: '0.5px solid #2a3349' }}>
             <input style={inputStyle} value={m.sourceField} placeholder="campo_sorgente"
               onChange={(e) => updateMapping(nodeId, m.id, 'sourceField', e.target.value)} />
-            <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#4a5a7a', textAlign: 'center' }} aria-hidden="true" />
+            <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#8593b5', textAlign: 'center' }} aria-hidden="true" />
             <input style={inputStyle} value={m.targetField} placeholder="campo_dest"
               onChange={(e) => updateMapping(nodeId, m.id, 'targetField', e.target.value)} />
             <CustomSelect style={{ ...inputStyle, padding: '5px 4px' }} value={m.transform ?? ''}
@@ -348,7 +348,7 @@ function TabPreview({ nodeId }: { nodeId: string }) {
           </tbody>
         </table>
       </div>
-      <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+      <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
         Prime 5 righe simulate. L'anteprima reale sarà disponibile con il backend collegato.
       </div>
     </div>
@@ -464,7 +464,7 @@ export function NodeEditorModal() {
             <div style={{ fontSize: 14, fontWeight: 600, color: '#c8d4f0' }}>
               {node.data.config.displayName || def?.label || node.data.label}
             </div>
-            <div style={{ fontSize: 11, color: '#4a5a7a', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 11, color: '#8593b5', fontFamily: 'monospace' }}>
               {node.id} · {node.data.laneId}
             </div>
           </div>
@@ -473,13 +473,13 @@ export function NodeEditorModal() {
               onClick={() => setIsMaximized((m) => { if (!m) { setModalWidth(null); resetDrag() } return !m })}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', color: '#9a9aaa', display: 'flex', alignItems: 'center' }}
               title={isMaximized ? 'Ripristina' : 'Massimizza'}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a5a7a' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className={`ti ${isMaximized ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 13 }} aria-hidden="true" />
             </button>
             <button onClick={closeEditor}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a5a7a' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className="ti ti-x" style={{ fontSize: 12 }} aria-hidden="true" />
               chiudi
@@ -496,13 +496,13 @@ export function NodeEditorModal() {
                 background: activeTab === t.id ? '#1e2535' : 'transparent',
                 border: 'none',
                 borderBottom: activeTab === t.id ? '2px solid #4a9eff' : '2px solid transparent',
-                color: activeTab === t.id ? '#c8d4f0' : '#4a5a7a',
+                color: activeTab === t.id ? '#c8d4f0' : '#8593b5',
                 cursor: 'pointer', whiteSpace: 'nowrap',
                 display: 'flex', alignItems: 'center', gap: 6,
                 transition: 'all .15s',
               }}
               onMouseEnter={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#9a9aaa' }}
-              onMouseLeave={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+              onMouseLeave={(e) => { if (activeTab !== t.id) (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
               <i className={`ti ${t.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
               {t.label}
             </button>
@@ -561,7 +561,7 @@ export function NodeEditorModal() {
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#4a5a7a', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
           <button onClick={closeEditor}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: '#1a3a6a', color: '#4a9eff', border: '1px solid #2a5a9a', fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a4a7a' }}

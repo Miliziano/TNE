@@ -20,7 +20,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -96,7 +96,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
               <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: pathSource === s.value ? ACCENT : '#2a3349' }} />
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: pathSource === s.value ? ACCENT : '#c8d4f0' }}>{s.label}</div>
-                <div style={{ fontSize: 9, color: '#4a5a7a' }}>{s.desc}{disabled ? ' — collega un edge prima' : ''}</div>
+                <div style={{ fontSize: 9, color: '#8593b5' }}>{s.desc}{disabled ? ' — collega un edge prima' : ''}</div>
               </div>
             </button>
           )

@@ -85,7 +85,7 @@ export function DefaultPanel({ nodeId }: { nodeId: string }) {
       {def.fields.length === 0 && (
         <div style={{
           padding: '20px', textAlign: 'center',
-          color: '#4a5a7a', fontSize: 12,
+          color: '#8593b5', fontSize: 12,
           background: '#1a2030', borderRadius: 6,
           border: '0.5px dashed #2a3349',
         }}>

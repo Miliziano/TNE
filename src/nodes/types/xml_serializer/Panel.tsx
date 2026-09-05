@@ -26,7 +26,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -105,7 +105,7 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
         {/* Namespace */}
         <input value={node.namespace}
           onChange={(e) => onChange(node.id, { namespace: e.target.value })}
-          style={{ ...inputStyle, fontSize: 9, padding: '2px 4px', width: 50, flexShrink: 0, color: '#4a5a7a' }}
+          style={{ ...inputStyle, fontSize: 9, padding: '2px 4px', width: 50, flexShrink: 0, color: '#8593b5' }}
           placeholder="ns" title="Prefisso namespace (opzionale)" />
 
         {/* Nome XML */}
@@ -166,9 +166,9 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
 
         {/* Elimina */}
         <button onClick={() => onDelete(node.id)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, flexShrink: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, flexShrink: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 10 }} />
         </button>
       </div>
@@ -407,18 +407,18 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
         ))}
         {inFields.length > 0 && (
           <button onClick={autoPopulate}
-            style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px solid #2a3349', marginLeft: 'auto' }}
+            style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', marginLeft: 'auto' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = ACCENT }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
             <i className="ti ti-wand" style={{ fontSize: 10, marginRight: 4 }} />Auto da schema
           </button>
         )}
         <button onClick={() => setShowImport((v) => !v)}
-          style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px solid #2a3349' }}>
+          style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349' }}>
           <i className="ti ti-upload" style={{ fontSize: 10, marginRight: 4 }} />Import XSD
         </button>
         <button onClick={() => setShowPreview((v) => !v)}
-          style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#4a5a7a', border: '0.5px solid #2a3349' }}>
+          style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349' }}>
           <i className="ti ti-eye" style={{ fontSize: 10, marginRight: 4 }} />Anteprima
         </button>
       </div>
@@ -429,11 +429,11 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             {['xsd', 'xml'].map((mode) => (
               <button key={mode} onClick={() => setImportMode(mode as any)}
-                style={{ padding: '2px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: importMode === mode ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030', color: importMode === mode ? ACCENT : '#4a5a7a', border: importMode === mode ? `1px solid ${ACCENT}50` : '1px solid #2a3349' }}>
+                style={{ padding: '2px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: importMode === mode ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030', color: importMode === mode ? ACCENT : '#8593b5', border: importMode === mode ? `1px solid ${ACCENT}50` : '1px solid #2a3349' }}>
                 {mode.toUpperCase()}
               </button>
             ))}
-            <span style={{ fontSize: 9, color: '#4a5a7a', alignSelf: 'center', marginLeft: 4 }}>
+            <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center', marginLeft: 4 }}>
               {importMode === 'xsd' ? 'Incolla un XSD — gli elementi semplici vengono importati come mapping' : 'Incolla XML di esempio — la struttura viene importata come template'}
             </span>
           </div>
@@ -450,7 +450,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       {/* Anteprima */}
       {showPreview && previewXml && (
         <div style={{ padding: '8px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30` }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4 }}>Anteprima struttura XML (valori come segnaposto)</div>
+          <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Anteprima struttura XML (valori come segnaposto)</div>
           <pre style={{ margin: 0, fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {p('xmlDeclaration', 'true') === 'true' ? `<?xml version="1.0" encoding="${p('encoding', 'UTF-8')}"?>\n` : ''}
             {`<${p('rootNsPrefix') ? p('rootNsPrefix') + ':' : ''}${p('rootElement', 'record')}>\n${previewXml}\n</${p('rootNsPrefix') ? p('rootNsPrefix') + ':' : ''}${p('rootElement', 'record')}>`}
@@ -460,7 +460,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
 
       {/* Struttura */}
       {structure.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-code" style={{ fontSize: 24, display: 'block', marginBottom: 8, color: `${ACCENT}40` }} />
           Aggiungi elementi o importa un XSD per definire la struttura XML output.
         </div>
@@ -475,7 +475,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Validazione XSD output */}
-      <SectionTitle label="Validazione output" color="#4a5a7a" />
+      <SectionTitle label="Validazione output" color="#8593b5" />
       <Field label="Valida output contro XSD" hint="Opzionale — rallenta la pipeline, utile in sviluppo">
         <CustomSelect style={inputStyle} value={p('validateOutput', 'false')} onChange={u('validateOutput')}>
           <option value="false">No — salta validazione</option>
@@ -484,15 +484,15 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Output nodo */}
-      <SectionTitle label="Output del nodo" color="#4a5a7a" />
-      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.8 }}>
+      <SectionTitle label="Output del nodo" color="#8593b5" />
+      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d40' }}>output</span>
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>Righe originali + campo <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code> con XML serializzato</span>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>Righe originali + campo <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code> con XML serializzato</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#1a0000', color: '#ff5f57', border: '0.5px solid #3d1010' }}>reject</span>
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>Righe non serializzabili + campo <code style={{ color: '#ff5f57' }}>_xml_error</code></span>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>Righe non serializzabili + campo <code style={{ color: '#ff5f57' }}>_xml_error</code></span>
         </div>
       </div>
     </div>

@@ -79,7 +79,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
     background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', padding: '10px 12px',
   }
   const th: React.CSSProperties = {
-    fontSize: 9, color: '#4a5a7a', fontWeight: 600, textTransform: 'uppercase',
+    fontSize: 9, color: '#8593b5', fontWeight: 600, textTransform: 'uppercase',
     letterSpacing: '.06em', textAlign: 'left', padding: '4px 8px', whiteSpace: 'nowrap',
   }
   const td: React.CSSProperties = {
@@ -88,7 +88,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
 
   if (handles.length === 0 || fields.length === 0) {
     return (
-      <div style={{ padding: 20, textAlign: 'center', color: '#4a5a7a', fontSize: 11,
+      <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                     background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
         <i className="ti ti-eye-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
         Collega i flussi e apri il tab <b>Mapping</b> per vedere l'anteprima della struttura.
@@ -167,7 +167,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
                             ? <span style={{ color }}>●</span>
                             : omit
                               ? <span style={{ color: '#3a4560' }}>—</span>
-                              : <span style={{ color: '#4a5a7a' }}>○</span>}
+                              : <span style={{ color: '#8593b5' }}>○</span>}
                         </td>
                       )
                     })}
@@ -181,18 +181,18 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
           </table>
         </div>
 
-        <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 9, color: '#4a5a7a' }}>
+        <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 9, color: '#8593b5' }}>
           <span><span style={{ color: '#9a9aaa' }}>●</span> alimentata dal flusso</span>
           {omit
             ? <span><span style={{ color: '#3a4560' }}>—</span> colonna omessa dalla riga</span>
-            : <span><span style={{ color: '#4a5a7a' }}>○</span> valore <code>null</code></span>}
+            : <span><span style={{ color: '#8593b5' }}>○</span> valore <code>null</code></span>}
         </div>
       </div>
 
       {/* ── Campi rinominati ── */}
       {fields.some((f) => Object.values(f.from).some((src) => src !== f.name)) && (
         <div style={box}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 6, textTransform: 'uppercase',
+          <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 6, textTransform: 'uppercase',
                         letterSpacing: '.06em', fontWeight: 600 }}>
             Rinomine applicate
           </div>
@@ -203,7 +203,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
                 const lbl = handles.find((x) => x.handle === h)?.label ?? h
                 return (
                   <div key={`${h}::${src}`} style={{ fontSize: 10, color: '#9a9aaa', padding: '2px 0' }}>
-                    <code style={{ color: '#4a5a7a' }}>{lbl}.{src}</code>
+                    <code style={{ color: '#8593b5' }}>{lbl}.{src}</code>
                     <span style={{ margin: '0 6px', color: ACCENT }}>→</span>
                     <code style={{ color: '#c8d4f0' }}>{f.name}</code>
                   </div>
@@ -226,7 +226,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
             <div key={f.name} style={{ paddingLeft: 14 }}>
               <span style={{ color: '#c8d4f0' }}>"{f.name}"</span>
               <span>: </span>
-              <span style={{ color: '#4a5a7a' }}>{f.type}</span>
+              <span style={{ color: '#8593b5' }}>{f.type}</span>
               {mode !== 'zip' && Object.keys(f.from).length < handles.length && !omit && (
                 <span style={{ color: '#ffb347' }}> | null</span>
               )}
@@ -237,7 +237,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
             <div style={{ paddingLeft: 14 }}>
               <span style={{ color: ACCENT }}>"{sourceField}"</span>
               <span>: </span>
-              <span style={{ color: '#4a5a7a' }}>string</span>
+              <span style={{ color: '#8593b5' }}>string</span>
             </div>
           )}
           {'}'}

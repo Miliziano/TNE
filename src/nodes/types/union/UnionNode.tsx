@@ -152,7 +152,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
         style={{
           top:          '75%',
           background:   '#2a3349',
-          border:       '2px dashed #4a5a7a',
+          border:       '2px dashed #8593b5',
           width:        12,
           height:       12,
           left:         -20,
@@ -199,12 +199,12 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, opacity: 0.4, marginTop: 2 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, border: '1px dashed #4a5a7a' }} />
-          <span style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>+ nuovo flusso</span>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, border: '1px dashed #8593b5' }} />
+          <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>+ nuovo flusso</span>
         </div>
 
         <div style={{
-          marginTop: 4, fontSize: 10, color: '#4a5a7a',
+          marginTop: 4, fontSize: 10, color: '#8593b5',
           fontFamily: 'monospace', textAlign: 'center',
           borderTop: '0.5px solid #2a3349', paddingTop: 4,
         }}>

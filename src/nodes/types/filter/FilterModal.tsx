@@ -53,7 +53,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -86,7 +86,7 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
                   <button key={op} onClick={() => update(clause.id, 'logic', op)}
                     style={{ padding: '2px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', fontWeight: 600,
                       background: clause.logic === op ? '#1a3a6a' : 'transparent',
-                      color: clause.logic === op ? '#4a9eff' : '#4a5a7a',
+                      color: clause.logic === op ? '#4a9eff' : '#8593b5',
                       border: clause.logic === op ? '1px solid #2a5a9a' : '1px solid #2a3349' }}>
                     {op}
                   </button>
@@ -182,7 +182,7 @@ function TemplateBuilder({ templateId, params, onChange }: {
 
       {selected && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
             {selected.description}
           </div>
           {selected.params.map((param) => (
@@ -194,7 +194,7 @@ function TemplateBuilder({ templateId, params, onChange }: {
           ))}
          {/* Anteprima codice generato */}
           <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-            <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Codice generato</div>
+            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Codice generato</div>
             <code style={{ fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all' }}>
               {(() => {
                 try {
@@ -236,11 +236,11 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
         {/* Drag handle / riordino */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
           <button onClick={onMoveUp} disabled={isFirst}
-            style={{ background: 'none', border: 'none', cursor: isFirst ? 'not-allowed' : 'pointer', color: isFirst ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+            style={{ background: 'none', border: 'none', cursor: isFirst ? 'not-allowed' : 'pointer', color: isFirst ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
             <i className="ti ti-chevron-up" style={{ fontSize: 9 }} />
           </button>
           <button onClick={onMoveDown} disabled={isLast}
-            style={{ background: 'none', border: 'none', cursor: isLast ? 'not-allowed' : 'pointer', color: isLast ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+            style={{ background: 'none', border: 'none', cursor: isLast ? 'not-allowed' : 'pointer', color: isLast ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
             <i className="ti ti-chevron-down" style={{ fontSize: 9 }} />
           </button>
         </div>
@@ -264,7 +264,7 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
             <button key={m.value} onClick={() => onUpdate({ mode: m.value })} title={m.title}
               style={{ padding: '2px 6px', fontSize: 10, borderRadius: 3, cursor: 'pointer', fontFamily: 'monospace',
                 background: cond.mode === m.value ? `color-mix(in srgb, ${cond.color} 25%, #161b27)` : '#1e2535',
-                color: cond.mode === m.value ? cond.color : '#4a5a7a',
+                color: cond.mode === m.value ? cond.color : '#8593b5',
                 border: cond.mode === m.value ? `1px solid ${cond.color}60` : '1px solid #2a3349' }}>
               {m.label}
             </button>
@@ -272,13 +272,13 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
         </div>
 
         <button onClick={() => setExpanded((v) => !v)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
           <i className={`ti ${expanded ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 10 }} />
         </button>
         <button onClick={onDelete}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: '0 2px' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
           <i className="ti ti-x" style={{ fontSize: 11 }} />
         </button>
       </div>
@@ -311,7 +311,7 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
                     <button key={lang} onClick={() => onUpdate({ lang })}
                       style={{ padding: '3px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
                         background: cond.lang === lang ? '#1a3a6a' : '#1e2535',
-                        color: cond.lang === lang ? '#4a9eff' : '#4a5a7a',
+                        color: cond.lang === lang ? '#4a9eff' : '#8593b5',
                         border: cond.lang === lang ? '1px solid #2a5a9a' : '1px solid #2a3349',
                         fontWeight: cond.lang === lang ? 600 : 400 }}>
                       {lang}
@@ -319,7 +319,7 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
                   ))}
                 </div>
               </div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
                 Scrivi una funzione che riceve <code style={{ color: cond.color }}>row</code> e restituisce <code style={{ color: '#3ddc84' }}>boolean</code>
               </div>
               <ScriptEditor
@@ -335,7 +335,7 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
           {/* Anteprima codice generato (per visual e template) */}
           {cond.mode !== 'code' && (
             <div style={{ marginTop: 8, padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Codice generato</div>
+              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Codice generato</div>
               <code style={{ fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                 {conditionToCode(cond)}
               </code>
@@ -474,7 +474,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
             <div style={{ fontSize: 14, fontWeight: 600, color: '#c8d4f0' }}>
               {node.data.config?.displayName || 'Filter'}
             </div>
-            <div style={{ fontSize: 11, color: '#4a5a7a', fontFamily: 'monospace' }}>{nodeId}</div>
+            <div style={{ fontSize: 11, color: '#8593b5', fontFamily: 'monospace' }}>{nodeId}</div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             <button onClick={() => setIsMaximized((m) => { if (!m) resetDrag(); return !m })}
@@ -494,7 +494,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
             {/* Info schema */}
             {incomingFields.length > 0 && (
               <div style={{ padding: '6px 10px', background: '#0d3d20', borderRadius: 4, border: '0.5px solid #1d6d40', fontSize: 10, color: '#3ddc84', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ color: '#4a5a7a', marginRight: 4 }}>Campi disponibili:</span>
+                <span style={{ color: '#8593b5', marginRight: 4 }}>Campi disponibili:</span>
                 {incomingFields.map((f) => (
                   <code key={f.name} style={{ background: '#1d6d4040', padding: '1px 6px', borderRadius: 3 }}>{f.name}</code>
                 ))}
@@ -555,7 +555,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f57', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#ff5f57' }}>reject</div>
-                <div style={{ fontSize: 10, color: '#4a5a7a' }}>Righe che non soddisfano nessuna condizione — sempre presente</div>
+                <div style={{ fontSize: 10, color: '#8593b5' }}>Righe che non soddisfano nessuna condizione — sempre presente</div>
               </div>
             </div>
 
@@ -585,7 +585,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#4a5a7a', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 20%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}>
             Fatto

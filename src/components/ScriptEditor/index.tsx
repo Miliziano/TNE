@@ -42,7 +42,7 @@ const THEME_DEF: MonacoEditor.IStandaloneThemeData = {
     'editor.selectionBackground':         '#2a3a5a',
     'editorCursor.foreground':            '#a78bfa',
     'editorLineNumber.foreground':        '#2a3349',
-    'editorLineNumber.activeForeground':  '#4a5a7a',
+    'editorLineNumber.activeForeground':  '#8593b5',
     'editorIndentGuide.background':       '#1a2030',
     'editorWidget.background':            '#161b27',
     'editorWidget.border':                '#2a3349',
@@ -299,7 +299,7 @@ export function ScriptEditor({
         loading={
           <div style={{
             height, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0f1117', color: '#4a5a7a', fontSize: 11, fontFamily: 'monospace',
+            background: '#0f1117', color: '#8593b5', fontSize: 11, fontFamily: 'monospace',
           }}>
             caricamento editor...
           </div>

@@ -69,7 +69,7 @@ export function Palette() {
               fontSize: 10,
               fontWeight: 600,
               letterSpacing: '0.1em',
-              color: '#4a5a7a',
+              color: '#8593b5',
               padding: '0 10px 4px',
               textTransform: 'uppercase',
             }}

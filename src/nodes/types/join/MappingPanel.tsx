@@ -58,9 +58,9 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
       {/* Chiave di join */}
       {(leftKey || rightKey) && (
         <div style={{ padding: '6px 12px', background: '#161b27', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8, fontSize: 10 }}>
-          <span style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em' }}>Chiave</span>
+          <span style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>Chiave</span>
           <code style={{ color: LEFT_COLOR }}>{leftKey || '?'}</code>
-          <span style={{ color: '#4a5a7a' }}>=</span>
+          <span style={{ color: '#8593b5' }}>=</span>
           <code style={{ color: LOOKUP_COLOR }}>{rightKey || '?'}</code>
           <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `color-mix(in srgb, #ffb347 15%, #0f1117)`, color: '#ffb347', border: '0.5px solid #ffb34740', marginLeft: 'auto' }}>
             {joinType.toUpperCase()}
@@ -87,7 +87,7 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
                 <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${f.name === leftKey ? LEFT_COLOR + '60' : '#2a3349'}` }}>
                   {f.name === leftKey && <i className="ti ti-key" style={{ fontSize: 9, color: LEFT_COLOR, flexShrink: 0 }} />}
                   <code style={{ fontFamily: 'monospace', fontSize: 10, color: LEFT_COLOR, flex: 1 }}>{f.name}</code>
-                  <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                  <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 </div>
               ))}
             </div>
@@ -110,7 +110,7 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
                 <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${f.name === rightKey ? LOOKUP_COLOR + '60' : '#2a3349'}` }}>
                   {f.name === rightKey && <i className="ti ti-key" style={{ fontSize: 9, color: LOOKUP_COLOR, flexShrink: 0 }} />}
                   <code style={{ fontFamily: 'monospace', fontSize: 10, color: LOOKUP_COLOR, flex: 1 }}>{f.name}</code>
-                  <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+                  <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 </div>
               ))}
             </div>
@@ -124,7 +124,7 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
       </div>
 
       {outputFields.length === 0 ? (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 10, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 10, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Collega entrambi i flussi per vedere lo schema di output.
         </div>
       ) : (
@@ -138,7 +138,7 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
             <div key={`${f.side}_${f.name}`}
               style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < outputFields.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
               <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.side === 'left' ? LEFT_COLOR : LOOKUP_COLOR }}>{f.name}</code>
-              <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
               <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: f.side === 'left' ? '#0d2a4a' : '#0d3d3d', color: f.side === 'left' ? LEFT_COLOR : LOOKUP_COLOR, border: `0.5px solid ${f.side === 'left' ? LEFT_COLOR : LOOKUP_COLOR}30`, textAlign: 'center' }}>
                 {f.side === 'left' ? '← L' : '→ R'}
               </span>

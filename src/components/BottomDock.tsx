@@ -91,12 +91,12 @@ export function BottomDock() {
         background: 'none', border: 'none', cursor: 'pointer',
         padding: '0 10px', height: 26, display: 'flex', alignItems: 'center', gap: 6,
         fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase',
-        color: tab === id && !collapsed ? '#c8d4f0' : '#4a5a7a',
+        color: tab === id && !collapsed ? '#c8d4f0' : '#8593b5',
         borderBottom: tab === id && !collapsed ? `2px solid ${ACCENT}` : '2px solid transparent',
       }}>
       {label}
       {count != null && count > 0 && (
-        <span style={{ fontWeight: 400, color: '#4a5a7a', textTransform: 'none', letterSpacing: 0 }}>
+        <span style={{ fontWeight: 400, color: '#8593b5', textTransform: 'none', letterSpacing: 0 }}>
           {count.toLocaleString()}
         </span>
       )}
@@ -108,7 +108,7 @@ export function BottomDock() {
       style={{
         background: 'none', border: '0.5px solid #2a3349', borderRadius: 4,
         padding: '2px 6px', cursor: 'pointer',
-        color: active ? '#3ddc84' : '#4a5a7a', display: 'flex', alignItems: 'center',
+        color: active ? '#3ddc84' : '#8593b5', display: 'flex', alignItems: 'center',
       }}>
       <i className={`ti ${icon}`} style={{ fontSize: 12 }} />
     </button>
@@ -148,7 +148,7 @@ export function BottomDock() {
             {iconBtn('ti-code', 'Esporta log come .ndjson', exportNdjson)}
             {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia log negli appunti', () => copyText(logsToText(logs)), copied)}
             <button onClick={clearLogs} title="Svuota il log"
-              style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#4a5a7a', fontSize: 10, fontFamily: 'inherit' }}>
+              style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#8593b5', fontSize: 10, fontFamily: 'inherit' }}>
               clear
             </button>
           </div>

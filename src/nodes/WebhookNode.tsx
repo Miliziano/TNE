@@ -107,7 +107,7 @@ export const WebhookReceiverNode = memo(({ id, data }: NodeProps) => {
       <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
         {/* Path + porta */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-link" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
+          <i className="ti ti-link" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
           <code style={{ fontSize: 10, color: RECV_COLOR, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             :{port}{path}
           </code>
@@ -127,8 +127,8 @@ export const WebhookReceiverNode = memo(({ id, data }: NodeProps) => {
 
         {/* Buffer */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-stack" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>buffer max {maxBuf}</span>
+          <i className="ti ti-stack" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
+          <span style={{ fontSize: 9, color: '#8593b5' }}>buffer max {maxBuf}</span>
         </div>
 
         {/* Stato */}
@@ -213,18 +213,18 @@ export const WebhookResponderNode = memo(({ id, data }: NodeProps) => {
       {/* Body */}
       <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-link" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
+          <i className="ti ti-link" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
           <code style={{ fontSize: 10, color: RESP_COLOR, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             :{port}{path}
           </code>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-http-get" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>{methods}</span>
+          <i className="ti ti-http-get" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
+          <span style={{ fontSize: 9, color: '#8593b5' }}>{methods}</span>
         </div>
         {headerPreview && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <i className="ti ti-braces" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
+            <i className="ti ti-braces" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
             <span style={{ fontSize: 9, color: '#9a9aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {headerPreview}
             </span>
@@ -318,7 +318,7 @@ export const WatchdogNode = memo(({ id, data }: NodeProps) => {
         {/* URL */}
         {urlShort ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <i className="ti ti-world" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
+            <i className="ti ti-world" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
             <code style={{ fontSize: 9, color: WD_COLOR, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {urlShort}
             </code>
@@ -329,7 +329,7 @@ export const WatchdogNode = memo(({ id, data }: NodeProps) => {
 
         {/* Condizione attesa */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-circle-check" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
+          <i className="ti ti-circle-check" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
           <span style={{ fontSize: 9, color: '#9a9aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <span style={{ color: WD_COLOR }}>{headerName}</span>
             {': '}
@@ -339,8 +339,8 @@ export const WatchdogNode = memo(({ id, data }: NodeProps) => {
 
         {/* Intervallo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-clock" style={{ fontSize: 10, color: '#4a5a7a', flexShrink: 0 }} />
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>ogni {intervalSec}s</span>
+          <i className="ti ti-clock" style={{ fontSize: 10, color: '#8593b5', flexShrink: 0 }} />
+          <span style={{ fontSize: 9, color: '#8593b5' }}>ogni {intervalSec}s</span>
         </div>
 
         {/* Status message */}

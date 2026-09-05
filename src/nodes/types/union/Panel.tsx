@@ -20,7 +20,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -61,7 +61,7 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
       {/* Flussi collegati */}
       <SectionTitle label={`Flussi in ingresso — ${inEdges.length} collegati`} />
       {inEdges.length === 0 ? (
-        <div style={{ padding: '12px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '12px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Collega almeno due flussi agli handle sul lato sinistro del nodo.
         </div>
       ) : (
@@ -72,7 +72,7 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
               <code style={{ fontFamily: 'monospace', fontSize: 10, color: ACCENT, flex: 1 }}>
                 handle: {e.targetHandle ?? 'input'}
               </code>
-              <code style={{ fontFamily: 'monospace', fontSize: 9, color: '#4a5a7a' }}>
+              <code style={{ fontFamily: 'monospace', fontSize: 9, color: '#8593b5' }}>
                 da: {e.source}
               </code>
             </div>
@@ -107,7 +107,7 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
             style={{ padding: '10px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: unionMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: unionMode === m.value ? `1.5px solid ${ACCENT}` : '1px solid #2a3349' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: unionMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</div>
             <div style={{ fontSize: 10, color: unionMode === m.value ? ACCENT : '#4a9eff', fontWeight: 600 }}>{m.desc}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.detail}</div>
+            <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.detail}</div>
           </button>
         ))}
       </div>
@@ -161,8 +161,8 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
 
       
       {/* Output */}
-      <SectionTitle label="Output del nodo" color="#4a5a7a" />
-      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.8 }}>
+      <SectionTitle label="Output del nodo" color="#8593b5" />
+      <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
           <span style={{ fontSize: 9 }}>Flusso unificato di tutte le righe dai flussi in ingresso</span>

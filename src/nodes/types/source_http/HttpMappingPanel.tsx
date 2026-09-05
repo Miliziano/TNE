@@ -123,7 +123,7 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 11, color: '#c8d4f0', fontWeight: 600 }}>
             Tipo risposta: <span style={{ color: '#4a9eff' }}>{RESPONSE_TYPE_LABELS[responseType] ?? responseType}</span>
           </div>
-          <div style={{ fontSize: 10, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 10, color: '#8593b5' }}>
             Configura il tipo nel tab Configurazione · i campi fissi cambiano di conseguenza
           </div>
         </div>
@@ -132,7 +132,7 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
       {/* ── Campi fissi ──────────────────────────────────────── */}
       <div style={{ background: '#161b27', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '8px 12px', background: '#1a2030', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <i className="ti ti-lock" style={{ fontSize: 11, color: '#4a5a7a' }} />
+          <i className="ti ti-lock" style={{ fontSize: 11, color: '#8593b5' }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: '#9a9aaa' }}>Campi fissi — sempre presenti</span>
         </div>
         <div style={{ padding: '4px 0' }}>
@@ -143,9 +143,9 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
                 <code style={{ fontSize: 10, color: responseType === 'json_raw' && f.id.startsWith('f_body') ? '#a78bfa' : '#4a9eff' }}>
                   {f.name}
                 </code>
-                {f.hint && <span style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>{f.hint}</span>}
+                {f.hint && <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>{f.hint}</span>}
               </div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', padding: '2px 6px', background: '#0f1117', borderRadius: 4, textAlign: 'center', border: '0.5px solid #2a3349' }}>
+              <div style={{ fontSize: 9, color: '#8593b5', padding: '2px 6px', background: '#0f1117', borderRadius: 4, textAlign: 'center', border: '0.5px solid #2a3349' }}>
                 {f.type}
               </div>
             </div>
@@ -170,7 +170,7 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ padding: '8px 12px', background: '#1a2030', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>Campi JSON da estrarre</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>
                 Dichiara i campi del JSON che vuoi propagare ai nodi successivi
               </div>
             </div>
@@ -190,7 +190,7 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
             <div style={{ padding: '4px 0' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, padding: '3px 12px 5px', borderBottom: '0.5px solid #2a3349' }}>
                 {['Nome', 'Tipo', ''].map((h, i) => (
-                  <div key={i} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
+                  <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
                 ))}
               </div>
               {customFields.map((f, idx) => (
@@ -208,9 +208,9 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
                     {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </CustomSelect>
                   <button onClick={() => deleteField(f.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                     <i className="ti ti-x" style={{ fontSize: 10 }} />
                   </button>
                 </div>
@@ -221,7 +221,7 @@ export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Info propagazione ────────────────────────────────── */}
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
         Lo schema viene propagato automaticamente ai nodi collegati.
         {responseType === 'json' && ' Usa "Testa connessione" nel tab Configurazione per rilevare i campi automaticamente.'}

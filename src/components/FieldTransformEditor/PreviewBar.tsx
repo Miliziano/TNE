@@ -108,8 +108,8 @@ export function PreviewBar({ steps, cast, inputVars, inputType }: Props) {
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {i > 0 && <span style={{ color: '#2a3349', fontSize: 10 }}>→</span>}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            {i > 0 && <span style={{ fontSize: 9, color: '#4a5a7a' }}>{sr.label}</span>}
-            <code style={{ fontSize: 10, color: i === stepResults.length - 1 ? '#3ddc84' : '#4a5a7a', fontFamily: 'monospace' }}>
+            {i > 0 && <span style={{ fontSize: 9, color: '#8593b5' }}>{sr.label}</span>}
+            <code style={{ fontSize: 10, color: i === stepResults.length - 1 ? '#3ddc84' : '#8593b5', fontFamily: 'monospace' }}>
               {sr.value}
             </code>
           </div>

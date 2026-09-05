@@ -21,7 +21,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -104,7 +104,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, textAlign: isOut ? 'left' : 'right' }}>
-            <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
+            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
               {isOut ? 'Questa lane (OUT)' : 'Questa lane (IN)'}
             </div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>
@@ -120,7 +120,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             )}
           </div>
           <div style={{ flex: 1, textAlign: isOut ? 'right' : 'left' }}>
-            <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
+            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
               {isOut ? 'Lane target (IN)' : 'Lane sorgente (OUT)'}
             </div>
             {counterpart ? (
@@ -202,7 +202,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             </div>
           ) : (
             <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 6,
-              border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a',
+              border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5',
               fontStyle: 'italic', lineHeight: 1.5 }}>
               Nessuno schema rilevato a monte. Collega il BridgeOut a un nodo
               con schema definito; se il collegamento c'è già, riapri o modifica
@@ -234,7 +234,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
                   border: transferMode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
                   display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: transferMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</span>
-                <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
               </button>
             ))}
           </div>
@@ -275,7 +275,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
                   border: outputMode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
                   display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</span>
-                <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
               </button>
             ))}
           </div>
@@ -314,7 +314,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
               border: syncMode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
               display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: syncMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</span>
-            <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
           </button>
         ))}
       </div>
@@ -351,7 +351,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Info ── */}
-      <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.6 }}>
+      <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.6 }}>
         <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 4 }}>
           {isOut ? 'BridgeOut' : 'BridgeIn'} — come funziona
         </div>

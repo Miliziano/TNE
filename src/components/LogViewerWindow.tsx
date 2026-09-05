@@ -24,7 +24,7 @@ const LEVEL_COLORS = {
   ok:    '#3ddc84',
   warn:  '#ffb347',
   error: '#ff5f57',
-  debug: '#4a5a7a',
+  debug: '#8593b5',
 }
 
 const ROW_HEIGHT = 22       // px — altezza riga normale
@@ -225,7 +225,7 @@ export function LogViewerWindow() {
         }}>
         <i className="ti ti-terminal-2" style={{ fontSize: 13, color: ACCENT }} />
         <span style={{ fontSize: 11, fontWeight: 600, color: ACCENT, flex: 1 }}>Log Viewer</span>
-        <span style={{ fontSize: 10, color: '#4a5a7a' }}>{rows.length.toLocaleString()} righe</span>
+        <span style={{ fontSize: 10, color: '#8593b5' }}>{rows.length.toLocaleString()} righe</span>
 
         <button onClick={() => setAutoScroll((v) => !v)}
           title={autoScroll ? 'Auto-scroll attivo' : 'Auto-scroll disattivato'}
@@ -233,23 +233,23 @@ export function LogViewerWindow() {
             background: autoScroll ? `color-mix(in srgb, ${ACCENT} 20%, ${BG3})` : BG3,
             border: `0.5px solid ${autoScroll ? ACCENT : BORDER}`,
             borderRadius: 4, padding: '2px 6px', cursor: 'pointer',
-            color: autoScroll ? ACCENT : '#4a5a7a', fontSize: 9,
+            color: autoScroll ? ACCENT : '#8593b5', fontSize: 9,
             display: 'flex', alignItems: 'center', gap: 3,
           }}>
           <i className="ti ti-arrow-down" style={{ fontSize: 9 }} /> auto
         </button>
 
         <button onClick={clearRows} title="Pulisci log"
-          style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#4a5a7a', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57'; (e.currentTarget as HTMLElement).style.borderColor = '#ff5f57' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = BORDER }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = BORDER }}>
           <i className="ti ti-trash" style={{ fontSize: 9 }} /> pulisci
         </button>
 
         <button onClick={closeViewer}
-          style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#4a5a7a', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#8593b5', display: 'flex', alignItems: 'center' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#c8d4f0'; (e.currentTarget as HTMLElement).style.borderColor = '#c8d4f0' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = BORDER }}>
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = BORDER }}>
           <i className="ti ti-x" style={{ fontSize: 11 }} />
         </button>
       </div>
@@ -264,7 +264,7 @@ export function LogViewerWindow() {
         flexShrink: 0,
       }}>
         {['Ora', 'Nodo', 'Messaggio'].map((h) => (
-          <div key={h} style={{ fontSize: 9, color: '#4a5a7a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+          <div key={h} style={{ fontSize: 9, color: '#8593b5', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
         ))}
       </div>
 
@@ -331,10 +331,10 @@ export function LogViewerWindow() {
                           cursor: row.message.length > 80 ? 'pointer' : 'default',
                           display: 'flex', alignItems: 'center', gap: 4,
                         }}>
-                        {row.rowNum > 0 && <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>#{row.rowNum}</span>}
+                        {row.rowNum > 0 && <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>#{row.rowNum}</span>}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.message}</span>
                         {row.message.length > 80 && (
-                          <i className="ti ti-arrows-diagonal" style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }} />
+                          <i className="ti ti-arrows-diagonal" style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }} />
                         )}
                       </span>
                     </div>
@@ -350,7 +350,7 @@ export function LogViewerWindow() {
       <div style={{
         padding: '4px 10px', background: BG3,
         borderTop: `0.5px solid ${BORDER}`,
-        fontSize: 9, color: '#4a5a7a', flexShrink: 0,
+        fontSize: 9, color: '#8593b5', flexShrink: 0,
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
         <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
@@ -386,10 +386,10 @@ export function LogViewerWindow() {
                   {formatTime(row.timestamp)}
                 </span>
                 <span style={{ fontSize: 9, color: ACCENT, fontFamily: 'monospace' }}>{row.nodeLabel}</span>
-                {row.rowNum > 0 && <span style={{ fontSize: 9, color: '#4a5a7a' }}>#{row.rowNum}</span>}
+                {row.rowNum > 0 && <span style={{ fontSize: 9, color: '#8593b5' }}>#{row.rowNum}</span>}
                 <span style={{ flex: 1 }} />
                 <button onClick={() => setExpandedRowId(null)}
-                  style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#4a5a7a', display: 'flex', alignItems: 'center' }}>
+                  style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#8593b5', display: 'flex', alignItems: 'center' }}>
                   <i className="ti ti-x" style={{ fontSize: 11 }} />
                 </button>
               </div>
@@ -403,7 +403,7 @@ export function LogViewerWindow() {
               </div>
               <div style={{
                 padding: '6px 14px', background: BG3, borderTop: `0.5px solid ${BORDER}`,
-                fontSize: 9, color: '#4a5a7a', display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 9, color: '#8593b5', display: 'flex', alignItems: 'center', gap: 6,
               }}>
                 <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
                 {row.message.length.toLocaleString()} caratteri · click fuori per chiudere

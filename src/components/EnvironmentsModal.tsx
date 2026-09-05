@@ -189,7 +189,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
               </div>
             </div>
             {poolVars.length === 0 ? (
-              <div style={{ fontSize: 11, color: '#4a5a7a', fontStyle: 'italic' }}>Nessuna variabile condivisa. Aggiungine una: sarà referenziabile con <code style={{ color: '#8aa' }}>{'${nome}'}</code> in ogni lane.</div>
+              <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>Nessuna variabile condivisa. Aggiungine una: sarà referenziabile con <code style={{ color: '#8aa' }}>{'${nome}'}</code> in ogni lane.</div>
             ) : (
               poolVars.map((v) => (
                 <div key={v.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

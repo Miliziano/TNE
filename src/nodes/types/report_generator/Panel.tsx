@@ -21,7 +21,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -140,9 +140,9 @@ function RulesEditor({ col, fields, onChange }: {
                 </CustomSelect>
               </div>
               <button onClick={() => deleteRule(rule.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, alignSelf: 'flex-end', marginBottom: 2 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, alignSelf: 'flex-end', marginBottom: 2 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                 <i className="ti ti-x" style={{ fontSize: 11 }} />
               </button>
             </div>
@@ -154,7 +154,7 @@ function RulesEditor({ col, fields, onChange }: {
                 <input style={{ ...inputStyle, color: '#a78bfa' }} value={rule.expression ?? ''}
                   onChange={(e) => updateRule(rule.id, { expression: e.target.value })}
                   placeholder={`row.${col.field} < row.minimo`} />
-                <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 2 }}>Usa <code style={{ color: '#a78bfa' }}>row.campo</code> — deve restituire true/false</div>
+                <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>Usa <code style={{ color: '#a78bfa' }}>row.campo</code> — deve restituire true/false</div>
               </div>
             )}
 
@@ -275,7 +275,7 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
 
         {/* Toggle regole */}
         <button onClick={() => setShowRules((v) => !v)}
-          style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: ruleCount > 0 ? `color-mix(in srgb, ${ACCENT} 10%, #0f1117)` : '#1e2535', color: ruleCount > 0 ? ACCENT : '#4a5a7a', border: `0.5px solid ${ruleCount > 0 ? ACCENT + '40' : '#2a3349'}`, display: 'flex', alignItems: 'center', gap: 5 }}>
+          style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: ruleCount > 0 ? `color-mix(in srgb, ${ACCENT} 10%, #0f1117)` : '#1e2535', color: ruleCount > 0 ? ACCENT : '#8593b5', border: `0.5px solid ${ruleCount > 0 ? ACCENT + '40' : '#2a3349'}`, display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className={`ti ${showRules ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 10 }} />
           Regole formattazione
           {ruleCount > 0 && <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 8, background: ACCENT, color: '#0f1117', fontWeight: 700 }}>{ruleCount}</span>}
@@ -332,7 +332,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
               border: templateId === tmpl.id ? `1px solid ${ACCENT}` : '1px solid #2a3349',
               display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: templateId === tmpl.id ? ACCENT : '#c8d4f0' }}>{tmpl.label}</span>
-            <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.3 }}>{tmpl.desc}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.3 }}>{tmpl.desc}</span>
           </button>
         ))}
       </div>
@@ -345,7 +345,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
             style={{ flex: 1, padding: '6px', borderRadius: 4, cursor: 'pointer',
               background: outputFmt === fmt ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
               border: outputFmt === fmt ? `1px solid ${ACCENT}` : '1px solid #2a3349',
-              color: outputFmt === fmt ? ACCENT : '#4a5a7a', fontSize: 11, fontWeight: outputFmt === fmt ? 600 : 400 }}>
+              color: outputFmt === fmt ? ACCENT : '#8593b5', fontSize: 11, fontWeight: outputFmt === fmt ? 600 : 400 }}>
             {fmt.toUpperCase()}
           </button>
         ))}
@@ -419,7 +419,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
                 colonna col <strong>punteggio</strong> di qualità per riga — verde ≥80%, arancio ≥60%, rosso sotto
               </div>
             </div>
-            <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ fontSize: 9, color: '#8593b5' }}>
               Il campo da leggere si imposta qui sotto (default <code style={{ color: '#8a8a9a' }}>_dq</code>).
             </div>
           </div>

@@ -25,7 +25,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -76,7 +76,7 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
       }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: sourceBadgeColor, flexShrink: 0 }} />
         <span style={{ fontSize: 10, color: sourceBadgeColor, fontWeight: 600 }}>{sourceLabel}</span>
-        <span style={{ fontSize: 10, color: '#4a5a7a', marginLeft: 'auto' }}>
+        <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 'auto' }}>
           {format.toUpperCase()}
         </span>
       </div>
@@ -162,7 +162,7 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Link all'editor completo */}
-      <div style={{ fontSize: 10, color: '#4a5a7a', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+      <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
         <i className="ti ti-mouse" style={{ fontSize: 11 }} />
         Doppio click per la configurazione completa
       </div>

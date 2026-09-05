@@ -61,7 +61,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
             placeholder="id" />
         )}
         {keyField && (
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
             Lookup Join: <code style={{ color: ACCENT }}>context.lane.{node.data.props['matName'] || 'nome'}.get(row.{keyField})</code>
           </div>
         )}
@@ -69,7 +69,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Modalità accesso consumer */}
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20` }}>
-        <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontWeight: 600 }}>
+        <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontWeight: 600 }}>
           API accesso — scelto dal consumer
         </div>
         {[
@@ -81,7 +81,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
             <code style={{ fontSize: 10, color: item.color, fontFamily: 'monospace', minWidth: 160, flexShrink: 0 }}>
               .{node.data.props['matName'] || 'nome'}{item.api}
             </code>
-            <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{item.desc}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{item.desc}</span>
           </div>
         ))}
       </div>
@@ -92,7 +92,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {incomingFields.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           Collega un nodo in ingresso per vedere i campi disponibili.
         </div>
@@ -109,7 +109,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
               <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.name === keyField ? ACCENT : '#c8d4f0', fontWeight: f.name === keyField ? 600 : 400 }}>
                 {f.name}
               </code>
-              <span style={{ fontSize: 9, color: '#4a5a7a', padding: '1px 6px', borderRadius: 8, background: '#0f1117', textAlign: 'center' }}>
+              <span style={{ fontSize: 9, color: '#8593b5', padding: '1px 6px', borderRadius: 8, background: '#0f1117', textAlign: 'center' }}>
                 {f.type}
               </span>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -141,7 +141,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
               <div key={f.name}
                 style={{ display: 'grid', gridTemplateColumns: '1fr 70px 1fr', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: '#ffb347' }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a', textAlign: 'center' }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', textAlign: 'center' }}>{f.type}</span>
                 <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
               </div>
             ))}

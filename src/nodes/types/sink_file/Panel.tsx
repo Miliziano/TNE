@@ -21,7 +21,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -236,7 +236,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
 
         {/* Variabili rapide */}
         <div style={{ marginTop: 6, padding: '6px 8px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 5, fontWeight: 600 }}>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 5, fontWeight: 600 }}>
             Variabili — clicca per inserire
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -303,7 +303,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
               border: `1.5px solid ${writeMode2 === m.value ? ACCENT : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: writeMode2 === m.value ? ACCENT : '#c8d4f0', marginBottom: 2 }}>{m.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</div>
             </div>
           </button>
         ))}
@@ -351,7 +351,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
 
       {/* ── Modalità output ── */}
       <SectionTitle label="Modalità output" />
-      <div style={{ fontSize: 10, color: '#4a5a7a', padding: '4px 0', marginBottom: 4, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 0', marginBottom: 4, lineHeight: 1.5 }}>
         Cosa emette il nodo al termine della scrittura.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -369,7 +369,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: outputMode === m.value ? m.color : 'transparent', border: `1.5px solid ${outputMode === m.value ? m.color : '#2a3349'}` }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? m.color : '#c8d4f0', marginBottom: 2 }}>{m.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{m.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{m.desc}</div>
             </div>
             <div style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${m.color} 10%, #0f1117)`, color: m.color, border: `0.5px solid ${m.color}30`, flexShrink: 0 }}>
               {m.outputDesc}
@@ -380,7 +380,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
 
       {outputMode === 'signal' && (
         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Schema riga di stato</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Schema riga di stato</div>
           {[
             { name: 'status',        desc: '"done" o "error"'        },
             { name: 'rows_written',  desc: 'Righe scritte nel file'   },
@@ -408,7 +408,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
             style={{
               padding: '8px 6px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
               background: writeMode === m.value ? '#0d3d20' : '#1a2030',
-              color:      writeMode === m.value ? '#3ddc84' : '#4a5a7a',
+              color:      writeMode === m.value ? '#3ddc84' : '#8593b5',
               border: writeMode === m.value ? '1px solid #1d6d40' : '1px solid #2a3349',
               fontWeight: writeMode === m.value ? 600 : 400,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textAlign: 'center',

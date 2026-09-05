@@ -88,7 +88,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
             Sorgente: <strong style={{ color }}>{outLane?.label ?? 'lane ignota'}</strong>
             {' · '}{String(outNode.data.label ?? outNode.id)}
           </span>
-          <span style={{ fontSize: 10, color: '#4a5a7a' }}>
+          <span style={{ fontSize: 10, color: '#8593b5' }}>
             {fields.length} {fields.length === 1 ? 'campo' : 'campi'}
           </span>
         </div>
@@ -107,7 +107,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px',
             gap: 4, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
             {['Nome campo', 'Nome fisico', 'Tipo'].map((h) => (
-              <div key={h} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase',
+              <div key={h} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase',
                 letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
             ))}
           </div>
@@ -120,7 +120,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
               <div style={{ color }}>{field.name}</div>
               <div style={{ color: '#9a9aaa' }}>{field.physicalName}</div>
-              <div style={{ color: '#4a5a7a' }}>{field.type}</div>
+              <div style={{ color: '#8593b5' }}>{field.type}</div>
             </div>
           ))}
         </div>
@@ -128,7 +128,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
 
       {fields.length > 0 && (
         <div style={{ padding: '5px 8px', background: '#1a2030', borderRadius: 4,
-          border: '0.5px solid #2a3349', fontSize: 9, color: '#4a5a7a', display: 'flex', gap: 5 }}>
+          border: '0.5px solid #2a3349', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 10, color, flexShrink: 0 }} />
           Propagato automaticamente ai TMap e agli altri nodi collegati all'output.
         </div>

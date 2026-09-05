@@ -78,7 +78,7 @@ export function LogView() {
               const isLong = entry.message.length > 80
               return (
                 <div key={entry.id} style={{ display: 'flex', gap: 8, height: ROW_HEIGHT, alignItems: 'center' }}>
-                  <span style={{ color: '#4a5a7a', flexShrink: 0 }}>
+                  <span style={{ color: '#8593b5', flexShrink: 0 }}>
                     {fmt(entry.timestamp)}
                   </span>
                   <span style={{ color: COLORS[entry.level], flexShrink: 0 }}>
@@ -99,7 +99,7 @@ export function LogView() {
                       {entry.message}
                     </span>
                     {isLong && (
-                      <i className="ti ti-arrows-diagonal" style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }} />
+                      <i className="ti ti-arrows-diagonal" style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }} />
                     )}
                   </span>
                 </div>
@@ -122,7 +122,7 @@ export function LogView() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#161b27', border: '1px solid #4a5a7a60', borderRadius: 8,
+              background: '#161b27', border: '1px solid #8593b560', borderRadius: 8,
               maxWidth: 720, width: '100%', maxHeight: '70vh',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
               boxShadow: '0 24px 64px rgba(0,0,0,.8)',
@@ -134,12 +134,12 @@ export function LogView() {
               <span style={{ color: COLORS[expandedEntry.level], fontSize: 12 }}>
                 {ICONS[expandedEntry.level]}
               </span>
-              <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>
                 {fmt(expandedEntry.timestamp)}
               </span>
               <span style={{ flex: 1 }} />
               <button onClick={() => setExpandedId(null)}
-                style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#4a5a7a', display: 'flex', alignItems: 'center' }}>
+                style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#8593b5', display: 'flex', alignItems: 'center' }}>
                 <i className="ti ti-x" style={{ fontSize: 11 }} />
               </button>
             </div>
@@ -155,7 +155,7 @@ export function LogView() {
             </div>
             <div style={{
               padding: '6px 14px', background: '#1a2030', borderTop: '0.5px solid #2a3349',
-              fontSize: 9, color: '#4a5a7a', display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 9, color: '#8593b5', display: 'flex', alignItems: 'center', gap: 6,
             }}>
               <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
               {expandedEntry.message.length.toLocaleString()} caratteri · click fuori per chiudere

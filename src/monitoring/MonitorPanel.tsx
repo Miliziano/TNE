@@ -90,7 +90,7 @@ function MiniChart({ values, color, label, unit = 'MB' }: {
         <span style={{ fontSize: 10, color: '#c8d4f0' }}>
           {label}: <strong style={{ color: tc }}>{toMb(last)} {unit}</strong>
         </span>
-        <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+        <span style={{ fontSize: 9, color: '#8593b5' }}>
           peak {toMb(peak)} {unit}
           {trend !== 0 && (
             <span style={{ color: tc, marginLeft: 5 }}>
@@ -113,7 +113,7 @@ function MiniChart({ values, color, label, unit = 'MB' }: {
 // ─── ProcessTable — dettaglio per processo ───────────────────────
 function ProcessTable({ processes }: { processes: NonNullable<MemorySnapshot['processes']> }) {
   const ROLE_COLOR: Record<string, string> = {
-    Main: GREEN, WebKitWeb: '#a78bfa', WebKitNetwork: BLUE, WebKitGpu: ORANGE, Other: '#4a5a7a',
+    Main: GREEN, WebKitWeb: '#a78bfa', WebKitNetwork: BLUE, WebKitGpu: ORANGE, Other: '#8593b5',
   }
   const ROLE_LABEL: Record<string, string> = {
     Main: 'Tauri (Rust)', WebKitWeb: 'WebKit — Render', WebKitNetwork: 'WebKit — Network',
@@ -125,14 +125,14 @@ function ProcessTable({ processes }: { processes: NonNullable<MemorySnapshot['pr
     <div style={{ padding: '0 10px 6px' }}>
       {sorted.map(p => (
         <div key={p.pid} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', fontSize: 9 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: ROLE_COLOR[p.role] ?? '#4a5a7a', flexShrink: 0 }} />
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: ROLE_COLOR[p.role] ?? '#8593b5', flexShrink: 0 }} />
           <span style={{ color: '#9a9aaa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {ROLE_LABEL[p.role] ?? p.role} <span style={{ color: '#4a5a7a' }}>· pid {p.pid}</span>
+            {ROLE_LABEL[p.role] ?? p.role} <span style={{ color: '#8593b5' }}>· pid {p.pid}</span>
           </span>
           <span style={{ color: ROLE_COLOR[p.role] ?? '#9a9aaa', fontFamily: 'monospace', textAlign: 'right' }}>
             {Math.round(p.rss / 1024 / 1024)} MB
             {p.private > 0 && (
-              <span style={{ color: '#4a5a7a', marginLeft: 4 }}>
+              <span style={{ color: '#8593b5', marginLeft: 4 }}>
                 ({Math.round(p.private / 1024 / 1024)} priv)
               </span>
             )}
@@ -183,7 +183,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
       {/* PSS totale */}
       {hasPss && (
         <div style={{ borderBottom: '0.5px solid #1e2535' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+          <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
             PSS totale (proportional set size)
           </div>
@@ -194,26 +194,26 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
       {/* Shared — pagine condivise, dovrebbe restare stabile */}
       {hasPss && (
         <div style={{ borderBottom: '0.5px solid #1e2535' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+          <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
             Memoria condivisa (Shared) — librerie, mmap
           </div>
-          <MiniChart values={valuesShared} color="#4a5a7a" label="Shared" />
+          <MiniChart values={valuesShared} color="#8593b5" label="Shared" />
         </div>
       )}
 
       {/* RSS totale — somma semplice, può sovrastimare per pagine condivise */}
       <div style={{ borderBottom: '0.5px solid #1e2535' }}>
-        <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+        <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
           textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
           RSS totale app {hasPss && <span style={{ fontStyle: 'italic' }}>(può sovrastimare — vedi PSS sopra)</span>}
         </div>
-        <MiniChart values={valuesTotalRss} color={hasPss ? '#4a5a7a' : BLUE} label="RSS totale" />
+        <MiniChart values={valuesTotalRss} color={hasPss ? '#8593b5' : BLUE} label="RSS totale" />
       </div>
 
       {/* Processo principale */}
       <div style={{ borderBottom: '0.5px solid #1e2535' }}>
-        <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+        <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
           textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
           Processo principale (Tauri/Rust)
         </div>
@@ -223,7 +223,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
       {/* WebKit — solo se misurabile (Linux) */}
       {hasWebkit && valuesWebkit.some(v => v > 0) && (
         <div style={{ borderBottom: '0.5px solid #1e2535' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '4px 10px 0',
+          <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
             WebKit (renderer JS/React)
           </div>
@@ -234,7 +234,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
       {/* Dettaglio per processo */}
       {lastSample.processes && lastSample.processes.length > 0 && (
         <div>
-          <div style={{ fontSize: 9, color: '#4a5a7a', padding: '6px 10px 3px',
+          <div style={{ fontSize: 9, color: '#8593b5', padding: '6px 10px 3px',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
             Dettaglio processi ({lastSample.processes.length})
           </div>
@@ -249,7 +249,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
 
 function NodeTable({ timings }: { timings: NodeTiming[] }) {
   if (timings.length === 0) {
-    return <div style={{ padding: '10px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>Nessun nodo eseguito</div>
+    return <div style={{ padding: '10px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>Nessun nodo eseguito</div>
   }
 
   const sorted = [...timings].sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
@@ -260,7 +260,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
         <thead>
           <tr style={{ background: '#161b27' }}>
             {['Lane', 'Nodo', 'Tipo', 'Durata', 'Righe in', 'Righe out', 'Scartate', 'Stato'].map(h => (
-              <th key={h} style={{ padding: '4px 8px', textAlign: 'left', color: '#4a5a7a', fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '0.5px solid #2a3349', whiteSpace: 'nowrap' }}>
+              <th key={h} style={{ padding: '4px 8px', textAlign: 'left', color: '#8593b5', fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '0.5px solid #2a3349', whiteSpace: 'nowrap' }}>
                 {h}
               </th>
             ))}
@@ -277,7 +277,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
                 <td style={{ padding: '4px 8px' }}>
                   {t.laneLabel
                     ? <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, whiteSpace: 'nowrap', color: t.laneColor ?? '#8aa0c8', border: `0.5px solid ${t.laneColor ?? '#2a3349'}`, background: `${t.laneColor ?? '#2a3349'}22` }}>{t.laneLabel}</span>
-                    : <span style={{ color: '#4a5a7a' }}>—</span>}
+                    : <span style={{ color: '#8593b5' }}>—</span>}
                 </td>
                 <td style={{ padding: '4px 8px', color, fontFamily: 'monospace', fontSize: 10 }} title={t.error}>
                   {t.nodeLabel}
@@ -288,7 +288,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
                 </td>
                 <td style={{ padding: '4px 8px', color: '#9a9aaa', fontFamily: 'monospace' }}>{t.rowsIn.toLocaleString()}</td>
                 <td style={{ padding: '4px 8px', color: GREEN, fontFamily: 'monospace' }}>{t.rowsOut.toLocaleString()}</td>
-                <td style={{ padding: '4px 8px', color: t.rowsRejected > 0 ? ORANGE : '#4a5a7a', fontFamily: 'monospace' }}>
+                <td style={{ padding: '4px 8px', color: t.rowsRejected > 0 ? ORANGE : '#8593b5', fontFamily: 'monospace' }}>
                   {t.rowsRejected > 0 ? t.rowsRejected.toLocaleString() : '—'}
                 </td>
                 <td style={{ padding: '4px 8px' }}>
@@ -353,7 +353,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
   }
 
   if (byResource.size === 0) {
-    return <div style={{ padding: '10px', fontSize: 10, color: '#4a5a7a', textAlign: 'center' }}>Nessuna connessione</div>
+    return <div style={{ padding: '10px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>Nessuna connessione</div>
   }
 
   // 2. Per ogni nodo, il contesto di connessione DICHIARATO (config, non dedotto).
@@ -400,8 +400,8 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', background: '#161b27' }}>
               <i className="ti ti-plug-connected" style={{ fontSize: 12, color: ORANGE }} />
               <span style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>{resource}</span>
-              <span style={{ fontSize: 9, color: '#4a5a7a' }}>{type}</span>
-              <span style={{ fontSize: 9, marginLeft: 'auto', color: '#4a5a7a' }}>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>{type}</span>
+              <span style={{ fontSize: 9, marginLeft: 'auto', color: '#8593b5' }}>
                 {list.length} {list.length === 1 ? 'nodo' : 'nodi'}
               </span>
             </div>
@@ -414,7 +414,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px 4px 22px',
                                 background: '#12161f' }}>
                     <i className={isTx ? 'ti ti-arrows-exchange' : 'ti ti-circle-dot'}
-                       style={{ fontSize: 10, color: isTx ? txColor : '#4a5a7a' }} />
+                       style={{ fontSize: 10, color: isTx ? txColor : '#8593b5' }} />
                     <span style={{ fontSize: 10, fontWeight: 600, color: isTx ? txColor : '#9a9aaa' }}>
                       {grp.label}
                     </span>
@@ -424,7 +424,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
                         {grp.mode?.toUpperCase()}
                       </span>
                     )}
-                    <span style={{ fontSize: 9, marginLeft: 'auto', color: '#4a5a7a' }}>
+                    <span style={{ fontSize: 9, marginLeft: 'auto', color: '#8593b5' }}>
                       {grp.items.length} {grp.items.length === 1 ? 'nodo' : 'nodi'}
                     </span>
                   </div>
@@ -445,7 +445,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
                                style={{ fontSize: 10, color: RED }} />
                           )}
                           <span style={{ marginLeft: 'auto', color: statusColor(c.status) }}>{statusLabel(c.status)}</span>
-                          <span style={{ color: '#4a5a7a', minWidth: 52, textAlign: 'right' }}>{fmt(c.durationMs)}</span>
+                          <span style={{ color: '#8593b5', minWidth: 52, textAlign: 'right' }}>{fmt(c.durationMs)}</span>
                         </div>
                         {c.error && isOpen && (
                           <div style={{ margin: '2px 10px 6px 52px', padding: '6px 8px', fontSize: 9,
@@ -484,7 +484,7 @@ function LoiteringList({ objects }: { objects: LoiteringObject[] }) {
             <div style={{ width: 8, height: 8, borderRadius: 2, background: severity, flexShrink: 0, marginTop: 3 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 10, color: severity }}>{obj.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 2 }}>
+              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>
                 {obj.type} · {obj.sizeAtStart} → {obj.sizeCurrent} entries
                 (+{growth} · {obj.growthRate > 0 ? `${obj.growthRate}/s` : 'stabile'})
               </div>
@@ -514,7 +514,7 @@ function RunOverview({ timings, summary, isRunning }: {
   timings: NodeTiming[]; summary: ExecutionSummary | null; isRunning: boolean
 }) {
   if (timings.length === 0 && !summary) {
-    return <div style={{ padding: 16, color: '#4a5a7a', fontSize: 11 }}>
+    return <div style={{ padding: 16, color: '#8593b5', fontSize: 11 }}>
       Nessun run ancora — lancia un flusso.
     </div>
   }
@@ -532,7 +532,7 @@ function RunOverview({ timings, summary, isRunning }: {
 
   const stat = (label: string, value: string, color = '#c8d4f0') => (
     <div>
-      <div style={{ fontSize: 9, color: '#4a5a7a' }}>{label}</div>
+      <div style={{ fontSize: 9, color: '#8593b5' }}>{label}</div>
       <div style={{ fontSize: 15, color, fontFamily: 'monospace', fontWeight: 600 }}>{value}</div>
     </div>
   )
@@ -593,7 +593,7 @@ function TimelineProfile({ timings, samples }: {
 }) {
   const done = timings.filter(t => t.endAt != null)
   if (done.length === 0) {
-    return <div style={{ padding: 16, color: '#4a5a7a', fontSize: 11 }}>
+    return <div style={{ padding: 16, color: '#8593b5', fontSize: 11 }}>
       Timeline disponibile a run completato.
     </div>
   }
@@ -621,7 +621,7 @@ function TimelineProfile({ timings, samples }: {
       <div style={{ padding: 8, overflowX: 'auto' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {mem.length > 0 && <path d={memPath} fill="none" stroke={ACCENT} strokeWidth={1.2} opacity={0.85} />}
-          <text x={padL} y={9} fontSize={9} fill="#4a5a7a">memoria — picco {Math.round(memMax)}MB</text>
+          <text x={padL} y={9} fontSize={9} fill="#8593b5">memoria — picco {Math.round(memMax)}MB</text>
           {rows.map((t, i) => {
             const y  = chartH + 8 + i * rowH
             const bx = x(t.startAt)
@@ -800,7 +800,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
         </span>
 
         {lastSummary && !isRunning && (
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>
             Ultimo run: {ms(lastSummary.totalDurationMs)} · {Math.round(lastSummary.peakHeapMb)}MB peak
           </span>
         )}
@@ -815,7 +815,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
       <div style={{ display: 'flex', borderBottom: '0.5px solid #2a3349', flexShrink: 0, background: '#161b27' }}>
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            style={{ padding: '5px 12px', fontSize: 10, background: 'none', border: 'none', borderBottom: activeTab === tab.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === tab.id ? ACCENT : '#4a5a7a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+            style={{ padding: '5px 12px', fontSize: 10, background: 'none', border: 'none', borderBottom: activeTab === tab.id ? `2px solid ${ACCENT}` : '2px solid transparent', color: activeTab === tab.id ? ACCENT : '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
             {tab.label}
             {tab.badge !== null && tab.badge > 0 && (
               <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 8, background: tab.id === 'loitering' ? `${RED}30` : tab.id === 'connections' ? `${ORANGE}30` : `${ACCENT}30`, color: tab.id === 'loitering' ? RED : tab.id === 'connections' ? ORANGE : ACCENT, fontWeight: 700 }}>
@@ -829,7 +829,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
       {/* ── Contenuto ── */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {!enabled ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#4a5a7a', fontSize: 11 }}>
+          <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11 }}>
             <i className="ti ti-chart-line" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
             Monitor disabilitato — premi Abilita per iniziare
           </div>
@@ -851,7 +851,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
                 </div>
                 {lastSummary && (
                   <div style={card}>
-                    <div style={sectionTitle('#4a5a7a')}>Ultimo run</div>
+                    <div style={sectionTitle('#8593b5')}>Ultimo run</div>
                     <div style={{ padding: '8px 10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                       {[
                         ['Durata',      ms(lastSummary.totalDurationMs)],
@@ -862,7 +862,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
                         ['Scartate',    lastSummary.totalRejected.toLocaleString()],
                       ].map(([k, v]) => (
                         <div key={k}>
-                          <div style={{ fontSize: 9, color: '#4a5a7a' }}>{k}</div>
+                          <div style={{ fontSize: 9, color: '#8593b5' }}>{k}</div>
                           <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: 'monospace' }}>{v}</div>
                         </div>
                       ))}

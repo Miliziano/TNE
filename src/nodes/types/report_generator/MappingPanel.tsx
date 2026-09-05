@@ -80,7 +80,7 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {fields.length === 0 ? (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
           Collega un nodo in ingresso per vedere i campi disponibili.
         </div>
@@ -91,7 +91,7 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
             return (
               <div key={field.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${isUsed ? ACCENT + '40' : '#2a3349'}`, borderLeft: `3px solid ${isUsed ? ACCENT : '#2a3349'}` }}>
                 <code style={{ fontSize: 11, color: isUsed ? ACCENT : '#9a9aaa', flex: 1 }}>{field.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 50 }}>{field.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{field.type}</span>
                 {isUsed && (
                   <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: `color-mix(in srgb, ${ACCENT} 10%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}30` }}>
                     usato
@@ -145,14 +145,14 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
         ].map((f, i, arr) => (
           <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '120px 70px 1fr', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
             <code style={{ fontFamily: 'monospace', fontSize: 10, color: ACCENT }}>{f.name}</code>
-            <span style={{ fontSize: 9, color: '#4a5a7a' }}>{f.type}</span>
-            <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{f.desc}</span>
+            <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{f.desc}</span>
           </div>
         ))}
       </div>
 
       {/* Suggerimento */}
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
         {outputFmt === 'excel'
           ? 'Per salvare il file: collega un nodo Script che legge content (base64) e lo scrive su disco con Buffer.from(content, "base64").'

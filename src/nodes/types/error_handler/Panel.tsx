@@ -45,7 +45,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -64,7 +64,7 @@ function SchemaRow({ name, type, desc }: { name: string; type: string; desc: str
     <div style={{ display: 'flex', gap: 8, marginBottom: 3, alignItems: 'baseline' }}>
       <code style={{ color: ERR_COLOR, fontSize: 10, minWidth: 140, flexShrink: 0 }}>{name}</code>
       <span style={{ color: '#3a4a6a', fontSize: 9, minWidth: 50, flexShrink: 0 }}>{type}</span>
-      <span style={{ color: '#4a5a7a', fontSize: 9 }}>{desc}</span>
+      <span style={{ color: '#8593b5', fontSize: 9 }}>{desc}</span>
     </div>
   )
 }
@@ -111,7 +111,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-shield-exclamation" style={{ fontSize: 16, color: ERR_COLOR }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Error Handler — Gestione errori</div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>Collettore centrale degli errori di questa lane</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Collettore centrale degli errori di questa lane</div>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
       </InfoBox>
 
       {rules.length === 0 && (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           Nessuna regola — tutti gli errori procedono verso <code>error_out</code>.
         </div>
       )}
@@ -163,7 +163,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
       {rules.map((rule, idx) => (
         <div key={rule.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace', minWidth: 18 }}>#{idx + 1}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', minWidth: 18 }}>#{idx + 1}</span>
             <CustomSelect style={{ ...inputStyle, flex: '0 0 130px' }} value={rule.matchType}
               onChange={(e) => updateRule(rule.id, { matchType: e.target.value as ErrorRule['matchType'] })}>
               <option value="always">Sempre</option>
@@ -184,7 +184,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
             </button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 18 }}>→</span>
+            <span style={{ fontSize: 9, color: '#8593b5', minWidth: 18 }}>→</span>
             <CustomSelect style={{ ...inputStyle, flex: '0 0 160px' }} value={rule.action}
               onChange={(e) => updateRule(rule.id, { action: e.target.value as ErrorRule['action'] })}>
               <option value="emit">Emetti — log + error_out</option>
@@ -198,7 +198,7 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
               </span>
             )}
             {rule.action === 'ignore' && (
-              <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>
                 l'errore sparisce: il nodo resta rosso nel Monitor
               </span>
             )}

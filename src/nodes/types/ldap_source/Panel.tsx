@@ -28,7 +28,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -74,7 +74,7 @@ export function LdapSourcePanel({ nodeId }: { nodeId: string }) {
           <i className="ti ti-server" style={{ fontSize: 14, color: ACCENT }} />
           <div>
             <div style={{ fontWeight: 600, color: ACCENT }}>{resource.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ fontSize: 9, color: '#8593b5' }}>
               {(resource.config?.tlsMode ?? 'ldaps').toUpperCase()} · {resource.config?.host ?? '—'}:{resource.config?.port ?? '636'}
             </div>
           </div>

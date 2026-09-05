@@ -226,7 +226,7 @@ export function CodegenPanel() {
             borderRadius: 4,
             cursor:     compiling ? 'wait' : 'pointer',
             background: compiling ? '#1e2535' : '#0d3a4a',
-            color:      compiling ? '#4a5a7a' : '#22d3ee',
+            color:      compiling ? '#8593b5' : '#22d3ee',
             border:     `1px solid ${compiling ? '#2a3349' : '#1a5a6a'}`,
             fontWeight: 600,
             display:    'flex',
@@ -286,7 +286,7 @@ export function CodegenPanel() {
 
           {/* File tree */}
           <div style={{ borderRight: '1px solid #2a3349', overflowY: 'auto', background: '#0f1117' }}>
-            <div style={{ padding: '6px 10px', fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '0.5px solid #2a3349' }}>
+            <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '0.5px solid #2a3349' }}>
               File generati — {fileList.length}
             </div>
             {fileList.map((file) => (

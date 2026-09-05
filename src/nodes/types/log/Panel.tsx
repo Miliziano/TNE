@@ -24,7 +24,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -53,7 +53,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
 
   const levelColor = logLevel === 'warn'  ? '#ffb347'
                    : logLevel === 'error' ? '#ff5f57'
-                   : logLevel === 'debug' ? '#4a5a7a'
+                   : logLevel === 'debug' ? '#8593b5'
                    : ACCENT
 
   return (
@@ -63,7 +63,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>📋 Log</span> — nodo trasparente.
         Le righe passano invariate — questo nodo le osserva e le logga senza modificarle.
-        <div style={{ marginTop: 4, fontSize: 9, color: '#4a5a7a' }}>
+        <div style={{ marginTop: 4, fontSize: 9, color: '#8593b5' }}>
           Rimuovilo dalla pipeline prima del deploy in produzione.
         </div>
       </div>
@@ -109,7 +109,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
         {/* Suggerimenti campi disponibili */}
         {inFields.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            <span style={{ fontSize: 9, color: '#4a5a7a', alignSelf: 'center' }}>campi:</span>
+            <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>campi:</span>
             {inFields.map((f) => (
               <button key={f.name}
                 onClick={() => {
@@ -126,7 +126,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
 
       {/* Modalità sampling */}
       <SectionTitle label="Campionamento" color="#22d3ee" />
-      <div style={{ fontSize: 10, color: '#4a5a7a', marginBottom: 4 }}>
+      <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
         Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -141,7 +141,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: sampleMode === m.value ? '#22d3ee' : 'transparent', border: `1.5px solid ${sampleMode === m.value ? '#22d3ee' : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: sampleMode === m.value ? '#22d3ee' : '#c8d4f0' }}>{m.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{m.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{m.desc}</div>
             </div>
           </button>
         ))}
@@ -168,7 +168,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Opzioni avanzate */}
-      <SectionTitle label="Opzioni" color="#4a5a7a" />
+      <SectionTitle label="Opzioni" color="#8593b5" />
       <Field label="Includi numero riga nel messaggio">
         <CustomSelect style={inputStyle} value={p('showRowNum', 'true')} onChange={u('showRowNum')}>
           <option value="true">Sì — mostra il contatore righe</option>
@@ -187,7 +187,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Output */}
-      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#4a5a7a', lineHeight: 1.8 }}>
+      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
           <span style={{ fontSize: 9 }}>Righe originali invariate — il Log non modifica i dati</span>

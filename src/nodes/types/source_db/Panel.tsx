@@ -35,7 +35,7 @@ function Field({ label, children, hint }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -62,8 +62,8 @@ function ConnectionInfo({ resource, dialect }: {
   if (!resource) {
     return (
       <div style={{ padding: '10px 12px', background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <i className="ti ti-database-off" style={{ fontSize: 14, color: '#4a5a7a' }} />
-        <span style={{ fontSize: 11, color: '#4a5a7a', fontStyle: 'italic' }}>
+        <i className="ti ti-database-off" style={{ fontSize: 14, color: '#8593b5' }} />
+        <span style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>
           Nessuna risorsa selezionata — selezionane una sopra
         </span>
       </div>
@@ -77,9 +77,9 @@ function ConnectionInfo({ resource, dialect }: {
     ok:       '#3ddc84',
     error:    '#ff5f57',
     testing:  '#ffb347',
-    untested: '#4a5a7a',
+    untested: '#8593b5',
   }
-  const statusColor = STATUS_COLORS[resource.status] ?? '#4a5a7a'
+  const statusColor = STATUS_COLORS[resource.status] ?? '#8593b5'
   const statusLabel = { ok: 'Connessa', error: 'Errore', testing: 'Test in corso…', untested: 'Non testata' }[resource.status] ?? resource.status
 
   return (
@@ -96,27 +96,27 @@ function ConnectionInfo({ resource, dialect }: {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 10, fontFamily: 'monospace' }}>
         {isSqlite ? (
           <div style={{ gridColumn: '1 / -1', color: '#9a9aaa' }}>
-            <span style={{ color: '#4a5a7a' }}>file: </span>
+            <span style={{ color: '#8593b5' }}>file: </span>
             <span style={{ color: '#c8d4f0' }}>{cfg.database || '—'}</span>
           </div>
         ) : (
           <>
             <div style={{ color: '#9a9aaa' }}>
-              <span style={{ color: '#4a5a7a' }}>host: </span>
+              <span style={{ color: '#8593b5' }}>host: </span>
               <span style={{ color: '#c8d4f0' }}>{cfg.host || 'localhost'}</span>
-              <span style={{ color: '#4a5a7a' }}>:{cfg.port || '—'}</span>
+              <span style={{ color: '#8593b5' }}>:{cfg.port || '—'}</span>
             </div>
             <div style={{ color: '#9a9aaa' }}>
-              <span style={{ color: '#4a5a7a' }}>db: </span>
+              <span style={{ color: '#8593b5' }}>db: </span>
               <span style={{ color: '#c8d4f0' }}>{cfg.database || '—'}</span>
             </div>
             <div style={{ color: '#9a9aaa' }}>
-              <span style={{ color: '#4a5a7a' }}>utente: </span>
+              <span style={{ color: '#8593b5' }}>utente: </span>
               <span style={{ color: '#c8d4f0' }}>{cfg.user || '—'}</span>
             </div>
             {cfg.schema && (
               <div style={{ color: '#9a9aaa' }}>
-                <span style={{ color: '#4a5a7a' }}>schema: </span>
+                <span style={{ color: '#8593b5' }}>schema: </span>
                 <span style={{ color: '#c8d4f0' }}>{cfg.schema}</span>
               </div>
             )}
@@ -131,7 +131,7 @@ function ConnectionInfo({ resource, dialect }: {
       </div>
 
       {/* Hint per modificare */}
-      <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
         Per modificare i parametri di connessione usa le proprietà della risorsa nella resource strip
       </div>
@@ -190,7 +190,7 @@ export function SourceDbPanel({ nodeId }: { nodeId: string }) {
       <SectionTitle label="Connessione" color={color} />
 
       {dbRes.length === 0 ? (
-        <div style={{ padding: '12px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '12px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-database-off" style={{ fontSize: 18, display: 'block', marginBottom: 6 }} />
           Nessuna risorsa DB in questa lane. Aggiungine una dalla resource strip.
         </div>

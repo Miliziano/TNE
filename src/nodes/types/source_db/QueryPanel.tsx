@@ -22,7 +22,7 @@ function Field({ label, children, hint }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -152,13 +152,13 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
 
         {isPostgres && (
           <button onClick={() => setShowJsonb((v) => !v)}
-            style={{ padding: '2px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: showJsonb ? '#1a1030' : '#1e2535', color: showJsonb ? '#a78bfa' : '#4a5a7a', border: showJsonb ? '1px solid #a78bfa' : '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 4 }}>
+            style={{ padding: '2px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: showJsonb ? '#1a1030' : '#1e2535', color: showJsonb ? '#a78bfa' : '#8593b5', border: showJsonb ? '1px solid #a78bfa' : '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 4 }}>
             <i className="ti ti-braces" style={{ fontSize: 10 }} /> JSONB
           </button>
         )}
 
         <button onClick={() => updateProp(nodeId, 'query', '')}
-          style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', color: '#4a5a7a' }}
+          style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', color: '#8593b5' }}
           title="Svuota query">
           <i className="ti ti-eraser" style={{ fontSize: 10 }} />
         </button>
@@ -184,7 +184,7 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 9, color: '#4a5a7a', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
             Campi JSONB → tipo <code style={{ color: '#a78bfa' }}>object</code> nello schema · usa JSON Parser per spacchettarli
           </div>
         </div>

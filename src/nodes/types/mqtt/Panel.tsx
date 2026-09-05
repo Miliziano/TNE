@@ -24,7 +24,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -64,7 +64,7 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT }}>
             {isPublisher ? 'Publisher' : 'Subscriber'}
           </div>
-          <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>
             {isPublisher ? 'Pubblica messaggi sul topic' : 'Riceve messaggi dal topic'}
           </div>
         </div>
@@ -189,7 +189,7 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
 
           {/* Schema output */}
           <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-            <div style={{ color: '#4a5a7a', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: 9 }}>
+            <div style={{ color: '#8593b5', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: 9 }}>
               Schema output per ogni messaggio ricevuto
             </div>
             {[
@@ -201,7 +201,7 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
             ].map((f) => (
               <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
                 <code style={{ fontSize: 10, color: ACCENT, minWidth: 100 }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 55 }}>{f.type}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', minWidth: 55 }}>{f.type}</span>
                 <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
               </div>
             ))}

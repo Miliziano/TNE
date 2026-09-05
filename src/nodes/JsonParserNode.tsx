@@ -122,7 +122,7 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
           background:   nodeData.status === 'running' ? '#ffb347'
                       : nodeData.status === 'done'    ? '#3ddc84'
                       : nodeData.status === 'error'   ? '#ff5f57'
-                      : '#4a5a7a',
+                      : '#8593b5',
           animation:    nodeData.status === 'running' ? 'nodePulse 0.6s infinite' : undefined,
         }} />
       </div>
@@ -144,7 +144,7 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
                 <span style={{ fontSize: 9, fontFamily: 'monospace', color: flow.color ?? FLOW_COLORS[idx % FLOW_COLORS.length], flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {flow.label}
                 </span>
-                {flow.isArray   && <span style={{ fontSize: 7, color: '#4a5a7a' }}>[ ]</span>}
+                {flow.isArray   && <span style={{ fontSize: 7, color: '#8593b5' }}>[ ]</span>}
                 {flow.streaming && <i className="ti ti-wave-sine" style={{ fontSize: 7, color: '#ffb347' }} />}
               </div>
             ))}

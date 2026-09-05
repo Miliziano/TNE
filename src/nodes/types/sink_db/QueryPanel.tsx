@@ -184,12 +184,12 @@ function TemplateSelectBox({ templates, onApply, color, fields, schema, table, k
       <div style={{ display: 'flex', gap: 6 }}>
         <div onClick={() => setOpen(o => !o)}
           style={{ flex: 1, height: 30, background: '#1e2535', border: `1px solid ${open ? color : '#3a4a6a'}`, borderRadius: 4, padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: 11 }}>
-          <span style={{ color: selected ? '#c8d4f0' : '#4a5a7a' }}>{selected ? selected.label : 'Seleziona un template…'}</span>
-          <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 11, color: '#4a5a7a' }} />
+          <span style={{ color: selected ? '#c8d4f0' : '#8593b5' }}>{selected ? selected.label : 'Seleziona un template…'}</span>
+          <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 11, color: '#8593b5' }} />
         </div>
         <button onClick={() => { if (selected) { onApply(preview); setOpen(false) } }}
           disabled={!selected}
-          style={{ padding: '0 12px', height: 30, borderRadius: 4, border: `1px solid ${selected ? color + '60' : '#2a3349'}`, background: selected ? `color-mix(in srgb, ${color} 12%, #1a2030)` : '#1a2030', color: selected ? color : '#4a5a7a', fontSize: 11, cursor: selected ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
+          style={{ padding: '0 12px', height: 30, borderRadius: 4, border: `1px solid ${selected ? color + '60' : '#2a3349'}`, background: selected ? `color-mix(in srgb, ${color} 12%, #1a2030)` : '#1a2030', color: selected ? color : '#8593b5', fontSize: 11, cursor: selected ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
           <i className="ti ti-download" style={{ fontSize: 11 }} /> Applica
         </button>
       </div>
@@ -202,7 +202,7 @@ function TemplateSelectBox({ templates, onApply, color, fields, schema, table, k
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${color} 8%, #1a2030)` }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = selected?.label === tpl.label ? `color-mix(in srgb, ${color} 12%, #1a2030)` : 'transparent' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: selected?.label === tpl.label ? color : '#c8d4f0' }}>{tpl.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.description}</div>
+              <div style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.description}</div>
             </div>
           ))}
           {selected && (
@@ -381,10 +381,10 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
             <button key={m.value} onClick={() => handleQueryModeChange(m.value)}
               style={{ padding: '8px 10px', borderRadius: 5, cursor: 'pointer', textAlign: 'left', background: queryMode === m.value ? `color-mix(in srgb, ${color} 14%, #1a2030)` : '#1a2030', border: queryMode === m.value ? `1px solid ${color}` : '1px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 2 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <i className={`ti ${m.icon}`} style={{ fontSize: 12, color: queryMode === m.value ? color : '#4a5a7a' }} />
+                <i className={`ti ${m.icon}`} style={{ fontSize: 12, color: queryMode === m.value ? color : '#8593b5' }} />
                 <span style={{ fontSize: 11, fontWeight: 600, color: queryMode === m.value ? color : '#c8d4f0' }}>{m.label}</span>
               </div>
-              <span style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</span>
+              <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
             </button>
           ))}
         </div>
@@ -413,7 +413,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
         {/* Campi flusso cliccabili */}
         {incomingFields.length > 0 && queryMode !== 'none' && (
           <div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4 }}>Campi dal flusso — clicca per inserire nel cursore:</div>
+            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Campi dal flusso — clicca per inserire nel cursore:</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {incomingFields.map(f => (
                 <button key={f}
@@ -431,7 +431,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
         {/* Template rapidi */}
         {queryMode !== 'none' && (
           <div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', marginBottom: 4 }}>Template rapidi — applica al cursore:</div>
+            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Template rapidi — applica al cursore:</div>
             <TemplateSelectBox
               templates={SQL_TEMPLATES}
               onApply={sql => updateProp(nodeId, 'customSql', sql)}
@@ -448,7 +448,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
         {/* Editor SQL custom */}
         {queryMode !== 'none' && (
           <>
-            <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+            <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
               {queryMode === 'custom_sql'  && 'Usa {campo} per i valori della riga — es: INSERT INTO tabella VALUES ({id}, {nome})'}
               {queryMode === 'stored_proc' && 'Es PostgreSQL: CALL mia_proc({id}::uuid, {importo}::numeric)'}
               {queryMode === 'bulk_sql'    && 'Eseguita una sola volta — nessun parametro riga.'}
@@ -461,7 +461,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
 
         {/* Pre-scrittura */}
         <SectionTitle label="SQL pre-scrittura" color={color} />
-        <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+        <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
           Eseguito <strong style={{ color: '#c8d4f0' }}>prima</strong> — LOCK, TRUNCATE, disabilitare trigger.
         </div>
         {preSnippets.length > 0 && (
@@ -478,7 +478,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
 
         {/* Post-scrittura */}
         <SectionTitle label="SQL post-scrittura" color={color} />
-        <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>
+        <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
           Eseguito <strong style={{ color: '#c8d4f0' }}>dopo</strong> — ANALYZE, NOTIFY, refresh viste.
         </div>
         {postSnippets.length > 0 && (
@@ -493,7 +493,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
         )}
         <ScriptEditor value={p('postSql', '')} onChange={v => updateProp(nodeId, 'postSql', v)} language="sql" height={90} snippetToInsert={postSnippet} onSnippetInserted={() => setPostSnippet(undefined)} />
 
-        <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
           Pre e post vengono eseguite nella stessa connessione e transazione. Se una fallisce → ROLLBACK.
         </div>
@@ -519,24 +519,24 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {preview.params.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 4 }}>Parametri</div>
+                  <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 4 }}>Parametri</div>
                   <div style={{ background: '#0f1117', border: '0.5px solid #2a3349', borderRadius: 5, overflow: 'hidden' }}>
                     {preview.params.map((param, i) => (
                       <div key={i} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 60px', gap: 6, padding: '4px 8px', borderBottom: i < preview.params.length - 1 ? '0.5px solid #1a2030' : 'none', background: i % 2 === 0 ? '#1a2030' : 'transparent' }}>
                         <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#ffb347' }}>{param.pos}</span>
                         <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#9a9aaa' }}>{param.source}</span>
-                        <span style={{ fontSize: 9, color: '#4a5a7a' }}>{param.type}</span>
+                        <span style={{ fontSize: 9, color: '#8593b5' }}>{param.type}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
               <div>
-                <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 4 }}>Riepilogo</div>
+                <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 4 }}>Riepilogo</div>
                 <div style={{ background: '#0f1117', border: '0.5px solid #2a3349', borderRadius: 5, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {Object.entries(preview.summary).map(([k, v]) => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-                      <span style={{ color: '#4a5a7a' }}>{k}</span>
+                      <span style={{ color: '#8593b5' }}>{k}</span>
                       <span style={{ fontFamily: 'monospace', color: '#9a9aaa' }}>{v}</span>
                     </div>
                   ))}
@@ -551,7 +551,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
               </div>
             )}
 
-            <div style={{ fontSize: 9, color: '#4a5a7a', padding: '5px 8px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
+            <div style={{ fontSize: 9, color: '#8593b5', padding: '5px 8px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
               <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
               L'SQL è costruito dalla configurazione corrente. I valori reali vengono sostituiti a runtime.
             </div>

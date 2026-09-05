@@ -29,7 +29,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -223,7 +223,7 @@ function JsonTreeNodeRow({ node, depth, selectedFlowId, flows, onToggleFieldInFl
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background='transparent' }}>
         {node.children.length > 0 ? (
           <button onClick={(e) => { e.stopPropagation(); onToggle(node.id) }}
-            style={{ background:'none', border:'none', cursor:'pointer', color:'#4a5a7a', padding:0, width:12, flexShrink:0 }}>
+            style={{ background:'none', border:'none', cursor:'pointer', color:'#8593b5', padding:0, width:12, flexShrink:0 }}>
             <i className={`ti ${node.collapsed?'ti-chevron-right':'ti-chevron-down'}`} style={{ fontSize:9 }} />
           </button>
         ) : <div style={{ width:12, flexShrink:0 }} />}
@@ -231,7 +231,7 @@ function JsonTreeNodeRow({ node, depth, selectedFlowId, flows, onToggleFieldInFl
           {node.isArray ? '[]' : node.valueType === 'object' ? '{}' : '—'}
         </span>
         <span style={{ fontSize:10, color, fontFamily:'monospace', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{node.name}</span>
-        {isLeaf && <span style={{ fontSize:8, color:'#4a5a7a', flexShrink:0, marginRight:4 }}>{node.valueType}</span>}
+        {isLeaf && <span style={{ fontSize:8, color:'#8593b5', flexShrink:0, marginRight:4 }}>{node.valueType}</span>}
         {flows.length > 0 && (
           <div style={{ display:'flex', gap:3, flexShrink:0, alignItems:'center', marginLeft:'auto' }}>
             {flowMembership.map(({ flow, isMember }) => (
@@ -284,20 +284,20 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
         <div style={{ width:8, height:8, borderRadius:'50%', background:isSelected?color:`${color}50`, border:`1.5px solid ${color}`, flexShrink:0 }} />
         <input value={flow.label} onClick={(e)=>e.stopPropagation()} onChange={(e)=>onUpdate({label:e.target.value})}
           style={{ background:'none', border:'none', outline:'none', fontSize:11, fontWeight:600, color, fontFamily:'monospace', flex:1, minWidth:0 }} />
-        <code style={{ fontSize:8, color:'#4a5a7a', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{flow.jsonPath}</code>
-        {flow.isArray   && <span style={{ fontSize:9, color:'#4a5a7a' }}>[ ]</span>}
+        <code style={{ fontSize:8, color:'#8593b5', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{flow.jsonPath}</code>
+        {flow.isArray   && <span style={{ fontSize:9, color:'#8593b5' }}>[ ]</span>}
         {flow.streaming && <i className="ti ti-wave-sine" style={{ fontSize:9, color:'#ffb347' }} />}
-        <button onClick={(e)=>{e.stopPropagation();setMaximized(v=>!v)}} style={{ background:'none', border:`0.5px solid ${color}40`, borderRadius:3, padding:'1px 4px', cursor:'pointer', color:'#4a5a7a' }}
+        <button onClick={(e)=>{e.stopPropagation();setMaximized(v=>!v)}} style={{ background:'none', border:`0.5px solid ${color}40`, borderRadius:3, padding:'1px 4px', cursor:'pointer', color:'#8593b5' }}
           onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.color=color}}
-          onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#4a5a7a'}}>
+          onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#8593b5'}}>
           <i className={`ti ${maximized?'ti-arrows-minimize':'ti-arrows-maximize'}`} style={{ fontSize:9 }} />
         </button>
-        <button onClick={(e)=>{e.stopPropagation();setCollapsed(v=>!v)}} style={{ background:'none', border:'none', cursor:'pointer', color:'#4a5a7a', padding:'0 2px' }}>
+        <button onClick={(e)=>{e.stopPropagation();setCollapsed(v=>!v)}} style={{ background:'none', border:'none', cursor:'pointer', color:'#8593b5', padding:'0 2px' }}>
           <i className={`ti ${collapsed?'ti-chevron-down':'ti-chevron-up'}`} style={{ fontSize:10 }} />
         </button>
-        <button onClick={(e)=>{e.stopPropagation();onDelete()}} style={{ background:'none', border:'none', cursor:'pointer', color:'#4a5a7a', padding:'0 2px' }}
+        <button onClick={(e)=>{e.stopPropagation();onDelete()}} style={{ background:'none', border:'none', cursor:'pointer', color:'#8593b5', padding:'0 2px' }}
           onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.color='#ff5f57'}}
-          onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#4a5a7a'}}>
+          onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#8593b5'}}>
           <i className="ti ti-x" style={{ fontSize:10 }} />
         </button>
       </div>
@@ -308,7 +308,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
               style={{ ...inputStyle, fontSize:9, padding:'2px 6px', width:140 }} placeholder="$.percorso" />
             {[{key:'isArray',label:'[ ] Array',title:'Array → righe'},{key:'streaming',label:'〜 Stream',title:'Streaming'}].map((opt) => (
               <button key={opt.key} title={opt.title} onClick={()=>onUpdate({[opt.key]:!(flow as any)[opt.key]})}
-                style={{ padding:'2px 8px', fontSize:9, borderRadius:3, cursor:'pointer', background:(flow as any)[opt.key]?`color-mix(in srgb, ${color} 20%, #161b27)`:'#1e2535', color:(flow as any)[opt.key]?color:'#4a5a7a', border:(flow as any)[opt.key]?`1px solid ${color}60`:'1px solid #2a3349' }}>
+                style={{ padding:'2px 8px', fontSize:9, borderRadius:3, cursor:'pointer', background:(flow as any)[opt.key]?`color-mix(in srgb, ${color} 20%, #161b27)`:'#1e2535', color:(flow as any)[opt.key]?color:'#8593b5', border:(flow as any)[opt.key]?`1px solid ${color}60`:'1px solid #2a3349' }}>
                 {opt.label}
               </button>
             ))}
@@ -326,7 +326,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
             <>
               <div style={{ display:'grid', gridTemplateColumns:'minmax(60px, 0.8fr) minmax(110px, 1.2fr) 70px 80px 80px 24px', gap:4, padding:'3px 8px', background:'#1a2030', borderBottom:'0.5px solid #2a3349', flexShrink:0 }}>
                 {['Nome','JSONPath','Tipo','Trasforma','Mancante',''].map((h,i) => (
-                  <div key={i} style={{ fontSize:8, color:'#4a5a7a', textTransform:'uppercase', letterSpacing:'.05em', fontWeight:600 }}>{h}</div>
+                  <div key={i} style={{ fontSize:8, color:'#8593b5', textTransform:'uppercase', letterSpacing:'.05em', fontWeight:600 }}>{h}</div>
                 ))}
               </div>
               <div style={{ overflowY:'auto', maxHeight:maximized?'none':200 }}>
@@ -343,9 +343,9 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                     <CustomSelect value={f.onMissing} onChange={(e)=>updateField(f.id,'onMissing',e.target.value as JsonParserFieldMissing)} style={{ ...inputStyle, fontSize:9, padding:'2px 3px' }}>
                       {ON_MISSING.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </CustomSelect>
-                    <button onClick={()=>deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#4a5a7a', padding:0, display:'flex', alignItems:'center', justifyContent:'center' }}
+                    <button onClick={()=>deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#8593b5', padding:0, display:'flex', alignItems:'center', justifyContent:'center' }}
                       onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.color='#ff5f57'}}
-                      onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#4a5a7a'}}>
+                      onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#8593b5'}}>
                       <i className="ti ti-x" style={{ fontSize:10 }} />
                     </button>
                   </div>
@@ -354,7 +354,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
             </>
           )}
           {isSelected && (
-            <div style={{ padding:'4px 10px', background:`color-mix(in srgb, ${color} 5%, #161b27)`, fontSize:9, color:'#4a5a7a', fontStyle:'italic' }}>
+            <div style={{ padding:'4px 10px', background:`color-mix(in srgb, ${color} 5%, #161b27)`, fontSize:9, color:'#8593b5', fontStyle:'italic' }}>
               Flusso selezionato — clicca "+ campo" nell'albero per aggiungere campi
             </div>
           )}
@@ -527,7 +527,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
           <span style={{ fontSize:18, color:ACCENT, fontFamily:'monospace', fontWeight:700 }}>&#123;&#125;</span>
           <div>
             <div style={{ fontSize:14, fontWeight:600, color:'#c8d4f0' }}>{node.data.config?.displayName||'JSON Parser'}</div>
-            <div style={{ fontSize:11, color:'#4a5a7a', fontFamily:'monospace' }}>{nodeId}</div>
+            <div style={{ fontSize:11, color:'#8593b5', fontFamily:'monospace' }}>{nodeId}</div>
           </div>
           <div style={{ marginLeft:'auto', display:'flex', gap:6 }}>
             <button onClick={()=>setIsMaximized((m)=>{ if(!m)resetDrag(); return !m })} style={{ background:'none', border:'1px solid #2a3349', borderRadius:4, padding:'4px 8px', cursor:'pointer', color:'#9a9aaa', display:'flex', alignItems:'center' }}>
@@ -542,9 +542,9 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
         <div style={{ display:'flex', borderBottom:'1px solid #2a3349', flexShrink:0, background:'#161b27' }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={()=>setActiveTab(t.id)}
-              style={{ padding:'9px 16px', fontSize:11, background:activeTab===t.id?'#1e2535':'transparent', border:'none', borderBottom:activeTab===t.id?`2px solid ${ACCENT}`:'2px solid transparent', color:activeTab===t.id?'#c8d4f0':'#4a5a7a', cursor:'pointer', display:'flex', alignItems:'center', gap:6, transition:'all .15s', whiteSpace:'nowrap' }}
+              style={{ padding:'9px 16px', fontSize:11, background:activeTab===t.id?'#1e2535':'transparent', border:'none', borderBottom:activeTab===t.id?`2px solid ${ACCENT}`:'2px solid transparent', color:activeTab===t.id?'#c8d4f0':'#8593b5', cursor:'pointer', display:'flex', alignItems:'center', gap:6, transition:'all .15s', whiteSpace:'nowrap' }}
               onMouseEnter={(e)=>{ if(activeTab!==t.id)(e.currentTarget as HTMLElement).style.color='#9a9aaa' }}
-              onMouseLeave={(e)=>{ if(activeTab!==t.id)(e.currentTarget as HTMLElement).style.color='#4a5a7a' }}>
+              onMouseLeave={(e)=>{ if(activeTab!==t.id)(e.currentTarget as HTMLElement).style.color='#8593b5' }}>
               <i className={`ti ${t.icon}`} style={{ fontSize:13 }} />{t.label}
             </button>
           ))}
@@ -570,7 +570,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                     placeholder={'{\n  "ordini": [...],\n  "clienti": [...]\n}'} spellCheck={false} />
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     <button onClick={handleAnalyze} disabled={!rawJson}
-                      style={{ padding:'3px 14px', fontSize:10, borderRadius:4, cursor:rawJson?'pointer':'not-allowed', background:rawJson?`color-mix(in srgb, ${ACCENT} 20%, #161b27)`:'#1e2535', color:rawJson?ACCENT:'#4a5a7a', border:`1px solid ${rawJson?ACCENT+'60':'#2a3349'}`, fontWeight:600, display:'flex', alignItems:'center', gap:5 }}>
+                      style={{ padding:'3px 14px', fontSize:10, borderRadius:4, cursor:rawJson?'pointer':'not-allowed', background:rawJson?`color-mix(in srgb, ${ACCENT} 20%, #161b27)`:'#1e2535', color:rawJson?ACCENT:'#8593b5', border:`1px solid ${rawJson?ACCENT+'60':'#2a3349'}`, fontWeight:600, display:'flex', alignItems:'center', gap:5 }}>
                       <i className="ti ti-player-play" style={{ fontSize:9 }} /> Analizza JSON e genera flussi
                     </button>
                     {parseError && <span style={{ fontSize:9, color:'#ff5f57' }}>{parseError}</span>}
@@ -583,7 +583,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                       style={{ width:28, height:14, borderRadius:7, border:'none', cursor:'pointer', background:config.hasReject?'#ff5f57':'#2a3349', position:'relative', flexShrink:0, transition:'background .2s' }}>
                       <div style={{ width:10, height:10, borderRadius:'50%', background:'#fff', position:'absolute', top:2, left:config.hasReject?14:2, transition:'left .2s' }} />
                     </button>
-                    <span style={{ fontSize:9, color:config.hasReject?'#ff5f57':'#4a5a7a', fontWeight:600 }}>
+                    <span style={{ fontSize:9, color:config.hasReject?'#ff5f57':'#8593b5', fontWeight:600 }}>
                       {config.hasReject?'Reject attivo':'Reject disabilitato'}
                     </span>
                   </div>
@@ -614,7 +614,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                     {[{icon:'[]',color:'#ffb347',label:'array'},{icon:'{}',color:'#c8d4f0',label:'oggetto'},{icon:'—',color:'#3ddc84',label:'valore'},{icon:'●',color:'#3ddc84',label:'mappato'}].map((item) => (
                       <div key={item.label} style={{ display:'flex', alignItems:'center', gap:2 }}>
                         <code style={{ fontSize:8, color:item.color, minWidth:12 }}>{item.icon}</code>
-                        <span style={{ fontSize:8, color:'#4a5a7a' }}>{item.label}</span>
+                        <span style={{ fontSize:8, color:'#8593b5' }}>{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -658,7 +658,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
         </div>
 
         <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:8, padding:'10px 16px', borderTop:'1px solid #2a3349', background:'#1a2030', flexShrink:0 }}>
-          <span style={{ fontSize:11, color:'#4a5a7a', marginRight:'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize:11, color:'#8593b5', marginRight:'auto' }}>Le modifiche sono salvate automaticamente</span>
           <button onClick={onClose}
             style={{ padding:'6px 20px', fontSize:12, borderRadius:4, cursor:'pointer', background:`color-mix(in srgb, ${ACCENT} 20%, #161b27)`, color:ACCENT, border:`1px solid ${ACCENT}60`, fontWeight:600 }}
             onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.background=`color-mix(in srgb, ${ACCENT} 35%, #161b27)`}}

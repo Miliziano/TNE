@@ -11,7 +11,7 @@ import type { NodeData, NodeStatus } from '../../../types'
 import { useFlowStore } from '../../../store/flowStore'
 
 const STATUS_COLORS: Record<NodeStatus, string> = {
-  idle:    '#4a5a7a',
+  idle:    '#8593b5',
   running: '#ffb347',
   done:    '#3ddc84',
   error:   '#ff5f57',
@@ -125,7 +125,7 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
           <span style={{ fontSize: 9, padding: '1px 7px', borderRadius: 8, fontWeight: 700, background: `color-mix(in srgb, ${joinColor} 15%, #1a2030)`, color: joinColor, border: `0.5px solid ${joinColor}40`, textTransform: 'uppercase' }}>
             {joinType}
           </span>
-          <span style={{ fontSize: 9, color: '#4a5a7a' }}>join</span>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>join</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

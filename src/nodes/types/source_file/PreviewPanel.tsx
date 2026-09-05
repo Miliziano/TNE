@@ -20,7 +20,7 @@ const box: React.CSSProperties = {
   background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', padding: '10px 12px',
 }
 const th: React.CSSProperties = {
-  fontSize: 9, color: '#4a5a7a', fontWeight: 600, textTransform: 'uppercase',
+  fontSize: 9, color: '#8593b5', fontWeight: 600, textTransform: 'uppercase',
   letterSpacing: '.06em', textAlign: 'left', padding: '4px 8px', whiteSpace: 'nowrap',
 }
 const td: React.CSSProperties = {
@@ -106,7 +106,7 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
         <button onClick={campiona} disabled={inCorso}
           style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6,
                    background: inCorso ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 22%, #0f1117)`,
-                   color: inCorso ? '#4a5a7a' : ACCENT, border: `0.5px solid ${ACCENT}50`,
+                   color: inCorso ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}50`,
                    cursor: inCorso ? 'default' : 'pointer' }}>
           {inCorso ? 'lettura…' : '\u25b6 campiona dal file'}
         </button>
@@ -117,7 +117,7 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
             style={{ width: 60, background: '#0f1117', border: '1px solid #2a3349', borderRadius: 5,
                      color: '#c8d4f0', fontSize: 11, padding: '3px 6px' }} />
         </label>
-        <span style={{ fontSize: 9, color: '#4a5a7a' }}>
+        <span style={{ fontSize: 9, color: '#8593b5' }}>
           lettura reale del file (<b style={{ color: '#9a9aaa' }}>{format}</b>) — a leggere è il motore
         </span>
       </div>
@@ -134,7 +134,7 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
       {/* Uscita */}
       {output && (
         output.length === 0 ? (
-          <div style={{ ...box, fontSize: 11, color: '#4a5a7a' }}>Nessuna riga letta dal file.</div>
+          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>Nessuna riga letta dal file.</div>
         ) : (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
@@ -156,7 +156,7 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
                     <tr key={i} style={{ borderBottom: '0.5px solid #1e2535' }}>
                       {cols.map((c) => (
                         <td key={c}
-                            style={{ ...td, color: r[c] === null || r[c] === undefined ? '#4a5a7a' : '#c8d4f0' }}>
+                            style={{ ...td, color: r[c] === null || r[c] === undefined ? '#8593b5' : '#c8d4f0' }}>
                           {fmt(r[c])}
                         </td>
                       ))}

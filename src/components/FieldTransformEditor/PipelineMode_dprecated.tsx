@@ -88,7 +88,7 @@ export function PipelineMode({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Token cliccabili */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 9, color: '#4a5a7a', flexShrink: 0 }}>campi:</span>
+            <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>campi:</span>
             {inputVars.map((v, i) => (
               <button key={i} onClick={() => {
                 const cur = value.expression ?? ''
@@ -165,20 +165,20 @@ export function PipelineMode({
                   {fn?.label ?? step.fnId}
                 </span>
                 {paramSummary && (
-                  <span style={{ color: '#4a5a7a', fontSize: 9, maxWidth: 48, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ color: '#8593b5', fontSize: 9, maxWidth: 48, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     ({paramSummary})
                   </span>
                 )}
                 {hasParams && (
-                  <span style={{ color: isOpen ? '#a78bfa' : '#4a5a7a', fontSize: 9 }}>
+                  <span style={{ color: isOpen ? '#a78bfa' : '#8593b5', fontSize: 9 }}>
                     {isOpen ? '▲' : '▼'}
                   </span>
                 )}
                 <span
                   onClick={e => { e.stopPropagation(); removeStep(step.id) }}
-                  style={{ color: '#4a5a7a', fontSize: 9, marginLeft: 1, cursor: 'pointer' }}
+                  style={{ color: '#8593b5', fontSize: 9, marginLeft: 1, cursor: 'pointer' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                   ×
                 </span>
               </div>
@@ -195,10 +195,10 @@ export function PipelineMode({
               display: 'flex', alignItems: 'center', gap: 2,
               background: 'none', border: '1px dashed #2a3349',
               borderRadius: 10, padding: '1px 7px',
-              fontSize: 9, color: '#4a5a7a', cursor: 'pointer',
+              fontSize: 9, color: '#8593b5', cursor: 'pointer',
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#a78bfa'; (e.currentTarget as HTMLElement).style.color = '#a78bfa' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
             <i className="ti ti-plus" style={{ fontSize: 9 }} /> fn
           </button>
 
@@ -225,7 +225,7 @@ export function PipelineMode({
               </div>
               <div style={{ maxHeight: 180, overflowY: 'auto' }}>
                 {filteredFns.length === 0 ? (
-                  <div style={{ padding: '8px', fontSize: 9, color: '#4a5a7a', textAlign: 'center' }}>nessun risultato</div>
+                  <div style={{ padding: '8px', fontSize: 9, color: '#8593b5', textAlign: 'center' }}>nessun risultato</div>
                 ) : filteredFns.map(fn => (
                   <div
                     key={fn.id}
@@ -240,7 +240,7 @@ export function PipelineMode({
                     {fn.outputType && (
                       <span style={{ fontSize: 9, color: '#4a9eff', flexShrink: 0 }}>→{fn.outputType}</span>
                     )}
-                    <span style={{ color: '#4a5a7a', fontSize: 9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ color: '#8593b5', fontSize: 9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {fn.description}
                     </span>
                   </div>
@@ -272,7 +272,7 @@ export function PipelineMode({
           }}>
             {fn.params.map(p => (
               <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 9, color: '#4a5a7a', whiteSpace: 'nowrap' }}>{p.label}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', whiteSpace: 'nowrap' }}>{p.label}</span>
                 {p.type === 'select' ? (
                   <CustomSelect
                     value={step.params[p.key] ?? p.default ?? ''}
@@ -296,7 +296,7 @@ export function PipelineMode({
                 )}
               </div>
             ))}
-            <code style={{ fontSize: 9, color: '#4a5a7a', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+            <code style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
               = {previewExpr}
             </code>
           </div>

@@ -18,7 +18,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -67,13 +67,13 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
           <i className="ti ti-server" style={{ fontSize: 14, color: ACCENT }} />
           <div>
             <div style={{ fontWeight: 600, color: ACCENT }}>{resource.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ fontSize: 9, color: '#8593b5' }}>
               {protocol.toUpperCase()} · {resource.config?.host ?? '—'}:{resource.config?.port ?? (protocol === 'sftp' ? '22' : '21')}
             </div>
           </div>
         </div>
       ) : (
-        <div style={{ padding: '10px', textAlign: 'center', color: '#4a5a7a', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+        <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-server-off" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
           Aggiungi una risorsa FTP/SFTP dalla resource strip, poi selezionala nel tab Connessione.
         </div>
@@ -88,7 +88,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
         label="Nome file"
         hint="Supporta variabili: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}">
         <input style={inputStyle} value={p('fileName')} onChange={u('fileName')} placeholder="output_{timestamp}.csv" />
-        <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3 }}>
+        <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
           Esempi: <code style={{ color: ACCENT }}>report_{'{'}date{'}'}.csv</code> · <code style={{ color: ACCENT }}>export_{'{'}run_id{'}'}.json</code> · <code style={{ color: ACCENT }}>data_{'{'}datetime{'}'}.parquet</code>
         </div>
       </Field>
@@ -107,7 +107,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
             <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: writeMode === m.value ? ACCENT : 'transparent', border: `1.5px solid ${writeMode === m.value ? ACCENT : '#2a3349'}` }} />
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: writeMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</div>
-              <div style={{ fontSize: 9, color: '#4a5a7a' }}>{m.desc}</div>
+              <div style={{ fontSize: 9, color: '#8593b5' }}>{m.desc}</div>
             </div>
           </button>
         ))}
@@ -122,7 +122,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
           <option value="false">No — scrivi direttamente nel file finale</option>
         </CustomSelect>
         {atomicWrite === 'true' && (
-          <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 3 }}>
+          <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
             Il file temporaneo avrà estensione <code style={{ color: ACCENT }}>.tmp</code> durante la scrittura.
             In caso di errore il file .tmp viene eliminato, il file finale rimane intatto.
           </div>
@@ -194,7 +194,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
           <button key={m.value} onClick={() => updateProp(nodeId, 'outputMode', m.value)}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: outputMode === m.value ? `color-mix(in srgb, ${m.color} 10%, #1a2030)` : '#1a2030', border: outputMode === m.value ? `1px solid ${m.color}50` : '1px solid #2a3349' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? m.color : '#c8d4f0' }}>{m.label}</div>
-            <div style={{ fontSize: 9, color: '#4a5a7a', lineHeight: 1.4 }}>{m.desc}</div>
+            <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</div>
           </button>
         ))}
       </div>
@@ -202,7 +202,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       {/* Schema signal */}
       {outputMode === 'signal' && (
         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
-          <div style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Schema riga di stato</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Schema riga di stato</div>
           {[
             { name: 'remote_path',    type: 'string',  desc: 'Path completo del file sul server'   },
             { name: 'file_name',      type: 'string',  desc: 'Nome del file scritto'               },
@@ -214,7 +214,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
           ].map((f) => (
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
               <code style={{ fontSize: 10, color: '#ffb347', minWidth: 120, flexShrink: 0 }}>{f.name}</code>
-              <span style={{ fontSize: 9, color: '#4a5a7a', minWidth: 55 }}>{f.type}</span>
+              <span style={{ fontSize: 9, color: '#8593b5', minWidth: 55 }}>{f.type}</span>
               <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
             </div>
           ))}
@@ -222,7 +222,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Opzioni avanzate */}
-      <SectionTitle label="Opzioni avanzate" color="#4a5a7a" />
+      <SectionTitle label="Opzioni avanzate" color="#8593b5" />
       <Row>
         <Field label="Timeout connessione (sec)">
           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
@@ -238,7 +238,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
 
-      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#4a5a7a', lineHeight: 1.5 }}>
+      <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
         La connessione viene aperta e chiusa per ogni batch. Per trasferimenti frequenti considera
         di aumentare il <strong style={{ color: '#c8d4f0' }}>batch size</strong> nel tab Avanzate per ridurre il numero di connessioni.

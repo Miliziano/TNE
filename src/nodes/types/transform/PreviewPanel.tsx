@@ -23,7 +23,7 @@ const box: React.CSSProperties = {
   background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', padding: '10px 12px',
 }
 const th: React.CSSProperties = {
-  fontSize: 9, color: '#4a5a7a', fontWeight: 600, textTransform: 'uppercase',
+  fontSize: 9, color: '#8593b5', fontWeight: 600, textTransform: 'uppercase',
   letterSpacing: '.06em', textAlign: 'left', padding: '4px 8px', whiteSpace: 'nowrap',
 }
 const td: React.CSSProperties = {
@@ -109,7 +109,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
 
   if (fields.length === 0) {
     return (
-      <div style={{ padding: 20, textAlign: 'center', color: '#4a5a7a', fontSize: 11,
+      <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                     background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
         <i className="ti ti-eye-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
         Configura almeno un campo nel tab <b>Mapping</b> per provare l'anteprima.
@@ -144,7 +144,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
           style={{ ...box, width: '100%', minHeight: 90, resize: 'vertical', color: '#c8d4f0',
                    fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5, boxSizing: 'border-box' }}
         />
-        <div style={{ fontSize: 9, color: '#4a5a7a', marginTop: 4, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, lineHeight: 1.5 }}>
           Un array JSON di oggetti; ogni oggetto è una riga in ingresso. Vivono su questo nodo:
           l'anteprima è indipendente dalla catena a monte.
         </div>
@@ -155,11 +155,11 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
         <button onClick={esegui} disabled={inCorso}
           style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6,
                    background: inCorso ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 22%, #0f1117)`,
-                   color: inCorso ? '#4a5a7a' : ACCENT, border: `0.5px solid ${ACCENT}50`,
+                   color: inCorso ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}50`,
                    cursor: inCorso ? 'default' : 'pointer' }}>
           {inCorso ? 'elaborazione…' : '\u25b6 elabora col motore'}
         </button>
-        <span style={{ fontSize: 9, color: '#4a5a7a' }}>a eseguire è il motore, come in produzione</span>
+        <span style={{ fontSize: 9, color: '#8593b5' }}>a eseguire è il motore, come in produzione</span>
       </div>
 
       {/* Errore */}
@@ -174,7 +174,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* Uscita */}
       {output && (
         output.length === 0 ? (
-          <div style={{ ...box, fontSize: 11, color: '#4a5a7a' }}>Nessuna riga in uscita.</div>
+          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>Nessuna riga in uscita.</div>
         ) : (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
@@ -196,7 +196,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
                     <tr key={i} style={{ borderBottom: '0.5px solid #1e2535' }}>
                       {cols.map((c) => (
                         <td key={c}
-                            style={{ ...td, color: r[c] === null || r[c] === undefined ? '#4a5a7a' : '#c8d4f0' }}>
+                            style={{ ...td, color: r[c] === null || r[c] === undefined ? '#8593b5' : '#c8d4f0' }}>
                           {fmt(r[c])}
                         </td>
                       ))}

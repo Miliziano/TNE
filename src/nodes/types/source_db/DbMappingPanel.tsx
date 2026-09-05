@@ -224,7 +224,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 11, color, fontWeight: 600 }}>
             Schema output — {label}
           </div>
-          <div style={{ fontSize: 10, color: '#4a5a7a' }}>
+          <div style={{ fontSize: 10, color: '#8593b5' }}>
             {p('query')
               ? <><span style={{ color: '#a78bfa' }}>Query personalizzata</span> · {p('query').slice(0, 60)}{p('query').length > 60 ? '…' : ''}</>
               : <>Tabella: <code style={{ color: '#c8d4f0' }}>{p('querySchema', 'public')}.{p('table', '—')}</code></>
@@ -244,7 +244,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
             background: inferring
               ? '#1a2030'
               : `color-mix(in srgb, ${color} 20%, #161b27)`,
-            color:  inferring ? '#4a5a7a' : color,
+            color:  inferring ? '#8593b5' : color,
             border: `1px solid color-mix(in srgb, ${color} ${inferring ? '20%' : '50%'}, transparent)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             transition: 'all .15s',
@@ -261,9 +261,9 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
           <button
             onClick={() => saveAndPropagate([])}
             title="Azzera tutti i campi"
-            style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', background: 'none', border: '1px solid #2a3349', color: '#4a5a7a', fontSize: 11 }}
+            style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', background: 'none', border: '1px solid #2a3349', color: '#8593b5', fontSize: 11 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57'; (e.currentTarget as HTMLElement).style.borderColor = '#ff5f57' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
             <i className="ti ti-trash" style={{ fontSize: 12 }} />
           </button>
         )}
@@ -288,7 +288,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
             <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>
               Colonne — {fields.length} dichiarate
             </div>
-            <div style={{ fontSize: 9, color: '#4a5a7a' }}>
+            <div style={{ fontSize: 9, color: '#8593b5' }}>
               Rilevate automaticamente o aggiunte manualmente · propagate ai nodi successivi
             </div>
           </div>
@@ -317,7 +317,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
         {fields.length === 0 ? (
           <div style={{ padding: '24px 20px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
             <i className="ti ti-database-search" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: '#2a3349' }} />
-            Clicca <strong style={{ color: '#4a5a7a' }}>Rileva schema dalla query</strong> per importare automaticamente le colonne,
+            Clicca <strong style={{ color: '#8593b5' }}>Rileva schema dalla query</strong> per importare automaticamente le colonne,
             oppure aggiungile manualmente.
           </div>
         ) : (
@@ -325,7 +325,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
             {/* Intestazione */}
             <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 80px 100px 28px 24px', gap: 4, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
               {['', 'Nome colonna', 'Tipo', 'Tipo DB nativo', '∅', ''].map((h, i) => (
-                <div key={i} style={{ fontSize: 9, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
+                <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
               ))}
             </div>
 
@@ -340,11 +340,11 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
                   {/* Riordina */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <button onClick={() => moveField(idx, 'up')} disabled={idx === 0}
-                      style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+                      style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
                       <i className="ti ti-chevron-up" style={{ fontSize: 9 }} />
                     </button>
                     <button onClick={() => moveField(idx, 'down')} disabled={idx === fields.length - 1}
-                      style={{ background: 'none', border: 'none', cursor: idx === fields.length - 1 ? 'default' : 'pointer', color: idx === fields.length - 1 ? '#2a3349' : '#4a5a7a', padding: 0, lineHeight: 1 }}>
+                      style={{ background: 'none', border: 'none', cursor: idx === fields.length - 1 ? 'default' : 'pointer', color: idx === fields.length - 1 ? '#2a3349' : '#8593b5', padding: 0, lineHeight: 1 }}>
                       <i className="ti ti-chevron-down" style={{ fontSize: 9 }} />
                     </button>
                   </div>
@@ -385,9 +385,9 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
 
                   {/* Elimina */}
                   <button onClick={() => deleteField(f.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5a7a', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a5a7a' }}>
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                     <i className="ti ti-x" style={{ fontSize: 10 }} />
                   </button>
                 </div>
@@ -409,7 +409,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Info propagazione ────────────────────────────────── */}
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#4a5a7a', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
         Lo schema viene propagato automaticamente ai nodi collegati.
         La colonna <strong style={{ color: '#9a9aaa' }}>∅</strong> indica se il campo è NOT NULL.

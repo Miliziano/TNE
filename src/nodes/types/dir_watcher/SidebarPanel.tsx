@@ -22,7 +22,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
       <div style={labelStyle}>{label}</div>
       {children}
-      {hint && <div style={{ fontSize: 10, color: '#4a5a7a', fontStyle: 'italic' }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
     </div>
   )
 }
@@ -163,7 +163,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
               flex: 1, padding: '5px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 10,
               background: mode === m.value ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
               border: mode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
-              color: mode === m.value ? ACCENT : '#4a5a7a',
+              color: mode === m.value ? ACCENT : '#8593b5',
               fontWeight: mode === m.value ? 600 : 400,
             }}>
             {m.label}
@@ -182,7 +182,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
                 flex: 1, padding: '5px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 10,
                 background: submode === sm.value ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
                 border: submode === sm.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
-                color: submode === sm.value ? ACCENT : '#4a5a7a',
+                color: submode === sm.value ? ACCENT : '#8593b5',
                 fontWeight: submode === sm.value ? 600 : 400,
               }}>
               {sm.label}
@@ -191,7 +191,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
         </div>
       )}
 
-      <div style={{ fontSize: 10, color: '#4a5a7a', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+      <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
         <i className="ti ti-mouse" style={{ fontSize: 11 }} />
         Doppio click per la configurazione completa
       </div>
