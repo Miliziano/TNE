@@ -14,6 +14,7 @@ import { useFlowStore } from '../store/flowStore'
 import { parseUserFunctions } from '../ir/userFunctions'
 import { ScriptEditor } from './ScriptEditor'
 import { FunctionPicker } from './FunctionPicker'
+import { isTauri, openFileDialog, saveFileDialog, readFile, writeFile } from '../lib/tauri'
 
 const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
@@ -42,6 +43,55 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
 
   const salva = () => { setUserFunctions(lines); onClose() }
 
+  // ── Librerie .ffpel (funzioni riusabili fra progetti) ──
+  const mergeDefs = (content: string) => {
+    const esistenti = new Set(parseUserFunctions(lines).functions.map((fn) => fn.name))
+    const aggiunte: string[] = []
+    for (const riga of content.split('\n').map((l) => l.trim()).filter(Boolean)) {
+      const m = /funzione\s+([A-Za-z_][A-Za-z0-9_]*)/i.exec(riga)
+      if (!m) continue
+      const nome = m[1].toLowerCase()
+      if (esistenti.has(nome)) continue   // duplicato: salta
+      esistenti.add(nome)
+      aggiunte.push(riga)
+    }
+    if (aggiunte.length) setText([text.trim(), ...aggiunte].filter(Boolean).join('\n'))
+  }
+  const esportaLib = async () => {
+    if (isTauri()) {
+      const path = await saveFileDialog({ title: 'Esporta libreria funzioni',
+        filters: [{ name: 'Libreria FPEL', extensions: ['ffpel'] }], defaultPath: 'libreria.ffpel' })
+      if (!path) return
+      try { await writeFile(path, text) }
+      catch (e) { alert(`Salvataggio non riuscito: ${e instanceof Error ? e.message : String(e)}`) }
+      return
+    }
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a')
+    a.href = url; a.download = 'libreria.ffpel'; document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+  const importaLib = async () => {
+    if (isTauri()) {
+      const res = await openFileDialog({ title: 'Importa libreria funzioni',
+        filters: [{ name: 'Libreria FPEL', extensions: ['ffpel'] }] })
+      const path = Array.isArray(res) ? res[0] : res
+      if (!path) return
+      try { mergeDefs(await readFile(path)) }
+      catch (e) { alert(`Lettura non riuscita: ${e instanceof Error ? e.message : String(e)}`) }
+      return
+    }
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = '.ffpel,text/plain'
+    input.onchange = () => {
+      const file = input.files?.[0]; if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => mergeDefs(String(reader.result))
+      reader.readAsText(file)
+    }
+    input.click()
+  }
+
   return (
     <div style={overlay} onClick={onClose}>
       <div style={panel} onClick={(e) => e.stopPropagation()}>
@@ -66,6 +116,18 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={importaLib}
+              title="Importa funzioni da una libreria .ffpel (le aggiunge, saltando i nomi già presenti)"
+              style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
+                       background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
+              <i className="ti ti-download" style={{ fontSize: 10 }} /> importa .ffpel
+            </button>
+            <button onClick={esportaLib}
+              title="Esporta le funzioni come libreria .ffpel riusabile in altri progetti"
+              style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
+                       background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
+              <i className="ti ti-upload" style={{ fontSize: 10 }} /> esporta .ffpel
+            </button>
             <div style={{ flex: 1 }} />
             <button
               onClick={() => setPickerOpen(true)}

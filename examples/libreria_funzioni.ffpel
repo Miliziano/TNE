@@ -1,0 +1,7 @@
+funzione iva(imponibile, aliquota) { ritorna imponibile * aliquota / 100 }
+funzione lordo(imponibile, aliquota) { ritorna imponibile + imponibile * aliquota / 100 }
+funzione sconto(prezzo, perc) { ritorna prezzo - prezzo * perc / 100 }
+funzione nome_completo(nome, cognome) { ritorna nome + " " + cognome }
+funzione pulisci(testo) { ritorna trim(upper(testo)) }
+funzione oppure(valore, fallback) { ritorna coalesce(valore, fallback) }
+funzione classifica(voto) { ritorna case when voto >= 60 then "sufficiente" else "insufficiente" end }
