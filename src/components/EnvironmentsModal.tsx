@@ -1,16 +1,16 @@
 /**
  * src/components/EnvironmentsModal.tsx
  *
- * Editor Ambienti — un unico posto per:
- *   1) VARIABILI DI POOL (condivise): crea / rinomina / valore di default / elimina;
- *   2) PROFILI (test/dev/prod): profilo attivo, crea/elimina, valori per profilo;
+ * Editor Environments — un unico posto per:
+ *   1) VARIABILI DI POOL (condivise): crea / rinomina / default value / elimina;
+ *   2) PROFILI (test/dev/prod): active profile, crea/elimina, valori per profilo;
  *   3) IMPORT / EXPORT dei profili da/su FILE esterno. Il progetto resta il
  *      padrone (i valori stanno nel .ffplan); il file esterno è comodità:
  *      esporti per condividere/preparare fuori, importi per portare dentro.
  *      Se un profilo viene da un file, il progetto ne ricorda il percorso
  *      (profileRefs) e l'utente può RICARICARLO a mano quando vuole — nessun
  *      auto-reload all'apertura (il progetto vince, niente sorprese).
- * Legge/scrive lo store direttamente. Tutto si persiste col progetto (Salva).
+ * Legge/scrive lo store direttamente. Tutto si persiste col progetto (Save).
  */
 import { useState, useEffect, Fragment } from 'react'
 import { useFlowStore } from '../store/flowStore'
@@ -103,11 +103,11 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
     addVariable('pool', null, { name, type: 'secret', value: '' })
   }
   const handleAddProfile = () => {
-    const name = window.prompt('Nome del nuovo profilo (es. prod):')?.trim()
+    const name = window.prompt('Name del nuovo profilo (es. prod):')?.trim()
     if (name) { addProfile(name); setEditing(name) }
   }
   const handleDeleteProfile = () => {
-    if (editingProfile && confirm(`Eliminare il profilo «${editingProfile}»?`)) { deleteProfile(editingProfile); setEditing('') }
+    if (editingProfile && confirm(`Deletere il profilo «${editingProfile}»?`)) { deleteProfile(editingProfile); setEditing('') }
   }
 
   // ── file esterno ──────────────────────────────────────────────
@@ -150,21 +150,21 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
     if (!ref) return
     const raw = await readFile(ref).catch(() => null)
     const vv = raw ? parseValues(raw) : null
-    if (!vv) { setMsg(`Impossibile ricaricare da ${basename(ref)} (file mancante o non valido).`); return }
+    if (!vv) { setMsg(`Impossibile reloadre da ${basename(ref)} (file mancante o non valido).`); return }
     importProfile(editingProfile, vv, ref)
-    setMsg(`Profilo «${editingProfile}» ricaricato da ${basename(ref)}.`)
+    setMsg(`Profilo «${editingProfile}» reloadto da ${basename(ref)}.`)
   }
   const handleSetSecret = async (name: string) => {
     const val = secretInputs[name] ?? ''
     if (!val) return
     const ok = await secretSet(name, val).then(() => true).catch(() => false)
-    if (ok) { setSecretInputs((p) => ({ ...p, [name]: '' })); setMsg(`Segreto «${name}» salvato nel keychain.`); await refreshSecretStatus() }
+    if (ok) { setSecretInputs((p) => ({ ...p, [name]: '' })); setMsg(`Secret «${name}» salvato nel keychain.`); await refreshSecretStatus() }
     else setMsg(`Impossibile salvare il segreto «${name}».`)
   }
   const handleDeleteSecret = async (name: string) => {
     if (!confirm(`Rimuovere il segreto «${name}» dal keychain di questa macchina?`)) return
     await secretDelete(name).catch(() => {})
-    setMsg(`Segreto «${name}» rimosso dal keychain.`)
+    setMsg(`Secret «${name}» rimosso dal keychain.`)
     await refreshSecretStatus()
   }
 
@@ -173,8 +173,8 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
       <div onClick={(e) => e.stopPropagation()} style={{ width: 640, maxWidth: '94vw', maxHeight: '84vh', display: 'flex', flexDirection: 'column', background: '#1e2535', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
 
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a3349', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Ambienti</div>
-          <button onClick={onClose} title="Chiudi" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Environments</div>
+          <button onClick={onClose} title="Close" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ padding: '12px 16px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -182,26 +182,26 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           {/* 1) Variabili di pool */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={labelStyle}>Variabili condivise (pool)</div>
+              <div style={labelStyle}>Shared variables (pool)</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={handleAddVar} style={addBtnStyle}>+ variabile</button>
-                <button onClick={handleAddSecret} style={{ ...addBtnStyle, background: '#5a3a10', border: '1px solid #7a5a20' }} title="Aggiungi un segreto (solo il nome; il valore arriva dal keychain a run-time)">+ segreto</button>
+                <button onClick={handleAddSecret} style={{ ...addBtnStyle, background: '#5a3a10', border: '1px solid #7a5a20' }} title="Add a secret (name only; the value comes from the keychain at run-time)">+ secret</button>
               </div>
             </div>
             {poolVars.length === 0 ? (
-              <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>Nessuna variabile condivisa. Aggiungine una: sarà referenziabile con <code style={{ color: '#8aa' }}>{'${nome}'}</code> in ogni lane.</div>
+              <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>No shared variables. Add one: it will be referenceable with <code style={{ color: '#8aa' }}>{'${nome}'}</code> in every lane.</div>
             ) : (
               poolVars.map((v) => (
                 <div key={v.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input value={v.name} onChange={(e) => updateVariable('pool', null, v.id, { name: e.target.value })} placeholder="nome" style={{ ...inputStyle, flex: '0 0 170px' }} />
+                  <input value={v.name} onChange={(e) => updateVariable('pool', null, v.id, { name: e.target.value })} placeholder="name" style={{ ...inputStyle, flex: '0 0 170px' }} />
                   {v.type === 'secret' ? (
                     <div style={{ flex: 1, fontSize: 10, color: '#c8a060', display: 'flex', gap: 6, alignItems: 'center' }}>
                       <i className="ti ti-lock" aria-hidden="true" /> segreto — valore dal keychain a run-time, mai salvato nel file
                     </div>
                   ) : (
-                    <input value={v.value} onChange={(e) => updateVariable('pool', null, v.id, { value: e.target.value })} placeholder="valore di default" style={inputStyle} />
+                    <input value={v.value} onChange={(e) => updateVariable('pool', null, v.id, { value: e.target.value })} placeholder="default value" style={inputStyle} />
                   )}
-                  <button onClick={() => deleteVariable('pool', null, v.id)} title="Elimina" style={trashStyle}><i className="ti ti-trash" aria-hidden="true" /></button>
+                  <button onClick={() => deleteVariable('pool', null, v.id)} title="Delete" style={trashStyle}><i className="ti ti-trash" aria-hidden="true" /></button>
                 </div>
               ))
             )}
@@ -212,8 +212,8 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           {secrets.length > 0 && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={labelStyle}>Segreti — valori su questa macchina (keychain)</div>
-                {!isTauri() && <div style={{ fontSize: 10, color: '#c8a060', fontStyle: 'italic' }}>Disponibile solo nell'app desktop.</div>}
+                <div style={labelStyle}>Secrets — valori su questa macchina (keychain)</div>
+                {!isTauri() && <div style={{ fontSize: 10, color: '#c8a060', fontStyle: 'italic' }}>Available only in the desktop app.</div>}
                 {secrets.map((sv) => {
                   const present = !!secretStatus[sv.name]
                   const val = secretInputs[sv.name] ?? ''
@@ -223,9 +223,9 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                         <i className="ti ti-lock" aria-hidden="true" /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sv.name}</span>
                       </div>
                       <span style={{ width: 64, fontSize: 10, color: present ? '#3ddc84' : '#c8a060' }}>{present ? '✓ presente' : 'mancante'}</span>
-                      <input type="password" value={val} placeholder="nuovo valore…" onChange={(e) => setSecretInputs((p) => ({ ...p, [sv.name]: e.target.value }))} style={inputStyle} />
-                      <button onClick={() => handleSetSecret(sv.name)} disabled={!isTauri() || !val.length} style={{ ...addBtnStyle, opacity: (!isTauri() || !val.length) ? 0.5 : 1 }}>Salva</button>
-                      <button onClick={() => handleDeleteSecret(sv.name)} disabled={!isTauri() || !present} title="Rimuovi dal keychain" style={{ ...trashStyle, opacity: (!isTauri() || !present) ? 0.5 : 1 }}><i className="ti ti-trash" aria-hidden="true" /></button>
+                      <input type="password" value={val} placeholder="new value…" onChange={(e) => setSecretInputs((p) => ({ ...p, [sv.name]: e.target.value }))} style={inputStyle} />
+                      <button onClick={() => handleSetSecret(sv.name)} disabled={!isTauri() || !val.length} style={{ ...addBtnStyle, opacity: (!isTauri() || !val.length) ? 0.5 : 1 }}>Save</button>
+                      <button onClick={() => handleDeleteSecret(sv.name)} disabled={!isTauri() || !present} title="Remove from keychain" style={{ ...trashStyle, opacity: (!isTauri() || !present) ? 0.5 : 1 }}><i className="ti ti-trash" aria-hidden="true" /></button>
                     </div>
                   )
                 })}
@@ -236,33 +236,33 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
 
           {/* 2) Profilo attivo */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Profilo attivo (usato al Run)</div>
+            <div style={labelStyle}>Active profile (used at Run)</div>
             <CustomSelect value={environments.active} onChange={(e) => setActiveProfile(e.target.value)} style={selectStyle}>
-              <option value="">(nessuno — valori di default)</option>
+              <option value="">(none — default values)</option>
               {profileNames.map((n) => <option key={n} value={n}>{n}</option>)}
             </CustomSelect>
           </div>
 
-          {/* 3) Modifica profilo + file esterno */}
+          {/* 3) Edit profile + file esterno */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={labelStyle}>Modifica profilo</div>
+            <div style={labelStyle}>Edit profile</div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <CustomSelect value={editingProfile} onChange={(e) => setEditing(e.target.value)} style={selectStyle} disabled={profileNames.length === 0}>
-                {profileNames.length === 0 && <option value="">— nessun profilo —</option>}
+                {profileNames.length === 0 && <option value="">— no profile —</option>}
                 {profileNames.map((n) => <option key={n} value={n}>{n}</option>)}
               </CustomSelect>
-              <button onClick={handleAddProfile} title="Nuovo profilo" style={addBtnStyle}>+ nuovo</button>
-              <button onClick={handleRenameProfile} disabled={!editingProfile} title="Rinomina il profilo (i valori restano)" style={{ ...ghostBtnStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-pencil" aria-hidden="true" /></button>
-              <button onClick={handleDeleteProfile} disabled={!editingProfile} title="Elimina profilo" style={{ ...trashStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-trash" aria-hidden="true" /></button>
+              <button onClick={handleAddProfile} title="New profile" style={addBtnStyle}>+ new</button>
+              <button onClick={handleRenameProfile} disabled={!editingProfile} title="Rename the profile (values are kept)" style={{ ...ghostBtnStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-pencil" aria-hidden="true" /></button>
+              <button onClick={handleDeleteProfile} disabled={!editingProfile} title="Delete profile" style={{ ...trashStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-trash" aria-hidden="true" /></button>
             </div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button onClick={handleImport} style={ghostBtnStyle}><i className="ti ti-file-import" style={{ marginRight: 4 }} aria-hidden="true" />Importa da file…</button>
-              <button onClick={handleExport} disabled={!editingProfile} style={{ ...ghostBtnStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-file-export" style={{ marginRight: 4 }} aria-hidden="true" />Esporta…</button>
+              <button onClick={handleImport} style={ghostBtnStyle}><i className="ti ti-file-import" style={{ marginRight: 4 }} aria-hidden="true" />Import from file…</button>
+              <button onClick={handleExport} disabled={!editingProfile} style={{ ...ghostBtnStyle, opacity: editingProfile ? 1 : 0.5, cursor: editingProfile ? 'pointer' : 'default' }}><i className="ti ti-file-export" style={{ marginRight: 4 }} aria-hidden="true" />Export…</button>
             </div>
             {ref && (
               <div style={{ fontSize: 10, color: '#5a6a8a', display: 'flex', gap: 6, alignItems: 'center' }}>
-                <i className="ti ti-link" aria-hidden="true" /> collegato a <span style={{ color: '#8aa4d0' }}>{basename(ref)}</span>
-                <button onClick={handleReload} style={{ background: 'transparent', border: 'none', color: '#3ddc84', cursor: 'pointer', fontSize: 10, textDecoration: 'underline', padding: 0 }}>ricarica</button>
+                <i className="ti ti-link" aria-hidden="true" /> linked to <span style={{ color: '#8aa4d0' }}>{basename(ref)}</span>
+                <button onClick={handleReload} style={{ background: 'transparent', border: 'none', color: '#3ddc84', cursor: 'pointer', fontSize: 10, textDecoration: 'underline', padding: 0 }}>reload</button>
               </div>
             )}
           </div>
@@ -277,7 +277,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           {profileNames.length > 0 && profileVars.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={labelStyle}>
-                Valori per profilo — cella vuota = eredita il default; il default si cambia sopra, in «Variabili condivise»
+                Values per profilo — cella vuota = eredita il default; il default si cambia sopra, in «Variabili condivise»
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: `170px repeat(${profileNames.length}, minmax(150px, 1fr))`, gap: 6, minWidth: 'min-content' }}>
@@ -289,7 +289,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                       color: n === environments.active ? '#3ddc84' : '#8aa4d0',
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}>
-                      {n === environments.active && <i className="ti ti-player-play" title="profilo attivo" aria-hidden="true" />}
+                      {n === environments.active && <i className="ti ti-player-play" title="active profile" aria-hidden="true" />}
                       {n}
                     </div>
                   ))}
@@ -332,7 +332,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
         </div>
 
         <div style={{ padding: '10px 16px', borderTop: '1px solid #2a3349', fontSize: 10, color: '#5a6a8a' }}>
-          I valori stanno nel progetto (Salva). L'import/export su file è opzionale; all'apertura vale sempre il progetto — ricarichi dal file quando vuoi.
+          I valori stanno nel progetto (Save). L'import/export su file è opzionale; all'apertura vale sempre il progetto — ricarichi dal file quando vuoi.
         </div>
       </div>
     </div>

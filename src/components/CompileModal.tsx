@@ -76,16 +76,16 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a3349', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Compila artifact</div>
-          <button onClick={onClose} title="Chiudi" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} title="Close" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ padding: '12px 16px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Profilo da congelare */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Profilo da congelare (un ambiente per artifact)</div>
+            <div style={labelStyle}>Profile to freeze (one environment per artifact)</div>
             <CustomSelect value={environments.active} onChange={(e) => setActiveProfile(e.target.value)} style={selectStyle}>
-              <option value="">(nessuno — valori di default)</option>
+              <option value="">(none — default values)</option>
               {profileNames.map((n) => <option key={n} value={n}>{n}</option>)}
             </CustomSelect>
           </div>
@@ -98,7 +98,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
                 value={studioLabel}
                 onChange={(e) => setStudioLabel(e.target.value)}
                 onBlur={salvaEtichetta}
-                placeholder="es. marco-portatile"
+                placeholder="e.g. mark-laptop"
                 style={inputStyle}
               />
               <button
@@ -114,14 +114,14 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
           {/* Endpoint monitor */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Monitor — dove pushare i log (opzionale)</div>
+            <div style={labelStyle}>Monitor — where to push logs (optional)</div>
             <input value={monitorUrl} onChange={(e) => setMonitorUrl(e.target.value)} placeholder="https://host:porta/ingest  oppure  ${MONITOR_URL}" style={inputStyle} />
-            <div style={{ fontSize: 10, color: '#5a6a8a' }}>URL letterale, oppure <code style={{ color: '#8aa' }}>{'${MONITOR_URL}'}</code> risolto sulla macchina di destinazione (come i segreti).</div>
+            <div style={{ fontSize: 10, color: '#5a6a8a' }}>URL letterale, oppure <code style={{ color: '#8aa' }}>{'${MONITOR_URL}'}</code> resolved on the target machine (like secrets).</div>
           </div>
 
-          {/* Piattaforma */}
+          {/* Platform */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Piattaforma di destinazione</div>
+            <div style={labelStyle}>Target platform</div>
             <CustomSelect value={platform} onChange={(e) => setPlatform(e.target.value)} style={selectStyle}>
               <option value="linux">Linux</option>
               <option value="windows">Windows</option>
@@ -130,14 +130,14 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
           {/* Livello di dettaglio del log che ESCE dalla macchina */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Dettaglio del log inviato</div>
+            <div style={labelStyle}>Detail of the sent log</div>
             <CustomSelect value={logLevel} onChange={(e) => setLogLevel(e.target.value)} style={selectStyle}>
-              <option value="essenziale">Essenziale — ciclo di vita, errori, statistiche</option>
-              <option value="normale">Normale — + avanzamento e messaggi dei nodi</option>
+              <option value="essenziale">Essential — ciclo di vita, errori, statistiche</option>
+              <option value="normale">Normal — + progress and node messages</option>
               <option value="diagnostico">Diagnostico — tutto, incluse righe e memoria</option>
             </CustomSelect>
             <div style={{ fontSize: 10, color: '#5a6a8a' }}>
-              Filtra ciò che il runner stampa e invia al monitor. <b>Essenziale</b> e <b>Normale</b> non
+              Filter what the runner prints and sends to the monitor. <b>Essential</b> e <b>Normal</b> non
               trasmettono il <b>contenuto delle righe</b> (dati) né i campioni di memoria: usali in produzione.
               Il log completo resta comunque sulla macchina che esegue, in <code style={{ color: '#8aa' }}>~/.flowpilot/runs</code>.
             </div>
@@ -149,27 +149,27 @@ export function CompileModal({ open, onClose, onGenerate }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={labelStyle}>Manifesto dell'artifact</div>
             <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", background: '#141c2c', border: '1px solid #2a3349', borderRadius: 6, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div>profilo congelato: <span style={{ color: '#8aa4d0' }}>{frozenProfile}</span></div>
+              <div>frozen profile: <span style={{ color: '#8aa4d0' }}>{frozenProfile}</span></div>
               <div>compilato da: <span style={{ color: '#8aa4d0' }}>{studioLabel || '—'}</span></div>
-              <div>piattaforma: <span style={{ color: '#8aa4d0' }}>{platform}</span></div>
+              <div>platform: <span style={{ color: '#8aa4d0' }}>{platform}</span></div>
               <div>dettaglio log: <span style={{ color: '#8aa4d0' }}>{logLevel}</span></div>
               <div>monitor: <span style={{ color: '#8aa4d0' }}>{monitorUrl.trim() || '— nessuno —'}</span></div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>
-                <span>segreti richiesti:</span>
+                <span>required secrets:</span>
                 {requiredSecrets.length === 0
                   ? <span style={{ color: '#5a6a8a' }}>nessuno</span>
                   : requiredSecrets.map((s) => <span key={s} style={{ color: '#c8a060' }}>🔒 {s}</span>)}
               </div>
             </div>
             {requiredSecrets.length > 0 && (
-              <div style={{ fontSize: 10, color: '#c8a060' }}>I valori dei segreti NON sono nell'artifact: vanno forniti sulla macchina di destinazione (keychain o variabili d'ambiente).</div>
+              <div style={{ fontSize: 10, color: '#c8a060' }}>Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).</div>
             )}
           </div>
         </div>
 
         <div style={{ padding: '10px 16px', borderTop: '1px solid #2a3349', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={{ background: 'transparent', color: '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Annulla</button>
-          <button onClick={() => onGenerate(monitorUrl.trim(), platform, logLevel)} style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '6px 16px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Genera →</button>
+          <button onClick={onClose} style={{ background: 'transparent', color: '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => onGenerate(monitorUrl.trim(), platform, logLevel)} style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '6px 16px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Generate →</button>
         </div>
       </div>
     </div>

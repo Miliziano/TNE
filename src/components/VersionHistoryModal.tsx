@@ -2,7 +2,7 @@
  * src/components/VersionHistoryModal.tsx
  *
  * UI del versionamento in-file (vedi P143): legge il ramo `history` dal .ffplan
- * corrente e mostra le versioni con data/etichetta + "Ripristina". In fondo,
+ * corrente e mostra le versioni con data/etichetta + "Restore". In fondo,
  * un campo per salvare un CHECKPOINT con nome (label sulla versione corrente).
  * Il modale non tocca il disco per scrivere: emette le azioni via callback
  * (onRestore / onSaveCheckpoint), la Toolbar le esegue.
@@ -35,7 +35,7 @@ export function VersionHistoryModal({
     setError(null)
     if (!currentPath || !isTauri()) {
       setCurrent(null); setHistory([])
-      if (!currentPath) setError('Salva prima il progetto per avere una cronologia.')
+      if (!currentPath) setError('Save prima il progetto per avere una cronologia.')
       return
     }
     try {
@@ -66,8 +66,8 @@ export function VersionHistoryModal({
       <div onClick={(e) => e.stopPropagation()} style={{ width: 520, maxWidth: '92vw', maxHeight: '78vh', display: 'flex', flexDirection: 'column', background: '#1e2535', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
 
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a3349', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Cronologia versioni</div>
-          <button onClick={onClose} title="Chiudi" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Version history</div>
+          <button onClick={onClose} title="Close" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ padding: '12px 16px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -77,20 +77,20 @@ export function VersionHistoryModal({
 
           {current && (
             <div style={{ background: '#12331f', border: '1px solid #1d6d40', borderRadius: 6, padding: '8px 10px' }}>
-              <div style={{ fontSize: 11, color: '#3ddc84', fontWeight: 600, marginBottom: 6 }}>● Corrente</div>
+              <div style={{ fontSize: 11, color: '#3ddc84', fontWeight: 600, marginBottom: 6 }}>● Current</div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <input
                   value={currentLabel}
                   onChange={(e) => setCurrentLabel(e.target.value)}
-                  placeholder="commento della versione corrente…"
+                  placeholder="comment della versione corrente…"
                   style={{ flex: 1, background: '#1e2535', border: '1px solid #3a4a6a', borderRadius: 4, color: '#c8d4f0', fontSize: 11, padding: '4px 7px', outline: 'none' }}
                 />
                 <button
                   onClick={async () => { await onLabelCurrent(currentLabel.trim()); await refresh() }}
                   disabled={!currentPath}
-                  title="Aggiorna il commento della versione corrente (non crea una nuova versione)"
+                  title="Update the current version comment (does not create a new version)"
                   style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: currentPath ? 'pointer' : 'default', opacity: currentPath ? 1 : 0.5, flexShrink: 0 }}
-                >Salva commento</button>
+                >Save comment</button>
               </div>
               <div style={{ fontSize: 10, color: '#5a6a8a', marginTop: 4 }}>{fmt(current.savedAt)}</div>
             </div>
@@ -106,18 +106,18 @@ export function VersionHistoryModal({
             <div key={i} style={{ background: '#1a2030', border: '1px solid #2a3349', borderRadius: 6, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: '#c8d4f0', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {h.version?.label ? h.version.label : `Versione ${history.length - i}`}
+                  {h.version?.label ? h.version.label : `Version ${history.length - i}`}
                 </div>
                 <div style={{ fontSize: 10, color: '#5a6a8a' }}>{fmt(h.version?.savedAt)}</div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                 <button
-                  onClick={() => { if (confirm('Ripristinare questa versione? Le modifiche non salvate andranno perse.')) onRestore(h.plan) }}
+                  onClick={() => { if (confirm('Restorere questa versione? Le modifiche non salvate andranno perse.')) onRestore(h.plan) }}
                   style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
-                >Ripristina</button>
+                >Restore</button>
                 <button
                   onClick={async () => { if (confirm('Eliminare questa versione dalla cronologia? L\'operazione non è annullabile.')) { await onDeleteVersion(i); await refresh() } }}
-                  title="Elimina questa versione"
+                  title="Delete this version"
                   style={{ background: 'transparent', color: '#8a6a6a', border: '1px solid #4a2a2a', borderRadius: 6, padding: '4px 7px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
                   <i className="ti ti-trash" aria-hidden="true" />
@@ -131,15 +131,15 @@ export function VersionHistoryModal({
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="nome nuovo checkpoint…"
+            placeholder="nome new checkpoint…"
             style={{ flex: 1, background: '#1e2535', border: '1px solid #3a4a6a', borderRadius: 4, color: '#c8d4f0', fontSize: 11, padding: '5px 8px', outline: 'none' }}
           />
           <button
             onClick={async () => { await onSaveCheckpoint(label.trim()); setLabel(''); await refresh() }}
             disabled={!currentPath}
-            title={currentPath ? 'Salva lo stato attuale come versione con nome' : 'Salva prima il progetto'}
+            title={currentPath ? 'Save lo stato attuale come versione con nome' : 'Save prima il progetto'}
             style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '5px 12px', fontSize: 11, cursor: currentPath ? 'pointer' : 'default', opacity: currentPath ? 1 : 0.5, flexShrink: 0 }}
-          >Salva nuovo checkpoint</button>
+          >Save new checkpoint</button>
         </div>
       </div>
     </div>
