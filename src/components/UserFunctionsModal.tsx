@@ -4,7 +4,7 @@
  * Editor delle FUNZIONI UTENTE FPEL (a livello di progetto).
  *
  * Una funzione per riga, nella forma
- *   funzione nome(par1, par2) { ritorna <espressione> }
+ *   function name(par1, par2) { ritorna <espressione> }
  * Vengono espanse a compile-time nelle espressioni (transform e, in seguito,
  * TMap/script). La validazione è dal vivo: nomi predefiniti non ridefinibili,
  * niente ricorsione, corpo con soli parametri, arità.
@@ -63,7 +63,7 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
         filters: [{ name: 'Libreria FPEL', extensions: ['ffpel'] }], defaultPath: 'libreria.ffpel' })
       if (!path) return
       try { await writeFile(path, text) }
-      catch (e) { alert(`Salvataggio non riuscito: ${e instanceof Error ? e.message : String(e)}`) }
+      catch (e) { alert(`Save failed: ${e instanceof Error ? e.message : String(e)}`) }
       return
     }
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
@@ -78,7 +78,7 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
       const path = Array.isArray(res) ? res[0] : res
       if (!path) return
       try { mergeDefs(await readFile(path)) }
-      catch (e) { alert(`Lettura non riuscita: ${e instanceof Error ? e.message : String(e)}`) }
+      catch (e) { alert(`Read failed: ${e instanceof Error ? e.message : String(e)}`) }
       return
     }
     const input = document.createElement('input')
@@ -99,7 +99,7 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
         {/* header */}
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 10 }}>
           <i className="ti ti-math-function" style={{ fontSize: 18, color: ACCENT }} />
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ecf4' }}>Funzioni utente</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#e8ecf4' }}>User functions</div>
           <div style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6a7690', cursor: 'pointer', fontSize: 18 }}>
             <i className="ti ti-x" />
@@ -109,32 +109,32 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
         {/* corpo */}
         <div style={{ padding: '14px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 11, color: '#8a94a8', lineHeight: 1.6 }}>
-            Una funzione per riga:{' '}
-            <code style={{ color: ACCENT }}>funzione nome(par1, par2) {'{'} ritorna espressione {'}'}</code>.
-            Vengono <b>espanse a compile-time</b> nelle espressioni. Il corpo è una sola espressione e può usare
-            solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.
+            One function per line:{' '}
+            <code style={{ color: ACCENT }}>function name(par1, par2) {'{'} return expression {'}'}</code>.
+            They are <b>expanded at compile-time</b> in expressions. The body is a single expression and can use
+            only its parameters (and the built-in functions); no recursion, no redefining the built-ins.
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={importaLib}
-              title="Importa funzioni da una libreria .ffpel (le aggiunge, saltando i nomi già presenti)"
+              title="Import functions from a .ffpel library (adds them, skipping names already present)"
               style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
                        background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
-              <i className="ti ti-download" style={{ fontSize: 10 }} /> importa .ffpel
+              <i className="ti ti-download" style={{ fontSize: 10 }} /> import .ffpel
             </button>
             <button onClick={esportaLib}
-              title="Esporta le funzioni come libreria .ffpel riusabile in altri progetti"
+              title="Export the functions as a reusable .ffpel library for other projects"
               style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
                        background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
-              <i className="ti ti-upload" style={{ fontSize: 10 }} /> esporta .ffpel
+              <i className="ti ti-upload" style={{ fontSize: 10 }} /> export .ffpel
             </button>
             <div style={{ flex: 1 }} />
             <button
               onClick={() => setPickerOpen(true)}
-              title="Applica una funzione: avvolge la selezione nell'editor (con ricerca)"
+              title="Apply a function: wraps the selection in the editor (searchable)"
               style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
                        background: 'none', border: `1px solid ${ACCENT}55`, color: ACCENT }}>
-              ƒ applica…
+              ƒ apply…
             </button>
             {pickerOpen && (
               <FunctionPicker
@@ -166,7 +166,7 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
             </div>
           ) : (
             <div style={{ fontSize: 11, color: '#3ddc84' }}>
-              {functions.length === 0 ? 'Nessuna funzione definita.' : `${functions.length} funzione/i valida/e: ${functions.map((f) => `${f.name}(${f.params.join(', ')})`).join(' · ')}`}
+              {functions.length === 0 ? 'No functions defined.' : `${functions.length} valid function(s): ${functions.map((f) => `${f.name}(${f.params.join(', ')})`).join(' · ')}`}
             </div>
           )}
         </div>
@@ -176,14 +176,14 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
           <button onClick={onClose}
             style={{ padding: '7px 14px', fontSize: 12, borderRadius: 6, cursor: 'pointer',
                      background: 'none', border: '1px solid #2a3349', color: '#9aa4b8' }}>
-            Annulla
+            Cancel
           </button>
           <button onClick={salva} disabled={errors.length > 0}
             style={{ padding: '7px 16px', fontSize: 12, fontWeight: 600, borderRadius: 6,
                      cursor: errors.length > 0 ? 'default' : 'pointer',
                      background: errors.length > 0 ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 24%, #0f1117)`,
                      color: errors.length > 0 ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}55` }}>
-            Salva
+            Save
           </button>
         </div>
       </div>

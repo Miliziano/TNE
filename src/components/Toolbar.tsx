@@ -463,13 +463,13 @@ function buildRustPlan(
   // il Run sia per l'export dell'artifact, che passano entrambi di qui.
   const { nodes, edges } = togliNodiDisabilitati(nodesOriginali, edgesOriginali)
 
-  // Funzioni utente FPEL: parsate UNA volta e inlinate a compile-time nelle
+  // FPEL user functions: parsate UNA volta e inlinate a compile-time nelle
   // espressioni (transform e — in seguito — TMap/script). Un errore nelle
   // definizioni blocca il build, come per gli altri errori di compilazione.
   const { functions: userFns, errors: fnErrors } = parseUserFunctions(pool.userFunctions ?? [])
   if (fnErrors.length > 0) {
     const d = fnErrors.map((e) => `  • ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')
-    throw new Error(`Funzioni utente — ${fnErrors.length} errore/i:\n${d}`)
+    throw new Error(`Functions utente — ${fnErrors.length} errore/i:\n${d}`)
   }
 
  // ── Bridge tra lane — accoppiati per channelName condiviso.
@@ -763,7 +763,7 @@ function buildRustPlan(
           break
         }
         case 'transform': {
-          // Compila i template/espressioni in ExprNode (FPEL → IR).
+          // Compile i template/espressioni in ExprNode (FPEL → IR).
           // A differenza del tmap, un errore NON degrada a config vuota:
           // il nodo produrrebbe dati sbagliati in silenzio. Blocca il run.
           const raw = node.data.props?.['transformFields']
@@ -1295,7 +1295,7 @@ export function Toolbar() {
     try {
       plan = buildRustPlan(nodes, edges, pool, runId)
     } catch (e) {
-      addLog('error', `Compilazione del flusso fallita: ${(e as Error).message}`)
+      addLog('error', `Compilezione del flusso fallita: ${(e as Error).message}`)
       return
     }
     const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
@@ -1384,7 +1384,7 @@ export function Toolbar() {
     try {
       plan = buildRustPlan(nodes, edges, pool, runId)
     } catch (e) {
-      addLog('error', `Compilazione del flusso fallita:\n${(e as Error).message}`)
+      addLog('error', `Compilezione del flusso fallita:\n${(e as Error).message}`)
       setRunning(false)   // ← adatta al nome reale dello stato "in corso"
       return
     }
@@ -1447,7 +1447,7 @@ export function Toolbar() {
     setRunning(false)
   }
 
-  // ── Salva / Salva con nome ────────────────────────────────────
+  // ── Salva / Save as ────────────────────────────────────
   // Scrive lo scenario nel percorso dato e lo RICORDA come file corrente,
   // così i salvataggi successivi sovrascrivono quello senza ridomandarlo.
   const scriviProgetto = async (path: string, label = '') => {
@@ -1548,7 +1548,7 @@ export function Toolbar() {
     }
   }
 
-  // "Salva con nome": chiede sempre dove salvare.
+  // "Save as": chiede sempre dove salvare.
   const handleSaveAs = async () => {
     if (!isTauri()) {
       addLog('warn', 'Salvataggio file disponibile solo nell\'app desktop.')
@@ -1567,7 +1567,7 @@ export function Toolbar() {
   }
 
   // "Salva": sovrascrive il file corrente senza finestra. Se non c'è ancora
-  // un file (progetto nuovo o mai salvato), ricade su "Salva con nome".
+  // un file (progetto nuovo o mai salvato), ricade su "Save as".
   const handleSave = async () => {
     const current = useFlowStore.getState().currentPath
     if (!current) { await handleSaveAs(); return }
@@ -1650,33 +1650,33 @@ export function Toolbar() {
       <TbDivider />
 
       {/* File */}
-      <TbBtn onClick={handleOpen} disabled={opening} title="Apri progetto">
+      <TbBtn onClick={handleOpen} disabled={opening} title="Open project">
         <i className="ti ti-folder-open" style={{ fontSize: 13 }} aria-hidden="true" />
         {opening ? 'Apertura…' : 'Apri'}
       </TbBtn>
-      <TbBtn onClick={handleSave} disabled={saving} title="Salva (sovrascrive il file aperto)">
+      <TbBtn onClick={handleSave} disabled={saving} title="Save (overwrites the open file)">
         <i className="ti ti-device-floppy" style={{ fontSize: 13 }} aria-hidden="true" />
-        {saving ? 'Salvataggio…' : 'Salva'}
+        {saving ? 'Saving…' : 'Save'}
       </TbBtn>
-      <TbBtn onClick={handleSaveAs} disabled={saving} title="Salva con nome (scegli il file)">
+      <TbBtn onClick={handleSaveAs} disabled={saving} title="Save as (choose the file)">
         <i className="ti ti-file-export" style={{ fontSize: 13 }} aria-hidden="true" />
-        Salva con nome
+        Save as
       </TbBtn>
-      <TbBtn onClick={() => setHistoryOpen(true)} title="Cronologia versioni">
+      <TbBtn onClick={() => setHistoryOpen(true)} title="Version history">
         <i className="ti ti-history" style={{ fontSize: 13 }} aria-hidden="true" />
-        Cronologia
+        History
       </TbBtn>
-      <TbBtn onClick={() => setEnvOpen(true)} title="Ambienti / profili (test, dev, prod)">
+      <TbBtn onClick={() => setEnvOpen(true)} title="Environments / profiles (test, dev, prod)">
         <i className="ti ti-adjustments" style={{ fontSize: 13 }} aria-hidden="true" />
-        Ambienti
+        Environments
       </TbBtn>
-      <TbBtn onClick={() => setFuncOpen(true)} title="Funzioni utente FPEL">
+      <TbBtn onClick={() => setFuncOpen(true)} title="FPEL user functions">
         <i className="ti ti-math-function" style={{ fontSize: 13 }} aria-hidden="true" />
-        Funzioni
+        Functions
       </TbBtn>
-      <TbBtn onClick={() => setCompileOpen(true)} title="Compila / genera artifact per il runner">
+      <TbBtn onClick={() => setCompileOpen(true)} title="Compile / generate artifact for the runner">
         <i className="ti ti-package" style={{ fontSize: 13 }} aria-hidden="true" />
-        Compila
+        Compile
       </TbBtn>
 
       <TbDivider />
@@ -1687,7 +1687,7 @@ export function Toolbar() {
         border="var(--color-border-success)"
         onClick={handleRun}
         disabled={running}
-        title="Esegui pipeline su Rust Engine"
+        title="Run pipeline on Rust Engine"
       >
         <i className="ti ti-player-play" style={{ fontSize: 13 }} aria-hidden="true" />
         Run
@@ -1698,7 +1698,7 @@ export function Toolbar() {
         border="var(--color-border-danger)"
         onClick={handleStop}
         disabled={!running}
-        title="Ferma pipeline"
+        title="Stop pipeline"
       >
         <i className="ti ti-player-stop" style={{ fontSize: 13 }} aria-hidden="true" />
         Stop
@@ -1707,11 +1707,11 @@ export function Toolbar() {
       <TbDivider />
 
       {/* Canvas */}
-      <TbBtn onClick={addLane} title="Aggiungi lane">
+      <TbBtn onClick={addLane} title="Add lane">
         <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
         Lane
       </TbBtn>
-      <TbBtn onClick={clearCanvas} title="Svuota canvas">
+      <TbBtn onClick={clearCanvas} title="Clear canvas">
         <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true" />
         Clear
       </TbBtn>
