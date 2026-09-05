@@ -16,6 +16,7 @@
  */
 
 import { FUNCTIONS } from '../../ir/functions'
+import { activeUserFunctions } from '../../ir/userFunctions'
 
 export const FLOWPILOT_LANG_ID = 'flowpilot'
 
@@ -152,6 +153,14 @@ export function registerFlowpilotLanguage(monaco: any): void {
           insertText: `${f.name}($0)`,
           insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
           detail: f.usage, documentation: f.desc, sortText: '3' + f.name,
+        })),
+        // Funzioni UTENTE del progetto (dal registro attivo): snippet con un
+        // tab-stop per ogni parametro, così ci si sposta con Tab.
+        ...activeUserFunctions().map((u) => ({
+          label: u.name, kind: K.Function, range,
+          insertText: `${u.name}(${u.params.map((p, i) => '${' + (i + 1) + ':' + p + '}').join(', ')})`,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: `${u.name}(${u.params.join(', ')})`, documentation: 'Funzione utente', sortText: '25' + u.name,
         })),
       ]
       return { suggestions }

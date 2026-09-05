@@ -6,7 +6,6 @@ import { Toolbar }       from './components/Toolbar'
 import { Canvas }        from './components/Canvas'
 import { PropertyPanel } from './components/PropertyPanel'
 import { BottomDock }     from './components/BottomDock'
-import { CodegenPanel }  from './components/CodegenPanel'
 import { NODE_DEFS, PALETTE_SECTIONS } from './nodes/registry'
 import { dragState }     from './dragState'
 import { NodeEditorModal } from './components/NodeEditorModal'
@@ -249,7 +248,6 @@ function SidePanel({
 
 // ─── Layout ───────────────────────────────────────────────────────
 function Layout() {
-  const [codegenOpen,  setCodegenOpen]  = useState(false)
   const [monitorMode,  setMonitorMode]  = useState<'closed' | 'docked' | 'float'>('closed')
 
   // Posizione del Monitor flottante: null = ancorato in basso a destra,
@@ -359,19 +357,6 @@ function Layout() {
           <SideTab
             onClick={() => setPropsOpen(true)}
             icon="ti-adjustments" label="Proprietà" color="#8a9ac0" />
-        )}
-
-        {/* ── Pannello Codegen ── */}
-        {codegenOpen ? (
-          <SidePanel
-            icon="ti-code" label="Code Generator" color="#22d3ee"
-            onClose={() => setCodegenOpen(false)}>
-            <CodegenPanel />
-          </SidePanel>
-        ) : (
-          <SideTab
-            onClick={() => setCodegenOpen(true)}
-            icon="ti-code" label="Codegen" color="#22d3ee" />
         )}
 
         {/* ── Pannello Monitor ── */}

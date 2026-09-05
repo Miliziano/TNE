@@ -6,6 +6,7 @@ import { ScriptEditor, type SchemaField, type ContextVar } from '../../../compon
 import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
 import { scriptFieldsToSchema, propagateSchema, applyScriptFields } from '../../../utils/schemaUtils'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { FunctionPicker } from '../../../components/FunctionPicker'
 import { getHandleSchema } from '../../../utils/schemaRegistry'
 
 // ─── Come si scrive un riferimento nel linguaggio di FlowPilot ────
@@ -166,6 +167,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [snippet,      setSnippet]      = useState<string | undefined>(undefined)
   const [wrap,         setWrap]         = useState<string | undefined>(undefined)
+  const [pickerOpen,   setPickerOpen]   = useState(false)
 
   if (!node) return null
 
@@ -582,6 +584,22 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 10, color: '#2a3349', fontStyle: 'italic' }}>
             Collega un nodo sorgente e definisci i campi output nel tab Mapping
           </div>
+        )}
+      </div>
+
+      {/* Selettore funzioni: avvolge la selezione, incluse le funzioni utente */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4, position: 'relative' }}>
+        <button onClick={() => setPickerOpen(true)}
+          title="Applica una funzione: avvolge la selezione (con ricerca)"
+          style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
+                   background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
+          ƒ applica…
+        </button>
+        {pickerOpen && (
+          <FunctionPicker
+            tipo="string"
+            onChiudi={() => setPickerOpen(false)}
+            onScegli={(voce) => wrapSelection(voce.codice.replace(/\$sel/g, '$selection'))} />
         )}
       </div>
 

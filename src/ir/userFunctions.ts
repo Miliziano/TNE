@@ -36,7 +36,7 @@ export function originOf(node: ExprNode): ExprOrigin | undefined {
 
 // ── Parsing delle definizioni ─────────────────────────────────────
 
-const DEF_RE = /^\s*funzione\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{\s*ritorna\s+([\s\S]+?)\s*\}\s*$/i
+const DEF_RE = /^\s*(?:function|funzione)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)\s*\{\s*(?:return|ritorna)\s+([\s\S]+?)\s*\}\s*$/i
 
 export interface ParsedFunctions {
   functions: UserFunction[]
@@ -58,7 +58,7 @@ export function parseUserFunctions(defs: string[]): ParsedFunctions {
     if (!raw.trim()) continue
     const m = DEF_RE.exec(raw)
     if (!m) {
-      errors.push({ message: `definizione non valida: "${raw.trim().slice(0, 40)}…" — attesa la forma «funzione nome(par) { ritorna espressione }»` })
+      errors.push({ message: `definizione non valida: "${raw.trim().slice(0, 40)}…" — attesa la forma «function name(par) { return expression }»` })
       continue
     }
     heads.push({

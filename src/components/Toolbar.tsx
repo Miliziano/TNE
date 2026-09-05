@@ -18,6 +18,7 @@ import type { Pool } from '../types'
 import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
 import { EnvironmentsModal } from './EnvironmentsModal'
 import { UserFunctionsModal } from './UserFunctionsModal'
+import { HelpModal } from './HelpModal'
 import { CompileModal } from './CompileModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
@@ -1245,6 +1246,7 @@ export function Toolbar() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [envOpen, setEnvOpen] = useState(false)
   const [funcOpen, setFuncOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [compileOpen, setCompileOpen] = useState(false)
   const currentPath = useFlowStore((s) => s.currentPath)
 
@@ -1622,41 +1624,6 @@ export function Toolbar() {
     }
   }
 
-  // ── Esempio ───────────────────────────────────────────────────
-  const loadExample = () => {
-    clearCanvas()
-    const store = useFlowStore.getState()
-    const lanes = store.pool.lanes
-    if (lanes.length < 2) store.addLane()
-    const updatedLanes = useFlowStore.getState().pool.lanes
-    const laneA = updatedLanes[0]
-    const laneB = updatedLanes[1]
-    store.addNode('source_db', laneA.id, 40,  40)
-    store.addNode('filter',    laneA.id, 220, 40)
-    store.addNode('sink_file', laneA.id, 400, 40)
-    store.addNode('source_db', laneB.id, 40,  40)
-    store.addNode('sink_file', laneB.id, 220, 40)
-    setTimeout(() => {
-      const ns     = useFlowStore.getState().nodes
-      const nodesA = ns.filter(n => n.data.laneId === laneA.id && !['lane_start','lane_end','error_handler'].includes(n.data.type))
-      const nodesB = ns.filter(n => n.data.laneId === laneB.id && !['lane_start','lane_end','error_handler'].includes(n.data.type))
-      const mkEdge = (src: string, tgt: string, color: string) => ({
-        id: `e_${src}_${tgt}`, source: src, target: tgt,
-        style: { stroke: color, strokeWidth: 2, opacity: 0.7 },
-        markerEnd: { type: 'arrowclosed' as const, color },
-      })
-      useFlowStore.setState(s => ({
-        edges: [
-          ...(nodesA.length >= 2 ? [mkEdge(nodesA[0].id, nodesA[1].id, laneA.color)] : []),
-          ...(nodesA.length >= 3 ? [mkEdge(nodesA[1].id, nodesA[2].id, laneA.color)] : []),
-          ...(nodesB.length >= 2 ? [mkEdge(nodesB[0].id, nodesB[1].id, laneB.color)] : []),
-          ...s.edges,
-        ],
-      }))
-      addLog('info', 'Esempio caricato. Premi Run per eseguire.')
-    }, 80)
-  }
-
   const nodeCount = nodes.filter(
     n => n.data.type !== 'lane_start' && n.data.type !== 'lane_end'
   ).length
@@ -1748,9 +1715,9 @@ export function Toolbar() {
         <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true" />
         Clear
       </TbBtn>
-      <TbBtn onClick={loadExample} title="Carica esempio">
-        <i className="ti ti-layout-rows" style={{ fontSize: 13 }} aria-hidden="true" />
-        Esempio
+      <TbBtn onClick={() => setHelpOpen(true)} title="Help & guide">
+        <i className="ti ti-help-circle" style={{ fontSize: 13 }} aria-hidden="true" />
+        Help
       </TbBtn>
 
       {/* Info */}
@@ -1787,6 +1754,7 @@ export function Toolbar() {
 
       <EnvironmentsModal open={envOpen} onClose={() => setEnvOpen(false)} />
       <UserFunctionsModal open={funcOpen} onClose={() => setFuncOpen(false)} />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <CompileModal open={compileOpen} onClose={() => setCompileOpen(false)} onGenerate={esportaArtifact} />
 
