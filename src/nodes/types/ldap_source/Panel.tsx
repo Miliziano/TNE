@@ -81,27 +81,27 @@ export function LdapSourcePanel({ nodeId }: { nodeId: string }) {
         </div>
       ) : (
         <div style={{ padding: '8px 12px', background: '#2a1a0a', borderRadius: 6, border: '0.5px solid #855', fontSize: 10, color: '#c8a060' }}>
-          Nessuna risorsa LDAP collegata. Aggiungi una risorsa LDAP dalla strip risorse e usa l'azione «query».
+          No LDAP resource connected. Add an LDAP resource from the resource strip and use the «query» action.
         </div>
       )}
 
-      <Field label="Base DN" hint={baseDnDefault ? `default risorsa: ${baseDnDefault}` : 'es. ou=people,dc=example,dc=org'}>
+      <Field label="Base DN" hint={baseDnDefault ? `resource default: ${baseDnDefault}` : 'e.g. ou=people,dc=example,dc=org'}>
         <input style={inputStyle} value={p('baseDN', baseDnDefault)} onChange={u('baseDN')} placeholder={baseDnDefault || 'ou=people,dc=example,dc=org'} />
       </Field>
 
       <Field label="Scope">
         <CustomSelect style={inputStyle} value={p('scope', 'subtree')} onChange={u('scope')}>
-          <option value="base">base (solo la voce base)</option>
-          <option value="one">one (un livello sotto)</option>
-          <option value="subtree">subtree (tutto il sottoalbero)</option>
+          <option value="base">base (base entry only)</option>
+          <option value="one">one (one level down)</option>
+          <option value="subtree">subtree (entire subtree)</option>
         </CustomSelect>
       </Field>
 
-      <Field label="Filtro LDAP" hint="es. (&(objectClass=person)(mail=*))">
+      <Field label="LDAP filter" hint="e.g. (&(objectClass=person)(mail=*))">
         <input style={inputStyle} value={p('filter', '(objectClass=*)')} onChange={u('filter')} placeholder="(objectClass=*)" />
       </Field>
 
-      <Field label="Attributi (separati da virgola)" hint="diventano le colonne d'uscita, oltre a dn">
+      <Field label="Attributes (comma-separated)" hint="become the output columns, in addition to dn">
         <input
           style={inputStyle}
           value={p('attributes', 'cn,mail')}
@@ -114,14 +114,14 @@ export function LdapSourcePanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Dimensione pagina" hint={`default: ${pageDefault}`}>
+        <Field label="Page size" hint={`default: ${pageDefault}`}>
           <input style={inputStyle} type="number" value={p('pageSize', pageDefault)} onChange={u('pageSize')} />
         </Field>
-        <Field label="Valori multipli" hint="attributi multi-valore">
+        <Field label="Multiple values" hint="multi-value attributes">
           <CustomSelect style={inputStyle} value={p('multiValue', 'array')} onChange={u('multiValue')}>
-            <option value="array">array JSON</option>
-            <option value="join">unisci (;)</option>
-            <option value="first">solo il primo</option>
+            <option value="array">JSON array</option>
+            <option value="join">join (;)</option>
+            <option value="first">first only</option>
           </CustomSelect>
         </Field>
       </div>

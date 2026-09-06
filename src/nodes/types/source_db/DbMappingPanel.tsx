@@ -178,7 +178,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
           ? `SELECT * FROM ${table}`
           : `SELECT * FROM ${schema}.${table}`
       } else {
-        setInferError('Configura una tabella o una query personalizzata prima di rilevare lo schema.')
+        setInferError('Configure a table or a custom query before detecting the schema.')
         setInferring(false)
         return
       }
@@ -189,7 +189,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
       })
 
       if (columns.length === 0) {
-        setInferError('Nessuna colonna rilevata — verifica la query e la connessione.')
+        setInferError('No column detected — check the query and the connection.')
         setInferring(false)
         return
       }
@@ -222,12 +222,12 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, color, fontWeight: 600 }}>
-            Schema output — {label}
+            Output schema — {label}
           </div>
           <div style={{ fontSize: 10, color: '#8593b5' }}>
             {p('query')
-              ? <><span style={{ color: '#a78bfa' }}>Query personalizzata</span> · {p('query').slice(0, 60)}{p('query').length > 60 ? '…' : ''}</>
-              : <>Tabella: <code style={{ color: '#c8d4f0' }}>{p('querySchema', 'public')}.{p('table', '—')}</code></>
+              ? <><span style={{ color: '#a78bfa' }}>Custom query</span> · {p('query').slice(0, 60)}{p('query').length > 60 ? '…' : ''}</>
+              : <>Table: <code style={{ color: '#c8d4f0' }}>{p('querySchema', 'public')}.{p('table', '—')}</code></>
             }
           </div>
         </div>
@@ -252,15 +252,15 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
           onMouseEnter={(e) => { if (!inferring) (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${color} 30%, #161b27)` }}
           onMouseLeave={(e) => { if (!inferring) (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${color} 20%, #161b27)` }}>
           {inferring
-            ? <><i className="ti ti-loader" style={{ fontSize: 13, animation: 'spin 1s linear infinite' }} /> Rilevamento in corso…</>
-            : <><i className="ti ti-database-search" style={{ fontSize: 13 }} /> Rileva schema dalla query</>
+            ? <><i className="ti ti-loader" style={{ fontSize: 13, animation: 'spin 1s linear infinite' }} /> Detecting…</>
+            : <><i className="ti ti-database-search" style={{ fontSize: 13 }} /> Detect schema from query</>
           }
         </button>
 
         {fields.length > 0 && (
           <button
             onClick={() => saveAndPropagate([])}
-            title="Azzera tutti i campi"
+            title="Clear all fields"
             style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', background: 'none', border: '1px solid #2a3349', color: '#8593b5', fontSize: 11 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57'; (e.currentTarget as HTMLElement).style.borderColor = '#ff5f57' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
@@ -286,10 +286,10 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 12px', background: '#1a2030', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>
-              Colonne — {fields.length} dichiarate
+              Columns — {fields.length} declared
             </div>
             <div style={{ fontSize: 9, color: '#8593b5' }}>
-              Rilevate automaticamente o aggiunte manualmente · propagate ai nodi successivi
+              Detected automatically or added manually · propagated to downstream nodes
             </div>
           </div>
           {fields.length > 0 && (
@@ -299,32 +299,32 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
                 p('table') || 'source-db',
                 { node: 'source_db', table: p('table') || undefined },
               )}
-              title="Esporta lo schema dei campi su file (.json)"
+              title="Export the field schema to a file (.json)"
               style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 9, cursor: 'pointer', color: '#8aa4d0' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8aa4d0' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-              <i className="ti ti-download" style={{ fontSize: 9 }} /> esporta
+              <i className="ti ti-download" style={{ fontSize: 9 }} /> export
             </button>
           )}
           <button onClick={addField}
             style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 9, cursor: 'pointer', color }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = color }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-            <i className="ti ti-plus" style={{ fontSize: 9 }} /> colonna
+            <i className="ti ti-plus" style={{ fontSize: 9 }} /> column
           </button>
         </div>
 
         {fields.length === 0 ? (
           <div style={{ padding: '24px 20px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
             <i className="ti ti-database-search" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: '#2a3349' }} />
-            Clicca <strong style={{ color: '#8593b5' }}>Rileva schema dalla query</strong> per importare automaticamente le colonne,
-            oppure aggiungile manualmente.
+            Click <strong style={{ color: '#8593b5' }}>Detect schema from query</strong> to import the columns automatically,
+            or add them manually.
           </div>
         ) : (
           <>
             {/* Intestazione */}
             <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 80px 100px 28px 24px', gap: 4, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-              {['', 'Nome colonna', 'Tipo', 'Tipo DB nativo', '∅', ''].map((h, i) => (
+              {['', 'Column name', 'Type', 'Native DB type', '∅', ''].map((h, i) => (
                 <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
               ))}
             </div>
@@ -353,7 +353,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
                   <input value={f.name}
                     onChange={(e) => updateField(f.id, 'name', e.target.value)}
                     style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: isJsonb ? '#a78bfa' : '#c8d4f0' }}
-                    placeholder="nome_colonna" />
+                    placeholder="column_name" />
 
                   {/* Tipo logico */}
                   <div title={TYPE_HINTS[f.type] ?? ''}>
@@ -378,7 +378,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
                   {/* Nullable */}
                   <div
                     onClick={() => updateField(f.id, 'nullable', !f.nullable)}
-                    title={f.nullable ? 'Nullable — clicca per NOT NULL' : 'NOT NULL — clicca per nullable'}
+                    title={f.nullable ? 'Nullable — click for NOT NULL' : 'NOT NULL — click for nullable'}
                     style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${f.nullable ? '#2a3349' : color}`, background: f.nullable ? 'transparent' : `color-mix(in srgb, ${color} 20%, #161b27)`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {!f.nullable && <i className="ti ti-check" style={{ fontSize: 9, color }} />}
                   </div>
@@ -402,8 +402,8 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 12px', background: '#1a1030', border: '1px solid #3a1a6a', borderRadius: 6, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <i className="ti ti-braces" style={{ fontSize: 13, color: '#a78bfa', flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: 10, color: '#a78bfa' }}>
-            {jsonbFields.length} campo{jsonbFields.length > 1 ? 'i' : ''} di tipo <strong>object / JSON</strong> ({jsonbFields.map((f) => f.name).join(', ')}).
-            Vengono propagati as-is. Usa un nodo <strong>JSON Parser</strong> per spacchettarli.
+            {jsonbFields.length} field{jsonbFields.length > 1 ? 's' : ''} of type <strong>object / JSON</strong> ({jsonbFields.map((f) => f.name).join(', ')}).
+            They are propagated as-is. Use a <strong>JSON Parser</strong> node to unpack them.
           </div>
         </div>
       )}
@@ -411,8 +411,8 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
       {/* ── Info propagazione ────────────────────────────────── */}
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
-        Lo schema viene propagato automaticamente ai nodi collegati.
-        La colonna <strong style={{ color: '#9a9aaa' }}>∅</strong> indica se il campo è NOT NULL.
+        The schema is propagated automatically to the connected nodes.
+        The <strong style={{ color: '#9a9aaa' }}>∅</strong> column indicates whether the field is NOT NULL.
       </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

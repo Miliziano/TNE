@@ -70,45 +70,45 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
         </div>
       ) : (
         <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Aggiungi una risorsa Kafka dalla resource strip, poi selezionala nel tab Connessione.
+          Add a Kafka resource from the resource strip, then select it in the Connection tab.
         </div>
       )}
 
       {/* Topic */}
       <SectionTitle label="Topic" />
-      <Field label="Topic/i" hint="Un topic o più separati da virgola — es: ordini, clienti, prodotti">
+      <Field label="Topic(s)" hint="One topic or several separated by commas — e.g. orders, customers, products">
         <input style={{ ...inputStyle, color: ACCENT }} value={p('topics')}
-          onChange={u('topics')} placeholder="ordini" />
+          onChange={u('topics')} placeholder="orders" />
       </Field>
-      <Field label="Pattern topic (regex)" hint="Alternativa al topic fisso — sottoscrivi a tutti i topic che corrispondono">
+      <Field label="Topic pattern (regex)" hint="Alternative to the fixed topic — subscribe to all matching topics">
         <input style={inputStyle} value={p('topicPattern')}
-          onChange={u('topicPattern')} placeholder="ordini-.*" />
+          onChange={u('topicPattern')} placeholder="orders-.*" />
         {p('topicPattern') && (
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
-            Il pattern ha priorità sui topic fissi.
+            The pattern takes priority over fixed topics.
           </div>
         )}
       </Field>
 
       {/* Consumer group */}
       <SectionTitle label="Consumer" />
-      <Field label="Consumer group ID" hint="Identifica il gruppo — Kafka distribuisce le partizioni tra i consumer dello stesso gruppo">
+      <Field label="Consumer group ID" hint="Identifies the group — Kafka distributes the partitions among consumers of the same group">
         <input style={inputStyle} value={p('groupId')}
           onChange={u('groupId')} placeholder="flowpilot-consumer-1" />
       </Field>
-      <Field label="Client ID" hint="Identificatore opzionale del client per il monitoring">
+      <Field label="Client ID" hint="Optional client identifier for monitoring">
         <input style={inputStyle} value={p('clientId')}
           onChange={u('clientId')} placeholder="flowpilot" />
       </Field>
 
       {/* Offset */}
-      <SectionTitle label="Offset iniziale" />
+      <SectionTitle label="Initial offset" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { value: 'latest',    label: 'Latest',    desc: 'Leggi solo i messaggi nuovi dal momento della connessione', color: ACCENT },
-          { value: 'earliest',  label: 'Earliest',  desc: 'Leggi dall\'inizio — tutti i messaggi disponibili nella retention', color: '#3ddc84' },
-          { value: 'committed', label: 'Committed', desc: 'Riprendi dall\'ultimo offset committato per questo consumer group', color: '#ffb347' },
-          { value: 'timestamp', label: 'Timestamp', desc: 'Leggi a partire da un timestamp specifico', color: '#a78bfa' },
+          { value: 'latest',    label: 'Latest',    desc: 'Read only new messages from the moment of connection', color: ACCENT },
+          { value: 'earliest',  label: 'Earliest',  desc: 'Read from the beginning — all messages available in the retention', color: '#3ddc84' },
+          { value: 'committed', label: 'Committed', desc: 'Resume from the last committed offset for this consumer group', color: '#ffb347' },
+          { value: 'timestamp', label: 'Timestamp', desc: 'Read starting from a specific timestamp', color: '#a78bfa' },
         ].map((o) => (
           <button key={o.value} onClick={() => updateProp(nodeId, 'offsetMode', o.value)}
             style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: offsetMode === o.value ? `color-mix(in srgb, ${o.color} 8%, #1a2030)` : '#1a2030', border: offsetMode === o.value ? `1px solid ${o.color}40` : '1px solid #2a3349' }}>
@@ -122,48 +122,48 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {offsetMode === 'timestamp' && (
-        <Field label="Timestamp di partenza" hint="Formato ISO 8601 — es: 2024-01-15T08:00:00Z">
+        <Field label="Start timestamp" hint="ISO 8601 format — e.g. 2024-01-15T08:00:00Z">
           <input style={inputStyle} value={p('startTimestamp')}
             onChange={u('startTimestamp')} placeholder="2024-01-15T08:00:00Z" />
         </Field>
       )}
 
       {/* Deserializzazione */}
-      <SectionTitle label="Deserializzazione" />
+      <SectionTitle label="Deserialization" />
       <Row>
-        <Field label="Formato valore">
+        <Field label="Value format">
           <CustomSelect style={inputStyle} value={valueFormat} onChange={u('valueFormat')}>
             <option value="json">JSON</option>
             <option value="avro">Avro (Schema Registry)</option>
             <option value="protobuf">Protobuf</option>
-            <option value="string">String (testo grezzo)</option>
-            <option value="bytes">Bytes (binario)</option>
+            <option value="string">String (raw text)</option>
+            <option value="bytes">Bytes (binary)</option>
           </CustomSelect>
         </Field>
-        <Field label="Formato chiave">
+        <Field label="Key format">
           <CustomSelect style={inputStyle} value={p('keyFormat', 'string')} onChange={u('keyFormat')}>
             <option value="string">String</option>
             <option value="json">JSON</option>
             <option value="long">Long (integer)</option>
-            <option value="ignore">Ignora chiave</option>
+            <option value="ignore">Ignore key</option>
           </CustomSelect>
         </Field>
       </Row>
 
       {/* Schema Registry per Avro/Protobuf */}
       {(valueFormat === 'avro' || valueFormat === 'protobuf') && (
-        <Field label="Schema Registry URL" hint="Confluent Schema Registry o compatibile">
+        <Field label="Schema Registry URL" hint="Confluent Schema Registry or compatible">
           <input style={inputStyle} value={p('schemaRegistryUrl')}
             onChange={u('schemaRegistryUrl')} placeholder="http://schema-registry:8081" />
         </Field>
       )}
 
       {/* Modalità acquisizione */}
-      <SectionTitle label="Modalità acquisizione" />
+      <SectionTitle label="Capture mode" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {[
-          { value: 'streaming', label: '◎ Streaming', desc: 'Legge continuamente — emette righe man mano che arrivano', color: ACCENT },
-          { value: 'batch',     label: '▤ Batch',      desc: 'Legge fino al limite configurato poi chiude la connessione', color: '#ffb347' },
+          { value: 'streaming', label: '◎ Streaming', desc: 'Reads continuously — emits rows as they arrive', color: ACCENT },
+          { value: 'batch',     label: '▤ Batch',      desc: 'Reads up to the configured limit then closes the connection', color: '#ffb347' },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${m.color} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${m.color}60` : '1px solid #2a3349' }}>
@@ -175,11 +175,11 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
 
       {fetchMode === 'batch' && (
         <Row>
-          <Field label="Max messaggi" hint="0 = nessun limite (fino a fine partizione)">
+          <Field label="Max messages" hint="0 = no limit (until end of partition)">
             <input type="number" style={inputStyle} value={p('maxMessages', '1000')}
               onChange={u('maxMessages')} min="0" />
           </Field>
-          <Field label="Timeout (ms)" hint="Attesa massima per nuovi messaggi prima di chiudere">
+          <Field label="Timeout (ms)" hint="Maximum wait for new messages before closing">
             <input type="number" style={inputStyle} value={p('pollTimeout', '5000')}
               onChange={u('pollTimeout')} min="100" />
           </Field>
@@ -187,16 +187,16 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Campi metadati */}
-      <SectionTitle label="Metadati messaggio" color="#8593b5" />
-      <Field label="Includi metadati Kafka nel record">
+      <SectionTitle label="Message metadata" color="#8593b5" />
+      <Field label="Include Kafka metadata in the record">
         <CustomSelect style={inputStyle} value={p('includeMetadata', 'false')} onChange={u('includeMetadata')}>
-          <option value="false">No — solo il payload deserializzato</option>
-          <option value="true">Sì — aggiungi campi _kafka_*</option>
+          <option value="false">No — only the deserialized payload</option>
+          <option value="true">Yes — add _kafka_* fields</option>
         </CustomSelect>
       </Field>
       {p('includeMetadata') === 'true' && (
         <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 9, color: '#8593b5', lineHeight: 1.8 }}>
-          Campi aggiunti: <code style={{ color: ACCENT }}>_kafka_topic</code>, <code style={{ color: ACCENT }}>_kafka_partition</code>,
+          Added fields: <code style={{ color: ACCENT }}>_kafka_topic</code>, <code style={{ color: ACCENT }}>_kafka_partition</code>,
           <code style={{ color: ACCENT }}> _kafka_offset</code>, <code style={{ color: ACCENT }}>_kafka_timestamp</code>,
           <code style={{ color: ACCENT }}> _kafka_key</code>
         </div>
@@ -207,12 +207,12 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
       <Row>
         <Field label="Auto commit">
           <CustomSelect style={inputStyle} value={p('autoCommit', 'true')} onChange={u('autoCommit')}>
-            <option value="true">Sì — commit automatico ogni intervallo</option>
-            <option value="false">No — commit manuale (at-least-once)</option>
+            <option value="true">Yes — automatic commit every interval</option>
+            <option value="false">No — manual commit (at-least-once)</option>
           </CustomSelect>
         </Field>
         {p('autoCommit') === 'true' && (
-          <Field label="Intervallo commit (ms)">
+          <Field label="Commit interval (ms)">
             <input type="number" style={inputStyle} value={p('autoCommitInterval', '5000')}
               onChange={u('autoCommitInterval')} min="100" />
           </Field>
@@ -221,8 +221,8 @@ export function KafkaSourcePanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
-        Con <strong style={{ color: '#c8d4f0' }}>auto commit disabilitato</strong> il commit avviene solo dopo che la riga ha
-        attraversato l'intera pipeline con successo — garantisce at-least-once processing.
+        With <strong style={{ color: '#c8d4f0' }}>auto commit disabled</strong> the commit happens only after the row has
+        passed through the entire pipeline successfully — guarantees at-least-once processing.
       </div>
     </div>
   )

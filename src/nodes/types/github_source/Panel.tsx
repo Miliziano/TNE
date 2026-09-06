@@ -135,30 +135,30 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
         </div>
       ) : (
         <div style={{ padding: '8px 12px', background: '#2a1a0a', borderRadius: 6, border: '0.5px solid #855', fontSize: 10, color: '#c8a060' }}>
-          Nessuna risorsa GitHub collegata. Aggiungila dalla strip risorse e usa l'azione «source».
+          No GitHub resource connected. Add it from the resource strip and use the «source» action.
         </div>
       )}
 
-      <Field label="Modalità" hint={perRow ? 'owner/repo presi dalle righe in ingresso (fan-out)' : 'owner/repo dalla configurazione (target fisso)'}>
+      <Field label="Mode" hint={perRow ? 'owner/repo taken from the incoming rows (fan-out)' : 'owner/repo from the configuration (fixed target)'}>
         <CustomSelect style={inputStyle} value={mode} onChange={u('mode')}>
-          <option value="config">Da configurazione</option>
-          <option value="per_row">Per-riga (dalla lista in ingresso)</option>
+          <option value="config">From configuration</option>
+          <option value="per_row">Per-row (from the incoming list)</option>
         </CustomSelect>
       </Field>
 
-      <Field label="Entità" hint="cosa prelevare da GitHub">
+      <Field label="Entity" hint="what to fetch from GitHub">
         <CustomSelect style={inputStyle} value={entity} onChange={u('entity')}>
-          <option value="repos">Repos (di un'org o utente)</option>
-          <option value="issues">Issue + Pull Request (di un repo)</option>
-          <option value="commits">Commit (di un repo)</option>
+          <option value="repos">Repos (of an org or user)</option>
+          <option value="issues">Issues + Pull Requests (of a repo)</option>
+          <option value="commits">Commits (of a repo)</option>
         </CustomSelect>
       </Field>
 
       {entity === 'repos' && (
-        <Field label="Tipo owner">
+        <Field label="Owner type">
           <CustomSelect style={inputStyle} value={p('ownerType', 'org')} onChange={u('ownerType')}>
-            <option value="org">Organizzazione</option>
-            <option value="user">Utente</option>
+            <option value="org">Organization</option>
+            <option value="user">User</option>
           </CustomSelect>
         </Field>
       )}
@@ -171,7 +171,7 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
             <Field label="Repo"><input style={inputStyle} value={p('repo')} onChange={u('repo')} placeholder="TNE" /></Field>
           </div>
         ) : (
-          <Field label="Owner" hint="nome dell'org o dell'utente">
+          <Field label="Owner" hint="name of the org or user">
             <input style={inputStyle} value={p('owner')} onChange={u('owner')} placeholder="Miliziano" />
           </Field>
         )
@@ -179,11 +179,11 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
         // Modalità per-riga: quali campi della riga contengono owner/repo
         needsRepo ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <Field label="Campo owner" hint="colonna con l'owner"><input style={inputStyle} value={p('ownerField', 'owner')} onChange={u('ownerField')} placeholder="owner" /></Field>
-            <Field label="Campo repo" hint="colonna con il repo"><input style={inputStyle} value={p('repoField', 'repo')} onChange={u('repoField')} placeholder="repo" /></Field>
+            <Field label="Owner field" hint="column with the owner"><input style={inputStyle} value={p('ownerField', 'owner')} onChange={u('ownerField')} placeholder="owner" /></Field>
+            <Field label="Repo field" hint="column with the repo"><input style={inputStyle} value={p('repoField', 'repo')} onChange={u('repoField')} placeholder="repo" /></Field>
           </div>
         ) : (
-          <Field label="Campo owner" hint="colonna della riga con l'org/utente">
+          <Field label="Owner field" hint="row column with the org/user">
             <input style={inputStyle} value={p('ownerField', 'owner')} onChange={u('ownerField')} placeholder="owner" />
           </Field>
         )
@@ -191,33 +191,33 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
 
       {entity === 'issues' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Stato">
+          <Field label="State">
             <CustomSelect style={inputStyle} value={p('state', 'open')} onChange={u('state')}>
               <option value="open">open</option>
               <option value="closed">closed</option>
               <option value="all">all</option>
             </CustomSelect>
           </Field>
-          <Field label="Pull Request" hint="le issue includono i PR">
+          <Field label="Pull Requests" hint="issues include PRs">
             <CustomSelect style={inputStyle} value={p('includePRs', 'false')} onChange={u('includePRs')}>
-              <option value="false">Escludi i PR</option>
-              <option value="true">Includi i PR</option>
+              <option value="false">Exclude PRs</option>
+              <option value="true">Include PRs</option>
             </CustomSelect>
           </Field>
         </div>
       )}
 
       {entity === 'commits' && (
-        <Field label="Branch (opz.)" hint="vuoto = branch di default del repo">
+        <Field label="Branch (opt.)" hint="empty = repo default branch">
           <input style={inputStyle} value={p('branch')} onChange={u('branch')} placeholder="main" />
         </Field>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Elementi per pagina" hint={`default risorsa: ${resource?.config?.perPage ?? '100'}`}>
+        <Field label="Elementi per pagina" hint={`resource default: ${resource?.config?.perPage ?? '100'}`}>
           <input style={inputStyle} type="number" value={p('perPage', resource?.config?.perPage ?? '100')} onChange={u('perPage')} />
         </Field>
-        <Field label="Max elementi (opz.)" hint={perRow ? '0/vuoto = tutti, per repo' : '0/vuoto = tutte le pagine'}>
+        <Field label="Max items (opt.)" hint={perRow ? '0/empty = all, per repo' : '0/empty = all pages'}>
           <input style={inputStyle} type="number" value={p('maxItems', '')} onChange={u('maxItems')} placeholder="0" />
         </Field>
       </div>

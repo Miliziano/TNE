@@ -64,7 +64,7 @@ function ConnectionInfo({ resource, dialect }: {
       <div style={{ padding: '10px 12px', background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
         <i className="ti ti-database-off" style={{ fontSize: 14, color: '#8593b5' }} />
         <span style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>
-          Nessuna risorsa selezionata — selezionane una sopra
+          No resource selected — select one above
         </span>
       </div>
     )
@@ -80,7 +80,7 @@ function ConnectionInfo({ resource, dialect }: {
     untested: '#8593b5',
   }
   const statusColor = STATUS_COLORS[resource.status] ?? '#8593b5'
-  const statusLabel = { ok: 'Connessa', error: 'Errore', testing: 'Test in corso…', untested: 'Non testata' }[resource.status] ?? resource.status
+  const statusLabel = { ok: 'Connected', error: 'Error', testing: 'Testing…', untested: 'Untested' }[resource.status] ?? resource.status
 
   return (
     <div style={{ padding: '10px 12px', background: `color-mix(in srgb, ${color} 5%, #161b27)`, borderRadius: 6, border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -111,7 +111,7 @@ function ConnectionInfo({ resource, dialect }: {
               <span style={{ color: '#c8d4f0' }}>{cfg.database || '—'}</span>
             </div>
             <div style={{ color: '#9a9aaa' }}>
-              <span style={{ color: '#8593b5' }}>utente: </span>
+              <span style={{ color: '#8593b5' }}>user: </span>
               <span style={{ color: '#c8d4f0' }}>{cfg.user || '—'}</span>
             </div>
             {cfg.schema && (
@@ -133,7 +133,7 @@ function ConnectionInfo({ resource, dialect }: {
       {/* Hint per modificare */}
       <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
-        Per modificare i parametri di connessione usa le proprietà della risorsa nella resource strip
+        To edit the connection parameters use the resource properties in the resource strip
       </div>
     </div>
   )
@@ -187,17 +187,17 @@ export function SourceDbPanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* ── Selezione risorsa DB ─────────────────────────────── */}
-      <SectionTitle label="Connessione" color={color} />
+      <SectionTitle label="Connection" color={color} />
 
       {dbRes.length === 0 ? (
         <div style={{ padding: '12px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-database-off" style={{ fontSize: 18, display: 'block', marginBottom: 6 }} />
-          Nessuna risorsa DB in questa lane. Aggiungine una dalla resource strip.
+          No DB resource in this lane. Add one from the resource strip.
         </div>
       ) : (
-        <Field label="Risorsa DB" hint="I parametri di connessione si configurano nelle proprietà della risorsa">
+        <Field label="DB resource" hint="Connection parameters are set in the resource properties">
           <CustomSelect style={inputStyle} value={resId} onChange={(e) => handleResourceChange(e.target.value)}>
-            <option value="">— seleziona —</option>
+            <option value="">— select —</option>
             {dbRes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label} {r.status === 'ok' ? '✓' : r.status === 'error' ? '✗' : '○'}
@@ -211,19 +211,19 @@ export function SourceDbPanel({ nodeId }: { nodeId: string }) {
       <ConnectionInfo resource={selectedResource} dialect={dialect} />
 
       {/* ── Sorgente dati ────────────────────────────────────── */}
-      <SectionTitle label="Sorgente dati" color={color} />
+      <SectionTitle label="Data source" color={color} />
 
       <Row>
         {!isSqlite && (
-          <Field label="Schema" hint="Schema della tabella (es: public)">
+          <Field label="Schema" hint="Table schema (e.g. public)">
             <input type="text" style={inputStyle} value={p('querySchema', 'public')} onChange={u('querySchema')} placeholder="public" />
           </Field>
         )}
-        <Field label={p('query').trim() ? 'Tabella — IGNORATA' : 'Tabella'}
+        <Field label={p('query').trim() ? 'Table — IGNORED' : 'Table'}
                hint={p('query').trim()
-                 ? '⚠ Ignorata: c\'è una query personalizzata nel tab Query, il motore esegue quella'
-                 : "Usata se non c'è una query personalizzata nel tab Query"}>
-          <input type="text" style={inputStyle} value={p('table')} onChange={u('table')} placeholder="nome_tabella" />
+                 ? '⚠ Ignored: there is a custom query in the Query tab, the engine runs that one'
+                 : "Used if there is no custom query in the Query tab"}>
+          <input type="text" style={inputStyle} value={p('table')} onChange={u('table')} placeholder="table_name" />
         </Field>
       </Row>
 

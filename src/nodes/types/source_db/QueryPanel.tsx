@@ -42,57 +42,57 @@ function Row({ children }: { children: React.ReactNode }) {
 // ─── Snippet SQL per dialetto ─────────────────────────────────────
 const SQL_SNIPPETS: Record<string, Array<{ label: string; code: string }>> = {
   postgresql: [
-    { label: 'SELECT base',        code: 'SELECT *\nFROM public.tabella\nWHERE 1=1\nLIMIT 1000;' },
-    { label: 'JOIN',               code: 'SELECT a.*, b.nome\nFROM public.tabella a\nJOIN public.altra b ON a.id = b.ref_id\nWHERE a.attivo = true;' },
-    { label: 'JSONB estrai campo', code: "SELECT id,\n  dati->>'nome' AS nome,\n  dati->>'email' AS email\nFROM public.tabella\nWHERE dati IS NOT NULL;" },
-    { label: 'JSONB filtra @>',    code: "SELECT *\nFROM public.tabella\nWHERE dati @> '{\"stato\": \"attivo\"}'::jsonb;" },
-    { label: 'JSONB array rows',   code: "SELECT id, elem\nFROM public.tabella,\njsonb_array_elements(dati->'items') AS elem;" },
-    { label: 'Window function',    code: 'SELECT *,\n  ROW_NUMBER() OVER (PARTITION BY categoria ORDER BY created_at DESC) AS rn\nFROM public.tabella;' },
-    { label: 'CTE',                code: 'WITH filtrati AS (\n  SELECT * FROM public.tabella WHERE attivo = true\n)\nSELECT * FROM filtrati\nORDER BY id;' },
-    { label: 'Data recente',       code: "SELECT *\nFROM public.tabella\nWHERE created_at >= NOW() - INTERVAL '7 days';" },
-    { label: 'Aggregazione',       code: 'SELECT categoria,\n  COUNT(*) AS totale,\n  SUM(importo) AS somma\nFROM public.tabella\nGROUP BY categoria\nORDER BY totale DESC;' },
+    { label: 'Basic SELECT',        code: 'SELECT *\nFROM public.my_table\nWHERE 1=1\nLIMIT 1000;' },
+    { label: 'JOIN',               code: 'SELECT a.*, b.name\nFROM public.my_table a\nJOIN public.other_table b ON a.id = b.ref_id\nWHERE a.active = true;' },
+    { label: 'JSONB extract field', code: "SELECT id,\n  data->>'name' AS name,\n  data->>'email' AS email\nFROM public.my_table\nWHERE data IS NOT NULL;" },
+    { label: 'JSONB filter @>',    code: "SELECT *\nFROM public.my_table\nWHERE data @> '{\"status\": \"active\"}'::jsonb;" },
+    { label: 'JSONB array rows',   code: "SELECT id, elem\nFROM public.my_table,\njsonb_array_elements(data->'items') AS elem;" },
+    { label: 'Window function',    code: 'SELECT *,\n  ROW_NUMBER() OVER (PARTITION BY category ORDER BY created_at DESC) AS rn\nFROM public.my_table;' },
+    { label: 'CTE',                code: 'WITH filtered AS (\n  SELECT * FROM public.my_table WHERE active = true\n)\nSELECT * FROM filtered\nORDER BY id;' },
+    { label: 'Recent date',       code: "SELECT *\nFROM public.my_table\nWHERE created_at >= NOW() - INTERVAL '7 days';" },
+    { label: 'Aggregation',       code: 'SELECT category,\n  COUNT(*) AS total,\n  SUM(amount) AS total_sum\nFROM public.my_table\nGROUP BY category\nORDER BY total DESC;' },
   ],
   mysql: [
-    { label: 'SELECT base',   code: 'SELECT *\nFROM `database`.`tabella`\nWHERE 1=1\nLIMIT 1000;' },
-    { label: 'JOIN',          code: 'SELECT a.*, b.nome\nFROM `tabella` a\nJOIN `altra` b ON a.id = b.ref_id;' },
-    { label: 'JSON estrai',   code: "SELECT id,\n  JSON_EXTRACT(dati, '$.nome') AS nome\nFROM `tabella`\nWHERE JSON_VALID(dati);" },
-    { label: 'Data recente',  code: "SELECT *\nFROM `tabella`\nWHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY);" },
-    { label: 'GROUP BY',      code: 'SELECT categoria,\n  COUNT(*) AS totale\nFROM `tabella`\nGROUP BY categoria\nORDER BY totale DESC;' },
+    { label: 'Basic SELECT',   code: 'SELECT *\nFROM `database`.`my_table`\nWHERE 1=1\nLIMIT 1000;' },
+    { label: 'JOIN',          code: 'SELECT a.*, b.name\nFROM `my_table` a\nJOIN `other_table` b ON a.id = b.ref_id;' },
+    { label: 'JSON extract',   code: "SELECT id,\n  JSON_EXTRACT(data, '$.name') AS name\nFROM `my_table`\nWHERE JSON_VALID(data);" },
+    { label: 'Recent date',  code: "SELECT *\nFROM `my_table`\nWHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY);" },
+    { label: 'GROUP BY',      code: 'SELECT category,\n  COUNT(*) AS total\nFROM `my_table`\nGROUP BY category\nORDER BY total DESC;' },
   ],
   sqlite: [
-    { label: 'SELECT base',   code: 'SELECT *\nFROM tabella\nWHERE 1=1\nLIMIT 1000;' },
-    { label: 'JOIN',          code: 'SELECT a.*, b.nome\nFROM tabella a\nJOIN altra b ON a.id = b.ref_id;' },
-    { label: 'JSON estrai',   code: "SELECT id,\n  json_extract(dati, '$.nome') AS nome\nFROM tabella;" },
-    { label: 'Data recente',  code: "SELECT *\nFROM tabella\nWHERE created_at >= datetime('now', '-7 days');" },
+    { label: 'Basic SELECT',   code: 'SELECT *\nFROM my_table\nWHERE 1=1\nLIMIT 1000;' },
+    { label: 'JOIN',          code: 'SELECT a.*, b.name\nFROM my_table a\nJOIN other_table b ON a.id = b.ref_id;' },
+    { label: 'JSON extract',   code: "SELECT id,\n  json_extract(data, '$.name') AS name\nFROM my_table;" },
+    { label: 'Recent date',  code: "SELECT *\nFROM my_table\nWHERE created_at >= datetime('now', '-7 days');" },
   ],
   oracle: [
-    { label: 'SELECT base',   code: 'SELECT *\nFROM schema.tabella\nWHERE ROWNUM <= 1000;' },
-    { label: 'JOIN',          code: 'SELECT a.*, b.nome\nFROM schema.tabella a\nJOIN schema.altra b ON a.id = b.ref_id;' },
-    { label: 'JSON estrai',   code: "SELECT id,\n  JSON_VALUE(dati, '$.nome') AS nome\nFROM schema.tabella;" },
-    { label: 'Data recente',  code: 'SELECT *\nFROM schema.tabella\nWHERE created_at >= SYSDATE - 7;' },
-    { label: 'CONNECT BY',    code: 'SELECT LEVEL, id, parent_id, nome\nFROM schema.tabella\nSTART WITH parent_id IS NULL\nCONNECT BY PRIOR id = parent_id;' },
+    { label: 'Basic SELECT',   code: 'SELECT *\nFROM schema.my_table\nWHERE ROWNUM <= 1000;' },
+    { label: 'JOIN',          code: 'SELECT a.*, b.name\nFROM schema.my_table a\nJOIN schema.other_table b ON a.id = b.ref_id;' },
+    { label: 'JSON extract',   code: "SELECT id,\n  JSON_VALUE(data, '$.name') AS name\nFROM schema.my_table;" },
+    { label: 'Recent date',  code: 'SELECT *\nFROM schema.my_table\nWHERE created_at >= SYSDATE - 7;' },
+    { label: 'CONNECT BY',    code: 'SELECT LEVEL, id, parent_id, name\nFROM schema.my_table\nSTART WITH parent_id IS NULL\nCONNECT BY PRIOR id = parent_id;' },
   ],
   informix: [
-    { label: 'SELECT base',      code: 'SELECT FIRST 1000 *\nFROM tabella\nWHERE 1=1;' },
-    { label: 'JOIN',             code: 'SELECT a.*, b.nome\nFROM tabella a\nJOIN altra b ON a.id = b.ref_id;' },
-    { label: 'Data recente',     code: 'SELECT *\nFROM tabella\nWHERE created_at >= TODAY - 7;' },
+    { label: 'Basic SELECT',      code: 'SELECT FIRST 1000 *\nFROM my_table\nWHERE 1=1;' },
+    { label: 'JOIN',             code: 'SELECT a.*, b.name\nFROM my_table a\nJOIN other_table b ON a.id = b.ref_id;' },
+    { label: 'Recent date',     code: 'SELECT *\nFROM my_table\nWHERE created_at >= TODAY - 7;' },
   ],
 }
 
 // ─── Operatori JSONB ──────────────────────────────────────────────
 const JSONB_SNIPPETS = [
-  { label: "->>'campo'",             code: "dati->>'campo'"                                   },
-  { label: "->'oggetto'",            code: "dati->'oggetto'->>'campo'"                        },
-  { label: "@> filtra",              code: "dati @> '{\"chiave\": \"valore\"}'::jsonb"         },
-  { label: "? contiene chiave",      code: "dati ? 'chiave'"                                  },
-  { label: "jsonb_array_elements",   code: "jsonb_array_elements(dati->'array')"              },
-  { label: "jsonb_array_length",     code: "jsonb_array_length(dati->'array')"                },
+  { label: "->>'field'",             code: "data->>'field'"                                   },
+  { label: "->'object'",            code: "data->'object'->>'field'"                        },
+  { label: "@> filter",              code: "data @> '{\"key\": \"value\"}'::jsonb"         },
+  { label: "? contains key",      code: "data ? 'key'"                                  },
+  { label: "jsonb_array_elements",   code: "jsonb_array_elements(data->'array')"              },
+  { label: "jsonb_array_length",     code: "jsonb_array_length(data->'array')"                },
   { label: "jsonb_build_object",     code: "jsonb_build_object('key', val, 'key2', val2)"     },
-  { label: "jsonb_agg",              code: "jsonb_agg(riga ORDER BY id)"                      },
-  { label: "::numeric cast",         code: "(dati->>'numero')::numeric"                       },
-  { label: "::date cast",            code: "(dati->>'data')::date"                            },
-  { label: "|| merge",               code: "dati || '{\"nuovo\": \"valore\"}'::jsonb"         },
-  { label: "#- rimuovi chiave",      code: "dati #- '{chiave}'"                               },
+  { label: "jsonb_agg",              code: "jsonb_agg(rec ORDER BY id)"                      },
+  { label: "::numeric cast",         code: "(data->>'number')::numeric"                       },
+  { label: "::date cast",            code: "(data->>'date')::date"                            },
+  { label: "|| merge",               code: "data || '{\"new\": \"value\"}'::jsonb"         },
+  { label: "#- remove key",      code: "data #- '{key}'"                               },
 ]
 
 export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
@@ -116,14 +116,14 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
   const snippets   = SQL_SNIPPETS[dialect] ?? SQL_SNIPPETS.postgresql
 
   const defaultQuery = isSqlite
-    ? 'SELECT *\nFROM tabella\nWHERE 1=1\nLIMIT 1000;'
-    : 'SELECT *\nFROM public.tabella\nWHERE 1=1\nLIMIT 1000;'
+    ? 'SELECT *\nFROM my_table\nWHERE 1=1\nLIMIT 1000;'
+    : 'SELECT *\nFROM public.my_table\nWHERE 1=1\nLIMIT 1000;'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {/* ── Sorgente dati ────────────────────────────────────── */}
-      <SectionTitle label="Sorgente dati" color={color} />
+      {/* ── Sorgente data ────────────────────────────────────── */}
+      <SectionTitle label="Data source" color={color} />
 
       <Row>
         {!isSqlite && (
@@ -131,13 +131,13 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
             <input type="text" style={inputStyle} value={p('querySchema', 'public')} onChange={u('querySchema')} placeholder="public" />
           </Field>
         )}
-        <Field label="Tabella" hint="Usata se non c'è una query personalizzata">
-          <input type="text" style={inputStyle} value={p('table')} onChange={u('table')} placeholder="nome_tabella" />
+        <Field label="Table" hint="Used if there is no custom query">
+          <input type="text" style={inputStyle} value={p('table')} onChange={u('table')} placeholder="table_name" />
         </Field>
       </Row>
 
       {/* ── Query SQL ────────────────────────────────────────── */}
-      <SectionTitle label={`Query SQL — ${label}`} color={color} />
+      <SectionTitle label={`SQL Query — ${label}`} color={color} />
 
       {/* Toolbar snippet + JSONB */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -159,12 +159,12 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
 
         <button onClick={() => updateProp(nodeId, 'query', '')}
           style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', color: '#8593b5' }}
-          title="Svuota query">
+          title="Clear query">
           <i className="ti ti-eraser" style={{ fontSize: 10 }} />
         </button>
 
         <span style={{ marginLeft: 'auto', fontSize: 9, color: '#2a3349' }}>
-          Ctrl+Shift+F formatta · Alt+T suggerimenti
+          Ctrl+Shift+F format · Alt+T suggestions
         </span>
       </div>
 
@@ -172,7 +172,7 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
       {isPostgres && showJsonb && (
         <div style={{ background: '#1a1030', border: '1px solid #3a1a6a', borderRadius: 6, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontSize: 9, color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-            Operatori JSONB PostgreSQL — clicca per inserire
+            PostgreSQL JSONB operators — click to insert
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {JSONB_SNIPPETS.map((s) => (
@@ -185,7 +185,7 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
             ))}
           </div>
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
-            Campi JSONB → tipo <code style={{ color: '#a78bfa' }}>object</code> nello schema · usa JSON Parser per spacchettarli
+            JSONB fields → type <code style={{ color: '#a78bfa' }}>object</code> in the schema · use JSON Parser to unpack them
           </div>
         </div>
       )}
@@ -201,10 +201,10 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
       />
 
       {/* ── Opzioni lettura ──────────────────────────────────── */}
-      <SectionTitle label="Opzioni lettura" color={color} />
+      <SectionTitle label="Read options" color={color} />
 
       <Row>
-        <Field label="Limite righe" hint="0 = nessun limite">
+        <Field label="Row limit" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
         </Field>
         <Field label="Offset">
@@ -215,11 +215,11 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
         <Field label="Fetch size (batch)">
           <input type="number" style={inputStyle} value={p('fetchSize', '1000')} onChange={u('fetchSize')} />
         </Field>
-        <Field label="Timeout query (s)">
+        <Field label="Query timeout (s)">
           <input type="number" style={inputStyle} value={p('queryTimeout', '30')} onChange={u('queryTimeout')} />
         </Field>
       </Row>
-      <Field label="Ordinamento (ORDER BY)">
+      <Field label="Order (ORDER BY)">
         <input type="text" style={inputStyle} value={p('orderBy')} onChange={u('orderBy')} placeholder="id ASC, created_at DESC" />
       </Field>
 

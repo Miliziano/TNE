@@ -65,10 +65,10 @@ export function SourceDbPreviewPanel({ nodeId }: { nodeId: string }) {
   async function campiona() {
     setErrore(null); setOutput(null)
 
-    if (!resource) { setErrore('Nessuna risorsa collegata al nodo.'); return }
-    if (!query)    { setErrore('Configura una query nel tab Query prima di campionare.'); return }
+    if (!resource) { setErrore('No resource connected to the node.'); return }
+    if (!query)    { setErrore('Configure a query in the Query tab before sampling.'); return }
     if (!DIALETTI_SUPPORTATI.includes(dialect)) {
-      setErrore(`Anteprima dati non disponibile per il dialetto «${dialect}» (supportati: ${DIALETTI_SUPPORTATI.join(', ')}).`)
+      setErrore(`Data preview not available for the «${dialect}» dialect (supported: ${DIALETTI_SUPPORTATI.join(', ')}).`)
       return
     }
 
@@ -112,7 +112,7 @@ export function SourceDbPreviewPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                     background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
         <i className="ti ti-database-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-        Collega una risorsa DB al nodo per campionare i dati.
+        Connect a DB resource to the node to sample the data.
       </div>
     )
   }
@@ -131,17 +131,17 @@ export function SourceDbPreviewPanel({ nodeId }: { nodeId: string }) {
                    background: inCorso ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 22%, #0f1117)`,
                    color: inCorso ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}50`,
                    cursor: inCorso ? 'default' : 'pointer' }}>
-          {inCorso ? 'lettura…' : '\u25b6 campiona dalla sorgente'}
+          {inCorso ? 'reading…' : '\u25b6 sample from source'}
         </button>
         <label style={{ fontSize: 10, color: '#9a9aaa', display: 'flex', alignItems: 'center', gap: 6 }}>
-          righe
+          rows
           <input type="number" min={1} max={500} value={limite}
             onChange={(e) => setLimite(parseInt(e.target.value, 10) || 1)}
             style={{ width: 60, background: '#0f1117', border: '1px solid #2a3349', borderRadius: 5,
                      color: '#c8d4f0', fontSize: 11, padding: '3px 6px' }} />
         </label>
         <span style={{ fontSize: 9, color: '#8593b5' }}>
-          lettura reale dal DB (dialetto <b style={{ color: '#9a9aaa' }}>{dialect}</b>) — a interrogare è il motore
+          real read from the DB (dialect <b style={{ color: '#9a9aaa' }}>{dialect}</b>) — the engine runs the query
         </span>
       </div>
 
@@ -157,13 +157,13 @@ export function SourceDbPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* Uscita */}
       {output && (
         output.length === 0 ? (
-          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>Nessuna riga restituita.</div>
+          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>No rows returned.</div>
         ) : (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
                           letterSpacing: '.08em', padding: '4px 0',
                           borderBottom: `0.5px solid ${ACCENT}30`, marginBottom: 6 }}>
-              Campione — {output.length} riga/e
+              Sample — {output.length} row(s)
             </div>
             <div style={{ ...box, overflowX: 'auto', padding: 0 }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
