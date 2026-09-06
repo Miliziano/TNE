@@ -1,0 +1,63 @@
+diff --git a/HANDOFF.md b/HANDOFF.md
+index 8594603..0febb70 100644
+--- a/HANDOFF.md
++++ b/HANDOFF.md
+@@ -849,3 +849,58 @@ Consegnati all'utente: **Manuale operativo** (studio/runner/monitor/artifact, se
+ - **FPEL**: le funzioni definite dall'utente e le librerie `.ffpel` (vedi lo studio dedicato). Fatto chiave: si compilano **nello studio** ed è possibile **espanderle a compile-time** → nessuna modifica al motore.
+ - **Monitor**: protezione in **lettura**; eventuale firma degli artifact (fase C).
+ - **Debiti**: molti nodi portati in Rust (webhook, watchdog, ActiveMQ, Kafka, mail, ssh) **non sono mai stati collaudati a runtime**; la **CI non è mai stata eseguita** (mettere un tag `v0.1.0` e vedere se sforna i binari); `sink_file` non crea le cartelle mancanti (rimandato di proposito); allineare anche i run **dello studio** al `run_id` per esecuzione.
++
++---
++
++## Aggiornamento P208 → P259 (dopo il P207)
++
++Quattro temi grandi, tutti verificati (tsc baseline **110**, suite FPEL 49/57/44, esbuild), patch nel remoto. Il motore Rust non è compilabile nell'ambiente di sviluppo delle patch: i pezzi Rust sono scritti con revisione statica e **compilati dall'utente** (come per la FASE MOTORE storica).
++
++### Anteprima sul dato vero
++- Comando motore **`engine_preview_node`** (`engine/mod.rs`): fa girare un nodo PURO (transform, source_file) in **isolamento** — registri per-lane vuoti, `var()` mock, nessuna lane — restituendo le righe in uscita dal **motore vero**, mai simulate. Tetto righe per le sorgenti (abort dopo N).
++- Pannelli **Preview**: transform (mock rows salvate sul nodo → `engine_preview_node`), source DB (campione reale via `db_query`), source file (lettura reale via `engine_preview_node`).
++- 🐞 **P240 — divergenza dei lettori**: `db_query` leggeva gli enum Postgres (`mpaa_rating`) come NULL, il nodo `source_db` no (aveva il fallback `try_get_raw`). Reso `pg_col_to_value` `pub(crate)` e usato da `pg_query` → **un solo lettore Postgres**; la preview è fedele al run.
++
++### Selettore unico ovunque
++- Un solo **`FunctionPicker`** (ricerca, categorie, costrutti) in: casella espressione e script del TMap, funzione di campo e ultimo passo, tendina trasformazione ed espressione custom del nodo Transform. **Inline del TMap ridisegnato a casella unica** (regola "avvolgi la selezione, o l'intera espressione").
++
++### Schema-file
++- Formato unico `src/schema/schemaFile.ts`; **export** schema da source DB / TMap / sink DB; **import-da-file** nel TMap (prima placeholder). Dialoghi **nativi** Tauri (`saveFileDialog`/`openFileDialog` + `writeFile`/`readFile`): il download `<a>` del browser è inerte nella webview.
++
++### Funzioni utente FPEL (il pezzo grosso)
++- Sintassi `function nome(par) { return espressione }` (alias italiani `funzione`/`ritorna`). Corpo = una sola espressione, solo i suoi parametri, niente ricorsione né ombreggiamento delle predefinite.
++- **Espanse a compile-time** (chiamata → albero del corpo con argomenti sostituiti); `_origin` per la diagnostica, **tolto prima del motore** → **zero modifiche al Rust**.
++- Valgono in **transform, TMap e script**: `compileFpel` nei convertitori (`templateCompiler`, `tmapExprConverter`) col threading dal build; per lo script un **registro attivo** in `userFunctions.ts`, tenuto fresco da una **subscription dello store**, così valgono anche in propagazione schema e validazione.
++- Modale **Functions** (menu) con l'editor dello script (Monaco `flowpilot`) + `ƒ apply…`; compaiono nel selettore e nell'**autocompletamento** Monaco. Persistono in `pool.userFunctions` (progetto + localStorage). **Librerie `.ffpel`** import/export (copia nel progetto).
++
++### Preparazione beta
++- Menu **Esempio → Help** (modale contenitore per manuali/wizard/agente). **Codegen rimosso** dalla UI (file `CodegenPanel.tsx` lasciato, solo scollegato).
++- **Contrasto**: il grigio-testo `#4a5a7a` (977 usi, sotto la soglia AA) portato a `#8593b5` (passa AA).
++- **Passata inglese** in corso, a blocchi, con dizionario **`src/i18n/it-en.json`** (seed per l'i18n futuro): fatti Toolbar, modali principali (Functions, Environments, Compile, Version history), nomi/sezioni dei nodi. Resta la **coda lunga**: 99 descrizioni dei nodi, messaggi rari, `desc` delle funzioni FPEL. Nota: inglese **hardcoded**; l'i18n vero (chiavi `t()`) è una rifinitura successiva — il dizionario ne è la base.
++
++---
++
++## Oracle e Informix — pensata (DA RIPRENDERE)
++
++Richiesto come "fondamentale". **Non è un'aggiunta piccola: è una decisione architetturale del motore.**
++
++**Stato.** Lo studio è quasi pronto: selettore dialetto con `oracle`/`informix`, cataloghi di tipi (Oracle `VARCHAR2/CLOB/NUMBER`, Informix `LVARCHAR/DATETIME YEAR TO SECOND`), query e porte di default. **Il buco è nel motore**: `pool.rs` ha `DbPool = Pg | My | Sqlite` (sqlx) ed esegue solo quei tre (`source_db`/`db_query` → `run_pg`/`run_mysql`/`run_sqlite`); oracle/informix hanno la sonda ma **nessuna esecuzione**.
++
++**Vincolo duro.** `sqlx` non fa Oracle né Informix. Asimmetria che decide tutto:
++- **Oracle** ha un crate Rust nativo (`oracle`, su ODPI-C + Instant Client).
++- **Informix** **non ha un driver Rust nativo utilizzabile** → unica via reale: **ODBC**.
++
++**Scelta consigliata: ODBC per ENTRAMBI** (crate `odbc-api`). Un solo percorso: Oracle dal suo driver ODBC, Informix dal driver ODBC dell'IBM Informix CSDK. È **l'unico modo di avere Informix** e prende Oracle in omaggio (+ futuri SQL Server/DB2). Alternativa **ibrida**: `oracle` nativo (miglior fedeltà/prestazioni) + ODBC per Informix — solo se su Oracle servono precisione numerica o prestazioni critiche. Nativo per entrambi = impossibile.
++
++**Caveat, anch'esso "fondamentale".** ODBC (e il crate Oracle) richiedono le **librerie client del fornitore sulla macchina che esegue il motore**: Oracle Instant Client; IBM Informix CSDK (con driver ODBC); più un driver manager (unixODBC su Linux/mac, integrato su Windows). **Non impacchettabili** nell'`.ffart` (licenze + binari per piattaforma) → **prerequisito d'ambiente del runner**, da documentare nella beta.
++
++**Forma del lavoro (se ODBC).**
++- *Motore*: dipendenza `odbc-api`; variante **`DbPool::Odbc`**; connessione via stringa/DSN ODBC; **`run_odbc`** generica (query + cella→`Value` dai tipi ODBC); agganciata al dispatch di `source_db`/`sink_db`/`db_query`/`db_infer_schema`.
++- *Studio*: quasi pronto; aggiungere i campi di connessione ODBC (DSN o driver+parametri) alla risorsa per oracle/informix.
++- *Tipi*: SQL ODBC → `Value` (Oracle `NUMBER`, Informix `DATETIME`, ecc. via i tipi generici ODBC).
++- *Verificabilità*: **Rust non compilabile nell'ambiente patch** e serve l'header di sviluppo ODBC + i driver del fornitore per build/test → **compile-and-test lato utente**, contro istanze reali.
++
++**Da decidere quando si riprende:**
++1. **ODBC unico** vs **ibrido** (Oracle nativo + Informix ODBC).
++2. Disponibilità di **istanze di prova** Oracle e/o Informix — **indispensabili** per buildare e testare.
++3. Prima fetta proposta: `DbPool::Odbc` + `run_odbc` in **lettura** (`source_db`) contro il DB per cui esiste un'istanza; poi scrittura (`sink_db`); poi l'altro DB.
