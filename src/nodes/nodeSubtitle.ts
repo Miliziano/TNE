@@ -29,7 +29,7 @@ export function getNodeSubtitle(data: NodeData): string {
       const path = p('filePath') || p('path')
       if (path) return withCatch(truncate(path.split('/').pop() ?? path, 35), data)
       const fmt = p('format')
-      return withCatch(fmt ? `formato: ${fmt}` : 'nessun file', data)
+      return withCatch(fmt ? `format: ${fmt}` : 'no file', data)
     }
 
     case 'source_db': {
@@ -45,7 +45,7 @@ export function getNodeSubtitle(data: NodeData): string {
       }
       const schema = p('schema', 'public')
       const table  = p('table')
-      return withCatch(table ? `${schema}.${table}` : 'nessuna tabella', data)
+      return withCatch(table ? `${schema}.${table}` : 'no table', data)
     }
 
     case 'source_http': {
@@ -94,7 +94,7 @@ export function getNodeSubtitle(data: NodeData): string {
 
     case 'bridge_in': {
       const channel = p('channel') || p('channelName')
-      return withCatch(channel ? `⊂ ${truncate(channel, 30)}` : '⊂ canale non impostato', data)
+      return withCatch(channel ? `⊂ ${truncate(channel, 30)}` : '⊂ channel not set', data)
     }
 
     case 'source_ftp': {
@@ -112,7 +112,7 @@ export function getNodeSubtitle(data: NodeData): string {
         try { return JSON.parse(p('rules', '[]')) } catch { return [] }
       })()
       const n = Array.isArray(rules) ? rules.length : 0
-      return withCatch(n > 0 ? `${n} regol${n === 1 ? 'a' : 'e'}` : 'nessuna regola', data)
+      return withCatch(n > 0 ? `${n} rule${n === 1 ? '' : 's'}` : 'no rules', data)
     }
 
     case 'data_quality': {
@@ -121,8 +121,8 @@ export function getNodeSubtitle(data: NodeData): string {
         const rules = cfg.rules ?? []
         const n = rules.filter((r: any) => r.enabled !== false).length
         const repairs = rules.filter((r: any) => r.repair && r.repair !== 'none').length
-        if (n === 0) return withCatch('nessuna regola', data)
-        return withCatch(`${n} regole · ${repairs} repair · DTS`, data)
+        if (n === 0) return withCatch('no rules', data)
+        return withCatch(`${n} rules · ${repairs} repair · DTS`, data)
       } catch { return withCatch('DTS', data) }
     }
 
@@ -154,7 +154,7 @@ export function getNodeSubtitle(data: NodeData): string {
         try { return JSON.parse(p('outputSchema', '[]')) } catch { return [] }
       })()
       const n = Array.isArray(schema) ? schema.length : 0
-      return withCatch(n > 0 ? `${n} camp${n === 1 ? 'o' : 'i'}` : 'nessun mapping', data)
+      return withCatch(n > 0 ? `${n} field${n === 1 ? '' : 's'}` : 'no mapping', data)
     }
 
     case 'join': {
@@ -183,9 +183,9 @@ export function getNodeSubtitle(data: NodeData): string {
       const n    = Array.isArray(aggs) ? aggs.length : 0
       const src  = p('dataSource', 'flow')
       const mat  = p('materializeName')
-      const from = src === 'materialize' && mat ? `◈${mat}` : 'flusso'
+      const from = src === 'materialize' && mat ? `◈${mat}` : 'flow'
       if (groupBy) return withCatch(`${truncate(groupBy, 18)} · ${n} fn · ${from}`, data)
-      return withCatch(`${n} funzion${n === 1 ? 'e' : 'i'} · ${from}`, data)
+      return withCatch(`${n} fn · ${from}`, data)
     }
 
     case 'window': {
@@ -196,9 +196,9 @@ export function getNodeSubtitle(data: NodeData): string {
       const partition = p('partitionBy')
       const src       = p('dataSource', 'flow')
       const mat       = p('materializeName')
-      const from      = src === 'materialize' && mat ? `◈${mat}` : 'flusso'
+      const from      = src === 'materialize' && mat ? `◈${mat}` : 'flow'
       if (partition) return withCatch(`PART BY ${truncate(partition, 14)} · ${n}fn · ${from}`, data)
-      return withCatch(`${n} funzion${n === 1 ? 'e' : 'i'} · ${from}`, data)
+      return withCatch(`${n} fn · ${from}`, data)
     }
 
     case 'script': {
@@ -208,7 +208,7 @@ export function getNodeSubtitle(data: NodeData): string {
       // cosa che cambia davvero il comportamento del nodo: la modalità.
       const genera    = p('sourceMode', 'flusso') === 'genera'
       const hasReject = p('hasReject') === 'true'
-      const base      = genera ? 'FPEL · genera' : 'FPEL'
+      const base      = genera ? 'FPEL · generate' : 'FPEL'
       return withCatch(hasReject ? `${base} · +reject` : base, data)
     }
 
@@ -223,7 +223,7 @@ export function getNodeSubtitle(data: NodeData): string {
       const src = p('explodeSource', 'materialize')
       const mat = p('materializeName')
       if (src === 'materialize' && mat) return withCatch(`⊕ ◈${truncate(mat, 28)}`, data)
-      return withCatch('⊕ campo flusso', data)
+      return withCatch('⊕ flow field', data)
     }
 
     case 'json_parser': {
@@ -231,8 +231,8 @@ export function getNodeSubtitle(data: NodeData): string {
       const nFlows   = config?.flows?.length ?? 0
       const srcField = config?.sourceField || p('sourceField')
       return withCatch(srcField
-        ? `${truncate(srcField, 20)} · ${nFlows} flusso${nFlows !== 1 ? 'i' : ''}`
-        : `${nFlows} flusso${nFlows !== 1 ? 'i' : ''}`, data)
+        ? `${truncate(srcField, 20)} · ${nFlows} flow${nFlows !== 1 ? 's' : ''}`
+        : `${nFlows} flow${nFlows !== 1 ? 's' : ''}`, data)
     }
 
     case 'xml_parser': {
@@ -240,8 +240,8 @@ export function getNodeSubtitle(data: NodeData): string {
       const nFlows   = config?.flows?.length ?? 0
       const srcField = config?.sourceField || p('sourceField')
       return withCatch(srcField
-        ? `${truncate(srcField, 20)} · ${nFlows} flusso${nFlows !== 1 ? 'i' : ''}`
-        : `${nFlows} flusso${nFlows !== 1 ? 'i' : ''}`, data)
+        ? `${truncate(srcField, 20)} · ${nFlows} flow${nFlows !== 1 ? 's' : ''}`
+        : `${nFlows} flow${nFlows !== 1 ? 's' : ''}`, data)
     }
 
     case 'report_generator': {
@@ -255,7 +255,7 @@ export function getNodeSubtitle(data: NodeData): string {
       const pivotType = p('pivotType', 'static')
       const src       = p('dataSource', 'flow')
       const mat       = p('materializeName')
-      const from      = src === 'materialize' && mat ? `◈${mat}` : 'flusso'
+      const from      = src === 'materialize' && mat ? `◈${mat}` : 'flow'
 
       if (mode === 'unpivot') {
         const cols = (() => {
@@ -315,7 +315,7 @@ export function getNodeSubtitle(data: NodeData): string {
       try {
         const struct = JSON.parse(p('jsonStructure', '[]'))
         const n = Array.isArray(struct) ? struct.length : 0
-        return withCatch(`{ } ${n} camp${n !== 1 ? 'i' : 'o'} → ${truncate(outField, 18)} [${pretty}]`, data)
+        return withCatch(`{ } ${n} field${n !== 1 ? 's' : ''} → ${truncate(outField, 18)} [${pretty}]`, data)
       } catch {
         return withCatch(`{ } → ${truncate(outField, 22)} [${pretty}]`, data)
       }
@@ -328,7 +328,7 @@ export function getNodeSubtitle(data: NodeData): string {
       try {
         const struct = JSON.parse(p('xmlStructure', '[]'))
         const n = Array.isArray(struct) ? struct.length : 0
-        return withCatch(`<${root}> ${n} nod${n !== 1 ? 'i' : 'o'} → ${truncate(outField, 14)} [${pretty}]`, data)
+        return withCatch(`<${root}> ${n} node${n !== 1 ? 's' : ''} → ${truncate(outField, 14)} [${pretty}]`, data)
       } catch {
         return withCatch(`<${truncate(root, 16)}> → ${truncate(outField, 14)}`, data)
       }
@@ -350,17 +350,17 @@ export function getNodeSubtitle(data: NodeData): string {
       const subject = p('subject')
       if (to)      return withCatch(`→ ${truncate(to, 32)}`, data)
       if (subject) return withCatch(truncate(subject, 35), data)
-      return withCatch('nessun destinatario', data)
+      return withCatch('no recipient', data)
     }
 
     case 'bridge_out': {
       const channel = p('channel') || p('channelName')
-      return withCatch(channel ? `⊃ ${truncate(channel, 30)}` : '⊃ canale non impostato', data)
+      return withCatch(channel ? `⊃ ${truncate(channel, 30)}` : '⊃ channel not set', data)
     }
 
     // ── Start / End ───────────────────────────────────────────────
-    case 'lane_start': return 'inizio lane'
-    case 'lane_end':   return 'fine lane'
+    case 'lane_start': return 'lane start'
+    case 'lane_end':   return 'lane end'
 
     default: return withCatch('', data)
   }
