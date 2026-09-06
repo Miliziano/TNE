@@ -62,38 +62,38 @@ export function TabGeneral({ nodeId }: { nodeId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <SectionTitle label="Identità" />
+      <SectionTitle label="Identity" />
       <Row>
-        <Field label="Nome visualizzato">
+        <Field label="Display name">
           <input style={inputStyle} value={c.displayName ?? node.data.label}
             onChange={(e) => updateConfig(nodeId, { displayName: e.target.value })}
             placeholder={node.data.label} />
         </Field>
-        <Field label="Etichetta breve (canvas)">
+        <Field label="Short label (canvas)">
           <input style={inputStyle} value={c.shortLabel ?? ''}
             onChange={(e) => updateConfig(nodeId, { shortLabel: e.target.value })}
-            placeholder="es. ordini" />
+            placeholder="e.g. orders" />
         </Field>
       </Row>
-      <Field label="Descrizione">
+      <Field label="Description">
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 64, fontFamily: 'inherit' }}
           value={c.description ?? ''}
           onChange={(e) => updateConfig(nodeId, { description: e.target.value })}
-          placeholder="Cosa fa questo nodo?" />
+          placeholder="What does this node do?" />
       </Field>
-      <Field label="Note interne">
+      <Field label="Internal notes">
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'inherit' }}
           value={c.notes ?? ''}
           onChange={(e) => updateConfig(nodeId, { notes: e.target.value })}
-          placeholder="Note tecniche, avvertenze, TODO…" />
+          placeholder="Technical notes, warnings, TODO…" />
       </Field>
-      <SectionTitle label="Comportamento" />
+      <SectionTitle label="Behavior" />
       <Row>
-        <Field label="Abilitato">
+        <Field label="Enabled">
           <CustomSelect style={inputStyle} value={c.enabled ?? 'true'}
             onChange={(e) => updateConfig(nodeId, { enabled: e.target.value as 'true' | 'false' })}>
-            <option value="true">Sì</option>
-            <option value="false">No — salta durante l'esecuzione</option>
+            <option value="true">Yes</option>
+            <option value="false">No — skip during execution</option>
           </CustomSelect>
         </Field>
       </Row>

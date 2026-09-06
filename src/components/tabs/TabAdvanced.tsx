@@ -62,31 +62,31 @@ function NodeStatusSection({ nodeId }: { nodeId: string }) {
 
   const statusFields: Array<{ name: string; type: string; desc: string }> = (() => {
     const base = [
-      { name: 'ok',             type: 'boolean', desc: 'Esecuzione riuscita' },
-      { name: 'node_id',        type: 'string',  desc: 'ID del nodo' },
-      { name: 'node_type',      type: 'string',  desc: 'Tipo del nodo' },
-      { name: 'timestamp',      type: 'date',    desc: 'Timestamp elaborazione' },
-      { name: 'rows_processed', type: 'integer', desc: 'Righe elaborate' },
-      { name: 'duration_ms',    type: 'integer', desc: 'Durata in millisecondi' },
-      { name: 'error_message',  type: 'string',  desc: 'Messaggio errore (vuoto se ok)' },
+      { name: 'ok',             type: 'boolean', desc: 'Execution succeeded' },
+      { name: 'node_id',        type: 'string',  desc: 'Node ID' },
+      { name: 'node_type',      type: 'string',  desc: 'Node type' },
+      { name: 'timestamp',      type: 'date',    desc: 'Processing timestamp' },
+      { name: 'rows_processed', type: 'integer', desc: 'Rows processed' },
+      { name: 'duration_ms',    type: 'integer', desc: 'Duration in milliseconds' },
+      { name: 'error_message',  type: 'string',  desc: 'Error message (empty if ok)' },
     ]
     switch (node.data.type) {
       case 'source_db': case 'source_file': case 'source_http':
-        return [...base, { name: 'rows_read', type: 'integer', desc: 'Righe lette dalla sorgente' }]
+        return [...base, { name: 'rows_read', type: 'integer', desc: 'Rows read from the source' }]
       case 'sink_file':
         return [...base,
-          { name: 'rows_written',  type: 'integer', desc: 'Righe scritte nel file' },
-          { name: 'bytes_written', type: 'integer', desc: 'Byte scritti' },
-          { name: 'file_path',     type: 'string',  desc: 'Path del file scritto' },
+          { name: 'rows_written',  type: 'integer', desc: 'Rows written to the file' },
+          { name: 'bytes_written', type: 'integer', desc: 'Bytes written' },
+          { name: 'file_path',     type: 'string',  desc: 'Path of the written file' },
         ]
       case 'sink_db':
         return [...base,
-          { name: 'rows_inserted', type: 'integer', desc: 'Righe inserite' },
-          { name: 'rows_updated',  type: 'integer', desc: 'Righe aggiornate' },
-          { name: 'rows_rejected', type: 'integer', desc: 'Righe rifiutate' },
+          { name: 'rows_inserted', type: 'integer', desc: 'Rows inserted' },
+          { name: 'rows_updated',  type: 'integer', desc: 'Rows updated' },
+          { name: 'rows_rejected', type: 'integer', desc: 'Rows rejected' },
         ]
       case 'filter':
-        return [...base, { name: 'rows_filtered', type: 'integer', desc: 'Righe filtrate (scartate)' }]
+        return [...base, { name: 'rows_filtered', type: 'integer', desc: 'Rows filtered (discarded)' }]
       default:
         return base
     }
@@ -94,22 +94,22 @@ function NodeStatusSection({ nodeId }: { nodeId: string }) {
 
   return (
     <>
-      <SectionTitle label="Status — campi emessi verso il nodo successivo" />
+      <SectionTitle label="Status — fields emitted to the next node" />
       {node.data.type === 'sink_file' && (
         <div style={{ padding: '8px 10px', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 13, color: '#4a9eff' }} />
           <div style={{ flex: 1, fontSize: 10, color: '#9a9aaa' }}>
             {passthrough
               ? processingMode === 'streaming'
-                ? 'row: dati originali (riga per riga) + status'
-                : 'row: dati originali (dopo chiusura file, riga per riga) + status'
-              : 'row: {} vuoto + status — un solo messaggio alla fine'}
+                ? 'row: original data (row by row) + status'
+                : 'row: original data (after file close, row by row) + status'
+              : 'row: empty {} + status — a single message at the end'}
           </div>
         </div>
       )}
       <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 1fr', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-          {['status.*', 'Tipo', 'Descrizione'].map((h) => (
+          {['status.*', 'Type', 'Description'].map((h) => (
             <div key={h} style={{ fontSize: 10, color: '#4a9eff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
           ))}
         </div>
@@ -123,7 +123,7 @@ function NodeStatusSection({ nodeId }: { nodeId: string }) {
       </div>
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, marginRight: 4 }} />
-        Tutti i campi status vengono anche scritti nelle variabili di lane come{' '}
+        All status fields are also written to lane variables as{' '}
         <strong style={{ color: '#9a9aaa' }}>{node.data.type}.{nodeId}.*</strong>
       </div>
     </>
@@ -152,38 +152,38 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <SectionTitle label="Timeout e retry" />
+      <SectionTitle label="Timeout and retry" />
 
       {/* Nota contestuale per DirWatcher */}
       {isDirWatcher && (
         <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${ACCENT_DW} 8%, #0f1117)`, borderRadius: 4, border: `0.5px solid ${ACCENT_DW}30`, fontSize: 9, color: ACCENT_DW, display: 'flex', gap: 6 }}>
           <i className="ti ti-refresh" style={{ fontSize: 10, flexShrink: 0 }} />
-          Il campo <strong>Timeout</strong> è sincronizzato con <strong>Timeout watch</strong> nel tab Configurazione — modificando uno si aggiorna l'altro.
+          The <strong>Timeout</strong> field is synced with <strong>Watch timeout</strong> in the Configuration tab — changing one updates the other.
         </div>
       )}
 
       <Row>
-        <Field label={isDirWatcher ? 'Timeout watch (secondi)' : 'Timeout (secondi)'}>
+        <Field label={isDirWatcher ? 'Watch timeout (seconds)' : 'Timeout (seconds)'}>
           <input type="number" style={inputStyle} value={adv?.timeoutSec ?? '30'}
             onChange={(e) => handleTimeoutChange(e.target.value)} />
         </Field>
-        <Field label="In caso di errore">
+        <Field label="On error">
           <CustomSelect style={inputStyle} value={onError}
             onChange={(e) => updateAdvanced(nodeId, 'onError', e.target.value)}>
-            <option value="handler">Error handler — la lane decide</option>
-            <option value="catch">Cattura sul nodo — abilita handle catch</option>
-            <option value="retry_handler">Riprova, poi error handler</option>
-            <option value="retry_catch">Riprova, poi cattura sul nodo</option>
+            <option value="handler">Error handler — the lane decides</option>
+            <option value="catch">Catch on node — enables catch handle</option>
+            <option value="retry_handler">Retry, then error handler</option>
+            <option value="retry_catch">Retry, then catch on node</option>
           </CustomSelect>
         </Field>
       </Row>
       {isRetry && (
         <Row>
-          <Field label="Numero di retry">
+          <Field label="Retry count">
             <input type="number" style={inputStyle} value={adv?.retryCount ?? '0'}
               onChange={(e) => updateAdvanced(nodeId, 'retryCount', e.target.value)} />
           </Field>
-          <Field label="Delay tra retry (secondi)">
+          <Field label="Delay between retries (seconds)">
             <input type="number" style={inputStyle} value={adv?.retryDelaySec ?? '5'}
               onChange={(e) => updateAdvanced(nodeId, 'retryDelaySec', e.target.value)} />
           </Field>
@@ -199,18 +199,18 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
         }}>
           <i className="ti ti-bug" style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }} />
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>Handle catch attivo</div>
-            L'handle <strong style={{ color: CATCH_COLOR }}>catch</strong> è ora visibile sul nodo.
-            Le righe che causano un'eccezione non controllata escono da catch
-            arricchite dei campi:
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Catch handle active</div>
+            The <strong style={{ color: CATCH_COLOR }}>catch</strong> handle is now visible on the node.
+            Rows that raise an unhandled exception exit through catch
+            enriched with the fields:
             <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { name: '_error_message',   type: 'string', desc: 'Messaggio dell\'eccezione' },
-                { name: '_error_code',      type: 'string', desc: 'Tipo / codice errore' },
-                { name: '_error_node_id',   type: 'string', desc: 'ID del nodo che ha generato l\'errore' },
-                { name: '_error_node_type', type: 'string', desc: 'Tipo del nodo' },
-                { name: '_error_at',        type: 'date',   desc: 'Timestamp dell\'eccezione' },
-                { name: '_error_row',       type: 'object', desc: 'La riga originale che ha causato l\'errore' },
+                { name: '_error_message',   type: 'string', desc: 'Exception message' },
+                { name: '_error_code',      type: 'string', desc: 'Error type / code' },
+                { name: '_error_node_id',   type: 'string', desc: 'ID of the node that raised the error' },
+                { name: '_error_node_type', type: 'string', desc: 'Node type' },
+                { name: '_error_at',        type: 'date',   desc: 'Exception timestamp' },
+                { name: '_error_row',       type: 'object', desc: 'The original row that caused the error' },
               ].map((f) => (
                 <div key={f.name} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
                   <code style={{ fontSize: 10, color: CATCH_COLOR, minWidth: 140, flexShrink: 0 }}>{f.name}</code>
@@ -221,8 +221,8 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
             </div>
             <div style={{ marginTop: 8, padding: '6px 8px', background: '#1a1000', borderRadius: 4, border: `0.5px solid ${CATCH_COLOR}20`, fontSize: 9, color: '#8593b5' }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 9, marginRight: 4, color: CATCH_COLOR }} />
-              Se l'handle catch non è collegato a nessun nodo, le eccezioni vengono
-              gestite dalla configurazione globale della lane.
+              If the catch handle isn't connected to any node, exceptions are
+              handled by the lane's global configuration.
             </div>
           </div>
         </div>
@@ -230,7 +230,7 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
 
       <SectionTitle label="Performance" />
       <Row>
-        <Field label="Batch size (righe per batch)">
+        <Field label="Batch size (rows per batch)">
           <input type="number" style={inputStyle} value={adv?.batchSize ?? '1000'}
             onChange={(e) => updateAdvanced(nodeId, 'batchSize', e.target.value)} />
         </Field>

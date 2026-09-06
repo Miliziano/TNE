@@ -145,16 +145,16 @@ function TabConnection({ nodeId }: { nodeId: string }) {
 
   return (
     <div style={sectionStyle}>
-      <SectionTitle label="Risorsa collegata" />
+      <SectionTitle label="Connected resource" />
       {resources.length === 0 ? (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Nessuna risorsa disponibile in questa lane. Aggiungine una dalla resource strip.
+          No resource available in this lane. Add one from the resource strip.
         </div>
       ) : (
-        <Field label="Seleziona risorsa">
+        <Field label="Select resource">
           <CustomSelect style={inputStyle} value={resId}
             onChange={(e) => updateConfig(nodeId, { resourceId: e.target.value })}>
-            <option value="">— nessuna —</option>
+            <option value="">— none —</option>
             {resources.map((r) => (
               <option key={r.id} value={r.id}>{r.label} ({r.kind})</option>
             ))}
@@ -171,7 +171,7 @@ function TabConnection({ nodeId }: { nodeId: string }) {
       )}
       {def.fields.length > 0 && (
         <>
-          <SectionTitle label="Parametri del nodo" />
+          <SectionTitle label="Node parameters" />
           {def.fields.map((field) => (
             <Field key={field.key} label={field.label}>
               {field.type === 'select' ? (
@@ -210,7 +210,7 @@ function TabQuery({ nodeId }: { nodeId: string }) {
     return (
       <div style={{ padding: '32px', textAlign: 'center', color: '#8593b5', fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <i className="ti ti-code-off" style={{ fontSize: 28, color: '#2a3349' }} aria-hidden="true" />
-        Questo tipo di nodo non ha campi codice o query.
+        This node type has no code or query fields.
       </div>
     )
   }
@@ -236,7 +236,7 @@ function TabQuery({ nodeId }: { nodeId: string }) {
               }
             }}
             spellCheck={false} />
-          <div style={{ fontSize: 10, color: '#8593b5' }}>Tab inserisce 2 spazi. Il codice viene eseguito sul server.</div>
+          <div style={{ fontSize: 10, color: '#8593b5' }}>Tab inserts 2 spaces. The code runs on the server.</div>
         </div>
       ))}
     </div>
@@ -255,28 +255,28 @@ function TabMapping({ nodeId }: { nodeId: string }) {
 
   return (
     <div style={sectionStyle}>
-      <SectionTitle label="Mapping campi input → output" />
+      <SectionTitle label="Field mapping input → output" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 24px 1fr 90px 32px', gap: 8, padding: '4px 10px', background: '#1a2030', borderRadius: '6px 6px 0 0', border: '1px solid #2a3349', borderBottom: '1px solid #3a4a6a' }}>
-        {['Campo ingresso', '', 'Campo uscita', 'Trasformazione', ''].map((h, i) => (
+        {['Input field', '', 'Output field', 'Transformation', ''].map((h, i) => (
           <div key={i} style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 600 }}>{h}</div>
         ))}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid #2a3349', borderTop: 'none', borderRadius: '0 0 6px 6px', overflow: 'hidden' }}>
         {mappings.length === 0 && (
           <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030' }}>
-            Nessun mapping definito. Aggiungi una riga per mappare i campi.
+            No mapping defined. Add a row to map the fields.
           </div>
         )}
         {mappings.map((m: NodeMapping, idx: number) => (
           <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 24px 1fr 90px 32px', gap: 8, alignItems: 'center', padding: '6px 10px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: '0.5px solid #2a3349' }}>
-            <input style={inputStyle} value={m.sourceField} placeholder="campo_sorgente"
+            <input style={inputStyle} value={m.sourceField} placeholder="source_field"
               onChange={(e) => updateMapping(nodeId, m.id, 'sourceField', e.target.value)} />
             <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#8593b5', textAlign: 'center' }} aria-hidden="true" />
-            <input style={inputStyle} value={m.targetField} placeholder="campo_dest"
+            <input style={inputStyle} value={m.targetField} placeholder="target_field"
               onChange={(e) => updateMapping(nodeId, m.id, 'targetField', e.target.value)} />
             <CustomSelect style={{ ...inputStyle, padding: '5px 4px' }} value={m.transform ?? ''}
               onChange={(e) => updateMapping(nodeId, m.id, 'transform', e.target.value)}>
-              <option value="">nessuna</option>
+              <option value="">none</option>
               <option value="uppercase">uppercase</option>
               <option value="lowercase">lowercase</option>
               <option value="trim">trim</option>
@@ -296,7 +296,7 @@ function TabMapping({ nodeId }: { nodeId: string }) {
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a2030' }}>
         <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
-        Aggiungi riga di mapping
+        Add mapping row
       </button>
     </div>
   )
@@ -311,10 +311,10 @@ function TabPreview({ nodeId }: { nodeId: string }) {
   const node = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
   if (!node) return null
 
-  const cols = ['id', 'nome', 'email', 'created_at', 'status']
+  const cols = ['id', 'name', 'email', 'created_at', 'status']
   const rows = Array.from({ length: 5 }, (_, i) => ({
     id: 1000 + i,
-    nome: ['Mario Rossi', 'Giulia Bianchi', 'Luca Verdi', 'Anna Neri', 'Paolo Blu'][i],
+    name: ['Mario Rossi', 'Giulia Bianchi', 'Luca Verdi', 'Anna Neri', 'Paolo Blu'][i],
     email: `user${i}@example.com`,
     created_at: `2024-0${i + 1}-15`,
     status: i % 2 === 0 ? 'active' : 'pending',
@@ -323,8 +323,8 @@ function TabPreview({ nodeId }: { nodeId: string }) {
   return (
     <div style={sectionStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={sectionTitleStyle}>Anteprima dati in uscita</div>
-        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, marginLeft: 'auto', background: '#3d2a0a', color: '#ffb347', border: '0.5px solid #854f0b' }}>simulata</span>
+        <div style={sectionTitleStyle}>Output data preview</div>
+        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, marginLeft: 'auto', background: '#3d2a0a', color: '#ffb347', border: '0.5px solid #854f0b' }}>simulated</span>
       </div>
       <div style={{ overflowX: 'auto', border: '1px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
@@ -349,7 +349,7 @@ function TabPreview({ nodeId }: { nodeId: string }) {
         </table>
       </div>
       <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
-        Prime 5 righe simulate. L'anteprima reale sarà disponibile con il backend collegato.
+        First 5 simulated rows. The real preview will be available once the backend is connected.
       </div>
     </div>
   )
@@ -409,11 +409,11 @@ export function NodeEditorModal() {
   const isErrorHandler = node.data.type === 'error_handler'
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'connection', label: 'Configurazione',  icon: 'ti-adjustments' },
-    { id: 'mapping',    label: isErrorHandler ? 'Nodi' : 'Mapping', icon: isErrorHandler ? 'ti-list-details' : 'ti-arrows-exchange' },
-    { id: 'general',    label: 'Generale',       icon: 'ti-info-circle' },
+    { id: 'connection', label: 'Configuration',  icon: 'ti-adjustments' },
+    { id: 'mapping',    label: isErrorHandler ? 'Nodes' : 'Mapping', icon: isErrorHandler ? 'ti-list-details' : 'ti-arrows-exchange' },
+    { id: 'general',    label: 'General',       icon: 'ti-info-circle' },
     { id: 'query',      label: 'Query',           icon: 'ti-code' },
-    { id: 'advanced',   label: 'Avanzate',        icon: 'ti-settings-2' },
+    { id: 'advanced',   label: 'Advanced',        icon: 'ti-settings-2' },
     { id: 'preview',    label: 'Preview',         icon: 'ti-table' },
   ]
 
@@ -472,7 +472,7 @@ export function NodeEditorModal() {
             <button
               onClick={() => setIsMaximized((m) => { if (!m) { setModalWidth(null); resetDrag() } return !m })}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', color: '#9a9aaa', display: 'flex', alignItems: 'center' }}
-              title={isMaximized ? 'Ripristina' : 'Massimizza'}
+              title={isMaximized ? 'Restore' : 'Maximize'}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className={`ti ${isMaximized ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 13 }} aria-hidden="true" />
@@ -482,7 +482,7 @@ export function NodeEditorModal() {
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
               <i className="ti ti-x" style={{ fontSize: 12 }} aria-hidden="true" />
-              chiudi
+              close
             </button>
           </div>
         </div>
@@ -561,18 +561,18 @@ export function NodeEditorModal() {
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={closeEditor}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: '#1a3a6a', color: '#4a9eff', border: '1px solid #2a5a9a', fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a4a7a' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a3a6a' }}>
-            Fatto
+            Done
           </button>
         </div>
 
         {/* Resize handle */}
         {!isMaximized && (
-          <div onMouseDown={onResizeStart} title="Trascina per allargare"
+          <div onMouseDown={onResizeStart} title="Drag to widen"
             style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 6, cursor: 'ew-resize', background: 'color-mix(in srgb, #4a9eff 15%, #1a2030)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, transition: 'background .15s' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, #4a9eff 40%, #1a2030)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, #4a9eff 15%, #1a2030)' }}>

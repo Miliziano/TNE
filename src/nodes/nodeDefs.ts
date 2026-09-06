@@ -18,7 +18,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '{ }',
     color:       '#22d3ee',
     category:    'output',
-    description: 'Serializza righe del flusso in stringhe JSON con struttura configurabile.',
+    description: 'Serializes flow rows into JSON strings with a configurable structure.',
     fields:      [],
   },
    log: {
@@ -27,7 +27,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '📋',
     color:       '#a78bfa',
     category:    'transform',
-    description: 'Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.',
+    description: 'Transparent node — logs the rows passing through for debugging. Does not modify the data.',
     fields:      [],
   },
 
@@ -37,7 +37,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '</>',
     color:       '#f97316',
     category:    'output',
-    description: 'Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.',
+    description: 'Serializes flow rows into XML strings with configurable structure and namespaces.',
     fields:      [],
   },
 
@@ -47,7 +47,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '✓',
     color:       '#3ddc84',
     category:    'transform',
-    description: 'Valida ogni riga contro regole configurabili — output valid e reject.',
+    description: 'Validates each row against configurable rules — valid and reject outputs.',
     fields:      [],
   },
 
@@ -57,7 +57,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '≋',
     color:       '#4a9eff',
     category:    'input',
-    description: 'Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.',
+    description: 'Kafka consumer — reads messages from topics with offset and deserialization configuration.',
     fields:      [],
   },
 
@@ -67,7 +67,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⊕',
     color:       '#a78bfa',
     category:    'transform',
-    description: 'Fonde N flussi in uno — modalità concat, interleave o zip.',
+    description: 'Merges N flows into one — concat, interleave or zip modes.',
     fields:      [],
   },
 
@@ -77,7 +77,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⇄',
     color:       '#4a9eff',
     category:    'input',
-    description: 'Legge file da server FTP, FTPS o SFTP.',
+    description: 'Reads files from FTP, FTPS or SFTP servers.',
     fields:      [],
   },
 
@@ -87,7 +87,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⧉',
     color:       '#4a9eff',
     category:    'input',
-    description: 'Interroga una directory LDAP e produce una riga per voce.',
+    description: 'Queries an LDAP directory and produces one row per entry.',
     fields:      [],
   },
 
@@ -97,7 +97,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⑃',
     color:       '#4a9eff',
     category:    'input',
-    description: 'Preleva dati da GitHub (repo, issue/PR, commit) via API REST.',
+    description: 'Fetches data from GitHub (repos, issues/PRs, commits) via REST API.',
     fields:      [],
   },
 
@@ -107,7 +107,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⇄',
     color:       '#3ddc84',
     category:    'output',
-    description: 'Scrive file su server FTP, FTPS o SFTP.',
+    description: 'Writes files to FTP, FTPS or SFTP servers.',
     fields:      [],
   },
   pivot: {
@@ -116,7 +116,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⊞',
     color:       '#f97316',
     category:    'transform',
-    description: 'Trasforma la struttura della tabella — righe in colonne (Pivot) o colonne in righe (Unpivot).',
+    description: 'Reshapes the table structure — rows into columns (Pivot) or columns into rows (Unpivot).',
     fields:      [],
   },
 
@@ -126,15 +126,15 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '⬡',
     color: '#4a9eff',
-    description: 'Legge righe da una tabella di database.',
+    description: 'Reads rows from a database table.',
     fields: [
       // ignoredWhenSet: 'query' — con una query personalizzata il motore
       // esegue quella e basta (source_db.rs: "custom verbatim se presente").
       { key: 'schema',       label: 'Schema',          type: 'text',   default: 'public', ignoredWhenSet: 'query' },
-      { key: 'table',        label: 'Tabella',         type: 'text',   default: '',       ignoredWhenSet: 'query' },
+      { key: 'table',        label: 'Table',         type: 'text',   default: '',       ignoredWhenSet: 'query' },
       { key: 'limit',        label: 'Row limit',    type: 'number', default: '0',      ignoredWhenSet: 'query' },
       { key: 'orderBy',      label: 'Order by',      type: 'text',   default: '',       ignoredWhenSet: 'query' },
-      { key: 'query',        label: 'Query SQL',       type: 'code',   default: 'SELECT * FROM ' },
+      { key: 'query',        label: 'SQL Query',       type: 'code',   default: 'SELECT * FROM ' },
     ],
   },
   source_file: {
@@ -143,7 +143,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '▤',
     color: '#4a9eff',
-    description: 'Legge record da un file locale.',
+    description: 'Reads records from a local file.',
     fields: [
     ],
   },
@@ -154,7 +154,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category:    'transform',
     icon:        '⊕',
     color:       '#a78bfa',
-    description: 'Trasforma strutture dense (Materialize, variabili lane, campi object) in un flusso di righe.',
+    description: 'Turns dense structures (Materialize, lane variables, object fields) into a flow of rows.',
     fields:      [],
   },
   source_http: {
@@ -163,7 +163,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '⇄',
     color: '#4a9eff',
-    description: 'Recupera dati da un endpoint HTTP.',
+    description: 'Retrieves data from an HTTP endpoint.',
     fields: [
     { key: 'url',          label: 'URL',           type: 'text',   default: HTTP_DEFAULTS.url  },
     { key: 'method',       label: 'Method',        type: 'select', default: 'GET', options: ['GET','POST','PUT','PATCH','DELETE'] },
@@ -179,7 +179,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       category: 'transform',
       icon: '⊻',
       color: '#ffb347',
-      description: 'Smista le righe su N uscite in base a condizioni — first-match.',
+      description: 'Routes rows to N outputs based on conditions — first-match.',
       fields: [],
   },
 
@@ -189,7 +189,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       category: 'transform',
       icon: '⊞',
       color: '#ffb347',
-      description: 'Autentica le credenziali di ogni riga contro LDAP (search-then-bind).',
+      description: 'Authenticates the credentials of each row against LDAP (search-then-bind).',
       fields: [],
   },
   
@@ -200,7 +200,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: '⋈',
     color: '#ffb347',
-    description: 'Unisce due flussi su un campo chiave.',
+    description: 'Joins two flows on a key field.',
     fields: [
       { key: 'join_type', label: 'Join type', type: 'select', default: 'inner', options: ['inner','left','right','full'] },
       { key: 'key',       label: 'Key field', type: 'text', default: 'user_id' },
@@ -212,9 +212,9 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: 'Σ',
     color: '#ffb347',
-    description: 'Raggruppa le righe e calcola funzioni aggregate.',
+    description: 'Groups rows and computes aggregate functions.',
     fields: [
-      { key: 'group_by',  label: 'Raggruppa per', type: 'text', default: 'region' },
+      { key: 'group_by',  label: 'Group by', type: 'text', default: 'region' },
       { key: 'functions', label: 'Functions',       type: 'code', default: '{"count": "*", "sum": "amount"}' },
     ],
   },
@@ -224,7 +224,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: 'λ',
     color: '#a78bfa',
-    description: 'Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni.',
+    description: 'Transforms, filters or drops each row with instructions and expressions.',
     // `lang` è sparito: prometteva TypeScript o Java, ma nessun codegen ha
     // mai avuto un generatore per lo Script e il motore non ha mai eseguito
     // né l'uno né l'altro. Il corpo è ora un linguaggio di istruzioni su
@@ -233,7 +233,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       { key: 'sourceMode', label: 'Row source', type: 'select', default: 'flusso',
         options: ['flusso', 'genera'] },
       { key: 'code', label: 'Instructions', type: 'code',
-        default: '// I campi si usano per nome; "let" per i valori intermedi.\n// Istruzioni: let, assegnazione, if/else, skip, reject, log, error.\n' },
+        default: '// Fields are used by name; "let" for intermediate values.\n// Instructions: let, assignment, if/else, skip, reject, log, error.\n' },
     ],
   },
   tmap: {
@@ -242,7 +242,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       category: 'transform',
       icon: '⇌',
       color: '#a78bfa',
-      description: 'Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.',
+      description: 'Visual multi-input/output transformer with mapping, lookup joins and conditional routing.',
       fields: [
         { key: 'shortLabel', label: 'Label', type: 'text', default: '' },
       ],
@@ -253,10 +253,10 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '⬡',
     color: '#3ddc84',
-    description: 'Scrive righe in una tabella di database.',
+    description: 'Writes rows into a database table.',
     fields: [
       { key: 'schema',    label: 'Schema',           type: 'text',   default: 'public' },
-      { key: 'table',     label: 'Tabella',          type: 'text',   default: '' },
+      { key: 'table',     label: 'Table',          type: 'text',   default: '' },
       { key: 'mode',      label: 'Mode',         type: 'select', default: 'insert', options: ['insert','upsert','update','truncate_insert','merge'] },
       { key: 'keyFields', label: 'Key fields',     type: 'text',   default: 'id' },
       { key: 'batchSize', label: 'Batch size',       type: 'number', default: '1000' },
@@ -268,7 +268,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '≋',
     color: '#3ddc84',
-    description: 'Pubblica righe su un topic Kafka.',
+    description: 'Publishes rows to a Kafka topic.',
     fields: [
       { key: 'topic',       label: 'Topic',          type: 'text',   default: 'pipeline-out' },
       { key: 'key_field',   label: 'Key field',   type: 'text',   default: 'id' },
@@ -282,7 +282,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '▤',
     color: '#3ddc84',
-    description: 'Scrive righe su file.',
+    description: 'Writes rows to a file.',
     fields: [
       { key: 'path',           label: 'Path',    type: 'text',   default: '/data/output.csv' },
       { key: 'format',         label: 'Format',     type: 'select', default: 'csv',       options: ['csv','json','jsonl','parquet','tsv','xml','excel'] },
@@ -298,7 +298,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '▶',
     color: '#3ddc84',
-    description: 'Punto di avvio della lane. Ha solo un handle di uscita.',
+    description: 'Lane start point. Has only an output handle.',
     fields: [
       { key: 'label', label: 'Label', type: 'text', default: 'Start' },
     ],
@@ -309,7 +309,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '⏹',
     color: '#ff5f57',
-    description: 'Punto di fine della lane. Ha solo un handle di ingresso.',
+    description: 'Lane end point. Has only an input handle.',
     fields: [
       { key: 'label', label: 'Label', type: 'text', default: 'End' },
     ],
@@ -320,12 +320,12 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '→',
     color:       '#a78bfa',
     category:    'output',
-    description: 'Porta di uscita dal flusso della lane — pubblica sul canale bridge.',
+    description: 'Exit port from the lane flow — publishes to the bridge channel.',
     fields: [
       { key: 'channelName',  label: 'Channel name',   type: 'text',   default: '' },
       { key: 'channelColor', label: 'Color',        type: 'text',   default: '#a78bfa' },
-      { key: 'syncMode',     label: 'Sincronismo',   type: 'text',   default: 'fire_and_forget' },
-      { key: 'transferMode', label: 'Trasferimento', type: 'text',   default: 'content' },
+      { key: 'syncMode',     label: 'Sync',   type: 'text',   default: 'fire_and_forget' },
+      { key: 'transferMode', label: 'Transfer', type: 'text',   default: 'content' },
       { key: 'batchSize',    label: 'Batch size',    type: 'number', default: '100' },
       { key: 'bufferSize',   label: 'Buffer size',   type: 'number', default: '0' },
       { key: 'outputMode', label: 'Output mode', type: 'text', default: 'none' },
@@ -337,11 +337,11 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '←',
     color:       '#a78bfa',
     category:    'input',
-    description: "Porta di ingresso da un'altra lane — riceve dal canale bridge.",
+    description: "Entry port from another lane — receives from the bridge channel.",
     fields: [
       { key: 'channelName',  label: 'Channel name',    type: 'text',   default: '' },
       { key: 'channelColor', label: 'Color',         type: 'text',   default: '#a78bfa' },
-      { key: 'syncMode',     label: 'Sincronismo',    type: 'text',   default: 'fire_and_forget' },
+      { key: 'syncMode',     label: 'Sync',    type: 'text',   default: 'fire_and_forget' },
       { key: 'timeoutSec',   label: 'Timeout (sec)',  type: 'number', default: '30' },
     ],
   },
@@ -351,13 +351,13 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category:    'transform',
     icon:        '{ }',
     color:       '#22d3ee',
-    description: 'Estrae e trasforma dati JSON in flussi strutturati.',////
+    description: 'Extracts and transforms JSON data into structured flows.',////
     fields:      [],
   },
   xml_parser: {
     type: 'xml_parser', label: 'XML Parser', category: 'transform',
     icon: '</>', color: '#f97316',
-    description: 'Estrae e trasforma dati XML in flussi strutturati.',
+    description: 'Extracts and transforms XML data into structured flows.',
     fields: [],
   },
    dir_watcher: {
@@ -366,7 +366,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '📁',
     color: '#22d3ee',
-    description: 'Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).',
+    description: 'Watches a directory for new files (watch) or enumerates its contents (scan).',
     fields: [],
   },
 
@@ -376,7 +376,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: 'W',
     color: '#a78bfa',
-    description: 'Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).',
+    description: 'Computes window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).',
     fields: [],
   },
 
@@ -386,7 +386,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: '◈',
     color: '#22d3ee',
-    description: 'Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context.materialize().',
+    description: 'In-memory hashtable for execution — accessible from any node via context.materialize().',
     fields: [],
   },
 
@@ -396,7 +396,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '⊛',
     color: '#fb923c',
-    description: 'Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.',
+    description: 'ActiveMQ consumer/producer — STOMP, OpenWire, AMQP protocols.',
     fields: [],
   },
 
@@ -406,7 +406,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '⊛',
     color: '#fb923c',
-    description: 'Producer ActiveMQ — pubblica messaggi su queue o topic.',
+    description: 'ActiveMQ producer — publishes messages to queues or topics.',
     fields: [],
   },
 
@@ -416,7 +416,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '⊙',
     color: '#84cc16',
-    description: 'Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.',
+    description: 'MQTT subscriber — receives messages from MQTT/MQTTS brokers.',
     fields: [],
   },
 
@@ -426,7 +426,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '⊙',
     color: '#84cc16',
-    description: 'Publisher MQTT — pubblica messaggi su topic.',
+    description: 'MQTT publisher — publishes messages to topics.',
     fields: [],
   },
     report_generator: {
@@ -435,7 +435,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: '📊',
     color: '#f472b6',
-    description: 'Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici.',
+    description: 'Buffers the flow and generates a PDF/HTML/Excel report with tables and charts.',
     fields: [],
   },
 
@@ -445,7 +445,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '✉',
     color: '#4a9eff',
-    description: 'Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.',
+    description: 'Sends email via SMTP, SendGrid, Amazon SES or Mailgun.',
     fields: [],
   },
 
@@ -456,7 +456,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: '↦',
     color: '#ffb347',
-    description: 'Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.',
+    description: 'Transforms, renames and converts the fields of each row with FPEL expressions.',
 
     fields: [
     
@@ -465,19 +465,19 @@ export const NODE_DEFS: Record<string, NodeDef> = {
   webhook_receiver: {
     type: 'webhook_receiver', label: 'Webhook Receiver',
     icon: '⤵', color: '#3ddc84', category: 'input',
-    description: 'Riceve webhook — server condiviso con HMAC, buffer e dedup.',
+    description: 'Receives webhooks — shared server with HMAC, buffering and dedup.',
     fields: [],
   },
   webhook_responder: {
     type: 'webhook_responder', label: 'Webhook Responder',
     icon: '⤴', color: '#4a9eff', category: 'output',
-    description: 'Risponde HEAD/GET con header sintetici dalla riga corrente.',
+    description: 'Responds to HEAD/GET with synthetic headers from the current row.',
     fields: [],
   },
   watchdog: {
     type: 'watchdog', label: 'Watchdog',
     icon: '👁', color: '#ffb347', category: 'input',
-    description: 'Monitora servizi via HEAD — sblocca il flusso sull\'header atteso.',
+    description: 'Monitors services via HEAD — unblocks the flow on the expected header.',
     fields: [],
   },
   shell_exec: {
@@ -486,7 +486,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '>_',
     color:       '#22d3ee',
     category:    'transform' as const,
-    description: 'Esegue comandi bash/shell locali — output nel flusso.',
+    description: 'Runs local bash/shell commands — output into the flow.',
     fields:      [],
   },
   ssh_exec: {
@@ -495,7 +495,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⌁',
     color:       '#a78bfa',
     category:    'transform' as const,
-    description: 'Esegue comandi su host remoto via SSH.',
+    description: 'Runs commands on a remote host via SSH.',
     fields:      [],
   },
   error_handler: {
@@ -504,7 +504,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⚠',
     color:       '#ff5f57',
     category:    'transform' as const,
-    description: 'Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se "Log centralizzato" è attivo).',
+    description: 'Central collector for lane errors — always active, cannot be deleted. Automatically receives every error not handled by catch/reject (and a copy of the handled ones, if "Centralized log" is active).',
     fields:      [],
   },
 
@@ -514,7 +514,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     icon:        '⏹',
     color:       '#ff5f57',
     category:    'transform' as const,   // border neutro; la validazione va per _uiRef.type, non per category
-    description: 'Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.',
+    description: 'Flow control: deliberately stops the lane (rollback + closing connections) when the flow reaches this node. It is not a failure. Multi-instance — typically downstream of a reject or of a filter handle.',
     fields: [
       { key: 'trigger', label: 'Trigger', type: 'select', default: 'immediate', options: ['immediate', 'after_input'] },
       { key: 'message', label: 'Message', type: 'text', default: '' },
