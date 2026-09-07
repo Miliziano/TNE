@@ -83,26 +83,26 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Path remoto */}
-      <SectionTitle label="Sorgente remota" />
-      <Field label="Path remoto" hint="Percorso directory o file sul server">
+      <SectionTitle label="Remote source" />
+      <Field label="Remote path" hint="Directory or file path on the server">
         <input style={inputStyle} value={p('remotePath')} onChange={u('remotePath')} placeholder="/data/input/" />
       </Field>
-      <Field label="Pattern file" hint="Filtro nome file — lascia vuoto per tutti. Es: *.csv, report_*.json">
+      <Field label="File pattern" hint="File name filter — leave empty for all. E.g. *.csv, report_*.json">
         <input style={inputStyle} value={p('filePattern')} onChange={u('filePattern')} placeholder="*.csv" />
       </Field>
-      <Field label="Ricerca nelle sottocartelle">
+      <Field label="Search in subfolders">
         <CustomSelect style={inputStyle} value={p('recursive', 'false')} onChange={u('recursive')}>
-          <option value="false">No — solo la directory specificata</option>
-          <option value="true">Sì — includi sottocartelle</option>
+          <option value="false">No — only the specified directory</option>
+          <option value="true">Yes — include subfolders</option>
         </CustomSelect>
       </Field>
 
       {/* Modalità output */}
-      <SectionTitle label="Modalità output" />
+      <SectionTitle label="Output mode" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {[
-          { value: 'content',    label: '⇩ Scarica e legge',  desc: 'Scarica i file e ne emette il contenuto parsato come righe' },
-          { value: 'list_files', label: '▤ Elenca file',       desc: 'Non scarica — emette una riga per ogni file trovato con nome, path, dimensione, data' },
+          { value: 'content',    label: '⇩ Download and read',  desc: 'Downloads the files and emits their parsed content as rows' },
+          { value: 'list_files', label: '▤ List files',       desc: 'Does not download — emits one row per file found with name, path, size, date' },
         ].map((m) => (
           <button key={m.value} onClick={() => {
               updateProp(nodeId, 'outputMode', 'list_files')
@@ -124,13 +124,13 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       {/* Schema lista file */}
       {isListMode && (
         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5' }}>
-          <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 6, fontSize: 10 }}>Schema output — lista file</div>
+          <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 6, fontSize: 10 }}>Output schema — file list</div>
           {[
-            { name: 'name',        type: 'string',  desc: 'Nome del file' },
-            { name: 'path',        type: 'string',  desc: 'Path completo sul server' },
-            { name: 'is_dir',      type: 'boolean', desc: 'true se è una directory' },
-            { name: 'size',        type: 'integer', desc: 'Dimensione in byte' },
-            { name: 'modified_at', type: 'date',    desc: 'Data ultima modifica (se disponibile)' },
+            { name: 'name',        type: 'string',  desc: 'File name' },
+            { name: 'path',        type: 'string',  desc: 'Full path on the server' },
+            { name: 'is_dir',      type: 'boolean', desc: 'true if it is a directory' },
+            { name: 'size',        type: 'integer', desc: 'Size in bytes' },
+            { name: 'modified_at', type: 'date',    desc: 'Last modified date (if available)' },
           ].map((f) => (
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
               <code style={{ color: ACCENT, minWidth: 90 }}>{f.name}</code>
@@ -144,11 +144,11 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       {/* Modalità acquisizione — solo se scarica */}
       {!isListMode && (
         <>
-          <SectionTitle label="Modalità acquisizione" />
+          <SectionTitle label="Capture mode" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[
-              { value: 'list',  label: '▤ Lista file',  desc: 'Scarica ed elabora tutti i file in un\'unica esecuzione' },
-              { value: 'watch', label: '◎ Watch',        desc: 'Monitora la directory in polling — elabora i nuovi file man mano che arrivano' },
+              { value: 'list',  label: '▤ File list',  desc: 'Downloads and processes all files in a single run' },
+              { value: 'watch', label: '◎ Watch',        desc: 'Monitors the directory by polling — processes new files as they arrive' },
             ].map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
@@ -158,7 +158,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             ))}
           </div>
           {fetchMode === 'watch' && (
-            <Field label="Intervallo polling (secondi)">
+            <Field label="Polling interval (seconds)">
               <input type="number" style={inputStyle} value={p('pollInterval', '30')} onChange={u('pollInterval')} min="5" />
             </Field>
           )}
@@ -166,7 +166,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           {/* Formato file */}
           <SectionTitle label="Formato file" />
           <Row>
-            <Field label="Formato" hint={isRaw ? 'Il file viene scaricato intero nel campo content (stringa)' : undefined}>
+            <Field label="Formato" hint={isRaw ? 'The whole file is downloaded into the content field (string)' : undefined}>
               <CustomSelect style={inputStyle} value={fileFormat} onChange={(e) => {
                   const fmt = e.target.value
                   updateProp(nodeId, 'fileFormat', fmt)
@@ -200,22 +200,22 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
                     updateProp(nodeId, 'outputSchema', '')
                   }
                 }}>
-                <optgroup label="Grezzo — nessun parsing">
-                  <option value="raw">Raw — testo grezzo in campo content</option>
+                <optgroup label="Raw — no parsing">
+                  <option value="raw">Raw — raw text in content field</option>
                   
                 </optgroup>
-                <optgroup label="Testo strutturato">
-                  <option value="text">Testo — una riga per linea</option>   {/* ← aggiungi */}
+                <optgroup label="Structured text">
+                  <option value="text">Text — one row per line</option>   {/* ← aggiungi */}
                   <option value="csv">CSV</option>
                   <option value="tsv">TSV</option>
                   <option value="excel">Excel (.xlsx)</option>
                 </optgroup>
-                <optgroup label="Semi-strutturato">
+                <optgroup label="Semi-structured">
                   <option value="json">JSON</option>
                   <option value="jsonl">JSON Lines</option>
                   <option value="xml">XML</option>
                 </optgroup>
-                <optgroup label="Binario">
+                <optgroup label="Binary">
                   <option value="binary">Binary (Base64)</option>
                 </optgroup>
               </CustomSelect>
@@ -235,20 +235,20 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           {/* Info raw */}
           {isRaw && (
             <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5' }}>
-              Emette <strong style={{ color: ACCENT }}>1 riga per file</strong> con campo <code style={{ color: ACCENT }}>content</code> (stringa intera del file).
-              Collegalo a un <strong style={{ color: '#22d3ee' }}>JSON Parser</strong> o <strong style={{ color: '#22d3ee' }}>XML Parser</strong> per estrarne i dati.
+              Emits <strong style={{ color: ACCENT }}>1 row per file</strong> with a <code style={{ color: ACCENT }}>content</code> field (whole file string).
+              Connect it to a <strong style={{ color: '#22d3ee' }}>JSON Parser</strong> or <strong style={{ color: '#22d3ee' }}>XML Parser</strong> to extract the data.
             </div>
           )}
 
           {/* Opzioni CSV */}
           {(fileFormat === 'csv' || fileFormat === 'tsv') && (
             <Row>
-              <Field label="Separatore">
+              <Field label="Delimiter">
                 <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
               </Field>
-              <Field label="Ha intestazione">
+              <Field label="Has header">
                 <CustomSelect style={inputStyle} value={p('hasHeader', 'true')} onChange={u('hasHeader')}>
-                  <option value="true">Sì — prima riga è intestazione</option>
+                  <option value="true">Yes — first row is header</option>
                   <option value="false">No</option>
                 </CustomSelect>
               </Field>
@@ -256,9 +256,9 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           )}
 
           {/* Compressione */}
-          <Field label="Compressione">
+          <Field label="Compression">
             <CustomSelect style={inputStyle} value={p('compression', 'none')} onChange={u('compression')}>
-              <option value="none">Nessuna</option>
+              <option value="none">None</option>
               <option value="gzip">GZIP (.gz)</option>
               <option value="zip">ZIP (.zip)</option>
               <option value="bzip2">BZIP2 (.bz2)</option>
@@ -266,12 +266,12 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           </Field>
 
           {/* Dopo l'elaborazione */}
-          <SectionTitle label="Dopo l'elaborazione" color="#ffb347" />
+          <SectionTitle label="After processing" color="#ffb347" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
-              { value: 'leave',  label: '○ Lascia',  desc: 'Il file rimane nella posizione originale' },
-              { value: 'move',   label: '→ Sposta',  desc: 'Sposta in una directory di archivio' },
-              { value: 'delete', label: '✕ Elimina', desc: 'Elimina il file dal server — irreversibile' },
+              { value: 'leave',  label: '○ Leave',  desc: 'The file stays in its original location' },
+              { value: 'move',   label: '→ Move',  desc: 'Move to an archive directory' },
+              { value: 'delete', label: '✕ Delete', desc: 'Deletes the file from the server — irreversible' },
             ].map((a) => (
               <button key={a.value} onClick={() => updateProp(nodeId, 'afterFetch', a.value)}
                 style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: afterFetch === a.value ? 'color-mix(in srgb, #ffb347 8%, #1a2030)' : '#1a2030', border: afterFetch === a.value ? '1px solid #ffb34740' : '1px solid #2a3349' }}>
@@ -284,7 +284,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             ))}
           </div>
           {afterFetch === 'move' && (
-            <Field label="Directory archivio">
+            <Field label="Archive directory">
               <input style={inputStyle} value={p('archivePath')} onChange={u('archivePath')} placeholder="/data/processed/" />
             </Field>
           )}
@@ -292,30 +292,30 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Opzioni avanzate */}
-      <SectionTitle label="Opzioni avanzate" color="#8593b5" />
+      <SectionTitle label="Advanced options" color="#8593b5" />
       <Row>
-        <Field label="Timeout connessione (sec)">
+        <Field label="Connection timeout (sec)">
           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
         </Field>
-        <Field label="Max file per run" hint="0 = nessun limite">
+        <Field label="Max files per run" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('maxFiles', '0')} onChange={u('maxFiles')} min="0" />
         </Field>
       </Row>
-      <Field label="Ordine elaborazione file">
+      <Field label="File processing order">
         <CustomSelect style={inputStyle} value={p('fileOrder', 'name_asc')} onChange={u('fileOrder')}>
-          <option value="name_asc">Nome crescente (A → Z)</option>
-          <option value="name_desc">Nome decrescente (Z → A)</option>
-          <option value="date_asc">Data modifica crescente (più vecchi prima)</option>
-          <option value="date_desc">Data modifica decrescente (più recenti prima)</option>
-          <option value="size_asc">Dimensione crescente (più piccoli prima)</option>
+          <option value="name_asc">Name ascending (A → Z)</option>
+          <option value="name_desc">Name descending (Z → A)</option>
+          <option value="date_asc">Modified date ascending (oldest first)</option>
+          <option value="date_desc">Modified date descending (newest first)</option>
+          <option value="size_asc">Size ascending (smallest first)</option>
         </CustomSelect>
       </Field>
       {!isListMode && (
-        <Field label="Su errore file singolo">
+        <Field label="On single-file error">
           <CustomSelect style={inputStyle} value={p('onFileError', 'skip')} onChange={u('onFileError')}>
-            <option value="skip">Salta e continua con il file successivo</option>
-            <option value="stop">Interrompi la pipeline</option>
-            <option value="move_error">Sposta in directory errori e continua</option>
+            <option value="skip">Skip and continue with the next file</option>
+            <option value="stop">Stop the pipeline</option>
+            <option value="move_error">Move to error directory and continue</option>
           </CustomSelect>
         </Field>
       )}

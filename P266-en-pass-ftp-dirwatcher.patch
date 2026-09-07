@@ -1,0 +1,1066 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index 7f2cfec..905fc81 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -16,6 +16,7 @@
+   "@> filtra": "@> filter",
+   "Abilitato": "Enabled",
+   "Aggiorna il commento della versione corrente (non crea una nuova versione)": "Update the current version comment (does not create a new version)",
++  "Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.": "Add the fields manually or configure them after running the flow.",
+   "Aggiungi lane": "Add lane",
+   "Aggiungi riga di mapping": "Add mapping row",
+   "Aggiungi un segreto (solo il nome; il valore arriva dal keychain a run-time)": "Add a secret (name only; the value comes from the keychain at run-time)",
+@@ -26,14 +27,20 @@
+   "Ambienti / profili (test, dev, prod)": "Environments / profiles (test, dev, prod)",
+   "Annulla": "Cancel",
+   "Anteprima dati in uscita": "Output data preview",
++  "Anti-bumping (deduplicazione)": "Anti-bumping (deduplication)",
+   "Applica una funzione: avvolge la selezione nell'editor (con ricerca)": "Apply a function: wraps the selection in the editor (searchable)",
+   "Apri progetto": "Open project",
++  "Ascolta eventi del SO per nuovi file": "Listens to OS events for new files",
++  "Ascolto": "Listening",
++  "Attende che il file non cambi prima di emetterlo": "Waits for the file to stop changing before emitting it",
+   "Attesa massima per nuovi messaggi prima di chiudere": "Maximum wait for new messages before closing",
++  "Attesa prima di processare — evita eventi doppi": "Wait before processing — avoids duplicate events",
+   "Attributi (separati da virgola)": "Attributes (comma-separated)",
+   "Autentica le credenziali di ogni riga contro LDAP (search-then-bind).": "Authenticates the credentials of each row against LDAP (search-then-bind).",
+   "Avanzate": "Advanced",
+   "Azzera tutti i campi": "Clear all fields",
+   "Batch size (righe per batch)": "Batch size (rows per batch)",
++  "Binario": "Binary",
+   "Branch (opz.)": "Branch (opt.)",
+   "Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici.": "Buffers the flow and generates a PDF/HTML/Excel report with tables and charts.",
+   "Byte scritti": "Bytes written",
+@@ -44,6 +51,7 @@
+   "Campo chiave": "Key field",
+   "Campo ingresso": "Input field",
+   "Campo owner": "Owner field",
++  "Campo path dal flusso": "Path field from flow",
+   "Campo repo": "Repo field",
+   "Campo uscita": "Output field",
+   "Cattura sul nodo — abilita handle catch": "Catch on node — enables catch handle",
+@@ -55,6 +63,7 @@
+   "Compila": "Compile",
+   "Compila / genera artifact per il runner": "Compile / generate artifact for the runner",
+   "Comportamento": "Behavior",
++  "Compressione": "Compression",
+   "Configura una query nel tab Query prima di campionare.": "Configure a query in the Query tab before sampling.",
+   "Configura una tabella o una query personalizzata prima di rilevare lo schema.": "Configure a table or a custom query before detecting the schema.",
+   "Configurazione": "Configuration",
+@@ -63,26 +72,50 @@
+   "Connessione": "Connection",
+   "Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.": "Kafka consumer — reads messages from topics with offset and deserialization configuration.",
+   "Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.": "ActiveMQ consumer/producer — STOMP, OpenWire, AMQP protocols.",
++  "Continuo": "Continuous",
++  "Continuo (a sessioni)": "Continuous (per session)",
+   "Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.": "Flow control: deliberately stops the lane (rollback + closing connections) when the flow reaches this node. It is not a failure. Multi-instance — typically downstream of a reject or of a filter handle.",
+   "Cosa fa questo nodo?": "What does this node do?",
++  "Crescente": "Ascending",
+   "Cronologia": "History",
+   "Cronologia versioni": "Version history",
+   "Ctrl+Shift+F formatta · Alt+T suggerimenti": "Ctrl+Shift+F format · Alt+T suggestions",
+   "Da configurazione": "From configuration",
++  "Data creazione": "Creation date",
++  "Data modifica": "Modified date",
++  "Data modifica crescente (più vecchi prima)": "Modified date ascending (oldest first)",
++  "Data modifica decrescente (più recenti prima)": "Modified date descending (newest first)",
+   "Data recente": "Recent date",
++  "Data ultima modifica": "Last modified date",
++  "Data ultima modifica (se disponibile)": "Last modified date (if available)",
++  "Decrescente": "Descending",
+   "Delay tra retry (secondi)": "Delay between retries (seconds)",
+   "Delete profilo": "Delete profile",
+   "Descrizione": "Description",
+   "Deserializzazione": "Deserialization",
+   "Dettaglio del log inviato": "Detail of the sent log",
++  "Dim. min (bytes)": "Min size (bytes)",
++  "Dimensione": "Size",
++  "Dimensione crescente (più piccoli prima)": "Size ascending (smallest first)",
++  "Dimensione in byte": "Size in bytes",
++  "Dimensione in bytes": "Size in bytes",
+   "Dimensione pagina": "Page size",
++  "Directory archivio": "Archive directory",
++  "Directory contenitore": "Container directory",
++  "Direzione": "Direction",
++  "Disabilitato": "Disabled",
+   "Disponibile solo nell'app desktop.": "Available only in the desktop app.",
++  "Dopo l'elaborazione": "After processing",
++  "Doppio click per la configurazione completa": "Double-click for the full configuration",
++  "Dove tenere traccia dei file già emessi": "Where to track already-emitted files",
+   "Durata in millisecondi": "Duration in milliseconds",
+   "Elaborazione": "Processing",
+   "Elementi per pagina": "Items per page",
+   "Elimina": "Delete",
++  "Elimina il file dal server — irreversibile": "Deletes the file from the server — irreversible",
+   "Elimina questa versione": "Delete this version",
+   "Entità": "Entity",
++  "Enumera file esistenti in una directory": "Enumerates existing files in a directory",
+   "Error handler — la lane decide": "Error handler — the lane decides",
+   "Errore": "Error",
+   "Escludi i PR": "Exclude PRs",
+@@ -94,15 +127,22 @@
+   "Esporta lo schema dei campi su file (.json)": "Export the field schema to a file (.json)",
+   "Esporta…": "Export…",
+   "Essenziale": "Essential",
++  "Estensione senza punto": "Extension without dot",
+   "Estrae e trasforma dati JSON in flussi strutturati.": "Extracts and transforms JSON data into structured flows.",
+   "Estrae e trasforma dati XML in flussi strutturati.": "Extracts and transforms XML data into structured flows.",
+   "Etichetta": "Label",
+   "Etichetta breve (canvas)": "Short label (canvas)",
++  "Età max (minuti)": "Max age (minutes)",
++  "Eventi": "Events",
++  "Evita di emettere lo stesso file più volte nella stessa esecuzione": "Avoids emitting the same file multiple times in the same run",
+   "FPEL · genera": "FPEL · generate",
+   "Fatto": "Done",
+   "Ferma pipeline": "Stop pipeline",
++  "File JSON dove salvare i path già processati": "JSON file where already-processed paths are saved",
+   "Filtra ciò che il runner stampa e invia al monitor.": "Filter what the runner prints and sends to the monitor.",
++  "Filtri file": "File filters",
+   "Filtro LDAP": "LDAP filter",
++  "Filtro nome file — lascia vuoto per tutti. Es: *.csv, report_*.json": "File name filter — leave empty for all. E.g. *.csv, report_*.json",
+   "Flusso": "Flow",
+   "Fonde N flussi in uno — modalità concat, interleave o zip.": "Merges N flows into one — concat, interleave or zip modes.",
+   "Formato": "Format",
+@@ -114,6 +154,9 @@
+   "Funzioni utente FPEL": "FPEL user functions",
+   "Genera →": "Generate →",
+   "Generale": "General",
++  "Glob — es: *.csv, data_*.json": "Glob — e.g. *.csv, data_*.json",
++  "Grezzo — nessun parsing": "Raw — no parsing",
++  "Ha intestazione": "Has header",
+   "Handle catch attivo": "Catch handle active",
+   "Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context.materialize().": "In-memory hashtable for execution — accessible from any node via context.materialize().",
+   "I parametri di connessione si configurano nelle proprietà della risorsa": "Connection parameters are set in the resource properties",
+@@ -125,15 +168,21 @@
+   "Identità": "Identity",
+   "Ignora chiave": "Ignore key",
+   "Il campo <strong>Timeout</strong> è sincronizzato con <strong>Timeout watch</strong> nel tab Configurazione — modificando uno si aggiorna l'altro.": "The <strong>Timeout</strong> field is synced with <strong>Watch timeout</strong> in the Configuration tab — changing one updates the other.",
++  "Il file rimane nella posizione originale": "The file stays in its original location",
++  "Il file viene scaricato intero nel campo content (stringa)": "The whole file is downloaded into the content field (string)",
+   "Il pattern ha priorità sui topic fissi.": "The pattern takes priority over fixed topics.",
+   "Importa da file…": "Import from file…",
+   "Importa funzioni da una libreria .ffpel (le aggiunge, saltando i nomi già presenti)": "Import functions from a .ffpel library (adds them, skipping names already present)",
+   "In caso di errore": "On error",
++  "In memoria — si azzera a ogni esecuzione": "In memory — resets each run",
+   "Includi i PR": "Include PRs",
+   "Includi metadati Kafka nel record": "Include Kafka metadata in the record",
+   "Innesco": "Trigger",
++  "Integrità e deduplicazione": "Integrity and deduplication",
+   "Interroga una directory LDAP e produce una riga per voce.": "Queries an LDAP directory and produces one row per entry.",
++  "Interrompi la pipeline": "Stop the pipeline",
+   "Intervallo commit (ms)": "Commit interval (ms)",
++  "Intervallo polling (secondi)": "Polling interval (seconds)",
+   "Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.": "Sends email via SMTP, SendGrid, Amazon SES or Mailgun.",
+   "Issue + Pull Request (di un repo)": "Issues + Pull Requests (of a repo)",
+   "Istruzioni": "Instructions",
+@@ -146,17 +195,21 @@
+   "Legge continuamente — emette righe man mano che arrivano": "Reads continuously — emits rows as they arrive",
+   "Legge file da server FTP, FTPS o SFTP.": "Reads files from FTP, FTPS or SFTP servers.",
+   "Legge fino al limite configurato poi chiude la connessione": "Reads up to the configured limit then closes the connection",
++  "Legge il path da una variabile della lane": "Reads the path from a lane variable",
+   "Legge record da un file locale.": "Reads records from a local file.",
+   "Legge righe da una tabella di database.": "Reads rows from a database table.",
+   "Leggi a partire da un timestamp specifico": "Read starting from a specific timestamp",
+   "Leggi dall'inizio — tutti i messaggi disponibili nella retention": "Read from the beginning — all messages available in the retention",
+   "Leggi solo i messaggi nuovi dal momento della connessione": "Read only new messages from the moment of connection",
+   "Lettura non riuscita": "Read failed",
++  "Limite file": "File limit",
+   "Limite righe": "Row limit",
++  "Lista file": "File list",
+   "Lo schema viene propagato automaticamente ai nodi collegati.": "The schema is propagated automatically to the connected nodes.",
+   "Mapping campi input → output": "Field mapping input → output",
+   "Massimizza": "Maximize",
+   "Max elementi (opz.)": "Max items (opt.)",
++  "Max file per run": "Max files per run",
+   "Max messaggi": "Max messages",
+   "Messaggio": "Message",
+   "Messaggio dell'eccezione": "Exception message",
+@@ -165,11 +218,14 @@
+   "Metodo": "Method",
+   "Modalità": "Mode",
+   "Modalità acquisizione": "Capture mode",
++  "Modalità output": "Output mode",
+   "Modifica profilo": "Edit profile",
+   "Monitor — dove pushare i log (opzionale)": "Monitor — where to push logs (optional)",
++  "Monitora la directory in polling — elabora i nuovi file man mano che arrivano": "Monitors the directory by polling — processes new files as they arrive",
+   "Monitora servizi via HEAD — sblocca il flusso sull'header atteso.": "Monitors services via HEAD — unblocks the flow on the expected header.",
+   "NOT NULL — clicca per nullable": "NOT NULL — click for nullable",
+   "Nessun mapping definito. Aggiungi una riga per mappare i campi.": "No mapping defined. Add a row to map the fields.",
++  "Nessuna": "None",
+   "Nessuna colonna rilevata — verifica la query e la connessione.": "No column detected — check the query and the connection.",
+   "Nessuna funzione definita.": "No functions defined.",
+   "Nessuna riga restituita.": "No rows returned.",
+@@ -180,15 +236,26 @@
+   "Nessuna risorsa disponibile in questa lane. Aggiungine una dalla resource strip.": "No resource available in this lane. Add one from the resource strip.",
+   "Nessuna risorsa selezionata — selezionane una sopra": "No resource selected — select one above",
+   "Nessuna variabile condivisa. Aggiungine una: sarà referenziabile con ": "No shared variables. Add one: it will be referenceable with ",
++  "Nessuna variabile stringa disponibile in questa lane.": "No string variable available in this lane.",
++  "Nessuna variabile stringa nella lane": "No string variable in the lane",
+   "No — commit manuale (at-least-once)": "No — manual commit (at-least-once)",
+   "No — salta durante l'esecuzione": "No — skip during execution",
+   "No — solo il payload deserializzato": "No — only the deserialized payload",
++  "No — solo la directory specificata": "No — only the specified directory",
++  "No — solo root": "No — root only",
+   "Nodi": "Nodes",
+   "Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.": "Transparent node — logs the rows passing through for debugging. Does not modify the data.",
+   "Nome": "Name",
+   "Nome canale": "Channel name",
+   "Nome colonna": "Column name",
++  "Nome crescente (A → Z)": "Name ascending (A → Z)",
++  "Nome decrescente (Z → A)": "Name descending (Z → A)",
++  "Nome del campo della riga che contiene il path della directory": "Name of the row field that contains the directory path",
++  "Nome del file": "File name",
++  "Nome file": "File name",
++  "Nome file con estensione": "File name with extension",
+   "Nome visualizzato": "Display name",
++  "Non scarica — emette una riga per ogni file trovato con nome, path, dimensione, data": "Does not download — emits one row per file found with name, path, size, date",
+   "Non testata": "Untested",
+   "Normale": "Normal",
+   "Normale — + avanzamento e messaggi dei nodi": "Normal — + progress and node messages",
+@@ -196,21 +263,41 @@
+   "Note tecniche, avvertenze, TODO…": "Technical notes, warnings, TODO…",
+   "Nullable — clicca per NOT NULL": "Nullable — click for NOT NULL",
+   "Numero di retry": "Retry count",
++  "Nuovi + modifiche": "New + updates",
+   "Nuovo profilo": "New profile",
+   "Offset iniziale": "Initial offset",
++  "Ogni file produce una riga con questi campi": "Each file produces one row with these fields",
++  "One-shot: attende un batch di eventi, emette e termina. Continuo: la lane si ri-esegue per ogni gruppo di eventi (con commit) finché non premi Stop.": "One-shot: waits for a batch of events, emits and ends. Continuous: the lane re-runs for each group of events (with commit) until you press Stop.",
+   "Operatori JSONB PostgreSQL — clicca per inserire": "PostgreSQL JSONB operators — click to insert",
++  "Opzioni Scan": "Scan options",
++  "Opzioni Watch": "Watch options",
++  "Opzioni avanzate": "Advanced options",
+   "Opzioni lettura": "Read options",
+   "Ordina per": "Order by",
++  "Ordinamento": "Sorting",
+   "Ordinamento (ORDER BY)": "Order (ORDER BY)",
++  "Ordine elaborazione file": "File processing order",
+   "Organizzazione": "Organization",
+   "Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).": "Watches a directory for new files (watch) or enumerates its contents (scan).",
+   "Parametri del nodo": "Node parameters",
+   "Partizione": "Partition",
++  "Path + data modifica — riemette se il file è cambiato": "Path + modified date — re-emits if the file changed",
++  "Path assoluto del file": "Absolute file path",
++  "Path assoluto della directory da osservare": "Absolute path of the directory to watch",
++  "Path completo sul server": "Full path on the server",
++  "Path configurato direttamente qui sotto": "Path configured directly below",
+   "Path del file scritto": "Path of the written file",
++  "Path file stato": "State file path",
++  "Path remoto": "Remote path",
++  "Pattern file": "File pattern",
+   "Pattern topic (regex)": "Topic pattern (regex)",
++  "Per hash contenuto — rileva anche rinominati": "By content hash — also detects renamed files",
+   "Per modificare i parametri di connessione usa le proprietà della risorsa nella resource strip": "To edit the connection parameters use the resource properties in the resource strip",
++  "Per path — stesso path non viene riemesso": "By path — same path is not re-emitted",
+   "Per-riga (dalla lista in ingresso)": "Per-row (from the incoming list)",
+   "Percorso": "Path",
++  "Percorso directory o file sul server": "Directory or file path on the server",
++  "Persistenza deduplicazione": "Deduplication persistence",
+   "Piattaforma": "Platform",
+   "Piattaforma di destinazione": "Target platform",
+   "Porta di ingresso da un'altra lane — riceve dal canale bridge.": "Entry port from another lane — receives from the bridge channel.",
+@@ -229,9 +316,12 @@
+   "Questo tipo di nodo non ha campi codice o query.": "This node type has no code or query fields.",
+   "Raggruppa le righe e calcola funzioni aggregate.": "Groups rows and computes aggregate functions.",
+   "Raggruppa per": "Group by",
++  "Raw — testo grezzo in campo content": "Raw — raw text in content field",
+   "Recupera dati da un endpoint HTTP.": "Retrieves data from an HTTP endpoint.",
+   "Repos (di un'org o utente)": "Repos (of an org or user)",
++  "Ricerca nelle sottocartelle": "Search in subfolders",
+   "Riceve webhook — server condiviso con HMAC, buffer e dedup.": "Receives webhooks — shared server with HMAC, buffering and dedup.",
++  "Ricorsivo": "Recursive",
+   "Righe aggiornate": "Rows updated",
+   "Righe elaborate": "Rows processed",
+   "Righe filtrate (scartate)": "Rows filtered (discarded)",
+@@ -252,6 +342,7 @@
+   "Risorsa collegata": "Connected resource",
+   "Risponde HEAD/GET con header sintetici dalla riga corrente.": "Responds to HEAD/GET with synthetic headers from the current row.",
+   "SELECT base": "Basic SELECT",
++  "Salta e continua con il file successivo": "Skip and continue with the next file",
+   "Salva": "Save",
+   "Salva (sovrascrive il file aperto)": "Save (overwrites the open file)",
+   "Salva commento": "Save comment",
+@@ -260,7 +351,11 @@
+   "Salva nuovo checkpoint": "Save new checkpoint",
+   "Salvataggio non riuscito": "Save failed",
+   "Salvataggio…": "Saving…",
++  "Scarica ed elabora tutti i file in un'unica esecuzione": "Downloads and processes all files in a single run",
++  "Scarica i file e ne emette il contenuto parsato come righe": "Downloads the files and emits their parsed content as rows",
+   "Schema della tabella (es: public)": "Table schema (e.g. public)",
++  "Schema di uscita": "Output schema",
++  "Schema output (row by row)": "Output schema (row by row)",
+   "Scrive file su server FTP, FTPS o SFTP.": "Writes files to FTP, FTPS or SFTP servers.",
+   "Scrive righe in una tabella di database.": "Writes rows into a database table.",
+   "Scrive righe su file.": "Writes rows to a file.",
+@@ -268,26 +363,43 @@
+   "Segreti": "Secrets",
+   "Segreto": "Secret",
+   "Seleziona risorsa": "Select resource",
++  "Semi-strutturato": "Semi-structured",
++  "Separatore": "Delimiter",
+   "Serializza righe del flusso in stringhe JSON con struttura configurabile.": "Serializes flow rows into JSON strings with a configurable structure.",
+   "Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.": "Serializes flow rows into XML strings with configurable structure and namespaces.",
+   "Sincronismo": "Sync",
++  "Sincronizzato con Timeout nel tab Avanzate — 0 = infinito": "Synced with Timeout in the Advanced tab — 0 = infinite",
+   "Smista le righe su N uscite in base a condizioni — first-match.": "Routes rows to N outputs based on conditions — first-match.",
++  "Solo nuovi file": "New files only",
+   "Sorgente dati": "Data source",
+   "Sorgente delle righe": "Row source",
++  "Sorgente path directory": "Directory path source",
++  "Sorgente remota": "Remote source",
++  "Sposta in directory errori e continua": "Move to error directory and continue",
++  "Sposta in una directory di archivio": "Move to an archive directory",
++  "Stabilità file (ms)": "File stability (ms)",
+   "Stato": "State",
+   "Status — campi emessi verso il nodo successivo": "Status — fields emitted to the next node",
+   "String (testo grezzo)": "String (raw text)",
++  "Su errore file singolo": "On single-file error",
++  "Su file — persiste tra esecuzioni": "To file — persists across runs",
+   "Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.": "MQTT subscriber — receives messages from MQTT/MQTTS brokers.",
+   "Svuota canvas": "Clear canvas",
+   "Svuota query": "Clear query",
+   "Sì": "Yes",
+   "Sì — aggiungi campi _kafka_*": "Yes — add _kafka_* fields",
+   "Sì — commit automatico ogni intervallo": "Yes — automatic commit every interval",
++  "Sì — include subdir": "Yes — include subdir",
++  "Sì — includi sottocartelle": "Yes — include subfolders",
++  "Sì — prima riga è intestazione": "Yes — first row is header",
+   "Tab inserisce 2 spazi. Il codice viene eseguito sul server.": "Tab inserts 2 spaces. The code runs on the server.",
+   "Tabella": "Table",
+   "Tabella — IGNORATA": "Table — IGNORED",
+   "Test in corso…": "Testing…",
++  "Testo strutturato": "Structured text",
++  "Testo — una riga per linea": "Text — one row per line",
+   "Timeout (secondi)": "Timeout (seconds)",
++  "Timeout connessione (sec)": "Connection timeout (sec)",
+   "Timeout e retry": "Timeout and retry",
+   "Timeout query (s)": "Query timeout (s)",
+   "Timeout watch (secondi)": "Watch timeout (seconds)",
+@@ -310,16 +422,22 @@
+   "Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.": "Transforms, renames and converts the fields of each row with FPEL expressions.",
+   "Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.": "Visual multi-input/output transformer with mapping, lookup joins and conditional routing.",
+   "Trasformazione": "Transformation",
++  "Tutti (new/update/rename/delete)": "All (new/update/rename/delete)",
+   "Tutti i campi status vengono anche scritti nelle variabili di lane come": "All status fields are also written to lane variables as",
+   "Un topic o più separati da virgola — es: ordini, clienti, prodotti": "One topic or several separated by commas — e.g. orders, customers, products",
+   "Una funzione per riga:": "One function per line:",
++  "Una volta": "Once",
++  "Una volta (one-shot)": "Once (one-shot)",
+   "Unisce due flussi su un campo chiave.": "Joins two flows on a key field.",
++  "Usa il campo path da ogni riga in ingresso (richiede edge)": "Uses the path field from each incoming row (requires edge)",
+   "Usata se non c'è una query personalizzata": "Used if there is no custom query",
+   "Usata se non c'è una query personalizzata nel tab Query": "Used if there is no custom query in the Query tab",
+   "Utente": "User",
+   "Valida ogni riga contro regole configurabili — output valid e reject.": "Validates each row against configurable rules — valid and reject outputs.",
+   "Valori": "Values",
+   "Valori multipli": "Multiple values",
++  "Variabile Lane": "Lane variable",
++  "Variabile di tipo stringa che contiene il path della directory": "String variable that contains the directory path",
+   "Variabili condivise (pool)": "Shared variables (pool)",
+   "Vengono <b>espanse a compile-time</b> nelle espressioni. Il corpo è una sola espressione e può usare\n            solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.": "They are <b>expanded at compile-time</b> in expressions. The body is a single expression and can use\n            only its parameters (and the built-in functions); no recursion, no redefining the built-ins.",
+   "Versione": "Version",
+@@ -369,20 +487,33 @@
+   "row: dati originali (dopo chiusura file, riga per riga) + status": "row: original data (after file close, row by row) + status",
+   "row: dati originali (riga per riga) + status": "row: original data (row by row) + status",
+   "row: {} vuoto + status — un solo messaggio alla fine": "row: empty {} + status — a single message at the end",
++  "schema fisso": "fixed schema",
+   "segreti richiesti:": "required secrets:",
+   "simulata": "simulated",
+   "solo il primo": "first only",
+   "subtree (tutto il sottoalbero)": "subtree (entire subtree)",
++  "true se è una directory": "true if it is a directory",
+   "unisci (;)": "join (;)",
+   "valore di default": "default value",
+   "vuoto = branch di default del repo": "empty = repo default branch",
+   "ƒ applica…": "ƒ apply…",
+   "— nessun profilo —": "— no profile —",
+   "— nessuna —": "— none —",
++  "— seleziona variabile —": "— select variable —",
+   "— seleziona —": "— select —",
++  "→ Da flusso": "→ From flow",
++  "→ Sposta": "→ Move",
++  "⇩ Scarica e legge": "⇩ Download and read",
+   "⊂ canale non impostato": "⊂ channel not set",
+   "⊃ canale non impostato": "⊃ channel not set",
+   "⊕ campo flusso": "⊕ flow field",
++  "▤ Elenca file": "▤ List files",
++  "▤ Lista file": "▤ File list",
++  "○ Lascia": "○ Leave",
++  "◎ Variabile Lane": "◎ Lane variable",
+   "● Corrente": "● Current",
+-  "⚠ Ignorata: c'è una query personalizzata nel tab Query, il motore esegue quella": "⚠ Ignored: there is a custom query in the Query tab, the engine runs that one"
++  "⚠ Ignorata: c'è una query personalizzata nel tab Query, il motore esegue quella": "⚠ Ignored: there is a custom query in the Query tab, the engine runs that one",
++  "⚠ Nessun edge in ingresso": "⚠ No incoming edge",
++  "✕ Elimina": "✕ Delete",
++  "📁 Statico": "📁 Static"
+ }
+diff --git a/src/nodes/types/dir_watcher/Panel.tsx b/src/nodes/types/dir_watcher/Panel.tsx
+index fe8bbca..8df7d60 100644
+--- a/src/nodes/types/dir_watcher/Panel.tsx
++++ b/src/nodes/types/dir_watcher/Panel.tsx
+@@ -39,13 +39,13 @@ function SectionTitle({ label, color = '#22d3ee' }: { label: string; color?: str
+ const ACCENT = '#22d3ee'
+ 
+ const OUTPUT_SCHEMA = [
+-  { name: 'path',        type: 'string',  desc: 'Path assoluto del file'         },
+-  { name: 'filename',    type: 'string',  desc: 'Nome file con estensione'       },
+-  { name: 'extension',   type: 'string',  desc: 'Estensione senza punto'         },
+-  { name: 'directory',   type: 'string',  desc: 'Directory contenitore'          },
+-  { name: 'size',        type: 'integer', desc: 'Dimensione in bytes'            },
+-  { name: 'created_at',  type: 'date',    desc: 'Data creazione'                 },
+-  { name: 'modified_at', type: 'date',    desc: 'Data ultima modifica'           },
++  { name: 'path',        type: 'string',  desc: 'Absolute file path'         },
++  { name: 'filename',    type: 'string',  desc: 'File name with extension'       },
++  { name: 'extension',   type: 'string',  desc: 'Extension without dot'         },
++  { name: 'directory',   type: 'string',  desc: 'Container directory'          },
++  { name: 'size',        type: 'integer', desc: 'Size in bytes'            },
++  { name: 'created_at',  type: 'date',    desc: 'Creation date'                 },
++  { name: 'modified_at', type: 'date',    desc: 'Last modified date'           },
+ ]
+ const WATCH_EXTRA = { name: 'event',    type: 'string', desc: 'new / update / rename / delete' }
+ const WATCH_OLDP  = { name: 'old_path', type: 'string', desc: 'Path precedente (solo rename atomico), altrimenti null' }
+@@ -130,11 +130,11 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+   return (
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+ 
+-      <SectionTitle label="Modalità" />
++      <SectionTitle label="Mode" />
+       <div style={{ display: 'flex', gap: 6 }}>
+         {[
+-          { value: 'scan',  label: '⊞ Scan',  desc: 'Enumera file esistenti in una directory' },
+-          { value: 'watch', label: '👁 Watch', desc: 'Ascolta eventi del SO per nuovi file'    },
++          { value: 'scan',  label: '⊞ Scan',  desc: 'Enumerates existing files in a directory' },
++          { value: 'watch', label: '👁 Watch', desc: 'Listens to OS events for new files'    },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'mode', m.value)}
+             style={{
+@@ -149,12 +149,12 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+         ))}
+       </div>
+ 
+-      <SectionTitle label="Sorgente path directory" />
++      <SectionTitle label="Directory path source" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+-          { value: 'static',   label: '📁 Statico',       desc: 'Path configurato direttamente qui sotto' },
+-          { value: 'lane_var', label: '◎ Variabile Lane', desc: 'Legge il path da una variabile della lane' },
+-          { value: 'flow',     label: '→ Da flusso',      desc: 'Usa il campo path da ogni riga in ingresso (richiede edge)' },
++          { value: 'static',   label: '📁 Static',       desc: 'Path configured directly below' },
++          { value: 'lane_var', label: '◎ Lane variable', desc: 'Reads the path from a lane variable' },
++          { value: 'flow',     label: '→ From flow',      desc: 'Uses the path field from each incoming row (requires edge)' },
+         ].map((s) => {
+           const disabled = s.value === 'flow' && !hasInput
+           return (
+@@ -170,7 +170,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+               <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: pathSource === s.value ? ACCENT : '#2a3349' }} />
+               <div>
+                 <div style={{ fontSize: 11, fontWeight: 600, color: pathSource === s.value ? ACCENT : '#c8d4f0' }}>{s.label}</div>
+-                <div style={{ fontSize: 9, color: '#8593b5' }}>{s.desc}{disabled ? ' — collega un edge prima' : ''}</div>
++                <div style={{ fontSize: 9, color: '#8593b5' }}>{s.desc}{disabled ? ' — connect an edge first' : ''}</div>
+               </div>
+             </button>
+           )
+@@ -178,72 +178,72 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+       </div>
+ 
+       {pathSource === 'static' && (
+-        <Field label="Directory" hint="Path assoluto della directory da osservare">
++        <Field label="Directory" hint="Absolute path of the directory to watch">
+           <input style={inputStyle} value={p('directory')} onChange={u('directory')} placeholder="/data/incoming" />
+         </Field>
+       )}
+       {pathSource === 'lane_var' && (
+-        <Field label="Variabile Lane" hint="Variabile di tipo stringa che contiene il path della directory">
++        <Field label="Lane variable" hint="String variable that contains the directory path">
+           {laneVars.length > 0 ? (
+             <CustomSelect style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')}>
+-              <option value="">— seleziona variabile —</option>
++              <option value="">— select variable —</option>
+               {laneVars.map((v) => (
+-                <option key={v.id} value={v.name}>{v.name} {v.value ? `= "${v.value}"` : '(vuota)'}</option>
++                <option key={v.id} value={v.name}>{v.name} {v.value ? `= "${v.value}"` : '(empty)'}</option>
+               ))}
+             </CustomSelect>
+           ) : (
+             <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '4px 0' }}>
+-              Nessuna variabile stringa disponibile in questa lane.
++              No string variable available in this lane.
+             </div>
+           )}
+         </Field>
+       )}
+       {pathSource === 'flow' && (
+-        <Field label="Campo path dal flusso" hint="Nome del campo della riga che contiene il path della directory">
++        <Field label="Path field from flow" hint="Name of the row field that contains the directory path">
+           <input style={inputStyle} value={p('pathField', 'path')} onChange={u('pathField')} placeholder="path" />
+         </Field>
+       )}
+ 
+-      <SectionTitle label="Filtri file" />
++      <SectionTitle label="File filters" />
+       <Row>
+-        <Field label="Pattern" hint="Glob — es: *.csv, data_*.json">
++        <Field label="Pattern" hint="Glob — e.g. *.csv, data_*.json">
+           <input style={inputStyle} value={p('pattern', '*')} onChange={u('pattern')} placeholder="*.csv" />
+         </Field>
+-        <Field label="Ricorsivo">
++        <Field label="Recursive">
+           <CustomSelect style={inputStyle} value={p('recursive', 'false')} onChange={u('recursive')}>
+-            <option value="false">No — solo root</option>
+-            <option value="true">Sì — include subdir</option>
++            <option value="false">No — root only</option>
++            <option value="true">Yes — include subdir</option>
+           </CustomSelect>
+         </Field>
+       </Row>
+       <Row>
+-        <Field label="Dim. min (bytes)" hint="0 = nessun limite">
++        <Field label="Min size (bytes)" hint="0 = no limit">
+           <input type="number" style={inputStyle} value={p('minSize', '0')} onChange={u('minSize')} min="0" />
+         </Field>
+-        <Field label="Età max (minuti)" hint="0 = nessun limite">
++        <Field label="Max age (minutes)" hint="0 = no limit">
+           <input type="number" style={inputStyle} value={p('maxAgeMin', '0')} onChange={u('maxAgeMin')} min="0" />
+         </Field>
+       </Row>
+ 
+-      <SectionTitle label="Integrità e deduplicazione" />
+-      <Field label="Anti-bumping (deduplicazione)" hint="Evita di emettere lo stesso file più volte nella stessa esecuzione">
++      <SectionTitle label="Integrity and deduplication" />
++      <Field label="Anti-bumping (deduplication)" hint="Avoids emitting the same file multiple times in the same run">
+         <CustomSelect style={inputStyle} value={p('dedup', 'path')} onChange={u('dedup')}>
+-          <option value="none">Disabilitato</option>
+-          <option value="path">Per path — stesso path non viene riemesso</option>
+-          <option value="hash">Per hash contenuto — rileva anche rinominati</option>
+-          <option value="path_mtime">Path + data modifica — riemette se il file è cambiato</option>
++          <option value="none">Disabled</option>
++          <option value="path">By path — same path is not re-emitted</option>
++          <option value="hash">By content hash — also detects renamed files</option>
++          <option value="path_mtime">Path + modified date — re-emits if the file changed</option>
+         </CustomSelect>
+       </Field>
+       {p('dedup') !== 'none' && (
+-        <Field label="Persistenza deduplicazione" hint="Dove tenere traccia dei file già emessi">
++        <Field label="Deduplication persistence" hint="Where to track already-emitted files">
+           <CustomSelect style={inputStyle} value={p('dedupStore', 'memory')} onChange={u('dedupStore')}>
+-            <option value="memory">In memoria — si azzera a ogni esecuzione</option>
+-            <option value="file">Su file — persiste tra esecuzioni</option>
++            <option value="memory">In memory — resets each run</option>
++            <option value="file">To file — persists across runs</option>
+           </CustomSelect>
+         </Field>
+       )}
+       {p('dedup') !== 'none' && p('dedupStore') === 'file' && (
+-        <Field label="Path file stato" hint="File JSON dove salvare i path già processati">
++        <Field label="State file path" hint="JSON file where already-processed paths are saved">
+           <input style={inputStyle} value={p('dedupFile', '.flowpilot_dw_state.json')} onChange={u('dedupFile')}
+             placeholder=".flowpilot_dw_state.json" />
+         </Field>
+@@ -252,32 +252,32 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+       {/* Opzioni Watch */}
+       {mode === 'watch' && (
+         <>
+-          <SectionTitle label="Opzioni Watch" />
+-          <Field label="Ascolto" hint="One-shot: attende un batch di eventi, emette e termina. Continuo: la lane si ri-esegue per ogni gruppo di eventi (con commit) finché non premi Stop.">
++          <SectionTitle label="Watch options" />
++          <Field label="Listening" hint="One-shot: waits for a batch of events, emits and ends. Continuous: the lane re-runs for each group of events (with commit) until you press Stop.">
+             <CustomSelect style={inputStyle} value={p('submode', 'oneshot')} onChange={u('submode')}>
+-              <option value="oneshot">Una volta (one-shot)</option>
+-              <option value="continuo">Continuo (a sessioni)</option>
++              <option value="oneshot">Once (one-shot)</option>
++              <option value="continuo">Continuous (per session)</option>
+             </CustomSelect>
+           </Field>
+           <Row>
+-            <Field label="Eventi">
++            <Field label="Events">
+               <CustomSelect style={inputStyle} value={p('events', 'all')} onChange={u('events')}>
+-                <option value="new">Solo nuovi file</option>
+-                <option value="new,update">Nuovi + modifiche</option>
+-                <option value="all">Tutti (new/update/rename/delete)</option>
++                <option value="new">New files only</option>
++                <option value="new,update">New + updates</option>
++                <option value="all">All (new/update/rename/delete)</option>
+               </CustomSelect>
+             </Field>
+-            <Field label="Debounce (ms)" hint="Attesa prima di processare — evita eventi doppi">
++            <Field label="Debounce (ms)" hint="Wait before processing — avoids duplicate events">
+               <input type="number" style={inputStyle} value={p('debounceMs', '300')} onChange={u('debounceMs')} min="0" />
+             </Field>
+           </Row>
+           <Row>
+-            <Field label="Stabilità file (ms)" hint="Attende che il file non cambi prima di emetterlo">
++            <Field label="File stability (ms)" hint="Waits for the file to stop changing before emitting it">
+               <input type="number" style={inputStyle} value={p('stabilityMs', '500')} onChange={u('stabilityMs')} min="0" />
+             </Field>
+             <Field
+-              label="Timeout watch (secondi)"
+-              hint="Sincronizzato con Timeout nel tab Avanzate — 0 = infinito"
++              label="Watch timeout (seconds)"
++              hint="Synced with Timeout in the Advanced tab — 0 = infinite"
+             >
+               <input
+                 type="number"
+@@ -291,12 +291,12 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+           {displayTimeout === '0' && (
+             <div style={{ padding: '6px 10px', background: '#0d1a10', borderRadius: 4, border: '0.5px solid #3ddc8430', fontSize: 9, color: '#3ddc8490', display: 'flex', gap: 6 }}>
+               <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0 }} />
+-              Timeout 0 = rimane attivo finché non clicchi Stop.
++              Timeout 0 = stays active until you click Stop.
+             </div>
+           )}
+           <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5', display: 'flex', gap: 5 }}>
+             <i className="ti ti-refresh" style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }} />
+-            Sincronizzato con <strong style={{ color: ACCENT }}>Timeout</strong> nel tab Avanzate.
++            Synced with <strong style={{ color: ACCENT }}>Timeout</strong> in the Advanced tab.
+           </div>
+         </>
+       )}
+@@ -304,33 +304,33 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+       {/* Opzioni Scan */}
+       {mode === 'scan' && (
+         <>
+-          <SectionTitle label="Opzioni Scan" />
++          <SectionTitle label="Scan options" />
+           <Row>
+-            <Field label="Ordinamento">
++            <Field label="Sorting">
+               <CustomSelect style={inputStyle} value={p('sortBy', 'name')} onChange={u('sortBy')}>
+-                <option value="name">Nome file</option>
+-                <option value="created">Data creazione</option>
+-                <option value="modified">Data modifica</option>
+-                <option value="size">Dimensione</option>
++                <option value="name">File name</option>
++                <option value="created">Creation date</option>
++                <option value="modified">Modified date</option>
++                <option value="size">Size</option>
+               </CustomSelect>
+             </Field>
+-            <Field label="Direzione">
++            <Field label="Direction">
+               <CustomSelect style={inputStyle} value={p('sortDir', 'asc')} onChange={u('sortDir')}>
+-                <option value="asc">Crescente</option>
+-                <option value="desc">Decrescente</option>
++                <option value="asc">Ascending</option>
++                <option value="desc">Descending</option>
+               </CustomSelect>
+             </Field>
+           </Row>
+-          <Field label="Limite file" hint="0 = nessun limite">
++          <Field label="File limit" hint="0 = no limit">
+             <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
+           </Field>
+         </>
+       )}
+ 
+-      <SectionTitle label="Schema output (row by row)" />
++      <SectionTitle label="Output schema (row by row)" />
+       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30` }}>
+         <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+-          Ogni file produce una riga con questi campi
++          Each file produces one row with these fields
+         </div>
+         {schema.map((f, i) => (
+           <div key={f.name} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: i < schema.length - 1 ? '0.5px solid #1a2030' : 'none' }}>
+@@ -343,7 +343,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+-        Il nodo emette una riga per ogni file trovato/rilevato. Collega l'uscita a un nodo <code style={{ color: ACCENT }}>File Input</code> che usa il campo <code style={{ color: ACCENT }}>path</code> per leggere ogni file.
++        The node emits one row per file found/detected. Connect the output to a <code style={{ color: ACCENT }}>File Input</code> node that uses the <code style={{ color: ACCENT }}>path</code> field to read each file.
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/dir_watcher/SidebarPanel.tsx b/src/nodes/types/dir_watcher/SidebarPanel.tsx
+index 3b4e478..ebcac6e 100644
+--- a/src/nodes/types/dir_watcher/SidebarPanel.tsx
++++ b/src/nodes/types/dir_watcher/SidebarPanel.tsx
+@@ -57,9 +57,9 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
+   }, [pool, node.data.laneId])
+ 
+   const sourceLabel =
+-    pathSource === 'lane_var' ? '◎ Variabile Lane' :
+-    pathSource === 'flow'     ? '→ Da flusso'      :
+-    '📁 Statico'
++    pathSource === 'lane_var' ? '◎ Lane variable' :
++    pathSource === 'flow'     ? '→ From flow'      :
++    '📁 Static'
+ 
+   const sourceBadgeColor =
+     pathSource === 'lane_var' ? '#a78bfa' :
+@@ -104,10 +104,10 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {pathSource === 'lane_var' && (
+-        <Field label="Variabile Lane">
++        <Field label="Lane variable">
+           {laneVars.length > 0 ? (
+             <CustomSelect style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')}>
+-              <option value="">— seleziona —</option>
++              <option value="">— select —</option>
+               {laneVars.map((v) => (
+                 <option key={v.id} value={v.name}>
+                   {v.name}{v.value ? ` = "${v.value}"` : ''}
+@@ -116,14 +116,14 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
+             </CustomSelect>
+           ) : (
+             <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '4px 0' }}>
+-              Nessuna variabile stringa nella lane
++              No string variable in the lane
+             </div>
+           )}
+         </Field>
+       )}
+ 
+       {pathSource === 'flow' && (
+-        <Field label="Campo path dal flusso" hint={!hasInput ? '⚠ Nessun edge in ingresso' : undefined}>
++        <Field label="Path field from flow" hint={!hasInput ? '⚠ No incoming edge' : undefined}>
+           <input style={{ ...inputStyle, borderColor: !hasInput ? '#ff5f57' : '#3a4a6a' }}
+             value={p('pathField', 'path')} onChange={u('pathField')} placeholder="path" />
+         </Field>
+@@ -148,7 +148,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
+       })()}
+ 
+       {/* Pattern glob */}
+-      <Field label="Pattern file">
++      <Field label="File pattern">
+         <input style={inputStyle} value={p('pattern', '*')} onChange={u('pattern')} placeholder="*.csv" />
+       </Field>
+ 
+@@ -174,8 +174,8 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
+       {mode === 'watch' && (
+         <div style={{ display: 'flex', gap: 4 }}>
+           {[
+-            { value: 'oneshot',  label: 'Una volta' },
+-            { value: 'continuo', label: 'Continuo'  },
++            { value: 'oneshot',  label: 'Once' },
++            { value: 'continuo', label: 'Continuous'  },
+           ].map((sm) => (
+             <button key={sm.value} onClick={() => updateProp(nodeId, 'submode', sm.value)}
+               style={{
+@@ -193,7 +193,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+         <i className="ti ti-mouse" style={{ fontSize: 11 }} />
+-        Doppio click per la configurazione completa
++        Double-click for the full configuration
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/source_ftp/MappingPanel.tsx b/src/nodes/types/source_ftp/MappingPanel.tsx
+index 0db52e3..5d5e243 100644
+--- a/src/nodes/types/source_ftp/MappingPanel.tsx
++++ b/src/nodes/types/source_ftp/MappingPanel.tsx
+@@ -137,7 +137,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+     }
+   }
+ 
+-  const formatLabel = fileFormat === 'list_files' ? 'Lista file' : fileFormat.toUpperCase()
++  const formatLabel = fileFormat === 'list_files' ? 'File list' : fileFormat.toUpperCase()
+ 
+   return (
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+@@ -145,9 +145,9 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+       {/* Header */}
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
+-          Schema di uscita
++          Output schema
+           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
+-            — campi propagati ai nodi successivi
++            — fields propagated to downstream nodes
+           </span>
+         </div>
+       </div>
+@@ -157,12 +157,12 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+       {/* Info formato */}
+       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 11 }}>
+         <i className="ti ti-server" style={{ fontSize: 13, color: ACCENT }} />
+-        <span style={{ color: '#9a9aaa' }}>Formato:</span>
++        <span style={{ color: '#9a9aaa' }}>Format:</span>
+         <span style={{ padding: '1px 7px', borderRadius: 8, fontSize: 10, background: '#1a3a6a', color: ACCENT, fontWeight: 600 }}>
+           {formatLabel}
+         </span>
+         <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>
+-          {isFixed ? 'schema fisso' : `${schema.length} campi`}
++          {isFixed ? 'fixed schema' : `${schema.length} fields`}
+         </span>
+       </div>
+ 
+@@ -171,10 +171,10 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ padding: '7px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #22d3ee30', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
+           <i className="ti ti-arrow-right" style={{ fontSize: 10, color: '#22d3ee', flexShrink: 0, marginTop: 1 }} />
+           <span>
+-            Il campo <code style={{ color: '#22d3ee' }}>content</code>{fileFormat === 'json' ? '/raw' : ''} contiene il file grezzo —
+-            collegalo a un <strong style={{ color: '#22d3ee' }}>
++            The <code style={{ color: '#22d3ee' }}>content</code>{fileFormat === 'json' ? '/raw' : ''} field contains the raw file —
++            connect it to a <strong style={{ color: '#22d3ee' }}>
+               {fileFormat === 'xml' ? 'XML Parser' : 'JSON Parser'}
+-            </strong> per estrarne i dati strutturati.
++            </strong> to extract the structured data.
+           </span>
+         </div>
+       )}
+@@ -183,7 +183,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+       {isFixed && fixedSchema && (
+         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
+-            {['Campo', 'Tipo'].map((h) => (
++            {['Field', 'Type'].map((h) => (
+               <div key={h} style={{ fontSize: 10, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+             ))}
+           </div>
+@@ -202,12 +202,12 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+           {schema.length === 0 ? (
+             <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+               <i className="ti ti-file-search" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
+-              Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.
++              Add the fields manually or configure them after running the flow.
+             </div>
+           ) : (
+             <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
+-                {['Campo', 'Tipo', ''].map((h, i) => (
++                {['Field', 'Type', ''].map((h, i) => (
+                   <div key={i} style={{ fontSize: 10, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+                 ))}
+               </div>
+@@ -215,7 +215,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
+                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, alignItems: 'center', padding: '4px 8px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: idx < schema.length - 1 ? '0.5px solid #2a3349' : 'none' }}>
+                   <input type="text" value={field.name}
+                     onChange={(e) => updateField(idx, 'name', e.target.value)}
+-                    style={inputStyle} placeholder="nome_campo" />
++                    style={inputStyle} placeholder="field_name" />
+                   <CustomSelect value={field.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
+                     style={{ ...inputStyle, padding: '3px 4px' }}>
+                     {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+diff --git a/src/nodes/types/source_ftp/Panel.tsx b/src/nodes/types/source_ftp/Panel.tsx
+index beaf23e..c085026 100644
+--- a/src/nodes/types/source_ftp/Panel.tsx
++++ b/src/nodes/types/source_ftp/Panel.tsx
+@@ -83,26 +83,26 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Path remoto */}
+-      <SectionTitle label="Sorgente remota" />
+-      <Field label="Path remoto" hint="Percorso directory o file sul server">
++      <SectionTitle label="Remote source" />
++      <Field label="Remote path" hint="Directory or file path on the server">
+         <input style={inputStyle} value={p('remotePath')} onChange={u('remotePath')} placeholder="/data/input/" />
+       </Field>
+-      <Field label="Pattern file" hint="Filtro nome file — lascia vuoto per tutti. Es: *.csv, report_*.json">
++      <Field label="File pattern" hint="File name filter — leave empty for all. E.g. *.csv, report_*.json">
+         <input style={inputStyle} value={p('filePattern')} onChange={u('filePattern')} placeholder="*.csv" />
+       </Field>
+-      <Field label="Ricerca nelle sottocartelle">
++      <Field label="Search in subfolders">
+         <CustomSelect style={inputStyle} value={p('recursive', 'false')} onChange={u('recursive')}>
+-          <option value="false">No — solo la directory specificata</option>
+-          <option value="true">Sì — includi sottocartelle</option>
++          <option value="false">No — only the specified directory</option>
++          <option value="true">Yes — include subfolders</option>
+         </CustomSelect>
+       </Field>
+ 
+       {/* Modalità output */}
+-      <SectionTitle label="Modalità output" />
++      <SectionTitle label="Output mode" />
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+         {[
+-          { value: 'content',    label: '⇩ Scarica e legge',  desc: 'Scarica i file e ne emette il contenuto parsato come righe' },
+-          { value: 'list_files', label: '▤ Elenca file',       desc: 'Non scarica — emette una riga per ogni file trovato con nome, path, dimensione, data' },
++          { value: 'content',    label: '⇩ Download and read',  desc: 'Downloads the files and emits their parsed content as rows' },
++          { value: 'list_files', label: '▤ List files',       desc: 'Does not download — emits one row per file found with name, path, size, date' },
+         ].map((m) => (
+           <button key={m.value} onClick={() => {
+               updateProp(nodeId, 'outputMode', 'list_files')
+@@ -124,13 +124,13 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+       {/* Schema lista file */}
+       {isListMode && (
+         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5' }}>
+-          <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 6, fontSize: 10 }}>Schema output — lista file</div>
++          <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 6, fontSize: 10 }}>Output schema — file list</div>
+           {[
+-            { name: 'name',        type: 'string',  desc: 'Nome del file' },
+-            { name: 'path',        type: 'string',  desc: 'Path completo sul server' },
+-            { name: 'is_dir',      type: 'boolean', desc: 'true se è una directory' },
+-            { name: 'size',        type: 'integer', desc: 'Dimensione in byte' },
+-            { name: 'modified_at', type: 'date',    desc: 'Data ultima modifica (se disponibile)' },
++            { name: 'name',        type: 'string',  desc: 'File name' },
++            { name: 'path',        type: 'string',  desc: 'Full path on the server' },
++            { name: 'is_dir',      type: 'boolean', desc: 'true if it is a directory' },
++            { name: 'size',        type: 'integer', desc: 'Size in bytes' },
++            { name: 'modified_at', type: 'date',    desc: 'Last modified date (if available)' },
+           ].map((f) => (
+             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
+               <code style={{ color: ACCENT, minWidth: 90 }}>{f.name}</code>
+@@ -144,11 +144,11 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+       {/* Modalità acquisizione — solo se scarica */}
+       {!isListMode && (
+         <>
+-          <SectionTitle label="Modalità acquisizione" />
++          <SectionTitle label="Capture mode" />
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+             {[
+-              { value: 'list',  label: '▤ Lista file',  desc: 'Scarica ed elabora tutti i file in un\'unica esecuzione' },
+-              { value: 'watch', label: '◎ Watch',        desc: 'Monitora la directory in polling — elabora i nuovi file man mano che arrivano' },
++              { value: 'list',  label: '▤ File list',  desc: 'Downloads and processes all files in a single run' },
++              { value: 'watch', label: '◎ Watch',        desc: 'Monitors the directory by polling — processes new files as they arrive' },
+             ].map((m) => (
+               <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
+                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
+@@ -158,7 +158,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+             ))}
+           </div>
+           {fetchMode === 'watch' && (
+-            <Field label="Intervallo polling (secondi)">
++            <Field label="Polling interval (seconds)">
+               <input type="number" style={inputStyle} value={p('pollInterval', '30')} onChange={u('pollInterval')} min="5" />
+             </Field>
+           )}
+@@ -166,7 +166,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+           {/* Formato file */}
+           <SectionTitle label="Formato file" />
+           <Row>
+-            <Field label="Formato" hint={isRaw ? 'Il file viene scaricato intero nel campo content (stringa)' : undefined}>
++            <Field label="Formato" hint={isRaw ? 'The whole file is downloaded into the content field (string)' : undefined}>
+               <CustomSelect style={inputStyle} value={fileFormat} onChange={(e) => {
+                   const fmt = e.target.value
+                   updateProp(nodeId, 'fileFormat', fmt)
+@@ -200,22 +200,22 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+                     updateProp(nodeId, 'outputSchema', '')
+                   }
+                 }}>
+-                <optgroup label="Grezzo — nessun parsing">
+-                  <option value="raw">Raw — testo grezzo in campo content</option>
++                <optgroup label="Raw — no parsing">
++                  <option value="raw">Raw — raw text in content field</option>
+                   
+                 </optgroup>
+-                <optgroup label="Testo strutturato">
+-                  <option value="text">Testo — una riga per linea</option>   {/* ← aggiungi */}
++                <optgroup label="Structured text">
++                  <option value="text">Text — one row per line</option>   {/* ← aggiungi */}
+                   <option value="csv">CSV</option>
+                   <option value="tsv">TSV</option>
+                   <option value="excel">Excel (.xlsx)</option>
+                 </optgroup>
+-                <optgroup label="Semi-strutturato">
++                <optgroup label="Semi-structured">
+                   <option value="json">JSON</option>
+                   <option value="jsonl">JSON Lines</option>
+                   <option value="xml">XML</option>
+                 </optgroup>
+-                <optgroup label="Binario">
++                <optgroup label="Binary">
+                   <option value="binary">Binary (Base64)</option>
+                 </optgroup>
+               </CustomSelect>
+@@ -235,20 +235,20 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+           {/* Info raw */}
+           {isRaw && (
+             <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5' }}>
+-              Emette <strong style={{ color: ACCENT }}>1 riga per file</strong> con campo <code style={{ color: ACCENT }}>content</code> (stringa intera del file).
+-              Collegalo a un <strong style={{ color: '#22d3ee' }}>JSON Parser</strong> o <strong style={{ color: '#22d3ee' }}>XML Parser</strong> per estrarne i dati.
++              Emits <strong style={{ color: ACCENT }}>1 row per file</strong> with a <code style={{ color: ACCENT }}>content</code> field (whole file string).
++              Connect it to a <strong style={{ color: '#22d3ee' }}>JSON Parser</strong> or <strong style={{ color: '#22d3ee' }}>XML Parser</strong> to extract the data.
+             </div>
+           )}
+ 
+           {/* Opzioni CSV */}
+           {(fileFormat === 'csv' || fileFormat === 'tsv') && (
+             <Row>
+-              <Field label="Separatore">
++              <Field label="Delimiter">
+                 <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
+               </Field>
+-              <Field label="Ha intestazione">
++              <Field label="Has header">
+                 <CustomSelect style={inputStyle} value={p('hasHeader', 'true')} onChange={u('hasHeader')}>
+-                  <option value="true">Sì — prima riga è intestazione</option>
++                  <option value="true">Yes — first row is header</option>
+                   <option value="false">No</option>
+                 </CustomSelect>
+               </Field>
+@@ -256,9 +256,9 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+           )}
+ 
+           {/* Compressione */}
+-          <Field label="Compressione">
++          <Field label="Compression">
+             <CustomSelect style={inputStyle} value={p('compression', 'none')} onChange={u('compression')}>
+-              <option value="none">Nessuna</option>
++              <option value="none">None</option>
+               <option value="gzip">GZIP (.gz)</option>
+               <option value="zip">ZIP (.zip)</option>
+               <option value="bzip2">BZIP2 (.bz2)</option>
+@@ -266,12 +266,12 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+           </Field>
+ 
+           {/* Dopo l'elaborazione */}
+-          <SectionTitle label="Dopo l'elaborazione" color="#ffb347" />
++          <SectionTitle label="After processing" color="#ffb347" />
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+             {[
+-              { value: 'leave',  label: '○ Lascia',  desc: 'Il file rimane nella posizione originale' },
+-              { value: 'move',   label: '→ Sposta',  desc: 'Sposta in una directory di archivio' },
+-              { value: 'delete', label: '✕ Elimina', desc: 'Elimina il file dal server — irreversibile' },
++              { value: 'leave',  label: '○ Leave',  desc: 'The file stays in its original location' },
++              { value: 'move',   label: '→ Move',  desc: 'Move to an archive directory' },
++              { value: 'delete', label: '✕ Delete', desc: 'Deletes the file from the server — irreversible' },
+             ].map((a) => (
+               <button key={a.value} onClick={() => updateProp(nodeId, 'afterFetch', a.value)}
+                 style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: afterFetch === a.value ? 'color-mix(in srgb, #ffb347 8%, #1a2030)' : '#1a2030', border: afterFetch === a.value ? '1px solid #ffb34740' : '1px solid #2a3349' }}>
+@@ -284,7 +284,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+             ))}
+           </div>
+           {afterFetch === 'move' && (
+-            <Field label="Directory archivio">
++            <Field label="Archive directory">
+               <input style={inputStyle} value={p('archivePath')} onChange={u('archivePath')} placeholder="/data/processed/" />
+             </Field>
+           )}
+@@ -292,30 +292,30 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Opzioni avanzate */}
+-      <SectionTitle label="Opzioni avanzate" color="#8593b5" />
++      <SectionTitle label="Advanced options" color="#8593b5" />
+       <Row>
+-        <Field label="Timeout connessione (sec)">
++        <Field label="Connection timeout (sec)">
+           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
+         </Field>
+-        <Field label="Max file per run" hint="0 = nessun limite">
++        <Field label="Max files per run" hint="0 = no limit">
+           <input type="number" style={inputStyle} value={p('maxFiles', '0')} onChange={u('maxFiles')} min="0" />
+         </Field>
+       </Row>
+-      <Field label="Ordine elaborazione file">
++      <Field label="File processing order">
+         <CustomSelect style={inputStyle} value={p('fileOrder', 'name_asc')} onChange={u('fileOrder')}>
+-          <option value="name_asc">Nome crescente (A → Z)</option>
+-          <option value="name_desc">Nome decrescente (Z → A)</option>
+-          <option value="date_asc">Data modifica crescente (più vecchi prima)</option>
+-          <option value="date_desc">Data modifica decrescente (più recenti prima)</option>
+-          <option value="size_asc">Dimensione crescente (più piccoli prima)</option>
++          <option value="name_asc">Name ascending (A → Z)</option>
++          <option value="name_desc">Name descending (Z → A)</option>
++          <option value="date_asc">Modified date ascending (oldest first)</option>
++          <option value="date_desc">Modified date descending (newest first)</option>
++          <option value="size_asc">Size ascending (smallest first)</option>
+         </CustomSelect>
+       </Field>
+       {!isListMode && (
+-        <Field label="Su errore file singolo">
++        <Field label="On single-file error">
+           <CustomSelect style={inputStyle} value={p('onFileError', 'skip')} onChange={u('onFileError')}>
+-            <option value="skip">Salta e continua con il file successivo</option>
+-            <option value="stop">Interrompi la pipeline</option>
+-            <option value="move_error">Sposta in directory errori e continua</option>
++            <option value="skip">Skip and continue with the next file</option>
++            <option value="stop">Stop the pipeline</option>
++            <option value="move_error">Move to error directory and continue</option>
+           </CustomSelect>
+         </Field>
+       )}

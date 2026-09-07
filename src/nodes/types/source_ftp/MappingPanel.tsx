@@ -137,7 +137,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
     }
   }
 
-  const formatLabel = fileFormat === 'list_files' ? 'Lista file' : fileFormat.toUpperCase()
+  const formatLabel = fileFormat === 'list_files' ? 'File list' : fileFormat.toUpperCase()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -145,9 +145,9 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
-          Schema di uscita
+          Output schema
           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
-            — campi propagati ai nodi successivi
+            — fields propagated to downstream nodes
           </span>
         </div>
       </div>
@@ -157,12 +157,12 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Info formato */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 11 }}>
         <i className="ti ti-server" style={{ fontSize: 13, color: ACCENT }} />
-        <span style={{ color: '#9a9aaa' }}>Formato:</span>
+        <span style={{ color: '#9a9aaa' }}>Format:</span>
         <span style={{ padding: '1px 7px', borderRadius: 8, fontSize: 10, background: '#1a3a6a', color: ACCENT, fontWeight: 600 }}>
           {formatLabel}
         </span>
         <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>
-          {isFixed ? 'schema fisso' : `${schema.length} campi`}
+          {isFixed ? 'fixed schema' : `${schema.length} fields`}
         </span>
       </div>
 
@@ -171,10 +171,10 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '7px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #22d3ee30', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-arrow-right" style={{ fontSize: 10, color: '#22d3ee', flexShrink: 0, marginTop: 1 }} />
           <span>
-            Il campo <code style={{ color: '#22d3ee' }}>content</code>{fileFormat === 'json' ? '/raw' : ''} contiene il file grezzo —
-            collegalo a un <strong style={{ color: '#22d3ee' }}>
+            The <code style={{ color: '#22d3ee' }}>content</code>{fileFormat === 'json' ? '/raw' : ''} field contains the raw file —
+            connect it to a <strong style={{ color: '#22d3ee' }}>
               {fileFormat === 'xml' ? 'XML Parser' : 'JSON Parser'}
-            </strong> per estrarne i dati strutturati.
+            </strong> to extract the structured data.
           </span>
         </div>
       )}
@@ -183,7 +183,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
       {isFixed && fixedSchema && (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-            {['Campo', 'Tipo'].map((h) => (
+            {['Field', 'Type'].map((h) => (
               <div key={h} style={{ fontSize: 10, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>
@@ -202,12 +202,12 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
           {schema.length === 0 ? (
             <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
               <i className="ti ti-file-search" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-              Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.
+              Add the fields manually or configure them after running the flow.
             </div>
           ) : (
             <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-                {['Campo', 'Tipo', ''].map((h, i) => (
+                {['Field', 'Type', ''].map((h, i) => (
                   <div key={i} style={{ fontSize: 10, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
                 ))}
               </div>
@@ -215,7 +215,7 @@ export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, alignItems: 'center', padding: '4px 8px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: idx < schema.length - 1 ? '0.5px solid #2a3349' : 'none' }}>
                   <input type="text" value={field.name}
                     onChange={(e) => updateField(idx, 'name', e.target.value)}
-                    style={inputStyle} placeholder="nome_campo" />
+                    style={inputStyle} placeholder="field_name" />
                   <CustomSelect value={field.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
                     style={{ ...inputStyle, padding: '3px 4px' }}>
                     {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}

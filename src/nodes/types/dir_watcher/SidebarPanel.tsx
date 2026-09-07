@@ -57,9 +57,9 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
   }, [pool, node.data.laneId])
 
   const sourceLabel =
-    pathSource === 'lane_var' ? '◎ Variabile Lane' :
-    pathSource === 'flow'     ? '→ Da flusso'      :
-    '📁 Statico'
+    pathSource === 'lane_var' ? '◎ Lane variable' :
+    pathSource === 'flow'     ? '→ From flow'      :
+    '📁 Static'
 
   const sourceBadgeColor =
     pathSource === 'lane_var' ? '#a78bfa' :
@@ -104,10 +104,10 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {pathSource === 'lane_var' && (
-        <Field label="Variabile Lane">
+        <Field label="Lane variable">
           {laneVars.length > 0 ? (
             <CustomSelect style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')}>
-              <option value="">— seleziona —</option>
+              <option value="">— select —</option>
               {laneVars.map((v) => (
                 <option key={v.id} value={v.name}>
                   {v.name}{v.value ? ` = "${v.value}"` : ''}
@@ -116,14 +116,14 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
             </CustomSelect>
           ) : (
             <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '4px 0' }}>
-              Nessuna variabile stringa nella lane
+              No string variable in the lane
             </div>
           )}
         </Field>
       )}
 
       {pathSource === 'flow' && (
-        <Field label="Campo path dal flusso" hint={!hasInput ? '⚠ Nessun edge in ingresso' : undefined}>
+        <Field label="Path field from flow" hint={!hasInput ? '⚠ No incoming edge' : undefined}>
           <input style={{ ...inputStyle, borderColor: !hasInput ? '#ff5f57' : '#3a4a6a' }}
             value={p('pathField', 'path')} onChange={u('pathField')} placeholder="path" />
         </Field>
@@ -148,7 +148,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
       })()}
 
       {/* Pattern glob */}
-      <Field label="Pattern file">
+      <Field label="File pattern">
         <input style={inputStyle} value={p('pattern', '*')} onChange={u('pattern')} placeholder="*.csv" />
       </Field>
 
@@ -174,8 +174,8 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
       {mode === 'watch' && (
         <div style={{ display: 'flex', gap: 4 }}>
           {[
-            { value: 'oneshot',  label: 'Una volta' },
-            { value: 'continuo', label: 'Continuo'  },
+            { value: 'oneshot',  label: 'Once' },
+            { value: 'continuo', label: 'Continuous'  },
           ].map((sm) => (
             <button key={sm.value} onClick={() => updateProp(nodeId, 'submode', sm.value)}
               style={{
@@ -193,7 +193,7 @@ export function DirWatcherSidebarPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
         <i className="ti ti-mouse" style={{ fontSize: 11 }} />
-        Doppio click per la configurazione completa
+        Double-click for the full configuration
       </div>
     </div>
   )
