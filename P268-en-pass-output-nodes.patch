@@ -1,0 +1,1453 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index 95d36b7..064912b 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -15,6 +15,7 @@
+   "0 = illimitato": "0 = unlimited",
+   "0 = nessun limite": "0 = no limit",
+   "0 = nessun limite (fino a fine partizione)": "0 = no limit (until end of partition)",
++  "0 = nessun limite — utile per evitare log giganti": "0 = no limit — useful to avoid huge logs",
+   "0 = nessuna scadenza": "0 = no expiry",
+   "0 = rimane attivo finché il runner non viene fermato": "0 = stays active until the runner is stopped",
+   "0/vuoto = tutte le pagine": "0/empty = all pages",
+@@ -22,10 +23,13 @@
+   "? contiene chiave": "? contains key",
+   "@> filtra": "@> filter",
+   "AMQP (porta 5672)": "AMQP (port 5672)",
++  "API cloud Mailgun": "Mailgun cloud API",
++  "API cloud SendGrid": "SendGrid cloud API",
+   "Abilitato": "Enabled",
+   "Accompagna il motivo «stop deliberato» nei nodi interrotti e nel log.": "Accompanies the «deliberate stop» reason in interrupted nodes and in the log.",
+   "Aggiorna il commento della versione corrente (non crea una nuova versione)": "Update the current version comment (does not create a new version)",
+   "Aggiornamento variabili": "Variables refresh",
++  "Aggiunge i dati in fondo al file esistente": "Appends the data at the end of the existing file",
+   "Aggiungi header": "Add header",
+   "Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.": "Add the fields manually or configure them after running the flow.",
+   "Aggiungi lane": "Add lane",
+@@ -34,6 +38,8 @@
+   "Aggiungi una risorsa Kafka dalla resource strip, poi selezionala nel tab Connessione.": "Add a Kafka resource from the resource strip, then select it in the Connection tab.",
+   "Aggregazione": "Aggregation",
+   "Algoritmo": "Algorithm",
++  "Allegati": "Attachments",
++  "Alta": "High",
+   "Alternativa al topic fisso — sottoscrivi a tutti i topic che corrispondono": "Alternative to the fixed topic — subscribe to all matching topics",
+   "Ambienti": "Environments",
+   "Ambienti / profili (test, dev, prod)": "Environments / profiles (test, dev, prod)",
+@@ -47,15 +53,21 @@
+   "Aspetta che il monte esaurisca le righe (le processa/logga tutte), poi ferma.": "Waits for the upstream to exhaust its rows (processes/logs them all), then stops.",
+   "Attende che il file non cambi prima di emetterlo": "Waits for the file to stop changing before emitting it",
+   "Attesa massima per nuovi messaggi prima di chiudere": "Maximum wait for new messages before closing",
++  "Attesa max prima di inviare batch": "Max wait before sending a batch",
+   "Attesa prima di processare — evita eventi doppi": "Wait before processing — avoids duplicate events",
++  "Attivo": "Active",
+   "Attributi (separati da virgola)": "Attributes (comma-separated)",
+   "Autentica le credenziali di ogni riga contro LDAP (search-then-bind).": "Authenticates the credentials of each row against LDAP (search-then-bind).",
+   "Autenticazione": "Authentication",
+   "Auto — dopo ricezione": "Auto — after reception",
+   "Avanzate": "Advanced",
+   "Azzera tutti i campi": "Clear all fields",
++  "BCC (opzionale)": "BCC (optional)",
++  "Bassa": "Low",
+   "Batch size (righe per batch)": "Batch size (rows per batch)",
++  "Batch — una sola mail con tutte le righe": "Batch — a single email with all rows",
+   "Binario": "Binary",
++  "Binario generico": "Generic binary",
+   "Blocca il flusso finché la condizione non è soddisfatta, poi sblocca e termina": "Blocks the flow until the condition is met, then unblocks and ends",
+   "Body JSON completo": "Full JSON body",
+   "Branch (opz.)": "Branch (opt.)",
+@@ -63,20 +75,35 @@
+   "Bufferizza il flusso e genera un report PDF/HTML/Excel con tabelle e grafici.": "Buffers the flow and generates a PDF/HTML/Excel report with tables and charts.",
+   "Byte scritti": "Bytes written",
+   "Bytes (binario)": "Bytes (binary)",
++  "Bytes raw": "Raw bytes",
+   "Bytes — campo payload come base64": "Bytes — payload field as base64",
++  "CC (opzionale)": "CC (optional)",
+   "Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).": "Computes window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).",
+   "Campi JSON": "JSON fields",
+   "Campi JSON del payload espansi in root": "Payload JSON fields expanded at root",
+   "Campi chiave": "Key fields",
+   "Campi della riga emessa": "Emitted row fields",
++  "Campionamento": "Sampling",
++  "Campionamento casuale": "Random sampling",
++  "Campionamento uniforme — 1 ogni N righe": "Uniform sampling — 1 every N rows",
++  "Campo allegato": "Attachment field",
++  "Campo body HTML": "HTML body field",
+   "Campo chiave": "Key field",
++  "Campo della riga": "Row field",
++  "Campo della riga che contiene l'email": "Row field that contains the email",
++  "Campo della riga con il contenuto binario (base64) — es. da Report Generator PDF": "Row field with the binary content (base64) — e.g. from Report Generator PDF",
+   "Campo della riga da usare come JMSCorrelationID": "Row field to use as JMSCorrelationID",
++  "Campo email destinatario": "Recipient email field",
+   "Campo ingresso": "Input field",
+   "Campo owner": "Owner field",
++  "Campo partizione": "Partition field",
+   "Campo path dal flusso": "Path field from flow",
+   "Campo repo": "Repo field",
++  "Campo specifico": "Specific field",
+   "Campo uscita": "Output field",
++  "Carattere quote": "Quote character",
+   "Cattura sul nodo — abilita handle catch": "Catch on node — enables catch handle",
++  "Chiave messaggio": "Message key",
+   "Chiudi": "Close",
+   "Clicca per inserire nel valore:": "Click to insert into the value:",
+   "Client — ack manuale": "Client — manual ack",
+@@ -93,11 +120,15 @@
+   "Configura una query nel tab Query prima di campionare.": "Configure a query in the Query tab before sampling.",
+   "Configura una tabella o una query personalizzata prima di rilevare lo schema.": "Configure a table or a custom query before detecting the schema.",
+   "Configurazione": "Configuration",
++  "Configurazione SMTP": "SMTP configuration",
++  "Configurazione log": "Log configuration",
++  "Configurazione producer": "Producer configuration",
+   "Confluent Schema Registry o compatibile": "Confluent Schema Registry or compatible",
+   "Confronto": "Comparison",
+   "Connessa": "Connected",
+   "Connessione": "Connection",
+   "Connessione broker": "Broker connection",
++  "Console browser": "Browser console",
+   "Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.": "Kafka consumer — reads messages from topics with offset and deserialization configuration.",
+   "Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.": "ActiveMQ consumer/producer — STOMP, OpenWire, AMQP protocols.",
+   "Contatore controlli effettuati": "Counter of checks performed",
+@@ -108,10 +139,15 @@
+   "Correlation ID dal campo": "Correlation ID from field",
+   "Cosa fa": "What it does",
+   "Cosa fa questo nodo?": "What does this node do?",
++  "Crea directory se non esiste": "Create directory if missing",
++  "Crea sempre un nuovo file — aggiunge suffisso numerico se esiste già": "Always creates a new file — adds a numeric suffix if it already exists",
+   "Crescente": "Ascending",
+   "Cronologia": "History",
+   "Cronologia versioni": "Version history",
+   "Ctrl+Shift+F formatta · Alt+T suggerimenti": "Ctrl+Shift+F format · Alt+T suggestions",
++  "DEBUG — dettaglio massimo": "DEBUG — maximum detail",
++  "Da campo — usa il campo HTML/testo dalla riga (es. da Report Generator)": "From field — use the HTML/text field from the row (e.g. from Report Generator)",
++  "Da campo — usa un campo della riga": "From field — use a row field",
+   "Da configurazione": "From configuration",
+   "Data creazione": "Creation date",
+   "Data modifica": "Modified date",
+@@ -121,24 +157,31 @@
+   "Data ultima modifica": "Last modified date",
+   "Data ultima modifica (se disponibile)": "Last modified date (if available)",
+   "Decrescente": "Descending",
++  "Default (hash della chiave)": "Default (key hash)",
+   "Delay retry (s)": "Retry delay (s)",
+   "Delay tra retry (secondi)": "Delay between retries (seconds)",
+   "Delete profilo": "Delete profile",
+   "Descrizione": "Description",
+   "Deserializzazione": "Deserialization",
++  "Destinatari": "Recipients",
+   "Destinazione": "Destination",
++  "Destinazione remota": "Remote destination",
+   "Dettaglio del log inviato": "Detail of the sent log",
++  "Di solito il campo 'content' dal nodo Report Generator": "Usually the 'content' field from the Report Generator node",
+   "Dim. min (bytes)": "Min size (bytes)",
+   "Dimensione": "Size",
+   "Dimensione crescente (più piccoli prima)": "Size ascending (smallest first)",
+   "Dimensione in byte": "Size in bytes",
++  "Dimensione in byte del file": "File size in bytes",
+   "Dimensione in bytes": "Size in bytes",
+   "Dimensione pagina": "Page size",
+   "Directory archivio": "Archive directory",
+   "Directory contenitore": "Container directory",
++  "Directory remota": "Remote directory",
+   "Direzione": "Direction",
+   "Disabilitato": "Disabled",
+   "Disponibile solo nell'app desktop.": "Available only in the desktop app.",
++  "Dopo N righe il nodo smette di loggare": "After N rows the node stops logging",
+   "Dopo l'elaborazione": "After processing",
+   "Dopo l'input (a ramo esaurito)": "After input (when the branch is exhausted)",
+   "Doppio click per la configurazione completa": "Double-click for the full configuration",
+@@ -146,23 +189,32 @@
+   "Durable subscription (solo topic)": "Durable subscription (topic only)",
+   "Durata (min)": "Duration (min)",
+   "Durata in millisecondi": "Duration in milliseconds",
++  "Durata trasferimento in ms": "Transfer duration in ms",
+   "Durata ultima richiesta": "Last request duration",
++  "ERROR — errore": "ERROR — error",
+   "Edge — emette solo al cambio di stato (transizione)": "Edge — emits only on state change (transition)",
+   "Elaborazione": "Processing",
+   "Elementi per pagina": "Items per page",
+   "Elimina": "Delete",
+   "Elimina il file dal server — irreversibile": "Deletes the file from the server — irreversible",
+   "Elimina questa versione": "Delete this version",
++  "Email TO (una per riga o separate da virgola)": "TO email (one per line or comma-separated)",
++  "Email mittente": "Sender email",
++  "Emette 1 riga di stato dopo il completamento — path, righe scritte, byte": "Emits 1 status row after completion — path, rows written, bytes",
+   "Emette una riga ad ogni rilevazione positiva — rimane sempre attivo": "Emits a row on every positive detection — stays always active",
+   "Emette una riga solo quando lo stato cambia (falso→vero o vero→falso)": "Emits a row only when the state changes (false→true or true→false)",
+   "Endpoint da controllare": "Endpoint to check",
+   "Entità": "Entity",
+   "Entrambe le transizioni": "Both transitions",
++  "Entrambi": "Both",
++  "Entrambi — campo + lista fissa in CC": "Both — field + fixed list in CC",
+   "Enumera file esistenti in una directory": "Enumerates existing files in a directory",
+   "Error handler — la lane decide": "Error handler — the lane decides",
+   "Errore": "Error",
+   "Errore — blocca il server": "Error — block the server",
+   "Errore — interrompe la pipeline": "Error — stops the pipeline",
++  "Es: 10 = logga circa il 10% delle righe": "E.g. 10 = logs about 10% of the rows",
++  "Es: 10 = logga la riga 1, 11, 21, 31...": "E.g. 10 = logs row 1, 11, 21, 31...",
+   "Esatto": "Exact",
+   "Escludi i PR": "Exclude PRs",
+   "Esecuzione riuscita": "Execution succeeded",
+@@ -173,12 +225,16 @@
+   "Esporta le funzioni come libreria .ffpel riusabile in altri progetti": "Export the functions as a reusable .ffpel library for other projects",
+   "Esporta lo schema dei campi su file (.json)": "Export the field schema to a file (.json)",
+   "Esporta…": "Export…",
++  "Espressione chiave": "Key expression",
++  "Espressione custom": "Custom expression",
++  "Espressione per calcolare il topic da un campo della riga": "Expression to compute the topic from a row field",
+   "Essenziale": "Essential",
+   "Estensione senza punto": "Extension without dot",
+   "Estrae e trasforma dati JSON in flussi strutturati.": "Extracts and transforms JSON data into structured flows.",
+   "Estrae e trasforma dati XML in flussi strutturati.": "Extracts and transforms XML data into structured flows.",
+   "Etichetta": "Label",
+   "Etichetta breve (canvas)": "Short label (canvas)",
++  "Etichetta visibile nel log per identificare questo nodo": "Label shown in the log to identify this node",
+   "Età max (minuti)": "Max age (minutes)",
+   "Eventi": "Events",
+   "Evita di emettere lo stesso file più volte nella stessa esecuzione": "Avoids emitting the same file multiple times in the same run",
+@@ -192,6 +248,7 @@
+   "Filtro LDAP": "LDAP filter",
+   "Filtro messaggi SQL-like — es: type='order'": "SQL-like message filter — e.g. type='order'",
+   "Filtro nome file — lascia vuoto per tutti. Es: *.csv, report_*.json": "File name filter — leave empty for all. E.g. *.csv, report_*.json",
++  "Finestra dedicata (Log Viewer)": "Dedicated window (Log Viewer)",
+   "Firma HMAC (standard webhook)": "HMAC signature (webhook standard)",
+   "Flag retain": "Retain flag",
+   "Flow — riceve righe dal flusso, costruisce header dai campi": "Flow — receives rows from the flow, builds headers from the fields",
+@@ -200,6 +257,9 @@
+   "Formato": "Format",
+   "Formato ISO 8601 — es: 2024-01-15T08:00:00Z": "ISO 8601 format — e.g. 2024-01-15T08:00:00Z",
+   "Formato chiave": "Key format",
++  "Formato file": "File format",
++  "Formato messaggio": "Message format",
++  "Formato tab-separated": "Tab-separated format",
+   "Formato valore": "Value format",
+   "Frequenza & Limiti": "Frequency & limits",
+   "Funzioni": "Functions",
+@@ -207,6 +267,7 @@
+   "Funzioni utente FPEL": "FPEL user functions",
+   "GET — header + body (ignorato)": "GET — headers + body (ignored)",
+   "Gate — blocca finché vero, sblocca una volta e termina": "Gate — blocks until true, unblocks once and ends",
++  "Genera un errore se il file esiste già": "Raises an error if the file already exists",
+   "Genera →": "Generate →",
+   "Generale": "General",
+   "Glob — es: *.csv, data_*.json": "Glob — e.g. *.csv, data_*.json",
+@@ -219,11 +280,13 @@
+   "Header JMS del messaggio": "Message JMS headers",
+   "Header da esporre": "Headers to expose",
+   "Header firma": "Signature header",
++  "Headers statici (JSON)": "Static headers (JSON)",
+   "I parametri di connessione si configurano nelle proprietà della risorsa": "Connection parameters are set in the resource properties",
+   "I valori dei segreti NON sono nell'artifact: vanno forniti sulla macchina di destinazione (keychain o variabili d'ambiente).": "Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).",
+   "ID del nodo": "Node ID",
+   "ID del nodo che ha generato l'errore": "ID of the node that raised the error",
+   "ID univoco (X-Webhook-Delivery o hash payload)": "Unique ID (X-Webhook-Delivery or payload hash)",
++  "INFO — normale": "INFO — normal",
+   "IP del chiamante": "Caller IP",
+   "Identifica il gruppo — Kafka distribuisce le partizioni tra i consumer dello stesso gruppo": "Identifies the group — Kafka distributes the partitions among consumers of the same group",
+   "Identificatore opzionale del client per il monitoring": "Optional client identifier for monitoring",
+@@ -239,7 +302,9 @@
+   "In caso di errore": "On error",
+   "In memoria — si azzera a ogni esecuzione": "In memory — resets each run",
+   "Includi i PR": "Include PRs",
++  "Includi intestazione": "Include header",
+   "Includi metadati Kafka nel record": "Include Kafka metadata in the record",
++  "Includi numero riga nel messaggio": "Include row number in the message",
+   "Innesco": "Trigger",
+   "Integrità e deduplicazione": "Integrity and deduplication",
+   "Interroga una directory LDAP e produce una riga per voce.": "Queries an LDAP directory and produces one row per entry.",
+@@ -269,11 +334,20 @@
+   "Leggi dall'inizio — tutti i messaggi disponibili nella retention": "Read from the beginning — all messages available in the retention",
+   "Leggi solo i messaggi nuovi dal momento della connessione": "Read only new messages from the moment of connection",
+   "Lettura non riuscita": "Read failed",
++  "Limita output a N caratteri per riga": "Limit output to N characters per row",
+   "Limite file": "File limit",
+   "Limite righe": "Row limit",
+   "Lista file": "File list",
++  "Livello": "Level",
+   "Livello QoS": "QoS level",
++  "Lo schema di uscita è identico allo schema di ingresso.": "The output schema is identical to the input schema.",
+   "Lo schema viene propagato automaticamente ai nodi collegati.": "The schema is propagated automatically to the connected nodes.",
++  "Logga 1 ogni N righe": "Log 1 every N rows",
++  "Logga ogni riga — attenzione su volumi alti": "Logs every row — careful on high volumes",
++  "Logga solo le prime N righe del flusso": "Logs only the first N rows of the flow",
++  "Logga una percentuale casuale delle righe": "Logs a random percentage of the rows",
++  "MIME type allegato": "Attachment MIME type",
++  "Manuale (numero fisso)": "Manual (fixed number)",
+   "Mapping campi input → output": "Field mapping input → output",
+   "Massimizza": "Maximize",
+   "Max elementi (opz.)": "Max items (opt.)",
+@@ -290,10 +364,14 @@
+   "Metadati messaggio": "Message metadata",
+   "Metodi accettati": "Accepted methods",
+   "Metodo": "Method",
++  "Mittente": "Sender",
+   "Modalità": "Mode",
+   "Modalità acquisizione": "Capture mode",
++  "Modalità destinatari": "Recipients mode",
++  "Modalità invio": "Send mode",
+   "Modalità operativa": "Operating mode",
+   "Modalità output": "Output mode",
++  "Modalità scrittura": "Write mode",
+   "Modifica profilo": "Edit profile",
+   "Monitor — dove pushare i log (opzionale)": "Monitor — where to push logs (optional)",
+   "Monitor — legge variabili di lane, sempre attivo": "Monitor — reads lane variables, always active",
+@@ -303,11 +381,13 @@
+   "Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.": "No incoming field. Connect an upstream source (e.g. a TMap) to pull its fields.",
+   "Nessun mapping definito. Aggiungi una riga per mappare i campi.": "No mapping defined. Add a row to map the fields.",
+   "Nessuna": "None",
++  "Nessuna chiave (null)": "No key (null)",
+   "Nessuna colonna rilevata — verifica la query e la connessione.": "No column detected — check the query and the connection.",
+   "Nessuna funzione definita.": "No functions defined.",
+   "Nessuna riga restituita.": "No rows returned.",
+   "Nessuna risorsa DB in questa lane. Aggiungine una dalla resource strip.": "No DB resource in this lane. Add one from the resource strip.",
+   "Nessuna risorsa GitHub collegata. Aggiungila dalla strip risorse e usa l'azione «source».": "No GitHub resource connected. Add it from the resource strip and use the «source» action.",
++  "Nessuna risorsa Kafka in questa lane.": "No Kafka resource in this lane.",
+   "Nessuna risorsa LDAP collegata. Aggiungi una risorsa LDAP dalla strip risorse e usa l'azione «query».": "No LDAP resource connected. Add an LDAP resource from the resource strip and use the «query» action.",
+   "Nessuna risorsa collegata al nodo.": "No resource connected to the node.",
+   "Nessuna risorsa disponibile in questa lane. Aggiungine una dalla resource strip.": "No resource available in this lane. Add one from the resource strip.",
+@@ -317,8 +397,12 @@
+   "Nessuna variabile stringa disponibile in questa lane.": "No string variable available in this lane.",
+   "Nessuna variabile stringa nella lane": "No string variable in the lane",
+   "No — commit manuale (at-least-once)": "No — manual commit (at-least-once)",
++  "No — errore se la directory non esiste": "No — error if the directory does not exist",
++  "No — nodo disabilitato (passthrough silenzioso)": "No — node disabled (silent passthrough)",
+   "No — salta durante l'esecuzione": "No — skip during execution",
++  "No — scrivi direttamente nel file finale": "No — write directly to the final file",
+   "No — sessione duratura": "No — durable session",
++  "No — solo dati": "No — data only",
+   "No — solo il payload deserializzato": "No — only the deserialized payload",
+   "No — solo la directory specificata": "No — only the specified directory",
+   "No — solo root": "No — root only",
+@@ -332,9 +416,13 @@
+   "Nome decrescente (Z → A)": "Name descending (Z → A)",
+   "Nome del campo della riga che contiene il path della directory": "Name of the row field that contains the directory path",
+   "Nome del file": "File name",
++  "Nome del file scritto": "Name of the written file",
+   "Nome file": "File name",
++  "Nome file allegato": "Attachment file name",
+   "Nome file con estensione": "File name with extension",
+   "Nome header da controllare": "Header name to check",
++  "Nome mittente": "Sender name",
++  "Nome topic": "Topic name",
+   "Nome visualizzato": "Display name",
+   "Non scarica — emette una riga per ogni file trovato con nome, path, dimensione, data": "Does not download — emits one row per file found with name, path, size, date",
+   "Non testata": "Untested",
+@@ -344,17 +432,23 @@
+   "Note tecniche, avvertenze, TODO…": "Technical notes, warnings, TODO…",
+   "Nullable — clicca per NOT NULL": "Nullable — click for NOT NULL",
+   "Numero di retry": "Retry count",
++  "Numero di righe da loggare": "Number of rows to log",
++  "Numero di righe scritte": "Number of rows written",
++  "Numero partizione": "Partition number",
+   "Nuovi + modifiche": "New + updates",
+   "Nuovo profilo": "New profile",
+   "Offset iniziale": "Initial offset",
++  "Oggetto": "Subject",
+   "Ogni file produce una riga con questi campi": "Each file produces one row with these fields",
+   "One-shot: attende un batch di eventi, emette e termina. Continuo: la lane si ri-esegue per ogni gruppo di eventi (con commit) finché non premi Stop.": "One-shot: waits for a batch of events, emits and ends. Continuous: the lane re-runs for each group of events (with commit) until you press Stop.",
+   "OpenWire (porta 61616) — nativo ActiveMQ": "OpenWire (port 61616) — native ActiveMQ",
+   "Operatori JSONB PostgreSQL — clicca per inserire": "PostgreSQL JSONB operators — click to insert",
++  "Opzioni": "Options",
+   "Opzioni Scan": "Scan options",
+   "Opzioni Watch": "Watch options",
+   "Opzioni avanzate": "Advanced options",
+   "Opzioni consumer": "Consumer options",
++  "Opzioni invio": "Send options",
+   "Opzioni lettura": "Read options",
+   "Opzioni producer": "Producer options",
+   "Opzioni publisher": "Publisher options",
+@@ -365,27 +459,36 @@
+   "Ordine elaborazione file": "File processing order",
+   "Organizzazione": "Organization",
+   "Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).": "Watches a directory for new files (watch) or enumerates its contents (scan).",
++  "Output del nodo": "Node output",
++  "Pannello log FlowPilot": "FlowPilot log panel",
+   "Parametri del nodo": "Node parameters",
+   "Partizione": "Partition",
++  "Partizioni": "Partitions",
+   "Path + data modifica — riemette se il file è cambiato": "Path + modified date — re-emits if the file changed",
+   "Path assoluto del file": "Absolute file path",
+   "Path assoluto della directory da osservare": "Absolute path of the directory to watch",
++  "Path completo del file sul server": "Full path of the file on the server",
+   "Path completo sul server": "Full path on the server",
+   "Path configurato direttamente qui sotto": "Path configured directly below",
+   "Path del file scritto": "Path of the written file",
++  "Path della directory di destinazione sul server": "Destination directory path on the server",
+   "Path file stato": "State file path",
+   "Path remoto": "Remote path",
+   "Path su cui è arrivato l'evento": "Path the event arrived on",
+   "Pattern file": "File pattern",
++  "Pattern tipico:": "Typical pattern:",
+   "Pattern topic (regex)": "Topic pattern (regex)",
+   "Pausa tra un controllo e il successivo": "Pause between one check and the next",
+   "Payload JSON o stringa": "JSON or string payload",
+   "Per hash contenuto — rileva anche rinominati": "By content hash — also detects renamed files",
+   "Per modificare i parametri di connessione usa le proprietà della risorsa nella resource strip": "To edit the connection parameters use the resource properties in the resource strip",
+   "Per path — stesso path non viene riemesso": "By path — same path is not re-emitted",
++  "Per riga — una mail per ogni riga in ingresso": "Per row — one email per incoming row",
+   "Per-riga (dalla lista in ingresso)": "Per-row (from the incoming list)",
++  "Percentuale righe da loggare (1-100)": "Percentage of rows to log (1-100)",
+   "Percorso": "Path",
+   "Percorso directory o file sul server": "Directory or file path on the server",
++  "Permessi file (chmod)": "File permissions (chmod)",
+   "Persistente": "Persistent",
+   "Persistenza deduplicazione": "Deduplication persistence",
+   "Piattaforma": "Platform",
+@@ -394,8 +497,11 @@
+   "Porta": "Port",
+   "Porta di ingresso da un'altra lane — riceve dal canale bridge.": "Entry port from another lane — receives from the bridge channel.",
+   "Porta di uscita dal flusso della lane — pubblica sul canale bridge.": "Exit port from the lane flow — publishes to the bridge channel.",
++  "Prefisso messaggio": "Message prefix",
+   "Preleva dati da GitHub (repo, issue/PR, commit) via API REST.": "Fetches data from GitHub (repos, issues/PRs, commits) via REST API.",
+   "Prime 5 righe simulate. L'anteprima reale sarà disponibile con il backend collegato.": "First 5 simulated rows. The real preview will be available once the backend is connected.",
++  "Prime N righe": "First N rows",
++  "Priorità": "Priority",
+   "Procedi comunque (watchdog_matched: false)": "Proceed anyway (watchdog_matched: false)",
+   "Producer ActiveMQ — pubblica messaggi su queue o topic.": "ActiveMQ producer — publishes messages to queues or topics.",
+   "Profilo attivo (usato al Run)": "Active profile (used at Run)",
+@@ -419,18 +525,23 @@
+   "Raggruppa per": "Group by",
+   "Raw — testo grezzo in campo content": "Raw — raw text in content field",
+   "Recupera dati da un endpoint HTTP.": "Retrieves data from an HTTP endpoint.",
++  "Regione AWS": "AWS region",
+   "Repos (di un'org o utente)": "Repos (of an org or user)",
+   "Resilienza": "Resilience",
+   "Retry connessione": "Connection retry",
++  "Retry invio": "Send retries",
++  "Retry su errore": "Retry on error",
+   "Ricerca nelle sottocartelle": "Search in subfolders",
+   "Riceve eventi in ingresso, risponde 200 OK immediatamente, propaga row by row": "Receives incoming events, responds 200 OK immediately, propagates row by row",
+   "Riceve webhook — server condiviso con HMAC, buffer e dedup.": "Receives webhooks — shared server with HMAC, buffering and dedup.",
+   "Ricorsivo": "Recursive",
++  "Riemette le righe originali dopo la scrittura — utile per pipeline in catena": "Re-emits the original rows after writing — useful for chained pipelines",
+   "Righe aggiornate": "Rows updated",
+   "Righe elaborate": "Rows processed",
+   "Righe filtrate (scartate)": "Rows filtered (discarded)",
+   "Righe inserite": "Rows inserted",
+   "Righe lette dalla sorgente": "Rows read from the source",
++  "Righe originali invariate — il Log non modifica i dati": "Original rows unchanged — the Log does not modify the data",
+   "Righe rifiutate": "Rows rejected",
+   "Righe scritte nel file": "Rows written to the file",
+   "Rileva schema dalla query": "Detect schema from query",
+@@ -444,9 +555,12 @@
+   "Riprova, poi cattura sul nodo": "Retry, then catch on node",
+   "Riprova, poi error handler": "Retry, then error handler",
+   "Risorsa DB": "DB resource",
++  "Risorsa Kafka": "Kafka resource",
+   "Risorsa collegata": "Connected resource",
+   "Risponde HEAD/GET con header sintetici dalla riga corrente.": "Responds to HEAD/GET with synthetic headers from the current row.",
+   "SELECT base": "Basic SELECT",
++  "SSL/TLS (porta 465)": "SSL/TLS (port 465)",
++  "STARTTLS (porta 587)": "STARTTLS (port 587)",
+   "STOMP (porta 61613) — consigliato": "STOMP (port 61613) — recommended",
+   "STOMP è il più compatibile e semplice da configurare": "STOMP is the most compatible and simplest to configure",
+   "Salta e continua con il file successivo": "Skip and continue with the next file",
+@@ -468,9 +582,14 @@
+   "Schema output per ogni messaggio ricevuto": "Output schema for each received message",
+   "Schema output — per ogni evento": "Output schema — per event",
+   "Schema payload": "Payload schema",
++  "Schema riga di stato": "Status row schema",
++  "Schema soggetto": "Schema subject",
++  "Scrittura atomica": "Atomic write",
+   "Scrive file su server FTP, FTPS o SFTP.": "Writes files to FTP, FTPS or SFTP servers.",
++  "Scrive prima in un file temporaneo (.tmp), poi rinomina — evita file corrotti in caso di errore": "Writes first to a temporary file (.tmp), then renames — avoids corrupted files on error",
+   "Scrive righe in una tabella di database.": "Writes rows into a database table.",
+   "Scrive righe su file.": "Writes rows to a file.",
++  "Se il file esiste, lo sovrascrive completamente": "If the file exists, overwrites it completely",
+   "Se impostato, usa questo campo come topic dinamico (sovrascrive il topic statico)": "If set, uses this field as the dynamic topic (overrides the static topic)",
+   "Se l'handle catch non è collegato a nessun nodo, le eccezioni vengono gestite dalla configurazione globale della lane.": "If the catch handle isn't connected to any node, exceptions are handled by the lane's global configuration.",
+   "Se timeout scaduto": "If timeout expired",
+@@ -484,15 +603,19 @@
+   "Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.": "Serializes flow rows into XML strings with configurable structure and namespaces.",
+   "Serializzazione": "Serialization",
+   "Serializzazione payload": "Payload serialization",
++  "Server mail standard": "Standard mail server",
++  "Sicurezza": "Security",
+   "Sincronismo": "Sync",
+   "Sincronizzato con Timeout nel tab Avanzate — 0 = infinito": "Synced with Timeout in the Advanced tab — 0 = infinite",
+   "Smista le righe su N uscite in base a condizioni — first-match.": "Routes rows to N outputs based on conditions — first-match.",
+   "Solo GET": "GET only",
+   "Solo HEAD": "HEAD only",
++  "Solo SFTP/FTP Unix — es: 644, 755": "SFTP/FTP Unix only — e.g. 644, 755",
+   "Solo falling — quando diventa falso (servizio va down)": "Falling only — when it becomes false (service goes down)",
+   "Solo nuovi file": "New files only",
+   "Solo presente (qualsiasi valore)": "Present only (any value)",
+   "Solo rising — quando diventa vero (servizio torna su)": "Rising only — when it becomes true (service comes back up)",
++  "Sorgente body": "Body source",
+   "Sorgente dati": "Data source",
+   "Sorgente delle righe": "Row source",
+   "Sorgente path directory": "Directory path source",
+@@ -500,14 +623,19 @@
+   "Sposta in directory errori e continua": "Move to error directory and continue",
+   "Sposta in una directory di archivio": "Move to an archive directory",
+   "Stabilità file (ms)": "File stability (ms)",
++  "Statici — lista email fissa": "Static — fixed email list",
+   "Stato": "State",
+   "Stato precedente alla transizione": "State before the transition",
+   "Status — campi emessi verso il nodo successivo": "Status — fields emitted to the next node",
++  "Strategia partizione": "Partition strategy",
+   "Stream — emette ad ogni rilevazione positiva, rimane attivo": "Stream — emits on every positive detection, stays active",
+   "String (testo grezzo)": "String (raw text)",
++  "String plain": "Plain string",
+   "Su errore file singolo": "On single-file error",
+   "Su file — persiste tra esecuzioni": "To file — persists across runs",
++  "Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.": "On high-volume flows, log only a subset of rows to avoid flooding the log.",
+   "Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.": "MQTT subscriber — receives messages from MQTT/MQTTS brokers.",
++  "Supporta variabili: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}": "Supports variables: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}",
+   "Supporta wildcard: + (livello singolo), # (tutti i livelli)": "Supports wildcards: + (single level), # (all levels)",
+   "Svuota canvas": "Clear canvas",
+   "Svuota query": "Clear query",
+@@ -515,19 +643,30 @@
+   "Sì — PERSISTENT": "Yes — PERSISTENT",
+   "Sì — aggiungi campi _kafka_*": "Yes — add _kafka_* fields",
+   "Sì — commit automatico ogni intervallo": "Yes — automatic commit every interval",
++  "Sì — crea automaticamente le directory mancanti": "Yes — automatically create missing directories",
+   "Sì — il broker mantiene l'ultimo messaggio": "Yes — the broker keeps the last message",
+   "Sì — include subdir": "Yes — include subdir",
+   "Sì — includi sottocartelle": "Yes — include subfolders",
++  "Sì — logga normalmente": "Yes — logs normally",
+   "Sì — mantieni messaggi offline": "Yes — keep messages offline",
++  "Sì — mostra il contatore righe": "Yes — show the row counter",
+   "Sì — nessuna persistenza": "Yes — no persistence",
+   "Sì — prima riga è intestazione": "Yes — first row is header",
++  "Sì — scrivi in .tmp poi rinomina (consigliato)": "Yes — write to .tmp then rename (recommended)",
++  "Sì — scrivi nomi colonne nella prima riga": "Yes — write column names in the first row",
+   "Tab inserisce 2 spazi. Il codice viene eseguito sul server.": "Tab inserts 2 spaces. The code runs on the server.",
+   "Tabella": "Table",
+   "Tabella — IGNORATA": "Table — IGNORED",
++  "Template HTML": "HTML template",
++  "Template inline — scrivi il template qui": "Inline template — write the template here",
++  "Template messaggio": "Message template",
++  "Template messaggio log": "Log message template",
+   "Tempo di ascolto (sec)": "Listen time (sec)",
+   "Tempo di esposizione (sec)": "Exposure time (sec)",
+   "Test in corso…": "Testing…",
+   "Testo (toString)": "Text (toString)",
++  "Testo body": "Body text",
++  "Testo semplice": "Plain text",
+   "Testo strutturato": "Structured text",
+   "Testo — campo payload come stringa": "Text — payload field as string",
+   "Testo — una riga per linea": "Text — one row per line",
+@@ -541,6 +680,7 @@
+   "Timeout ricezione (ms)": "Receive timeout (ms)",
+   "Timeout richiesta (sec)": "Request timeout (sec)",
+   "Timeout watch (secondi)": "Watch timeout (seconds)",
++  "Timestamp completamento": "Completion timestamp",
+   "Timestamp del rilevamento": "Detection timestamp",
+   "Timestamp dell'eccezione": "Exception timestamp",
+   "Timestamp di partenza": "Start timestamp",
+@@ -549,6 +689,7 @@
+   "Tipo": "Type",
+   "Tipo / codice errore": "Error type / code",
+   "Tipo DB nativo": "Native DB type",
++  "Tipo chiave": "Key type",
+   "Tipo del nodo": "Node type",
+   "Tipo evento (X-Webhook-Event)": "Event type (X-Webhook-Event)",
+   "Tipo join": "Join type",
+@@ -557,7 +698,9 @@
+   "Topic da campo riga": "Topic from row field",
+   "Topic del messaggio": "Message topic",
+   "Topic di pubblicazione": "Publish topic",
++  "Topic dinamico": "Dynamic topic",
+   "Topic/i": "Topic(s)",
++  "Transazione": "Transaction",
+   "Transizione da emettere": "Transition to emit",
+   "Trascina per allargare": "Drag to widen",
+   "Trasferimento": "Transfer",
+@@ -567,15 +710,24 @@
+   "Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.": "Transforms, renames and converts the fields of each row with FPEL expressions.",
+   "Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.": "Visual multi-input/output transformer with mapping, lookup joins and conditional routing.",
+   "Trasformazione": "Transformation",
++  "Tutte le righe": "All rows",
+   "Tutti (new/update/rename/delete)": "All (new/update/rename/delete)",
+   "Tutti gli header HTTP ricevuti": "All received HTTP headers",
++  "Tutti i campi (key=value)": "All fields (key=value)",
+   "Tutti i campi status vengono anche scritti nelle variabili di lane come": "All status fields are also written to lane variables as",
++  "UUID casuale": "Random UUID",
+   "Un topic o più separati da virgola — es: ordini, clienti, prodotti": "One topic or several separated by commas — e.g. orders, customers, products",
+   "Una funzione per riga:": "One function per line:",
++  "Una ogni N righe": "One every N rows",
+   "Una volta": "Once",
+   "Una volta (one-shot)": "Once (one-shot)",
+   "Unisce due flussi su un campo chiave.": "Joins two flows on a key field.",
++  "Usa ${variabile} per topic dinamici": "Use ${variable} for dynamic topics",
+   "Usa il campo path da ogni riga in ingresso (richiede edge)": "Uses the path field from each incoming row (requires edge)",
++  "Usa {campo} per accedere ai valori della riga. Lascia vuoto per loggare la riga intera come JSON.": "Use {field} to access the row values. Leave empty to log the whole row as JSON.",
++  "Usa {nome_campo} per i valori della riga": "Use {field_name} for the row values",
++  "Usa {nome_campo} per includere valori dalla riga": "Use {field_name} to include row values",
++  "Usa {nome_campo} per valori dinamici": "Use {field_name} for dynamic values",
+   "Usata se non c'è una query personalizzata": "Used if there is no custom query",
+   "Usata se non c'è una query personalizzata nel tab Query": "Used if there is no custom query in the Query tab",
+   "Utente": "User",
+@@ -590,10 +742,13 @@
+   "Vengono <b>espanse a compile-time</b> nelle espressioni. Il corpo è una sola espressione e può usare\n            solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.": "They are <b>expanded at compile-time</b> in expressions. The body is a single expression and can use\n            only its parameters (and the built-in functions); no recursion, no redefining the built-ins.",
+   "Versione": "Version",
+   "Versione MQTT": "MQTT version",
++  "Versione schema": "Schema version",
+   "Vuoto = auto-generato": "Empty = auto-generated",
++  "WARN — attenzione": "WARN — warning",
+   "array JSON": "JSON array",
+   "attributi multi-valore": "multi-value attributes",
+   "base (solo la voce base)": "base (base entry only)",
++  "campi:": "fields:",
+   "campo_dest": "target_field",
+   "campo_sorgente": "source_field",
+   "chiudi": "close",
+@@ -658,6 +813,7 @@
+   "— seleziona —": "— select —",
+   "→ Da flusso": "→ From flow",
+   "→ Sposta": "→ Move",
++  "↺ Sovrascrive": "↺ Overwrite",
+   "⇩ Scarica e legge": "⇩ Download and read",
+   "⊂ canale non impostato": "⊂ channel not set",
+   "⊃ canale non impostato": "⊃ channel not set",
+@@ -670,5 +826,7 @@
+   "⚠ Ignorata: c'è una query personalizzata nel tab Query, il motore esegue quella": "⚠ Ignored: there is a custom query in the Query tab, the engine runs that one",
+   "⚠ Nessun edge in ingresso": "⚠ No incoming edge",
+   "✕ Elimina": "✕ Delete",
++  "✕ Errore": "✕ Error",
++  "✦ Nuovo file": "✦ New file",
+   "📁 Statico": "📁 Static"
+ }
+diff --git a/src/nodes/types/log/MappingPanel.tsx b/src/nodes/types/log/MappingPanel.tsx
+index 061026b..c8739ac 100644
+--- a/src/nodes/types/log/MappingPanel.tsx
++++ b/src/nodes/types/log/MappingPanel.tsx
+@@ -57,20 +57,20 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>
+           📋 Log — passthrough
+         </div>
+-        Tutti i campi transitano <strong style={{ color: '#c8d4f0' }}>invariati</strong> — il nodo Log non modifica né filtra i dati.
+-        Lo schema di uscita è identico allo schema di ingresso.
++        All fields pass through <strong style={{ color: '#c8d4f0' }}>unchanged</strong> — the Log node does not modify or filter the data.
++        The output schema is identical to the input schema.
+       </div>
+ 
+       {/* Template builder */}
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+-          Template messaggio log
++          Log message template
+         </div>
+         <textarea
+           style={{ ...inputStyle, minHeight: 54, resize: 'vertical', fontFamily: 'monospace' }}
+           value={logTemplate}
+           onChange={(e) => updateProp(nodeId, 'logTemplate', e.target.value)}
+-          placeholder="id={id} nome={nome} — lascia vuoto per loggare la riga intera come JSON"
++          placeholder="id={id} name={name} — leave empty to log the whole row as JSON"
+           spellCheck={false} />
+ 
+         {/* Pulsanti template rapido */}
+@@ -78,13 +78,13 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
+           <div style={{ display: 'flex', gap: 6 }}>
+             <button onClick={buildFullTemplate}
+               style={{ flex: 1, padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 12%, #1a2030)`, color: ACCENT, border: `0.5px solid ${ACCENT}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+-              <i className="ti ti-checks" style={{ fontSize: 10 }} /> Tutti i campi (key=value)
++              <i className="ti ti-checks" style={{ fontSize: 10 }} /> All fields (key=value)
+             </button>
+             <button onClick={buildTableTemplate}
+               style={{ flex: 1, padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = ACCENT; (e.currentTarget as HTMLElement).style.borderColor = ACCENT }}
+               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
+-              <i className="ti ti-table" style={{ fontSize: 10 }} /> Formato tab-separated
++              <i className="ti ti-table" style={{ fontSize: 10 }} /> Tab-separated format
+             </button>
+             <button onClick={() => updateProp(nodeId, 'logTemplate', '')}
+               style={{ padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a0000', color: '#ff5f57', border: '0.5px solid #3d1010' }}>
+diff --git a/src/nodes/types/log/Panel.tsx b/src/nodes/types/log/Panel.tsx
+index 354dd11..843eced 100644
+--- a/src/nodes/types/log/Panel.tsx
++++ b/src/nodes/types/log/Panel.tsx
+@@ -69,47 +69,47 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
+       </div>
+ 
+       {/* Livello e destinazione */}
+-      <SectionTitle label="Configurazione log" />
++      <SectionTitle label="Log configuration" />
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+-        <Field label="Livello">
++        <Field label="Level">
+           <CustomSelect style={{ ...inputStyle, color: levelColor }} value={logLevel} onChange={u('logLevel')}>
+-            <option value="debug">DEBUG — dettaglio massimo</option>
+-            <option value="info">INFO — normale</option>
+-            <option value="warn">WARN — attenzione</option>
+-            <option value="error">ERROR — errore</option>
++            <option value="debug">DEBUG — maximum detail</option>
++            <option value="info">INFO — normal</option>
++            <option value="warn">WARN — warning</option>
++            <option value="error">ERROR — error</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Destinazione">
++        <Field label="Destination">
+           <CustomSelect style={inputStyle} value={logTarget} onChange={u('logTarget')}>
+-            <option value="panel">Pannello log FlowPilot</option>
+-            <option value="window">Finestra dedicata (Log Viewer)</option>
+-            <option value="console">Console browser</option>
+-            <option value="both">Entrambi</option>
++            <option value="panel">FlowPilot log panel</option>
++            <option value="window">Dedicated window (Log Viewer)</option>
++            <option value="console">Browser console</option>
++            <option value="both">Both</option>
+           </CustomSelect>
+         </Field>
+       </div>
+ 
+       {/* Prefisso */}
+-      <Field label="Prefisso messaggio" hint="Etichetta visibile nel log per identificare questo nodo">
++      <Field label="Message prefix" hint="Label shown in the log to identify this node">
+         <input style={{ ...inputStyle, color: ACCENT }} value={p('logPrefix')}
+           onChange={u('logPrefix')} placeholder={`[${node.data.config?.displayName || 'Log'}]`} />
+       </Field>
+ 
+       {/* Template messaggio */}
+       <Field
+-        label="Template messaggio"
+-        hint="Usa {campo} per accedere ai valori della riga. Lascia vuoto per loggare la riga intera come JSON.">
++        label="Message template"
++        hint="Use {field} to access the row values. Leave empty to log the whole row as JSON.">
+         <textarea
+           style={{ ...inputStyle, minHeight: 60, resize: 'vertical', fontFamily: 'monospace' }}
+           value={p('logTemplate')}
+           onChange={u('logTemplate')}
+-          placeholder="id={id} nome={nome} status={status}"
++          placeholder="id={id} name={name} status={status}"
+           spellCheck={false} />
+ 
+         {/* Suggerimenti campi disponibili */}
+         {inFields.length > 0 && (
+           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+-            <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>campi:</span>
++            <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>fields:</span>
+             {inFields.map((f) => (
+               <button key={f.name}
+                 onClick={() => {
+@@ -125,16 +125,16 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
+       </Field>
+ 
+       {/* Modalità sampling */}
+-      <SectionTitle label="Campionamento" color="#22d3ee" />
++      <SectionTitle label="Sampling" color="#22d3ee" />
+       <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
+-        Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.
++        On high-volume flows, log only a subset of rows to avoid flooding the log.
+       </div>
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+-          { value: 'all',     label: 'Tutte le righe',          desc: 'Logga ogni riga — attenzione su volumi alti' },
+-          { value: 'first_n', label: 'Prime N righe',           desc: 'Logga solo le prime N righe del flusso' },
+-          { value: 'every_n', label: 'Una ogni N righe',        desc: 'Campionamento uniforme — 1 ogni N righe' },
+-          { value: 'random',  label: 'Campionamento casuale',   desc: 'Logga una percentuale casuale delle righe' },
++          { value: 'all',     label: 'All rows',          desc: 'Logs every row — careful on high volumes' },
++          { value: 'first_n', label: 'First N rows',           desc: 'Logs only the first N rows of the flow' },
++          { value: 'every_n', label: 'One every N rows',        desc: 'Uniform sampling — 1 every N rows' },
++          { value: 'random',  label: 'Random sampling',   desc: 'Logs a random percentage of the rows' },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'sampleMode', m.value)}
+             style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: sampleMode === m.value ? 'color-mix(in srgb, #22d3ee 8%, #1a2030)' : '#1a2030', border: sampleMode === m.value ? '1px solid #22d3ee40' : '1px solid #2a3349' }}>
+@@ -149,40 +149,40 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* Parametro N */}
+       {sampleMode === 'first_n' && (
+-        <Field label="Numero di righe da loggare" hint="Dopo N righe il nodo smette di loggare">
++        <Field label="Number of rows to log" hint="After N rows the node stops logging">
+           <input type="number" style={inputStyle} value={p('sampleN', '10')}
+             onChange={u('sampleN')} min="1" />
+         </Field>
+       )}
+       {sampleMode === 'every_n' && (
+-        <Field label="Logga 1 ogni N righe" hint="Es: 10 = logga la riga 1, 11, 21, 31...">
++        <Field label="Log 1 every N rows" hint="E.g. 10 = logs row 1, 11, 21, 31...">
+           <input type="number" style={inputStyle} value={p('sampleN', '10')}
+             onChange={u('sampleN')} min="2" />
+         </Field>
+       )}
+       {sampleMode === 'random' && (
+-        <Field label="Percentuale righe da loggare (1-100)" hint="Es: 10 = logga circa il 10% delle righe">
++        <Field label="Percentage of rows to log (1-100)" hint="E.g. 10 = logs about 10% of the rows">
+           <input type="number" style={inputStyle} value={p('samplePct', '10')}
+             onChange={u('samplePct')} min="1" max="100" />
+         </Field>
+       )}
+ 
+       {/* Opzioni avanzate */}
+-      <SectionTitle label="Opzioni" color="#8593b5" />
+-      <Field label="Includi numero riga nel messaggio">
++      <SectionTitle label="Options" color="#8593b5" />
++      <Field label="Include row number in the message">
+         <CustomSelect style={inputStyle} value={p('showRowNum', 'true')} onChange={u('showRowNum')}>
+-          <option value="true">Sì — mostra il contatore righe</option>
++          <option value="true">Yes — show the row counter</option>
+           <option value="false">No</option>
+         </CustomSelect>
+       </Field>
+-      <Field label="Limita output a N caratteri per riga" hint="0 = nessun limite — utile per evitare log giganti">
++      <Field label="Limit output to N characters per row" hint="0 = no limit — useful to avoid huge logs">
+         <input type="number" style={inputStyle} value={p('maxChars', '200')}
+           onChange={u('maxChars')} min="0" />
+       </Field>
+-      <Field label="Attivo">
++      <Field label="Active">
+         <CustomSelect style={inputStyle} value={p('logEnabled', 'true')} onChange={u('logEnabled')}>
+-          <option value="true">Sì — logga normalmente</option>
+-          <option value="false">No — nodo disabilitato (passthrough silenzioso)</option>
++          <option value="true">Yes — logs normally</option>
++          <option value="false">No — node disabled (silent passthrough)</option>
+         </CustomSelect>
+       </Field>
+ 
+@@ -190,7 +190,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
+         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
+-          <span style={{ fontSize: 9 }}>Righe originali invariate — il Log non modifica i dati</span>
++          <span style={{ fontSize: 9 }}>Original rows unchanged — the Log does not modify the data</span>
+         </div>
+       </div>
+     </div>
+diff --git a/src/nodes/types/mail_sink/Panel.tsx b/src/nodes/types/mail_sink/Panel.tsx
+index 9f8be1b..3c3b590 100644
+--- a/src/nodes/types/mail_sink/Panel.tsx
++++ b/src/nodes/types/mail_sink/Panel.tsx
+@@ -71,10 +71,10 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
+       <SectionTitle label="Provider" />
+       <div style={{ display: 'flex', gap: 6 }}>
+         {[
+-          { value: 'smtp',     label: 'SMTP',      desc: 'Server mail standard' },
+-          { value: 'sendgrid', label: 'SendGrid',  desc: 'API cloud SendGrid'   },
++          { value: 'smtp',     label: 'SMTP',      desc: 'Standard mail server' },
++          { value: 'sendgrid', label: 'SendGrid',  desc: 'SendGrid cloud API'   },
+           { value: 'ses',      label: 'Amazon SES', desc: 'AWS Simple Email'    },
+-          { value: 'mailgun',  label: 'Mailgun',   desc: 'API cloud Mailgun'    },
++          { value: 'mailgun',  label: 'Mailgun',   desc: 'Mailgun cloud API'    },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'provider', m.value)}
+             style={{
+@@ -92,12 +92,12 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
+       {/* SMTP config */}
+       {provider === 'smtp' && (
+         <>
+-          <SectionTitle label="Configurazione SMTP" />
++          <SectionTitle label="SMTP configuration" />
+           <Row>
+             <Field label="Host">
+               <input style={inputStyle} value={p('smtpHost', 'smtp.gmail.com')} onChange={u('smtpHost')} />
+             </Field>
+-            <Field label="Porta">
++            <Field label="Port">
+               <input type="number" style={inputStyle} value={p('smtpPort', '587')} onChange={u('smtpPort')} />
+             </Field>
+           </Row>
+@@ -109,11 +109,11 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
+               <input type="password" style={inputStyle} value={p('smtpPass')} onChange={u('smtpPass')} />
+             </Field>
+           </Row>
+-          <Field label="Sicurezza">
++          <Field label="Security">
+             <CustomSelect style={inputStyle} value={p('smtpSecurity', 'starttls')} onChange={u('smtpSecurity')}>
+-              <option value="none">Nessuna</option>
+-              <option value="starttls">STARTTLS (porta 587)</option>
+-              <option value="ssl">SSL/TLS (porta 465)</option>
++              <option value="none">None</option>
++              <option value="starttls">STARTTLS (port 587)</option>
++              <option value="ssl">SSL/TLS (port 465)</option>
+             </CustomSelect>
+           </Field>
+         </>
+@@ -122,13 +122,13 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
+       {/* API key per provider cloud */}
+       {provider !== 'smtp' && (
+         <>
+-          <SectionTitle label={`Configurazione ${provider}`} />
++          <SectionTitle label={`${provider} configuration`} />
+           <Field label="API Key">
+             <input type="password" style={inputStyle} value={p('apiKey')} onChange={u('apiKey')} placeholder="sk-..." />
+           </Field>
+           {provider === 'ses' && (
+             <Row>
+-              <Field label="Regione AWS">
++              <Field label="AWS region">
+                 <input style={inputStyle} value={p('awsRegion', 'eu-west-1')} onChange={u('awsRegion')} />
+               </Field>
+               <Field label="AWS Access Key">
+@@ -140,131 +140,131 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Mittente */}
+-      <SectionTitle label="Mittente" />
++      <SectionTitle label="Sender" />
+       <Row>
+-        <Field label="Email mittente">
+-          <input style={inputStyle} value={p('fromEmail')} onChange={u('fromEmail')} placeholder="noreply@azienda.it" />
++        <Field label="Sender email">
++          <input style={inputStyle} value={p('fromEmail')} onChange={u('fromEmail')} placeholder="noreply@company.com" />
+         </Field>
+-        <Field label="Nome mittente">
++        <Field label="Sender name">
+           <input style={inputStyle} value={p('fromName')} onChange={u('fromName')} placeholder="FlowPilot Reports" />
+         </Field>
+       </Row>
+ 
+       {/* Destinatari */}
+-      <SectionTitle label="Destinatari" />
+-      <Field label="Modalità destinatari">
++      <SectionTitle label="Recipients" />
++      <Field label="Recipients mode">
+         <CustomSelect style={inputStyle} value={toMode} onChange={u('toMode')}>
+-          <option value="static">Statici — lista email fissa</option>
+-          <option value="field">Da campo — usa un campo della riga</option>
+-          <option value="both">Entrambi — campo + lista fissa in CC</option>
++          <option value="static">Static — fixed email list</option>
++          <option value="field">From field — use a row field</option>
++          <option value="both">Both — field + fixed list in CC</option>
+         </CustomSelect>
+       </Field>
+       {(toMode === 'static' || toMode === 'both') && (
+-        <Field label="Email TO (una per riga o separate da virgola)">
++        <Field label="TO email (one per line or comma-separated)">
+           <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
+             value={p('toEmails')} onChange={u('toEmails')}
+-            placeholder="report@azienda.it, manager@azienda.it" />
++            placeholder="report@company.com, manager@company.com" />
+         </Field>
+       )}
+       {(toMode === 'field' || toMode === 'both') && (
+-        <Field label="Campo email destinatario" hint="Campo della riga che contiene l'email">
++        <Field label="Recipient email field" hint="Row field that contains the email">
+           {fieldSelect('toField', 'email')}
+         </Field>
+       )}
+       <Row>
+-        <Field label="CC (opzionale)">
+-          <input style={inputStyle} value={p('ccEmails')} onChange={u('ccEmails')} placeholder="cc@azienda.it" />
++        <Field label="CC (optional)">
++          <input style={inputStyle} value={p('ccEmails')} onChange={u('ccEmails')} placeholder="cc@company.com" />
+         </Field>
+-        <Field label="BCC (opzionale)">
+-          <input style={inputStyle} value={p('bccEmails')} onChange={u('bccEmails')} placeholder="bcc@azienda.it" />
++        <Field label="BCC (optional)">
++          <input style={inputStyle} value={p('bccEmails')} onChange={u('bccEmails')} placeholder="bcc@company.com" />
+         </Field>
+       </Row>
+ 
+       {/* Oggetto */}
+-      <SectionTitle label="Messaggio" />
+-      <Field label="Oggetto" hint="Usa {nome_campo} per includere valori dalla riga">
++      <SectionTitle label="Message" />
++      <Field label="Subject" hint="Use {field_name} to include row values">
+         <input style={inputStyle} value={p('subject', 'Report {date}')} onChange={u('subject')}
+-          placeholder="Report {date} — {titolo}" />
++          placeholder="Report {date} — {title}" />
+       </Field>
+ 
+       {/* Body */}
+-      <Field label="Sorgente body">
++      <Field label="Body source">
+         <CustomSelect style={inputStyle} value={bodySource} onChange={u('bodySource')}>
+-          <option value="field">Da campo — usa il campo HTML/testo dalla riga (es. da Report Generator)</option>
+-          <option value="template">Template inline — scrivi il template qui</option>
+-          <option value="plain">Testo semplice</option>
++          <option value="field">From field — use the HTML/text field from the row (e.g. from Report Generator)</option>
++          <option value="template">Inline template — write the template here</option>
++          <option value="plain">Plain text</option>
+         </CustomSelect>
+       </Field>
+ 
+       {bodySource === 'field' && (
+-        <Field label="Campo body HTML" hint="Di solito il campo 'content' dal nodo Report Generator">
++        <Field label="HTML body field" hint="Usually the 'content' field from the Report Generator node">
+           {fieldSelect('bodyField', 'content')}
+         </Field>
+       )}
+ 
+       {bodySource === 'template' && (
+-        <Field label="Template HTML" hint="Usa {nome_campo} per i valori della riga">
++        <Field label="HTML template" hint="Use {field_name} for the row values">
+           <textarea
+             style={{ ...inputStyle, resize: 'vertical', minHeight: 120, fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5 }}
+             value={p('bodyTemplate')} onChange={u('bodyTemplate')}
+-            placeholder={'<h2>Report del {date}</h2>\n<p>Totale: <strong>{totale}</strong></p>'}
++            placeholder={'<h2>Report {date}</h2>\n<p>Total: <strong>{total}</strong></p>'}
+             spellCheck={false}
+           />
+         </Field>
+       )}
+ 
+       {bodySource === 'plain' && (
+-        <Field label="Testo body">
++        <Field label="Body text">
+           <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }}
+             value={p('bodyText')} onChange={u('bodyText')}
+-            placeholder="Report generato il {date}..." />
++            placeholder="Report generated on {date}..." />
+         </Field>
+       )}
+ 
+       {/* Allegati */}
+-      <SectionTitle label="Allegati" />
+-      <Field label="Campo allegato" hint="Campo della riga con il contenuto binario (base64) — es. da Report Generator PDF">
++      <SectionTitle label="Attachments" />
++      <Field label="Attachment field" hint="Row field with the binary content (base64) — e.g. from Report Generator PDF">
+         {fieldSelect('attachmentField', 'content')}
+       </Field>
+       <Row>
+-        <Field label="Nome file allegato" hint="Usa {nome_campo} per valori dinamici">
++        <Field label="Attachment file name" hint="Use {field_name} for dynamic values">
+           <input style={inputStyle} value={p('attachmentName')} onChange={u('attachmentName')} placeholder="report_{date}.pdf" />
+         </Field>
+-        <Field label="MIME type allegato">
++        <Field label="Attachment MIME type">
+           <CustomSelect style={inputStyle} value={p('attachmentMime', 'application/pdf')} onChange={u('attachmentMime')}>
+             <option value="application/pdf">PDF</option>
+             <option value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">Excel</option>
+             <option value="text/csv">CSV</option>
+             <option value="text/html">HTML</option>
+-            <option value="application/octet-stream">Binario generico</option>
++            <option value="application/octet-stream">Generic binary</option>
+           </CustomSelect>
+         </Field>
+       </Row>
+ 
+       {/* Opzioni invio */}
+-      <SectionTitle label="Opzioni invio" />
++      <SectionTitle label="Send options" />
+       <Row>
+-        <Field label="Priorità">
++        <Field label="Priority">
+           <CustomSelect style={inputStyle} value={p('priority', 'normal')} onChange={u('priority')}>
+-            <option value="low">Bassa</option>
+-            <option value="normal">Normale</option>
+-            <option value="high">Alta</option>
++            <option value="low">Low</option>
++            <option value="normal">Normal</option>
++            <option value="high">High</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Retry su errore">
++        <Field label="Retry on error">
+           <input type="number" style={inputStyle} value={p('retryCount', '2')} onChange={u('retryCount')} min="0" max="5" />
+         </Field>
+       </Row>
+-      <Field label="Modalità invio">
++      <Field label="Send mode">
+         <CustomSelect style={inputStyle} value={p('sendMode', 'per_row')} onChange={u('sendMode')}>
+-          <option value="per_row">Per riga — una mail per ogni riga in ingresso</option>
+-          <option value="batch">Batch — una sola mail con tutte le righe</option>
++          <option value="per_row">Per row — one email per incoming row</option>
++          <option value="batch">Batch — a single email with all rows</option>
+         </CustomSelect>
+       </Field>
+ 
+       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+-        Pattern tipico: <code style={{ color: '#3ddc84', fontSize: 9 }}>Aggregate → Report Generator → Mail Sink</code>
++        Typical pattern: <code style={{ color: '#3ddc84', fontSize: 9 }}>Aggregate → Report Generator → Mail Sink</code>
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/sink_ftp/Panel.tsx b/src/nodes/types/sink_ftp/Panel.tsx
+index e942278..1a8d405 100644
+--- a/src/nodes/types/sink_ftp/Panel.tsx
++++ b/src/nodes/types/sink_ftp/Panel.tsx
+@@ -80,13 +80,13 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Destinazione */}
+-      <SectionTitle label="Destinazione remota" />
+-      <Field label="Directory remota" hint="Path della directory di destinazione sul server">
++      <SectionTitle label="Remote destination" />
++      <Field label="Remote directory" hint="Destination directory path on the server">
+         <input style={inputStyle} value={p('remotePath')} onChange={u('remotePath')} placeholder="/data/output/" />
+       </Field>
+       <Field
+-        label="Nome file"
+-        hint="Supporta variabili: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}">
++        label="File name"
++        hint="Supports variables: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}">
+         <input style={inputStyle} value={p('fileName')} onChange={u('fileName')} placeholder="output_{timestamp}.csv" />
+         <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
+           Esempi: <code style={{ color: ACCENT }}>report_{'{'}date{'}'}.csv</code> · <code style={{ color: ACCENT }}>export_{'{'}run_id{'}'}.json</code> · <code style={{ color: ACCENT }}>data_{'{'}datetime{'}'}.parquet</code>
+@@ -94,13 +94,13 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+       </Field>
+ 
+       {/* Modalità scrittura */}
+-      <SectionTitle label="Modalità scrittura" />
++      <SectionTitle label="Write mode" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+-          { value: 'overwrite', label: '↺ Sovrascrive',    desc: 'Se il file esiste, lo sovrascrive completamente' },
+-          { value: 'append',    label: '+ Append',          desc: 'Aggiunge i dati in fondo al file esistente' },
+-          { value: 'new',       label: '✦ Nuovo file',      desc: 'Crea sempre un nuovo file — aggiunge suffisso numerico se esiste già' },
+-          { value: 'error',     label: '✕ Errore',          desc: 'Genera un errore se il file esiste già' },
++          { value: 'overwrite', label: '↺ Overwrite',    desc: 'If the file exists, overwrites it completely' },
++          { value: 'append',    label: '+ Append',          desc: 'Appends the data at the end of the existing file' },
++          { value: 'new',       label: '✦ New file',      desc: 'Always creates a new file — adds a numeric suffix if it already exists' },
++          { value: 'error',     label: '✕ Error',          desc: 'Raises an error if the file already exists' },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'writeMode', m.value)}
+             style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: writeMode === m.value ? `color-mix(in srgb, ${ACCENT} 8%, #1a2030)` : '#1a2030', border: writeMode === m.value ? `1px solid ${ACCENT}40` : '1px solid #2a3349' }}>
+@@ -115,24 +115,24 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* Scrittura atomica */}
+       <Field
+-        label="Scrittura atomica"
+-        hint="Scrive prima in un file temporaneo (.tmp), poi rinomina — evita file corrotti in caso di errore">
++        label="Atomic write"
++        hint="Writes first to a temporary file (.tmp), then renames — avoids corrupted files on error">
+         <CustomSelect style={inputStyle} value={atomicWrite} onChange={u('atomicWrite')}>
+-          <option value="true">Sì — scrivi in .tmp poi rinomina (consigliato)</option>
+-          <option value="false">No — scrivi direttamente nel file finale</option>
++          <option value="true">Yes — write to .tmp then rename (recommended)</option>
++          <option value="false">No — write directly to the final file</option>
+         </CustomSelect>
+         {atomicWrite === 'true' && (
+           <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
+-            Il file temporaneo avrà estensione <code style={{ color: ACCENT }}>.tmp</code> durante la scrittura.
+-            In caso di errore il file .tmp viene eliminato, il file finale rimane intatto.
++            The temporary file will have a <code style={{ color: ACCENT }}>.tmp</code> extension while writing.
++            On error the .tmp file is deleted, the final file stays intact.
+           </div>
+         )}
+       </Field>
+ 
+       {/* Formato file */}
+-      <SectionTitle label="Formato file" />
++      <SectionTitle label="File format" />
+       <Row>
+-        <Field label="Formato">
++        <Field label="Format">
+           <CustomSelect style={inputStyle} value={fileFormat} onChange={u('fileFormat')}>
+             <option value="csv">CSV</option>
+             <option value="tsv">TSV</option>
+@@ -158,26 +158,26 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+       {(fileFormat === 'csv' || fileFormat === 'tsv') && (
+         <>
+           <Row>
+-            <Field label="Separatore">
++            <Field label="Delimiter">
+               <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
+             </Field>
+-            <Field label="Carattere quote">
++            <Field label="Quote character">
+               <input style={inputStyle} value={p('quoteChar', '"')} onChange={u('quoteChar')} placeholder={'"'} />
+             </Field>
+           </Row>
+-          <Field label="Includi intestazione">
++          <Field label="Include header">
+             <CustomSelect style={inputStyle} value={p('writeHeader', 'true')} onChange={u('writeHeader')}>
+-              <option value="true">Sì — scrivi nomi colonne nella prima riga</option>
+-              <option value="false">No — solo dati</option>
++              <option value="true">Yes — write column names in the first row</option>
++              <option value="false">No — data only</option>
+             </CustomSelect>
+           </Field>
+         </>
+       )}
+ 
+       {/* Compressione */}
+-      <Field label="Compressione">
++      <Field label="Compression">
+         <CustomSelect style={inputStyle} value={p('compression', 'none')} onChange={u('compression')}>
+-          <option value="none">Nessuna</option>
++          <option value="none">None</option>
+           <option value="gzip">GZIP (.gz)</option>
+           <option value="zip">ZIP (.zip)</option>
+           <option value="bzip2">BZIP2 (.bz2)</option>
+@@ -185,11 +185,11 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+       </Field>
+ 
+       {/* Output del nodo */}
+-      <SectionTitle label="Output del nodo" color="#22d3ee" />
++      <SectionTitle label="Node output" color="#22d3ee" />
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+         {[
+-          { value: 'signal',      label: '⊟ Signal',      desc: 'Emette 1 riga di stato dopo il completamento — path, righe scritte, byte', color: '#ffb347' },
+-          { value: 'passthrough', label: '⇒ Passthrough', desc: 'Riemette le righe originali dopo la scrittura — utile per pipeline in catena', color: '#22d3ee' },
++          { value: 'signal',      label: '⊟ Signal',      desc: 'Emits 1 status row after completion — path, rows written, bytes', color: '#ffb347' },
++          { value: 'passthrough', label: '⇒ Passthrough', desc: 'Re-emits the original rows after writing — useful for chained pipelines', color: '#22d3ee' },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'outputMode', m.value)}
+             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: outputMode === m.value ? `color-mix(in srgb, ${m.color} 10%, #1a2030)` : '#1a2030', border: outputMode === m.value ? `1px solid ${m.color}50` : '1px solid #2a3349' }}>
+@@ -202,15 +202,15 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+       {/* Schema signal */}
+       {outputMode === 'signal' && (
+         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
+-          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Schema riga di stato</div>
++          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Status row schema</div>
+           {[
+-            { name: 'remote_path',    type: 'string',  desc: 'Path completo del file sul server'   },
+-            { name: 'file_name',      type: 'string',  desc: 'Nome del file scritto'               },
+-            { name: 'rows_written',   type: 'integer', desc: 'Numero di righe scritte'             },
+-            { name: 'bytes_written',  type: 'integer', desc: 'Dimensione in byte del file'         },
++            { name: 'remote_path',    type: 'string',  desc: 'Full path of the file on the server'   },
++            { name: 'file_name',      type: 'string',  desc: 'Name of the written file'               },
++            { name: 'rows_written',   type: 'integer', desc: 'Number of rows written'             },
++            { name: 'bytes_written',  type: 'integer', desc: 'File size in bytes'         },
+             { name: 'status',         type: 'string',  desc: 'always "done"'                       },
+-            { name: 'completed_at',   type: 'date',    desc: 'Timestamp completamento'             },
+-            { name: 'elapsed_ms',     type: 'integer', desc: 'Durata trasferimento in ms'          },
++            { name: 'completed_at',   type: 'date',    desc: 'Completion timestamp'             },
++            { name: 'elapsed_ms',     type: 'integer', desc: 'Transfer duration in ms'          },
+           ].map((f) => (
+             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
+               <code style={{ fontSize: 10, color: '#ffb347', minWidth: 120, flexShrink: 0 }}>{f.name}</code>
+@@ -222,26 +222,26 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Opzioni avanzate */}
+-      <SectionTitle label="Opzioni avanzate" color="#8593b5" />
++      <SectionTitle label="Advanced options" color="#8593b5" />
+       <Row>
+-        <Field label="Timeout connessione (sec)">
++        <Field label="Connection timeout (sec)">
+           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
+         </Field>
+-        <Field label="Permessi file (chmod)" hint="Solo SFTP/FTP Unix — es: 644, 755">
++        <Field label="File permissions (chmod)" hint="SFTP/FTP Unix only — e.g. 644, 755">
+           <input style={inputStyle} value={p('filePermissions', '644')} onChange={u('filePermissions')} placeholder="644" />
+         </Field>
+       </Row>
+-      <Field label="Crea directory se non esiste">
++      <Field label="Create directory if missing">
+         <CustomSelect style={inputStyle} value={p('createDirs', 'true')} onChange={u('createDirs')}>
+-          <option value="true">Sì — crea automaticamente le directory mancanti</option>
+-          <option value="false">No — errore se la directory non esiste</option>
++          <option value="true">Yes — automatically create missing directories</option>
++          <option value="false">No — error if the directory does not exist</option>
+         </CustomSelect>
+       </Field>
+ 
+       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
+-        La connessione viene aperta e chiusa per ogni batch. Per trasferimenti frequenti considera
+-        di aumentare il <strong style={{ color: '#c8d4f0' }}>batch size</strong> nel tab Avanzate per ridurre il numero di connessioni.
++        The connection is opened and closed for each batch. For frequent transfers consider
++        increasing the <strong style={{ color: '#c8d4f0' }}>batch size</strong> in the Advanced tab to reduce the number of connections.
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/sink_kafka/Panel.tsx b/src/nodes/types/sink_kafka/Panel.tsx
+index bb7ebcf..a886c03 100644
+--- a/src/nodes/types/sink_kafka/Panel.tsx
++++ b/src/nodes/types/sink_kafka/Panel.tsx
+@@ -84,7 +84,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+ 
+       {/* Connessione */}
+-      <SectionTitle label="Connessione" />
++      <SectionTitle label="Connection" />
+ 
+       {kafkaRes.length === 0 ? (
+         <div style={{
+@@ -94,17 +94,17 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+           border: '1px dashed #2a3349',
+         }}>
+           <i className="ti ti-topology-star-off" style={{ fontSize: 18, display: 'block', marginBottom: 6 }} aria-hidden="true" />
+-          Nessuna risorsa Kafka in questa lane.
+-          Aggiungine una dalla resource strip.
++          No Kafka resource in this lane.
++          Add one from the resource strip.
+         </div>
+       ) : (
+-        <Field label="Risorsa Kafka">
++        <Field label="Kafka resource">
+           <CustomSelect
+             style={inputStyle}
+             value={resId}
+             onChange={(e) => updateConfig(nodeId, { resourceId: e.target.value })}
+           >
+-            <option value="">— seleziona —</option>
++            <option value="">— select —</option>
+             {kafkaRes.map((r) => (
+               <option key={r.id} value={r.id}>
+                 {r.label} {r.status === 'ok' ? '✓' : '○'}
+@@ -117,7 +117,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+       {/* Topic */}
+       <SectionTitle label="Topic" />
+ 
+-      <Field label="Nome topic" hint="Usa ${variabile} per topic dinamici">
++      <Field label="Topic name" hint="Use ${variable} for dynamic topics">
+         <input
+           type="text" style={inputStyle}
+           value={p('topic')}
+@@ -126,29 +126,29 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+         />
+       </Field>
+ 
+-      <Field label="Topic dinamico" hint="Espressione per calcolare il topic da un campo della riga">
++      <Field label="Dynamic topic" hint="Expression to compute the topic from a row field">
+         <input
+           type="text" style={inputStyle}
+           value={p('topicExpression') || ''}
+           onChange={u('topicExpression')}
+-          placeholder="row.tenant_id + '-events' (opzionale)"
++          placeholder="row.tenant_id + '-events' (optional)"
+         />
+       </Field>
+ 
+       {/* Chiave messaggio */}
+-      <SectionTitle label="Chiave messaggio" />
++      <SectionTitle label="Message key" />
+ 
+       <Row>
+-        <Field label="Tipo chiave">
++        <Field label="Key type">
+           <CustomSelect style={inputStyle} value={p('keyType') || 'field'} onChange={u('keyType')}>
+-            <option value="none">Nessuna chiave (null)</option>
+-            <option value="field">Campo della riga</option>
+-            <option value="expression">Espressione custom</option>
+-            <option value="uuid">UUID casuale</option>
++            <option value="none">No key (null)</option>
++            <option value="field">Row field</option>
++            <option value="expression">Custom expression</option>
++            <option value="uuid">Random UUID</option>
+           </CustomSelect>
+         </Field>
+         {p('keyType') === 'field' && (
+-          <Field label="Campo chiave">
++          <Field label="Key field">
+             <input
+               type="text" style={inputStyle}
+               value={p('key_field') || 'id'}
+@@ -158,7 +158,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+           </Field>
+         )}
+         {p('keyType') === 'expression' && (
+-          <Field label="Espressione chiave">
++          <Field label="Key expression">
+             <input
+               type="text" style={inputStyle}
+               value={p('keyExpression') || ''}
+@@ -170,19 +170,19 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+       </Row>
+ 
+       {/* Formato messaggio */}
+-      <SectionTitle label="Formato messaggio" />
++      <SectionTitle label="Message format" />
+ 
+       <Row>
+-        <Field label="Formato valore">
++        <Field label="Value format">
+           <CustomSelect style={inputStyle} value={valueFormat} onChange={u('valueFormat')}>
+             <option value="json">JSON</option>
+             <option value="avro">Avro</option>
+             <option value="protobuf">Protobuf</option>
+-            <option value="string">String plain</option>
+-            <option value="bytes">Bytes raw</option>
++            <option value="string">Plain string</option>
++            <option value="bytes">Raw bytes</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Formato chiave">
++        <Field label="Key format">
+           <CustomSelect style={inputStyle} value={p('keyFormat') || 'string'} onChange={u('keyFormat')}>
+             <option value="string">String</option>
+             <option value="json">JSON</option>
+@@ -205,7 +205,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+             />
+           </Field>
+           <Row>
+-            <Field label="Schema soggetto">
++            <Field label="Schema subject">
+               <input
+                 type="text" style={inputStyle}
+                 value={p('schemaSubject') || ''}
+@@ -213,7 +213,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+                 placeholder="pipeline-output-value"
+               />
+             </Field>
+-            <Field label="Versione schema">
++            <Field label="Schema version">
+               <CustomSelect style={inputStyle} value={p('schemaVersion') || 'latest'} onChange={u('schemaVersion')}>
+                 <option value="latest">Latest</option>
+                 <option value="1">1</option>
+@@ -228,8 +228,8 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+       {/* Headers Kafka */}
+       <SectionTitle label="Headers Kafka" />
+       <Field
+-        label="Headers statici (JSON)"
+-        hint='Es: {"source": "flowpilot", "version": "1.0"}'
++        label="Static headers (JSON)"
++        hint='E.g. {"source": "flowpilot", "version": "1.0"}'
+       >
+         <textarea
+           style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace' }}
+@@ -240,18 +240,18 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+       </Field>
+ 
+       {/* Partizioni */}
+-      <SectionTitle label="Partizioni" />
++      <SectionTitle label="Partitions" />
+       <Row>
+-        <Field label="Strategia partizione">
++        <Field label="Partition strategy">
+           <CustomSelect style={inputStyle} value={p('partitionStrategy') || 'default'} onChange={u('partitionStrategy')}>
+-            <option value="default">Default (hash della chiave)</option>
++            <option value="default">Default (key hash)</option>
+             <option value="round_robin">Round Robin</option>
+-            <option value="field">Campo specifico</option>
+-            <option value="manual">Manuale (numero fisso)</option>
++            <option value="field">Specific field</option>
++            <option value="manual">Manual (fixed number)</option>
+           </CustomSelect>
+         </Field>
+         {p('partitionStrategy') === 'field' && (
+-          <Field label="Campo partizione">
++          <Field label="Partition field">
+             <input
+               type="text" style={inputStyle}
+               value={p('partitionField') || ''}
+@@ -261,7 +261,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+           </Field>
+         )}
+         {p('partitionStrategy') === 'manual' && (
+-          <Field label="Numero partizione">
++          <Field label="Partition number">
+             <input
+               type="number" style={inputStyle}
+               value={p('partition') || '0'}
+@@ -273,7 +273,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+       </Row>
+ 
+       {/* Producer config */}
+-      <SectionTitle label="Configurazione producer" />
++      <SectionTitle label="Producer configuration" />
+       <Row>
+         <Field label="Acks">
+           <CustomSelect style={inputStyle} value={p('acks') || 'all'} onChange={u('acks')}>
+@@ -284,7 +284,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+         </Field>
+         <Field label="Compression">
+           <CustomSelect style={inputStyle} value={p('compression') || 'none'} onChange={u('compression')}>
+-            <option value="none">Nessuna</option>
++            <option value="none">None</option>
+             <option value="gzip">GZIP</option>
+             <option value="snappy">Snappy</option>
+             <option value="lz4">LZ4</option>
+@@ -302,7 +302,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+             min="1"
+           />
+         </Field>
+-        <Field label="Linger ms" hint="Attesa max prima di inviare batch">
++        <Field label="Linger ms" hint="Max wait before sending a batch">
+           <input
+             type="number" style={inputStyle}
+             value={p('lingerMs') || '5'}
+@@ -313,7 +313,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+       </Row>
+ 
+       <Row>
+-        <Field label="Retry invio">
++        <Field label="Send retries">
+           <input
+             type="number" style={inputStyle}
+             value={p('retries') || '3'}
+@@ -331,7 +331,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
+         </Field>
+       </Row>
+       {/*Transazione*/}
+-      <SectionTitle label="Transazione" />
++      <SectionTitle label="Transaction" />
+         <TransactionGroupEditor nodeId={nodeId} nodeType="sink_kafka" />
+     </div>
+   )

@@ -80,13 +80,13 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Destinazione */}
-      <SectionTitle label="Destinazione remota" />
-      <Field label="Directory remota" hint="Path della directory di destinazione sul server">
+      <SectionTitle label="Remote destination" />
+      <Field label="Remote directory" hint="Destination directory path on the server">
         <input style={inputStyle} value={p('remotePath')} onChange={u('remotePath')} placeholder="/data/output/" />
       </Field>
       <Field
-        label="Nome file"
-        hint="Supporta variabili: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}">
+        label="File name"
+        hint="Supports variables: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}">
         <input style={inputStyle} value={p('fileName')} onChange={u('fileName')} placeholder="output_{timestamp}.csv" />
         <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
           Esempi: <code style={{ color: ACCENT }}>report_{'{'}date{'}'}.csv</code> · <code style={{ color: ACCENT }}>export_{'{'}run_id{'}'}.json</code> · <code style={{ color: ACCENT }}>data_{'{'}datetime{'}'}.parquet</code>
@@ -94,13 +94,13 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Modalità scrittura */}
-      <SectionTitle label="Modalità scrittura" />
+      <SectionTitle label="Write mode" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { value: 'overwrite', label: '↺ Sovrascrive',    desc: 'Se il file esiste, lo sovrascrive completamente' },
-          { value: 'append',    label: '+ Append',          desc: 'Aggiunge i dati in fondo al file esistente' },
-          { value: 'new',       label: '✦ Nuovo file',      desc: 'Crea sempre un nuovo file — aggiunge suffisso numerico se esiste già' },
-          { value: 'error',     label: '✕ Errore',          desc: 'Genera un errore se il file esiste già' },
+          { value: 'overwrite', label: '↺ Overwrite',    desc: 'If the file exists, overwrites it completely' },
+          { value: 'append',    label: '+ Append',          desc: 'Appends the data at the end of the existing file' },
+          { value: 'new',       label: '✦ New file',      desc: 'Always creates a new file — adds a numeric suffix if it already exists' },
+          { value: 'error',     label: '✕ Error',          desc: 'Raises an error if the file already exists' },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'writeMode', m.value)}
             style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: writeMode === m.value ? `color-mix(in srgb, ${ACCENT} 8%, #1a2030)` : '#1a2030', border: writeMode === m.value ? `1px solid ${ACCENT}40` : '1px solid #2a3349' }}>
@@ -115,24 +115,24 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
 
       {/* Scrittura atomica */}
       <Field
-        label="Scrittura atomica"
-        hint="Scrive prima in un file temporaneo (.tmp), poi rinomina — evita file corrotti in caso di errore">
+        label="Atomic write"
+        hint="Writes first to a temporary file (.tmp), then renames — avoids corrupted files on error">
         <CustomSelect style={inputStyle} value={atomicWrite} onChange={u('atomicWrite')}>
-          <option value="true">Sì — scrivi in .tmp poi rinomina (consigliato)</option>
-          <option value="false">No — scrivi direttamente nel file finale</option>
+          <option value="true">Yes — write to .tmp then rename (recommended)</option>
+          <option value="false">No — write directly to the final file</option>
         </CustomSelect>
         {atomicWrite === 'true' && (
           <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
-            Il file temporaneo avrà estensione <code style={{ color: ACCENT }}>.tmp</code> durante la scrittura.
-            In caso di errore il file .tmp viene eliminato, il file finale rimane intatto.
+            The temporary file will have a <code style={{ color: ACCENT }}>.tmp</code> extension while writing.
+            On error the .tmp file is deleted, the final file stays intact.
           </div>
         )}
       </Field>
 
       {/* Formato file */}
-      <SectionTitle label="Formato file" />
+      <SectionTitle label="File format" />
       <Row>
-        <Field label="Formato">
+        <Field label="Format">
           <CustomSelect style={inputStyle} value={fileFormat} onChange={u('fileFormat')}>
             <option value="csv">CSV</option>
             <option value="tsv">TSV</option>
@@ -158,26 +158,26 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       {(fileFormat === 'csv' || fileFormat === 'tsv') && (
         <>
           <Row>
-            <Field label="Separatore">
+            <Field label="Delimiter">
               <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
             </Field>
-            <Field label="Carattere quote">
+            <Field label="Quote character">
               <input style={inputStyle} value={p('quoteChar', '"')} onChange={u('quoteChar')} placeholder={'"'} />
             </Field>
           </Row>
-          <Field label="Includi intestazione">
+          <Field label="Include header">
             <CustomSelect style={inputStyle} value={p('writeHeader', 'true')} onChange={u('writeHeader')}>
-              <option value="true">Sì — scrivi nomi colonne nella prima riga</option>
-              <option value="false">No — solo dati</option>
+              <option value="true">Yes — write column names in the first row</option>
+              <option value="false">No — data only</option>
             </CustomSelect>
           </Field>
         </>
       )}
 
       {/* Compressione */}
-      <Field label="Compressione">
+      <Field label="Compression">
         <CustomSelect style={inputStyle} value={p('compression', 'none')} onChange={u('compression')}>
-          <option value="none">Nessuna</option>
+          <option value="none">None</option>
           <option value="gzip">GZIP (.gz)</option>
           <option value="zip">ZIP (.zip)</option>
           <option value="bzip2">BZIP2 (.bz2)</option>
@@ -185,11 +185,11 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Output del nodo */}
-      <SectionTitle label="Output del nodo" color="#22d3ee" />
+      <SectionTitle label="Node output" color="#22d3ee" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {[
-          { value: 'signal',      label: '⊟ Signal',      desc: 'Emette 1 riga di stato dopo il completamento — path, righe scritte, byte', color: '#ffb347' },
-          { value: 'passthrough', label: '⇒ Passthrough', desc: 'Riemette le righe originali dopo la scrittura — utile per pipeline in catena', color: '#22d3ee' },
+          { value: 'signal',      label: '⊟ Signal',      desc: 'Emits 1 status row after completion — path, rows written, bytes', color: '#ffb347' },
+          { value: 'passthrough', label: '⇒ Passthrough', desc: 'Re-emits the original rows after writing — useful for chained pipelines', color: '#22d3ee' },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'outputMode', m.value)}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: outputMode === m.value ? `color-mix(in srgb, ${m.color} 10%, #1a2030)` : '#1a2030', border: outputMode === m.value ? `1px solid ${m.color}50` : '1px solid #2a3349' }}>
@@ -202,15 +202,15 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       {/* Schema signal */}
       {outputMode === 'signal' && (
         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
-          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Schema riga di stato</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Status row schema</div>
           {[
-            { name: 'remote_path',    type: 'string',  desc: 'Path completo del file sul server'   },
-            { name: 'file_name',      type: 'string',  desc: 'Nome del file scritto'               },
-            { name: 'rows_written',   type: 'integer', desc: 'Numero di righe scritte'             },
-            { name: 'bytes_written',  type: 'integer', desc: 'Dimensione in byte del file'         },
+            { name: 'remote_path',    type: 'string',  desc: 'Full path of the file on the server'   },
+            { name: 'file_name',      type: 'string',  desc: 'Name of the written file'               },
+            { name: 'rows_written',   type: 'integer', desc: 'Number of rows written'             },
+            { name: 'bytes_written',  type: 'integer', desc: 'File size in bytes'         },
             { name: 'status',         type: 'string',  desc: 'always "done"'                       },
-            { name: 'completed_at',   type: 'date',    desc: 'Timestamp completamento'             },
-            { name: 'elapsed_ms',     type: 'integer', desc: 'Durata trasferimento in ms'          },
+            { name: 'completed_at',   type: 'date',    desc: 'Completion timestamp'             },
+            { name: 'elapsed_ms',     type: 'integer', desc: 'Transfer duration in ms'          },
           ].map((f) => (
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
               <code style={{ fontSize: 10, color: '#ffb347', minWidth: 120, flexShrink: 0 }}>{f.name}</code>
@@ -222,26 +222,26 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Opzioni avanzate */}
-      <SectionTitle label="Opzioni avanzate" color="#8593b5" />
+      <SectionTitle label="Advanced options" color="#8593b5" />
       <Row>
-        <Field label="Timeout connessione (sec)">
+        <Field label="Connection timeout (sec)">
           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
         </Field>
-        <Field label="Permessi file (chmod)" hint="Solo SFTP/FTP Unix — es: 644, 755">
+        <Field label="File permissions (chmod)" hint="SFTP/FTP Unix only — e.g. 644, 755">
           <input style={inputStyle} value={p('filePermissions', '644')} onChange={u('filePermissions')} placeholder="644" />
         </Field>
       </Row>
-      <Field label="Crea directory se non esiste">
+      <Field label="Create directory if missing">
         <CustomSelect style={inputStyle} value={p('createDirs', 'true')} onChange={u('createDirs')}>
-          <option value="true">Sì — crea automaticamente le directory mancanti</option>
-          <option value="false">No — errore se la directory non esiste</option>
+          <option value="true">Yes — automatically create missing directories</option>
+          <option value="false">No — error if the directory does not exist</option>
         </CustomSelect>
       </Field>
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
-        La connessione viene aperta e chiusa per ogni batch. Per trasferimenti frequenti considera
-        di aumentare il <strong style={{ color: '#c8d4f0' }}>batch size</strong> nel tab Avanzate per ridurre il numero di connessioni.
+        The connection is opened and closed for each batch. For frequent transfers consider
+        increasing the <strong style={{ color: '#c8d4f0' }}>batch size</strong> in the Advanced tab to reduce the number of connections.
       </div>
     </div>
   )

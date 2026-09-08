@@ -84,7 +84,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Connessione */}
-      <SectionTitle label="Connessione" />
+      <SectionTitle label="Connection" />
 
       {kafkaRes.length === 0 ? (
         <div style={{
@@ -94,17 +94,17 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
           border: '1px dashed #2a3349',
         }}>
           <i className="ti ti-topology-star-off" style={{ fontSize: 18, display: 'block', marginBottom: 6 }} aria-hidden="true" />
-          Nessuna risorsa Kafka in questa lane.
-          Aggiungine una dalla resource strip.
+          No Kafka resource in this lane.
+          Add one from the resource strip.
         </div>
       ) : (
-        <Field label="Risorsa Kafka">
+        <Field label="Kafka resource">
           <CustomSelect
             style={inputStyle}
             value={resId}
             onChange={(e) => updateConfig(nodeId, { resourceId: e.target.value })}
           >
-            <option value="">— seleziona —</option>
+            <option value="">— select —</option>
             {kafkaRes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label} {r.status === 'ok' ? '✓' : '○'}
@@ -117,7 +117,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       {/* Topic */}
       <SectionTitle label="Topic" />
 
-      <Field label="Nome topic" hint="Usa ${variabile} per topic dinamici">
+      <Field label="Topic name" hint="Use ${variable} for dynamic topics">
         <input
           type="text" style={inputStyle}
           value={p('topic')}
@@ -126,29 +126,29 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
         />
       </Field>
 
-      <Field label="Topic dinamico" hint="Espressione per calcolare il topic da un campo della riga">
+      <Field label="Dynamic topic" hint="Expression to compute the topic from a row field">
         <input
           type="text" style={inputStyle}
           value={p('topicExpression') || ''}
           onChange={u('topicExpression')}
-          placeholder="row.tenant_id + '-events' (opzionale)"
+          placeholder="row.tenant_id + '-events' (optional)"
         />
       </Field>
 
       {/* Chiave messaggio */}
-      <SectionTitle label="Chiave messaggio" />
+      <SectionTitle label="Message key" />
 
       <Row>
-        <Field label="Tipo chiave">
+        <Field label="Key type">
           <CustomSelect style={inputStyle} value={p('keyType') || 'field'} onChange={u('keyType')}>
-            <option value="none">Nessuna chiave (null)</option>
-            <option value="field">Campo della riga</option>
-            <option value="expression">Espressione custom</option>
-            <option value="uuid">UUID casuale</option>
+            <option value="none">No key (null)</option>
+            <option value="field">Row field</option>
+            <option value="expression">Custom expression</option>
+            <option value="uuid">Random UUID</option>
           </CustomSelect>
         </Field>
         {p('keyType') === 'field' && (
-          <Field label="Campo chiave">
+          <Field label="Key field">
             <input
               type="text" style={inputStyle}
               value={p('key_field') || 'id'}
@@ -158,7 +158,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
           </Field>
         )}
         {p('keyType') === 'expression' && (
-          <Field label="Espressione chiave">
+          <Field label="Key expression">
             <input
               type="text" style={inputStyle}
               value={p('keyExpression') || ''}
@@ -170,19 +170,19 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       </Row>
 
       {/* Formato messaggio */}
-      <SectionTitle label="Formato messaggio" />
+      <SectionTitle label="Message format" />
 
       <Row>
-        <Field label="Formato valore">
+        <Field label="Value format">
           <CustomSelect style={inputStyle} value={valueFormat} onChange={u('valueFormat')}>
             <option value="json">JSON</option>
             <option value="avro">Avro</option>
             <option value="protobuf">Protobuf</option>
-            <option value="string">String plain</option>
-            <option value="bytes">Bytes raw</option>
+            <option value="string">Plain string</option>
+            <option value="bytes">Raw bytes</option>
           </CustomSelect>
         </Field>
-        <Field label="Formato chiave">
+        <Field label="Key format">
           <CustomSelect style={inputStyle} value={p('keyFormat') || 'string'} onChange={u('keyFormat')}>
             <option value="string">String</option>
             <option value="json">JSON</option>
@@ -205,7 +205,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
             />
           </Field>
           <Row>
-            <Field label="Schema soggetto">
+            <Field label="Schema subject">
               <input
                 type="text" style={inputStyle}
                 value={p('schemaSubject') || ''}
@@ -213,7 +213,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
                 placeholder="pipeline-output-value"
               />
             </Field>
-            <Field label="Versione schema">
+            <Field label="Schema version">
               <CustomSelect style={inputStyle} value={p('schemaVersion') || 'latest'} onChange={u('schemaVersion')}>
                 <option value="latest">Latest</option>
                 <option value="1">1</option>
@@ -228,8 +228,8 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       {/* Headers Kafka */}
       <SectionTitle label="Headers Kafka" />
       <Field
-        label="Headers statici (JSON)"
-        hint='Es: {"source": "flowpilot", "version": "1.0"}'
+        label="Static headers (JSON)"
+        hint='E.g. {"source": "flowpilot", "version": "1.0"}'
       >
         <textarea
           style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace' }}
@@ -240,18 +240,18 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Partizioni */}
-      <SectionTitle label="Partizioni" />
+      <SectionTitle label="Partitions" />
       <Row>
-        <Field label="Strategia partizione">
+        <Field label="Partition strategy">
           <CustomSelect style={inputStyle} value={p('partitionStrategy') || 'default'} onChange={u('partitionStrategy')}>
-            <option value="default">Default (hash della chiave)</option>
+            <option value="default">Default (key hash)</option>
             <option value="round_robin">Round Robin</option>
-            <option value="field">Campo specifico</option>
-            <option value="manual">Manuale (numero fisso)</option>
+            <option value="field">Specific field</option>
+            <option value="manual">Manual (fixed number)</option>
           </CustomSelect>
         </Field>
         {p('partitionStrategy') === 'field' && (
-          <Field label="Campo partizione">
+          <Field label="Partition field">
             <input
               type="text" style={inputStyle}
               value={p('partitionField') || ''}
@@ -261,7 +261,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
           </Field>
         )}
         {p('partitionStrategy') === 'manual' && (
-          <Field label="Numero partizione">
+          <Field label="Partition number">
             <input
               type="number" style={inputStyle}
               value={p('partition') || '0'}
@@ -273,7 +273,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       </Row>
 
       {/* Producer config */}
-      <SectionTitle label="Configurazione producer" />
+      <SectionTitle label="Producer configuration" />
       <Row>
         <Field label="Acks">
           <CustomSelect style={inputStyle} value={p('acks') || 'all'} onChange={u('acks')}>
@@ -284,7 +284,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
         </Field>
         <Field label="Compression">
           <CustomSelect style={inputStyle} value={p('compression') || 'none'} onChange={u('compression')}>
-            <option value="none">Nessuna</option>
+            <option value="none">None</option>
             <option value="gzip">GZIP</option>
             <option value="snappy">Snappy</option>
             <option value="lz4">LZ4</option>
@@ -302,7 +302,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
             min="1"
           />
         </Field>
-        <Field label="Linger ms" hint="Attesa max prima di inviare batch">
+        <Field label="Linger ms" hint="Max wait before sending a batch">
           <input
             type="number" style={inputStyle}
             value={p('lingerMs') || '5'}
@@ -313,7 +313,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
       </Row>
 
       <Row>
-        <Field label="Retry invio">
+        <Field label="Send retries">
           <input
             type="number" style={inputStyle}
             value={p('retries') || '3'}
@@ -331,7 +331,7 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
         </Field>
       </Row>
       {/*Transazione*/}
-      <SectionTitle label="Transazione" />
+      <SectionTitle label="Transaction" />
         <TransactionGroupEditor nodeId={nodeId} nodeType="sink_kafka" />
     </div>
   )

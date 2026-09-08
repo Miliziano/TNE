@@ -57,20 +57,20 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>
           📋 Log — passthrough
         </div>
-        Tutti i campi transitano <strong style={{ color: '#c8d4f0' }}>invariati</strong> — il nodo Log non modifica né filtra i dati.
-        Lo schema di uscita è identico allo schema di ingresso.
+        All fields pass through <strong style={{ color: '#c8d4f0' }}>unchanged</strong> — the Log node does not modify or filter the data.
+        The output schema is identical to the input schema.
       </div>
 
       {/* Template builder */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em' }}>
-          Template messaggio log
+          Log message template
         </div>
         <textarea
           style={{ ...inputStyle, minHeight: 54, resize: 'vertical', fontFamily: 'monospace' }}
           value={logTemplate}
           onChange={(e) => updateProp(nodeId, 'logTemplate', e.target.value)}
-          placeholder="id={id} nome={nome} — lascia vuoto per loggare la riga intera come JSON"
+          placeholder="id={id} name={name} — leave empty to log the whole row as JSON"
           spellCheck={false} />
 
         {/* Pulsanti template rapido */}
@@ -78,13 +78,13 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={buildFullTemplate}
               style={{ flex: 1, padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 12%, #1a2030)`, color: ACCENT, border: `0.5px solid ${ACCENT}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-              <i className="ti ti-checks" style={{ fontSize: 10 }} /> Tutti i campi (key=value)
+              <i className="ti ti-checks" style={{ fontSize: 10 }} /> All fields (key=value)
             </button>
             <button onClick={buildTableTemplate}
               style={{ flex: 1, padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = ACCENT; (e.currentTarget as HTMLElement).style.borderColor = ACCENT }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-              <i className="ti ti-table" style={{ fontSize: 10 }} /> Formato tab-separated
+              <i className="ti ti-table" style={{ fontSize: 10 }} /> Tab-separated format
             </button>
             <button onClick={() => updateProp(nodeId, 'logTemplate', '')}
               style={{ padding: '4px 8px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a0000', color: '#ff5f57', border: '0.5px solid #3d1010' }}>

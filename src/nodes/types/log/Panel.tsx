@@ -69,47 +69,47 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Livello e destinazione */}
-      <SectionTitle label="Configurazione log" />
+      <SectionTitle label="Log configuration" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Livello">
+        <Field label="Level">
           <CustomSelect style={{ ...inputStyle, color: levelColor }} value={logLevel} onChange={u('logLevel')}>
-            <option value="debug">DEBUG — dettaglio massimo</option>
-            <option value="info">INFO — normale</option>
-            <option value="warn">WARN — attenzione</option>
-            <option value="error">ERROR — errore</option>
+            <option value="debug">DEBUG — maximum detail</option>
+            <option value="info">INFO — normal</option>
+            <option value="warn">WARN — warning</option>
+            <option value="error">ERROR — error</option>
           </CustomSelect>
         </Field>
-        <Field label="Destinazione">
+        <Field label="Destination">
           <CustomSelect style={inputStyle} value={logTarget} onChange={u('logTarget')}>
-            <option value="panel">Pannello log FlowPilot</option>
-            <option value="window">Finestra dedicata (Log Viewer)</option>
-            <option value="console">Console browser</option>
-            <option value="both">Entrambi</option>
+            <option value="panel">FlowPilot log panel</option>
+            <option value="window">Dedicated window (Log Viewer)</option>
+            <option value="console">Browser console</option>
+            <option value="both">Both</option>
           </CustomSelect>
         </Field>
       </div>
 
       {/* Prefisso */}
-      <Field label="Prefisso messaggio" hint="Etichetta visibile nel log per identificare questo nodo">
+      <Field label="Message prefix" hint="Label shown in the log to identify this node">
         <input style={{ ...inputStyle, color: ACCENT }} value={p('logPrefix')}
           onChange={u('logPrefix')} placeholder={`[${node.data.config?.displayName || 'Log'}]`} />
       </Field>
 
       {/* Template messaggio */}
       <Field
-        label="Template messaggio"
-        hint="Usa {campo} per accedere ai valori della riga. Lascia vuoto per loggare la riga intera come JSON.">
+        label="Message template"
+        hint="Use {field} to access the row values. Leave empty to log the whole row as JSON.">
         <textarea
           style={{ ...inputStyle, minHeight: 60, resize: 'vertical', fontFamily: 'monospace' }}
           value={p('logTemplate')}
           onChange={u('logTemplate')}
-          placeholder="id={id} nome={nome} status={status}"
+          placeholder="id={id} name={name} status={status}"
           spellCheck={false} />
 
         {/* Suggerimenti campi disponibili */}
         {inFields.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>campi:</span>
+            <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>fields:</span>
             {inFields.map((f) => (
               <button key={f.name}
                 onClick={() => {
@@ -125,16 +125,16 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Modalità sampling */}
-      <SectionTitle label="Campionamento" color="#22d3ee" />
+      <SectionTitle label="Sampling" color="#22d3ee" />
       <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
-        Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.
+        On high-volume flows, log only a subset of rows to avoid flooding the log.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { value: 'all',     label: 'Tutte le righe',          desc: 'Logga ogni riga — attenzione su volumi alti' },
-          { value: 'first_n', label: 'Prime N righe',           desc: 'Logga solo le prime N righe del flusso' },
-          { value: 'every_n', label: 'Una ogni N righe',        desc: 'Campionamento uniforme — 1 ogni N righe' },
-          { value: 'random',  label: 'Campionamento casuale',   desc: 'Logga una percentuale casuale delle righe' },
+          { value: 'all',     label: 'All rows',          desc: 'Logs every row — careful on high volumes' },
+          { value: 'first_n', label: 'First N rows',           desc: 'Logs only the first N rows of the flow' },
+          { value: 'every_n', label: 'One every N rows',        desc: 'Uniform sampling — 1 every N rows' },
+          { value: 'random',  label: 'Random sampling',   desc: 'Logs a random percentage of the rows' },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'sampleMode', m.value)}
             style={{ padding: '7px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, background: sampleMode === m.value ? 'color-mix(in srgb, #22d3ee 8%, #1a2030)' : '#1a2030', border: sampleMode === m.value ? '1px solid #22d3ee40' : '1px solid #2a3349' }}>
@@ -149,40 +149,40 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
 
       {/* Parametro N */}
       {sampleMode === 'first_n' && (
-        <Field label="Numero di righe da loggare" hint="Dopo N righe il nodo smette di loggare">
+        <Field label="Number of rows to log" hint="After N rows the node stops logging">
           <input type="number" style={inputStyle} value={p('sampleN', '10')}
             onChange={u('sampleN')} min="1" />
         </Field>
       )}
       {sampleMode === 'every_n' && (
-        <Field label="Logga 1 ogni N righe" hint="Es: 10 = logga la riga 1, 11, 21, 31...">
+        <Field label="Log 1 every N rows" hint="E.g. 10 = logs row 1, 11, 21, 31...">
           <input type="number" style={inputStyle} value={p('sampleN', '10')}
             onChange={u('sampleN')} min="2" />
         </Field>
       )}
       {sampleMode === 'random' && (
-        <Field label="Percentuale righe da loggare (1-100)" hint="Es: 10 = logga circa il 10% delle righe">
+        <Field label="Percentage of rows to log (1-100)" hint="E.g. 10 = logs about 10% of the rows">
           <input type="number" style={inputStyle} value={p('samplePct', '10')}
             onChange={u('samplePct')} min="1" max="100" />
         </Field>
       )}
 
       {/* Opzioni avanzate */}
-      <SectionTitle label="Opzioni" color="#8593b5" />
-      <Field label="Includi numero riga nel messaggio">
+      <SectionTitle label="Options" color="#8593b5" />
+      <Field label="Include row number in the message">
         <CustomSelect style={inputStyle} value={p('showRowNum', 'true')} onChange={u('showRowNum')}>
-          <option value="true">Sì — mostra il contatore righe</option>
+          <option value="true">Yes — show the row counter</option>
           <option value="false">No</option>
         </CustomSelect>
       </Field>
-      <Field label="Limita output a N caratteri per riga" hint="0 = nessun limite — utile per evitare log giganti">
+      <Field label="Limit output to N characters per row" hint="0 = no limit — useful to avoid huge logs">
         <input type="number" style={inputStyle} value={p('maxChars', '200')}
           onChange={u('maxChars')} min="0" />
       </Field>
-      <Field label="Attivo">
+      <Field label="Active">
         <CustomSelect style={inputStyle} value={p('logEnabled', 'true')} onChange={u('logEnabled')}>
-          <option value="true">Sì — logga normalmente</option>
-          <option value="false">No — nodo disabilitato (passthrough silenzioso)</option>
+          <option value="true">Yes — logs normally</option>
+          <option value="false">No — node disabled (silent passthrough)</option>
         </CustomSelect>
       </Field>
 
@@ -190,7 +190,7 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
-          <span style={{ fontSize: 9 }}>Righe originali invariate — il Log non modifica i dati</span>
+          <span style={{ fontSize: 9 }}>Original rows unchanged — the Log does not modify the data</span>
         </div>
       </div>
     </div>

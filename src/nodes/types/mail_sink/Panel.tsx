@@ -71,10 +71,10 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
       <SectionTitle label="Provider" />
       <div style={{ display: 'flex', gap: 6 }}>
         {[
-          { value: 'smtp',     label: 'SMTP',      desc: 'Server mail standard' },
-          { value: 'sendgrid', label: 'SendGrid',  desc: 'API cloud SendGrid'   },
+          { value: 'smtp',     label: 'SMTP',      desc: 'Standard mail server' },
+          { value: 'sendgrid', label: 'SendGrid',  desc: 'SendGrid cloud API'   },
           { value: 'ses',      label: 'Amazon SES', desc: 'AWS Simple Email'    },
-          { value: 'mailgun',  label: 'Mailgun',   desc: 'API cloud Mailgun'    },
+          { value: 'mailgun',  label: 'Mailgun',   desc: 'Mailgun cloud API'    },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'provider', m.value)}
             style={{
@@ -92,12 +92,12 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
       {/* SMTP config */}
       {provider === 'smtp' && (
         <>
-          <SectionTitle label="Configurazione SMTP" />
+          <SectionTitle label="SMTP configuration" />
           <Row>
             <Field label="Host">
               <input style={inputStyle} value={p('smtpHost', 'smtp.gmail.com')} onChange={u('smtpHost')} />
             </Field>
-            <Field label="Porta">
+            <Field label="Port">
               <input type="number" style={inputStyle} value={p('smtpPort', '587')} onChange={u('smtpPort')} />
             </Field>
           </Row>
@@ -109,11 +109,11 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
               <input type="password" style={inputStyle} value={p('smtpPass')} onChange={u('smtpPass')} />
             </Field>
           </Row>
-          <Field label="Sicurezza">
+          <Field label="Security">
             <CustomSelect style={inputStyle} value={p('smtpSecurity', 'starttls')} onChange={u('smtpSecurity')}>
-              <option value="none">Nessuna</option>
-              <option value="starttls">STARTTLS (porta 587)</option>
-              <option value="ssl">SSL/TLS (porta 465)</option>
+              <option value="none">None</option>
+              <option value="starttls">STARTTLS (port 587)</option>
+              <option value="ssl">SSL/TLS (port 465)</option>
             </CustomSelect>
           </Field>
         </>
@@ -122,13 +122,13 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
       {/* API key per provider cloud */}
       {provider !== 'smtp' && (
         <>
-          <SectionTitle label={`Configurazione ${provider}`} />
+          <SectionTitle label={`${provider} configuration`} />
           <Field label="API Key">
             <input type="password" style={inputStyle} value={p('apiKey')} onChange={u('apiKey')} placeholder="sk-..." />
           </Field>
           {provider === 'ses' && (
             <Row>
-              <Field label="Regione AWS">
+              <Field label="AWS region">
                 <input style={inputStyle} value={p('awsRegion', 'eu-west-1')} onChange={u('awsRegion')} />
               </Field>
               <Field label="AWS Access Key">
@@ -140,131 +140,131 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Mittente */}
-      <SectionTitle label="Mittente" />
+      <SectionTitle label="Sender" />
       <Row>
-        <Field label="Email mittente">
-          <input style={inputStyle} value={p('fromEmail')} onChange={u('fromEmail')} placeholder="noreply@azienda.it" />
+        <Field label="Sender email">
+          <input style={inputStyle} value={p('fromEmail')} onChange={u('fromEmail')} placeholder="noreply@company.com" />
         </Field>
-        <Field label="Nome mittente">
+        <Field label="Sender name">
           <input style={inputStyle} value={p('fromName')} onChange={u('fromName')} placeholder="FlowPilot Reports" />
         </Field>
       </Row>
 
       {/* Destinatari */}
-      <SectionTitle label="Destinatari" />
-      <Field label="Modalità destinatari">
+      <SectionTitle label="Recipients" />
+      <Field label="Recipients mode">
         <CustomSelect style={inputStyle} value={toMode} onChange={u('toMode')}>
-          <option value="static">Statici — lista email fissa</option>
-          <option value="field">Da campo — usa un campo della riga</option>
-          <option value="both">Entrambi — campo + lista fissa in CC</option>
+          <option value="static">Static — fixed email list</option>
+          <option value="field">From field — use a row field</option>
+          <option value="both">Both — field + fixed list in CC</option>
         </CustomSelect>
       </Field>
       {(toMode === 'static' || toMode === 'both') && (
-        <Field label="Email TO (una per riga o separate da virgola)">
+        <Field label="TO email (one per line or comma-separated)">
           <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
             value={p('toEmails')} onChange={u('toEmails')}
-            placeholder="report@azienda.it, manager@azienda.it" />
+            placeholder="report@company.com, manager@company.com" />
         </Field>
       )}
       {(toMode === 'field' || toMode === 'both') && (
-        <Field label="Campo email destinatario" hint="Campo della riga che contiene l'email">
+        <Field label="Recipient email field" hint="Row field that contains the email">
           {fieldSelect('toField', 'email')}
         </Field>
       )}
       <Row>
-        <Field label="CC (opzionale)">
-          <input style={inputStyle} value={p('ccEmails')} onChange={u('ccEmails')} placeholder="cc@azienda.it" />
+        <Field label="CC (optional)">
+          <input style={inputStyle} value={p('ccEmails')} onChange={u('ccEmails')} placeholder="cc@company.com" />
         </Field>
-        <Field label="BCC (opzionale)">
-          <input style={inputStyle} value={p('bccEmails')} onChange={u('bccEmails')} placeholder="bcc@azienda.it" />
+        <Field label="BCC (optional)">
+          <input style={inputStyle} value={p('bccEmails')} onChange={u('bccEmails')} placeholder="bcc@company.com" />
         </Field>
       </Row>
 
       {/* Oggetto */}
-      <SectionTitle label="Messaggio" />
-      <Field label="Oggetto" hint="Usa {nome_campo} per includere valori dalla riga">
+      <SectionTitle label="Message" />
+      <Field label="Subject" hint="Use {field_name} to include row values">
         <input style={inputStyle} value={p('subject', 'Report {date}')} onChange={u('subject')}
-          placeholder="Report {date} — {titolo}" />
+          placeholder="Report {date} — {title}" />
       </Field>
 
       {/* Body */}
-      <Field label="Sorgente body">
+      <Field label="Body source">
         <CustomSelect style={inputStyle} value={bodySource} onChange={u('bodySource')}>
-          <option value="field">Da campo — usa il campo HTML/testo dalla riga (es. da Report Generator)</option>
-          <option value="template">Template inline — scrivi il template qui</option>
-          <option value="plain">Testo semplice</option>
+          <option value="field">From field — use the HTML/text field from the row (e.g. from Report Generator)</option>
+          <option value="template">Inline template — write the template here</option>
+          <option value="plain">Plain text</option>
         </CustomSelect>
       </Field>
 
       {bodySource === 'field' && (
-        <Field label="Campo body HTML" hint="Di solito il campo 'content' dal nodo Report Generator">
+        <Field label="HTML body field" hint="Usually the 'content' field from the Report Generator node">
           {fieldSelect('bodyField', 'content')}
         </Field>
       )}
 
       {bodySource === 'template' && (
-        <Field label="Template HTML" hint="Usa {nome_campo} per i valori della riga">
+        <Field label="HTML template" hint="Use {field_name} for the row values">
           <textarea
             style={{ ...inputStyle, resize: 'vertical', minHeight: 120, fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5 }}
             value={p('bodyTemplate')} onChange={u('bodyTemplate')}
-            placeholder={'<h2>Report del {date}</h2>\n<p>Totale: <strong>{totale}</strong></p>'}
+            placeholder={'<h2>Report {date}</h2>\n<p>Total: <strong>{total}</strong></p>'}
             spellCheck={false}
           />
         </Field>
       )}
 
       {bodySource === 'plain' && (
-        <Field label="Testo body">
+        <Field label="Body text">
           <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }}
             value={p('bodyText')} onChange={u('bodyText')}
-            placeholder="Report generato il {date}..." />
+            placeholder="Report generated on {date}..." />
         </Field>
       )}
 
       {/* Allegati */}
-      <SectionTitle label="Allegati" />
-      <Field label="Campo allegato" hint="Campo della riga con il contenuto binario (base64) — es. da Report Generator PDF">
+      <SectionTitle label="Attachments" />
+      <Field label="Attachment field" hint="Row field with the binary content (base64) — e.g. from Report Generator PDF">
         {fieldSelect('attachmentField', 'content')}
       </Field>
       <Row>
-        <Field label="Nome file allegato" hint="Usa {nome_campo} per valori dinamici">
+        <Field label="Attachment file name" hint="Use {field_name} for dynamic values">
           <input style={inputStyle} value={p('attachmentName')} onChange={u('attachmentName')} placeholder="report_{date}.pdf" />
         </Field>
-        <Field label="MIME type allegato">
+        <Field label="Attachment MIME type">
           <CustomSelect style={inputStyle} value={p('attachmentMime', 'application/pdf')} onChange={u('attachmentMime')}>
             <option value="application/pdf">PDF</option>
             <option value="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">Excel</option>
             <option value="text/csv">CSV</option>
             <option value="text/html">HTML</option>
-            <option value="application/octet-stream">Binario generico</option>
+            <option value="application/octet-stream">Generic binary</option>
           </CustomSelect>
         </Field>
       </Row>
 
       {/* Opzioni invio */}
-      <SectionTitle label="Opzioni invio" />
+      <SectionTitle label="Send options" />
       <Row>
-        <Field label="Priorità">
+        <Field label="Priority">
           <CustomSelect style={inputStyle} value={p('priority', 'normal')} onChange={u('priority')}>
-            <option value="low">Bassa</option>
-            <option value="normal">Normale</option>
-            <option value="high">Alta</option>
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
           </CustomSelect>
         </Field>
-        <Field label="Retry su errore">
+        <Field label="Retry on error">
           <input type="number" style={inputStyle} value={p('retryCount', '2')} onChange={u('retryCount')} min="0" max="5" />
         </Field>
       </Row>
-      <Field label="Modalità invio">
+      <Field label="Send mode">
         <CustomSelect style={inputStyle} value={p('sendMode', 'per_row')} onChange={u('sendMode')}>
-          <option value="per_row">Per riga — una mail per ogni riga in ingresso</option>
-          <option value="batch">Batch — una sola mail con tutte le righe</option>
+          <option value="per_row">Per row — one email per incoming row</option>
+          <option value="batch">Batch — a single email with all rows</option>
         </CustomSelect>
       </Field>
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
-        Pattern tipico: <code style={{ color: '#3ddc84', fontSize: 9 }}>Aggregate → Report Generator → Mail Sink</code>
+        Typical pattern: <code style={{ color: '#3ddc84', fontSize: 9 }}>Aggregate → Report Generator → Mail Sink</code>
       </div>
     </div>
   )
