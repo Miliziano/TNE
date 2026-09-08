@@ -115,25 +115,25 @@ export function SinkFileMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, #ffb347 8%, #0f1117)', borderRadius: 6, border: '0.5px solid #ffb34740', fontSize: 10, color: '#ffb347', display: 'flex', gap: 6 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
-          Modalità <strong>Buffer → Signal</strong> — questo nodo emette una sola riga di stato,
-          non le righe originali. Il mapping non è configurabile.
-          Passa alla modalità <strong>Buffer → Replay</strong> nel tab Configurazione
-          per scrivere il file e riemettere le righe originali.
+          <strong>Buffer → Signal</strong> mode — this node emits a single status row,
+          not the original rows. The mapping is not configurable.
+          Switch to <strong>Buffer → Replay</strong> mode in the Configuration tab
+          to write the file and re-emit the original rows.
         </div>
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-            {['Campo', 'Tipo', 'Descrizione'].map((h) => (
+            {['Field', 'Type', 'Description'].map((h) => (
               <div key={h} style={{ fontSize: 10, color: '#ffb347', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>
           {[
-            { name: 'status',        type: 'string',  desc: '"done" o "error"'           },
-            { name: 'rows_written',  type: 'integer', desc: 'Righe scritte nel file'      },
-            { name: 'bytes_written', type: 'integer', desc: 'Dimensione file in bytes'    },
-            { name: 'file_path',     type: 'string',  desc: 'Path effettivo del file'     },
-            { name: 'completed_at',  type: 'date',    desc: 'Timestamp completamento'     },
-            { name: 'error_message', type: 'string',  desc: 'Messaggio errore se fallito' },
-            { name: 'duration_ms',   type: 'integer', desc: 'Durata scrittura in ms'      },
+            { name: 'status',        type: 'string',  desc: '"done" or "error"'           },
+            { name: 'rows_written',  type: 'integer', desc: 'Rows written to the file'      },
+            { name: 'bytes_written', type: 'integer', desc: 'File size in bytes'    },
+            { name: 'file_path',     type: 'string',  desc: 'Actual path of the file'     },
+            { name: 'completed_at',  type: 'date',    desc: 'Completion timestamp'     },
+            { name: 'error_message', type: 'string',  desc: 'Error message if failed' },
+            { name: 'duration_ms',   type: 'integer', desc: 'Write duration in ms'      },
           ].map((f, i, arr) => (
             <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
               <code style={{ fontFamily: 'monospace', fontSize: 11, color: '#ffb347' }}>{f.name}</code>
@@ -151,13 +151,13 @@ export function SinkFileMappingPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '6px 12px', background: 'color-mix(in srgb, #3ddc84 8%, #0f1117)', borderRadius: 6, border: '0.5px solid #3ddc8440', fontSize: 10, color: '#3ddc84', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
-        Modalità <strong>Buffer → Replay</strong> — scrive il file e riemette le righe originali.
-        Questo mapping definisce quali campi vengono scritti nel file.
+        <strong>Buffer → Replay</strong> mode — writes the file and re-emits the original rows.
+        This mapping defines which fields are written to the file.
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
-          Campi da scrivere nel file
+          Fields to write to the file
           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
             — {includedCount} di {schema.length} selezionati
           </span>
@@ -211,7 +211,7 @@ export function SinkFileMappingPanel({ nodeId }: { nodeId: string }) {
                 onChange={(e) => updateField(idx, 'outputName', e.target.value)}
                 disabled={!field.include}
                 style={{ ...inputStyle, fontSize: 11, padding: '3px 6px', color: ACCENT }}
-                placeholder="nome_colonna" />
+                placeholder="column_name" />
               <CustomSelect value={field.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
                 disabled={!field.include} style={{ ...inputStyle, fontSize: 10, padding: '3px 4px' }}>
                 {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}

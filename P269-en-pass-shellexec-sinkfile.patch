@@ -1,0 +1,1293 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index 064912b..f8724da 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -20,6 +20,9 @@
+   "0 = rimane attivo finché il runner non viene fermato": "0 = stays active until the runner is stopped",
+   "0/vuoto = tutte le pagine": "0/empty = all pages",
+   "0/vuoto = tutti, per repo": "0/empty = all, per repo",
++  "1 riga di stato": "1 status row",
++  "2 spazi": "2 spaces",
++  "4 spazi": "4 spaces",
+   "? contiene chiave": "? contains key",
+   "@> filtra": "@> filter",
+   "AMQP (porta 5672)": "AMQP (port 5672)",
+@@ -30,6 +33,7 @@
+   "Aggiorna il commento della versione corrente (non crea una nuova versione)": "Update the current version comment (does not create a new version)",
+   "Aggiornamento variabili": "Variables refresh",
+   "Aggiunge i dati in fondo al file esistente": "Appends the data at the end of the existing file",
++  "Aggiunge in fondo": "Appends at the end",
+   "Aggiungi header": "Add header",
+   "Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.": "Add the fields manually or configure them after running the flow.",
+   "Aggiungi lane": "Add lane",
+@@ -43,11 +47,13 @@
+   "Alternativa al topic fisso — sottoscrivi a tutti i topic che corrispondono": "Alternative to the fixed topic — subscribe to all matching topics",
+   "Ambienti": "Environments",
+   "Ambienti / profili (test, dev, prod)": "Environments / profiles (test, dev, prod)",
++  "Anno": "Year",
+   "Annulla": "Cancel",
+   "Anteprima dati in uscita": "Output data preview",
+   "Anti-bumping (deduplicazione)": "Anti-bumping (deduplication)",
+   "Applica una funzione: avvolge la selezione nell'editor (con ricerca)": "Apply a function: wraps the selection in the editor (searchable)",
+   "Apri progetto": "Open project",
++  "Array di oggetti": "Array of objects",
+   "Ascolta eventi del SO per nuovi file": "Listens to OS events for new files",
+   "Ascolto": "Listening",
+   "Aspetta che il monte esaurisca le righe (le processa/logga tutte), poi ferma.": "Waits for the upstream to exhaust its rows (processes/logs them all), then stops.",
+@@ -60,9 +66,11 @@
+   "Autentica le credenziali di ogni riga contro LDAP (search-then-bind).": "Authenticates the credentials of each row against LDAP (search-then-bind).",
+   "Autenticazione": "Authentication",
+   "Auto — dopo ricezione": "Auto — after reception",
++  "Auto — solo se file nuovo": "Auto — only if new file",
+   "Avanzate": "Advanced",
+   "Azzera tutti i campi": "Clear all fields",
+   "BCC (opzionale)": "BCC (optional)",
++  "Base64 — decodifica prima di scrivere (per Excel, PDF...)": "Base64 — decode before writing (for Excel, PDF...)",
+   "Bassa": "Low",
+   "Batch size (righe per batch)": "Batch size (rows per batch)",
+   "Batch — una sola mail con tutte le righe": "Batch — a single email with all rows",
+@@ -82,13 +90,17 @@
+   "Campi JSON": "JSON fields",
+   "Campi JSON del payload espansi in root": "Payload JSON fields expanded at root",
+   "Campi chiave": "Key fields",
++  "Campi da scrivere nel file": "Fields to write to the file",
++  "Campi dall'output JSON": "Fields from the JSON output",
+   "Campi della riga emessa": "Emitted row fields",
++  "Campi di ogni riga JSONL": "Fields of each JSONL line",
+   "Campionamento": "Sampling",
+   "Campionamento casuale": "Random sampling",
+   "Campionamento uniforme — 1 ogni N righe": "Uniform sampling — 1 every N rows",
+   "Campo allegato": "Attachment field",
+   "Campo body HTML": "HTML body field",
+   "Campo chiave": "Key field",
++  "Campo da scrivere": "Field to write",
+   "Campo della riga": "Row field",
+   "Campo della riga che contiene l'email": "Row field that contains the email",
+   "Campo della riga con il contenuto binario (base64) — es. da Report Generator PDF": "Row field with the binary content (base64) — e.g. from Report Generator PDF",
+@@ -100,16 +112,28 @@
+   "Campo path dal flusso": "Path field from flow",
+   "Campo repo": "Repo field",
+   "Campo specifico": "Specific field",
++  "Campo timestamp": "Timestamp field",
+   "Campo uscita": "Output field",
+   "Carattere quote": "Quote character",
++  "Carattere virgolette": "Quote character",
++  "Cattura stderr": "Capture stderr",
+   "Cattura sul nodo — abilita handle catch": "Catch on node — enables catch handle",
+   "Chiave messaggio": "Message key",
++  "Chiave privata (senza passphrase)": "Private key (no passphrase)",
++  "Chiave privata con passphrase": "Private key with passphrase",
+   "Chiudi": "Close",
+   "Clicca per inserire nel valore:": "Click to insert into the value:",
+   "Client — ack manuale": "Client — manual ack",
+   "Collega una risorsa DB al nodo per campionare i dati.": "Connect a DB resource to the node to sample the data.",
+   "Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se \"Log centralizzato\" è attivo).": "Central collector for lane errors — always active, cannot be deleted. Automatically receives every error not handled by catch/reject (and a copy of the handled ones, if \"Centralized log\" is active).",
++  "Colorato": "Colored",
+   "Colore": "Color",
++  "Comando": "Command",
++  "Comando eseguito": "Executed command",
++  "Comando post-scrittura": "Post-write command",
++  "Comando remoto": "Remote command",
++  "Comando shell": "Shell command",
++  "Come interpretare il valore prima di scriverlo": "How to interpret the value before writing it",
+   "Commit (di un repo)": "Commits (of a repo)",
+   "Compila": "Compile",
+   "Compila / genera artifact per il runner": "Compile / generate artifact for the runner",
+@@ -132,14 +156,19 @@
+   "Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.": "Kafka consumer — reads messages from topics with offset and deserialization configuration.",
+   "Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.": "ActiveMQ consumer/producer — STOMP, OpenWire, AMQP protocols.",
+   "Contatore controlli effettuati": "Counter of checks performed",
++  "Contenuto da scrivere": "Content to write",
+   "Contiene": "Contains",
++  "Continua comunque": "Continue anyway",
++  "Continua — emetti comunque le righe": "Continue — emit the rows anyway",
+   "Continuo": "Continuous",
+   "Continuo (a sessioni)": "Continuous (per session)",
+   "Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.": "Flow control: deliberately stops the lane (rollback + closing connections) when the flow reaches this node. It is not a failure. Multi-instance — typically downstream of a reject or of a filter handle.",
+   "Correlation ID dal campo": "Correlation ID from field",
++  "Cosa emette il nodo al termine della scrittura.": "What the node emits when writing finishes.",
+   "Cosa fa": "What it does",
+   "Cosa fa questo nodo?": "What does this node do?",
+   "Crea directory se non esiste": "Create directory if missing",
++  "Crea nuovo con timestamp": "Creates new with timestamp",
+   "Crea sempre un nuovo file — aggiunge suffisso numerico se esiste già": "Always creates a new file — adds a numeric suffix if it already exists",
+   "Crescente": "Ascending",
+   "Cronologia": "History",
+@@ -149,7 +178,10 @@
+   "Da campo — usa il campo HTML/testo dalla riga (es. da Report Generator)": "From field — use the HTML/text field from the row (e.g. from Report Generator)",
+   "Da campo — usa un campo della riga": "From field — use a row field",
+   "Da configurazione": "From configuration",
++  "Data (da campo timestamp)": "Date (from timestamp field)",
++  "Data corrente (2024-01-15)": "Current date (2024-01-15)",
+   "Data creazione": "Creation date",
++  "Data e ora": "Date and time",
+   "Data modifica": "Modified date",
+   "Data modifica crescente (più vecchi prima)": "Modified date ascending (oldest first)",
+   "Data modifica decrescente (più recenti prima)": "Modified date descending (newest first)",
+@@ -171,12 +203,15 @@
+   "Dim. min (bytes)": "Min size (bytes)",
+   "Dimensione": "Size",
+   "Dimensione crescente (più piccoli prima)": "Size ascending (smallest first)",
++  "Dimensione file in bytes": "File size in bytes",
+   "Dimensione in byte": "Size in bytes",
+   "Dimensione in byte del file": "File size in bytes",
+   "Dimensione in bytes": "Size in bytes",
++  "Dimensione massima": "Maximum size",
+   "Dimensione pagina": "Page size",
+   "Directory archivio": "Archive directory",
+   "Directory contenitore": "Container directory",
++  "Directory di lavoro (cwd)": "Working directory (cwd)",
+   "Directory remota": "Remote directory",
+   "Direzione": "Direction",
+   "Disabilitato": "Disabled",
+@@ -188,7 +223,10 @@
+   "Dove tenere traccia dei file già emessi": "Where to track already-emitted files",
+   "Durable subscription (solo topic)": "Durable subscription (topic only)",
+   "Durata (min)": "Duration (min)",
++  "Durata esecuzione": "Execution duration",
+   "Durata in millisecondi": "Duration in milliseconds",
++  "Durata in ms": "Duration in ms",
++  "Durata scrittura in ms": "Write duration in ms",
+   "Durata trasferimento in ms": "Transfer duration in ms",
+   "Durata ultima richiesta": "Last request duration",
+   "ERROR — errore": "ERROR — error",
+@@ -203,6 +241,8 @@
+   "Emette 1 riga di stato dopo il completamento — path, righe scritte, byte": "Emits 1 status row after completion — path, rows written, bytes",
+   "Emette una riga ad ogni rilevazione positiva — rimane sempre attivo": "Emits a row on every positive detection — stays always active",
+   "Emette una riga solo quando lo stato cambia (falso→vero o vero→falso)": "Emits a row only when the state changes (false→true or true→false)",
++  "Emette una sola riga di stato.": "Emits a single status row.",
++  "Encoding valore": "Value encoding",
+   "Endpoint da controllare": "Endpoint to check",
+   "Entità": "Entity",
+   "Entrambe le transizioni": "Both transitions",
+@@ -211,16 +251,23 @@
+   "Enumera file esistenti in una directory": "Enumerates existing files in a directory",
+   "Error handler — la lane decide": "Error handler — the lane decides",
+   "Errore": "Error",
++  "Errore se esiste già": "Error if already exists",
+   "Errore — blocca il server": "Error — block the server",
+   "Errore — interrompe la pipeline": "Error — stops the pipeline",
++  "Errori completi": "Full errors",
+   "Es: 10 = logga circa il 10% delle righe": "E.g. 10 = logs about 10% of the rows",
+   "Es: 10 = logga la riga 1, 11, 21, 31...": "E.g. 10 = logs row 1, 11, 21, 31...",
+   "Esatto": "Exact",
+   "Escludi i PR": "Exclude PRs",
+   "Esecuzione riuscita": "Execution succeeded",
++  "Esegue comandi bash/shell locali — output nel flusso": "Runs local bash/shell commands — output into the flow",
+   "Esegue comandi bash/shell locali — output nel flusso.": "Runs local bash/shell commands — output into the flow.",
++  "Esegue comandi su host remoto via SSH": "Runs commands on a remote host via SSH",
+   "Esegue comandi su host remoto via SSH.": "Runs commands on a remote host via SSH.",
++  "Esegui per ogni riga": "Run for each row",
+   "Esegui pipeline su Rust Engine": "Run pipeline on Rust Engine",
++  "Eseguito dopo la chiusura del file": "Run after the file is closed",
++  "Eseguito nella shell dell'utente remoto": "Run in the remote user's shell",
+   "Espone un endpoint HEAD/GET con header costruiti dallo stato corrente": "Exposes a HEAD/GET endpoint with headers built from the current state",
+   "Esporta le funzioni come libreria .ffpel riusabile in altri progetti": "Export the functions as a reusable .ffpel library for other projects",
+   "Esporta lo schema dei campi su file (.json)": "Export the field schema to a file (.json)",
+@@ -229,6 +276,7 @@
+   "Espressione custom": "Custom expression",
+   "Espressione per calcolare il topic da un campo della riga": "Expression to compute the topic from a row field",
+   "Essenziale": "Essential",
++  "Estensione coerente con il formato": "Extension consistent with the format",
+   "Estensione senza punto": "Extension without dot",
+   "Estrae e trasforma dati JSON in flussi strutturati.": "Extracts and transforms JSON data into structured flows.",
+   "Estrae e trasforma dati XML in flussi strutturati.": "Extracts and transforms XML data into structured flows.",
+@@ -238,6 +286,8 @@
+   "Età max (minuti)": "Max age (minutes)",
+   "Eventi": "Events",
+   "Evita di emettere lo stesso file più volte nella stessa esecuzione": "Avoids emitting the same file multiple times in the same run",
++  "Excel da base64 (da Report Generator)": "Excel from base64 (from Report Generator)",
++  "Exit code del comando": "Command exit code",
+   "FPEL · genera": "FPEL · generate",
+   "Fatto": "Done",
+   "Ferma la lane appena una riga raggiunge questo nodo.": "Stops the lane as soon as a row reaches this node.",
+@@ -270,10 +320,14 @@
+   "Genera un errore se il file esiste già": "Raises an error if the file already exists",
+   "Genera →": "Generate →",
+   "Generale": "General",
++  "Giorno": "Day",
+   "Glob — es: *.csv, data_*.json": "Glob — e.g. *.csv, data_*.json",
++  "Granularità": "Granularity",
++  "Grassetto": "Bold",
+   "Grezzo — nessun parsing": "Raw — no parsing",
+   "HEAD e GET": "HEAD and GET",
+   "HEAD — solo header (raccomandato)": "HEAD — headers only (recommended)",
++  "HTML — documento web": "HTML — web document",
+   "Ha intestazione": "Has header",
+   "Handle catch attivo": "Catch handle active",
+   "Hashtable in-memory per esecuzione — accessibile da qualsiasi nodo tramite context.materialize().": "In-memory hashtable for execution — accessible from any node via context.materialize().",
+@@ -281,6 +335,7 @@
+   "Header da esporre": "Headers to expose",
+   "Header firma": "Signature header",
+   "Headers statici (JSON)": "Static headers (JSON)",
++  "Host remoto": "Remote host",
+   "I parametri di connessione si configurano nelle proprietà della risorsa": "Connection parameters are set in the resource properties",
+   "I valori dei segreti NON sono nell'artifact: vanno forniti sulla macchina di destinazione (keychain o variabili d'ambiente).": "Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).",
+   "ID del nodo": "Node ID",
+@@ -295,7 +350,9 @@
+   "Il campo <strong>Timeout</strong> è sincronizzato con <strong>Timeout watch</strong> nel tab Configurazione — modificando uno si aggiorna l'altro.": "The <strong>Timeout</strong> field is synced with <strong>Watch timeout</strong> in the Configuration tab — changing one updates the other.",
+   "Il file rimane nella posizione originale": "The file stays in its original location",
+   "Il file viene scaricato intero nel campo content (stringa)": "The whole file is downloaded into the content field (string)",
++  "Il formato determina l'estensione — il path viene aggiornato automaticamente": "The format sets the extension — the path is updated automatically",
+   "Il pattern ha priorità sui topic fissi.": "The pattern takes priority over fixed topics.",
++  "Il valore di questo campo viene scritto direttamente su disco": "The value of this field is written directly to disk",
+   "Immediato (alla 1ª riga)": "Immediate (on the 1st row)",
+   "Importa da file…": "Import from file…",
+   "Importa funzioni da una libreria .ffpel (le aggiunge, saltando i nomi già presenti)": "Import functions from a .ffpel library (adds them, skipping names already present)",
+@@ -305,10 +362,12 @@
+   "Includi intestazione": "Include header",
+   "Includi metadati Kafka nel record": "Include Kafka metadata in the record",
+   "Includi numero riga nel messaggio": "Include row number in the message",
++  "Indentazione": "Indentation",
+   "Innesco": "Trigger",
+   "Integrità e deduplicazione": "Integrity and deduplication",
+   "Interroga una directory LDAP e produce una riga per voce.": "Queries an LDAP directory and produces one row per entry.",
+   "Interrompi la pipeline": "Stop the pipeline",
++  "Interrompi pipeline": "Stop the pipeline",
+   "Intervallo commit (ms)": "Commit interval (ms)",
+   "Intervallo polling (secondi)": "Polling interval (seconds)",
+   "Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.": "Sends email via SMTP, SendGrid, Amazon SES or Mailgun.",
+@@ -317,12 +376,17 @@
+   "JSON estrai": "JSON extract",
+   "JSON template (avanzato)": "JSON template (advanced)",
+   "JSON — parse automatico": "JSON — automatic parse",
++  "JSON — parse come array": "JSON — parse as an array",
++  "JSON — parse output come array JSON": "JSON — parse output as a JSON array",
+   "JSONB estrai campo": "JSONB extract field",
+   "JSONB filtra @>": "JSONB filter @>",
++  "JSONL — ogni riga è JSON": "JSONL — each line is JSON",
++  "JSONL — ogni riga è un oggetto JSON": "JSONL — each line is a JSON object",
+   "L'endpoint da interrogare periodicamente": "The endpoint to poll periodically",
+   "L'handle <strong>catch</strong> è ora visibile sul nodo. Le righe che causano un'eccezione non controllata escono da catch arricchite dei campi:": "The <strong>catch</strong> handle is now visible on the node. Rows that raise an unhandled exception exit through catch enriched with the fields:",
+   "La riga originale che ha causato l'errore": "The original row that caused the error",
+   "Lascia vuoto per disabilitare la verifica": "Leave empty to disable verification",
++  "Lascia vuoto per home": "Leave empty for home",
+   "Le modifiche sono salvate automaticamente": "Changes are saved automatically",
+   "Legge continuamente — emette righe man mano che arrivano": "Reads continuously — emits rows as they arrive",
+   "Legge file da server FTP, FTPS o SFTP.": "Reads files from FTP, FTPS or SFTP servers.",
+@@ -337,6 +401,8 @@
+   "Limita output a N caratteri per riga": "Limit output to N characters per row",
+   "Limite file": "File limit",
+   "Limite righe": "Row limit",
++  "Lines — ogni riga stdout": "Lines — each stdout line",
++  "Lines — ogni riga stdout è una Row": "Lines — each stdout line is a Row",
+   "Lista file": "File list",
+   "Livello": "Level",
+   "Livello QoS": "QoS level",
+@@ -356,11 +422,13 @@
+   "Max messaggi": "Max messages",
+   "Max messaggi in coda": "Max queued messages",
+   "Max tentativi": "Max attempts",
++  "Mese": "Month",
+   "Messaggi da pre-caricare": "Messages to pre-load",
+   "Messaggio": "Message",
+   "Messaggio (opzionale)": "Message (optional)",
+   "Messaggio dell'eccezione": "Exception message",
+   "Messaggio errore (vuoto se ok)": "Error message (empty if ok)",
++  "Messaggio errore se fallito": "Error message if failed",
+   "Metadati messaggio": "Message metadata",
+   "Metodi accettati": "Accepted methods",
+   "Metodo": "Method",
+@@ -377,10 +445,12 @@
+   "Monitor — legge variabili di lane, sempre attivo": "Monitor — reads lane variables, always active",
+   "Monitora la directory in polling — elabora i nuovi file man mano che arrivano": "Monitors the directory by polling — processes new files as they arrive",
+   "Monitora servizi via HEAD — sblocca il flusso sull'header atteso.": "Monitors services via HEAD — unblocks the flow on the expected header.",
++  "N righe originali": "N original rows",
+   "NOT NULL — clicca per nullable": "NOT NULL — click for nullable",
+   "Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.": "No incoming field. Connect an upstream source (e.g. a TMap) to pull its fields.",
+   "Nessun mapping definito. Aggiungi una riga per mappare i campi.": "No mapping defined. Add a row to map the fields.",
+   "Nessuna": "None",
++  "Nessuna (compatto)": "None (compact)",
+   "Nessuna chiave (null)": "No key (null)",
+   "Nessuna colonna rilevata — verifica la query e la connessione.": "No column detected — check the query and the connection.",
+   "Nessuna funzione definita.": "No functions defined.",
+@@ -396,8 +466,13 @@
+   "Nessuna variabile definita nella lane. Aggiungine una dalla sidebar delle variabili.": "No variable defined in the lane. Add one from the variables sidebar.",
+   "Nessuna variabile stringa disponibile in questa lane.": "No string variable available in this lane.",
+   "Nessuna variabile stringa nella lane": "No string variable in the lane",
++  "Nessuna — file singolo": "None — single file",
++  "Nessuno": "None",
++  "No — accetta qualsiasi host": "No — accept any host",
+   "No — commit manuale (at-least-once)": "No — manual commit (at-least-once)",
+   "No — errore se la directory non esiste": "No — error if the directory does not exist",
++  "No — esegui una volta sola": "No — run only once",
++  "No — ignora stderr": "No — ignore stderr",
+   "No — nodo disabilitato (passthrough silenzioso)": "No — node disabled (silent passthrough)",
+   "No — salta durante l'esecuzione": "No — skip during execution",
+   "No — scrivi direttamente nel file finale": "No — write directly to the final file",
+@@ -406,6 +481,7 @@
+   "No — solo il payload deserializzato": "No — only the deserialized payload",
+   "No — solo la directory specificata": "No — only the specified directory",
+   "No — solo root": "No — root only",
++  "No — una volta sola": "No — only once",
+   "Nodi": "Nodes",
+   "Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.": "Transparent node — logs the rows passing through for debugging. Does not modify the data.",
+   "Nome": "Name",
+@@ -420,6 +496,7 @@
+   "Nome file": "File name",
+   "Nome file allegato": "Attachment file name",
+   "Nome file con estensione": "File name with extension",
++  "Nome foglio": "Sheet name",
+   "Nome header da controllare": "Header name to check",
+   "Nome mittente": "Sender name",
+   "Nome topic": "Topic name",
+@@ -430,11 +507,16 @@
+   "Normale — + avanzamento e messaggi dei nodi": "Normal — + progress and node messages",
+   "Note interne": "Internal notes",
+   "Note tecniche, avvertenze, TODO…": "Technical notes, warnings, TODO…",
++  "Notifica completamento (webhook URL)": "Completion notification (webhook URL)",
+   "Nullable — clicca per NOT NULL": "Nullable — click for NOT NULL",
+   "Numero di retry": "Retry count",
+   "Numero di righe da loggare": "Number of rows to log",
+   "Numero di righe scritte": "Number of rows written",
+   "Numero partizione": "Partition number",
++  "Numero riga": "Row number",
++  "Numero riga (1-based)": "Row number (1-based)",
++  "Numero righe stdout": "Number of stdout lines",
++  "Numero sequenziale": "Sequential number",
+   "Nuovi + modifiche": "New + updates",
+   "Nuovo profilo": "New profile",
+   "Offset iniziale": "Initial offset",
+@@ -444,6 +526,9 @@
+   "OpenWire (porta 61616) — nativo ActiveMQ": "OpenWire (port 61616) — native ActiveMQ",
+   "Operatori JSONB PostgreSQL — clicca per inserire": "PostgreSQL JSONB operators — click to insert",
+   "Opzioni": "Options",
++  "Opzioni CSV / TSV": "CSV / TSV options",
++  "Opzioni Excel": "Excel options",
++  "Opzioni JSON": "JSON options",
+   "Opzioni Scan": "Scan options",
+   "Opzioni Watch": "Watch options",
+   "Opzioni avanzate": "Advanced options",
+@@ -453,25 +538,31 @@
+   "Opzioni producer": "Producer options",
+   "Opzioni publisher": "Publisher options",
+   "Opzioni subscriber": "Subscriber options",
++  "Ora": "Hour",
+   "Ordina per": "Order by",
+   "Ordinamento": "Sorting",
+   "Ordinamento (ORDER BY)": "Order (ORDER BY)",
+   "Ordine elaborazione file": "File processing order",
+   "Organizzazione": "Organization",
+   "Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).": "Watches a directory for new files (watch) or enumerates its contents (scan).",
++  "Output completo": "Full output",
+   "Output del nodo": "Node output",
+   "Pannello log FlowPilot": "FlowPilot log panel",
+   "Parametri del nodo": "Node parameters",
++  "Partiziona per": "Partition by",
+   "Partizione": "Partition",
+   "Partizioni": "Partitions",
+   "Path + data modifica — riemette se il file è cambiato": "Path + modified date — re-emits if the file changed",
+   "Path assoluto del file": "Absolute file path",
+   "Path assoluto della directory da osservare": "Absolute path of the directory to watch",
++  "Path chiave privata": "Private key path",
+   "Path completo del file sul server": "Full path of the file on the server",
+   "Path completo sul server": "Full path on the server",
+   "Path configurato direttamente qui sotto": "Path configured directly below",
+   "Path del file scritto": "Path of the written file",
+   "Path della directory di destinazione sul server": "Destination directory path on the server",
++  "Path effettivo del file": "Actual path of the file",
++  "Path file": "File path",
+   "Path file stato": "State file path",
+   "Path remoto": "Remote path",
+   "Path su cui è arrivato l'evento": "Path the event arrived on",
+@@ -497,6 +588,7 @@
+   "Porta": "Port",
+   "Porta di ingresso da un'altra lane — riceve dal canale bridge.": "Entry port from another lane — receives from the bridge channel.",
+   "Porta di uscita dal flusso della lane — pubblica sul canale bridge.": "Exit port from the lane flow — publishes to the bridge channel.",
++  "Preferibile alle credenziali manuali": "Preferable to manual credentials",
+   "Prefisso messaggio": "Message prefix",
+   "Preleva dati da GitHub (repo, issue/PR, commit) via API REST.": "Fetches data from GitHub (repos, issues/PRs, commits) via REST API.",
+   "Prime 5 righe simulate. L'anteprima reale sarà disponibile con il backend collegato.": "First 5 simulated rows. The real preview will be available once the backend is connected.",
+@@ -519,6 +611,7 @@
+   "Quanto aspettare messaggi prima di procedere": "How long to wait for messages before proceeding",
+   "Query SQL": "SQL Query",
+   "Query personalizzata": "Custom query",
++  "Questo mapping definisce quali campi vengono scritti nel file.": "This mapping defines which fields are written to the file.",
+   "Questo tipo di nodo non ha campi codice o query.": "This node type has no code or query fields.",
+   "Queue — delivery garantito": "Queue — guaranteed delivery",
+   "Raggruppa le righe e calcola funzioni aggregate.": "Groups rows and computes aggregate functions.",
+@@ -536,6 +629,9 @@
+   "Riceve webhook — server condiviso con HMAC, buffer e dedup.": "Receives webhooks — shared server with HMAC, buffering and dedup.",
+   "Ricorsivo": "Recursive",
+   "Riemette le righe originali dopo la scrittura — utile per pipeline in catena": "Re-emits the original rows after writing — useful for chained pipelines",
++  "Riemette le righe originali dopo la scrittura.": "Re-emits the original rows after writing.",
++  "Riga di output": "Output line",
++  "Riga di testo": "Text line",
+   "Righe aggiornate": "Rows updated",
+   "Righe elaborate": "Rows processed",
+   "Righe filtrate (scartate)": "Rows filtered (discarded)",
+@@ -556,6 +652,7 @@
+   "Riprova, poi error handler": "Retry, then error handler",
+   "Risorsa DB": "DB resource",
+   "Risorsa Kafka": "Kafka resource",
++  "Risorsa SSH dalla lane": "SSH resource from the lane",
+   "Risorsa collegata": "Connected resource",
+   "Risponde HEAD/GET con header sintetici dalla riga corrente.": "Responds to HEAD/GET with synthetic headers from the current row.",
+   "SELECT base": "Basic SELECT",
+@@ -585,10 +682,13 @@
+   "Schema riga di stato": "Status row schema",
+   "Schema soggetto": "Schema subject",
+   "Scrittura atomica": "Atomic write",
++  "Scrive direttamente il valore di un campo specifico — utile per HTML e Excel da Report Generator.": "Writes the value of a specific field directly — useful for HTML and Excel from Report Generator.",
+   "Scrive file su server FTP, FTPS o SFTP.": "Writes files to FTP, FTPS or SFTP servers.",
+   "Scrive prima in un file temporaneo (.tmp), poi rinomina — evita file corrotti in caso di errore": "Writes first to a temporary file (.tmp), then renames — avoids corrupted files on error",
+   "Scrive righe in una tabella di database.": "Writes rows into a database table.",
+   "Scrive righe su file.": "Writes rows to a file.",
++  "Scrivi intestazione": "Write header",
++  "Se exit code ≠ 0": "If exit code ≠ 0",
+   "Se il file esiste, lo sovrascrive completamente": "If the file exists, overwrites it completely",
+   "Se impostato, usa questo campo come topic dinamico (sovrascrive il topic statico)": "If set, uses this field as the dynamic topic (overrides the static topic)",
+   "Se l'handle catch non è collegato a nessun nodo, le eccezioni vengono gestite dalla configurazione globale della lane.": "If the catch handle isn't connected to any node, exceptions are handled by the lane's global configuration.",
+@@ -601,6 +701,7 @@
+   "Separatore": "Delimiter",
+   "Serializza righe del flusso in stringhe JSON con struttura configurabile.": "Serializes flow rows into JSON strings with a configurable structure.",
+   "Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.": "Serializes flow rows into XML strings with configurable structure and namespaces.",
++  "Serializza tutte le righe in ingresso nel formato selezionato.": "Serializes all incoming rows in the selected format.",
+   "Serializzazione": "Serialization",
+   "Serializzazione payload": "Payload serialization",
+   "Server mail standard": "Standard mail server",
+@@ -620,6 +721,7 @@
+   "Sorgente delle righe": "Row source",
+   "Sorgente path directory": "Directory path source",
+   "Sorgente remota": "Remote source",
++  "Sovrascrive il file": "Overwrites the file",
+   "Sposta in directory errori e continua": "Move to error directory and continue",
+   "Sposta in una directory di archivio": "Move to an archive directory",
+   "Stabilità file (ms)": "File stability (ms)",
+@@ -627,14 +729,19 @@
+   "Stato": "State",
+   "Stato precedente alla transizione": "State before the transition",
+   "Status — campi emessi verso il nodo successivo": "Status — fields emitted to the next node",
++  "Stile intestazione": "Header style",
+   "Strategia partizione": "Partition strategy",
+   "Stream — emette ad ogni rilevazione positiva, rimane attivo": "Stream — emits on every positive detection, stays active",
+   "String (testo grezzo)": "String (raw text)",
+   "String plain": "Plain string",
++  "Struttura output": "Output structure",
+   "Su errore file singolo": "On single-file error",
+   "Su file — persiste tra esecuzioni": "To file — persists across runs",
+   "Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.": "On high-volume flows, log only a subset of rows to avoid flooding the log.",
+   "Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.": "MQTT subscriber — receives messages from MQTT/MQTTS brokers.",
++  "Summary — solo riepilogo": "Summary — summary only",
++  "Summary — solo riga di riepilogo finale": "Summary — only a final summary row",
++  "Supporta pipe, redirect, && — viene eseguito tramite /bin/sh": "Supports pipe, redirect, && — runs through /bin/sh",
+   "Supporta variabili: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}": "Supports variables: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}",
+   "Supporta wildcard: + (livello singolo), # (tutti i livelli)": "Supports wildcards: + (single level), # (all levels)",
+   "Svuota canvas": "Clear canvas",
+@@ -644,6 +751,8 @@
+   "Sì — aggiungi campi _kafka_*": "Yes — add _kafka_* fields",
+   "Sì — commit automatico ogni intervallo": "Yes — automatic commit every interval",
+   "Sì — crea automaticamente le directory mancanti": "Yes — automatically create missing directories",
++  "Sì — emette righe stderr nel flusso": "Yes — emits stderr rows into the flow",
++  "Sì — esegui per ogni riga in ingresso": "Yes — run for each incoming row",
+   "Sì — il broker mantiene l'ultimo messaggio": "Yes — the broker keeps the last message",
+   "Sì — include subdir": "Yes — include subdir",
+   "Sì — includi sottocartelle": "Yes — include subfolders",
+@@ -651,9 +760,12 @@
+   "Sì — mantieni messaggi offline": "Yes — keep messages offline",
+   "Sì — mostra il contatore righe": "Yes — show the row counter",
+   "Sì — nessuna persistenza": "Yes — no persistence",
++  "Sì — per ogni riga": "Yes — for each row",
++  "Sì — prima riga = intestazione": "Yes — first row = header",
+   "Sì — prima riga è intestazione": "Yes — first row is header",
+   "Sì — scrivi in .tmp poi rinomina (consigliato)": "Yes — write to .tmp then rename (recommended)",
+   "Sì — scrivi nomi colonne nella prima riga": "Yes — write column names in the first row",
++  "Sì — verifica known_hosts": "Yes — verify known_hosts",
+   "Tab inserisce 2 spazi. Il codice viene eseguito sul server.": "Tab inserts 2 spaces. The code runs on the server.",
+   "Tabella": "Table",
+   "Tabella — IGNORATA": "Table — IGNORED",
+@@ -669,11 +781,13 @@
+   "Testo semplice": "Plain text",
+   "Testo strutturato": "Structured text",
+   "Testo — campo payload come stringa": "Text — payload field as string",
++  "Testo — scrivi direttamente (per HTML, JSON, XML...)": "Text — write directly (for HTML, JSON, XML...)",
+   "Testo — una riga per linea": "Text — one row per line",
+   "Timeout (secondi)": "Timeout (seconds)",
+   "Timeout connessione (s)": "Connection timeout (s)",
+   "Timeout connessione (sec)": "Connection timeout (sec)",
+   "Timeout e retry": "Timeout and retry",
++  "Timeout esecuzione (sec)": "Execution timeout (sec)",
+   "Timeout globale (min)": "Global timeout (min)",
+   "Timeout query (s)": "Query timeout (s)",
+   "Timeout raccolta (ms)": "Collection timeout (ms)",
+@@ -714,16 +828,20 @@
+   "Tutti (new/update/rename/delete)": "All (new/update/rename/delete)",
+   "Tutti gli header HTTP ricevuti": "All received HTTP headers",
+   "Tutti i campi (key=value)": "All fields (key=value)",
++  "Tutti i campi dell'oggetto JSON": "All fields of the JSON object",
+   "Tutti i campi status vengono anche scritti nelle variabili di lane come": "All status fields are also written to lane variables as",
+   "UUID casuale": "Random UUID",
++  "UUID univoco": "Unique UUID",
+   "Un topic o più separati da virgola — es: ordini, clienti, prodotti": "One topic or several separated by commas — e.g. orders, customers, products",
+   "Una funzione per riga:": "One function per line:",
+   "Una ogni N righe": "One every N rows",
++  "Una riga per oggetto": "One line per object",
+   "Una volta": "Once",
+   "Una volta (one-shot)": "Once (one-shot)",
+   "Unisce due flussi su un campo chiave.": "Joins two flows on a key field.",
+   "Usa ${variabile} per topic dinamici": "Use ${variable} for dynamic topics",
+   "Usa il campo path da ogni riga in ingresso (richiede edge)": "Uses the path field from each incoming row (requires edge)",
++  "Usa variabili ${date}, ${datetime}, ${uuid}, ${seq} per path dinamici": "Use variables ${date}, ${datetime}, ${uuid}, ${seq} for dynamic paths",
+   "Usa {campo} per accedere ai valori della riga. Lascia vuoto per loggare la riga intera come JSON.": "Use {field} to access the row values. Leave empty to log the whole row as JSON.",
+   "Usa {nome_campo} per i valori della riga": "Use {field_name} for the row values",
+   "Usa {nome_campo} per includere valori dalla riga": "Use {field_name} to include row values",
+@@ -731,6 +849,7 @@
+   "Usata se non c'è una query personalizzata": "Used if there is no custom query",
+   "Usata se non c'è una query personalizzata nel tab Query": "Used if there is no custom query in the Query tab",
+   "Utente": "User",
++  "Utente SSH": "SSH user",
+   "Valida ogni riga contro regole configurabili — output valid e reject.": "Validates each row against configurable rules — valid and reject outputs.",
+   "Valore atteso": "Expected value",
+   "Valore effettivo dell'header": "Actual header value",
+@@ -739,7 +858,10 @@
+   "Variabile Lane": "Lane variable",
+   "Variabile di tipo stringa che contiene il path della directory": "String variable that contains the directory path",
+   "Variabili condivise (pool)": "Shared variables (pool)",
++  "Variabili d'ambiente aggiuntive": "Additional environment variables",
++  "Variabili — clicca per inserire": "Variables — click to insert",
+   "Vengono <b>espanse a compile-time</b> nelle espressioni. Il corpo è una sola espressione e può usare\n            solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.": "They are <b>expanded at compile-time</b> in expressions. The body is a single expression and can use\n            only its parameters (and the built-in functions); no recursion, no redefining the built-ins.",
++  "Verifica known_hosts": "Verify known_hosts",
+   "Versione": "Version",
+   "Versione MQTT": "MQTT version",
+   "Versione schema": "Schema version",
+@@ -809,15 +931,18 @@
+   "ƒ applica…": "ƒ apply…",
+   "— nessun profilo —": "— no profile —",
+   "— nessuna —": "— none —",
++  "— seleziona campo —": "— select field —",
+   "— seleziona variabile —": "— select variable —",
+   "— seleziona —": "— select —",
+   "→ Da flusso": "→ From flow",
+   "→ Sposta": "→ Move",
++  "→ Valore di un campo": "→ Value of a field",
+   "↺ Sovrascrive": "↺ Overwrite",
+   "⇩ Scarica e legge": "⇩ Download and read",
+   "⊂ canale non impostato": "⊂ channel not set",
+   "⊃ canale non impostato": "⊃ channel not set",
+   "⊕ campo flusso": "⊕ flow field",
++  "⊞ Righe del flusso": "⊞ Flow rows",
+   "▤ Elenca file": "▤ List files",
+   "▤ Lista file": "▤ File list",
+   "○ Lascia": "○ Leave",
+diff --git a/src/nodes/types/shell_exec/Panel.tsx b/src/nodes/types/shell_exec/Panel.tsx
+index 30a821a..8c8319e 100644
+--- a/src/nodes/types/shell_exec/Panel.tsx
++++ b/src/nodes/types/shell_exec/Panel.tsx
+@@ -88,97 +88,97 @@ export function ShellExecPanel({ nodeId }: { nodeId: string }) {
+         <i className="ti ti-terminal-2" style={{ fontSize: 16, color: SHELL_COLOR }} />
+         <div>
+           <div style={{ fontSize: 11, fontWeight: 600, color: SHELL_COLOR }}>Shell Executor</div>
+-          <div style={{ fontSize: 9, color: '#8593b5' }}>Esegue comandi bash/shell locali — output nel flusso</div>
++          <div style={{ fontSize: 9, color: '#8593b5' }}>Runs local bash/shell commands — output into the flow</div>
+         </div>
+       </div>
+ 
+       <InfoBox color={SHELL_COLOR}>
+-        Usa <code style={{ color: SHELL_COLOR }}>$campo</code> o <code style={{ color: SHELL_COLOR }}>${'{'}campo{'}'}</code> per
+-        inserire valori dalla riga in ingresso o dalle variabili di lane nel comando.
+-        Esempio: <code style={{ color: '#3ddc84', fontSize: 9 }}>kubectl get pods -n $namespace -o json</code>
++        Use <code style={{ color: SHELL_COLOR }}>$field</code> or <code style={{ color: SHELL_COLOR }}>${'{'}field{'}'}</code> to
++        insert values from the incoming row or from lane variables into the command.
++        Example: <code style={{ color: '#3ddc84', fontSize: 9 }}>kubectl get pods -n $namespace -o json</code>
+       </InfoBox>
+ 
+       {/* Comando */}
+-      <SectionTitle label="Comando" color={SHELL_COLOR} />
+-      <Field label="Comando shell" hint="Supporta pipe, redirect, && — viene eseguito tramite /bin/sh">
++      <SectionTitle label="Command" color={SHELL_COLOR} />
++      <Field label="Shell command" hint="Supports pipe, redirect, && — runs through /bin/sh">
+         <textarea style={textareaStyle} value={p('command', '')} onChange={u('command')}
+           placeholder="kubectl get nodes -o wide&#10;docker ps --format json&#10;ls -la /var/log" />
+       </Field>
+       <Row2>
+-        <Field label="Directory di lavoro (cwd)" hint="Lascia vuoto per home">
+-          <input style={inputStyle} value={p('cwd', '')} onChange={u('cwd')} placeholder="/home/user/progetti" />
++        <Field label="Working directory (cwd)" hint="Leave empty for home">
++          <input style={inputStyle} value={p('cwd', '')} onChange={u('cwd')} placeholder="/home/user/projects" />
+         </Field>
+-        <Field label="Timeout (sec)" hint="0 = nessun limite">
++        <Field label="Timeout (sec)" hint="0 = no limit">
+           <input type="number" style={inputStyle} value={p('timeoutSec', '30')} onChange={u('timeoutSec')} min="0" />
+         </Field>
+       </Row2>
+ 
+       {/* Variabili d'ambiente */}
+-      <SectionTitle label="Variabili d'ambiente aggiuntive" color={SHELL_COLOR} />
++      <SectionTitle label="Additional environment variables" color={SHELL_COLOR} />
+       <Field label="Env (JSON)" hint='{"KUBECONFIG": "/home/user/.kube/config", "ENV": "prod"}'>
+         <textarea style={{ ...textareaStyle, minHeight: 60 }} value={p('env', '{}')} onChange={u('env')}
+-          placeholder='{"MY_VAR": "valore"}' />
++          placeholder='{"MY_VAR": "value"}' />
+       </Field>
+ 
+       {/* Output */}
+       <SectionTitle label="Output" color={SHELL_COLOR} />
+       <Row2>
+-        <Field label="Modalità output">
++        <Field label="Output mode">
+           <CustomSelect style={inputStyle} value={outputMode} onChange={u('outputMode')}>
+-            <option value="lines">Lines — ogni riga stdout è una Row</option>
+-            <option value="json">JSON — parse output come array JSON</option>
+-            <option value="jsonl">JSONL — ogni riga è un oggetto JSON</option>
+-            <option value="summary">Summary — solo riga di riepilogo finale</option>
++            <option value="lines">Lines — each stdout line is a Row</option>
++            <option value="json">JSON — parse output as a JSON array</option>
++            <option value="jsonl">JSONL — each line is a JSON object</option>
++            <option value="summary">Summary — only a final summary row</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Cattura stderr">
++        <Field label="Capture stderr">
+           <CustomSelect style={inputStyle} value={p('captureStderr', 'true')} onChange={u('captureStderr')}>
+-            <option value="true">Sì — emette righe stderr nel flusso</option>
+-            <option value="false">No — ignora stderr</option>
++            <option value="true">Yes — emits stderr rows into the flow</option>
++            <option value="false">No — ignore stderr</option>
+           </CustomSelect>
+         </Field>
+       </Row2>
+       <Row2>
+-        <Field label="Esegui per ogni riga">
++        <Field label="Run for each row">
+           <CustomSelect style={inputStyle} value={p('runPerRow', 'false')} onChange={u('runPerRow')}>
+-            <option value="false">No — esegui una volta sola</option>
+-            <option value="true">Sì — esegui per ogni riga in ingresso</option>
++            <option value="false">No — run only once</option>
++            <option value="true">Yes — run for each incoming row</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Se exit code ≠ 0">
++        <Field label="If exit code ≠ 0">
+           <CustomSelect style={inputStyle} value={p('onError', 'stop')} onChange={u('onError')}>
+-            <option value="stop">Interrompi pipeline</option>
+-            <option value="skip">Continua — emetti comunque le righe</option>
++            <option value="stop">Stop the pipeline</option>
++            <option value="skip">Continue — emit the rows anyway</option>
+           </CustomSelect>
+         </Field>
+       </Row2>
+ 
+       {/* Schema output */}
+-      <SectionTitle label="Campi della riga emessa" color={SHELL_COLOR} />
++      <SectionTitle label="Emitted row fields" color={SHELL_COLOR} />
+       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+         {outputMode === 'lines' && <>
+-          <SchemaRow color={SHELL_COLOR} name="line"        type="string"  desc="Riga di testo" />
+-          <SchemaRow color={SHELL_COLOR} name="line_number" type="integer" desc="Numero riga (1-based)" />
+-          <SchemaRow color={SHELL_COLOR} name="stream"      type="string"  desc="'stdout' o 'stderr'" />
+-          <SchemaRow color={SHELL_COLOR} name="exit_code"   type="integer" desc="Exit code del comando" />
+-          <SchemaRow color={SHELL_COLOR} name="duration_ms" type="integer" desc="Durata esecuzione" />
++          <SchemaRow color={SHELL_COLOR} name="line"        type="string"  desc="Text line" />
++          <SchemaRow color={SHELL_COLOR} name="line_number" type="integer" desc="Row number (1-based)" />
++          <SchemaRow color={SHELL_COLOR} name="stream"      type="string"  desc="'stdout' or 'stderr'" />
++          <SchemaRow color={SHELL_COLOR} name="exit_code"   type="integer" desc="Command exit code" />
++          <SchemaRow color={SHELL_COLOR} name="duration_ms" type="integer" desc="Execution duration" />
+         </>}
+         {outputMode === 'json' && <>
+-          <SchemaRow color={SHELL_COLOR} name="...(campi JSON)" type="any" desc="Tutti i campi dell'oggetto JSON" />
+-          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Exit code del comando" />
++          <SchemaRow color={SHELL_COLOR} name="...(JSON fields)" type="any" desc="All fields of the JSON object" />
++          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Command exit code" />
+         </>}
+         {outputMode === 'jsonl' && <>
+-          <SchemaRow color={SHELL_COLOR} name="...(campi JSON)" type="any" desc="Campi di ogni riga JSONL" />
+-          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Exit code del comando" />
++          <SchemaRow color={SHELL_COLOR} name="...(JSON fields)" type="any" desc="Fields of each JSONL line" />
++          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Command exit code" />
+         </>}
+         {outputMode === 'summary' && <>
+-          <SchemaRow color={SHELL_COLOR} name="command"      type="string"  desc="Comando eseguito" />
++          <SchemaRow color={SHELL_COLOR} name="command"      type="string"  desc="Executed command" />
+           <SchemaRow color={SHELL_COLOR} name="exit_code"    type="integer" desc="Exit code" />
+-          <SchemaRow color={SHELL_COLOR} name="stdout"       type="string"  desc="Output completo" />
+-          <SchemaRow color={SHELL_COLOR} name="stderr"       type="string"  desc="Errori completi" />
+-          <SchemaRow color={SHELL_COLOR} name="stdout_lines" type="integer" desc="Numero righe stdout" />
+-          <SchemaRow color={SHELL_COLOR} name="duration_ms"  type="integer" desc="Durata in ms" />
+-          <SchemaRow color={SHELL_COLOR} name="ok"           type="boolean" desc="true se exit_code === 0" />
++          <SchemaRow color={SHELL_COLOR} name="stdout"       type="string"  desc="Full output" />
++          <SchemaRow color={SHELL_COLOR} name="stderr"       type="string"  desc="Full errors" />
++          <SchemaRow color={SHELL_COLOR} name="stdout_lines" type="integer" desc="Number of stdout lines" />
++          <SchemaRow color={SHELL_COLOR} name="duration_ms"  type="integer" desc="Duration in ms" />
++          <SchemaRow color={SHELL_COLOR} name="ok"           type="boolean" desc="true if exit_code === 0" />
+         </>}
+       </div>
+ 
+@@ -217,24 +217,24 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
+         <i className="ti ti-server-bolt" style={{ fontSize: 16, color: SSH_COLOR }} />
+         <div>
+           <div style={{ fontSize: 11, fontWeight: 600, color: SSH_COLOR }}>SSH Executor</div>
+-          <div style={{ fontSize: 9, color: '#8593b5' }}>Esegue comandi su host remoto via SSH</div>
++          <div style={{ fontSize: 9, color: '#8593b5' }}>Runs commands on a remote host via SSH</div>
+         </div>
+       </div>
+ 
+       <InfoBox color={SSH_COLOR}>
+-        Usa una <strong>risorsa SSH</strong> dalla lane per le credenziali, oppure configurale
+-        direttamente qui sotto. Usa <code style={{ color: SSH_COLOR }}>$campo</code> nel comando
+-        per inserire valori dalla riga in ingresso.
++        Use an <strong>SSH resource</strong> from the lane for the credentials, or configure them
++        directly below. Use <code style={{ color: SSH_COLOR }}>$field</code> in the command
++        to insert values from the incoming row.
+       </InfoBox>
+ 
+       {/* Connessione — risorsa o manuale */}
+-      <SectionTitle label="Connessione" color={SSH_COLOR} />
++      <SectionTitle label="Connection" color={SSH_COLOR} />
+ 
+       {sshRes.length > 0 && (
+-        <Field label="Risorsa SSH dalla lane" hint="Preferibile alle credenziali manuali">
++        <Field label="SSH resource from the lane" hint="Preferable to manual credentials">
+           <CustomSelect style={inputStyle} value={p('resourceId', '')}
+             onChange={e => updateProp(nodeId, 'resourceId', e.target.value)}>
+-            <option value="">— nessuna risorsa (usa credenziali manuali) —</option>
++            <option value="">— no resource (use manual credentials) —</option>
+             {sshRes.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+           </CustomSelect>
+         </Field>
+@@ -244,21 +244,21 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
+         <Field label="Host">
+           <input style={inputStyle} value={p('host', '')} onChange={u('host')} placeholder="192.168.1.10" />
+         </Field>
+-        <Field label="Porta">
++        <Field label="Port">
+           <input type="number" style={inputStyle} value={p('port', '22')} onChange={u('port')} min="1" max="65535" />
+         </Field>
+       </Row2>
+-      <Field label="Utente">
++      <Field label="User">
+         <input style={inputStyle} value={p('user', '')} onChange={u('user')} placeholder="ubuntu" />
+       </Field>
+ 
+       {/* Autenticazione */}
+-      <SectionTitle label="Autenticazione" color={SSH_COLOR} />
+-      <Field label="Tipo">
++      <SectionTitle label="Authentication" color={SSH_COLOR} />
++      <Field label="Type">
+         <CustomSelect style={inputStyle} value={authType} onChange={u('authType')}>
+           <option value="password">Password</option>
+-          <option value="key">Chiave privata (senza passphrase)</option>
+-          <option value="key_passphrase">Chiave privata con passphrase</option>
++          <option value="key">Private key (no passphrase)</option>
++          <option value="key_passphrase">Private key with passphrase</option>
+         </CustomSelect>
+       </Field>
+       {authType === 'password' && (
+@@ -268,7 +268,7 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
+       )}
+       {(authType === 'key' || authType === 'key_passphrase') && (
+         <>
+-          <Field label="Path chiave privata">
++          <Field label="Private key path">
+             <input style={inputStyle} value={p('keyPath', '')} onChange={u('keyPath')} placeholder="~/.ssh/id_rsa" />
+           </Field>
+           {authType === 'key_passphrase' && (
+@@ -279,31 +279,31 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
+         </>
+       )}
+       <Row2>
+-        <Field label="Timeout connessione (sec)">
++        <Field label="Connection timeout (sec)">
+           <input type="number" style={inputStyle} value={p('connectTimeout', '10')} onChange={u('connectTimeout')} min="1" />
+         </Field>
+-        <Field label="Verifica known_hosts">
++        <Field label="Verify known_hosts">
+           <CustomSelect style={inputStyle} value={p('knownHostsCheck', 'false')} onChange={u('knownHostsCheck')}>
+-            <option value="false">No — accetta qualsiasi host</option>
+-            <option value="true">Sì — verifica known_hosts</option>
++            <option value="false">No — accept any host</option>
++            <option value="true">Yes — verify known_hosts</option>
+           </CustomSelect>
+         </Field>
+       </Row2>
+ 
+       {/* Comando */}
+-      <SectionTitle label="Comando remoto" color={SSH_COLOR} />
+-      <Field label="Comando" hint="Eseguito nella shell dell'utente remoto">
++      <SectionTitle label="Remote command" color={SSH_COLOR} />
++      <Field label="Command" hint="Run in the remote user's shell">
+         <textarea style={textareaStyle} value={p('command', '')} onChange={u('command')}
+           placeholder="systemctl status nginx&#10;docker ps --format json&#10;journalctl -n 100 --no-pager" />
+       </Field>
+       <Row2>
+-        <Field label="Timeout esecuzione (sec)" hint="0 = nessun limite">
++        <Field label="Execution timeout (sec)" hint="0 = no limit">
+           <input type="number" style={inputStyle} value={p('timeoutSec', '30')} onChange={u('timeoutSec')} min="0" />
+         </Field>
+-        <Field label="Se exit code ≠ 0">
++        <Field label="If exit code ≠ 0">
+           <CustomSelect style={inputStyle} value={p('onError', 'stop')} onChange={u('onError')}>
+-            <option value="stop">Interrompi pipeline</option>
+-            <option value="skip">Continua comunque</option>
++            <option value="stop">Stop the pipeline</option>
++            <option value="skip">Continue anyway</option>
+           </CustomSelect>
+         </Field>
+       </Row2>
+@@ -311,43 +311,43 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
+       {/* Output */}
+       <SectionTitle label="Output" color={SSH_COLOR} />
+       <Row2>
+-        <Field label="Modalità output">
++        <Field label="Output mode">
+           <CustomSelect style={inputStyle} value={outputMode} onChange={u('outputMode')}>
+-            <option value="lines">Lines — ogni riga stdout</option>
+-            <option value="json">JSON — parse come array</option>
+-            <option value="jsonl">JSONL — ogni riga è JSON</option>
+-            <option value="summary">Summary — solo riepilogo</option>
++            <option value="lines">Lines — each stdout line</option>
++            <option value="json">JSON — parse as an array</option>
++            <option value="jsonl">JSONL — each line is JSON</option>
++            <option value="summary">Summary — summary only</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Esegui per ogni riga">
++        <Field label="Run for each row">
+           <CustomSelect style={inputStyle} value={p('runPerRow', 'false')} onChange={u('runPerRow')}>
+-            <option value="false">No — una volta sola</option>
+-            <option value="true">Sì — per ogni riga</option>
++            <option value="false">No — only once</option>
++            <option value="true">Yes — for each row</option>
+           </CustomSelect>
+         </Field>
+       </Row2>
+ 
+       {/* Schema output */}
+-      <SectionTitle label="Campi della riga emessa" color={SSH_COLOR} />
++      <SectionTitle label="Emitted row fields" color={SSH_COLOR} />
+       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+-        <SchemaRow color={SSH_COLOR} name="ssh_host"        type="string"  desc="Host remoto" />
+-        <SchemaRow color={SSH_COLOR} name="ssh_user"        type="string"  desc="Utente SSH" />
+-        <SchemaRow color={SSH_COLOR} name="ssh_command"     type="string"  desc="Comando eseguito" />
++        <SchemaRow color={SSH_COLOR} name="ssh_host"        type="string"  desc="Remote host" />
++        <SchemaRow color={SSH_COLOR} name="ssh_user"        type="string"  desc="SSH user" />
++        <SchemaRow color={SSH_COLOR} name="ssh_command"     type="string"  desc="Executed command" />
+         <SchemaRow color={SSH_COLOR} name="ssh_exit_code"   type="integer" desc="Exit code" />
+-        <SchemaRow color={SSH_COLOR} name="ssh_duration_ms" type="integer" desc="Durata in ms" />
++        <SchemaRow color={SSH_COLOR} name="ssh_duration_ms" type="integer" desc="Duration in ms" />
+         {outputMode === 'lines' && <>
+-          <SchemaRow color={SSH_COLOR} name="line"        type="string"  desc="Riga di output" />
+-          <SchemaRow color={SSH_COLOR} name="line_number" type="integer" desc="Numero riga" />
+-          <SchemaRow color={SSH_COLOR} name="stream"      type="string"  desc="'stdout' o 'stderr'" />
++          <SchemaRow color={SSH_COLOR} name="line"        type="string"  desc="Output line" />
++          <SchemaRow color={SSH_COLOR} name="line_number" type="integer" desc="Row number" />
++          <SchemaRow color={SSH_COLOR} name="stream"      type="string"  desc="'stdout' or 'stderr'" />
+         </>}
+         {outputMode === 'summary' && <>
+-          <SchemaRow color={SSH_COLOR} name="stdout"       type="string"  desc="Output completo" />
+-          <SchemaRow color={SSH_COLOR} name="stderr"       type="string"  desc="Errori completi" />
+-          <SchemaRow color={SSH_COLOR} name="stdout_lines" type="integer" desc="Numero righe stdout" />
+-          <SchemaRow color={SSH_COLOR} name="ok"           type="boolean" desc="true se exit_code === 0" />
++          <SchemaRow color={SSH_COLOR} name="stdout"       type="string"  desc="Full output" />
++          <SchemaRow color={SSH_COLOR} name="stderr"       type="string"  desc="Full errors" />
++          <SchemaRow color={SSH_COLOR} name="stdout_lines" type="integer" desc="Number of stdout lines" />
++          <SchemaRow color={SSH_COLOR} name="ok"           type="boolean" desc="true if exit_code === 0" />
+         </>}
+         {(outputMode === 'json' || outputMode === 'jsonl') && <>
+-          <SchemaRow color={SSH_COLOR} name="...(campi JSON)" type="any" desc="Campi dall'output JSON" />
++          <SchemaRow color={SSH_COLOR} name="...(JSON fields)" type="any" desc="Fields from the JSON output" />
+         </>}
+       </div>
+ 
+diff --git a/src/nodes/types/sink_file/MappingPanel.tsx b/src/nodes/types/sink_file/MappingPanel.tsx
+index 583a876..0d8db3d 100644
+--- a/src/nodes/types/sink_file/MappingPanel.tsx
++++ b/src/nodes/types/sink_file/MappingPanel.tsx
+@@ -115,25 +115,25 @@ export function SinkFileMappingPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+         <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, #ffb347 8%, #0f1117)', borderRadius: 6, border: '0.5px solid #ffb34740', fontSize: 10, color: '#ffb347', display: 'flex', gap: 6 }}>
+           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
+-          Modalità <strong>Buffer → Signal</strong> — questo nodo emette una sola riga di stato,
+-          non le righe originali. Il mapping non è configurabile.
+-          Passa alla modalità <strong>Buffer → Replay</strong> nel tab Configurazione
+-          per scrivere il file e riemettere le righe originali.
++          <strong>Buffer → Signal</strong> mode — this node emits a single status row,
++          not the original rows. The mapping is not configurable.
++          Switch to <strong>Buffer → Replay</strong> mode in the Configuration tab
++          to write the file and re-emit the original rows.
+         </div>
+         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
+-            {['Campo', 'Tipo', 'Descrizione'].map((h) => (
++            {['Field', 'Type', 'Description'].map((h) => (
+               <div key={h} style={{ fontSize: 10, color: '#ffb347', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+             ))}
+           </div>
+           {[
+-            { name: 'status',        type: 'string',  desc: '"done" o "error"'           },
+-            { name: 'rows_written',  type: 'integer', desc: 'Righe scritte nel file'      },
+-            { name: 'bytes_written', type: 'integer', desc: 'Dimensione file in bytes'    },
+-            { name: 'file_path',     type: 'string',  desc: 'Path effettivo del file'     },
+-            { name: 'completed_at',  type: 'date',    desc: 'Timestamp completamento'     },
+-            { name: 'error_message', type: 'string',  desc: 'Messaggio errore se fallito' },
+-            { name: 'duration_ms',   type: 'integer', desc: 'Durata scrittura in ms'      },
++            { name: 'status',        type: 'string',  desc: '"done" or "error"'           },
++            { name: 'rows_written',  type: 'integer', desc: 'Rows written to the file'      },
++            { name: 'bytes_written', type: 'integer', desc: 'File size in bytes'    },
++            { name: 'file_path',     type: 'string',  desc: 'Actual path of the file'     },
++            { name: 'completed_at',  type: 'date',    desc: 'Completion timestamp'     },
++            { name: 'error_message', type: 'string',  desc: 'Error message if failed' },
++            { name: 'duration_ms',   type: 'integer', desc: 'Write duration in ms'      },
+           ].map((f, i, arr) => (
+             <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
+               <code style={{ fontFamily: 'monospace', fontSize: 11, color: '#ffb347' }}>{f.name}</code>
+@@ -151,13 +151,13 @@ export function SinkFileMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ padding: '6px 12px', background: 'color-mix(in srgb, #3ddc84 8%, #0f1117)', borderRadius: 6, border: '0.5px solid #3ddc8440', fontSize: 10, color: '#3ddc84', display: 'flex', gap: 6 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
+-        Modalità <strong>Buffer → Replay</strong> — scrive il file e riemette le righe originali.
+-        Questo mapping definisce quali campi vengono scritti nel file.
++        <strong>Buffer → Replay</strong> mode — writes the file and re-emits the original rows.
++        This mapping defines which fields are written to the file.
+       </div>
+ 
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
+-          Campi da scrivere nel file
++          Fields to write to the file
+           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
+             — {includedCount} di {schema.length} selezionati
+           </span>
+@@ -211,7 +211,7 @@ export function SinkFileMappingPanel({ nodeId }: { nodeId: string }) {
+                 onChange={(e) => updateField(idx, 'outputName', e.target.value)}
+                 disabled={!field.include}
+                 style={{ ...inputStyle, fontSize: 11, padding: '3px 6px', color: ACCENT }}
+-                placeholder="nome_colonna" />
++                placeholder="column_name" />
+               <CustomSelect value={field.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
+                 disabled={!field.include} style={{ ...inputStyle, fontSize: 10, padding: '3px 4px' }}>
+                 {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+diff --git a/src/nodes/types/sink_file/Panel.tsx b/src/nodes/types/sink_file/Panel.tsx
+index 128ceb6..63c13d1 100644
+--- a/src/nodes/types/sink_file/Panel.tsx
++++ b/src/nodes/types/sink_file/Panel.tsx
+@@ -94,8 +94,8 @@ const SINK_FORMAT_GROUPS = [
+   {
+     label: 'Report',
+     formats: [
+-      { value: 'html',      label: 'HTML — documento web'                },
+-      { value: 'excel_b64', label: 'Excel da base64 (da Report Generator)' },
++      { value: 'html',      label: 'HTML — web document'                },
++      { value: 'excel_b64', label: 'Excel from base64 (from Report Generator)' },
+     ],
+   },
+ ]
+@@ -195,10 +195,10 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+ 
+       {/* ── Destinazione ── */}
+-      <SectionTitle label="Destinazione" />
++      <SectionTitle label="Destination" />
+ 
+       {/* Formato PRIMA del path — è la fonte di verità */}
+-      <Field label="Formato file" hint="Il formato determina l'estensione — il path viene aggiornato automaticamente">
++      <Field label="File format" hint="The format sets the extension — the path is updated automatically">
+         <CustomSelect style={inputStyle} value={format} onChange={(e) => handleFormatChange(e.target.value)}>
+           {SINK_FORMAT_GROUPS.map((group) => (
+             <optgroup key={group.label} label={group.label}>
+@@ -211,12 +211,12 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+       </Field>
+ 
+       {/* Path — con badge coerenza */}
+-      <Field label="Path file" hint="Usa variabili ${date}, ${datetime}, ${uuid}, ${seq} per path dinamici">
++      <Field label="File path" hint="Use variables ${date}, ${datetime}, ${uuid}, ${seq} for dynamic paths">
+         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+           <input type="text" style={{ ...inputStyle, flex: 1 }} value={currentPath} onChange={u('path')}
+             placeholder={`/data/output/result_\${date}.${expectedExt ?? 'csv'}`} />
+           {expectedExt && currentPath && (
+-            <div title={extMismatch ? `Estensione nel path (.${actualExt}) non corrisponde al formato (.${expectedExt})` : 'Estensione coerente con il formato'}
++            <div title={extMismatch ? `Path extension (.${actualExt}) does not match the format (.${expectedExt})` : 'Extension consistent with the format'}
+               style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, flexShrink: 0, fontFamily: 'monospace',
+                 background: extMismatch ? '#2a0a0a' : '#0d1a10',
+                 color:      extMismatch ? '#ff5f57' : '#3ddc84',
+@@ -229,7 +229,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+                   updateProp(nodeId, 'path', fixed)
+                 }
+               }}>
+-              {extMismatch ? `⚠ .${actualExt} → clicca per correggere in .${expectedExt}` : `✓ .${actualExt}`}
++              {extMismatch ? `⚠ .${actualExt} → click to fix to .${expectedExt}` : `✓ .${actualExt}`}
+             </div>
+           )}
+         </div>
+@@ -237,14 +237,14 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+         {/* Variabili rapide */}
+         <div style={{ marginTop: 6, padding: '6px 8px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+           <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 5, fontWeight: 600 }}>
+-            Variabili — clicca per inserire
++            Variables — click to insert
+           </div>
+           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+             {[
+-              { var: '${date}',     desc: 'Data corrente (2024-01-15)' },
+-              { var: '${datetime}', desc: 'Data e ora'                 },
+-              { var: '${uuid}',     desc: 'UUID univoco'               },
+-              { var: '${seq}',      desc: 'Numero sequenziale'         },
++              { var: '${date}',     desc: 'Current date (2024-01-15)' },
++              { var: '${datetime}', desc: 'Date and time'                 },
++              { var: '${uuid}',     desc: 'Unique UUID'               },
++              { var: '${seq}',      desc: 'Sequential number'         },
+             ].map(({ var: v, desc }) => (
+               <button key={v} title={desc}
+                 onClick={() => updateProp(nodeId, 'path', (node.data.props['path'] ?? '') + v)}
+@@ -272,20 +272,20 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* ── Contenuto da scrivere ── */}
+-      <SectionTitle label="Contenuto da scrivere" />
++      <SectionTitle label="Content to write" />
+ 
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+           {
+             value: 'rows',
+-            label: '⊞ Righe del flusso',
+-            desc:  'Serializza tutte le righe in ingresso nel formato selezionato.',
++            label: '⊞ Flow rows',
++            desc:  'Serializes all incoming rows in the selected format.',
+             disabled: format === 'html' || format === 'excel_b64',
+           },
+           {
+             value: 'raw_field',
+-            label: '→ Valore di un campo',
+-            desc:  'Scrive direttamente il valore di un campo specifico — utile per HTML e Excel da Report Generator.',
++            label: '→ Value of a field',
++            desc:  'Writes the value of a specific field directly — useful for HTML and Excel from Report Generator.',
+             disabled: false,
+           },
+         ].map((m) => (
+@@ -312,10 +312,10 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+       {/* Configurazione raw field */}
+       {writeMode2 === 'raw_field' && (
+         <div style={{ padding: '10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+-          <Field label="Campo da scrivere" hint="Il valore di questo campo viene scritto direttamente su disco">
++          <Field label="Field to write" hint="The value of this field is written directly to disk">
+             {incomingSchema.length > 0 ? (
+               <CustomSelect style={inputStyle} value={rawField} onChange={u('rawField')}>
+-                <option value="">— seleziona campo —</option>
++                <option value="">— select field —</option>
+                 {incomingSchema.map((f: any) => (
+                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+                 ))}
+@@ -326,10 +326,10 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+           </Field>
+ 
+           {/* Encoding del valore */}
+-          <Field label="Encoding valore" hint="Come interpretare il valore prima di scriverlo">
++          <Field label="Value encoding" hint="How to interpret the value before writing it">
+             <CustomSelect style={inputStyle} value={p('rawEncoding', 'text')} onChange={u('rawEncoding')}>
+-              <option value="text">Testo — scrivi direttamente (per HTML, JSON, XML...)</option>
+-              <option value="base64">Base64 — decodifica prima di scrivere (per Excel, PDF...)</option>
++              <option value="text">Text — write directly (for HTML, JSON, XML...)</option>
++              <option value="base64">Base64 — decode before writing (for Excel, PDF...)</option>
+             </CustomSelect>
+           </Field>
+ 
+@@ -337,27 +337,27 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+           {format === 'html' && (
+             <div style={{ fontSize: 9, color: '#4a9eff', display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+               <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
+-              Pattern Report Generator → SinkFile HTML: campo <code style={{ color: ACCENT }}>content</code>, encoding <strong>testo</strong>.
++              Report Generator → SinkFile HTML pattern: <code style={{ color: ACCENT }}>content</code> field, <strong>text</strong> encoding.
+             </div>
+           )}
+           {format === 'excel_b64' && (
+             <div style={{ fontSize: 9, color: '#4a9eff', display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+               <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
+-              Pattern Report Generator → SinkFile Excel: campo <code style={{ color: ACCENT }}>content</code>, encoding <strong>base64</strong>.
++              Report Generator → SinkFile Excel pattern: <code style={{ color: ACCENT }}>content</code> field, <strong>base64</strong> encoding.
+             </div>
+           )}
+         </div>
+       )}
+ 
+       {/* ── Modalità output ── */}
+-      <SectionTitle label="Modalità output" />
++      <SectionTitle label="Output mode" />
+       <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 0', marginBottom: 4, lineHeight: 1.5 }}>
+-        Cosa emette il nodo al termine della scrittura.
++        What the node emits when writing finishes.
+       </div>
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+-          { value: 'signal', label: '⊟ Buffer → Signal', desc: 'Emette una sola riga di stato.', outputDesc: '1 riga di stato', color: '#ffb347' },
+-          { value: 'replay', label: '⊞ Buffer → Replay', desc: 'Riemette le righe originali dopo la scrittura.', outputDesc: 'N righe originali', color: ACCENT },
++          { value: 'signal', label: '⊟ Buffer → Signal', desc: 'Emits a single status row.', outputDesc: '1 status row', color: '#ffb347' },
++          { value: 'replay', label: '⊞ Buffer → Replay', desc: 'Re-emits the original rows after writing.', outputDesc: 'N original rows', color: ACCENT },
+         ].map((m) => (
+           <button key={m.value} onClick={() => handleOutputMode(m.value)}
+             style={{
+@@ -380,12 +380,12 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+ 
+       {outputMode === 'signal' && (
+         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
+-          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Schema riga di stato</div>
++          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Status row schema</div>
+           {[
+-            { name: 'status',        desc: '"done" o "error"'        },
+-            { name: 'rows_written',  desc: 'Righe scritte nel file'   },
+-            { name: 'file_path',     desc: 'Path effettivo del file'  },
+-            { name: 'completed_at',  desc: 'Timestamp completamento'  },
++            { name: 'status',        desc: '"done" or "error"'        },
++            { name: 'rows_written',  desc: 'Rows written to the file'   },
++            { name: 'file_path',     desc: 'Actual path of the file'  },
++            { name: 'completed_at',  desc: 'Completion timestamp'  },
+           ].map((f) => (
+             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
+               <code style={{ fontSize: 10, color: '#ffb347', minWidth: 110, flexShrink: 0 }}>{f.name}</code>
+@@ -396,13 +396,13 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* ── Modalità scrittura ── */}
+-      <SectionTitle label="Modalità scrittura" />
++      <SectionTitle label="Write mode" />
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+         {[
+-          { value: 'overwrite', label: 'Overwrite', icon: 'ti-file-shredder', desc: 'Sovrascrive il file'      },
+-          { value: 'append',    label: 'Append',    icon: 'ti-file-plus',     desc: 'Aggiunge in fondo'        },
+-          { value: 'new',       label: 'New file',  icon: 'ti-file-plus-2',   desc: 'Crea nuovo con timestamp' },
+-          { value: 'error',     label: 'Error',     icon: 'ti-file-alert',    desc: 'Errore se esiste già'     },
++          { value: 'overwrite', label: 'Overwrite', icon: 'ti-file-shredder', desc: 'Overwrites the file'      },
++          { value: 'append',    label: 'Append',    icon: 'ti-file-plus',     desc: 'Appends at the end'        },
++          { value: 'new',       label: 'New file',  icon: 'ti-file-plus-2',   desc: 'Creates new with timestamp' },
++          { value: 'error',     label: 'Error',     icon: 'ti-file-alert',    desc: 'Error if already exists'     },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'mode', m.value)}
+             style={{
+@@ -423,21 +423,21 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+       {/* ── Opzioni formato specifiche ── */}
+       {(format === 'csv' || format === 'tsv') && writeMode2 === 'rows' && (
+         <>
+-          <SectionTitle label="Opzioni CSV / TSV" />
++          <SectionTitle label="CSV / TSV options" />
+           <Row>
+-            <Field label="Separatore">
++            <Field label="Delimiter">
+               <input type="text" style={inputStyle} value={p('delimiter', format === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
+             </Field>
+-            <Field label="Carattere virgolette">
++            <Field label="Quote character">
+               <input type="text" style={inputStyle} value={p('quoteChar', '"')} onChange={u('quoteChar')} />
+             </Field>
+           </Row>
+           <Row>
+-            <Field label="Scrivi intestazione">
++            <Field label="Write header">
+               <CustomSelect style={inputStyle} value={p('writeHeader', 'true')} onChange={u('writeHeader')}>
+-                <option value="true">Sì — prima riga = intestazione</option>
+-                <option value="false">No — solo dati</option>
+-                <option value="auto">Auto — solo se file nuovo</option>
++                <option value="true">Yes — first row = header</option>
++                <option value="false">No — data only</option>
++                <option value="auto">Auto — only if new file</option>
+               </CustomSelect>
+             </Field>
+             <Field label="Line ending">
+@@ -452,16 +452,16 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+ 
+       {format === 'excel' && writeMode2 === 'rows' && (
+         <>
+-          <SectionTitle label="Opzioni Excel" />
++          <SectionTitle label="Excel options" />
+           <Row>
+-            <Field label="Nome foglio">
++            <Field label="Sheet name">
+               <input type="text" style={inputStyle} value={p('sheetName', 'Sheet1')} onChange={u('sheetName')} />
+             </Field>
+-            <Field label="Stile intestazione">
++            <Field label="Header style">
+               <CustomSelect style={inputStyle} value={p('headerStyle', 'bold')} onChange={u('headerStyle')}>
+-                <option value="none">Nessuno</option>
+-                <option value="bold">Grassetto</option>
+-                <option value="colored">Colorato</option>
++                <option value="none">None</option>
++                <option value="bold">Bold</option>
++                <option value="colored">Colored</option>
+               </CustomSelect>
+             </Field>
+           </Row>
+@@ -470,20 +470,20 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+ 
+       {(format === 'json' || format === 'jsonl') && writeMode2 === 'rows' && (
+         <>
+-          <SectionTitle label="Opzioni JSON" />
++          <SectionTitle label="JSON options" />
+           <Row>
+-            <Field label="Indentazione">
++            <Field label="Indentation">
+               <CustomSelect style={inputStyle} value={p('jsonIndent', 'none')} onChange={u('jsonIndent')}>
+-                <option value="none">Nessuna (compatto)</option>
+-                <option value="2">2 spazi</option>
+-                <option value="4">4 spazi</option>
++                <option value="none">None (compact)</option>
++                <option value="2">2 spaces</option>
++                <option value="4">4 spaces</option>
+               </CustomSelect>
+             </Field>
+             {format === 'json' && (
+-              <Field label="Struttura output">
++              <Field label="Output structure">
+                 <CustomSelect style={inputStyle} value={p('jsonStructure', 'array')} onChange={u('jsonStructure')}>
+-                  <option value="array">Array di oggetti</option>
+-                  <option value="lines">Una riga per oggetto</option>
++                  <option value="array">Array of objects</option>
++                  <option value="lines">One line per object</option>
+                 </CustomSelect>
+               </Field>
+             )}
+@@ -492,31 +492,31 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* ── Partizioni ── */}
+-      <SectionTitle label="Partizioni" />
+-      <Field label="Partiziona per">
++      <SectionTitle label="Partitions" />
++      <Field label="Partition by">
+         <CustomSelect style={inputStyle} value={p('partition', 'none')} onChange={u('partition')}>
+-          <option value="none">Nessuna — file singolo</option>
+-          <option value="field">Campo della riga</option>
+-          <option value="date">Data (da campo timestamp)</option>
+-          <option value="size">Dimensione massima</option>
++          <option value="none">None — single file</option>
++          <option value="field">Row field</option>
++          <option value="date">Date (from timestamp field)</option>
++          <option value="size">Maximum size</option>
+         </CustomSelect>
+       </Field>
+       {p('partition') === 'field' && (
+-        <Field label="Campo partizione">
++        <Field label="Partition field">
+           <input type="text" style={inputStyle} value={p('partitionField', '')} onChange={u('partitionField')} placeholder="region" />
+         </Field>
+       )}
+       {p('partition') === 'date' && (
+         <Row>
+-          <Field label="Campo timestamp">
++          <Field label="Timestamp field">
+             <input type="text" style={inputStyle} value={p('partitionTimestamp', 'created_at')} onChange={u('partitionTimestamp')} />
+           </Field>
+-          <Field label="Granularità">
++          <Field label="Granularity">
+             <CustomSelect style={inputStyle} value={p('partitionGranularity', 'day')} onChange={u('partitionGranularity')}>
+-              <option value="year">Anno</option>
+-              <option value="month">Mese</option>
+-              <option value="day">Giorno</option>
+-              <option value="hour">Ora</option>
++              <option value="year">Year</option>
++              <option value="month">Month</option>
++              <option value="day">Day</option>
++              <option value="hour">Hour</option>
+             </CustomSelect>
+           </Field>
+         </Row>
+@@ -524,10 +524,10 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* ── Post-processing ── */}
+       <SectionTitle label="Post-processing" />
+-      <Field label="Comando post-scrittura" hint="Eseguito dopo la chiusura del file">
++      <Field label="Post-write command" hint="Run after the file is closed">
+         <input type="text" style={inputStyle} value={p('postCommand', '')} onChange={u('postCommand')} placeholder="gzip /data/output/result.csv" />
+       </Field>
+-      <Field label="Notifica completamento (webhook URL)">
++      <Field label="Completion notification (webhook URL)">
+         <input type="text" style={inputStyle} value={p('webhookUrl', '')} onChange={u('webhookUrl')} placeholder="https://hook.example.com/notify" />
+       </Field>
+ 

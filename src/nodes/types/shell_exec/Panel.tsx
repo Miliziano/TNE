@@ -88,97 +88,97 @@ export function ShellExecPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-terminal-2" style={{ fontSize: 16, color: SHELL_COLOR }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: SHELL_COLOR }}>Shell Executor</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Esegue comandi bash/shell locali — output nel flusso</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Runs local bash/shell commands — output into the flow</div>
         </div>
       </div>
 
       <InfoBox color={SHELL_COLOR}>
-        Usa <code style={{ color: SHELL_COLOR }}>$campo</code> o <code style={{ color: SHELL_COLOR }}>${'{'}campo{'}'}</code> per
-        inserire valori dalla riga in ingresso o dalle variabili di lane nel comando.
-        Esempio: <code style={{ color: '#3ddc84', fontSize: 9 }}>kubectl get pods -n $namespace -o json</code>
+        Use <code style={{ color: SHELL_COLOR }}>$field</code> or <code style={{ color: SHELL_COLOR }}>${'{'}field{'}'}</code> to
+        insert values from the incoming row or from lane variables into the command.
+        Example: <code style={{ color: '#3ddc84', fontSize: 9 }}>kubectl get pods -n $namespace -o json</code>
       </InfoBox>
 
       {/* Comando */}
-      <SectionTitle label="Comando" color={SHELL_COLOR} />
-      <Field label="Comando shell" hint="Supporta pipe, redirect, && — viene eseguito tramite /bin/sh">
+      <SectionTitle label="Command" color={SHELL_COLOR} />
+      <Field label="Shell command" hint="Supports pipe, redirect, && — runs through /bin/sh">
         <textarea style={textareaStyle} value={p('command', '')} onChange={u('command')}
           placeholder="kubectl get nodes -o wide&#10;docker ps --format json&#10;ls -la /var/log" />
       </Field>
       <Row2>
-        <Field label="Directory di lavoro (cwd)" hint="Lascia vuoto per home">
-          <input style={inputStyle} value={p('cwd', '')} onChange={u('cwd')} placeholder="/home/user/progetti" />
+        <Field label="Working directory (cwd)" hint="Leave empty for home">
+          <input style={inputStyle} value={p('cwd', '')} onChange={u('cwd')} placeholder="/home/user/projects" />
         </Field>
-        <Field label="Timeout (sec)" hint="0 = nessun limite">
+        <Field label="Timeout (sec)" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('timeoutSec', '30')} onChange={u('timeoutSec')} min="0" />
         </Field>
       </Row2>
 
       {/* Variabili d'ambiente */}
-      <SectionTitle label="Variabili d'ambiente aggiuntive" color={SHELL_COLOR} />
+      <SectionTitle label="Additional environment variables" color={SHELL_COLOR} />
       <Field label="Env (JSON)" hint='{"KUBECONFIG": "/home/user/.kube/config", "ENV": "prod"}'>
         <textarea style={{ ...textareaStyle, minHeight: 60 }} value={p('env', '{}')} onChange={u('env')}
-          placeholder='{"MY_VAR": "valore"}' />
+          placeholder='{"MY_VAR": "value"}' />
       </Field>
 
       {/* Output */}
       <SectionTitle label="Output" color={SHELL_COLOR} />
       <Row2>
-        <Field label="Modalità output">
+        <Field label="Output mode">
           <CustomSelect style={inputStyle} value={outputMode} onChange={u('outputMode')}>
-            <option value="lines">Lines — ogni riga stdout è una Row</option>
-            <option value="json">JSON — parse output come array JSON</option>
-            <option value="jsonl">JSONL — ogni riga è un oggetto JSON</option>
-            <option value="summary">Summary — solo riga di riepilogo finale</option>
+            <option value="lines">Lines — each stdout line is a Row</option>
+            <option value="json">JSON — parse output as a JSON array</option>
+            <option value="jsonl">JSONL — each line is a JSON object</option>
+            <option value="summary">Summary — only a final summary row</option>
           </CustomSelect>
         </Field>
-        <Field label="Cattura stderr">
+        <Field label="Capture stderr">
           <CustomSelect style={inputStyle} value={p('captureStderr', 'true')} onChange={u('captureStderr')}>
-            <option value="true">Sì — emette righe stderr nel flusso</option>
-            <option value="false">No — ignora stderr</option>
+            <option value="true">Yes — emits stderr rows into the flow</option>
+            <option value="false">No — ignore stderr</option>
           </CustomSelect>
         </Field>
       </Row2>
       <Row2>
-        <Field label="Esegui per ogni riga">
+        <Field label="Run for each row">
           <CustomSelect style={inputStyle} value={p('runPerRow', 'false')} onChange={u('runPerRow')}>
-            <option value="false">No — esegui una volta sola</option>
-            <option value="true">Sì — esegui per ogni riga in ingresso</option>
+            <option value="false">No — run only once</option>
+            <option value="true">Yes — run for each incoming row</option>
           </CustomSelect>
         </Field>
-        <Field label="Se exit code ≠ 0">
+        <Field label="If exit code ≠ 0">
           <CustomSelect style={inputStyle} value={p('onError', 'stop')} onChange={u('onError')}>
-            <option value="stop">Interrompi pipeline</option>
-            <option value="skip">Continua — emetti comunque le righe</option>
+            <option value="stop">Stop the pipeline</option>
+            <option value="skip">Continue — emit the rows anyway</option>
           </CustomSelect>
         </Field>
       </Row2>
 
       {/* Schema output */}
-      <SectionTitle label="Campi della riga emessa" color={SHELL_COLOR} />
+      <SectionTitle label="Emitted row fields" color={SHELL_COLOR} />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         {outputMode === 'lines' && <>
-          <SchemaRow color={SHELL_COLOR} name="line"        type="string"  desc="Riga di testo" />
-          <SchemaRow color={SHELL_COLOR} name="line_number" type="integer" desc="Numero riga (1-based)" />
-          <SchemaRow color={SHELL_COLOR} name="stream"      type="string"  desc="'stdout' o 'stderr'" />
-          <SchemaRow color={SHELL_COLOR} name="exit_code"   type="integer" desc="Exit code del comando" />
-          <SchemaRow color={SHELL_COLOR} name="duration_ms" type="integer" desc="Durata esecuzione" />
+          <SchemaRow color={SHELL_COLOR} name="line"        type="string"  desc="Text line" />
+          <SchemaRow color={SHELL_COLOR} name="line_number" type="integer" desc="Row number (1-based)" />
+          <SchemaRow color={SHELL_COLOR} name="stream"      type="string"  desc="'stdout' or 'stderr'" />
+          <SchemaRow color={SHELL_COLOR} name="exit_code"   type="integer" desc="Command exit code" />
+          <SchemaRow color={SHELL_COLOR} name="duration_ms" type="integer" desc="Execution duration" />
         </>}
         {outputMode === 'json' && <>
-          <SchemaRow color={SHELL_COLOR} name="...(campi JSON)" type="any" desc="Tutti i campi dell'oggetto JSON" />
-          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Exit code del comando" />
+          <SchemaRow color={SHELL_COLOR} name="...(JSON fields)" type="any" desc="All fields of the JSON object" />
+          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Command exit code" />
         </>}
         {outputMode === 'jsonl' && <>
-          <SchemaRow color={SHELL_COLOR} name="...(campi JSON)" type="any" desc="Campi di ogni riga JSONL" />
-          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Exit code del comando" />
+          <SchemaRow color={SHELL_COLOR} name="...(JSON fields)" type="any" desc="Fields of each JSONL line" />
+          <SchemaRow color={SHELL_COLOR} name="_exit_code"      type="integer" desc="Command exit code" />
         </>}
         {outputMode === 'summary' && <>
-          <SchemaRow color={SHELL_COLOR} name="command"      type="string"  desc="Comando eseguito" />
+          <SchemaRow color={SHELL_COLOR} name="command"      type="string"  desc="Executed command" />
           <SchemaRow color={SHELL_COLOR} name="exit_code"    type="integer" desc="Exit code" />
-          <SchemaRow color={SHELL_COLOR} name="stdout"       type="string"  desc="Output completo" />
-          <SchemaRow color={SHELL_COLOR} name="stderr"       type="string"  desc="Errori completi" />
-          <SchemaRow color={SHELL_COLOR} name="stdout_lines" type="integer" desc="Numero righe stdout" />
-          <SchemaRow color={SHELL_COLOR} name="duration_ms"  type="integer" desc="Durata in ms" />
-          <SchemaRow color={SHELL_COLOR} name="ok"           type="boolean" desc="true se exit_code === 0" />
+          <SchemaRow color={SHELL_COLOR} name="stdout"       type="string"  desc="Full output" />
+          <SchemaRow color={SHELL_COLOR} name="stderr"       type="string"  desc="Full errors" />
+          <SchemaRow color={SHELL_COLOR} name="stdout_lines" type="integer" desc="Number of stdout lines" />
+          <SchemaRow color={SHELL_COLOR} name="duration_ms"  type="integer" desc="Duration in ms" />
+          <SchemaRow color={SHELL_COLOR} name="ok"           type="boolean" desc="true if exit_code === 0" />
         </>}
       </div>
 
@@ -217,24 +217,24 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-server-bolt" style={{ fontSize: 16, color: SSH_COLOR }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: SSH_COLOR }}>SSH Executor</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Esegue comandi su host remoto via SSH</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Runs commands on a remote host via SSH</div>
         </div>
       </div>
 
       <InfoBox color={SSH_COLOR}>
-        Usa una <strong>risorsa SSH</strong> dalla lane per le credenziali, oppure configurale
-        direttamente qui sotto. Usa <code style={{ color: SSH_COLOR }}>$campo</code> nel comando
-        per inserire valori dalla riga in ingresso.
+        Use an <strong>SSH resource</strong> from the lane for the credentials, or configure them
+        directly below. Use <code style={{ color: SSH_COLOR }}>$field</code> in the command
+        to insert values from the incoming row.
       </InfoBox>
 
       {/* Connessione — risorsa o manuale */}
-      <SectionTitle label="Connessione" color={SSH_COLOR} />
+      <SectionTitle label="Connection" color={SSH_COLOR} />
 
       {sshRes.length > 0 && (
-        <Field label="Risorsa SSH dalla lane" hint="Preferibile alle credenziali manuali">
+        <Field label="SSH resource from the lane" hint="Preferable to manual credentials">
           <CustomSelect style={inputStyle} value={p('resourceId', '')}
             onChange={e => updateProp(nodeId, 'resourceId', e.target.value)}>
-            <option value="">— nessuna risorsa (usa credenziali manuali) —</option>
+            <option value="">— no resource (use manual credentials) —</option>
             {sshRes.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
           </CustomSelect>
         </Field>
@@ -244,21 +244,21 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
         <Field label="Host">
           <input style={inputStyle} value={p('host', '')} onChange={u('host')} placeholder="192.168.1.10" />
         </Field>
-        <Field label="Porta">
+        <Field label="Port">
           <input type="number" style={inputStyle} value={p('port', '22')} onChange={u('port')} min="1" max="65535" />
         </Field>
       </Row2>
-      <Field label="Utente">
+      <Field label="User">
         <input style={inputStyle} value={p('user', '')} onChange={u('user')} placeholder="ubuntu" />
       </Field>
 
       {/* Autenticazione */}
-      <SectionTitle label="Autenticazione" color={SSH_COLOR} />
-      <Field label="Tipo">
+      <SectionTitle label="Authentication" color={SSH_COLOR} />
+      <Field label="Type">
         <CustomSelect style={inputStyle} value={authType} onChange={u('authType')}>
           <option value="password">Password</option>
-          <option value="key">Chiave privata (senza passphrase)</option>
-          <option value="key_passphrase">Chiave privata con passphrase</option>
+          <option value="key">Private key (no passphrase)</option>
+          <option value="key_passphrase">Private key with passphrase</option>
         </CustomSelect>
       </Field>
       {authType === 'password' && (
@@ -268,7 +268,7 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
       )}
       {(authType === 'key' || authType === 'key_passphrase') && (
         <>
-          <Field label="Path chiave privata">
+          <Field label="Private key path">
             <input style={inputStyle} value={p('keyPath', '')} onChange={u('keyPath')} placeholder="~/.ssh/id_rsa" />
           </Field>
           {authType === 'key_passphrase' && (
@@ -279,31 +279,31 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
         </>
       )}
       <Row2>
-        <Field label="Timeout connessione (sec)">
+        <Field label="Connection timeout (sec)">
           <input type="number" style={inputStyle} value={p('connectTimeout', '10')} onChange={u('connectTimeout')} min="1" />
         </Field>
-        <Field label="Verifica known_hosts">
+        <Field label="Verify known_hosts">
           <CustomSelect style={inputStyle} value={p('knownHostsCheck', 'false')} onChange={u('knownHostsCheck')}>
-            <option value="false">No — accetta qualsiasi host</option>
-            <option value="true">Sì — verifica known_hosts</option>
+            <option value="false">No — accept any host</option>
+            <option value="true">Yes — verify known_hosts</option>
           </CustomSelect>
         </Field>
       </Row2>
 
       {/* Comando */}
-      <SectionTitle label="Comando remoto" color={SSH_COLOR} />
-      <Field label="Comando" hint="Eseguito nella shell dell'utente remoto">
+      <SectionTitle label="Remote command" color={SSH_COLOR} />
+      <Field label="Command" hint="Run in the remote user's shell">
         <textarea style={textareaStyle} value={p('command', '')} onChange={u('command')}
           placeholder="systemctl status nginx&#10;docker ps --format json&#10;journalctl -n 100 --no-pager" />
       </Field>
       <Row2>
-        <Field label="Timeout esecuzione (sec)" hint="0 = nessun limite">
+        <Field label="Execution timeout (sec)" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('timeoutSec', '30')} onChange={u('timeoutSec')} min="0" />
         </Field>
-        <Field label="Se exit code ≠ 0">
+        <Field label="If exit code ≠ 0">
           <CustomSelect style={inputStyle} value={p('onError', 'stop')} onChange={u('onError')}>
-            <option value="stop">Interrompi pipeline</option>
-            <option value="skip">Continua comunque</option>
+            <option value="stop">Stop the pipeline</option>
+            <option value="skip">Continue anyway</option>
           </CustomSelect>
         </Field>
       </Row2>
@@ -311,43 +311,43 @@ export function SshExecPanel({ nodeId }: { nodeId: string }) {
       {/* Output */}
       <SectionTitle label="Output" color={SSH_COLOR} />
       <Row2>
-        <Field label="Modalità output">
+        <Field label="Output mode">
           <CustomSelect style={inputStyle} value={outputMode} onChange={u('outputMode')}>
-            <option value="lines">Lines — ogni riga stdout</option>
-            <option value="json">JSON — parse come array</option>
-            <option value="jsonl">JSONL — ogni riga è JSON</option>
-            <option value="summary">Summary — solo riepilogo</option>
+            <option value="lines">Lines — each stdout line</option>
+            <option value="json">JSON — parse as an array</option>
+            <option value="jsonl">JSONL — each line is JSON</option>
+            <option value="summary">Summary — summary only</option>
           </CustomSelect>
         </Field>
-        <Field label="Esegui per ogni riga">
+        <Field label="Run for each row">
           <CustomSelect style={inputStyle} value={p('runPerRow', 'false')} onChange={u('runPerRow')}>
-            <option value="false">No — una volta sola</option>
-            <option value="true">Sì — per ogni riga</option>
+            <option value="false">No — only once</option>
+            <option value="true">Yes — for each row</option>
           </CustomSelect>
         </Field>
       </Row2>
 
       {/* Schema output */}
-      <SectionTitle label="Campi della riga emessa" color={SSH_COLOR} />
+      <SectionTitle label="Emitted row fields" color={SSH_COLOR} />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-        <SchemaRow color={SSH_COLOR} name="ssh_host"        type="string"  desc="Host remoto" />
-        <SchemaRow color={SSH_COLOR} name="ssh_user"        type="string"  desc="Utente SSH" />
-        <SchemaRow color={SSH_COLOR} name="ssh_command"     type="string"  desc="Comando eseguito" />
+        <SchemaRow color={SSH_COLOR} name="ssh_host"        type="string"  desc="Remote host" />
+        <SchemaRow color={SSH_COLOR} name="ssh_user"        type="string"  desc="SSH user" />
+        <SchemaRow color={SSH_COLOR} name="ssh_command"     type="string"  desc="Executed command" />
         <SchemaRow color={SSH_COLOR} name="ssh_exit_code"   type="integer" desc="Exit code" />
-        <SchemaRow color={SSH_COLOR} name="ssh_duration_ms" type="integer" desc="Durata in ms" />
+        <SchemaRow color={SSH_COLOR} name="ssh_duration_ms" type="integer" desc="Duration in ms" />
         {outputMode === 'lines' && <>
-          <SchemaRow color={SSH_COLOR} name="line"        type="string"  desc="Riga di output" />
-          <SchemaRow color={SSH_COLOR} name="line_number" type="integer" desc="Numero riga" />
-          <SchemaRow color={SSH_COLOR} name="stream"      type="string"  desc="'stdout' o 'stderr'" />
+          <SchemaRow color={SSH_COLOR} name="line"        type="string"  desc="Output line" />
+          <SchemaRow color={SSH_COLOR} name="line_number" type="integer" desc="Row number" />
+          <SchemaRow color={SSH_COLOR} name="stream"      type="string"  desc="'stdout' or 'stderr'" />
         </>}
         {outputMode === 'summary' && <>
-          <SchemaRow color={SSH_COLOR} name="stdout"       type="string"  desc="Output completo" />
-          <SchemaRow color={SSH_COLOR} name="stderr"       type="string"  desc="Errori completi" />
-          <SchemaRow color={SSH_COLOR} name="stdout_lines" type="integer" desc="Numero righe stdout" />
-          <SchemaRow color={SSH_COLOR} name="ok"           type="boolean" desc="true se exit_code === 0" />
+          <SchemaRow color={SSH_COLOR} name="stdout"       type="string"  desc="Full output" />
+          <SchemaRow color={SSH_COLOR} name="stderr"       type="string"  desc="Full errors" />
+          <SchemaRow color={SSH_COLOR} name="stdout_lines" type="integer" desc="Number of stdout lines" />
+          <SchemaRow color={SSH_COLOR} name="ok"           type="boolean" desc="true if exit_code === 0" />
         </>}
         {(outputMode === 'json' || outputMode === 'jsonl') && <>
-          <SchemaRow color={SSH_COLOR} name="...(campi JSON)" type="any" desc="Campi dall'output JSON" />
+          <SchemaRow color={SSH_COLOR} name="...(JSON fields)" type="any" desc="Fields from the JSON output" />
         </>}
       </div>
 
