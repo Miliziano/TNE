@@ -88,39 +88,39 @@ function ReceiverPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-webhook" style={{ fontSize: 16, color: ACCENT_RECV }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT_RECV }}>Webhook Receiver</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Riceve eventi in ingresso, risponde 200 OK immediatamente, propaga row by row</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Receives incoming events, responds 200 OK immediately, propagates row by row</div>
         </div>
       </div>
 
       {/* Endpoint */}
       <SectionTitle label="Endpoint HTTP" color={ACCENT_RECV} />
       <Row2>
-        <Field label="Porta">
+        <Field label="Port">
           <input type="number" style={inputStyle} value={p('port', '9110')} onChange={u('port')} min="1024" max="65535" />
         </Field>
         <Field label="Path">
           <input style={inputStyle} value={p('path', '/webhook')} onChange={u('path')} placeholder="/webhook" />
         </Field>
       </Row2>
-      <Field label="Tempo di ascolto (sec)" hint="0 = finché il runner non viene fermato">
+      <Field label="Listen time (sec)" hint="0 = until the runner is stopped">
         <input type="number" style={inputStyle} value={p('listenSec', '0')} onChange={u('listenSec')} min="0" />
       </Field>
 
       {/* HMAC */}
-      <SectionTitle label="Firma HMAC (standard webhook)" color={ACCENT_RECV} />
+      <SectionTitle label="HMAC signature (webhook standard)" color={ACCENT_RECV} />
       <InfoBox color={ACCENT_RECV}>
-        GitHub, Stripe, Shopify e la maggior parte dei servizi firmano il payload con HMAC-SHA256.
-        Se il secret è vuoto, la firma non viene verificata (accetta tutto).
-        Se presente, gli eventi con firma non valida vengono comunque accodati ma con <code style={{ color: '#ffb347' }}>signature_valid: false</code>.
+        GitHub, Stripe, Shopify and most services sign the payload with HMAC-SHA256.
+        If the secret is empty, the signature is not verified (accepts everything).
+        If present, events with an invalid signature are still queued but with <code style={{ color: '#ffb347' }}>signature_valid: false</code>.
       </InfoBox>
-      <Field label="HMAC Secret" hint="Lascia vuoto per disabilitare la verifica">
+      <Field label="HMAC Secret" hint="Leave empty to disable verification">
         <input type="password" style={inputStyle} value={p('hmacSecret', '')} onChange={u('hmacSecret')} placeholder="whsec_..." />
       </Field>
       <Row2>
-        <Field label="Header firma">
+        <Field label="Signature header">
           <input style={inputStyle} value={p('sigHeader', 'X-Hub-Signature-256')} onChange={u('sigHeader')} />
         </Field>
-        <Field label="Algoritmo">
+        <Field label="Algorithm">
           <CustomSelect style={inputStyle} value={p('sigAlgo', 'sha256')} onChange={u('sigAlgo')}>
             <option value="sha256">HMAC-SHA256 (standard)</option>
             <option value="sha1">HMAC-SHA1 (legacy)</option>
@@ -129,49 +129,49 @@ function ReceiverPanel({ nodeId }: { nodeId: string }) {
       </Row2>
 
       {/* Buffer e deduplicazione */}
-      <SectionTitle label="Buffer & Deduplicazione" color={ACCENT_RECV} />
+      <SectionTitle label="Buffer & deduplication" color={ACCENT_RECV} />
       <InfoBox color={ACCENT_RECV}>
-        Il buffer accumula eventi mentre il flusso elabora quelli precedenti.
-        La deduplicazione usa l'<code style={{ color: '#4a9eff' }}>event_id</code> (header <code style={{ color: '#4a9eff' }}>X-Webhook-Delivery</code>
-        o hash del payload) e scarta duplicati entro la finestra TTL.
+        The buffer accumulates events while the flow processes the previous ones.
+        Deduplication uses the <code style={{ color: '#4a9eff' }}>event_id</code> (header <code style={{ color: '#4a9eff' }}>X-Webhook-Delivery</code>
+        or payload hash) and discards duplicates within the TTL window.
       </InfoBox>
       <Row2>
-        <Field label="TTL dedup (sec)" hint="0 = dedup disabilitato">
+        <Field label="TTL dedup (sec)" hint="0 = dedup disabled">
           <input type="number" style={inputStyle} value={p('dedupTtlSec', '3600')} onChange={u('dedupTtlSec')} min="0" />
         </Field>
-        <Field label="Max eventi in buffer">
+        <Field label="Max events in buffer">
           <input type="number" style={inputStyle} value={p('maxBuffer', '1000')} onChange={u('maxBuffer')} min="1" />
         </Field>
       </Row2>
-      <Field label="Politica overflow buffer">
+      <Field label="Buffer overflow policy">
         <CustomSelect style={inputStyle} value={p('overflow', 'drop_oldest')} onChange={u('overflow')}>
-          <option value="drop_oldest">Scarta il più vecchio (FIFO)</option>
-          <option value="drop_newest">Scarta il nuovo in arrivo</option>
-          <option value="error">Errore — blocca il server</option>
+          <option value="drop_oldest">Drop the oldest (FIFO)</option>
+          <option value="drop_newest">Drop the incoming one</option>
+          <option value="error">Error — block the server</option>
         </CustomSelect>
       </Field>
       <Row2>
-        <Field label="Poll interval (ms)" hint="Con quale frequenza estrarre dal buffer">
+        <Field label="Poll interval (ms)" hint="How often to pull from the buffer">
           <input type="number" style={inputStyle} value={p('pollIntervalMs', '200')} onChange={u('pollIntervalMs')} min="50" />
         </Field>
-        <Field label="Debounce (ms)" hint="0 = disabilitato. Scarta eventi troppo ravvicinati">
+        <Field label="Debounce (ms)" hint="0 = disabled. Drops events that are too close together">
           <input type="number" style={inputStyle} value={p('debounceMs', '0')} onChange={u('debounceMs')} min="0" />
         </Field>
       </Row2>
 
       {/* Schema output */}
-      <SectionTitle label="Schema output — per ogni evento" color={ACCENT_RECV} />
+      <SectionTitle label="Output schema — per event" color={ACCENT_RECV} />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         {[
-          { name: 'event_id',        type: 'string',  desc: 'ID univoco (X-Webhook-Delivery o hash payload)' },
-          { name: 'event_type',      type: 'string',  desc: 'Tipo evento (X-Webhook-Event)' },
-          { name: 'source_ip',       type: 'string',  desc: 'IP del chiamante' },
-          { name: 'webhook_path',    type: 'string',  desc: 'Path su cui è arrivato l\'evento' },
-          { name: 'payload',         type: 'object',  desc: 'Body JSON completo' },
-          { name: 'headers',         type: 'object',  desc: 'Tutti gli header HTTP ricevuti' },
-          { name: 'received_at',     type: 'date',    desc: 'Timestamp ricezione' },
-          { name: 'signature_valid', type: 'boolean', desc: 'null se HMAC non configurato' },
-          { name: '…payload.*',      type: 'any',     desc: 'Campi JSON del payload espansi in root' },
+          { name: 'event_id',        type: 'string',  desc: 'Unique ID (X-Webhook-Delivery or payload hash)' },
+          { name: 'event_type',      type: 'string',  desc: 'Event type (X-Webhook-Event)' },
+          { name: 'source_ip',       type: 'string',  desc: 'Caller IP' },
+          { name: 'webhook_path',    type: 'string',  desc: 'Path the event arrived on' },
+          { name: 'payload',         type: 'object',  desc: 'Full JSON body' },
+          { name: 'headers',         type: 'object',  desc: 'All received HTTP headers' },
+          { name: 'received_at',     type: 'date',    desc: 'Reception timestamp' },
+          { name: 'signature_valid', type: 'boolean', desc: 'null if HMAC not configured' },
+          { name: '…payload.*',      type: 'any',     desc: 'Payload JSON fields expanded at root' },
         ].map(f => <SchemaRow key={f.name} color={ACCENT_RECV} {...f} />)}
       </div>
     </div>
@@ -231,7 +231,7 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
     setInsertTarget(null)
   }
 
-  const sourceLabel = mode === 'monitor' ? 'variabile di lane' : 'campo della riga'
+  const sourceLabel = mode === 'monitor' ? 'lane variable' : 'row field'
   // Suggerimenti inseribili: variabili di lane in monitor, campi in ingresso in flow.
   const suggestions = mode === 'monitor' ? varNames : fieldNames
 
@@ -241,14 +241,14 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
       {/* Info contestuale */}
       <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 6%, #0f1117)`, borderRadius: 4, border: `0.5px solid ${color}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
         {mode === 'monitor'
-          ? <>Scrivi il <strong>nome dell'header</strong> a sinistra. Nel valore usa <code style={{ color }}>$nomeVariabile</code> per inserire una {sourceLabel}.</>
-          : <>Scrivi il <strong>nome dell'header</strong> a sinistra. Nel valore usa <code style={{ color }}>$nomeCampo</code> per inserire il valore di un {sourceLabel}.</>
+          ? <>Write the <strong>header name</strong> on the left. In the value use <code style={{ color }}>$variableName</code> to insert a {sourceLabel}.</>
+          : <>Write the <strong>header name</strong> on the left. In the value use <code style={{ color }}>$fieldName</code> to insert the value of a {sourceLabel}.</>
         }
         {suggestions.length === 0 && (
           <div style={{ marginTop: 4, color: '#8593b5', fontStyle: 'italic' }}>
             {mode === 'monitor'
-              ? 'Nessuna variabile definita nella lane. Aggiungine una dalla sidebar delle variabili.'
-              : 'Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.'}
+              ? 'No variable defined in the lane. Add one from the variables sidebar.'
+              : 'No incoming field. Connect an upstream source (e.g. a TMap) to pull its fields.'}
           </div>
         )}
       </div>
@@ -270,13 +270,13 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
               style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: 10 }}
               value={row.value}
               onChange={(e) => setValue(i, e.target.value)}
-              placeholder={mode === 'monitor' ? '$nomeVariabile o valore fisso' : '$nomeCampo o valore fisso'}
+              placeholder={mode === 'monitor' ? '$variableName or fixed value' : '$fieldName or fixed value'}
             />
             {/* Bottone inserisci — se ci sono suggerimenti (variabili o campi) */}
             {suggestions.length > 0 && (
               <button
                 onClick={() => setInsertTarget(insertTarget === i ? null : i)}
-                title={mode === 'monitor' ? 'Inserisci variabile' : 'Inserisci campo in ingresso'}
+                title={mode === 'monitor' ? 'Insert variable' : 'Insert incoming field'}
                 style={{ padding: '4px 7px', background: insertTarget === i ? color : '#1a2030', border: `0.5px solid ${insertTarget === i ? color : '#3a4a6a'}`, borderRadius: 4, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                 <i className="ti ti-variable" style={{ fontSize: 11, color: insertTarget === i ? '#0f1117' : color }} />
               </button>
@@ -284,7 +284,7 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
             {/* Rimuovi riga */}
             <button
               onClick={() => removeRow(i)}
-              title="Rimuovi header"
+              title="Remove header"
               style={{ padding: '4px 7px', background: 'transparent', border: '0.5px solid #2a3349', borderRadius: 4, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               <i className="ti ti-x" style={{ fontSize: 10, color: '#ff5f57' }} />
             </button>
@@ -294,7 +294,7 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
           {insertTarget === i && suggestions.length > 0 && (
             <div style={{ marginLeft: 146, display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${color}40` }}>
               <span style={{ fontSize: 9, color: '#8593b5', width: '100%', marginBottom: 2 }}>
-                Clicca per inserire nel valore:
+                Click to insert into the value:
               </span>
               {suggestions.map(varName => (
                 <button
@@ -316,13 +316,13 @@ function HeaderTemplateEditor({ value, onChange, varNames, fieldNames, mode, col
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#c8d4f0'; (e.currentTarget as HTMLElement).style.borderColor = color }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
         <i className="ti ti-plus" style={{ fontSize: 10 }} />
-        Aggiungi header
+        Add header
       </button>
 
       {/* Preview JSON — collassato */}
       <details style={{ marginTop: 2 }}>
         <summary style={{ fontSize: 9, color: '#8593b5', cursor: 'pointer', userSelect: 'none' }}>
-          JSON template (avanzato)
+          JSON template (advanced)
         </summary>
         <textarea
           style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontFamily: 'monospace', fontSize: 10, marginTop: 4 }}
@@ -374,64 +374,64 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-antenna" style={{ fontSize: 16, color: ACCENT_RESP }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT_RESP }}>Webhook Responder</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Espone un endpoint HEAD/GET con header costruiti dallo stato corrente</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Exposes a HEAD/GET endpoint with headers built from the current state</div>
         </div>
       </div>
 
       {/* Modalità */}
-      <SectionTitle label="Modalità operativa" color={ACCENT_RESP} />
-      <Field label="Modalità">
+      <SectionTitle label="Operating mode" color={ACCENT_RESP} />
+      <Field label="Mode">
         <CustomSelect style={inputStyle} value={mode} onChange={u('mode')}>
-          <option value="flow">Flow — riceve righe dal flusso, costruisce header dai campi</option>
-          <option value="monitor">Monitor — legge variabili di lane, sempre attivo</option>
+          <option value="flow">Flow — receives rows from the flow, builds headers from the fields</option>
+          <option value="monitor">Monitor — reads lane variables, always active</option>
         </CustomSelect>
       </Field>
 
       {mode === 'flow' && (
         <InfoBox color={ACCENT_RESP}>
-          Il Responder è un nodo <strong>pass-through</strong> nel flusso ETL. Riceve righe in ingresso,
-          costruisce gli header dai campi della riga corrente e aggiorna il server in tempo reale.
-          Si spegne quando il flusso termina. Ideale per esporre lo stato di un'elaborazione in corso.
+          The Responder is a <strong>pass-through</strong> node in the ETL flow. It receives incoming rows,
+          builds the headers from the current row's fields and updates the server in real time.
+          It shuts down when the flow ends. Ideal for exposing the state of a running process.
         </InfoBox>
       )}
       {mode === 'monitor' && (
         <InfoBox color={ACCENT_RESP}>
-          Il Responder è un nodo <strong>autonomo sempre attivo</strong>, senza input di righe.
-          Legge periodicamente le variabili di lane configurate e aggiorna gli header esposti.
-          Le variabili vengono aggiornate da altri flussi in esecuzione nella stessa lane.
-          Ideale per status endpoint di monitoring continuo.
+          The Responder is an <strong>autonomous always-on</strong> node, with no row input.
+          It periodically reads the configured lane variables and updates the exposed headers.
+          The variables are updated by other flows running in the same lane.
+          Ideal for continuous-monitoring status endpoints.
         </InfoBox>
       )}
 
       {/* Endpoint */}
       <SectionTitle label="Endpoint HTTP" color={ACCENT_RESP} />
       <Row2>
-        <Field label="Porta">
+        <Field label="Port">
           <input type="number" style={inputStyle} value={p('port', '9111')} onChange={u('port')} min="1024" max="65535" />
         </Field>
         <Field label="Path">
           <input style={inputStyle} value={p('path', '/status')} onChange={u('path')} placeholder="/status" />
         </Field>
       </Row2>
-      <Field label="Metodi accettati">
+      <Field label="Accepted methods">
         <CustomSelect style={inputStyle} value={p('methods', 'HEAD,GET')} onChange={u('methods')}>
-          <option value="HEAD">Solo HEAD</option>
-          <option value="HEAD,GET">HEAD e GET</option>
-          <option value="GET">Solo GET</option>
+          <option value="HEAD">HEAD only</option>
+          <option value="HEAD,GET">HEAD and GET</option>
+          <option value="GET">GET only</option>
         </CustomSelect>
       </Field>
-      <Field label="Tempo di esposizione (sec)" hint="0 = finché il runner non viene fermato">
+      <Field label="Exposure time (sec)" hint="0 = until the runner is stopped">
         <input type="number" style={inputStyle} value={p('listenSec', '0')} onChange={u('listenSec')} min="0" />
       </Field>
-      <Field label="Body sul GET" hint="L'HEAD resta sempre senza corpo. Utile per ispezionare l'endpoint da browser/curl.">
+      <Field label="Body on GET" hint="HEAD always stays body-less. Useful to inspect the endpoint from a browser/curl.">
         <CustomSelect style={inputStyle} value={p('exposeBody', 'true')} onChange={u('exposeBody')}>
-          <option value="true">Sì — il GET restituisce il JSON degli header</option>
-          <option value="false">No — solo header, body vuoto (endpoint puro)</option>
+          <option value="true">Yes — GET returns the headers JSON</option>
+          <option value="false">No — headers only, empty body (pure endpoint)</option>
         </CustomSelect>
       </Field>
 
       {/* Header template — editor interattivo con inserimento variabili */}
-      <SectionTitle label="Header da esporre" color={ACCENT_RESP} />
+      <SectionTitle label="Headers to expose" color={ACCENT_RESP} />
       <HeaderTemplateEditor
         value={p('headerTemplate', '{"X-Data-Ready":"true","X-Status":"ok"}')}
         onChange={(v) => updateProp(nodeId, 'headerTemplate', v)}
@@ -444,13 +444,13 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
       {/* Solo modalità monitor: frequenza di aggiornamento */}
       {mode === 'monitor' && (
         <>
-          <SectionTitle label="Aggiornamento variabili" color={ACCENT_RESP} />
-          <Field label="Intervallo di polling (ms)" hint="Con quale frequenza rileggere le variabili di lane">
+          <SectionTitle label="Variables refresh" color={ACCENT_RESP} />
+          <Field label="Polling interval (ms)" hint="How often to re-read the lane variables">
             <input type="number" style={inputStyle} value={p('varPollMs', '1000')} onChange={u('varPollMs')} min="100" />
           </Field>
           <InfoBox color={ACCENT_RESP}>
-            Il Responder legge le variabili di lane ogni <strong>{p('varPollMs', '1000')} ms</strong> e
-            aggiorna gli header esposti. Non è necessario riavviare il server — l'aggiornamento è in tempo reale.
+            The Responder reads the lane variables every <strong>{p('varPollMs', '1000')} ms</strong> and
+            updates the exposed headers. No need to restart the server — the update is in real time.
           </InfoBox>
         </>
       )}
@@ -458,8 +458,8 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
       {/* Solo modalità flow: info pass-through */}
       {mode === 'flow' && (
         <InfoBox color={ACCENT_RESP}>
-          Le righe in ingresso passano invariate a valle. Il Responder aggiorna gli header
-          ad ogni riga ricevuta — l'ultimo valore è sempre quello esposto.
+          The incoming rows pass through unchanged. The Responder updates the headers
+          on every received row — the last value is always the one exposed.
         </InfoBox>
       )}
     </div>
@@ -491,105 +491,105 @@ function WatchdogPanel({ nodeId }: { nodeId: string }) {
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT_WD }}>Watchdog</div>
           <div style={{ fontSize: 9, color: '#8593b5' }}>
-            {watchMode === 'gate'   && 'Blocca il flusso finché la condizione non è soddisfatta, poi sblocca e termina'}
-            {watchMode === 'stream' && 'Emette una riga ad ogni rilevazione positiva — rimane sempre attivo'}
-            {watchMode === 'edge'   && 'Emette una riga solo quando lo stato cambia (falso→vero o vero→falso)'}
+            {watchMode === 'gate'   && 'Blocks the flow until the condition is met, then unblocks and ends'}
+            {watchMode === 'stream' && 'Emits a row on every positive detection — stays always active'}
+            {watchMode === 'edge'   && 'Emits a row only when the state changes (false→true or true→false)'}
           </div>
         </div>
       </div>
 
       {/* Modalità */}
-      <SectionTitle label="Modalità operativa" color={ACCENT_WD} />
-      <Field label="Modalità">
+      <SectionTitle label="Operating mode" color={ACCENT_WD} />
+      <Field label="Mode">
         <CustomSelect style={inputStyle} value={watchMode} onChange={u('watchMode')}>
-          <option value="gate">Gate — blocca finché vero, sblocca una volta e termina</option>
-          <option value="stream">Stream — emette ad ogni rilevazione positiva, rimane attivo</option>
-          <option value="edge">Edge — emette solo al cambio di stato (transizione)</option>
+          <option value="gate">Gate — blocks until true, unblocks once and ends</option>
+          <option value="stream">Stream — emits on every positive detection, stays active</option>
+          <option value="edge">Edge — emits only on state change (transition)</option>
         </CustomSelect>
       </Field>
 
       {watchMode === 'gate' && (
         <InfoBox color={ACCENT_WD}>
-          Modalità classica. Il Watchdog <strong>blocca il flusso</strong> finché la condizione non è vera,
-          poi propaga le righe in ingresso una volta sola e termina.
-          Ideale per sincronizzare pipeline dipendenti: "aspetta che Pipeline A sia pronta, poi parti".
+          Classic mode. The Watchdog <strong>blocks the flow</strong> until the condition is true,
+          then propagates the incoming rows once only and ends.
+          Ideal for synchronizing dependent pipelines: "wait for Pipeline A to be ready, then start".
         </InfoBox>
       )}
       {watchMode === 'stream' && (
         <InfoBox color={ACCENT_WD}>
-          Il Watchdog <strong>rimane attivo</strong> e genera una riga ad ogni polling in cui la condizione è vera.
-          Non ha input di righe — è una source autonoma. Utile per raccogliere misurazioni periodiche
-          di uno stato, loggare ogni volta che un servizio è disponibile, o triggerare azioni ripetute.
+          The Watchdog <strong>stays active</strong> and generates a row on every poll where the condition is true.
+          It has no row input — it is an autonomous source. Useful for collecting periodic measurements
+          of a state, logging every time a service is available, or triggering repeated actions.
         </InfoBox>
       )}
       {watchMode === 'edge' && (
         <InfoBox color={ACCENT_WD}>
-          Il Watchdog <strong>rimane attivo</strong> ma emette una riga <strong>solo quando lo stato cambia</strong>:
-          da falso a vero (<code style={{ color: ACCENT_WD }}>rising</code>) o da vero a falso
-          (<code style={{ color: ACCENT_WD }}>falling</code>). Ideale per alerting:
-          "notificami quando il servizio va down, e quando torna su".
+          The Watchdog <strong>stays active</strong> but emits a row <strong>only when the state changes</strong>:
+          from false to true (<code style={{ color: ACCENT_WD }}>rising</code>) or from true to false
+          (<code style={{ color: ACCENT_WD }}>falling</code>). Ideal for alerting:
+          "notify me when the service goes down, and when it comes back up".
         </InfoBox>
       )}
 
       {/* Endpoint */}
-      <SectionTitle label="Endpoint da controllare" color={ACCENT_WD} />
-      <Field label="URL" hint="L'endpoint da interrogare periodicamente">
-        <input style={inputStyle} value={p('url', '')} onChange={u('url')} placeholder="http://altro-servizio:9111/status" />
+      <SectionTitle label="Endpoint to check" color={ACCENT_WD} />
+      <Field label="URL" hint="The endpoint to poll periodically">
+        <input style={inputStyle} value={p('url', '')} onChange={u('url')} placeholder="http://other-service:9111/status" />
       </Field>
       <Row2>
-        <Field label="Metodo">
+        <Field label="Method">
           <CustomSelect style={inputStyle} value={p('method', 'HEAD')} onChange={u('method')}>
-            <option value="HEAD">HEAD — solo header (raccomandato)</option>
-            <option value="GET">GET — header + body (ignorato)</option>
+            <option value="HEAD">HEAD — headers only (recommended)</option>
+            <option value="GET">GET — headers + body (ignored)</option>
           </CustomSelect>
         </Field>
-        <Field label="Timeout richiesta (sec)">
+        <Field label="Request timeout (sec)">
           <input type="number" style={inputStyle} value={p('timeoutSec', '10')} onChange={u('timeoutSec')} min="1" />
         </Field>
       </Row2>
 
       {/* Autenticazione */}
-      <SectionTitle label="Autenticazione" color={ACCENT_WD} />
-      <Field label="Tipo">
+      <SectionTitle label="Authentication" color={ACCENT_WD} />
+      <Field label="Type">
         <CustomSelect style={inputStyle} value={authType} onChange={u('authType')}>
-          <option value="none">Nessuna</option>
+          <option value="none">None</option>
           <option value="bearer">Bearer token</option>
           <option value="basic">Basic auth (user:password)</option>
           <option value="api_key">API key in header</option>
         </CustomSelect>
       </Field>
       {authType !== 'none' && (
-        <Field label={authType === 'api_key' ? 'API Key (header: valore)' : 'Credenziali'}>
+        <Field label={authType === 'api_key' ? 'API Key (header: value)' : 'Credentials'}>
           <input type="password" style={inputStyle} value={p('authValue', '')} onChange={u('authValue')}
             placeholder={authType === 'basic' ? 'user:password' : authType === 'api_key' ? 'X-API-Key:token' : 'token'} />
         </Field>
       )}
 
       {/* Condizione */}
-      <SectionTitle label="Condizione (solo header)" color={ACCENT_WD} />
-      <Field label="Nome header da controllare">
+      <SectionTitle label="Condition (header only)" color={ACCENT_WD} />
+      <Field label="Header name to check">
         <input style={inputStyle} value={p('headerName', 'X-Data-Ready')} onChange={u('headerName')} placeholder="X-Data-Ready" />
       </Field>
       <Row2>
-        <Field label="Valore atteso">
+        <Field label="Expected value">
           <input style={inputStyle} value={p('headerValue', 'true')} onChange={u('headerValue')} placeholder="true" />
         </Field>
-        <Field label="Confronto">
+        <Field label="Comparison">
           <CustomSelect style={inputStyle} value={p('matchMode', 'exact')} onChange={u('matchMode')}>
-            <option value="exact">Esatto</option>
-            <option value="contains">Contiene</option>
-            <option value="present">Solo presente (qualsiasi valore)</option>
+            <option value="exact">Exact</option>
+            <option value="contains">Contains</option>
+            <option value="present">Present only (any value)</option>
           </CustomSelect>
         </Field>
       </Row2>
 
       {/* Frequenza */}
-      <SectionTitle label="Frequenza & Limiti" color={ACCENT_WD} />
+      <SectionTitle label="Frequency & limits" color={ACCENT_WD} />
       <Row2>
-        <Field label="Intervallo (sec)" hint="Pausa tra un controllo e il successivo">
+        <Field label="Interval (sec)" hint="Pause between one check and the next">
           <input type="number" style={inputStyle} value={p('intervalSec', '30')} onChange={u('intervalSec')} min="1" />
         </Field>
-        <Field label="Timeout richiesta (sec)">
+        <Field label="Request timeout (sec)">
           <input type="number" style={inputStyle} value={p('timeoutSec', '10')} onChange={u('timeoutSec')} min="1" />
         </Field>
       </Row2>
@@ -598,17 +598,17 @@ function WatchdogPanel({ nodeId }: { nodeId: string }) {
       {watchMode === 'gate' && (
         <>
           <Row2>
-            <Field label="Max tentativi" hint="0 = illimitato">
+            <Field label="Max attempts" hint="0 = unlimited">
               <input type="number" style={inputStyle} value={p('maxAttempts', '0')} onChange={u('maxAttempts')} min="0" />
             </Field>
-            <Field label="Timeout globale (min)" hint="0 = nessun limite">
+            <Field label="Global timeout (min)" hint="0 = no limit">
               <input type="number" style={inputStyle} value={p('globalTtlMin', '0')} onChange={u('globalTtlMin')} min="0" />
             </Field>
           </Row2>
-          <Field label="Se timeout scaduto">
+          <Field label="If timeout expired">
             <CustomSelect style={inputStyle} value={p('onTimeout', 'error')} onChange={u('onTimeout')}>
-              <option value="error">Errore — interrompe la pipeline</option>
-              <option value="proceed">Procedi comunque (watchdog_matched: false)</option>
+              <option value="error">Error — stops the pipeline</option>
+              <option value="proceed">Proceed anyway (watchdog_matched: false)</option>
             </CustomSelect>
           </Field>
         </>
@@ -616,34 +616,34 @@ function WatchdogPanel({ nodeId }: { nodeId: string }) {
 
       {/* Durata — stream e edge */}
       {(watchMode === 'stream' || watchMode === 'edge') && (
-        <Field label="Durata (min)" hint="0 = rimane attivo finché il runner non viene fermato">
+        <Field label="Duration (min)" hint="0 = stays active until the runner is stopped">
           <input type="number" style={inputStyle} value={p('globalTtlMin', '0')} onChange={u('globalTtlMin')} min="0" />
         </Field>
       )}
 
       {/* Edge: filtro transizione */}
       {watchMode === 'edge' && (
-        <Field label="Transizione da emettere">
+        <Field label="Transition to emit">
           <CustomSelect style={inputStyle} value={p('edgeTrigger', 'both')} onChange={u('edgeTrigger')}>
-            <option value="rising">Solo rising — quando diventa vero (servizio torna su)</option>
-            <option value="falling">Solo falling — quando diventa falso (servizio va down)</option>
-            <option value="both">Entrambe le transizioni</option>
+            <option value="rising">Rising only — when it becomes true (service comes back up)</option>
+            <option value="falling">Falling only — when it becomes false (service goes down)</option>
+            <option value="both">Both transitions</option>
           </CustomSelect>
         </Field>
       )}
 
       {/* Schema output */}
-      <SectionTitle label="Campi della riga emessa" color={ACCENT_WD} />
+      <SectionTitle label="Emitted row fields" color={ACCENT_WD} />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         {[
-          { name: 'watchdog_matched',     type: 'boolean', desc: 'true se condizione soddisfatta' },
-          { name: 'watchdog_attempts',    type: 'integer', desc: 'Contatore controlli effettuati' },
-          { name: 'watchdog_value_found', type: 'string',  desc: "Valore effettivo dell'header" },
-          { name: 'watchdog_elapsed_ms',  type: 'integer', desc: 'Durata ultima richiesta' },
-          { name: 'matched_at',           type: 'date',    desc: 'Timestamp del rilevamento' },
+          { name: 'watchdog_matched',     type: 'boolean', desc: 'true if condition met' },
+          { name: 'watchdog_attempts',    type: 'integer', desc: 'Counter of checks performed' },
+          { name: 'watchdog_value_found', type: 'string',  desc: 'Actual header value' },
+          { name: 'watchdog_elapsed_ms',  type: 'integer', desc: 'Last request duration' },
+          { name: 'matched_at',           type: 'date',    desc: 'Detection timestamp' },
           ...(watchMode === 'edge' ? [
-            { name: 'watchdog_edge',      type: 'string',  desc: '"rising" o "falling"' },
-            { name: 'watchdog_prev',      type: 'boolean', desc: 'Stato precedente alla transizione' },
+            { name: 'watchdog_edge',      type: 'string',  desc: '"rising" or "falling"' },
+            { name: 'watchdog_prev',      type: 'boolean', desc: 'State before the transition' },
           ] : []),
         ].map(f => <SchemaRow key={f.name} color={ACCENT_WD} {...f} />)}
       </div>

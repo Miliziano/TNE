@@ -65,7 +65,7 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
             {isPublisher ? 'Publisher' : 'Subscriber'}
           </div>
           <div style={{ fontSize: 9, color: '#8593b5' }}>
-            {isPublisher ? 'Pubblica messaggi sul topic' : 'Riceve messaggi dal topic'}
+            {isPublisher ? 'Publishes messages to the topic' : 'Receives messages from the topic'}
           </div>
         </div>
       </div>
@@ -76,23 +76,23 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
         <Field label="Host">
           <input style={inputStyle} value={p('host', 'localhost')} onChange={u('host')} placeholder="localhost" />
         </Field>
-        <Field label="Porta">
+        <Field label="Port">
           <input type="number" style={inputStyle} value={p('port', '1883')} onChange={u('port')} />
         </Field>
       </Row2>
 
-      <Field label="Protocollo">
+      <Field label="Protocol">
         <CustomSelect style={inputStyle} value={p('scheme', 'mqtt')} onChange={u('scheme')}>
-          <option value="mqtt">mqtt:// — TCP (porta 1883)</option>
-          <option value="mqtts">mqtts:// — TLS (porta 8883)</option>
+          <option value="mqtt">mqtt:// — TCP (port 1883)</option>
+          <option value="mqtts">mqtts:// — TLS (port 8883)</option>
         </CustomSelect>
       </Field>
 
       <Row2>
-        <Field label="Client ID" hint="Vuoto = auto-generato">
+        <Field label="Client ID" hint="Empty = auto-generated">
           <input style={inputStyle} value={p('clientId', '')} onChange={u('clientId')} placeholder="flowpilot-1" />
         </Field>
-        <Field label="Versione MQTT">
+        <Field label="MQTT version">
           <CustomSelect style={inputStyle} value={p('version', '5')} onChange={u('version')}>
             <option value="3">MQTT 3.1.1</option>
             <option value="5">MQTT 5.0</option>
@@ -112,46 +112,46 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
       {/* Topic */}
       <SectionTitle label="Topic" />
       <Field
-        label={isPublisher ? 'Topic di pubblicazione' : 'Topic / Pattern'}
+        label={isPublisher ? 'Publish topic' : 'Topic / Pattern'}
         hint={isPublisher
-          ? 'Può essere sovrascritto da un campo della riga (vedi sotto)'
-          : 'Supporta wildcard: + (livello singolo), # (tutti i livelli)'}
+          ? 'Can be overridden by a row field (see below)'
+          : 'Supports wildcards: + (single level), # (all levels)'}
       >
         <input style={inputStyle} value={p('topic', isPublisher ? 'pipeline/output' : 'sensor/+/data')} onChange={u('topic')}
           placeholder={isPublisher ? 'pipeline/output' : 'sensor/+/data'} />
       </Field>
 
       {isPublisher && (
-        <Field label="Topic da campo riga" hint="Se impostato, usa questo campo come topic dinamico (sovrascrive il topic statico)">
+        <Field label="Topic from row field" hint="If set, uses this field as the dynamic topic (overrides the static topic)">
           <input style={inputStyle} value={p('topicField', '')} onChange={u('topicField')} placeholder="device_id" />
         </Field>
       )}
 
       {/* QoS */}
-      <SectionTitle label="Qualità del servizio (QoS)" />
-      <Field label="Livello QoS">
+      <SectionTitle label="Quality of Service (QoS)" />
+      <Field label="QoS level">
         <CustomSelect style={inputStyle} value={p('qos', '1')} onChange={u('qos')}>
           <option value="0">QoS 0 — At most once (fire and forget)</option>
-          <option value="1">QoS 1 — At least once (con ack)</option>
-          <option value="2">QoS 2 — Exactly once (con handshake)</option>
+          <option value="1">QoS 1 — At least once (with ack)</option>
+          <option value="2">QoS 2 — Exactly once (with handshake)</option>
         </CustomSelect>
       </Field>
 
       {/* Opzioni specifiche publisher */}
       {isPublisher && (
         <>
-          <SectionTitle label="Opzioni publisher" />
+          <SectionTitle label="Publisher options" />
           <Row2>
             <Field label="Retain">
               <CustomSelect style={inputStyle} value={p('retain', 'false')} onChange={u('retain')}>
                 <option value="false">No</option>
-                <option value="true">Sì — il broker mantiene l'ultimo messaggio</option>
+                <option value="true">Yes — the broker keeps the last message</option>
               </CustomSelect>
             </Field>
-            <Field label="Serializzazione payload">
+            <Field label="Payload serialization">
               <CustomSelect style={inputStyle} value={p('serialization', 'json')} onChange={u('serialization')}>
                 <option value="json">JSON</option>
-                <option value="text">Testo (toString)</option>
+                <option value="text">Text (toString)</option>
                 <option value="bytes">Bytes (base64)</option>
               </CustomSelect>
             </Field>
@@ -162,27 +162,27 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni specifiche subscriber */}
       {!isPublisher && (
         <>
-          <SectionTitle label="Opzioni subscriber" />
+          <SectionTitle label="Subscriber options" />
           <Row2>
             <Field label="Clean session">
               <CustomSelect style={inputStyle} value={p('cleanSession', 'true')} onChange={u('cleanSession')}>
-                <option value="true">Sì — nessuna persistenza</option>
-                <option value="false">No — sessione duratura</option>
+                <option value="true">Yes — no persistence</option>
+                <option value="false">No — durable session</option>
               </CustomSelect>
             </Field>
-            <Field label="Max messaggi in coda" hint="0 = illimitato">
+            <Field label="Max queued messages" hint="0 = unlimited">
               <input type="number" style={inputStyle} value={p('maxQueue', '1000')} onChange={u('maxQueue')} min="0" />
             </Field>
           </Row2>
           <Row2>
-            <Field label="Timeout raccolta (ms)" hint="Quanto aspettare messaggi prima di procedere">
+            <Field label="Collection timeout (ms)" hint="How long to wait for messages before proceeding">
               <input type="number" style={inputStyle} value={p('subscribeTimeout', '5000')} onChange={u('subscribeTimeout')} min="100" />
             </Field>
-            <Field label="Schema payload">
+            <Field label="Payload schema">
               <CustomSelect style={inputStyle} value={p('payloadFormat', 'json')} onChange={u('payloadFormat')}>
-                <option value="json">JSON — parse automatico</option>
-                <option value="text">Testo — campo payload come stringa</option>
-                <option value="bytes">Bytes — campo payload come base64</option>
+                <option value="json">JSON — automatic parse</option>
+                <option value="text">Text — payload field as string</option>
+                <option value="bytes">Bytes — payload field as base64</option>
               </CustomSelect>
             </Field>
           </Row2>
@@ -190,14 +190,14 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
           {/* Schema output */}
           <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
             <div style={{ color: '#8593b5', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: 9 }}>
-              Schema output per ogni messaggio ricevuto
+              Output schema for each received message
             </div>
             {[
-              { name: 'topic',       type: 'string',  desc: 'Topic del messaggio' },
-              { name: 'payload',     type: 'object',  desc: 'Payload JSON o stringa' },
-              { name: 'qos',         type: 'integer', desc: 'Livello QoS' },
-              { name: 'retain',      type: 'boolean', desc: 'Flag retain' },
-              { name: 'received_at', type: 'date',    desc: 'Timestamp ricezione' },
+              { name: 'topic',       type: 'string',  desc: 'Message topic' },
+              { name: 'payload',     type: 'object',  desc: 'JSON or string payload' },
+              { name: 'qos',         type: 'integer', desc: 'QoS level' },
+              { name: 'retain',      type: 'boolean', desc: 'Retain flag' },
+              { name: 'received_at', type: 'date',    desc: 'Reception timestamp' },
             ].map((f) => (
               <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
                 <code style={{ fontSize: 10, color: ACCENT, minWidth: 100 }}>{f.name}</code>
@@ -210,12 +210,12 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Connessione */}
-      <SectionTitle label="Connessione" />
+      <SectionTitle label="Connection" />
       <Row2>
         <Field label="Keep alive (s)">
           <input type="number" style={inputStyle} value={p('keepAlive', '60')} onChange={u('keepAlive')} min="0" />
         </Field>
-        <Field label="Timeout connessione (s)">
+        <Field label="Connection timeout (s)">
           <input type="number" style={inputStyle} value={p('connectTimeout', '10')} onChange={u('connectTimeout')} min="1" />
         </Field>
       </Row2>

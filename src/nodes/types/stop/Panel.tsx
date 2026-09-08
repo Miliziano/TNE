@@ -30,8 +30,8 @@ function Field({ label, children, hint }: { label: string; children: React.React
 const ACCENT = '#ff5f57'
 
 const TRIGGER_HINT: Record<string, string> = {
-  immediate:   'Ferma la lane appena una riga raggiunge questo nodo.',
-  after_input: "Aspetta che il monte esaurisca le righe (le processa/logga tutte), poi ferma.",
+  immediate:   'Stops the lane as soon as a row reaches this node.',
+  after_input: "Waits for the upstream to exhaust its rows (processes/logs them all), then stops.",
 }
 
 export function StopPanel({ nodeId }: { nodeId: string }) {
@@ -44,21 +44,21 @@ export function StopPanel({ nodeId }: { nodeId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <Field label="Innesco" hint={TRIGGER_HINT[trigger]}>
+      <Field label="Trigger" hint={TRIGGER_HINT[trigger]}>
         <CustomSelect
           style={inputStyle}
           value={trigger}
           onChange={(e) => updateProp(nodeId, 'trigger', e.target.value)}
         >
-          <option value="immediate">Immediato (alla 1ª riga)</option>
-          <option value="after_input">Dopo l'input (a ramo esaurito)</option>
+          <option value="immediate">Immediate (on the 1st row)</option>
+          <option value="after_input">After input (when the branch is exhausted)</option>
         </CustomSelect>
       </Field>
 
-      <Field label="Messaggio (opzionale)" hint="Accompagna il motivo «stop deliberato» nei nodi interrotti e nel log.">
+      <Field label="Message (optional)" hint="Accompanies the «deliberate stop» reason in interrupted nodes and in the log.">
         <input
           type="text" style={inputStyle}
-          placeholder="es. soglia di scarti superata"
+          placeholder="e.g. reject threshold exceeded"
           value={message}
           onChange={(e) => updateProp(nodeId, 'message', e.target.value)}
         />
@@ -66,19 +66,19 @@ export function StopPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ fontSize: 10, color: '#7a8aaa', lineHeight: 1.5, padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: `0.5px solid ${ACCENT}30` }}>
         <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: 9 }}>
-          Cosa fa
+          What it does
         </div>
-        Ferma la lane in modo pulito: <b>rollback</b> delle transazioni attive e
-        chiusura delle connessioni. I nodi ancora attivi risultano
-        <b> interrotti</b> (non falliti), col motivo «stop deliberato».
+        Stops the lane cleanly: <b>rollback</b> of active transactions and
+        closing of connections. Nodes still active are marked
+        <b> interrupted</b> (not failed), with the reason «deliberate stop».
         <div style={{ marginTop: 6 }}>
-          Se la lane ha un <b>Error Handler</b>, gli effetti collaterali disegnati
-          lì (log, mail, http, sink) valgono anche per lo stop. Senza EH la lane
-          si ferma comunque, solo senza quegli effetti.
+          If the lane has an <b>Error Handler</b>, the side effects designed
+          there (log, mail, http, sink) apply to the stop as well. Without an EH the lane
+          stops anyway, just without those effects.
         </div>
         <div style={{ marginTop: 6, color: '#c99' }}>
-          ⚠️ Un eventuale salva-stato che deve <b>sopravvivere</b> allo stop va
-          tenuto fuori dal gruppo transazionale: il rollback se lo porterebbe via.
+          ⚠️ Any state-save that must <b>survive</b> the stop must be
+          kept outside the transactional group: the rollback would sweep it away.
         </div>
       </div>
     </div>

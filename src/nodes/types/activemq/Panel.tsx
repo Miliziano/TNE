@@ -70,28 +70,28 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
             {isProducer ? 'Producer' : 'Consumer'}
           </div>
           <div style={{ fontSize: 9, color: '#8593b5' }}>
-            {isProducer ? 'Pubblica messaggi sulla coda/topic' : 'Riceve messaggi dalla coda/topic'}
+            {isProducer ? 'Publishes messages to the queue/topic' : 'Receives messages from the queue/topic'}
           </div>
         </div>
       </div>
 
       {/* Protocollo */}
-      <SectionTitle label="Protocollo" />
-      <Field label="Protocollo di connessione" hint="STOMP è il più compatibile e semplice da configurare">
+      <SectionTitle label="Protocol" />
+      <Field label="Connection protocol" hint="STOMP is the most compatible and simplest to configure">
         <CustomSelect style={inputStyle} value={protocol} onChange={u('protocol')}>
-          <option value="stomp">STOMP (porta 61613) — consigliato</option>
-          <option value="openwire">OpenWire (porta 61616) — nativo ActiveMQ</option>
-          <option value="amqp">AMQP (porta 5672)</option>
+          <option value="stomp">STOMP (port 61613) — recommended</option>
+          <option value="openwire">OpenWire (port 61616) — native ActiveMQ</option>
+          <option value="amqp">AMQP (port 5672)</option>
         </CustomSelect>
       </Field>
 
       {/* Connessione */}
-      <SectionTitle label="Connessione broker" />
+      <SectionTitle label="Broker connection" />
       <Row2>
         <Field label="Host">
           <input style={inputStyle} value={p('host', 'localhost')} onChange={u('host')} placeholder="localhost" />
         </Field>
-        <Field label="Porta">
+        <Field label="Port">
           <input type="number" style={inputStyle}
             value={p('port', protocol === 'stomp' ? '61613' : protocol === 'amqp' ? '5672' : '61616')}
             onChange={u('port')} />
@@ -111,22 +111,22 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
         </Field>
         <Field label="TLS/SSL">
           <CustomSelect style={inputStyle} value={p('tls', 'false')} onChange={u('tls')}>
-            <option value="false">Disabilitato</option>
-            <option value="true">Abilitato</option>
+            <option value="false">Disabled</option>
+            <option value="true">Enabled</option>
           </CustomSelect>
         </Field>
       </Row2>
 
       {/* Destinazione */}
-      <SectionTitle label="Destinazione" />
+      <SectionTitle label="Destination" />
       <Row2>
-        <Field label="Tipo">
+        <Field label="Type">
           <CustomSelect style={inputStyle} value={p('destType', 'queue')} onChange={u('destType')}>
-            <option value="queue">Queue — delivery garantito</option>
+            <option value="queue">Queue — guaranteed delivery</option>
             <option value="topic">Topic — publish/subscribe</option>
           </CustomSelect>
         </Field>
-        <Field label="Nome">
+        <Field label="Name">
           <input style={inputStyle} value={p('destination', 'pipeline.input')} onChange={u('destination')} placeholder="pipeline.input" />
         </Field>
       </Row2>
@@ -134,47 +134,47 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni consumer */}
       {!isProducer && (
         <>
-          <SectionTitle label="Opzioni consumer" />
+          <SectionTitle label="Consumer options" />
           <Row2>
             <Field label="Acknowledge mode">
               <CustomSelect style={inputStyle} value={p('ackMode', 'auto')} onChange={u('ackMode')}>
-                <option value="auto">Auto — dopo ricezione</option>
-                <option value="client">Client — ack manuale</option>
+                <option value="auto">Auto — after reception</option>
+                <option value="client">Client — manual ack</option>
               </CustomSelect>
             </Field>
-            <Field label="Prefetch" hint="Messaggi da pre-caricare">
+            <Field label="Prefetch" hint="Messages to pre-load">
               <input type="number" style={inputStyle} value={p('prefetch', '1')} onChange={u('prefetch')} min="1" />
             </Field>
           </Row2>
           <Row2>
-            <Field label="Timeout ricezione (ms)" hint="0 = attesa infinita">
+            <Field label="Receive timeout (ms)" hint="0 = infinite wait">
               <input type="number" style={inputStyle} value={p('receiveTimeout', '5000')} onChange={u('receiveTimeout')} min="0" />
             </Field>
-            <Field label="Max messaggi" hint="0 = illimitato">
+            <Field label="Max messages" hint="0 = unlimited">
               <input type="number" style={inputStyle} value={p('maxMessages', '1000')} onChange={u('maxMessages')} min="0" />
             </Field>
           </Row2>
-          <Field label="Selettore JMS" hint="Filtro messaggi SQL-like — es: type='order'">
+          <Field label="JMS selector" hint="SQL-like message filter — e.g. type='order'">
             <input style={inputStyle} value={p('selector', '')} onChange={u('selector')} placeholder="type='order'" />
           </Field>
-          <Field label="Durable subscription (solo topic)">
+          <Field label="Durable subscription (topic only)">
             <CustomSelect style={inputStyle} value={p('durable', 'false')} onChange={u('durable')}>
               <option value="false">No</option>
-              <option value="true">Sì — mantieni messaggi offline</option>
+              <option value="true">Yes — keep messages offline</option>
             </CustomSelect>
           </Field>
 
           {/* Schema output */}
           <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
             <div style={{ color: '#8593b5', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em', fontSize: 9 }}>
-              Schema output per ogni messaggio ricevuto
+              Output schema for each received message
             </div>
             {[
-              { name: 'destination', type: 'string',  desc: 'Nome coda/topic' },
-              { name: 'payload',     type: 'object',  desc: 'Payload JSON o stringa' },
-              { name: 'headers',     type: 'object',  desc: 'Header JMS del messaggio' },
+              { name: 'destination', type: 'string',  desc: 'Queue/topic name' },
+              { name: 'payload',     type: 'object',  desc: 'JSON or string payload' },
+              { name: 'headers',     type: 'object',  desc: 'Message JMS headers' },
               { name: 'message_id',  type: 'string',  desc: 'JMSMessageID' },
-              { name: 'received_at', type: 'date',    desc: 'Timestamp ricezione' },
+              { name: 'received_at', type: 'date',    desc: 'Reception timestamp' },
             ].map((f) => (
               <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
                 <code style={{ fontSize: 10, color: ACCENT, minWidth: 110 }}>{f.name}</code>
@@ -189,18 +189,18 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni producer */}
       {isProducer && (
         <>
-          <SectionTitle label="Opzioni producer" />
+          <SectionTitle label="Producer options" />
           <Row2>
-            <Field label="Serializzazione">
+            <Field label="Serialization">
               <CustomSelect style={inputStyle} value={p('serialization', 'json')} onChange={u('serialization')}>
                 <option value="json">JSON</option>
-                <option value="text">Testo (toString)</option>
+                <option value="text">Text (toString)</option>
                 <option value="bytes">Bytes (base64)</option>
               </CustomSelect>
             </Field>
-            <Field label="Persistente">
+            <Field label="Persistent">
               <CustomSelect style={inputStyle} value={p('persistent', 'true')} onChange={u('persistent')}>
-                <option value="true">Sì — PERSISTENT</option>
+                <option value="true">Yes — PERSISTENT</option>
                 <option value="false">No — NON_PERSISTENT</option>
               </CustomSelect>
             </Field>
@@ -209,23 +209,23 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
             <Field label="Priority (0-9)">
               <input type="number" style={inputStyle} value={p('priority', '4')} onChange={u('priority')} min="0" max="9" />
             </Field>
-            <Field label="TTL (ms)" hint="0 = nessuna scadenza">
+            <Field label="TTL (ms)" hint="0 = no expiry">
               <input type="number" style={inputStyle} value={p('ttl', '0')} onChange={u('ttl')} min="0" />
             </Field>
           </Row2>
-          <Field label="Correlation ID dal campo" hint="Campo della riga da usare come JMSCorrelationID">
+          <Field label="Correlation ID from field" hint="Row field to use as JMSCorrelationID">
             <input style={inputStyle} value={p('correlationIdField', '')} onChange={u('correlationIdField')} placeholder="request_id" />
           </Field>
         </>
       )}
 
       {/* Resilienza */}
-      <SectionTitle label="Resilienza" />
+      <SectionTitle label="Resilience" />
       <Row2>
-        <Field label="Retry connessione">
+        <Field label="Connection retry">
           <input type="number" style={inputStyle} value={p('retryCount', '3')} onChange={u('retryCount')} min="0" />
         </Field>
-        <Field label="Delay retry (s)">
+        <Field label="Retry delay (s)">
           <input type="number" style={inputStyle} value={p('retryDelay', '5')} onChange={u('retryDelay')} min="1" />
         </Field>
       </Row2>
