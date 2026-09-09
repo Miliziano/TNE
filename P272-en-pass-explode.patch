@@ -1,0 +1,734 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index 78be044..d1e1e3b 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -43,6 +43,7 @@
+   "Aggiunge i dati in fondo al file esistente": "Appends the data at the end of the existing file",
+   "Aggiunge in fondo": "Appends at the end",
+   "Aggiunge un campo con il nome del flusso sorgente per tracciabilità": "Adds a field with the source flow name for traceability",
++  "Aggiungi campo manualmente": "Add field manually",
+   "Aggiungi header": "Add header",
+   "Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.": "Add the fields manually or configure them after running the flow.",
+   "Aggiungi lane": "Add lane",
+@@ -68,6 +69,7 @@
+   "Apri editor nodo": "Open node editor",
+   "Apri progetto": "Open project",
+   "Array di oggetti": "Array of objects",
++  "Array di oggetti — [ {...}, {...} ]": "Array of objects — [ {...}, {...} ]",
+   "Ascolta eventi del SO per nuovi file": "Listens to OS events for new files",
+   "Ascolto": "Listening",
+   "Aspetta che il monte esaurisca le righe (le processa/logga tutte), poi ferma.": "Waits for the upstream to exhaust its rows (processes/logs them all), then stops.",
+@@ -119,16 +121,20 @@
+   "Campionamento casuale": "Random sampling",
+   "Campionamento uniforme — 1 ogni N righe": "Uniform sampling — 1 every N rows",
+   "Campo Data Quality": "Data Quality field",
++  "Campo Flusso": "Flow Field",
+   "Campo allegato": "Attachment field",
+   "Campo asse X / categoria": "X-axis / category field",
+   "Campo body HTML": "HTML body field",
+   "Campo chiave": "Key field",
++  "Campo da esplodere": "Field to explode",
+   "Campo da scrivere": "Field to write",
+   "Campo della riga": "Row field",
+   "Campo della riga che contiene l'email": "Row field that contains the email",
+   "Campo della riga con il contenuto binario (base64) — es. da Report Generator PDF": "Row field with the binary content (base64) — e.g. from Report Generator PDF",
+   "Campo della riga da usare come JMSCorrelationID": "Row field to use as JMSCorrelationID",
++  "Campo di tipo object o array dalla riga in ingresso": "Field of type object or array from the incoming row",
+   "Campo email destinatario": "Recipient email field",
++  "Campo flusso": "Flow field",
+   "Campo ingresso": "Input field",
+   "Campo owner": "Owner field",
+   "Campo partizione": "Partition field",
+@@ -158,8 +164,10 @@
+   "Client — ack manuale": "Client — manual ack",
+   "Codice errore contiene — non ancora disponibile": "Error code contains — not yet available",
+   "Coerce — tenta di adattare i tipi": "Coerce — try to adapt the types",
++  "Col. fisica": "Physical col.",
+   "Collega almeno un flusso agli handle sul lato sinistro del nodo.": "Connect at least one flow to the handles on the left side of the node.",
+   "Collega i flussi e apri il tab Mapping per vedere l'anteprima della struttura.": "Connect the flows and open the Mapping tab to see the structure preview.",
++  "Collega un nodo in ingresso": "Connect an incoming node",
+   "Collega un nodo in ingresso per vedere i campi disponibili.": "Connect an incoming node to see the available fields.",
+   "Collega una risorsa DB al nodo per campionare i dati.": "Connect a DB resource to the node to sample the data.",
+   "Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se \"Log centralizzato\" è attivo).": "Central collector for lane errors — always active, cannot be deleted. Automatically receives every error not handled by catch/reject (and a copy of the handled ones, if \"Centralized log\" is active).",
+@@ -185,6 +193,7 @@
+   "Condizione": "Condition",
+   "Condizione (solo header)": "Condition (header only)",
+   "Configura la gestione errori di ogni nodo senza apriri i singoli editor": "Configure error handling for each node without opening the individual editors",
++  "Configura manualmente lo schema di output nella sezione sottostante.": "Configure the output schema manually in the section below.",
+   "Configura una query nel tab Query prima di campionare.": "Configure a query in the Query tab before sampling.",
+   "Configura una tabella o una query personalizzata prima di rilevare lo schema.": "Configure a table or a custom query before detecting the schema.",
+   "Configurazione": "Configuration",
+@@ -216,6 +225,7 @@
+   "Cosa emette il nodo al termine della scrittura.": "What the node emits when writing finishes.",
+   "Cosa fa": "What it does",
+   "Cosa fa questo nodo?": "What does this node do?",
++  "Cosa fare se un elemento dell'array è un valore primitivo": "What to do if an array element is a primitive value",
+   "Crea directory se non esiste": "Create directory if missing",
+   "Crea nuovo con timestamp": "Creates new with timestamp",
+   "Crea sempre un nuovo file — aggiunge suffisso numerico se esiste già": "Always creates a new file — adds a numeric suffix if it already exists",
+@@ -239,12 +249,14 @@
+   "Data recente": "Recent date",
+   "Data ultima modifica": "Last modified date",
+   "Data ultima modifica (se disponibile)": "Last modified date (if available)",
++  "Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)": "Dataset — .toDataset() (recommended — full List, zero extra buffering)",
+   "Decrescente": "Descending",
+   "Default (hash della chiave)": "Default (key hash)",
+   "Delay retry (s)": "Retry delay (s)",
+   "Delay tra retry (secondi)": "Delay between retries (seconds)",
+   "Delete profilo": "Delete profile",
+   "Descrizione": "Description",
++  "Deseleziona tutti": "Deselect all",
+   "Deserializzazione": "Deserialization",
+   "Destinatari": "Recipients",
+   "Destinazione": "Destination",
+@@ -291,6 +303,7 @@
+   "Email TO (una per riga o separate da virgola)": "TO email (one per line or comma-separated)",
+   "Email mittente": "Sender email",
+   "Emette 1 riga di stato dopo il completamento — path, righe scritte, byte": "Emits 1 status row after completion — path, rows written, bytes",
++  "Emette riga null — tutti i campi a null": "Emit null row — all fields null",
+   "Emette una riga ad ogni rilevazione positiva — rimane sempre attivo": "Emits a row on every positive detection — stays always active",
+   "Emette una riga solo quando lo stato cambia (falso→vero o vero→falso)": "Emits a row only when the state changes (false→true or true→false)",
+   "Emette una sola riga di stato.": "Emits a single status row.",
+@@ -301,12 +314,14 @@
+   "Entrambe le transizioni": "Both transitions",
+   "Entrambi": "Both",
+   "Entrambi — campo + lista fissa in CC": "Both — field + fixed list in CC",
++  "Entries di oggetto — emette { key, value } per ogni campo": "Object entries — emits { key, value } for each field",
+   "Enumera file esistenti in una directory": "Enumerates existing files in a directory",
+   "Error Handler — Gestione errori": "Error Handler — Error management",
+   "Error handler — la lane decide": "Error handler — the lane decides",
+   "Errore": "Error",
+   "Errore se esiste già": "Error if already exists",
+   "Errore — blocca il server": "Error — block the server",
++  "Errore — interrompe il flusso": "Error — stops the flow",
+   "Errore — interrompe la pipeline": "Error — stops the pipeline",
+   "Errore — richiede schema identico": "Error — requires identical schema",
+   "Errore — richiede stessa lunghezza": "Error — requires the same length",
+@@ -325,6 +340,7 @@
+   "Esegui pipeline su Rust Engine": "Run pipeline on Rust Engine",
+   "Eseguito dopo la chiusura del file": "Run after the file is closed",
+   "Eseguito nella shell dell'utente remoto": "Run in the remote user's shell",
++  "Esplode un campo object/array da ogni riga in ingresso": "Explodes an object/array field from each incoming row",
+   "Espone un endpoint HEAD/GET con header costruiti dallo stato corrente": "Exposes a HEAD/GET endpoint with headers built from the current state",
+   "Esporta le funzioni come libreria .ffpel riusabile in altri progetti": "Export the functions as a reusable .ffpel library for other projects",
+   "Esporta lo schema dei campi su file (.json)": "Export the field schema to a file (.json)",
+@@ -428,6 +444,7 @@
+   "In caso di errore": "On error",
+   "In caso di errore (default nodi)": "On error (node default)",
+   "In memoria — si azzera a ogni esecuzione": "In memory — resets each run",
++  "Includere anche i campi della riga originale in ogni riga esplosa": "Also include the original row's fields in each exploded row",
+   "Includi i PR": "Include PRs",
+   "Includi intestazione": "Include header",
+   "Includi metadati Kafka nel record": "Include Kafka metadata in the record",
+@@ -445,6 +462,7 @@
+   "Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.": "Sends email via SMTP, SendGrid, Amazon SES or Mailgun.",
+   "Issue + Pull Request (di un repo)": "Issues + Pull Requests (of a repo)",
+   "Istruzioni": "Instructions",
++  "Iterator — .values() (riga per riga con buffering interno)": "Iterator — .values() (row by row with internal buffering)",
+   "JSON estrai": "JSON extract",
+   "JSON template (avanzato)": "JSON template (advanced)",
+   "JSON — parse automatico": "JSON — automatic parse",
+@@ -470,6 +488,7 @@
+   "Legge il path da una variabile della lane": "Reads the path from a lane variable",
+   "Legge record da un file locale.": "Reads records from a local file.",
+   "Legge righe da una tabella di database.": "Reads rows from a database table.",
++  "Legge un dataset memorizzato nella lane da un nodo Materialize": "Reads a dataset stored in the lane by a Materialize node",
+   "Leggi a partire da un timestamp specifico": "Read starting from a specific timestamp",
+   "Leggi dall'inizio — tutti i messaggi disponibili nella retention": "Read from the beginning — all messages available in the retention",
+   "Leggi solo i messaggi nuovi dal momento della connessione": "Read only new messages from the moment of connection",
+@@ -477,12 +496,14 @@
+   "Limita output a N caratteri per riga": "Limit output to N characters per row",
+   "Limite file": "File limit",
+   "Limite righe": "Row limit",
++  "Limite righe in output": "Output row limit",
+   "Lines — ogni riga stdout": "Lines — each stdout line",
+   "Lines — ogni riga stdout è una Row": "Lines — each stdout line is a Row",
+   "Lingua": "Language",
+   "Lista file": "File list",
+   "Livello": "Level",
+   "Livello QoS": "QoS level",
++  "Lo schema dell'elemento esploso dipende dal contenuto runtime del campo.": "The exploded element's schema depends on the field's runtime content.",
+   "Lo schema di uscita è identico allo schema di ingresso.": "The output schema is identical to the input schema.",
+   "Lo schema viene propagato automaticamente ai nodi collegati.": "The schema is propagated automatically to the connected nodes.",
+   "Log centralizzato": "Centralized log",
+@@ -492,6 +513,7 @@
+   "Logga una percentuale casuale delle righe": "Logs a random percentage of the rows",
+   "MIME type allegato": "Attachment MIME type",
+   "Manuale (numero fisso)": "Manual (fixed number)",
++  "Mapping campi": "Field mapping",
+   "Mapping campi input → output": "Field mapping input → output",
+   "Massimizza": "Maximize",
+   "Max elementi (opz.)": "Max items (opt.)",
+@@ -526,6 +548,9 @@
+   "Monitora servizi via HEAD — sblocca il flusso sull'header atteso.": "Monitors services via HEAD — unblocks the flow on the expected header.",
+   "N righe originali": "N original rows",
+   "NOT NULL — clicca per nullable": "NOT NULL — click for nullable",
++  "Nessun Materialize pubblicato in questa lane": "No Materialize published in this lane",
++  "Nessun campo definito. Aggiungi manualmente i campi che l'Explode produrrà.": "No field defined. Manually add the fields the Explode will produce.",
++  "Nessun campo definito. Aggiungi manualmente o sincronizza dalla sorgente.": "No field defined. Add manually or sync from the source.",
+   "Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.": "No incoming field. Connect an upstream source (e.g. a TMap) to pull its fields.",
+   "Nessun mapping definito. Aggiungi una riga per mappare i campi.": "No mapping defined. Add a row to map the fields.",
+   "Nessun nodo in questa lane.": "No node in this lane.",
+@@ -563,6 +588,7 @@
+   "No — sessione duratura": "No — durable session",
+   "No — solo dati": "No — data only",
+   "No — solo errori non gestiti": "No — only unhandled errors",
++  "No — solo i campi dell'elemento esploso": "No — only the exploded element's fields",
+   "No — solo il payload deserializzato": "No — only the deserialized payload",
+   "No — solo la directory specificata": "No — only the specified directory",
+   "No — solo root": "No — root only",
+@@ -572,6 +598,8 @@
+   "Nodo": "Node",
+   "Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.": "Transparent node — logs the rows passing through for debugging. Does not modify the data.",
+   "Nome": "Name",
++  "Nome Materialize": "Materialize name",
++  "Nome campo": "Field name",
+   "Nome campo sorgente": "Source field name",
+   "Nome canale": "Channel name",
+   "Nome coda/topic": "Queue/topic name",
+@@ -588,6 +616,7 @@
+   "Nome file output": "Output file name",
+   "Nome foglio": "Sheet name",
+   "Nome header da controllare": "Header name to check",
++  "Nome logico": "Logical name",
+   "Nome mittente": "Sender name",
+   "Nome topic": "Topic name",
+   "Nome visualizzato": "Display name",
+@@ -698,6 +727,7 @@
+   "Producer ActiveMQ — pubblica messaggi su queue o topic.": "ActiveMQ producer — publishes messages to queues or topics.",
+   "Profilo attivo (usato al Run)": "Active profile (used at Run)",
+   "Profilo da congelare (un ambiente per artifact)": "Profile to freeze (one environment per artifact)",
++  "Propaga campi padre": "Propagate parent fields",
+   "Protocollo": "Protocol",
+   "Protocollo di connessione": "Connection protocol",
+   "Provenienza delle colonne": "Column provenance",
+@@ -771,6 +801,8 @@
+   "STOMP (porta 61613) — consigliato": "STOMP (port 61613) — recommended",
+   "STOMP è il più compatibile e semplice da configurare": "STOMP is the most compatible and simplest to configure",
+   "Salta e continua con il file successivo": "Skip and continue with the next file",
++  "Salta l'elemento": "Skip the element",
++  "Salta — non emette nulla": "Skip — emits nothing",
+   "Salva": "Save",
+   "Salva (sovrascrive il file aperto)": "Save (overwrites the open file)",
+   "Salva commento": "Save comment",
+@@ -784,12 +816,15 @@
+   "Scarta il nuovo in arrivo": "Drop the incoming one",
+   "Scarta il più vecchio (FIFO)": "Drop the oldest (FIFO)",
+   "Schema della tabella (es: public)": "Table schema (e.g. public)",
++  "Schema derivato": "Derived schema",
+   "Schema di uscita": "Output schema",
+   "Schema mancante su campo": "Missing schema on field",
++  "Schema output": "Output schema",
+   "Schema output (row by row)": "Output schema (row by row)",
+   "Schema output per ogni messaggio ricevuto": "Output schema for each received message",
+   "Schema output — per ogni evento": "Output schema — per event",
+   "Schema payload": "Payload schema",
++  "Schema propagato automaticamente ai nodi a valle.": "Schema propagated automatically to downstream nodes.",
+   "Schema riga di stato": "Status row schema",
+   "Schema soggetto": "Schema subject",
+   "Scrittura atomica": "Atomic write",
+@@ -809,7 +844,10 @@
+   "Segreti": "Secrets",
+   "Segreto": "Secret",
+   "Selettore JMS": "JMS selector",
++  "Seleziona il Materialize da cui leggere i dati": "Select the Materialize to read data from",
+   "Seleziona risorsa": "Select resource",
++  "Seleziona tutti": "Select all",
++  "Seleziona un Materialize nel tab Configurazione.": "Select a Materialize in the Configuration tab.",
+   "Semi-strutturato": "Semi-structured",
+   "Sempre": "Always",
+   "Separatore": "Delimiter",
+@@ -822,6 +860,7 @@
+   "Sfondo": "Background",
+   "Sicurezza": "Security",
+   "Sincronismo": "Sync",
++  "Sincronizza": "Sync",
+   "Sincronizzato con Timeout nel tab Avanzate — 0 = infinito": "Synced with Timeout in the Advanced tab — 0 = infinite",
+   "Skip — salta il nodo": "Skip — skip the node",
+   "Smista le righe su N uscite in base a condizioni — first-match.": "Routes rows to N outputs based on conditions — first-match.",
+@@ -855,12 +894,15 @@
+   "Stream — emette ad ogni rilevazione positiva, rimane attivo": "Stream — emits on every positive detection, stays active",
+   "String (testo grezzo)": "String (raw text)",
+   "String plain": "Plain string",
++  "Struttura dati": "Data structure",
+   "Struttura output": "Output structure",
++  "Su elemento non-oggetto": "On non-object element",
+   "Su errore file singolo": "On single-file error",
+   "Su file — persiste tra esecuzioni": "To file — persists across runs",
+   "Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.": "On high-volume flows, log only a subset of rows to avoid flooding the log.",
+   "Su flussi di lunghezza diversa": "On flows of different length",
+   "Su schema non compatibile": "On incompatible schema",
++  "Su struttura vuota": "On empty structure",
+   "Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.": "MQTT subscriber — receives messages from MQTT/MQTTS brokers.",
+   "Summary + grafico + tabella": "Summary + chart + table",
+   "Summary — solo riepilogo": "Summary — summary only",
+@@ -880,6 +922,7 @@
+   "Sì — esegui per ogni riga in ingresso": "Yes — run for each incoming row",
+   "Sì — il broker mantiene l'ultimo messaggio": "Yes — the broker keeps the last message",
+   "Sì — include subdir": "Yes — include subdir",
++  "Sì — includi anche i campi della riga padre": "Yes — also include the parent row's fields",
+   "Sì — includi sottocartelle": "Yes — include subfolders",
+   "Sì — logga normalmente": "Yes — logs normally",
+   "Sì — logga tutto qui": "Yes — log everything here",
+@@ -940,6 +983,7 @@
+   "Tipo nodo è": "Node type is",
+   "Tipo owner": "Owner type",
+   "Tipo risposta": "Response type",
++  "Tipo struttura sorgente": "Source structure type",
+   "Titolo grafico": "Chart title",
+   "Titolo report": "Report title",
+   "Topic da campo riga": "Topic from row field",
+@@ -954,6 +998,7 @@
+   "Trasferimento": "Transfer",
+   "Trasforma la struttura della tabella — righe in colonne (Pivot) o colonne in righe (Unpivot).": "Reshapes the table structure — rows into columns (Pivot) or columns into rows (Unpivot).",
+   "Trasforma strutture dense (Materialize, variabili lane, campi object) in un flusso di righe.": "Turns dense structures (Materialize, lane variables, object fields) into a flow of rows.",
++  "Trasforma una struttura densa in un flusso di righe.": "Transforms a dense structure into a flow of rows.",
+   "Trasforma, filtra o scarta ogni riga con istruzioni ed espressioni.": "Transforms, filters or drops each row with instructions and expressions.",
+   "Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.": "Transforms, renames and converts the fields of each row with FPEL expressions.",
+   "Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.": "Visual multi-input/output transformer with mapping, lookup joins and conditional routing.",
+@@ -974,6 +1019,7 @@
+   "Una funzione per riga:": "One function per line:",
+   "Una ogni N righe": "One every N rows",
+   "Una riga per oggetto": "One line per object",
++  "Una riga per ogni elemento della struttura sorgente.": "One row for each element of the source structure.",
+   "Una volta": "Once",
+   "Una volta (one-shot)": "Once (one-shot)",
+   "Unisce due flussi su un campo chiave.": "Joins two flows on a key field.",
+@@ -994,6 +1040,7 @@
+   "Valore atteso": "Expected value",
+   "Valore effettivo dell'header": "Actual header value",
+   "Valori": "Values",
++  "Valori di oggetto — { k1: {...}, k2: {...} }": "Object values — { k1: {...}, k2: {...} }",
+   "Valori multipli": "Multiple values",
+   "Valuta": "Currency",
+   "Variabile Lane": "Lane variable",
+@@ -1002,12 +1049,14 @@
+   "Variabili d'ambiente aggiuntive": "Additional environment variables",
+   "Variabili — clicca per inserire": "Variables — click to insert",
+   "Vengono <b>espanse a compile-time</b> nelle espressioni. Il corpo è una sola espressione e può usare\n            solo i suoi parametri (e le funzioni predefinite); niente ricorsione né ridefinizione delle predefinite.": "They are <b>expanded at compile-time</b> in expressions. The body is a single expression and can use\n            only its parameters (and the built-in functions); no recursion, no redefining the built-ins.",
++  "Verifica che sia collegato a un nodo sorgente.": "Check that it is connected to a source node.",
+   "Verifica known_hosts": "Verify known_hosts",
+   "Versione": "Version",
+   "Versione MQTT": "MQTT version",
+   "Versione schema": "Schema version",
+   "Vuoto = auto-generato": "Empty = auto-generated",
+   "WARN — attenzione": "WARN — warning",
++  "Wrap — emette { value: elemento }": "Wrap — emits { value: element }",
+   "array JSON": "JSON array",
+   "attributi multi-valore": "multi-value attributes",
+   "autentica E dev'essere membro di questo gruppo (DN)": "authenticates AND must be a member of this group (DN)",
+@@ -1085,6 +1134,7 @@
+   "usato": "used",
+   "valore di default": "default value",
+   "vuoto = branch di default del repo": "empty = repo default branch",
++  "vuoto→null": "empty→null",
+   "ƒ applica…": "ƒ apply…",
+   "λ espressione JS": "λ JS expression",
+   "— nessun profilo —": "— no profile —",
+@@ -1093,9 +1143,11 @@
+   "— seleziona variabile —": "— select variable —",
+   "— seleziona —": "— select —",
+   "↑ Su": "↑ Up",
++  "→ Da campo flusso": "→ From flow field",
+   "→ Da flusso": "→ From flow",
+   "→ Sposta": "→ Move",
+   "→ Valore di un campo": "→ Value of a field",
++  "→ data": "→ date",
+   "↓ Giù": "↓ Down",
+   "↺ Sovrascrive": "↺ Overwrite",
+   "⇩ Scarica e legge": "⇩ Download and read",
+@@ -1114,6 +1166,7 @@
+   "▤ Concatena": "▤ Concatenate",
+   "▤ Elenca file": "▤ List files",
+   "▤ Lista file": "▤ File list",
++  "◈ Da Materialize": "◈ From Materialize",
+   "○ Lascia": "○ Leave",
+   "◎ Variabile Lane": "◎ Lane variable",
+   "● Corrente": "● Current",
+diff --git a/src/nodes/types/explode/MappingPanel.tsx b/src/nodes/types/explode/MappingPanel.tsx
+index 869f3b3..0d083e4 100644
+--- a/src/nodes/types/explode/MappingPanel.tsx
++++ b/src/nodes/types/explode/MappingPanel.tsx
+@@ -16,16 +16,16 @@ const inputStyle: React.CSSProperties = {
+ 
+ import { FIELD_TYPES } from '../../../types/fieldTypes'
+ const TRANSFORMS = [
+-  { value: '',              label: 'nessuna'    },
++  { value: '',              label: 'none'    },
+   { value: 'trim',          label: 'trim'       },
+   { value: 'uppercase',     label: 'UPPER'      },
+   { value: 'lowercase',     label: 'lower'      },
+   { value: 'to_int',        label: '→ int'      },
+   { value: 'to_float',      label: '→ dec'      },
+-  { value: 'to_date',       label: '→ data'     },
++  { value: 'to_date',       label: '→ date'     },
+   { value: 'to_bool',       label: '→ bool'     },
+   { value: 'to_string',     label: '→ str'      },
+-  { value: 'nullify_empty', label: 'vuoto→null' },
++  { value: 'nullify_empty', label: 'empty→null' },
+ ]
+ 
+ type MappingField = {
+@@ -163,7 +163,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+   const addManual = () => {
+     const n = mapping.length + 1
+-    saveMapping([...mapping, { sourceField: '', outputName: `campo_${n}`, type: 'string', transform: '', include: true }])
++    saveMapping([...mapping, { sourceField: '', outputName: `field_${n}`, type: 'string', transform: '', include: true }])
+   }
+ 
+   const includedCount = mapping.filter((f) => f.include).length
+@@ -174,12 +174,12 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ padding: '6px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', display: 'flex', gap: 8, alignItems: 'center' }}>
+         <span style={{ fontSize: 14, color: ACCENT }}>⊕</span>
+         <div>
+-          Sorgente: <strong style={{ color: '#c8d4f0' }}>
+-            {source === 'materialize' ? `Materialize "${matName || '—'}"` : 'Campo Flusso'}
++          Source: <strong style={{ color: '#c8d4f0' }}>
++            {source === 'materialize' ? `Materialize "${matName || '—'}"` : 'Flow Field'}
+           </strong>
+           {matNode && (
+             <span style={{ marginLeft: 8, color: '#8593b5' }}>
+-              modalità: {matMode === 'passthrough' ? 'passthrough' : matMode === 'buffer_signal' ? 'buffer→signal' : 'buffer→replay'}
++              mode: {matMode === 'passthrough' ? 'passthrough' : matMode === 'buffer_signal' ? 'buffer→signal' : 'buffer→replay'}
+             </span>
+           )}
+         </div>
+@@ -187,9 +187,9 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
+-          Mapping campi
++          Field mapping
+           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
+-            — {includedCount} di {mapping.length} selezionati
++            — {includedCount} of {mapping.length} selected
+           </span>
+         </div>
+         {sourceSchema.length > 0 && (
+@@ -198,7 +198,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 20%, #161b27)` }}
+             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 12%, #161b27)` }}>
+             <i className="ti ti-refresh" style={{ fontSize: 10 }} />
+-            Sincronizza
++            Sync
+           </button>
+         )}
+       </div>
+@@ -209,17 +209,17 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+           <i className="ti ti-table-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
+           {source === 'materialize' && !matName
+-            ? 'Seleziona un Materialize nel tab Configurazione.'
++            ? 'Select a Materialize in the Configuration tab.'
+             : source === 'materialize' && sourceSchema.length === 0
+-            ? `Il Materialize "${matName}" non ha ancora ricevuto campi.`
+-            : 'Nessun campo definito. Aggiungi manualmente o sincronizza dalla sorgente.'}
++            ? `The Materialize "${matName}" has not received fields yet.`
++            : 'No field defined. Add manually or sync from the source.'}
+         </div>
+       )}
+ 
+       {mapping.length > 0 && (
+         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: '24px 28px minmax(80px,1fr) minmax(80px,1fr) 80px minmax(80px,1fr) 24px', gap: 6, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
+-            {['', '✓', 'Col. fisica', 'Nome logico', 'Tipo', 'Trasformazione', ''].map((h, i) => (
++            {['', '✓', 'Physical col.', 'Logical name', 'Type', 'Transformation', ''].map((h, i) => (
+               <div key={i} style={{ fontSize: 10, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+             ))}
+           </div>
+@@ -253,14 +253,14 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+                 <input value={field.sourceField}
+                   onChange={(e) => updateField(idx, 'sourceField', e.target.value)}
+                   style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: '#8593b5' }}
+-                  placeholder="col_sorgente" />
++                  placeholder="source_col" />
+               )}
+ 
+               <input value={field.outputName}
+                 onChange={(e) => updateField(idx, 'outputName', e.target.value)}
+                 disabled={!field.include}
+                 style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: ACCENT }}
+-                placeholder="nome_logico" />
++                placeholder="logical_name" />
+ 
+               <CustomSelect value={field.type}
+                 onChange={(e) => updateField(idx, 'type', e.target.value)}
+@@ -291,11 +291,11 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ display: 'flex', gap: 6 }}>
+           <button onClick={() => saveMapping(mapping.map((f) => ({ ...f, include: true })))}
+             style={{ flex: 1, padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #1a2030)`, color: ACCENT, border: `0.5px solid ${ACCENT}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+-            <i className="ti ti-checks" style={{ fontSize: 10 }} /> Seleziona tutti
++            <i className="ti ti-checks" style={{ fontSize: 10 }} /> Select all
+           </button>
+           <button onClick={() => saveMapping(mapping.map((f) => ({ ...f, include: false })))}
+             style={{ flex: 1, padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+-            <i className="ti ti-square" style={{ fontSize: 10 }} /> Deseleziona tutti
++            <i className="ti ti-square" style={{ fontSize: 10 }} /> Deselect all
+           </button>
+         </div>
+       )}
+@@ -304,13 +304,13 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
+         style={{ padding: '6px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT }}
+         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
+-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi campo manualmente
++        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add field manually
+       </button>
+ 
+       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
+-        <strong style={{ color: '#9a9aaa' }}>Col. fisica</strong> è il nome del campo nella struttura sorgente.
+-        Lo schema viene propagato automaticamente ai nodi a valle.
++        <strong style={{ color: '#9a9aaa' }}>Physical col.</strong> is the field name in the source structure.
++        The schema is propagated automatically to downstream nodes.
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/explode/Panel.tsx b/src/nodes/types/explode/Panel.tsx
+index d8dc512..7d3c013 100644
+--- a/src/nodes/types/explode/Panel.tsx
++++ b/src/nodes/types/explode/Panel.tsx
+@@ -9,8 +9,8 @@ import type { Variable } from '../../../types'
+ import { CustomSelect } from '../../../components/CustomSelect'
+ 
+ const ACCESS_OPTIONS = [
+-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
+-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
++  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
++  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
+ ]
+ 
+ const inputStyle: React.CSSProperties = {
+@@ -96,7 +96,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+         .filter((f: any) => !isSignal || !signalFields.has(f.name))
+         .map((f: any, i: number) => ({
+           id:           f.id   ?? `mat_field_${i}`,
+-          name:         f.name ?? `campo_${i}`,
++          name:         f.name ?? `field_${i}`,
+           type:         f.type ?? 'string',
+           physicalName: f.physicalName ?? f.name,
+         }))
+@@ -132,27 +132,27 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+       {/* Info nodo */}
+       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa' }}>
+         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 3 }}>⊕ Explode</div>
+-        Trasforma una struttura densa in un flusso di righe.
+-        Una riga per ogni elemento della struttura sorgente.
++        Transforms a dense structure into a flow of rows.
++        One row for each element of the source structure.
+       </div>
+ 
+       {/* Sorgente */}
+-      <SectionTitle label="Sorgente dati" />
++      <SectionTitle label="Data source" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+           {
+             value:        'materialize',
+-            label:        '◈ Da Materialize',
+-            desc:         'Legge un dataset memorizzato nella lane da un nodo Materialize',
++            label:        '◈ From Materialize',
++            desc:         'Reads a dataset stored in the lane by a Materialize node',
+             disabled:     materializeVars.length === 0,
+-            disabledHint: 'Nessun Materialize pubblicato in questa lane',
++            disabledHint: 'No Materialize published in this lane',
+           },
+           {
+             value:        'flow_field',
+-            label:        '→ Da campo flusso',
+-            desc:         'Esplode un campo object/array da ogni riga in ingresso',
++            label:        '→ From flow field',
++            desc:         'Explodes an object/array field from each incoming row',
+             disabled:     !hasInput,
+-            disabledHint: 'Collega un nodo in ingresso',
++            disabledHint: 'Connect an incoming node',
+           },
+         ].map((s) => (
+           <button key={s.value}
+@@ -178,16 +178,16 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+       {source === 'materialize' && (
+         <>
+           <SectionTitle label="Materialize" />
+-          <Field label="Nome Materialize" hint="Seleziona il Materialize da cui leggere i dati">
++          <Field label="Materialize name" hint="Select the Materialize to read data from">
+             {materializeVars.length > 0 ? (
+               <CustomSelect style={inputStyle} value={p('materializeName')} onChange={u('materializeName')}>
+-                <option value="">— seleziona —</option>
++                <option value="">— select —</option>
+                 {materializeVars.map((v) => (
+                   <option key={v.id} value={v.name}>{v.name}</option>
+                 ))}
+               </CustomSelect>
+             ) : (
+-              <input style={inputStyle} value={p('materializeName')} onChange={u('materializeName')} placeholder="nome_materialize" />
++              <input style={inputStyle} value={p('materializeName')} onChange={u('materializeName')} placeholder="materialize_name" />
+             )}
+           </Field>
+ 
+@@ -201,10 +201,10 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+           {/* Schema derivato dal Materialize */}
+           {materializeSchema.length > 0 && (
+             <>
+-              <SectionTitle label="Schema derivato" color="#3ddc84" />
++              <SectionTitle label="Derived schema" color="#3ddc84" />
+               <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
+-                  {['Campo', 'Tipo'].map((h) => (
++                  {['Field', 'Type'].map((h) => (
+                     <div key={h} style={{ fontSize: 9, color: '#3ddc84', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+                   ))}
+                 </div>
+@@ -217,7 +217,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+               </div>
+               <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
+                 <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
+-                Schema propagato automaticamente ai nodi a valle.
++                Schema propagated automatically to downstream nodes.
+               </div>
+             </>
+           )}
+@@ -225,8 +225,8 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+           {p('materializeName') && materializeSchema.length === 0 && (
+             <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', gap: 5 }}>
+               <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
+-              Il Materialize "{p('materializeName')}" non ha ancora ricevuto dati.
+-              Verifica che sia collegato a un nodo sorgente.
++              The Materialize "{p('materializeName')}" has not received data yet.
++              Check that it is connected to a source node.
+             </div>
+           )}
+         </>
+@@ -235,11 +235,11 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+       {/* ── Da campo flusso ── */}
+       {source === 'flow_field' && (
+         <>
+-          <SectionTitle label="Campo flusso" />
+-          <Field label="Campo da esplodere" hint="Campo di tipo object o array dalla riga in ingresso">
++          <SectionTitle label="Flow field" />
++          <Field label="Field to explode" hint="Field of type object or array from the incoming row">
+             {incomingFields.length > 0 ? (
+               <CustomSelect style={inputStyle} value={p('flowField')} onChange={u('flowField')}>
+-                <option value="">— seleziona campo —</option>
++                <option value="">— select field —</option>
+                 {(objectFields.length > 0 ? objectFields : incomingFields).map((f) => (
+                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+                 ))}
+@@ -248,34 +248,34 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+               <input style={inputStyle} value={p('flowField')} onChange={u('flowField')} placeholder="content" />
+             )}
+           </Field>
+-          <Field label="Propaga campi padre" hint="Includere anche i campi della riga originale in ogni riga esplosa">
++          <Field label="Propagate parent fields" hint="Also include the original row's fields in each exploded row">
+             <CustomSelect style={inputStyle} value={p('includeParent', 'false')} onChange={u('includeParent')}>
+-              <option value="false">No — solo i campi dell'elemento esploso</option>
+-              <option value="true">Sì — includi anche i campi della riga padre</option>
++              <option value="false">No — only the exploded element's fields</option>
++              <option value="true">Yes — also include the parent row's fields</option>
+             </CustomSelect>
+           </Field>
+           <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a' }}>
+             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
+-            Lo schema dell'elemento esploso dipende dal contenuto runtime del campo.
+-            Configura manualmente lo schema di output nella sezione sottostante.
++            The exploded element's schema depends on the field's runtime content.
++            Configure the output schema manually in the section below.
+           </div>
+         </>
+       )}
+ 
+       {/* ── Struttura dati ── */}
+-      <SectionTitle label="Struttura dati" />
+-      <Field label="Tipo struttura sorgente">
++      <SectionTitle label="Data structure" />
++      <Field label="Source structure type">
+         <CustomSelect style={inputStyle} value={p('structureType', 'array')} onChange={u('structureType')}>
+-          <option value="array">Array di oggetti — [ &#123;...&#125;, &#123;...&#125; ]</option>
+-          <option value="object_values">Valori di oggetto — &#123; k1: &#123;...&#125;, k2: &#123;...&#125; &#125;</option>
+-          <option value="object_entries">Entries di oggetto — emette &#123; key, value &#125; per ogni campo</option>
++          <option value="array">Array of objects — [ &#123;...&#125;, &#123;...&#125; ]</option>
++          <option value="object_values">Object values — &#123; k1: &#123;...&#125;, k2: &#123;...&#125; &#125;</option>
++          <option value="object_entries">Object entries — emits &#123; key, value &#125; for each field</option>
+         </CustomSelect>
+       </Field>
+ 
+       {/* ── Schema output manuale (solo flow_field) ── */}
+       {source === 'flow_field' && (
+         <>
+-          <SectionTitle label="Schema output" />
++          <SectionTitle label="Output schema" />
+           <SchemaEditor
+             nodeId={nodeId}
+             currentSchema={(() => {
+@@ -287,28 +287,28 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* ── Opzioni ── */}
+-      <SectionTitle label="Opzioni" />
+-      <Field label="Su struttura vuota">
++      <SectionTitle label="Options" />
++      <Field label="On empty structure">
+         <CustomSelect style={inputStyle} value={p('onEmpty', 'skip')} onChange={u('onEmpty')}>
+-          <option value="skip">Salta — non emette nulla</option>
+-          <option value="null_row">Emette riga null — tutti i campi a null</option>
+-          <option value="error">Errore — interrompe il flusso</option>
++          <option value="skip">Skip — emits nothing</option>
++          <option value="null_row">Emit null row — all fields null</option>
++          <option value="error">Error — stops the flow</option>
+         </CustomSelect>
+       </Field>
+-      <Field label="Su elemento non-oggetto" hint="Cosa fare se un elemento dell'array è un valore primitivo">
++      <Field label="On non-object element" hint="What to do if an array element is a primitive value">
+         <CustomSelect style={inputStyle} value={p('onPrimitive', 'wrap')} onChange={u('onPrimitive')}>
+-          <option value="wrap">Wrap — emette &#123; value: elemento &#125;</option>
+-          <option value="skip">Salta l'elemento</option>
+-          <option value="error">Errore</option>
++          <option value="wrap">Wrap — emits &#123; value: element &#125;</option>
++          <option value="skip">Skip the element</option>
++          <option value="error">Error</option>
+         </CustomSelect>
+       </Field>
+-      <Field label="Limite righe in output" hint="0 = nessun limite">
++      <Field label="Output row limit" hint="0 = no limit">
+         <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
+       </Field>
+ 
+       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+-        Pattern tipico: <code style={{ color: '#22d3ee', fontSize: 9 }}>Materialize → Explode → TMap → Sink</code>
++        Typical pattern: <code style={{ color: '#22d3ee', fontSize: 9 }}>Materialize → Explode → TMap → Sink</code>
+       </div>
+     </div>
+   )
+@@ -326,7 +326,7 @@ function SchemaEditor({ nodeId, currentSchema, onSave }: {
+     const n = currentSchema.length + 1
+     onSave([...currentSchema, {
+       id:   `explode_field_${Date.now()}`,
+-      name: `campo_${n}`,
++      name: `field_${n}`,
+       type: 'string',
+     }])
+   }
+@@ -342,19 +342,19 @@ function SchemaEditor({ nodeId, currentSchema, onSave }: {
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+       {currentSchema.length === 0 ? (
+         <div style={{ padding: '12px', textAlign: 'center', fontSize: 10, color: '#2a3349', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+-          Nessun campo definito. Aggiungi manualmente i campi che l'Explode produrrà.
++          No field defined. Manually add the fields the Explode will produce.
+         </div>
+       ) : (
+         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: 6, padding: '4px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
+-            {['Nome campo', 'Tipo', ''].map((h, i) => (
++            {['Field name', 'Type', ''].map((h, i) => (
+               <div key={i} style={{ fontSize: 9, color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+             ))}
+           </div>
+           {currentSchema.map((f, idx) => (
+             <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: 6, alignItems: 'center', padding: '4px 8px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: idx < currentSchema.length - 1 ? '0.5px solid #2a3349' : 'none' }}>
+               <input value={f.name} onChange={(e) => updateField(idx, 'name', e.target.value)}
+-                style={{ ...inputStyle, fontSize: 10, padding: '2px 6px' }} placeholder="nome_campo" />
++                style={{ ...inputStyle, fontSize: 10, padding: '2px 6px' }} placeholder="field_name" />
+               <CustomSelect value={f.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
+                 style={{ ...inputStyle, fontSize: 9, padding: '2px 3px' }}>
+                 {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}

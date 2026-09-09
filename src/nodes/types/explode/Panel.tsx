@@ -9,8 +9,8 @@ import type { Variable } from '../../../types'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
+  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
+  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
 ]
 
 const inputStyle: React.CSSProperties = {
@@ -96,7 +96,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
         .filter((f: any) => !isSignal || !signalFields.has(f.name))
         .map((f: any, i: number) => ({
           id:           f.id   ?? `mat_field_${i}`,
-          name:         f.name ?? `campo_${i}`,
+          name:         f.name ?? `field_${i}`,
           type:         f.type ?? 'string',
           physicalName: f.physicalName ?? f.name,
         }))
@@ -132,27 +132,27 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
       {/* Info nodo */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa' }}>
         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 3 }}>⊕ Explode</div>
-        Trasforma una struttura densa in un flusso di righe.
-        Una riga per ogni elemento della struttura sorgente.
+        Transforms a dense structure into a flow of rows.
+        One row for each element of the source structure.
       </div>
 
       {/* Sorgente */}
-      <SectionTitle label="Sorgente dati" />
+      <SectionTitle label="Data source" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           {
             value:        'materialize',
-            label:        '◈ Da Materialize',
-            desc:         'Legge un dataset memorizzato nella lane da un nodo Materialize',
+            label:        '◈ From Materialize',
+            desc:         'Reads a dataset stored in the lane by a Materialize node',
             disabled:     materializeVars.length === 0,
-            disabledHint: 'Nessun Materialize pubblicato in questa lane',
+            disabledHint: 'No Materialize published in this lane',
           },
           {
             value:        'flow_field',
-            label:        '→ Da campo flusso',
-            desc:         'Esplode un campo object/array da ogni riga in ingresso',
+            label:        '→ From flow field',
+            desc:         'Explodes an object/array field from each incoming row',
             disabled:     !hasInput,
-            disabledHint: 'Collega un nodo in ingresso',
+            disabledHint: 'Connect an incoming node',
           },
         ].map((s) => (
           <button key={s.value}
@@ -178,16 +178,16 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
       {source === 'materialize' && (
         <>
           <SectionTitle label="Materialize" />
-          <Field label="Nome Materialize" hint="Seleziona il Materialize da cui leggere i dati">
+          <Field label="Materialize name" hint="Select the Materialize to read data from">
             {materializeVars.length > 0 ? (
               <CustomSelect style={inputStyle} value={p('materializeName')} onChange={u('materializeName')}>
-                <option value="">— seleziona —</option>
+                <option value="">— select —</option>
                 {materializeVars.map((v) => (
                   <option key={v.id} value={v.name}>{v.name}</option>
                 ))}
               </CustomSelect>
             ) : (
-              <input style={inputStyle} value={p('materializeName')} onChange={u('materializeName')} placeholder="nome_materialize" />
+              <input style={inputStyle} value={p('materializeName')} onChange={u('materializeName')} placeholder="materialize_name" />
             )}
           </Field>
 
@@ -201,10 +201,10 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
           {/* Schema derivato dal Materialize */}
           {materializeSchema.length > 0 && (
             <>
-              <SectionTitle label="Schema derivato" color="#3ddc84" />
+              <SectionTitle label="Derived schema" color="#3ddc84" />
               <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-                  {['Campo', 'Tipo'].map((h) => (
+                  {['Field', 'Type'].map((h) => (
                     <div key={h} style={{ fontSize: 9, color: '#3ddc84', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
                   ))}
                 </div>
@@ -217,7 +217,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
               </div>
               <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
                 <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
-                Schema propagato automaticamente ai nodi a valle.
+                Schema propagated automatically to downstream nodes.
               </div>
             </>
           )}
@@ -225,8 +225,8 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
           {p('materializeName') && materializeSchema.length === 0 && (
             <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', gap: 5 }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
-              Il Materialize "{p('materializeName')}" non ha ancora ricevuto dati.
-              Verifica che sia collegato a un nodo sorgente.
+              The Materialize "{p('materializeName')}" has not received data yet.
+              Check that it is connected to a source node.
             </div>
           )}
         </>
@@ -235,11 +235,11 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
       {/* ── Da campo flusso ── */}
       {source === 'flow_field' && (
         <>
-          <SectionTitle label="Campo flusso" />
-          <Field label="Campo da esplodere" hint="Campo di tipo object o array dalla riga in ingresso">
+          <SectionTitle label="Flow field" />
+          <Field label="Field to explode" hint="Field of type object or array from the incoming row">
             {incomingFields.length > 0 ? (
               <CustomSelect style={inputStyle} value={p('flowField')} onChange={u('flowField')}>
-                <option value="">— seleziona campo —</option>
+                <option value="">— select field —</option>
                 {(objectFields.length > 0 ? objectFields : incomingFields).map((f) => (
                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
                 ))}
@@ -248,34 +248,34 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
               <input style={inputStyle} value={p('flowField')} onChange={u('flowField')} placeholder="content" />
             )}
           </Field>
-          <Field label="Propaga campi padre" hint="Includere anche i campi della riga originale in ogni riga esplosa">
+          <Field label="Propagate parent fields" hint="Also include the original row's fields in each exploded row">
             <CustomSelect style={inputStyle} value={p('includeParent', 'false')} onChange={u('includeParent')}>
-              <option value="false">No — solo i campi dell'elemento esploso</option>
-              <option value="true">Sì — includi anche i campi della riga padre</option>
+              <option value="false">No — only the exploded element's fields</option>
+              <option value="true">Yes — also include the parent row's fields</option>
             </CustomSelect>
           </Field>
           <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-            Lo schema dell'elemento esploso dipende dal contenuto runtime del campo.
-            Configura manualmente lo schema di output nella sezione sottostante.
+            The exploded element's schema depends on the field's runtime content.
+            Configure the output schema manually in the section below.
           </div>
         </>
       )}
 
       {/* ── Struttura dati ── */}
-      <SectionTitle label="Struttura dati" />
-      <Field label="Tipo struttura sorgente">
+      <SectionTitle label="Data structure" />
+      <Field label="Source structure type">
         <CustomSelect style={inputStyle} value={p('structureType', 'array')} onChange={u('structureType')}>
-          <option value="array">Array di oggetti — [ &#123;...&#125;, &#123;...&#125; ]</option>
-          <option value="object_values">Valori di oggetto — &#123; k1: &#123;...&#125;, k2: &#123;...&#125; &#125;</option>
-          <option value="object_entries">Entries di oggetto — emette &#123; key, value &#125; per ogni campo</option>
+          <option value="array">Array of objects — [ &#123;...&#125;, &#123;...&#125; ]</option>
+          <option value="object_values">Object values — &#123; k1: &#123;...&#125;, k2: &#123;...&#125; &#125;</option>
+          <option value="object_entries">Object entries — emits &#123; key, value &#125; for each field</option>
         </CustomSelect>
       </Field>
 
       {/* ── Schema output manuale (solo flow_field) ── */}
       {source === 'flow_field' && (
         <>
-          <SectionTitle label="Schema output" />
+          <SectionTitle label="Output schema" />
           <SchemaEditor
             nodeId={nodeId}
             currentSchema={(() => {
@@ -287,28 +287,28 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Opzioni ── */}
-      <SectionTitle label="Opzioni" />
-      <Field label="Su struttura vuota">
+      <SectionTitle label="Options" />
+      <Field label="On empty structure">
         <CustomSelect style={inputStyle} value={p('onEmpty', 'skip')} onChange={u('onEmpty')}>
-          <option value="skip">Salta — non emette nulla</option>
-          <option value="null_row">Emette riga null — tutti i campi a null</option>
-          <option value="error">Errore — interrompe il flusso</option>
+          <option value="skip">Skip — emits nothing</option>
+          <option value="null_row">Emit null row — all fields null</option>
+          <option value="error">Error — stops the flow</option>
         </CustomSelect>
       </Field>
-      <Field label="Su elemento non-oggetto" hint="Cosa fare se un elemento dell'array è un valore primitivo">
+      <Field label="On non-object element" hint="What to do if an array element is a primitive value">
         <CustomSelect style={inputStyle} value={p('onPrimitive', 'wrap')} onChange={u('onPrimitive')}>
-          <option value="wrap">Wrap — emette &#123; value: elemento &#125;</option>
-          <option value="skip">Salta l'elemento</option>
-          <option value="error">Errore</option>
+          <option value="wrap">Wrap — emits &#123; value: element &#125;</option>
+          <option value="skip">Skip the element</option>
+          <option value="error">Error</option>
         </CustomSelect>
       </Field>
-      <Field label="Limite righe in output" hint="0 = nessun limite">
+      <Field label="Output row limit" hint="0 = no limit">
         <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
       </Field>
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
-        Pattern tipico: <code style={{ color: '#22d3ee', fontSize: 9 }}>Materialize → Explode → TMap → Sink</code>
+        Typical pattern: <code style={{ color: '#22d3ee', fontSize: 9 }}>Materialize → Explode → TMap → Sink</code>
       </div>
     </div>
   )
@@ -326,7 +326,7 @@ function SchemaEditor({ nodeId, currentSchema, onSave }: {
     const n = currentSchema.length + 1
     onSave([...currentSchema, {
       id:   `explode_field_${Date.now()}`,
-      name: `campo_${n}`,
+      name: `field_${n}`,
       type: 'string',
     }])
   }
@@ -342,19 +342,19 @@ function SchemaEditor({ nodeId, currentSchema, onSave }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {currentSchema.length === 0 ? (
         <div style={{ padding: '12px', textAlign: 'center', fontSize: 10, color: '#2a3349', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-          Nessun campo definito. Aggiungi manualmente i campi che l'Explode produrrà.
+          No field defined. Manually add the fields the Explode will produce.
         </div>
       ) : (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: 6, padding: '4px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Nome campo', 'Tipo', ''].map((h, i) => (
+            {['Field name', 'Type', ''].map((h, i) => (
               <div key={i} style={{ fontSize: 9, color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>
           {currentSchema.map((f, idx) => (
             <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: 6, alignItems: 'center', padding: '4px 8px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: idx < currentSchema.length - 1 ? '0.5px solid #2a3349' : 'none' }}>
               <input value={f.name} onChange={(e) => updateField(idx, 'name', e.target.value)}
-                style={{ ...inputStyle, fontSize: 10, padding: '2px 6px' }} placeholder="nome_campo" />
+                style={{ ...inputStyle, fontSize: 10, padding: '2px 6px' }} placeholder="field_name" />
               <CustomSelect value={f.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
                 style={{ ...inputStyle, fontSize: 9, padding: '2px 3px' }}>
                 {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}

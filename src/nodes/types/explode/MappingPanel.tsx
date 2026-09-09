@@ -16,16 +16,16 @@ const inputStyle: React.CSSProperties = {
 
 import { FIELD_TYPES } from '../../../types/fieldTypes'
 const TRANSFORMS = [
-  { value: '',              label: 'nessuna'    },
+  { value: '',              label: 'none'    },
   { value: 'trim',          label: 'trim'       },
   { value: 'uppercase',     label: 'UPPER'      },
   { value: 'lowercase',     label: 'lower'      },
   { value: 'to_int',        label: '→ int'      },
   { value: 'to_float',      label: '→ dec'      },
-  { value: 'to_date',       label: '→ data'     },
+  { value: 'to_date',       label: '→ date'     },
   { value: 'to_bool',       label: '→ bool'     },
   { value: 'to_string',     label: '→ str'      },
-  { value: 'nullify_empty', label: 'vuoto→null' },
+  { value: 'nullify_empty', label: 'empty→null' },
 ]
 
 type MappingField = {
@@ -163,7 +163,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
 
   const addManual = () => {
     const n = mapping.length + 1
-    saveMapping([...mapping, { sourceField: '', outputName: `campo_${n}`, type: 'string', transform: '', include: true }])
+    saveMapping([...mapping, { sourceField: '', outputName: `field_${n}`, type: 'string', transform: '', include: true }])
   }
 
   const includedCount = mapping.filter((f) => f.include).length
@@ -174,12 +174,12 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '6px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ fontSize: 14, color: ACCENT }}>⊕</span>
         <div>
-          Sorgente: <strong style={{ color: '#c8d4f0' }}>
-            {source === 'materialize' ? `Materialize "${matName || '—'}"` : 'Campo Flusso'}
+          Source: <strong style={{ color: '#c8d4f0' }}>
+            {source === 'materialize' ? `Materialize "${matName || '—'}"` : 'Flow Field'}
           </strong>
           {matNode && (
             <span style={{ marginLeft: 8, color: '#8593b5' }}>
-              modalità: {matMode === 'passthrough' ? 'passthrough' : matMode === 'buffer_signal' ? 'buffer→signal' : 'buffer→replay'}
+              mode: {matMode === 'passthrough' ? 'passthrough' : matMode === 'buffer_signal' ? 'buffer→signal' : 'buffer→replay'}
             </span>
           )}
         </div>
@@ -187,9 +187,9 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
-          Mapping campi
+          Field mapping
           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
-            — {includedCount} di {mapping.length} selezionati
+            — {includedCount} of {mapping.length} selected
           </span>
         </div>
         {sourceSchema.length > 0 && (
@@ -198,7 +198,7 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 20%, #161b27)` }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 12%, #161b27)` }}>
             <i className="ti ti-refresh" style={{ fontSize: 10 }} />
-            Sincronizza
+            Sync
           </button>
         )}
       </div>
@@ -209,17 +209,17 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-table-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
           {source === 'materialize' && !matName
-            ? 'Seleziona un Materialize nel tab Configurazione.'
+            ? 'Select a Materialize in the Configuration tab.'
             : source === 'materialize' && sourceSchema.length === 0
-            ? `Il Materialize "${matName}" non ha ancora ricevuto campi.`
-            : 'Nessun campo definito. Aggiungi manualmente o sincronizza dalla sorgente.'}
+            ? `The Materialize "${matName}" has not received fields yet.`
+            : 'No field defined. Add manually or sync from the source.'}
         </div>
       )}
 
       {mapping.length > 0 && (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '24px 28px minmax(80px,1fr) minmax(80px,1fr) 80px minmax(80px,1fr) 24px', gap: 6, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-            {['', '✓', 'Col. fisica', 'Nome logico', 'Tipo', 'Trasformazione', ''].map((h, i) => (
+            {['', '✓', 'Physical col.', 'Logical name', 'Type', 'Transformation', ''].map((h, i) => (
               <div key={i} style={{ fontSize: 10, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>
@@ -253,14 +253,14 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
                 <input value={field.sourceField}
                   onChange={(e) => updateField(idx, 'sourceField', e.target.value)}
                   style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: '#8593b5' }}
-                  placeholder="col_sorgente" />
+                  placeholder="source_col" />
               )}
 
               <input value={field.outputName}
                 onChange={(e) => updateField(idx, 'outputName', e.target.value)}
                 disabled={!field.include}
                 style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: ACCENT }}
-                placeholder="nome_logico" />
+                placeholder="logical_name" />
 
               <CustomSelect value={field.type}
                 onChange={(e) => updateField(idx, 'type', e.target.value)}
@@ -291,11 +291,11 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => saveMapping(mapping.map((f) => ({ ...f, include: true })))}
             style={{ flex: 1, padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #1a2030)`, color: ACCENT, border: `0.5px solid ${ACCENT}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            <i className="ti ti-checks" style={{ fontSize: 10 }} /> Seleziona tutti
+            <i className="ti ti-checks" style={{ fontSize: 10 }} /> Select all
           </button>
           <button onClick={() => saveMapping(mapping.map((f) => ({ ...f, include: false })))}
             style={{ flex: 1, padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            <i className="ti ti-square" style={{ fontSize: 10 }} /> Deseleziona tutti
+            <i className="ti ti-square" style={{ fontSize: 10 }} /> Deselect all
           </button>
         </div>
       )}
@@ -304,13 +304,13 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
         style={{ padding: '6px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT; (e.currentTarget as HTMLElement).style.color = ACCENT }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi campo manualmente
+        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add field manually
       </button>
 
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-        <strong style={{ color: '#9a9aaa' }}>Col. fisica</strong> è il nome del campo nella struttura sorgente.
-        Lo schema viene propagato automaticamente ai nodi a valle.
+        <strong style={{ color: '#9a9aaa' }}>Physical col.</strong> is the field name in the source structure.
+        The schema is propagated automatically to downstream nodes.
       </div>
     </div>
   )
