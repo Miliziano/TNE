@@ -81,26 +81,26 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Modalità union */}
-      <SectionTitle label="Modalità" />
+      <SectionTitle label="Mode" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           {
             value: 'concat',
-            label: '▤ Concatena',
-            desc:  'Un flusso dopo l\'altro — il secondo inizia solo dopo che il primo è terminato. Richiede stesso schema.',
-            detail: 'Ordine di emissione: input_1 completo → input_2 completo → ... Utile per unire file o dataset dello stesso tipo.',
+            label: '▤ Concatenate',
+            desc:  'One flow after another — the second starts only after the first has finished. Requires the same schema.',
+            detail: 'Emission order: input_1 complete → input_2 complete → ... Useful to combine files or datasets of the same type.',
           },
           {
             value: 'mix',
             label: '⇄ Interleave',
-            desc:  'Le righe dei flussi si mescolano nell\'ordine di arrivo. Accetta schemi diversi.',
-            detail: 'L\'ordine non è garantito — dipende dalla velocità di ciascun flusso. Utile per merge di stream in tempo reale.',
+            desc:  'The flows\' rows mix in arrival order. Accepts different schemas.',
+            detail: 'The order is not guaranteed — it depends on the speed of each flow. Useful to merge real-time streams.',
           },
           {
             value: 'zip',
             label: '↕ Zip',
-            desc:  'Unisce le righe per posizione — riga 1 di A con riga 1 di B. Richiede stesso numero di righe.',
-            detail: 'Produce una riga per ogni coppia di righe corrispondenti. Se i flussi hanno lunghezze diverse, le righe in eccesso vengono scartate o riempite con null.',
+            desc:  'Joins rows by position — row 1 of A with row 1 of B. Requires the same number of rows.',
+            detail: 'Produces one row per matching pair of rows. If the flows have different lengths, the excess rows are discarded or filled with null.',
           },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'unionMode', m.value)}
@@ -115,23 +115,23 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni per modalità */}
       {unionMode === 'mix' && (
         <>
-          <Field label="Campo sorgente" hint="Aggiunge un campo con il nome del flusso sorgente per tracciabilità">
+          <Field label="Source field" hint="Adds a field with the source flow name for traceability">
             <CustomSelect style={inputStyle} value={p('addSourceField', 'true')} onChange={u('addSourceField')}>
-              <option value="true">Sì — aggiungi campo _union_source</option>
-              <option value="false">No — non aggiungere campo sorgente</option>
+              <option value="true">Yes — add _union_source field</option>
+              <option value="false">No — do not add a source field</option>
             </CustomSelect>
           </Field>
           {p('addSourceField', 'true') === 'true' && (
-            <Field label="Nome campo sorgente">
+            <Field label="Source field name">
               <input style={{ ...inputStyle, color: ACCENT }} value={p('sourceFieldName', '_union_source')}
                 onChange={u('sourceFieldName')} placeholder="_union_source" />
             </Field>
           )}
-          <Field label="Schema mancante su campo" hint="Come gestire campi presenti in alcuni flussi ma non in altri">
+          <Field label="Missing schema on field" hint="How to handle fields present in some flows but not others">
             <CustomSelect style={inputStyle} value={p('missingField', 'null')} onChange={u('missingField')}>
-              <option value="null">Scrivi null — campo presente ma nullo</option>
-              <option value="omit">Ometti — campo assente nel record</option>
-              <option value="error">Errore — richiede schema identico</option>
+              <option value="null">Write null — field present but null</option>
+              <option value="omit">Omit — field absent from the record</option>
+              <option value="error">Error — requires identical schema</option>
             </CustomSelect>
           </Field>
         </>
@@ -139,33 +139,33 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
 
       {unionMode === 'zip' && (
         <>
-          <Field label="Su flussi di lunghezza diversa">
+          <Field label="On flows of different length">
             <CustomSelect style={inputStyle} value={p('zipMismatch', 'truncate')} onChange={u('zipMismatch')}>
-              <option value="truncate">Tronca — scarta le righe in eccesso del flusso più lungo</option>
-              <option value="pad_null">Padding null — riempie con null le righe mancanti</option>
-              <option value="error">Errore — richiede stessa lunghezza</option>
+              <option value="truncate">Truncate — discard the excess rows of the longer flow</option>
+              <option value="pad_null">Null padding — fills missing rows with null</option>
+              <option value="error">Error — requires the same length</option>
             </CustomSelect>
           </Field>
         </>
       )}
 
       {unionMode === 'concat' && (
-        <Field label="Su schema non compatibile">
+        <Field label="On incompatible schema">
           <CustomSelect style={inputStyle} value={p('schemaMismatch', 'error')} onChange={u('schemaMismatch')}>
-            <option value="error">Errore — richiede schema identico</option>
-            <option value="coerce">Coerce — tenta di adattare i tipi</option>
-            <option value="ignore">Ignora — emetti le righe così come sono</option>
+            <option value="error">Error — requires identical schema</option>
+            <option value="coerce">Coerce — try to adapt the types</option>
+            <option value="ignore">Ignore — emit the rows as they are</option>
           </CustomSelect>
         </Field>
       )}
 
       
       {/* Output */}
-      <SectionTitle label="Output del nodo" color="#8593b5" />
+      <SectionTitle label="Node output" color="#8593b5" />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
-          <span style={{ fontSize: 9 }}>Flusso unificato di tutte le righe dai flussi in ingresso</span>
+          <span style={{ fontSize: 9 }}>Unified flow of all rows from the incoming flows</span>
         </div>
       </div>
     </div>

@@ -1,0 +1,619 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index 0bbbac1..78be044 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -37,10 +37,12 @@
+   "API cloud SendGrid": "SendGrid cloud API",
+   "Abilitato": "Enabled",
+   "Accompagna il motivo «stop deliberato» nei nodi interrotti e nel log.": "Accompanies the «deliberate stop» reason in interrupted nodes and in the log.",
++  "Accoppia la riga N di ogni flusso in un'unica riga di uscita, fondendone i campi. Se i flussi hanno lunghezza diversa, il comportamento dipende da «Disallineamento zip».": "Pairs row N of each flow into a single output row, merging their fields. If the flows have different lengths, the behavior depends on «Zip mismatch».",
+   "Aggiorna il commento della versione corrente (non crea una nuova versione)": "Update the current version comment (does not create a new version)",
+   "Aggiornamento variabili": "Variables refresh",
+   "Aggiunge i dati in fondo al file esistente": "Appends the data at the end of the existing file",
+   "Aggiunge in fondo": "Appends at the end",
++  "Aggiunge un campo con il nome del flusso sorgente per tracciabilità": "Adds a field with the source flow name for traceability",
+   "Aggiungi header": "Add header",
+   "Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.": "Add the fields manually or configure them after running the flow.",
+   "Aggiungi lane": "Add lane",
+@@ -58,6 +60,7 @@
+   "Andamento temporale": "Trend over time",
+   "Anno": "Year",
+   "Annulla": "Cancel",
++  "Annulla rinomina": "Undo rename",
+   "Anteprima dati in uscita": "Output data preview",
+   "Anti-bumping (deduplicazione)": "Anti-bumping (deduplication)",
+   "Applica a": "Apply to",
+@@ -111,6 +114,7 @@
+   "Campi dall'output JSON": "Fields from the JSON output",
+   "Campi della riga emessa": "Emitted row fields",
+   "Campi di ogni riga JSONL": "Fields of each JSONL line",
++  "Campi in uscita": "Output fields",
+   "Campionamento": "Sampling",
+   "Campionamento casuale": "Random sampling",
+   "Campionamento uniforme — 1 ogni N righe": "Uniform sampling — 1 every N rows",
+@@ -131,6 +135,7 @@
+   "Campo password (nella riga)": "Password field (in the row)",
+   "Campo path dal flusso": "Path field from flow",
+   "Campo repo": "Repo field",
++  "Campo sorgente": "Source field",
+   "Campo specifico": "Specific field",
+   "Campo timestamp": "Timestamp field",
+   "Campo uscita": "Output field",
+@@ -147,9 +152,14 @@
+   "Chiave privata (senza passphrase)": "Private key (no passphrase)",
+   "Chiave privata con passphrase": "Private key with passphrase",
+   "Chiudi": "Close",
++  "Clicca il nome per rinominarlo e tenerlo separato.": "Click the name to rename it and keep it separate.",
+   "Clicca per inserire nel valore:": "Click to insert into the value:",
++  "Clicca per rinominare (separa il campo dai fusi)": "Click to rename (separates the field from the merged ones)",
+   "Client — ack manuale": "Client — manual ack",
+   "Codice errore contiene — non ancora disponibile": "Error code contains — not yet available",
++  "Coerce — tenta di adattare i tipi": "Coerce — try to adapt the types",
++  "Collega almeno un flusso agli handle sul lato sinistro del nodo.": "Connect at least one flow to the handles on the left side of the node.",
++  "Collega i flussi e apri il tab Mapping per vedere l'anteprima della struttura.": "Connect the flows and open the Mapping tab to see the structure preview.",
+   "Collega un nodo in ingresso per vedere i campi disponibili.": "Connect an incoming node to see the available fields.",
+   "Collega una risorsa DB al nodo per campionare i dati.": "Connect a DB resource to the node to sample the data.",
+   "Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se \"Log centralizzato\" è attivo).": "Central collector for lane errors — always active, cannot be deleted. Automatically receives every error not handled by catch/reject (and a copy of the handled ones, if \"Centralized log\" is active).",
+@@ -164,6 +174,7 @@
+   "Comando post-scrittura": "Post-write command",
+   "Comando remoto": "Remote command",
+   "Comando shell": "Shell command",
++  "Come gestire campi presenti in alcuni flussi ma non in altri": "How to handle fields present in some flows but not others",
+   "Come interpretare il valore prima di scriverlo": "How to interpret the value before writing it",
+   "Commit (di un repo)": "Commits (of a repo)",
+   "Compila": "Compile",
+@@ -297,6 +308,8 @@
+   "Errore se esiste già": "Error if already exists",
+   "Errore — blocca il server": "Error — block the server",
+   "Errore — interrompe la pipeline": "Error — stops the pipeline",
++  "Errore — richiede schema identico": "Error — requires identical schema",
++  "Errore — richiede stessa lunghezza": "Error — requires the same length",
+   "Errori completi": "Full errors",
+   "Es: 10 = logga circa il 10% delle righe": "E.g. 10 = logs about 10% of the rows",
+   "Es: 10 = logga la riga 1, 11, 21, 31...": "E.g. 10 = logs row 1, 11, 21, 31...",
+@@ -349,6 +362,7 @@
+   "Flag retain": "Retain flag",
+   "Flow — riceve righe dal flusso, costruisce header dai campi": "Flow — receives rows from the flow, builds headers from the fields",
+   "Flusso": "Flow",
++  "Flusso unificato di tutte le righe dai flussi in ingresso": "Unified flow of all rows from the incoming flows",
+   "Fonde N flussi in uno — modalità concat, interleave o zip.": "Merges N flows into one — concat, interleave or zip modes.",
+   "Formato": "Format",
+   "Formato ISO 8601 — es: 2024-01-15T08:00:00Z": "ISO 8601 format — e.g. 2024-01-15T08:00:00Z",
+@@ -385,6 +399,8 @@
+   "Header firma": "Signature header",
+   "Headers statici (JSON)": "Static headers (JSON)",
+   "Host remoto": "Remote host",
++  "I campi con stesso nome e stesso tipo si fondono in una colonna sola.": "Fields with the same name and same type merge into a single column.",
++  "I flussi vengono emessi uno dopo l'altro: prima tutte le righe del flusso 1, poi del flusso 2, e così via. Ordine deterministico.": "The flows are emitted one after another: first all rows of flow 1, then flow 2, and so on. Deterministic order.",
+   "I parametri di connessione si configurano nelle proprietà della risorsa": "Connection parameters are set in the resource properties",
+   "I valori dei segreti NON sono nell'artifact: vanno forniti sulla macchina di destinazione (keychain o variabili d'ambiente).": "Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).",
+   "ID del nodo": "Node ID",
+@@ -398,6 +414,7 @@
+   "Identificatore opzionale del client per il monitoring": "Optional client identifier for monitoring",
+   "Identità": "Identity",
+   "Ignora chiave": "Ignore key",
++  "Ignora — emetti le righe così come sono": "Ignore — emit the rows as they are",
+   "Ignora — né log né error_out": "Ignore — neither log nor error_out",
+   "Il campo <strong>Timeout</strong> è sincronizzato con <strong>Timeout watch</strong> nel tab Configurazione — modificando uno si aggiorna l'altro.": "The <strong>Timeout</strong> field is synced with <strong>Watch timeout</strong> in the Configuration tab — changing one updates the other.",
+   "Il file rimane nella posizione originale": "The file stays in its original location",
+@@ -439,11 +456,14 @@
+   "JSONL — ogni riga è un oggetto JSON": "JSONL — each line is a JSON object",
+   "L'endpoint da interrogare periodicamente": "The endpoint to poll periodically",
+   "L'handle <strong>catch</strong> è ora visibile sul nodo. Le righe che causano un'eccezione non controllata escono da catch arricchite dei campi:": "The <strong>catch</strong> handle is now visible on the node. Rows that raise an unhandled exception exit through catch enriched with the fields:",
++  "L'ordine non è garantito — dipende dalla velocità di ciascun flusso. Utile per merge di stream in tempo reale.": "The order is not guaranteed — it depends on the speed of each flow. Useful to merge real-time streams.",
+   "La riga originale che ha causato l'errore": "The original row that caused the error",
+   "Lascia vuoto per disabilitare la verifica": "Leave empty to disable verification",
+   "Lascia vuoto per home": "Leave empty for home",
+   "Le celle segnalate vengono evidenziate e marcate da sole — non devi configurare nulla:": "Flagged cells are highlighted and marked automatically — you don't need to configure anything:",
+   "Le modifiche sono salvate automaticamente": "Changes are saved automatically",
++  "Le righe dei flussi si mescolano nell'ordine di arrivo. Accetta schemi diversi.": "The flows' rows mix in arrival order. Accepts different schemas.",
++  "Le righe si mescolano nell'ordine di arrivo. L'ordine NON è garantito: dipende dalla velocità di ciascun flusso.": "The rows mix in arrival order. The order is NOT guaranteed: it depends on the speed of each flow.",
+   "Legge continuamente — emette righe man mano che arrivano": "Reads continuously — emits rows as they arrive",
+   "Legge file da server FTP, FTPS o SFTP.": "Reads files from FTP, FTPS or SFTP servers.",
+   "Legge fino al limite configurato poi chiude la connessione": "Reads up to the configured limit then closes the connection",
+@@ -537,6 +557,7 @@
+   "No — esegui una volta sola": "No — run only once",
+   "No — ignora stderr": "No — ignore stderr",
+   "No — nodo disabilitato (passthrough silenzioso)": "No — node disabled (silent passthrough)",
++  "No — non aggiungere campo sorgente": "No — do not add a source field",
+   "No — salta durante l'esecuzione": "No — skip during execution",
+   "No — scrivi direttamente nel file finale": "No — write directly to the final file",
+   "No — sessione duratura": "No — durable session",
+@@ -551,6 +572,7 @@
+   "Nodo": "Node",
+   "Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.": "Transparent node — logs the rows passing through for debugging. Does not modify the data.",
+   "Nome": "Name",
++  "Nome campo sorgente": "Source field name",
+   "Nome canale": "Channel name",
+   "Nome coda/topic": "Queue/topic name",
+   "Nome colonna": "Column name",
+@@ -593,6 +615,7 @@
+   "Offset iniziale": "Initial offset",
+   "Oggetto": "Subject",
+   "Ogni file produce una riga con questi campi": "Each file produces one row with these fields",
++  "Ometti — campo assente nel record": "Omit — field absent from the record",
+   "One-shot: attende un batch di eventi, emette e termina. Continuo: la lane si ri-esegue per ogni gruppo di eventi (con commit) finché non premi Stop.": "One-shot: waits for a batch of events, emits and ends. Continuous: the lane re-runs for each group of events (with commit) until you press Stop.",
+   "OpenWire (porta 61616) — nativo ActiveMQ": "OpenWire (port 61616) — native ActiveMQ",
+   "Operatori JSONB PostgreSQL — clicca per inserire": "PostgreSQL JSONB operators — click to insert",
+@@ -614,11 +637,13 @@
+   "Ordina per": "Order by",
+   "Ordinamento": "Sorting",
+   "Ordinamento (ORDER BY)": "Order (ORDER BY)",
++  "Ordine di emissione: input_1 completo → input_2 completo → ... Utile per unire file o dataset dello stesso tipo.": "Emission order: input_1 complete → input_2 complete → ... Useful to combine files or datasets of the same type.",
+   "Ordine elaborazione file": "File processing order",
+   "Organizzazione": "Organization",
+   "Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).": "Watches a directory for new files (watch) or enumerates its contents (scan).",
+   "Output completo": "Full output",
+   "Output del nodo": "Node output",
++  "Padding null — riempie con null le righe mancanti": "Null padding — fills missing rows with null",
+   "Pannello log FlowPilot": "FlowPilot log panel",
+   "Parametri del nodo": "Node parameters",
+   "Partiziona per": "Partition by",
+@@ -669,11 +694,13 @@
+   "Prime N righe": "First N rows",
+   "Priorità": "Priority",
+   "Procedi comunque (watchdog_matched: false)": "Proceed anyway (watchdog_matched: false)",
++  "Produce una riga per ogni coppia di righe corrispondenti. Se i flussi hanno lunghezze diverse, le righe in eccesso vengono scartate o riempite con null.": "Produces one row per matching pair of rows. If the flows have different lengths, the excess rows are discarded or filled with null.",
+   "Producer ActiveMQ — pubblica messaggi su queue o topic.": "ActiveMQ producer — publishes messages to queues or topics.",
+   "Profilo attivo (usato al Run)": "Active profile (used at Run)",
+   "Profilo da congelare (un ambiente per artifact)": "Profile to freeze (one environment per artifact)",
+   "Protocollo": "Protocol",
+   "Protocollo di connessione": "Connection protocol",
++  "Provenienza delle colonne": "Column provenance",
+   "Pubblica righe su un topic Kafka.": "Publishes rows to a Kafka topic.",
+   "Publisher MQTT — pubblica messaggi su topic.": "MQTT publisher — publishes messages to topics.",
+   "Punto di avvio della lane. Ha solo un handle di uscita.": "Lane start point. Has only an output handle.",
+@@ -709,6 +736,7 @@
+   "Riemette le righe originali dopo la scrittura.": "Re-emits the original rows after writing.",
+   "Riga di output": "Output line",
+   "Riga di testo": "Text line",
++  "Riga in uscita — struttura": "Output row — structure",
+   "Riga intera": "Whole row",
+   "Righe aggiornate": "Rows updated",
+   "Righe e colonne con totali": "Rows and columns with totals",
+@@ -725,6 +753,7 @@
+   "Rimuovi dal keychain": "Remove from keychain",
+   "Rimuovi header": "Remove header",
+   "Rinomina il profilo (i valori restano)": "Rename the profile (values are kept)",
++  "Rinomine applicate": "Renames applied",
+   "Riprendi dall'ultimo offset committato per questo consumer group": "Resume from the last committed offset for this consumer group",
+   "Ripristina": "Restore",
+   "Riprova → cattura": "Retry → catch",
+@@ -756,6 +785,7 @@
+   "Scarta il più vecchio (FIFO)": "Drop the oldest (FIFO)",
+   "Schema della tabella (es: public)": "Table schema (e.g. public)",
+   "Schema di uscita": "Output schema",
++  "Schema mancante su campo": "Missing schema on field",
+   "Schema output (row by row)": "Output schema (row by row)",
+   "Schema output per ogni messaggio ricevuto": "Output schema for each received message",
+   "Schema output — per ogni evento": "Output schema — per event",
+@@ -769,6 +799,7 @@
+   "Scrive righe in una tabella di database.": "Writes rows into a database table.",
+   "Scrive righe su file.": "Writes rows to a file.",
+   "Scrivi intestazione": "Write header",
++  "Scrivi null — campo presente ma nullo": "Write null — field present but null",
+   "Se a monte c'è un nodo Data Quality": "If there is a Data Quality node upstream",
+   "Se exit code ≠ 0": "If exit code ≠ 0",
+   "Se il file esiste, lo sovrascrive completamente": "If the file exists, overwrites it completely",
+@@ -828,6 +859,8 @@
+   "Su errore file singolo": "On single-file error",
+   "Su file — persiste tra esecuzioni": "To file — persists across runs",
+   "Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.": "On high-volume flows, log only a subset of rows to avoid flooding the log.",
++  "Su flussi di lunghezza diversa": "On flows of different length",
++  "Su schema non compatibile": "On incompatible schema",
+   "Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.": "MQTT subscriber — receives messages from MQTT/MQTTS brokers.",
+   "Summary + grafico + tabella": "Summary + chart + table",
+   "Summary — solo riepilogo": "Summary — summary only",
+@@ -840,6 +873,7 @@
+   "Sì": "Yes",
+   "Sì — PERSISTENT": "Yes — PERSISTENT",
+   "Sì — aggiungi campi _kafka_*": "Yes — add _kafka_* fields",
++  "Sì — aggiungi campo _union_source": "Yes — add _union_source field",
+   "Sì — commit automatico ogni intervallo": "Yes — automatic commit every interval",
+   "Sì — crea automaticamente le directory mancanti": "Yes — automatically create missing directories",
+   "Sì — emette righe stderr nel flusso": "Yes — emits stderr rows into the flow",
+@@ -925,6 +959,7 @@
+   "Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.": "Visual multi-input/output transformer with mapping, lookup joins and conditional routing.",
+   "Trasformazione": "Transformation",
+   "Trasmetti — usa catch/reject": "Propagate — use catch/reject",
++  "Tronca — scarta le righe in eccesso del flusso più lungo": "Truncate — discard the excess rows of the longer flow",
+   "Tutte le righe": "All rows",
+   "Tutti (new/update/rename/delete)": "All (new/update/rename/delete)",
+   "Tutti gli header HTTP ricevuti": "All received HTTP headers",
+@@ -934,6 +969,7 @@
+   "UUID casuale": "Random UUID",
+   "UUID univoco": "Unique UUID",
+   "Un errore di questo nodo, dopo che l'handler ha concluso, interrompe la pipeline": "An error from this node, after the handler completes, stops the pipeline",
++  "Un flusso dopo l'altro — il secondo inizia solo dopo che il primo è terminato. Richiede stesso schema.": "One flow after another — the second starts only after the first has finished. Requires the same schema.",
+   "Un topic o più separati da virgola — es: ordini, clienti, prodotti": "One topic or several separated by commas — e.g. orders, customers, products",
+   "Una funzione per riga:": "One function per line:",
+   "Una ogni N righe": "One every N rows",
+@@ -941,6 +977,7 @@
+   "Una volta": "Once",
+   "Una volta (one-shot)": "Once (one-shot)",
+   "Unisce due flussi su un campo chiave.": "Joins two flows on a key field.",
++  "Unisce le righe per posizione — riga 1 di A con riga 1 di B. Richiede stesso numero di righe.": "Joins rows by position — row 1 of A with row 1 of B. Requires the same number of rows.",
+   "Usa ${variabile} per topic dinamici": "Use ${variable} for dynamic topics",
+   "Usa il campo path da ogni riga in ingresso (richiede edge)": "Uses the path field from each incoming row (requires edge)",
+   "Usa row.campo — deve restituire true/false": "Use row.field — must return true/false",
+@@ -988,6 +1025,7 @@
+   "da quale campo prendere lo username": "which field to take the username from",
+   "diventano le colonne d'uscita, oltre a dn": "become the output columns, in addition to dn",
+   "dove cercare gli utenti": "where to search for users",
++  "errore se le lunghezze differiscono": "error if the lengths differ",
+   "es. (&(objectClass=person)(mail=*))": "e.g. (&(objectClass=person)(mail=*))",
+   "es. marco-portatile": "e.g. mark-laptop",
+   "es. memberOf,displayName — aggiunti alle righe autenticate": "e.g. memberOf,displayName — added to the authenticated rows",
+@@ -999,6 +1037,7 @@
+   "ferma i nodi ancora in esecuzione": "stops the nodes still running",
+   "fine lane": "lane end",
+   "flusso": "flow",
++  "flusso 1": "flow 1",
+   "formato:": "format:",
+   "funzione nome(par1, par2) ": "function name(par1, par2) ",
+   "importa .ffpel": "import .ffpel",
+@@ -1024,17 +1063,22 @@
+   "piattaforma: ": "platform: ",
+   "profilo attivo": "active profile",
+   "profilo congelato: ": "frozen profile: ",
++  "prosegue, campi mancanti a null": "continues, missing fields to null",
+   "ricarica": "reload",
+   "righe": "rows",
++  "righe del flusso più corto": "rows of the shortest flow",
+   "row: dati originali (dopo chiusura file, riga per riga) + status": "row: original data (after file close, row by row) + status",
+   "row: dati originali (riga per riga) + status": "row: original data (row by row) + status",
+   "row: {} vuoto + status — un solo messaggio alla fine": "row: empty {} + status — a single message at the end",
+   "schema fisso": "fixed schema",
++  "schema unificato": "unified schema",
+   "segreti richiesti:": "required secrets:",
+   "simulata": "simulated",
+   "solo il primo": "first only",
++  "somma delle righe": "sum of rows",
+   "subtree (tutto il sottoalbero)": "subtree (entire subtree)",
+   "transitorio: usato per il bind, mai salvato né loggato": "transient: used for the bind, never saved or logged",
++  "tronca al flusso più corto": "truncate to the shortest flow",
+   "true se condizione soddisfatta": "true if condition met",
+   "true se è una directory": "true if it is a directory",
+   "unisci (;)": "join (;)",
+@@ -1067,6 +1111,7 @@
+   "⊕ campo flusso": "⊕ flow field",
+   "⊞ Righe del flusso": "⊞ Flow rows",
+   "⊞ Tabella dati": "⊞ Data table",
++  "▤ Concatena": "▤ Concatenate",
+   "▤ Elenca file": "▤ List files",
+   "▤ Lista file": "▤ File list",
+   "○ Lascia": "○ Leave",
+diff --git a/src/nodes/types/union/MappingPanel.tsx b/src/nodes/types/union/MappingPanel.tsx
+index cb7d58e..ef6deb6 100644
+--- a/src/nodes/types/union/MappingPanel.tsx
++++ b/src/nodes/types/union/MappingPanel.tsx
+@@ -68,7 +68,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+     const extra = ((node?.data.config as any)?.unionInputs ?? []) as Array<{ id: string; label: string }>
+     const connected = new Set(edges.filter((e) => e.target === nodeId).map((e) => e.targetHandle))
+     const out: Array<{ handle: string; label: string }> = []
+-    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flusso 1' })
++    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flow 1' })
+     for (const inp of extra) {
+       if (connected.has(inp.id)) out.push({ handle: inp.id, label: inp.label })
+     }
+@@ -182,10 +182,10 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`,
+                     borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10,
+                     color: '#9a9aaa', lineHeight: 1.5 }}>
+-        <span style={{ color: ACCENT, fontWeight: 600 }}>⊕ Union</span> — schema unificato.
+-        I campi con <b>stesso nome e stesso tipo</b> si fondono in una colonna sola.
+-        Un campo presente in un solo flusso avrà <code>null</code> nelle righe degli altri.
+-        Clicca il nome per <b>rinominarlo</b> e tenerlo separato.
++        <span style={{ color: ACCENT, fontWeight: 600 }}>⊕ Union</span> — unified schema.
++        Fields with <b>the same name and same type</b> merge into a single column.
++        A field present in only one flow will be <code>null</code> in the others' rows.
++        Click the name to <b>rename</b> it and keep it separate.
+       </div>
+ 
+       {sources.length > 0 && (
+@@ -194,7 +194,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+             <div key={s.handle} style={{ fontSize: 10, padding: '2px 10px', borderRadius: 8,
+                   background: `color-mix(in srgb, ${s.color} 10%, #0f1117)`,
+                   color: s.color, border: `0.5px solid ${s.color}40` }}>
+-              {s.label} — {s.count} campi
++              {s.label} — {s.count} fields
+             </div>
+           ))}
+         </div>
+@@ -202,14 +202,14 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
+                     letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
+-        Campi in uscita — {fields.length}
++        Output fields — {fields.length}
+       </div>
+ 
+       {fields.length === 0 ? (
+         <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
+                       background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
+-          Collega almeno un flusso agli handle sul lato sinistro del nodo.
++          Connect at least one flow to the handles on the left side of the node.
+         </div>
+       ) : (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+@@ -241,7 +241,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+                              borderRadius: 3, padding: '2px 6px' }} />
+                 ) : (
+                   <code onClick={() => startRename(f)}
+-                        title="Clicca per rinominare (separa il campo dai fusi)"
++                        title="Click to rename (separates the field from the merged ones)"
+                         style={{ fontFamily: 'monospace', fontSize: 11, color, flex: 1, cursor: 'pointer' }}>
+                     {f.name}
+                   </code>
+@@ -254,16 +254,16 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+                   <span title={handles.map((h) => `${h} → ${f.from[h]}`).join('\n')}
+                         style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#0d3d20',
+                                  color: '#3ddc84', border: '0.5px solid #1d6d40', flexShrink: 0 }}>
+-                    fusi ({handles.length})
++                    merged ({handles.length})
+                   </span>
+                 )}
+ 
+                 {renamed && (
+-                  <button onClick={() => clearRename(f)} title="Annulla rinomina"
++                  <button onClick={() => clearRename(f)} title="Undo rename"
+                           style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, cursor: 'pointer',
+                                    background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`,
+                                    color: ACCENT, border: `0.5px solid ${ACCENT}40`, flexShrink: 0 }}>
+-                    rinominato ✕
++                    renamed ✕
+                   </button>
+                 )}
+               </div>
+@@ -278,7 +278,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
+           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8,
+                          background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`,
+                          color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
+-          <span style={{ fontSize: 9 }}>Flusso unificato — {fields.length} campi</span>
++          <span style={{ fontSize: 9 }}>Unified flow — {fields.length} fields</span>
+         </div>
+       </div>
+ 
+diff --git a/src/nodes/types/union/Panel.tsx b/src/nodes/types/union/Panel.tsx
+index 16bdc95..8d0524e 100644
+--- a/src/nodes/types/union/Panel.tsx
++++ b/src/nodes/types/union/Panel.tsx
+@@ -81,26 +81,26 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Modalità union */}
+-      <SectionTitle label="Modalità" />
++      <SectionTitle label="Mode" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+           {
+             value: 'concat',
+-            label: '▤ Concatena',
+-            desc:  'Un flusso dopo l\'altro — il secondo inizia solo dopo che il primo è terminato. Richiede stesso schema.',
+-            detail: 'Ordine di emissione: input_1 completo → input_2 completo → ... Utile per unire file o dataset dello stesso tipo.',
++            label: '▤ Concatenate',
++            desc:  'One flow after another — the second starts only after the first has finished. Requires the same schema.',
++            detail: 'Emission order: input_1 complete → input_2 complete → ... Useful to combine files or datasets of the same type.',
+           },
+           {
+             value: 'mix',
+             label: '⇄ Interleave',
+-            desc:  'Le righe dei flussi si mescolano nell\'ordine di arrivo. Accetta schemi diversi.',
+-            detail: 'L\'ordine non è garantito — dipende dalla velocità di ciascun flusso. Utile per merge di stream in tempo reale.',
++            desc:  'The flows\' rows mix in arrival order. Accepts different schemas.',
++            detail: 'The order is not guaranteed — it depends on the speed of each flow. Useful to merge real-time streams.',
+           },
+           {
+             value: 'zip',
+             label: '↕ Zip',
+-            desc:  'Unisce le righe per posizione — riga 1 di A con riga 1 di B. Richiede stesso numero di righe.',
+-            detail: 'Produce una riga per ogni coppia di righe corrispondenti. Se i flussi hanno lunghezze diverse, le righe in eccesso vengono scartate o riempite con null.',
++            desc:  'Joins rows by position — row 1 of A with row 1 of B. Requires the same number of rows.',
++            detail: 'Produces one row per matching pair of rows. If the flows have different lengths, the excess rows are discarded or filled with null.',
+           },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'unionMode', m.value)}
+@@ -115,23 +115,23 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
+       {/* Opzioni per modalità */}
+       {unionMode === 'mix' && (
+         <>
+-          <Field label="Campo sorgente" hint="Aggiunge un campo con il nome del flusso sorgente per tracciabilità">
++          <Field label="Source field" hint="Adds a field with the source flow name for traceability">
+             <CustomSelect style={inputStyle} value={p('addSourceField', 'true')} onChange={u('addSourceField')}>
+-              <option value="true">Sì — aggiungi campo _union_source</option>
+-              <option value="false">No — non aggiungere campo sorgente</option>
++              <option value="true">Yes — add _union_source field</option>
++              <option value="false">No — do not add a source field</option>
+             </CustomSelect>
+           </Field>
+           {p('addSourceField', 'true') === 'true' && (
+-            <Field label="Nome campo sorgente">
++            <Field label="Source field name">
+               <input style={{ ...inputStyle, color: ACCENT }} value={p('sourceFieldName', '_union_source')}
+                 onChange={u('sourceFieldName')} placeholder="_union_source" />
+             </Field>
+           )}
+-          <Field label="Schema mancante su campo" hint="Come gestire campi presenti in alcuni flussi ma non in altri">
++          <Field label="Missing schema on field" hint="How to handle fields present in some flows but not others">
+             <CustomSelect style={inputStyle} value={p('missingField', 'null')} onChange={u('missingField')}>
+-              <option value="null">Scrivi null — campo presente ma nullo</option>
+-              <option value="omit">Ometti — campo assente nel record</option>
+-              <option value="error">Errore — richiede schema identico</option>
++              <option value="null">Write null — field present but null</option>
++              <option value="omit">Omit — field absent from the record</option>
++              <option value="error">Error — requires identical schema</option>
+             </CustomSelect>
+           </Field>
+         </>
+@@ -139,33 +139,33 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
+ 
+       {unionMode === 'zip' && (
+         <>
+-          <Field label="Su flussi di lunghezza diversa">
++          <Field label="On flows of different length">
+             <CustomSelect style={inputStyle} value={p('zipMismatch', 'truncate')} onChange={u('zipMismatch')}>
+-              <option value="truncate">Tronca — scarta le righe in eccesso del flusso più lungo</option>
+-              <option value="pad_null">Padding null — riempie con null le righe mancanti</option>
+-              <option value="error">Errore — richiede stessa lunghezza</option>
++              <option value="truncate">Truncate — discard the excess rows of the longer flow</option>
++              <option value="pad_null">Null padding — fills missing rows with null</option>
++              <option value="error">Error — requires the same length</option>
+             </CustomSelect>
+           </Field>
+         </>
+       )}
+ 
+       {unionMode === 'concat' && (
+-        <Field label="Su schema non compatibile">
++        <Field label="On incompatible schema">
+           <CustomSelect style={inputStyle} value={p('schemaMismatch', 'error')} onChange={u('schemaMismatch')}>
+-            <option value="error">Errore — richiede schema identico</option>
+-            <option value="coerce">Coerce — tenta di adattare i tipi</option>
+-            <option value="ignore">Ignora — emetti le righe così come sono</option>
++            <option value="error">Error — requires identical schema</option>
++            <option value="coerce">Coerce — try to adapt the types</option>
++            <option value="ignore">Ignore — emit the rows as they are</option>
+           </CustomSelect>
+         </Field>
+       )}
+ 
+       
+       {/* Output */}
+-      <SectionTitle label="Output del nodo" color="#8593b5" />
++      <SectionTitle label="Node output" color="#8593b5" />
+       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
+         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
+-          <span style={{ fontSize: 9 }}>Flusso unificato di tutte le righe dai flussi in ingresso</span>
++          <span style={{ fontSize: 9 }}>Unified flow of all rows from the incoming flows</span>
+         </div>
+       </div>
+     </div>
+diff --git a/src/nodes/types/union/PreviewPanel.tsx b/src/nodes/types/union/PreviewPanel.tsx
+index 8921512..d11357b 100644
+--- a/src/nodes/types/union/PreviewPanel.tsx
++++ b/src/nodes/types/union/PreviewPanel.tsx
+@@ -31,18 +31,18 @@ interface UnionField {
+ const MODE_INFO: Record<string, { label: string; rows: string; note: string }> = {
+   concat: {
+     label: 'CONCAT',
+-    rows:  'somma delle righe',
+-    note:  'I flussi vengono emessi uno dopo l\'altro: prima tutte le righe del flusso 1, poi del flusso 2, e così via. Ordine deterministico.',
++    rows:  'sum of rows',
++    note:  'The flows are emitted one after another: first all rows of flow 1, then flow 2, and so on. Deterministic order.',
+   },
+   mix: {
+     label: 'INTERLEAVE',
+-    rows:  'somma delle righe',
+-    note:  'Le righe si mescolano nell\'ordine di arrivo. L\'ordine NON è garantito: dipende dalla velocità di ciascun flusso.',
++    rows:  'sum of rows',
++    note:  'The rows mix in arrival order. The order is NOT guaranteed: it depends on the speed of each flow.',
+   },
+   zip: {
+     label: 'ZIP',
+-    rows:  'righe del flusso più corto',
+-    note:  'Accoppia la riga N di ogni flusso in un\'unica riga di uscita, fondendone i campi. Se i flussi hanno lunghezza diversa, il comportamento dipende da "Disallineamento zip".',
++    rows:  'rows of the shortest flow',
++    note:  'Pairs row N of each flow into a single output row, merging their fields. If the flows have different lengths, the behavior depends on "Zip mismatch".',
+   },
+ }
+ 
+@@ -67,7 +67,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+     const extra = ((node?.data.config as any)?.unionInputs ?? []) as Array<{ id: string; label: string }>
+     const connected = new Set(edges.filter((e) => e.target === nodeId).map((e) => e.targetHandle))
+     const out: Array<{ handle: string; label: string }> = []
+-    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flusso 1' })
++    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flow 1' })
+     for (const inp of extra) if (connected.has(inp.id)) out.push({ handle: inp.id, label: inp.label })
+     return out
+   }, [edges, nodeId, node?.data.config])
+@@ -91,7 +91,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
+                     background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+         <i className="ti ti-eye-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
+-        Collega i flussi e apri il tab <b>Mapping</b> per vedere l'anteprima della struttura.
++        Connect the flows and open the <b>Mapping</b> tab to see the structure preview.
+       </div>
+     )
+   }
+@@ -109,16 +109,16 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+             {info.label}
+           </span>
+           <span style={{ fontSize: 10, color: '#9a9aaa' }}>
+-            {handles.length} flussi → {fields.length + (addSource ? 1 : 0)} colonne, {info.rows}
++            {handles.length} flows → {fields.length + (addSource ? 1 : 0)} columns, {info.rows}
+           </span>
+         </div>
+         <div style={{ fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>{info.note}</div>
+         {mode === 'zip' && (
+           <div style={{ fontSize: 10, color: '#ffb347', marginTop: 6 }}>
+-            Disallineamento: <b>{
+-              zipMismatch === 'truncate' ? 'tronca al flusso più corto'
+-              : zipMismatch === 'pad_null' ? 'prosegue, campi mancanti a null'
+-              : 'errore se le lunghezze differiscono'
++            Mismatch: <b>{
++              zipMismatch === 'truncate' ? 'truncate to the shortest flow'
++              : zipMismatch === 'pad_null' ? 'continues, missing fields to null'
++              : 'error if the lengths differ'
+             }</b>
+           </div>
+         )}
+@@ -129,14 +129,14 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
+                       letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30`,
+                       marginBottom: 6 }}>
+-          Provenienza delle colonne
++          Column provenance
+         </div>
+ 
+         <div style={{ ...box, overflowX: 'auto', padding: 0 }}>
+           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+             <thead>
+               <tr style={{ borderBottom: '0.5px solid #2a3349' }}>
+-                <th style={{ ...th, position: 'sticky', left: 0, background: '#0f1117' }}>flusso</th>
++                <th style={{ ...th, position: 'sticky', left: 0, background: '#0f1117' }}>flow</th>
+                 {fields.map((f) => (
+                   <th key={f.name} style={th} title={f.type}>
+                     <code style={{ color: '#c8d4f0' }}>{f.name}</code>
+@@ -162,7 +162,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+                       const src = f.from[handle]
+                       return (
+                         <td key={f.name} style={td}
+-                            title={src ? `${label}.${src} → ${f.name}` : `${label} non ha questo campo`}>
++                            title={src ? `${label}.${src} → ${f.name}` : `${label} does not have this field`}>
+                           {src
+                             ? <span style={{ color }}>●</span>
+                             : omit
+@@ -182,10 +182,10 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+         </div>
+ 
+         <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 9, color: '#8593b5' }}>
+-          <span><span style={{ color: '#9a9aaa' }}>●</span> alimentata dal flusso</span>
++          <span><span style={{ color: '#9a9aaa' }}>●</span> fed by the flow</span>
+           {omit
+-            ? <span><span style={{ color: '#3a4560' }}>—</span> colonna omessa dalla riga</span>
+-            : <span><span style={{ color: '#8593b5' }}>○</span> valore <code>null</code></span>}
++            ? <span><span style={{ color: '#3a4560' }}>—</span> column omitted from the row</span>
++            : <span><span style={{ color: '#8593b5' }}>○</span> value <code>null</code></span>}
+         </div>
+       </div>
+ 
+@@ -194,7 +194,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+         <div style={box}>
+           <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 6, textTransform: 'uppercase',
+                         letterSpacing: '.06em', fontWeight: 600 }}>
+-            Rinomine applicate
++            Renames applied
+           </div>
+           {fields.map((f) =>
+             Object.entries(f.from)
+@@ -218,7 +218,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
+                       letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30`,
+                       marginBottom: 6 }}>
+-          Riga in uscita — struttura
++          Output row — structure
+         </div>
+         <div style={{ ...box, fontFamily: 'monospace', fontSize: 10, lineHeight: 1.7, color: '#9a9aaa' }}>
+           {'{'}

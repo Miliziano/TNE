@@ -31,18 +31,18 @@ interface UnionField {
 const MODE_INFO: Record<string, { label: string; rows: string; note: string }> = {
   concat: {
     label: 'CONCAT',
-    rows:  'somma delle righe',
-    note:  'I flussi vengono emessi uno dopo l\'altro: prima tutte le righe del flusso 1, poi del flusso 2, e così via. Ordine deterministico.',
+    rows:  'sum of rows',
+    note:  'The flows are emitted one after another: first all rows of flow 1, then flow 2, and so on. Deterministic order.',
   },
   mix: {
     label: 'INTERLEAVE',
-    rows:  'somma delle righe',
-    note:  'Le righe si mescolano nell\'ordine di arrivo. L\'ordine NON è garantito: dipende dalla velocità di ciascun flusso.',
+    rows:  'sum of rows',
+    note:  'The rows mix in arrival order. The order is NOT guaranteed: it depends on the speed of each flow.',
   },
   zip: {
     label: 'ZIP',
-    rows:  'righe del flusso più corto',
-    note:  'Accoppia la riga N di ogni flusso in un\'unica riga di uscita, fondendone i campi. Se i flussi hanno lunghezza diversa, il comportamento dipende da "Disallineamento zip".',
+    rows:  'rows of the shortest flow',
+    note:  'Pairs row N of each flow into a single output row, merging their fields. If the flows have different lengths, the behavior depends on "Zip mismatch".',
   },
 }
 
@@ -67,7 +67,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
     const extra = ((node?.data.config as any)?.unionInputs ?? []) as Array<{ id: string; label: string }>
     const connected = new Set(edges.filter((e) => e.target === nodeId).map((e) => e.targetHandle))
     const out: Array<{ handle: string; label: string }> = []
-    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flusso 1' })
+    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flow 1' })
     for (const inp of extra) if (connected.has(inp.id)) out.push({ handle: inp.id, label: inp.label })
     return out
   }, [edges, nodeId, node?.data.config])
@@ -91,7 +91,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                     background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
         <i className="ti ti-eye-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-        Collega i flussi e apri il tab <b>Mapping</b> per vedere l'anteprima della struttura.
+        Connect the flows and open the <b>Mapping</b> tab to see the structure preview.
       </div>
     )
   }
@@ -109,16 +109,16 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
             {info.label}
           </span>
           <span style={{ fontSize: 10, color: '#9a9aaa' }}>
-            {handles.length} flussi → {fields.length + (addSource ? 1 : 0)} colonne, {info.rows}
+            {handles.length} flows → {fields.length + (addSource ? 1 : 0)} columns, {info.rows}
           </span>
         </div>
         <div style={{ fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>{info.note}</div>
         {mode === 'zip' && (
           <div style={{ fontSize: 10, color: '#ffb347', marginTop: 6 }}>
-            Disallineamento: <b>{
-              zipMismatch === 'truncate' ? 'tronca al flusso più corto'
-              : zipMismatch === 'pad_null' ? 'prosegue, campi mancanti a null'
-              : 'errore se le lunghezze differiscono'
+            Mismatch: <b>{
+              zipMismatch === 'truncate' ? 'truncate to the shortest flow'
+              : zipMismatch === 'pad_null' ? 'continues, missing fields to null'
+              : 'error if the lengths differ'
             }</b>
           </div>
         )}
@@ -129,14 +129,14 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
         <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
                       letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30`,
                       marginBottom: 6 }}>
-          Provenienza delle colonne
+          Column provenance
         </div>
 
         <div style={{ ...box, overflowX: 'auto', padding: 0 }}>
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr style={{ borderBottom: '0.5px solid #2a3349' }}>
-                <th style={{ ...th, position: 'sticky', left: 0, background: '#0f1117' }}>flusso</th>
+                <th style={{ ...th, position: 'sticky', left: 0, background: '#0f1117' }}>flow</th>
                 {fields.map((f) => (
                   <th key={f.name} style={th} title={f.type}>
                     <code style={{ color: '#c8d4f0' }}>{f.name}</code>
@@ -162,7 +162,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
                       const src = f.from[handle]
                       return (
                         <td key={f.name} style={td}
-                            title={src ? `${label}.${src} → ${f.name}` : `${label} non ha questo campo`}>
+                            title={src ? `${label}.${src} → ${f.name}` : `${label} does not have this field`}>
                           {src
                             ? <span style={{ color }}>●</span>
                             : omit
@@ -182,10 +182,10 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
         </div>
 
         <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 9, color: '#8593b5' }}>
-          <span><span style={{ color: '#9a9aaa' }}>●</span> alimentata dal flusso</span>
+          <span><span style={{ color: '#9a9aaa' }}>●</span> fed by the flow</span>
           {omit
-            ? <span><span style={{ color: '#3a4560' }}>—</span> colonna omessa dalla riga</span>
-            : <span><span style={{ color: '#8593b5' }}>○</span> valore <code>null</code></span>}
+            ? <span><span style={{ color: '#3a4560' }}>—</span> column omitted from the row</span>
+            : <span><span style={{ color: '#8593b5' }}>○</span> value <code>null</code></span>}
         </div>
       </div>
 
@@ -194,7 +194,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
         <div style={box}>
           <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 6, textTransform: 'uppercase',
                         letterSpacing: '.06em', fontWeight: 600 }}>
-            Rinomine applicate
+            Renames applied
           </div>
           {fields.map((f) =>
             Object.entries(f.from)
@@ -218,7 +218,7 @@ export function UnionPreviewPanel({ nodeId }: { nodeId: string }) {
         <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
                       letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30`,
                       marginBottom: 6 }}>
-          Riga in uscita — struttura
+          Output row — structure
         </div>
         <div style={{ ...box, fontFamily: 'monospace', fontSize: 10, lineHeight: 1.7, color: '#9a9aaa' }}>
           {'{'}

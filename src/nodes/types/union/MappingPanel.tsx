@@ -68,7 +68,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
     const extra = ((node?.data.config as any)?.unionInputs ?? []) as Array<{ id: string; label: string }>
     const connected = new Set(edges.filter((e) => e.target === nodeId).map((e) => e.targetHandle))
     const out: Array<{ handle: string; label: string }> = []
-    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flusso 1' })
+    if (connected.has('input_main')) out.push({ handle: 'input_main', label: 'flow 1' })
     for (const inp of extra) {
       if (connected.has(inp.id)) out.push({ handle: inp.id, label: inp.label })
     }
@@ -182,10 +182,10 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`,
                     borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10,
                     color: '#9a9aaa', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>⊕ Union</span> — schema unificato.
-        I campi con <b>stesso nome e stesso tipo</b> si fondono in una colonna sola.
-        Un campo presente in un solo flusso avrà <code>null</code> nelle righe degli altri.
-        Clicca il nome per <b>rinominarlo</b> e tenerlo separato.
+        <span style={{ color: ACCENT, fontWeight: 600 }}>⊕ Union</span> — unified schema.
+        Fields with <b>the same name and same type</b> merge into a single column.
+        A field present in only one flow will be <code>null</code> in the others' rows.
+        Click the name to <b>rename</b> it and keep it separate.
       </div>
 
       {sources.length > 0 && (
@@ -194,7 +194,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
             <div key={s.handle} style={{ fontSize: 10, padding: '2px 10px', borderRadius: 8,
                   background: `color-mix(in srgb, ${s.color} 10%, #0f1117)`,
                   color: s.color, border: `0.5px solid ${s.color}40` }}>
-              {s.label} — {s.count} campi
+              {s.label} — {s.count} fields
             </div>
           ))}
         </div>
@@ -202,14 +202,14 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
                     letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
-        Campi in uscita — {fields.length}
+        Output fields — {fields.length}
       </div>
 
       {fields.length === 0 ? (
         <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                       background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-          Collega almeno un flusso agli handle sul lato sinistro del nodo.
+          Connect at least one flow to the handles on the left side of the node.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -241,7 +241,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
                              borderRadius: 3, padding: '2px 6px' }} />
                 ) : (
                   <code onClick={() => startRename(f)}
-                        title="Clicca per rinominare (separa il campo dai fusi)"
+                        title="Click to rename (separates the field from the merged ones)"
                         style={{ fontFamily: 'monospace', fontSize: 11, color, flex: 1, cursor: 'pointer' }}>
                     {f.name}
                   </code>
@@ -254,16 +254,16 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
                   <span title={handles.map((h) => `${h} → ${f.from[h]}`).join('\n')}
                         style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#0d3d20',
                                  color: '#3ddc84', border: '0.5px solid #1d6d40', flexShrink: 0 }}>
-                    fusi ({handles.length})
+                    merged ({handles.length})
                   </span>
                 )}
 
                 {renamed && (
-                  <button onClick={() => clearRename(f)} title="Annulla rinomina"
+                  <button onClick={() => clearRename(f)} title="Undo rename"
                           style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, cursor: 'pointer',
                                    background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`,
                                    color: ACCENT, border: `0.5px solid ${ACCENT}40`, flexShrink: 0 }}>
-                    rinominato ✕
+                    renamed ✕
                   </button>
                 )}
               </div>
@@ -278,7 +278,7 @@ export function UnionMappingPanel({ nodeId }: { nodeId: string }) {
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8,
                          background: `color-mix(in srgb, ${ACCENT} 15%, #0f1117)`,
                          color: ACCENT, border: `0.5px solid ${ACCENT}40` }}>output</span>
-          <span style={{ fontSize: 9 }}>Flusso unificato — {fields.length} campi</span>
+          <span style={{ fontSize: 9 }}>Unified flow — {fields.length} fields</span>
         </div>
       </div>
 
