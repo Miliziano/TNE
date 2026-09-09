@@ -61,7 +61,7 @@ function InfoBox({ children, color = '#8593b5' }: { children: React.ReactNode; c
 function FieldPill({ name, type, onClick }: { name: string; type: string; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      title={`Clicca per inserire \${${name}}`}
+      title={`Click to insert \${${name}}`}
       style={{ padding: '2px 8px', borderRadius: 10, fontSize: 9, background: '#0f1117', border: '1px solid #2a3349', color: '#3ddc84', cursor: 'pointer', fontFamily: 'monospace', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#3ddc84'; (e.currentTarget as HTMLElement).style.background = '#0d1a0d' }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.background = '#0f1117' }}>
@@ -284,10 +284,10 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#3ddc84' }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#3ddc84' }}>
-                Dati in ingresso — {incomingSchema.length} campi disponibili
+                Incoming data — {incomingSchema.length} fields available
               </div>
               <div style={{ fontSize: 9, color: '#1d6d40' }}>
-                Una chiamata HTTP per ogni riga ricevuta · usa <code style={{ color: '#3ddc84' }}>${'{'}campo{'}'}</code> per interpolare i valori
+                One HTTP call per received row · use <code style={{ color: '#3ddc84' }}>${'{'}field{'}'}</code> to interpolate the values
               </div>
             </div>
           </div>
@@ -297,7 +297,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {/* Campi disponibili */}
             <div>
               <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
-                Campi disponibili — clicca per inserire nell'URL
+                Available fields — click to insert into the URL
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {incomingSchema.map((f) => (
@@ -310,14 +310,14 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {/* Modalità body per ingresso */}
             <div>
               <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
-                Come inviare i dati in ingresso nella request
+                How to send the incoming data in the request
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                 {[
-                  { value: 'none',    label: 'Non inviare',      icon: 'ti-minus',        desc: 'Solo interpolazione URL'       },
-                  { value: 'json',    label: 'Come JSON body',   icon: 'ti-braces',       desc: 'Mappa campi → proprietà JSON'  },
-                  { value: 'raw',     label: 'Campo come body',  icon: 'ti-file-text',    desc: 'Un campo diventa il body'      },
-                  { value: 'binary',  label: 'Binario / PDF',    icon: 'ti-file-binary',  desc: 'Campo content → body binario'  },
+                  { value: 'none',    label: 'Do not send',      icon: 'ti-minus',        desc: 'URL interpolation only'       },
+                  { value: 'json',    label: 'As JSON body',   icon: 'ti-braces',       desc: 'Map fields → JSON properties'  },
+                  { value: 'raw',     label: 'Field as body',  icon: 'ti-file-text',    desc: 'One field becomes the body'      },
+                  { value: 'binary',  label: 'Binary / PDF',    icon: 'ti-file-binary',  desc: 'content field → binary body'  },
                 ].map((m) => (
                   <button key={m.value} onClick={() => updateProp(nodeId, 'inputBodyMode', m.value)}
                     style={{
@@ -340,13 +340,13 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {bodyMode === 'json' && (
               <div style={{ background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                  Mapping campi → JSON body
+                  Field mapping → JSON body
                 </div>
                 <div style={{ fontSize: 10, color: '#9a9aaa' }}>
-                  Tutti i campi in ingresso vengono inclusi nel body JSON automaticamente.
-                  Puoi escludere o rinominare campi nel campo template qui sotto.
+                  All incoming fields are automatically included in the JSON body.
+                  You can exclude or rename fields in the template field below.
                 </div>
-                <Field label="Template JSON body" hint='Lascia vuoto per inviare tutti i campi · usa ${campo} per valori specifici'>
+                <Field label="JSON body template" hint='Leave empty to send all fields · use ${field} for specific values'>
                   <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontFamily: 'monospace', fontSize: 10 }}
                     value={p('inputBodyTemplate', '')} onChange={u('inputBodyTemplate')}
                     placeholder={'{\n  "id": "${id}",\n  "name": "${name}"\n}'}
@@ -364,15 +364,15 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {/* Configurazione modalità raw */}
             {bodyMode === 'raw' && (
               <div style={{ background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <Field label="Campo da usare come body">
+                <Field label="Field to use as body">
                   <CustomSelect style={inputStyle} value={p('inputRawField', '')} onChange={u('inputRawField')}>
-                    <option value="">— seleziona campo —</option>
+                    <option value="">— select field —</option>
                     {incomingSchema.map((f) => (
                       <option key={f.id} value={f.name}>{f.name} ({f.type})</option>
                     ))}
                   </CustomSelect>
                 </Field>
-                <Field label="Content-Type da inviare">
+                <Field label="Content-Type to send">
                   <input type="text" style={inputStyle} value={p('inputRawContentType', 'text/plain')} onChange={u('inputRawContentType')}
                     placeholder="text/plain, application/xml, ..." />
                 </Field>
@@ -382,17 +382,17 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {/* Configurazione modalità binary */}
             {bodyMode === 'binary' && (
               <div style={{ background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <Field label="Campo contenente il binario (base64)" hint="Tipicamente il campo 'content' da un nodo HTTP o File Input">
+                <Field label="Field containing the binary (base64)" hint="Typically the 'content' field from an HTTP or File Input node">
                   <CustomSelect style={inputStyle} value={p('inputBinaryField', 'content')} onChange={u('inputBinaryField')}>
-                    <option value="">— seleziona campo —</option>
+                    <option value="">— select field —</option>
                     {incomingSchema.map((f) => (
                       <option key={f.id} value={f.name}>{f.name} ({f.type})</option>
                     ))}
                   </CustomSelect>
                 </Field>
-                <Field label="Content-Type da inviare">
+                <Field label="Content-Type to send">
                   <CustomSelect style={inputStyle} value={p('inputBinaryContentType', 'application/octet-stream')} onChange={u('inputBinaryContentType')}>
-                    <option value="application/octet-stream">application/octet-stream (generico)</option>
+                    <option value="application/octet-stream">application/octet-stream (generic)</option>
                     <option value="application/pdf">application/pdf</option>
                     <option value="image/jpeg">image/jpeg</option>
                     <option value="image/png">image/png</option>
@@ -403,7 +403,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                   </CustomSelect>
                 </Field>
                 <InfoBox color="#ffb347">
-                  Il campo base64 viene decodificato e inviato come body binario. Assicurati che il campo contenga effettivamente un base64 valido.
+                  The base64 field is decoded and sent as a binary body. Make sure the field actually contains valid base64.
                 </InfoBox>
               </div>
             )}
@@ -411,9 +411,9 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             {/* Headers dinamici da campi ingresso */}
             <div style={{ background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                Header dinamici da campi ingresso (opzionale)
+                Dynamic headers from incoming fields (optional)
               </div>
-              <Field label='Mapping campo → header (JSON)' hint='Es: {"tenant_id": "X-Tenant-Id", "token": "Authorization"}'>
+              <Field label='Field → header mapping (JSON)' hint='E.g. {"tenant_id": "X-Tenant-Id", "token": "Authorization"}'>
                 <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 48, fontFamily: 'monospace', fontSize: 10 }}
                   value={p('inputHeaderMapping', '{}')} onChange={u('inputHeaderMapping')} spellCheck={false} />
               </Field>
@@ -432,10 +432,10 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <span style={{ fontSize: 10, color: '#c8d4f0', fontWeight: 500 }}>
-                  Includi campi ingresso nello schema output
+                  Include incoming fields in the output schema
                 </span>
                 <span style={{ fontSize: 9, color: '#8593b5' }}>
-                  Il nodo successivo vede sia la risposta HTTP che i dati originali della riga
+                  The next node sees both the HTTP response and the row's original data
                 </span>
               </div>
             </div>
@@ -447,11 +447,11 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       {/* ── Risorsa HTTP ─────────────────────────────────────── */}
       {httpRes.length > 0 && (
         <>
-          <SectionTitle label="Risorsa HTTP" />
-          <Field label="Connessione HTTP" hint="Usa la base URL e l'autenticazione della risorsa">
+          <SectionTitle label="HTTP resource" />
+          <Field label="HTTP connection" hint="Uses the resource's base URL and authentication">
             <CustomSelect style={inputStyle} value={resId}
               onChange={(e) => updateConfig(nodeId, { resourceId: e.target.value })}>
-              <option value="">— configurazione manuale —</option>
+              <option value="">— manual configuration —</option>
               {httpRes.map((r) => (
                 <option key={r.id} value={r.id}>{r.label} {r.status === 'ok' ? '✓' : '○'}</option>
               ))}
@@ -463,7 +463,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       {/* ── Endpoint ─────────────────────────────────────────── */}
       <SectionTitle label="Endpoint" />
       <Row>
-        <Field label="Metodo">
+        <Field label="Method">
           <CustomSelect style={inputStyle} value={method} onChange={u('method')}>
             {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
               <option key={m} value={m}>{m}</option>
@@ -475,7 +475,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
         </Field>
       </Row>
 
-      <Field label="URL" hint={hasInput ? 'Usa ${campo} per interpolare valori dalla riga in ingresso' : undefined}>
+      <Field label="URL" hint={hasInput ? 'Use ${field} to interpolate values from the incoming row' : undefined}>
         <input type="text" style={inputStyle} value={p('url')}
           onChange={u('url')} placeholder="{HTTP_DEFAULTS.url}/${id}" />
         {hasInput && (
@@ -485,13 +485,13 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                 onClick={() => insertVar('url', f.name)} />
             ))}
             {incomingSchema.length > 6 && (
-              <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>+{incomingSchema.length - 6} altri</span>
+              <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center' }}>+{incomingSchema.length - 6} more</span>
             )}
           </div>
         )}
       </Field>
 
-      <Field label="Query parameters (JSON)" hint={hasInput ? 'Supporta ${campo}' : 'Es: {"page": "1"}'}>
+      <Field label="Query parameters (JSON)" hint={hasInput ? 'Supports ${field}' : 'E.g. {"page": "1"}'}>
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 56, fontFamily: 'monospace' }}
           value={p('queryParams', '{}')} onChange={u('queryParams')} spellCheck={false} />
       </Field>
@@ -516,10 +516,10 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Autenticazione ───────────────────────────────────── */}
-      <SectionTitle label="Autenticazione" />
-      <Field label="Tipo">
+      <SectionTitle label="Authentication" />
+      <Field label="Type">
         <CustomSelect style={inputStyle} value={authType} onChange={u('authType')}>
-          <option value="none">Nessuna</option>
+          <option value="none">None</option>
           <option value="basic">Basic Auth</option>
           <option value="bearer">Bearer Token</option>
           <option value="api_key">API Key</option>
@@ -541,7 +541,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             <Field label="Username"><input type="text" style={inputStyle} value={p('username')} onChange={u('username')} /></Field>
             <Field label="Password"><input type="password" style={inputStyle} value={p('password')} onChange={u('password')} /></Field>
           </Row>
-          <InfoBox>Digest Auth — la password non viene trasmessa in chiaro.</InfoBox>
+          <InfoBox>Digest Auth — the password is not transmitted in clear text.</InfoBox>
         </>
       )}
       {authType === 'bearer' && (
@@ -552,13 +552,13 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       {authType === 'api_key' && (
         <>
           <Row>
-            <Field label="Posizione">
+            <Field label="Position">
               <CustomSelect style={inputStyle} value={p('apiKeyIn', 'header')} onChange={u('apiKeyIn')}>
                 <option value="header">Header</option>
                 <option value="query">Query parameter</option>
               </CustomSelect>
             </Field>
-            <Field label="Nome">
+            <Field label="Name">
               <input type="text" style={inputStyle} value={p('apiKeyName', 'X-Api-Key')} onChange={u('apiKeyName')} />
             </Field>
           </Row>
@@ -567,7 +567,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       )}
       {authType === 'oauth2_cc' && (
         <>
-          <InfoBox color="#a78bfa">Token ottenuto automaticamente con client_id e client_secret.</InfoBox>
+          <InfoBox color="#a78bfa">Token obtained automatically using client_id and client_secret.</InfoBox>
           <Field label="Token URL">
             <input type="text" style={inputStyle} value={p('oauth2TokenUrl')} onChange={u('oauth2TokenUrl')} placeholder={HTTP_DEFAULTS.url} />
           </Field>
@@ -575,22 +575,22 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             <Field label="Client ID"><input type="text" style={inputStyle} value={p('oauth2ClientId')} onChange={u('oauth2ClientId')} /></Field>
             <Field label="Client Secret"><input type="password" style={inputStyle} value={p('oauth2ClientSecret')} onChange={u('oauth2ClientSecret')} /></Field>
           </Row>
-          <Field label="Scope" hint="Spazio-separati">
+          <Field label="Scope" hint="Space-separated">
             <input type="text" style={inputStyle} value={p('oauth2Scope')} onChange={u('oauth2Scope')} placeholder="openid profile" />
           </Field>
-          <Field label="Audience" hint="Opzionale">
+          <Field label="Audience" hint="Optional">
             <input type="text" style={inputStyle} value={p('oauth2Audience')} onChange={u('oauth2Audience')} />
           </Field>
           <Row>
             <Field label="Client auth">
               <CustomSelect style={inputStyle} value={p('oauth2ClientAuth', 'body')} onChange={u('oauth2ClientAuth')}>
-                <option value="body">Nel body</option>
+                <option value="body">In the body</option>
                 <option value="basic">Basic Auth header</option>
               </CustomSelect>
             </Field>
             <Field label="Auto-refresh">
               <CustomSelect style={inputStyle} value={p('oauth2AutoRefresh', 'true')} onChange={u('oauth2AutoRefresh')}>
-                <option value="true">Sì</option>
+                <option value="true">Yes</option>
                 <option value="false">No</option>
               </CustomSelect>
             </Field>
@@ -599,12 +599,12 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       )}
       {authType === 'oauth2_ac' && (
         <>
-          <InfoBox color="#ffb347">Authorization Code — incolla il token ottenuto esternamente.</InfoBox>
+          <InfoBox color="#ffb347">Authorization Code — paste the token obtained externally.</InfoBox>
           <Field label="Access Token">
             <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 56, fontFamily: 'monospace', fontSize: 10 }}
               value={p('oauth2AccessToken')} onChange={u('oauth2AccessToken')} placeholder="eyJ..." spellCheck={false} />
           </Field>
-          <Field label="Refresh Token" hint="Opzionale">
+          <Field label="Refresh Token" hint="Optional">
             <input type="password" style={inputStyle} value={p('oauth2RefreshToken')} onChange={u('oauth2RefreshToken')} />
           </Field>
           <Field label="Token URL">
@@ -618,42 +618,42 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Headers aggiuntivi ───────────────────────────────── */}
-      <SectionTitle label="Headers aggiuntivi" />
-      <Field label='Headers (JSON)' hint={hasInput ? 'Supporta ${campo} · es: {"X-Id": "${id}"}' : 'Es: {"Accept": "application/json"}'}>
+      <SectionTitle label="Additional headers" />
+      <Field label='Headers (JSON)' hint={hasInput ? 'Supports ${field} · e.g. {"X-Id": "${id}"}' : 'E.g. {"Accept": "application/json"}'}>
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 56, fontFamily: 'monospace' }}
           value={p('headers', '{}')} onChange={u('headers')} spellCheck={false} />
       </Field>
 
       {/* ── Tipo risposta ─────────────────────────────────────── */}
-      <SectionTitle label="Risposta" />
-      <Field label="Tipo risposta attesa">
+      <SectionTitle label="Response" />
+      <Field label="Expected response type">
         <CustomSelect style={inputStyle} value={responseType} onChange={u('responseType')}>
-          <option value="json">JSON — estrai campi singoli</option>
-          <option value="json_raw">JSON raw — body completo come oggetto</option>
-          <option value="text">Testo — stringa grezza</option>
-          <option value="xml">XML — stringa grezza</option>
-          <option value="binary">Binario — base64</option>
+          <option value="json">JSON — extract individual fields</option>
+          <option value="json_raw">JSON raw — full body as object</option>
+          <option value="text">Text — raw string</option>
+          <option value="xml">XML — raw string</option>
+          <option value="binary">Binary — base64</option>
           <option value="pdf">PDF — base64</option>
-          <option value="csv">CSV — stringa grezza</option>
+          <option value="csv">CSV — raw string</option>
         </CustomSelect>
       </Field>
       {responseType === 'json' && (
-        <Field label="JSON Path dati" hint="Es: $.data.items · $ = root">
+        <Field label="Data JSON Path" hint="E.g. $.data.items · $ = root">
           <input type="text" style={inputStyle} value={p('jsonPath', '$')} onChange={u('jsonPath')} placeholder="$" />
         </Field>
       )}
       {responseType === 'json_raw' && (
         <InfoBox color="#a78bfa">
-          Il body sarà disponibile in <code>body</code> (stringa) e <code>body_parsed</code> (oggetto).
+          The body will be available in <code>body</code> (string) and <code>body_parsed</code> (object).
         </InfoBox>
       )}
 
       {/* ── Paginazione ──────────────────────────────────────── */}
-      <SectionTitle label="Paginazione" />
+      <SectionTitle label="Pagination" />
       <Row>
-        <Field label="Tipo">
+        <Field label="Type">
           <CustomSelect style={inputStyle} value={pagination} onChange={u('pagination')}>
-            <option value="none">Nessuna</option>
+            <option value="none">None</option>
             <option value="page">Page number</option>
             <option value="cursor">Cursor based</option>
             <option value="offset">Offset / limit</option>
@@ -666,40 +666,40 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
       </Row>
       {pagination === 'page' && (
         <Row>
-          <Field label="Param pagina"><input type="text" style={inputStyle} value={p('pageParam', 'page')} onChange={u('pageParam')} /></Field>
-          <Field label="Pagina iniziale"><input type="number" style={inputStyle} value={p('pageStart', '1')} onChange={u('pageStart')} min="0" /></Field>
+          <Field label="Page param"><input type="text" style={inputStyle} value={p('pageParam', 'page')} onChange={u('pageParam')} /></Field>
+          <Field label="Start page"><input type="number" style={inputStyle} value={p('pageStart', '1')} onChange={u('pageStart')} min="0" /></Field>
         </Row>
       )}
       {pagination === 'cursor' && (
         <>
-          <Field label="Param cursor"><input type="text" style={inputStyle} value={p('cursorParam', 'cursor')} onChange={u('cursorParam')} /></Field>
-          <Field label="JSON Path next cursor"><input type="text" style={inputStyle} value={p('cursorPath', '$.meta.next_cursor')} onChange={u('cursorPath')} /></Field>
+          <Field label="Cursor param"><input type="text" style={inputStyle} value={p('cursorParam', 'cursor')} onChange={u('cursorParam')} /></Field>
+          <Field label="Next cursor JSON Path"><input type="text" style={inputStyle} value={p('cursorPath', '$.meta.next_cursor')} onChange={u('cursorPath')} /></Field>
         </>
       )}
       {pagination === 'offset' && (
         <Row>
-          <Field label="Param offset"><input type="text" style={inputStyle} value={p('offsetParam', 'offset')} onChange={u('offsetParam')} /></Field>
-          <Field label="Param limit"><input type="text" style={inputStyle} value={p('limitParam', 'limit')} onChange={u('limitParam')} /></Field>
+          <Field label="Offset param"><input type="text" style={inputStyle} value={p('offsetParam', 'offset')} onChange={u('offsetParam')} /></Field>
+          <Field label="Limit param"><input type="text" style={inputStyle} value={p('limitParam', 'limit')} onChange={u('limitParam')} /></Field>
         </Row>
       )}
       {pagination !== 'none' && (
-        <Field label="Massimo pagine" hint="0 = nessun limite">
+        <Field label="Max pages" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('maxPages', '0')} onChange={u('maxPages')} min="0" />
         </Field>
       )}
 
       {/* ── Resilienza ───────────────────────────────────────── */}
-      <SectionTitle label="Resilienza" />
+      <SectionTitle label="Resilience" />
       <Row>
-        <Field label="Retry su errore"><input type="number" style={inputStyle} value={p('retryCount', '0')} onChange={u('retryCount')} min="0" max="10" /></Field>
-        <Field label="Delay retry (s)"><input type="number" style={inputStyle} value={p('retryDelay', '5')} onChange={u('retryDelay')} min="0" /></Field>
+        <Field label="Retry on error"><input type="number" style={inputStyle} value={p('retryCount', '0')} onChange={u('retryCount')} min="0" max="10" /></Field>
+        <Field label="Retry delay (s)"><input type="number" style={inputStyle} value={p('retryDelay', '5')} onChange={u('retryDelay')} min="0" /></Field>
       </Row>
-      <Field label="Codici HTTP da ritentare" hint="Separati da virgola">
+      <Field label="HTTP codes to retry" hint="Comma-separated">
         <input type="text" style={inputStyle} value={p('retryCodes', '429,503,504')} onChange={u('retryCodes')} />
       </Field>
 
       {/* ══ TEST CONNESSIONE ════════════════════════════════════ */}
-      <SectionTitle label="Test connessione" color="#3ddc84" />
+      <SectionTitle label="Connection test" color="#3ddc84" />
 
       <button onClick={handleTest} disabled={testing || !p('url')}
         style={{
@@ -716,7 +716,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = testing ? '#1a2030' : '#0d3d20' }}>
         <i className={`ti ${testing ? 'ti-loader-2' : 'ti-send'}`}
           style={{ fontSize: 14, animation: testing ? 'spin 1s linear infinite' : undefined }} />
-        {testing ? 'Chiamata in corso...' : 'Testa connessione'}
+        {testing ? 'Calling...' : 'Test connection'}
       </button>
 
       {testResult && (
@@ -726,11 +726,11 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
               style={{ fontSize: 16, color: testResult.ok ? '#3ddc84' : '#ff5f57' }} />
             <div style={{ flex: 1 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: testResult.ok ? '#3ddc84' : '#ff5f57' }}>
-                {testResult.error ? `Errore: ${testResult.error}` : `HTTP ${testResult.statusCode}`}
+                {testResult.error ? `Error: ${testResult.error}` : `HTTP ${testResult.statusCode}`}
               </span>
               {!testResult.error && (
                 <span style={{ fontSize: 11, color: '#8593b5', marginLeft: 10 }}>
-                  {testResult.latencyMs}ms · {testResult.contentType || 'content-type sconosciuto'}
+                  {testResult.latencyMs}ms · {testResult.contentType || 'unknown content-type'}
                 </span>
               )}
             </div>
@@ -738,7 +738,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
           {testResult.fields.length > 0 && (
             <div style={{ padding: '8px 12px', borderBottom: '0.5px solid #2a3349' }}>
               <div style={{ fontSize: 10, color: '#3ddc84', fontWeight: 600, marginBottom: 6 }}>
-                {testResult.fields.length} campi rilevati — aggiunti al mapping
+                {testResult.fields.length} fields detected — added to the mapping
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                 {testResult.fields.map((f) => (
@@ -755,7 +755,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
               <button onClick={() => setShowBody((v) => !v)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
                 <i className={`ti ${showBody ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 10 }} />
-                {showBody ? 'Nascondi' : 'Mostra'} body risposta
+                {showBody ? 'Hide' : 'Show'} response body
               </button>
               {showBody && (
                 <pre style={{ marginTop: 8, padding: 8, background: '#161b27', borderRadius: 4, fontSize: 10, color: '#9a9aaa', overflow: 'auto', maxHeight: 200, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
