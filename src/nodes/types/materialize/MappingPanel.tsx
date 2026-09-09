@@ -33,7 +33,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
         <span style={{ fontSize: 16, color: ACCENT }}>◈</span>
         <div>
           <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>
-            Modalità: {matMode === 'passthrough' ? 'Passthrough' : 'Buffer → Signal'}
+            Mode: {matMode === 'passthrough' ? 'Passthrough' : 'Buffer → Signal'}
           </div>
           <div>
             {matMode === 'passthrough' && 'Memorizza e passa riga per riga — accesso consumer con .values(), .get(), .toDataset()'}
@@ -50,7 +50,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
         {incomingFields.length > 0 ? (
           <CustomSelect style={inputStyle} value={keyField}
             onChange={(e) => updateProp(nodeId, 'keyField', e.target.value)}>
-            <option value="">— nessuna chiave (accesso per indice) —</option>
+            <option value="">— no key (access by index) —</option>
             {incomingFields.map((f) => (
               <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
             ))}
@@ -73,9 +73,9 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
           API accesso — scelto dal consumer
         </div>
         {[
-          { api: '.toDataset()', color: '#3ddc84', desc: 'Window, Aggregate, Pivot — List completa, zero buffering aggiuntivo' },
-          { api: '.values()',    color: ACCENT,    desc: 'Explode — iteratore riga per riga' },
-          { api: `.get(row.${keyField || 'chiave'})`, color: '#ffb347', desc: 'Join — lookup O(1)' },
+          { api: '.toDataset()', color: '#3ddc84', desc: 'Window, Aggregate, Pivot — full List, zero extra buffering' },
+          { api: '.values()',    color: ACCENT,    desc: 'Explode — row-by-row iterator' },
+          { api: `.get(row.${keyField || 'key'})`, color: '#ffb347', desc: 'Join — lookup O(1)' },
         ].map((item) => (
           <div key={item.api} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}>
             <code style={{ fontSize: 10, color: item.color, fontFamily: 'monospace', minWidth: 160, flexShrink: 0 }}>
@@ -132,8 +132,8 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             {[
-              { name: 'name',         type: 'string',  desc: 'Nome del materialize'      },
-              { name: 'row_count',    type: 'integer', desc: 'Righe memorizzate'          },
+              { name: 'name',         type: 'string',  desc: 'Materialize name'      },
+              { name: 'row_count',    type: 'integer', desc: 'Stored rows'          },
               { name: 'status',       type: 'string',  desc: 'always "done"'             },
               { name: 'completed_at', type: 'date',    desc: 'Timestamp completamento'   },
               { name: 'elapsed_ms',   type: 'integer', desc: 'Tempo di esecuzione in ms' },

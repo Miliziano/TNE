@@ -41,18 +41,18 @@ const MODES = [
   {
     value:       'passthrough',
     label:       '⇒ Passthrough',
-    desc:        'Trasparente — memorizza e passa riga per riga. Il flusso non si interrompe.',
+    desc:        'Transparent — stores and passes row by row. The flow does not stop.',
     outputDesc:  'N righe in uscita (stesse in ingresso)',
     outputColor: '#3ddc84',
-    detail:      'Utile per accumulare dati mentre il flusso transita — i consumer possono accedere mentre le righe arrivano.',
+    detail:      'Useful to accumulate data while the flow passes through — consumers can access it while the rows arrive.',
   },
   {
     value:       'buffer_signal',
     label:       '⊟ Buffer → Signal',
-    desc:        'Blocca il flusso, memorizza tutto. Emette una sola riga di stato quando completo.',
+    desc:        'Blocks the flow, stores everything. Emits a single status row when complete.',
     outputDesc:  '1 riga di stato in uscita',
     outputColor: '#ffb347',
-    detail:      'Usato come trigger — il signal attiva altri nodi (Window, Aggregate, Pivot) che leggono il dataset completo tramite API diretta.',
+    detail:      'Used as a trigger — the signal activates other nodes (Window, Aggregate, Pivot) that read the full dataset via direct API.',
   },
 ]
 
@@ -140,20 +140,20 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Nome */}
-      <Field label="Nome" hint="Identificatore univoco nella lane — usato dai nodi consumer per accedere ai dati">
+      <Field label="Name" hint="Unique identifier in the lane — used by consumer nodes to access the data">
         <input style={inputStyle} value={matName}
           onChange={(e) => updateProp(nodeId, 'matName', e.target.value)}
           placeholder="lookup_clienti" />
       </Field>
 
       {/* Modalità flusso — solo due */}
-      <SectionTitle label="Modalità flusso" />
+      <SectionTitle label="Flow mode" />
 
       {/* Info architetturale */}
       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>◈ Materialize</span> accumula righe in memoria.
-        Come i dati vengono letti è responsabilità del <strong style={{ color: '#c8d4f0' }}>nodo consumer</strong> —
-        che sceglie tra <code style={{ color: ACCENT }}>dataset</code>, <code style={{ color: ACCENT }}>iterator</code> o <code style={{ color: ACCENT }}>lookup</code>.
+        <span style={{ color: ACCENT, fontWeight: 600 }}>◈ Materialize</span> accumulates rows in memory.
+        How the data is read is the responsibility of the <strong style={{ color: '#c8d4f0' }}>consumer node</strong> —
+        which chooses among <code style={{ color: ACCENT }}>dataset</code>, <code style={{ color: ACCENT }}>iterator</code> or <code style={{ color: ACCENT }}>lookup</code>.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -185,17 +185,17 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
       {/* PASSTHROUGH */}
       {mode === 'passthrough' && (
         <>
-          <SectionTitle label="Opzioni" />
-          <Field label="Campo chiave" hint="Se configurato, indicizza i dati per accesso O(1) tramite .get(key)">
+          <SectionTitle label="Options" />
+          <Field label="Key field" hint="If set, indexes the data for O(1) access via .get(key)">
             {incomingFields.length > 0 ? (
               <CustomSelect style={inputStyle} value={p('keyField')} onChange={u('keyField')}>
-                <option value="">— nessuna chiave (accesso per indice) —</option>
+                <option value="">— no key (access by index) —</option>
                 {incomingFields.map((f) => (
                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
                 ))}
               </CustomSelect>
             ) : (
-              <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id (opzionale)" />
+              <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id (optional)" />
             )}
           </Field>
           {p('keyField') && (
@@ -209,11 +209,11 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
       {/* BUFFER → SIGNAL */}
       {mode === 'buffer_signal' && (
         <>
-          <SectionTitle label="Configurazione buffer" />
-          <Field label="Campo chiave" hint="Campo usato come chiave di accesso alla hashtable">
+          <SectionTitle label="Buffer configuration" />
+          <Field label="Key field" hint="Field used as the hashtable access key">
             {incomingFields.length > 0 ? (
               <CustomSelect style={inputStyle} value={p('keyField')} onChange={u('keyField')}>
-                <option value="">— seleziona campo chiave —</option>
+                <option value="">— select key field —</option>
                 {incomingFields.map((f) => (
                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
                 ))}
@@ -222,12 +222,12 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
               <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id" />
             )}
           </Field>
-          <Field label="Su chiave duplicata">
+          <Field label="On duplicate key">
             <CustomSelect style={inputStyle} value={p('onDuplicate', 'overwrite')} onChange={u('onDuplicate')}>
-              <option value="overwrite">Sovrascrivi — mantieni l'ultimo</option>
-              <option value="keep">Mantieni il primo</option>
+              <option value="overwrite">Overwrite — keep the last</option>
+              <option value="keep">Keep the first</option>
               <option value="array">Accumula in array</option>
-              <option value="error">Errore su duplicato</option>
+              <option value="error">Error on duplicate</option>
             </CustomSelect>
           </Field>
 
@@ -237,8 +237,8 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
               Schema output — 1 riga di stato
             </div>
             {[
-              { name: 'name',         type: 'string',  desc: 'Nome del materialize'      },
-              { name: 'row_count',    type: 'integer', desc: 'Righe memorizzate'          },
+              { name: 'name',         type: 'string',  desc: 'Materialize name'      },
+              { name: 'row_count',    type: 'integer', desc: 'Stored rows'          },
               { name: 'status',       type: 'string',  desc: 'always "done"'             },
               { name: 'completed_at', type: 'date',    desc: 'Timestamp completamento'   },
               { name: 'elapsed_ms',   type: 'integer', desc: 'Tempo di esecuzione in ms' },
@@ -253,8 +253,8 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
 
           <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#ffb347', marginRight: 6 }} />
-            Pattern tipico: <code style={{ color: ACCENT }}>Materialize(signal) → BridgeOut → BridgeIn → Window/Aggregate/Pivot</code>.
-            Il signal attiva il consumer che legge il dataset completo con <code style={{ color: ACCENT }}>.toDataset()</code>.
+            Typical pattern: <code style={{ color: ACCENT }}>Materialize(signal) → BridgeOut → BridgeIn → Window/Aggregate/Pivot</code>.
+            The signal activates the consumer that reads the full dataset with <code style={{ color: ACCENT }}>.toDataset()</code>.
           </div>
         </>
       )}
@@ -262,7 +262,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
       {/* API accesso — comune a tutte le modalità se pubblicato */}
       {isPublished && (
         <>
-          <SectionTitle label="API di accesso — consumer" />
+          <SectionTitle label="Access API — consumer" />
           <div style={{ padding: '10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
             {/* Dataset */}
@@ -297,7 +297,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
                 Lookup per chiave — Join
               </div>
               <code style={{ fontSize: 10, color: '#ffb347', fontFamily: 'monospace' }}>
-                context.lane.{matName || 'nome'}.get(row.{p('keyField') || 'chiave'})
+                context.lane.{matName || 'nome'}.get(row.{p('keyField') || 'key'})
               </code>
               <div style={{ fontSize: 9, color: '#2a3349', marginTop: 2 }}>
                 → Row | null — accesso O(1) sulla hashtable
@@ -309,8 +309,8 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
               <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Utility</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {[
-                  { code: `.has(row.${p('keyField') || 'chiave'})`, desc: '→ boolean' },
-                  { code: `.size`,                                   desc: '→ number — righe memorizzate' },
+                  { code: `.has(row.${p('keyField') || 'key'})`, desc: '→ boolean' },
+                  { code: `.size`,                                   desc: '→ number — stored rows' },
                   { code: `.clear()`,                                desc: '→ void — svuota (se clearOn: manual)' },
                 ].map((ex) => (
                   <div key={ex.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
@@ -331,11 +331,11 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
       <Field label="Quando svuotare">
         <CustomSelect style={inputStyle} value={p('clearOn', 'run_end')} onChange={u('clearOn')}>
           <option value="run_end">Fine esecuzione (default)</option>
-          <option value="lane_end">Fine elaborazione della lane</option>
-          <option value="manual">Manuale — .clear()</option>
+          <option value="lane_end">End of lane processing</option>
+          <option value="manual">Manual — .clear()</option>
         </CustomSelect>
       </Field>
-      <Field label="Limite righe in memoria" hint="0 = nessun limite">
+      <Field label="Row limit in memory" hint="0 = no limit">
         <input type="number" style={inputStyle} value={p('maxRows', '0')} onChange={u('maxRows')} min="0" />
       </Field>
 

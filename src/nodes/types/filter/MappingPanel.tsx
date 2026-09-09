@@ -35,8 +35,8 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>⊻ Filter</span> — routing passthrough.
-        I campi transitano invariati su ogni uscita. L'ordine delle condizioni è la priorità di valutazione (first-match).
+        <span style={{ color: ACCENT, fontWeight: 600 }}>⊻ Filter</span> — passthrough routing.
+        Fields pass through unchanged on every output. The order of the conditions is the evaluation priority (first-match).
       </div>
 
       {/* Campi in transito */}
@@ -123,7 +123,7 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
         </div>
         <div style={{ fontSize: 9, color: '#8593b5' }}>
           Righe che non soddisfano nessuna delle condizioni precedenti.
-          {fields.length > 0 && <span style={{ color: '#ff5f5780', marginLeft: 4 }}>Tutti i campi passano invariati.</span>}
+          {fields.length > 0 && <span style={{ color: '#ff5f5780', marginLeft: 4 }}>All fields pass through unchanged.</span>}
         </div>
       </div>
 
@@ -131,11 +131,11 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
         <span>
-          Comportamento su null: <strong style={{ color: '#9a9aaa' }}>{config.nullBehavior}</strong>
+          Null behavior: <strong style={{ color: '#9a9aaa' }}>{config.nullBehavior}</strong>
           {' · '}
-          Case sensitive: <strong style={{ color: '#9a9aaa' }}>{config.caseSensitive ? 'sì' : 'no'}</strong>
+          Case sensitive: <strong style={{ color: '#9a9aaa' }}>{config.caseSensitive ? 'yes' : 'no'}</strong>
           {' · '}
-          Modifica nel tab Configurazione.
+          Edit in the Configuration tab.
         </span>
       </div>
     </div>

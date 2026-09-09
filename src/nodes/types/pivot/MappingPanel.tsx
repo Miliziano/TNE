@@ -43,12 +43,12 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
 
   function getRole(fieldName: string): { label: string; color: string } {
     if (mode === 'pivot') {
-      if (identityFields.includes(fieldName)) return { label: 'identità', color: '#3ddc84' }
+      if (identityFields.includes(fieldName)) return { label: 'identity', color: '#3ddc84' }
       if (fieldName === pivotField)           return { label: 'pivot',    color: ACCENT    }
-      if (fieldName === valueField)           return { label: 'valore',   color: '#ffb347' }
+      if (fieldName === valueField)           return { label: 'value',   color: '#ffb347' }
       return { label: 'ignorato', color: '#2a3349' }
     } else {
-      if (unpivotCols.includes(fieldName)) return { label: '→ righe', color: ACCENT }
+      if (unpivotCols.includes(fieldName)) return { label: '→ rows', color: ACCENT }
       return { label: 'fissa', color: '#3ddc84' }
     }
   }
@@ -147,7 +147,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-        Modifica campi e modalità nel tab <strong style={{ color: '#c8d4f0' }}>Configurazione</strong>.
+        Edit fields and mode in the <strong style={{ color: '#c8d4f0' }}>Configuration</strong> tab.
       </div>
     </div>
   )

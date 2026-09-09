@@ -1,0 +1,1654 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index d1e1e3b..9cd3837 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -35,6 +35,8 @@
+   "ANDato al match di login, es. (objectClass=person)": "ANDed with the login match, e.g. (objectClass=person)",
+   "API cloud Mailgun": "Mailgun cloud API",
+   "API cloud SendGrid": "SendGrid cloud API",
++  "API di accesso — consumer": "Access API — consumer",
++  "AVG — media": "AVG — average",
+   "Abilitato": "Enabled",
+   "Accompagna il motivo «stop deliberato» nei nodi interrotti e nel log.": "Accompanies the «deliberate stop» reason in interrupted nodes and in the log.",
+   "Accoppia la riga N di ogni flusso in un'unica riga di uscita, fondendone i campi. Se i flussi hanno lunghezza diversa, il comportamento dipende da «Disallineamento zip».": "Pairs row N of each flow into a single output row, merging their fields. If the flows have different lengths, the behavior depends on «Zip mismatch».",
+@@ -105,17 +107,21 @@
+   "Bytes raw": "Raw bytes",
+   "Bytes — campo payload come base64": "Bytes — payload field as base64",
+   "CC (opzionale)": "CC (optional)",
++  "COUNT — conteggio": "COUNT — count",
+   "Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).": "Computes window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).",
+   "Campi JSON": "JSON fields",
+   "Campi JSON del payload espansi in root": "Payload JSON fields expanded at root",
+   "Campi KPI": "KPI fields",
+   "Campi aggiunti alle righe in uscita (error_out)": "Fields added to the outgoing rows (error_out)",
++  "Campi che rimangono come colonne fisse — virgola separati": "Fields that remain as fixed columns — comma-separated",
+   "Campi chiave": "Key fields",
+   "Campi da mostrare come card (separati da virgola) — vuoto = tutti": "Fields to show as cards (comma-separated) — empty = all",
+   "Campi da scrivere nel file": "Fields to write to the file",
+   "Campi dall'output JSON": "Fields from the JSON output",
+   "Campi della riga emessa": "Emitted row fields",
+   "Campi di ogni riga JSONL": "Fields of each JSONL line",
++  "Campi di raggruppamento": "Grouping fields",
++  "Campi disponibili:": "Available fields:",
+   "Campi in uscita": "Output fields",
+   "Campionamento": "Sampling",
+   "Campionamento casuale": "Random sampling",
+@@ -135,17 +141,22 @@
+   "Campo di tipo object o array dalla riga in ingresso": "Field of type object or array from the incoming row",
+   "Campo email destinatario": "Recipient email field",
+   "Campo flusso": "Flow field",
++  "Campo identità (GROUP BY)": "Identity field (GROUP BY)",
+   "Campo ingresso": "Input field",
++  "Campo output": "Output field",
+   "Campo owner": "Owner field",
+   "Campo partizione": "Partition field",
+   "Campo password (nella riga)": "Password field (in the row)",
+   "Campo path dal flusso": "Path field from flow",
++  "Campo pivot": "Pivot field",
+   "Campo repo": "Repo field",
+   "Campo sorgente": "Source field",
+   "Campo specifico": "Specific field",
++  "Campo su cui applicare": "Field to apply to",
+   "Campo timestamp": "Timestamp field",
+   "Campo uscita": "Output field",
+   "Campo utente (nella riga)": "User field (in the row)",
++  "Campo valore": "Value field",
+   "Campo valore (asse Y)": "Value field (Y-axis)",
+   "Carattere quote": "Quote character",
+   "Carattere virgolette": "Quote character",
+@@ -173,6 +184,10 @@
+   "Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se \"Log centralizzato\" è attivo).": "Central collector for lane errors — always active, cannot be deleted. Automatically receives every error not handled by catch/reject (and a copy of the handled ones, if \"Centralized log\" is active).",
+   "Collettore centrale degli errori di questa lane": "Central collector for the errors of this lane",
+   "Colonna": "Column",
++  "Colonne da ruotare in righe": "Columns to rotate into rows",
++  "Colonne dai valori distinti a runtime — schema non propagabile": "Columns from distinct values at runtime — schema not propagable",
++  "Colonne definite manualmente — schema noto a design time": "Columns defined manually — schema known at design time",
++  "Colonne output": "Output columns",
+   "Colorato": "Colored",
+   "Colore": "Color",
+   "Colore accento": "Accent color",
+@@ -192,6 +207,8 @@
+   "Con quale frequenza estrarre dal buffer": "How often to pull from the buffer",
+   "Condizione": "Condition",
+   "Condizione (solo header)": "Condition (header only)",
++  "Condizione HAVING": "HAVING condition",
++  "Condizione streak": "Streak condition",
+   "Configura la gestione errori di ogni nodo senza apriri i singoli editor": "Configure error handling for each node without opening the individual editors",
+   "Configura manualmente lo schema di output nella sezione sottostante.": "Configure the output schema manually in the section below.",
+   "Configura una query nel tab Query prima di campionare.": "Configure a query in the Query tab before sampling.",
+@@ -199,6 +216,7 @@
+   "Configurazione": "Configuration",
+   "Configurazione SMTP": "SMTP configuration",
+   "Configurazione attiva": "Active configuration",
++  "Configurazione buffer": "Buffer configuration",
+   "Configurazione grafico/KPI": "Chart/KPI configuration",
+   "Configurazione log": "Log configuration",
+   "Configurazione producer": "Producer configuration",
+@@ -211,9 +229,12 @@
+   "Console browser": "Browser console",
+   "Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.": "Kafka consumer — reads messages from topics with offset and deserialization configuration.",
+   "Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.": "ActiveMQ consumer/producer — STOMP, OpenWire, AMQP protocols.",
++  "Conta le righe consecutive dove la condizione è vera. Reset a 0 quando è falsa.": "Counts consecutive rows where the condition is true. Resets to 0 when it is false.",
+   "Contatore controlli effettuati": "Counter of checks performed",
+   "Conteggio": "Count",
+   "Contenuto da scrivere": "Content to write",
++  "Conterrà il nome della colonna originale": "Will contain the name of the original column",
++  "Conterrà il valore della colonna originale": "Will contain the value of the original column",
+   "Contiene": "Contains",
+   "Continua comunque": "Continue anyway",
+   "Continua — emetti comunque le righe": "Continue — emit the rows anyway",
+@@ -261,7 +282,9 @@
+   "Destinatari": "Recipients",
+   "Destinazione": "Destination",
+   "Destinazione remota": "Remote destination",
++  "Determina come il codegen legge i dati dal Materialize": "Determines how the codegen reads data from the Materialize",
+   "Dettaglio del log inviato": "Detail of the sent log",
++  "Deve essere già popolato quando questo nodo viene attivato": "Must already be populated when this node is activated",
+   "Di solito il campo 'content' dal nodo Report Generator": "Usually the 'content' field from the Report Generator node",
+   "Dim. min (bytes)": "Min size (bytes)",
+   "Dimensione": "Size",
+@@ -272,6 +295,7 @@
+   "Dimensione in bytes": "Size in bytes",
+   "Dimensione massima": "Maximum size",
+   "Dimensione pagina": "Page size",
++  "Dinamico": "Dynamic",
+   "Directory archivio": "Archive directory",
+   "Directory contenitore": "Container directory",
+   "Directory di lavoro (cwd)": "Working directory (cwd)",
+@@ -320,6 +344,8 @@
+   "Error handler — la lane decide": "Error handler — the lane decides",
+   "Errore": "Error",
+   "Errore se esiste già": "Error if already exists",
++  "Errore su duplicato": "Error on duplicate",
++  "Errore su null": "Error on null",
+   "Errore — blocca il server": "Error — block the server",
+   "Errore — interrompe il flusso": "Error — stops the flow",
+   "Errore — interrompe la pipeline": "Error — stops the pipeline",
+@@ -329,8 +355,10 @@
+   "Es: 10 = logga circa il 10% delle righe": "E.g. 10 = logs about 10% of the rows",
+   "Es: 10 = logga la riga 1, 11, 21, 31...": "E.g. 10 = logs row 1, 11, 21, 31...",
+   "Esatto": "Exact",
++  "Escludi (→ reject)": "Exclude (→ reject)",
+   "Escludi dal log": "Exclude from log",
+   "Escludi i PR": "Exclude PRs",
++  "Escludi righe con null": "Exclude rows with null",
+   "Esecuzione riuscita": "Execution succeeded",
+   "Esegue comandi bash/shell locali — output nel flusso": "Runs local bash/shell commands — output into the flow",
+   "Esegue comandi bash/shell locali — output nel flusso.": "Runs local bash/shell commands — output into the flow.",
+@@ -362,6 +390,7 @@
+   "Evita di emettere lo stesso file più volte nella stessa esecuzione": "Avoids emitting the same file multiple times in the same run",
+   "Excel da base64 (da Report Generator)": "Excel from base64 (from Report Generator)",
+   "Exit code del comando": "Command exit code",
++  "FIRST — primo valore": "FIRST — first value",
+   "FPEL · genera": "FPEL · generate",
+   "Fatto": "Done",
+   "Ferma la lane appena una riga raggiunge questo nodo.": "Stops the lane as soon as a row reaches this node.",
+@@ -373,6 +402,8 @@
+   "Filtro aggiuntivo (opz.)": "Additional filter (opt.)",
+   "Filtro messaggi SQL-like — es: type='order'": "SQL-like message filter — e.g. type='order'",
+   "Filtro nome file — lascia vuoto per tutti. Es: *.csv, report_*.json": "File name filter — leave empty for all. E.g. *.csv, report_*.json",
++  "Filtro post-aggregazione (HAVING)": "Post-aggregation filter (HAVING)",
++  "Fine elaborazione della lane": "End of lane processing",
+   "Finestra dedicata (Log Viewer)": "Dedicated window (Log Viewer)",
+   "Firma HMAC (standard webhook)": "HMAC signature (webhook standard)",
+   "Flag retain": "Retain flag",
+@@ -389,7 +420,9 @@
+   "Formato tab-separated": "Tab-separated format",
+   "Formato valore": "Value format",
+   "Frequenza & Limiti": "Frequency & limits",
++  "Funzione aggregazione cella": "Cell aggregation function",
+   "Funzioni": "Functions",
++  "Funzioni di aggregazione": "Aggregation functions",
+   "Funzioni utente": "User functions",
+   "Funzioni utente FPEL": "FPEL user functions",
+   "GET — header + body (ignorato)": "GET — headers + body (ignored)",
+@@ -418,7 +451,9 @@
+   "I campi con stesso nome e stesso tipo si fondono in una colonna sola.": "Fields with the same name and same type merge into a single column.",
+   "I flussi vengono emessi uno dopo l'altro: prima tutte le righe del flusso 1, poi del flusso 2, e così via. Ordine deterministico.": "The flows are emitted one after another: first all rows of flow 1, then flow 2, and so on. Deterministic order.",
+   "I parametri di connessione si configurano nelle proprietà della risorsa": "Connection parameters are set in the resource properties",
++  "I rami partono in ordine di priorità senza aspettare il completamento.": "Branches start in priority order without waiting for completion.",
+   "I valori dei segreti NON sono nell'artifact: vanno forniti sulla macchina di destinazione (keychain o variabili d'ambiente).": "Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).",
++  "I valori distinti diventano colonne": "The distinct values become columns",
+   "ID del nodo": "Node ID",
+   "ID del nodo che ha generato l'errore": "ID of the node that raised the error",
+   "ID della lane in cui si è verificato l'errore": "ID of the lane where the error occurred",
+@@ -433,10 +468,12 @@
+   "Ignora — emetti le righe così come sono": "Ignore — emit the rows as they are",
+   "Ignora — né log né error_out": "Ignore — neither log nor error_out",
+   "Il campo <strong>Timeout</strong> è sincronizzato con <strong>Timeout watch</strong> nel tab Configurazione — modificando uno si aggiorna l'altro.": "The <strong>Timeout</strong> field is synced with <strong>Watch timeout</strong> in the Configuration tab — changing one updates the other.",
++  "Il dato che va nella cella": "The data that goes into the cell",
+   "Il file rimane nella posizione originale": "The file stays in its original location",
+   "Il file viene scaricato intero nel campo content (stringa)": "The whole file is downloaded into the content field (string)",
+   "Il formato determina l'estensione — il path viene aggiornato automaticamente": "The format sets the extension — the path is updated automatically",
+   "Il pattern ha priorità sui topic fissi.": "The pattern takes priority over fixed topics.",
++  "Il ramo #N parte solo quando il ramo #N-1 ha completato l'intera sotto-pipeline.": "Branch #N starts only when branch #N-1 has completed the entire sub-pipeline.",
+   "Il valore di questo campo viene scritto direttamente su disco": "The value of this field is written directly to disk",
+   "Immediato (alla 1ª riga)": "Immediate (on the 1st row)",
+   "Importa da file…": "Import from file…",
+@@ -445,10 +482,13 @@
+   "In caso di errore (default nodi)": "On error (node default)",
+   "In memoria — si azzera a ogni esecuzione": "In memory — resets each run",
+   "Includere anche i campi della riga originale in ogni riga esplosa": "Also include the original row's fields in each exploded row",
++  "Includi come gruppo separato": "Include as a separate group",
+   "Includi i PR": "Include PRs",
+   "Includi intestazione": "Include header",
+   "Includi metadati Kafka nel record": "Include Kafka metadata in the record",
++  "Includi nella valutazione": "Include in evaluation",
+   "Includi numero riga nel messaggio": "Include row number in the message",
++  "Includi righe con null": "Include rows with null",
+   "Indentazione": "Indentation",
+   "Innesco": "Trigger",
+   "Integrità e deduplicazione": "Integrity and deduplication",
+@@ -475,6 +515,7 @@
+   "L'endpoint da interrogare periodicamente": "The endpoint to poll periodically",
+   "L'handle <strong>catch</strong> è ora visibile sul nodo. Le righe che causano un'eccezione non controllata escono da catch arricchite dei campi:": "The <strong>catch</strong> handle is now visible on the node. Rows that raise an unhandled exception exit through catch enriched with the fields:",
+   "L'ordine non è garantito — dipende dalla velocità di ciascun flusso. Utile per merge di stream in tempo reale.": "The order is not guaranteed — it depends on the speed of each flow. Useful to merge real-time streams.",
++  "LAST — ultimo valore": "LAST — last value",
+   "La riga originale che ha causato l'errore": "The original row that caused the error",
+   "Lascia vuoto per disabilitare la verifica": "Leave empty to disable verification",
+   "Lascia vuoto per home": "Leave empty for home",
+@@ -496,7 +537,9 @@
+   "Limita output a N caratteri per riga": "Limit output to N characters per row",
+   "Limite file": "File limit",
+   "Limite righe": "Row limit",
++  "Limite righe in memoria": "Row limit in memory",
+   "Limite righe in output": "Output row limit",
++  "Limite risultati": "Result limit",
+   "Lines — ogni riga stdout": "Lines — each stdout line",
+   "Lines — ogni riga stdout è una Row": "Lines — each stdout line is a Row",
+   "Lingua": "Language",
+@@ -512,10 +555,14 @@
+   "Logga solo le prime N righe del flusso": "Logs only the first N rows of the flow",
+   "Logga una percentuale casuale delle righe": "Logs a random percentage of the rows",
+   "MIME type allegato": "Attachment MIME type",
++  "Mantieni il primo": "Keep the first",
+   "Manuale (numero fisso)": "Manual (fixed number)",
++  "Manuale — .clear()": "Manual — .clear()",
+   "Mapping campi": "Field mapping",
+   "Mapping campi input → output": "Field mapping input → output",
+   "Massimizza": "Maximize",
++  "Materialize access mode": "Materialize access mode",
++  "Materialize sorgente": "Source Materialize",
+   "Max elementi (opz.)": "Max items (opt.)",
+   "Max eventi in buffer": "Max events in buffer",
+   "Max file per run": "Max files per run",
+@@ -535,8 +582,12 @@
+   "Metodo": "Method",
+   "Mittente": "Sender",
+   "Modalità": "Mode",
++  "Modalità accesso al Materialize": "Materialize access mode",
+   "Modalità acquisizione": "Capture mode",
+   "Modalità destinatari": "Recipients mode",
++  "Modalità esecuzione": "Execution mode",
++  "Modalità esecuzione rami": "Branch execution mode",
++  "Modalità flusso": "Flow mode",
+   "Modalità invio": "Send mode",
+   "Modalità operativa": "Operating mode",
+   "Modalità output": "Output mode",
+@@ -548,6 +599,8 @@
+   "Monitora servizi via HEAD — sblocca il flusso sull'header atteso.": "Monitors services via HEAD — unblocks the flow on the expected header.",
+   "N righe originali": "N original rows",
+   "NOT NULL — clicca per nullable": "NOT NULL — click for nullable",
++  "Naturale (colonna per colonna)": "Natural (column by column)",
++  "Naturale (ordine dati)": "Natural (data order)",
+   "Nessun Materialize pubblicato in questa lane": "No Materialize published in this lane",
+   "Nessun campo definito. Aggiungi manualmente i campi che l'Explode produrrà.": "No field defined. Manually add the fields the Explode will produce.",
+   "Nessun campo definito. Aggiungi manualmente o sincronizza dalla sorgente.": "No field defined. Add manually or sync from the source.",
+@@ -561,6 +614,7 @@
+   "Nessuna colonna rilevata — verifica la query e la connessione.": "No column detected — check the query and the connection.",
+   "Nessuna colonna — verranno usati tutti i campi in ingresso (senza formattazione condizionale).": "No columns — all incoming fields will be used (without conditional formatting).",
+   "Nessuna funzione definita.": "No functions defined.",
++  "Nessuna partizione — finestra globale su tutti i dati": "No partition — global window over all data",
+   "Nessuna riga restituita.": "No rows returned.",
+   "Nessuna risorsa DB in questa lane. Aggiungine una dalla resource strip.": "No DB resource in this lane. Add one from the resource strip.",
+   "Nessuna risorsa GitHub collegata. Aggiungila dalla strip risorse e usa l'azione «source».": "No GitHub resource connected. Add it from the resource strip and use the «source» action.",
+@@ -600,7 +654,9 @@
+   "Nome": "Name",
+   "Nome Materialize": "Materialize name",
+   "Nome campo": "Field name",
++  "Nome campo chiave": "Key field name",
+   "Nome campo sorgente": "Source field name",
++  "Nome campo valore": "Value field name",
+   "Nome canale": "Channel name",
+   "Nome coda/topic": "Queue/topic name",
+   "Nome colonna": "Column name",
+@@ -610,6 +666,7 @@
+   "Nome del campo della riga che contiene il path della directory": "Name of the row field that contains the directory path",
+   "Nome del file": "File name",
+   "Nome del file scritto": "Name of the written file",
++  "Nome del materialize": "Materialize name",
+   "Nome file": "File name",
+   "Nome file allegato": "Attachment file name",
+   "Nome file con estensione": "File name with extension",
+@@ -628,6 +685,7 @@
+   "Note interne": "Internal notes",
+   "Note tecniche, avvertenze, TODO…": "Technical notes, warnings, TODO…",
+   "Notifica completamento (webhook URL)": "Completion notification (webhook URL)",
++  "Null behavior": "Null behavior",
+   "Nullable — clicca per NOT NULL": "Nullable — click for NOT NULL",
+   "Numero": "Number",
+   "Numero di retry": "Retry count",
+@@ -647,6 +705,7 @@
+   "Ometti — campo assente nel record": "Omit — field absent from the record",
+   "One-shot: attende un batch di eventi, emette e termina. Continuo: la lane si ri-esegue per ogni gruppo di eventi (con commit) finché non premi Stop.": "One-shot: waits for a batch of events, emits and ends. Continuous: the lane re-runs for each group of events (with commit) until you press Stop.",
+   "OpenWire (porta 61616) — nativo ActiveMQ": "OpenWire (port 61616) — native ActiveMQ",
++  "Operatore": "Operator",
+   "Operatori JSONB PostgreSQL — clicca per inserire": "PostgreSQL JSONB operators — click to insert",
+   "Opzioni": "Options",
+   "Opzioni CSV / TSV": "CSV / TSV options",
+@@ -656,6 +715,7 @@
+   "Opzioni Watch": "Watch options",
+   "Opzioni avanzate": "Advanced options",
+   "Opzioni consumer": "Consumer options",
++  "Opzioni globali": "Global options",
+   "Opzioni invio": "Send options",
+   "Opzioni lettura": "Read options",
+   "Opzioni producer": "Producer options",
+@@ -666,8 +726,12 @@
+   "Ordina per": "Order by",
+   "Ordinamento": "Sorting",
+   "Ordinamento (ORDER BY)": "Order (ORDER BY)",
++  "Ordinamento colonne pivot": "Pivot columns order",
++  "Ordinamento e limite": "Sorting and limit",
++  "Ordinato con attesa": "Ordered with wait",
+   "Ordine di emissione: input_1 completo → input_2 completo → ... Utile per unire file o dataset dello stesso tipo.": "Emission order: input_1 complete → input_2 complete → ... Useful to combine files or datasets of the same type.",
+   "Ordine elaborazione file": "File processing order",
++  "Ordine righe output": "Output rows order",
+   "Organizzazione": "Organization",
+   "Osserva una directory per nuovi file (watch) o ne enumera il contenuto (scan).": "Watches a directory for new files (watch) or enumerates its contents (scan).",
+   "Output completo": "Full output",
+@@ -677,6 +741,7 @@
+   "Parametri del nodo": "Node parameters",
+   "Partiziona per": "Partition by",
+   "Partizione": "Partition",
++  "Partizione e ordinamento": "Partition and sorting",
+   "Partizioni": "Partitions",
+   "Path + data modifica — riemette se il file è cambiato": "Path + modified date — re-emits if the file changed",
+   "Path assoluto del file": "Absolute file path",
+@@ -697,7 +762,9 @@
+   "Pattern topic (regex)": "Topic pattern (regex)",
+   "Pausa tra un controllo e il successivo": "Pause between one check and the next",
+   "Payload JSON o stringa": "JSON or string payload",
++  "Per chiave, poi identità": "By key, then identity",
+   "Per hash contenuto — rileva anche rinominati": "By content hash — also detects renamed files",
++  "Per identità, poi chiave": "By identity, then key",
+   "Per modificare i parametri di connessione usa le proprietà della risorsa nella resource strip": "To edit the connection parameters use the resource properties in the resource strip",
+   "Per path — stesso path non viene riemesso": "By path — same path is not re-emitted",
+   "Per riga — una mail per ogni riga in ingresso": "Per row — one email per incoming row",
+@@ -746,7 +813,9 @@
+   "Questo tipo di nodo non ha campi codice o query.": "This node type has no code or query fields.",
+   "Queue — delivery garantito": "Queue — guaranteed delivery",
+   "Raggruppa le righe e calcola funzioni aggregate.": "Groups rows and computes aggregate functions.",
++  "Raggruppa le righe per uno o più campi e calcola funzioni per ogni gruppo.": "Groups the rows by one or more fields and computes functions for each group.",
+   "Raggruppa per": "Group by",
++  "Raggruppa per (GROUP BY)": "Group by (GROUP BY)",
+   "Raw — testo grezzo in campo content": "Raw — raw text in content field",
+   "Record in uscita — 1 record": "Output record — 1 record",
+   "Recupera dati da un endpoint HTTP.": "Retrieves data from an HTTP endpoint.",
+@@ -769,11 +838,13 @@
+   "Riga in uscita — struttura": "Output row — structure",
+   "Riga intera": "Whole row",
+   "Righe aggiornate": "Rows updated",
++  "Righe che non soddisfano nessuna condizione — sempre presente": "Rows that satisfy no condition — always present",
+   "Righe e colonne con totali": "Rows and columns with totals",
+   "Righe elaborate": "Rows processed",
+   "Righe filtrate (scartate)": "Rows filtered (discarded)",
+   "Righe inserite": "Rows inserted",
+   "Righe lette dalla sorgente": "Rows read from the source",
++  "Righe memorizzate": "Stored rows",
+   "Righe originali invariate — il Log non modifica i dati": "Original rows unchanged — the Log does not modify the data",
+   "Righe rifiutate": "Rows rejected",
+   "Righe scritte nel file": "Rows written to the file",
+@@ -800,6 +871,7 @@
+   "STARTTLS (porta 587)": "STARTTLS (port 587)",
+   "STOMP (porta 61613) — consigliato": "STOMP (port 61613) — recommended",
+   "STOMP è il più compatibile e semplice da configurare": "STOMP is the most compatible and simplest to configure",
++  "SUM — somma": "SUM — sum",
+   "Salta e continua con il file successivo": "Skip and continue with the next file",
+   "Salta l'elemento": "Skip the element",
+   "Salta — non emette nulla": "Skip — emits nothing",
+@@ -821,6 +893,7 @@
+   "Schema mancante su campo": "Missing schema on field",
+   "Schema output": "Output schema",
+   "Schema output (row by row)": "Output schema (row by row)",
++  "Schema output derivato": "Derived output schema",
+   "Schema output per ogni messaggio ricevuto": "Output schema for each received message",
+   "Schema output — per ogni evento": "Output schema — per event",
+   "Schema payload": "Payload schema",
+@@ -851,6 +924,7 @@
+   "Semi-strutturato": "Semi-structured",
+   "Sempre": "Always",
+   "Separatore": "Delimiter",
++  "Sequenziale": "Sequential",
+   "Serializza righe del flusso in stringhe JSON con struttura configurabile.": "Serializes flow rows into JSON strings with a configurable structure.",
+   "Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.": "Serializes flow rows into XML strings with configurable structure and namespaces.",
+   "Serializza tutte le righe in ingresso nel formato selezionato.": "Serializes all incoming rows in the selected format.",
+@@ -879,11 +953,14 @@
+   "Sorgente path directory": "Directory path source",
+   "Sorgente remota": "Remote source",
+   "Sottotitolo": "Subtitle",
++  "Source Materialize": "Source Materialize",
+   "Sovrascrive il file": "Overwrites the file",
++  "Sovrascrivi — mantieni l'ultimo": "Overwrite — keep the last",
+   "Sposta in directory errori e continua": "Move to error directory and continue",
+   "Sposta in una directory di archivio": "Move to an archive directory",
+   "Stabilità file (ms)": "File stability (ms)",
+   "Statici — lista email fissa": "Static — fixed email list",
++  "Statico": "Static",
+   "Stato": "State",
+   "Stato precedente alla transizione": "State before the transition",
+   "Status — campi emessi verso il nodo successivo": "Status — fields emitted to the next node",
+@@ -896,6 +973,7 @@
+   "String plain": "Plain string",
+   "Struttura dati": "Data structure",
+   "Struttura output": "Output structure",
++  "Su chiave duplicata": "On duplicate key",
+   "Su elemento non-oggetto": "On non-object element",
+   "Su errore file singolo": "On single-file error",
+   "Su file — persiste tra esecuzioni": "To file — persists across runs",
+@@ -916,6 +994,7 @@
+   "Sì — PERSISTENT": "Yes — PERSISTENT",
+   "Sì — aggiungi campi _kafka_*": "Yes — add _kafka_* fields",
+   "Sì — aggiungi campo _union_source": "Yes — add _union_source field",
++  "Sì — aggiungi colonna totale": "Yes — add total column",
+   "Sì — commit automatico ogni intervallo": "Yes — automatic commit every interval",
+   "Sì — crea automaticamente le directory mancanti": "Yes — automatically create missing directories",
+   "Sì — emette righe stderr nel flusso": "Yes — emits stderr rows into the flow",
+@@ -978,6 +1057,7 @@
+   "Tipo DB nativo": "Native DB type",
+   "Tipo chiave": "Key type",
+   "Tipo del nodo": "Node type",
++  "Tipo di pivot": "Pivot type",
+   "Tipo evento (X-Webhook-Event)": "Event type (X-Webhook-Event)",
+   "Tipo join": "Join type",
+   "Tipo nodo è": "Node type is",
+@@ -1010,6 +1090,7 @@
+   "Tutti gli header HTTP ricevuti": "All received HTTP headers",
+   "Tutti i campi (key=value)": "All fields (key=value)",
+   "Tutti i campi dell'oggetto JSON": "All fields of the JSON object",
++  "Tutti i campi passano invariati.": "All fields pass through unchanged.",
+   "Tutti i campi status vengono anche scritti nelle variabili di lane come": "All status fields are also written to lane variables as",
+   "UUID casuale": "Random UUID",
+   "UUID univoco": "Unique UUID",
+@@ -1038,7 +1119,10 @@
+   "Utente SSH": "SSH user",
+   "Valida ogni riga contro regole configurabili — output valid e reject.": "Validates each row against configurable rules — valid and reject outputs.",
+   "Valore atteso": "Expected value",
++  "Valore celle null": "Null cell value",
++  "Valore default se la cella non ha dati": "Default value if the cell has no data",
+   "Valore effettivo dell'header": "Actual header value",
++  "Valore se null": "Value if null",
+   "Valori": "Values",
+   "Valori di oggetto — { k1: {...}, k2: {...} }": "Object values — { k1: {...}, k2: {...} }",
+   "Valori multipli": "Multiple values",
+@@ -1054,6 +1138,7 @@
+   "Versione": "Version",
+   "Versione MQTT": "MQTT version",
+   "Versione schema": "Schema version",
++  "Virgola separati — es: region, category, year": "Comma-separated — e.g. region, category, year",
+   "Vuoto = auto-generato": "Empty = auto-generated",
+   "WARN — attenzione": "WARN — warning",
+   "Wrap — emette { value: elemento }": "Wrap — emits { value: element }",
+@@ -1151,9 +1236,13 @@
+   "↓ Giù": "↓ Down",
+   "↺ Sovrascrive": "↺ Overwrite",
+   "⇩ Scarica e legge": "⇩ Download and read",
++  "∅ è null": "∅ is null",
+   "∅ è vuoto/null": "∅ is empty/null",
++  "∈ è in lista": "∈ is in list",
++  "∉ non è in lista": "∉ is not in list",
+   "∋ contiene": "∋ contains",
+   "≠ diverso da": "≠ not equal to",
++  "≠∅ non è null": "≠∅ is not null",
+   "≠∅ non è vuoto": "≠∅ is not empty",
+   "≤ minore o uguale": "≤ less than or equal",
+   "≥ maggiore o uguale": "≥ greater than or equal",
+diff --git a/src/nodes/types/aggregate/MappingPanel.tsx b/src/nodes/types/aggregate/MappingPanel.tsx
+index f54d03b..aa6aba7 100644
+--- a/src/nodes/types/aggregate/MappingPanel.tsx
++++ b/src/nodes/types/aggregate/MappingPanel.tsx
+@@ -167,7 +167,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
+-        Schema derivato automaticamente dalla configurazione. Modifica GROUP BY e funzioni nel tab <strong style={{ color: '#c8d4f0' }}>Configurazione</strong>.
++        Schema derived automatically from the configuration. Edit GROUP BY and functions in the <strong style={{ color: '#c8d4f0' }}>Configuration</strong> tab.
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/aggregate/Panel.tsx b/src/nodes/types/aggregate/Panel.tsx
+index da3ca76..96cee9f 100644
+--- a/src/nodes/types/aggregate/Panel.tsx
++++ b/src/nodes/types/aggregate/Panel.tsx
+@@ -58,8 +58,8 @@ const FN_COLOR: Record<string, string> = {
+ 
+ // Opzioni accessMode per Aggregate — dataset è il default e il consigliato
+ const ACCESS_OPTIONS = [
+-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
+-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
++  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
++  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
+ ]
+ 
+ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
+@@ -104,11 +104,11 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
+       )}
+       {needsField && (
+         <div>
+-          <div style={labelStyle}>Campo su cui applicare</div>
++          <div style={labelStyle}>Field to apply to</div>
+           {fields.length > 0 ? (
+             <CustomSelect style={inputStyle} value={agg.field}
+               onChange={(e) => onChange(agg.id, 'field', e.target.value)}>
+-              <option value="">— seleziona campo —</option>
++              <option value="">— select field —</option>
+               {fields.map((f) => (
+                 <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+               ))}
+@@ -116,7 +116,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
+           ) : (
+             <input type="text" style={inputStyle} value={agg.field}
+               onChange={(e) => onChange(agg.id, 'field', e.target.value)}
+-              placeholder="nome_campo" />
++              placeholder="field_name" />
+           )}
+         </div>
+       )}
+@@ -130,7 +130,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
+         </div>
+       )}
+       <div>
+-        <div style={labelStyle}>Filtro FILTER WHERE <span style={{ color: '#2a3349', fontWeight: 400 }}>(opzionale)</span></div>
++        <div style={labelStyle}>FILTER WHERE <span style={{ color: '#2a3349', fontWeight: 400 }}>(optional)</span></div>
+         <input type="text" style={{ ...inputStyle, color: '#9a9aaa' }} value={agg.filter}
+           onChange={(e) => onChange(agg.id, 'filter', e.target.value)}
+           placeholder="status = 'active'" />
+@@ -226,17 +226,17 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 8 }}>
+         <span style={{ fontSize: 16, color: '#4a9eff' }}>Σ</span>
+         <div style={{ lineHeight: 1.5 }}>
+-          Raggruppa le righe per uno o più campi e calcola funzioni per ogni gruppo.
+-          <strong style={{ color: '#c8d4f0' }}> Emette una riga per gruppo</strong>.
++          Groups the rows by one or more fields and computes functions for each group.
++          <strong style={{ color: '#c8d4f0' }}> Emits one row per group</strong>.
+         </div>
+       </div>
+ 
+       {/* Sorgente dati */}
+-      <SectionTitle label="Sorgente dati" color="#22d3ee" />
++      <SectionTitle label="Data source" color="#22d3ee" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+-          { value: 'flow',        label: '→ Da flusso',       desc: 'Riceve righe via edge — bufferizza internamente finché il flusso non è esaurito, poi calcola.', disabled: false },
+-          { value: 'materialize', label: '◈ Da Materialize',  desc: 'La riga in ingresso è solo trigger. I dati vengono letti dal Materialize selezionato.',         disabled: materializeVars.length === 0, hint: materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined },
++          { value: 'flow',        label: '→ From flow',       desc: 'Receives rows via edge — buffers internally until the flow is exhausted, then computes.', disabled: false },
++          { value: 'materialize', label: '◈ From Materialize',  desc: 'The incoming row is only a trigger. Data is read from the selected Materialize.',         disabled: materializeVars.length === 0, hint: materializeVars.length === 0 ? 'No Materialize published in this lane' : undefined },
+         ].map((s) => (
+           <button key={s.value}
+             onClick={() => { if (!s.disabled) updateProp(nodeId, 'dataSource', s.value) }}
+@@ -259,14 +259,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+       {/* Selettore Materialize + accessMode */}
+       {dataSource === 'materialize' && (
+         <>
+-          <Field label="Materialize sorgente" hint="Deve essere già popolato quando questo nodo viene attivato">
++          <Field label="Source Materialize" hint="Must already be populated when this node is activated">
+             {materializeVars.length > 0 ? (
+               <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
+-                <option value="">— seleziona —</option>
++                <option value="">— select —</option>
+                 {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
+               </CustomSelect>
+             ) : (
+-              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="nome_materialize" />
++              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="materialize_name" />
+             )}
+           </Field>
+           {matName && materializeFields.length === 0 && (
+@@ -284,7 +284,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+ 
+           {/* accessMode — come Aggregate accede al Materialize */}
+           {matName && (
+-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
++            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
+               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
+                 {ACCESS_OPTIONS.map((opt) => (
+                   <option key={opt.value} value={opt.value}>{opt.label}</option>
+@@ -299,14 +299,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+ 
+           <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
+             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
+-            Pattern tipico: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Aggregate</code>
++            Typical pattern: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Aggregate</code>
+           </div>
+         </>
+       )}
+ 
+       {/* GROUP BY */}
+-      <SectionTitle label="Raggruppa per (GROUP BY)" color="#4a9eff" />
+-      <Field label="Campi di raggruppamento" hint="Virgola separati — es: region, category, year">
++      <SectionTitle label="Group by (GROUP BY)" color="#4a9eff" />
++      <Field label="Grouping fields" hint="Comma-separated — e.g. region, category, year">
+         {activeFields.length > 0 ? (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+             <input type="text" style={inputStyle} value={p('group_by')} onChange={u('group_by')} placeholder="region, category" />
+@@ -332,13 +332,13 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+       </Field>
+ 
+      <div style={{ fontSize: 11, color: '#9a9aaa', lineHeight: 1.5 }}>
+-      <b>Aggregate</b> collassa le righe: un gruppo, una riga.
+-      Se vuoi <b>tenere le righe</b> e aggiungere un totale accanto,
+-      usa <b>Window</b> con una funzione di partizione.
++      <b>Aggregate</b> collapses the rows: one group, one row.
++      If you want to <b>keep the rows</b> and add a total alongside,
++      use <b>Window</b> with a partition function.
+      </div>
+ 
+       {/* Funzioni */}
+-      <SectionTitle label="Funzioni di aggregazione" color="#ffb347" />
++      <SectionTitle label="Aggregation functions" color="#ffb347" />
+       <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 2 }}>
+         Ogni funzione produce un campo in output. Dai un alias significativo a ciascuna.
+       </div>
+@@ -354,38 +354,38 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+       </button>
+ 
+       {/* HAVING */}
+-      <SectionTitle label="Filtro post-aggregazione (HAVING)" color="#a78bfa" />
++      <SectionTitle label="Post-aggregation filter (HAVING)" color="#a78bfa" />
+       <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #a78bfa20', fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
+-        <strong style={{ color: '#a78bfa' }}>HAVING</strong> filtra i <strong style={{ color: '#c8d4f0' }}>gruppi</strong> dopo l'aggregazione.
++        <strong style={{ color: '#a78bfa' }}>HAVING</strong> filters the <strong style={{ color: '#c8d4f0' }}>groups</strong> after aggregation.
+         Usa i nomi alias: <code style={{ color: '#a78bfa' }}>count &gt; 10</code>
+       </div>
+-      <Field label="Condizione HAVING">
++      <Field label="HAVING condition">
+         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 54, fontFamily: 'monospace' }}
+           value={p('having')} onChange={u('having')}
+           placeholder="count > 10 AND sum_amount > 1000" spellCheck={false} />
+       </Field>
+ 
+       {/* Ordinamento */}
+-      <SectionTitle label="Ordinamento e limite" color="#3ddc84" />
++      <SectionTitle label="Sorting and limit" color="#3ddc84" />
+       <Row>
+-        <Field label="Ordina per">
++        <Field label="Order by">
+           <input type="text" style={inputStyle} value={p('orderBy')} onChange={u('orderBy')} placeholder="count DESC, region ASC" />
+         </Field>
+-        <Field label="Limite risultati" hint="0 = nessun limite">
++        <Field label="Result limit" hint="0 = no limit">
+           <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
+         </Field>
+       </Row>
+ 
+       {/* Opzioni */}
+-      <SectionTitle label="Opzioni" />
++      <SectionTitle label="Options" />
+       <Row>
+         <Field label="Null nel GROUP BY">
+           <CustomSelect style={inputStyle} value={p('nullGroups', 'include')} onChange={u('nullGroups')}>
+-            <option value="include">Includi come gruppo separato</option>
+-            <option value="exclude">Escludi righe con null</option>
++            <option value="include">Include as a separate group</option>
++            <option value="exclude">Exclude rows with null</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Modalità esecuzione">
++        <Field label="Execution mode">
+           <CustomSelect style={inputStyle} value={p('execMode', 'batch')} onChange={u('execMode')}>
+             <option value="batch">Batch — attende tutti i dati</option>
+             <option value="streaming">Streaming — risultati incrementali</option>
+@@ -396,7 +396,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
+       {/* Schema output */}
+       {outputPreview.length > 0 && (
+         <>
+-          <SectionTitle label="Schema output derivato" color="#22d3ee" />
++          <SectionTitle label="Derived output schema" color="#22d3ee" />
+           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
+               {['Campo', 'Tipo', 'Origine'].map((h) => (
+diff --git a/src/nodes/types/filter/MappingPanel.tsx b/src/nodes/types/filter/MappingPanel.tsx
+index c821227..4fc920e 100644
+--- a/src/nodes/types/filter/MappingPanel.tsx
++++ b/src/nodes/types/filter/MappingPanel.tsx
+@@ -35,8 +35,8 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* Info */}
+       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
+-        <span style={{ color: ACCENT, fontWeight: 600 }}>⊻ Filter</span> — routing passthrough.
+-        I campi transitano invariati su ogni uscita. L'ordine delle condizioni è la priorità di valutazione (first-match).
++        <span style={{ color: ACCENT, fontWeight: 600 }}>⊻ Filter</span> — passthrough routing.
++        Fields pass through unchanged on every output. The order of the conditions is the evaluation priority (first-match).
+       </div>
+ 
+       {/* Campi in transito */}
+@@ -123,7 +123,7 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
+         </div>
+         <div style={{ fontSize: 9, color: '#8593b5' }}>
+           Righe che non soddisfano nessuna delle condizioni precedenti.
+-          {fields.length > 0 && <span style={{ color: '#ff5f5780', marginLeft: 4 }}>Tutti i campi passano invariati.</span>}
++          {fields.length > 0 && <span style={{ color: '#ff5f5780', marginLeft: 4 }}>All fields pass through unchanged.</span>}
+         </div>
+       </div>
+ 
+@@ -131,11 +131,11 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
+         <span>
+-          Comportamento su null: <strong style={{ color: '#9a9aaa' }}>{config.nullBehavior}</strong>
++          Null behavior: <strong style={{ color: '#9a9aaa' }}>{config.nullBehavior}</strong>
+           {' · '}
+-          Case sensitive: <strong style={{ color: '#9a9aaa' }}>{config.caseSensitive ? 'sì' : 'no'}</strong>
++          Case sensitive: <strong style={{ color: '#9a9aaa' }}>{config.caseSensitive ? 'yes' : 'no'}</strong>
+           {' · '}
+-          Modifica nel tab Configurazione.
++          Edit in the Configuration tab.
+         </span>
+       </div>
+     </div>
+diff --git a/src/nodes/types/filter/Panel.tsx b/src/nodes/types/filter/Panel.tsx
+index 8e2bd6d..6f86b45 100644
+--- a/src/nodes/types/filter/Panel.tsx
++++ b/src/nodes/types/filter/Panel.tsx
+@@ -155,10 +155,10 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
+     { value: 'contains', label: '∋ contiene'          },
+     { value: 'starts',   label: '⊏ inizia con'        },
+     { value: 'ends',     label: '⊐ finisce con'       },
+-    { value: 'is_null',  label: '∅ è null'            },
+-    { value: 'not_null', label: '≠∅ non è null'       },
+-    { value: 'in',       label: '∈ è in lista'        },
+-    { value: 'not_in',   label: '∉ non è in lista'    },
++    { value: 'is_null',  label: '∅ is null'            },
++    { value: 'not_null', label: '≠∅ is not null'       },
++    { value: 'in',       label: '∈ is in list'        },
++    { value: 'not_in',   label: '∉ is not in list'    },
+     { value: 'regex',    label: '~ regex'             },
+   ]
+ 
+@@ -184,16 +184,16 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
+             <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+                 <div style={{ flex: 1 }}>
+-                  <div style={labelStyle}>Campo</div>
++                  <div style={labelStyle}>Field</div>
+                   {incomingFields.length > 0 ? (
+                     <CustomSelect style={inputStyle} value={clause.field}
+                       onChange={(e) => update(clause.id, 'field', e.target.value)}>
+-                      <option value="">— seleziona —</option>
++                      <option value="">— select —</option>
+                       {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
+                     </CustomSelect>
+                   ) : (
+                     <input style={inputStyle} value={clause.field}
+-                      onChange={(e) => update(clause.id, 'field', e.target.value)} placeholder="nome_campo" />
++                      onChange={(e) => update(clause.id, 'field', e.target.value)} placeholder="field_name" />
+                   )}
+                 </div>
+                 <button onClick={() => remove(clause.id)} disabled={clauses.length === 1}
+@@ -205,7 +205,7 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
+               </div>
+               <div style={{ display: 'grid', gridTemplateColumns: noValue ? '1fr' : '1fr 1fr', gap: 6 }}>
+                 <div>
+-                  <div style={labelStyle}>Operatore</div>
++                  <div style={labelStyle}>Operator</div>
+                   <CustomSelect style={inputStyle} value={clause.operator}
+                     onChange={(e) => update(clause.id, 'operator', e.target.value as ConditionOperator)}>
+                     {OPERATORS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+@@ -244,7 +244,7 @@ function TemplateBuilder({ templateId, params, onChange }: {
+       <div>
+         <div style={labelStyle}>Template</div>
+         <CustomSelect style={inputStyle} value={templateId} onChange={(e) => onChange(e.target.value, { ...params })}>
+-          <option value="">— seleziona —</option>
++          <option value="">— select —</option>
+           {Object.entries(byCategory).map(([cat, tpls]) => (
+             <optgroup key={cat} label={cat}>
+               {tpls.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+@@ -318,7 +318,7 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
+           style={{ width: 18, height: 18, border: 'none', borderRadius: 3, padding: 0, cursor: 'pointer', background: 'none', flexShrink: 0 }} />
+         <input value={cond.label} onChange={(e) => onUpdate({ label: e.target.value })}
+           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, color: cond.color, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
+-          placeholder="nome uscita" />
++          placeholder="output name" />
+ 
+         {/* Selettori modalità — con tooltip che mostra il campo che verrà portato */}
+         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+@@ -363,9 +363,9 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
+               background: `color-mix(in srgb, ${cond.color} 8%, #0f1117)`,
+               borderRadius: 4, border: `0.5px solid ${cond.color}30` }}>
+               <i className="ti ti-arrow-right" style={{ fontSize: 9, color: cond.color }} />
+-              <span style={{ fontSize: 9, color: '#8593b5' }}>Campo: </span>
++              <span style={{ fontSize: 9, color: '#8593b5' }}>Field: </span>
+               <code style={{ fontSize: 10, color: cond.color }}>{currentField}</code>
+-              <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 4 }}>— verrà portato se cambi modalità</span>
++              <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 4 }}>— will be carried over if you change mode</span>
+             </div>
+           )}
+ 
+@@ -471,15 +471,15 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
+ 
+       {incomingFields.length > 0 && (
+         <div style={{ padding: '6px 10px', background: '#0d3d20', borderRadius: 4, border: '0.5px solid #1d6d40', fontSize: 10, color: '#3ddc84', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+-          <span style={{ color: '#8593b5', marginRight: 4 }}>Campi disponibili:</span>
++          <span style={{ color: '#8593b5', marginRight: 4 }}>Available fields:</span>
+           {incomingFields.map((f) => <code key={f.name} style={{ background: '#1d6d4040', padding: '1px 6px', borderRadius: 3 }}>{f.name}</code>)}
+         </div>
+       )}
+ 
+       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#9a9aaa', display: 'flex', gap: 6 }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
+-        Le condizioni sono valutate in ordine — ogni riga va sulla <strong style={{ color: ACCENT }}>prima che corrisponde</strong> (first-match).
+-        Le righe che non soddisfano nessuna condizione vanno al <strong style={{ color: '#ff5f57' }}>reject</strong>.
++        Conditions are evaluated in order — each row goes to the <strong style={{ color: ACCENT }}>first that matches</strong> (first-match).
++        Rows that satisfy no condition go to <strong style={{ color: '#ff5f57' }}>reject</strong>.
+       </div>
+ 
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+@@ -498,7 +498,7 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
+         {config.conditions.length === 0 ? (
+           <div style={{ padding: '24px', textAlign: 'center', color: '#2a3349', fontSize: 11, background: '#0f1117', borderRadius: 8, border: '1px dashed #2a3349' }}>
+             <i className="ti ti-filter" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: `${ACCENT}20` }} />
+-            Nessuna condizione. Le righe vanno tutte al <span style={{ color: '#ff5f57' }}>reject</span>.
++            No condition. All rows go to <span style={{ color: '#ff5f57' }}>reject</span>.
+           </div>
+         ) : (
+           config.conditions.map((cond, idx) => (
+@@ -519,26 +519,26 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f57' }} />
+         <div>
+           <div style={{ fontSize: 11, fontWeight: 600, color: '#ff5f57' }}>reject</div>
+-          <div style={{ fontSize: 9, color: '#8593b5' }}>Righe che non soddisfano nessuna condizione — sempre presente</div>
++          <div style={{ fontSize: 9, color: '#8593b5' }}>Rows that satisfy no condition — always present</div>
+         </div>
+       </div>
+ 
+       {/* Opzioni globali */}
+       <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+-        <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Opzioni globali</span>
++        <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Global options</span>
+         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+           <Field label="Comportamento su null">
+             <CustomSelect style={inputStyle} value={config.nullBehavior}
+               onChange={(e) => saveConfig({ ...config, nullBehavior: e.target.value as FilterConfig['nullBehavior'] })}>
+-              <option value="exclude">Escludi (→ reject)</option>
+-              <option value="include">Includi nella valutazione</option>
+-              <option value="error">Errore su null</option>
++              <option value="exclude">Exclude (→ reject)</option>
++              <option value="include">Include in evaluation</option>
++              <option value="error">Error on null</option>
+             </CustomSelect>
+           </Field>
+           <Field label="Case sensitive">
+             <CustomSelect style={inputStyle} value={config.caseSensitive ? 'true' : 'false'}
+               onChange={(e) => saveConfig({ ...config, caseSensitive: e.target.value === 'true' })}>
+-              <option value="true">Sì</option>
++              <option value="true">Yes</option>
+               <option value="false">No</option>
+             </CustomSelect>
+           </Field>
+@@ -546,13 +546,13 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
+ 
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+           <div style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+-            Modalità esecuzione rami
++            Branch execution mode
+           </div>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+             {[
+               { value: 'parallel',     icon: '⇉', label: 'Tutti in parallelo',       desc: 'I rami partono contemporaneamente.',                                              color: '#4a9eff' },
+-              { value: 'sequential',   icon: '→', label: 'Sequenziale',              desc: 'I rami partono in ordine di priorità senza aspettare il completamento.',          color: '#ffb347' },
+-              { value: 'ordered_wait', icon: '⏱', label: 'Ordinato con attesa',      desc: 'Il ramo #N parte solo quando il ramo #N-1 ha completato l\'intera sotto-pipeline.', color: '#3ddc84' },
++              { value: 'sequential',   icon: '→', label: 'Sequential',              desc: 'Branches start in priority order without waiting for completion.',          color: '#ffb347' },
++              { value: 'ordered_wait', icon: '⏱', label: 'Ordered with wait',      desc: 'Branch #N starts only when branch #N-1 has completed the entire sub-pipeline.', color: '#3ddc84' },
+             ].map((m) => (
+               <button key={m.value} onClick={() => saveConfig({ ...config, execMode: m.value })}
+                 style={{ padding: '8px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
+diff --git a/src/nodes/types/materialize/MappingPanel.tsx b/src/nodes/types/materialize/MappingPanel.tsx
+index f4bcfbe..8079408 100644
+--- a/src/nodes/types/materialize/MappingPanel.tsx
++++ b/src/nodes/types/materialize/MappingPanel.tsx
+@@ -33,7 +33,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
+         <span style={{ fontSize: 16, color: ACCENT }}>◈</span>
+         <div>
+           <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>
+-            Modalità: {matMode === 'passthrough' ? 'Passthrough' : 'Buffer → Signal'}
++            Mode: {matMode === 'passthrough' ? 'Passthrough' : 'Buffer → Signal'}
+           </div>
+           <div>
+             {matMode === 'passthrough' && 'Memorizza e passa riga per riga — accesso consumer con .values(), .get(), .toDataset()'}
+@@ -50,7 +50,7 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
+         {incomingFields.length > 0 ? (
+           <CustomSelect style={inputStyle} value={keyField}
+             onChange={(e) => updateProp(nodeId, 'keyField', e.target.value)}>
+-            <option value="">— nessuna chiave (accesso per indice) —</option>
++            <option value="">— no key (access by index) —</option>
+             {incomingFields.map((f) => (
+               <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+             ))}
+@@ -73,9 +73,9 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
+           API accesso — scelto dal consumer
+         </div>
+         {[
+-          { api: '.toDataset()', color: '#3ddc84', desc: 'Window, Aggregate, Pivot — List completa, zero buffering aggiuntivo' },
+-          { api: '.values()',    color: ACCENT,    desc: 'Explode — iteratore riga per riga' },
+-          { api: `.get(row.${keyField || 'chiave'})`, color: '#ffb347', desc: 'Join — lookup O(1)' },
++          { api: '.toDataset()', color: '#3ddc84', desc: 'Window, Aggregate, Pivot — full List, zero extra buffering' },
++          { api: '.values()',    color: ACCENT,    desc: 'Explode — row-by-row iterator' },
++          { api: `.get(row.${keyField || 'key'})`, color: '#ffb347', desc: 'Join — lookup O(1)' },
+         ].map((item) => (
+           <div key={item.api} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}>
+             <code style={{ fontSize: 10, color: item.color, fontFamily: 'monospace', minWidth: 160, flexShrink: 0 }}>
+@@ -132,8 +132,8 @@ export function MaterializeMappingPanel({ nodeId }: { nodeId: string }) {
+           </div>
+           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+             {[
+-              { name: 'name',         type: 'string',  desc: 'Nome del materialize'      },
+-              { name: 'row_count',    type: 'integer', desc: 'Righe memorizzate'          },
++              { name: 'name',         type: 'string',  desc: 'Materialize name'      },
++              { name: 'row_count',    type: 'integer', desc: 'Stored rows'          },
+               { name: 'status',       type: 'string',  desc: 'always "done"'             },
+               { name: 'completed_at', type: 'date',    desc: 'Timestamp completamento'   },
+               { name: 'elapsed_ms',   type: 'integer', desc: 'Tempo di esecuzione in ms' },
+diff --git a/src/nodes/types/materialize/Panel.tsx b/src/nodes/types/materialize/Panel.tsx
+index 22289df..6d0c93e 100644
+--- a/src/nodes/types/materialize/Panel.tsx
++++ b/src/nodes/types/materialize/Panel.tsx
+@@ -41,18 +41,18 @@ const MODES = [
+   {
+     value:       'passthrough',
+     label:       '⇒ Passthrough',
+-    desc:        'Trasparente — memorizza e passa riga per riga. Il flusso non si interrompe.',
++    desc:        'Transparent — stores and passes row by row. The flow does not stop.',
+     outputDesc:  'N righe in uscita (stesse in ingresso)',
+     outputColor: '#3ddc84',
+-    detail:      'Utile per accumulare dati mentre il flusso transita — i consumer possono accedere mentre le righe arrivano.',
++    detail:      'Useful to accumulate data while the flow passes through — consumers can access it while the rows arrive.',
+   },
+   {
+     value:       'buffer_signal',
+     label:       '⊟ Buffer → Signal',
+-    desc:        'Blocca il flusso, memorizza tutto. Emette una sola riga di stato quando completo.',
++    desc:        'Blocks the flow, stores everything. Emits a single status row when complete.',
+     outputDesc:  '1 riga di stato in uscita',
+     outputColor: '#ffb347',
+-    detail:      'Usato come trigger — il signal attiva altri nodi (Window, Aggregate, Pivot) che leggono il dataset completo tramite API diretta.',
++    detail:      'Used as a trigger — the signal activates other nodes (Window, Aggregate, Pivot) that read the full dataset via direct API.',
+   },
+ ]
+ 
+@@ -140,20 +140,20 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+       </div>
+ 
+       {/* Nome */}
+-      <Field label="Nome" hint="Identificatore univoco nella lane — usato dai nodi consumer per accedere ai dati">
++      <Field label="Name" hint="Unique identifier in the lane — used by consumer nodes to access the data">
+         <input style={inputStyle} value={matName}
+           onChange={(e) => updateProp(nodeId, 'matName', e.target.value)}
+           placeholder="lookup_clienti" />
+       </Field>
+ 
+       {/* Modalità flusso — solo due */}
+-      <SectionTitle label="Modalità flusso" />
++      <SectionTitle label="Flow mode" />
+ 
+       {/* Info architetturale */}
+       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
+-        <span style={{ color: ACCENT, fontWeight: 600 }}>◈ Materialize</span> accumula righe in memoria.
+-        Come i dati vengono letti è responsabilità del <strong style={{ color: '#c8d4f0' }}>nodo consumer</strong> —
+-        che sceglie tra <code style={{ color: ACCENT }}>dataset</code>, <code style={{ color: ACCENT }}>iterator</code> o <code style={{ color: ACCENT }}>lookup</code>.
++        <span style={{ color: ACCENT, fontWeight: 600 }}>◈ Materialize</span> accumulates rows in memory.
++        How the data is read is the responsibility of the <strong style={{ color: '#c8d4f0' }}>consumer node</strong> —
++        which chooses among <code style={{ color: ACCENT }}>dataset</code>, <code style={{ color: ACCENT }}>iterator</code> or <code style={{ color: ACCENT }}>lookup</code>.
+       </div>
+ 
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+@@ -185,17 +185,17 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+       {/* PASSTHROUGH */}
+       {mode === 'passthrough' && (
+         <>
+-          <SectionTitle label="Opzioni" />
+-          <Field label="Campo chiave" hint="Se configurato, indicizza i dati per accesso O(1) tramite .get(key)">
++          <SectionTitle label="Options" />
++          <Field label="Key field" hint="If set, indexes the data for O(1) access via .get(key)">
+             {incomingFields.length > 0 ? (
+               <CustomSelect style={inputStyle} value={p('keyField')} onChange={u('keyField')}>
+-                <option value="">— nessuna chiave (accesso per indice) —</option>
++                <option value="">— no key (access by index) —</option>
+                 {incomingFields.map((f) => (
+                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+                 ))}
+               </CustomSelect>
+             ) : (
+-              <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id (opzionale)" />
++              <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id (optional)" />
+             )}
+           </Field>
+           {p('keyField') && (
+@@ -209,11 +209,11 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+       {/* BUFFER → SIGNAL */}
+       {mode === 'buffer_signal' && (
+         <>
+-          <SectionTitle label="Configurazione buffer" />
+-          <Field label="Campo chiave" hint="Campo usato come chiave di accesso alla hashtable">
++          <SectionTitle label="Buffer configuration" />
++          <Field label="Key field" hint="Field used as the hashtable access key">
+             {incomingFields.length > 0 ? (
+               <CustomSelect style={inputStyle} value={p('keyField')} onChange={u('keyField')}>
+-                <option value="">— seleziona campo chiave —</option>
++                <option value="">— select key field —</option>
+                 {incomingFields.map((f) => (
+                   <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+                 ))}
+@@ -222,12 +222,12 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+               <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id" />
+             )}
+           </Field>
+-          <Field label="Su chiave duplicata">
++          <Field label="On duplicate key">
+             <CustomSelect style={inputStyle} value={p('onDuplicate', 'overwrite')} onChange={u('onDuplicate')}>
+-              <option value="overwrite">Sovrascrivi — mantieni l'ultimo</option>
+-              <option value="keep">Mantieni il primo</option>
++              <option value="overwrite">Overwrite — keep the last</option>
++              <option value="keep">Keep the first</option>
+               <option value="array">Accumula in array</option>
+-              <option value="error">Errore su duplicato</option>
++              <option value="error">Error on duplicate</option>
+             </CustomSelect>
+           </Field>
+ 
+@@ -237,8 +237,8 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+               Schema output — 1 riga di stato
+             </div>
+             {[
+-              { name: 'name',         type: 'string',  desc: 'Nome del materialize'      },
+-              { name: 'row_count',    type: 'integer', desc: 'Righe memorizzate'          },
++              { name: 'name',         type: 'string',  desc: 'Materialize name'      },
++              { name: 'row_count',    type: 'integer', desc: 'Stored rows'          },
+               { name: 'status',       type: 'string',  desc: 'always "done"'             },
+               { name: 'completed_at', type: 'date',    desc: 'Timestamp completamento'   },
+               { name: 'elapsed_ms',   type: 'integer', desc: 'Tempo di esecuzione in ms' },
+@@ -253,8 +253,8 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+ 
+           <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
+             <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#ffb347', marginRight: 6 }} />
+-            Pattern tipico: <code style={{ color: ACCENT }}>Materialize(signal) → BridgeOut → BridgeIn → Window/Aggregate/Pivot</code>.
+-            Il signal attiva il consumer che legge il dataset completo con <code style={{ color: ACCENT }}>.toDataset()</code>.
++            Typical pattern: <code style={{ color: ACCENT }}>Materialize(signal) → BridgeOut → BridgeIn → Window/Aggregate/Pivot</code>.
++            The signal activates the consumer that reads the full dataset with <code style={{ color: ACCENT }}>.toDataset()</code>.
+           </div>
+         </>
+       )}
+@@ -262,7 +262,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+       {/* API accesso — comune a tutte le modalità se pubblicato */}
+       {isPublished && (
+         <>
+-          <SectionTitle label="API di accesso — consumer" />
++          <SectionTitle label="Access API — consumer" />
+           <div style={{ padding: '10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 10 }}>
+ 
+             {/* Dataset */}
+@@ -297,7 +297,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+                 Lookup per chiave — Join
+               </div>
+               <code style={{ fontSize: 10, color: '#ffb347', fontFamily: 'monospace' }}>
+-                context.lane.{matName || 'nome'}.get(row.{p('keyField') || 'chiave'})
++                context.lane.{matName || 'nome'}.get(row.{p('keyField') || 'key'})
+               </code>
+               <div style={{ fontSize: 9, color: '#2a3349', marginTop: 2 }}>
+                 → Row | null — accesso O(1) sulla hashtable
+@@ -309,8 +309,8 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+               <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Utility</div>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                 {[
+-                  { code: `.has(row.${p('keyField') || 'chiave'})`, desc: '→ boolean' },
+-                  { code: `.size`,                                   desc: '→ number — righe memorizzate' },
++                  { code: `.has(row.${p('keyField') || 'key'})`, desc: '→ boolean' },
++                  { code: `.size`,                                   desc: '→ number — stored rows' },
+                   { code: `.clear()`,                                desc: '→ void — svuota (se clearOn: manual)' },
+                 ].map((ex) => (
+                   <div key={ex.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+@@ -331,11 +331,11 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
+       <Field label="Quando svuotare">
+         <CustomSelect style={inputStyle} value={p('clearOn', 'run_end')} onChange={u('clearOn')}>
+           <option value="run_end">Fine esecuzione (default)</option>
+-          <option value="lane_end">Fine elaborazione della lane</option>
+-          <option value="manual">Manuale — .clear()</option>
++          <option value="lane_end">End of lane processing</option>
++          <option value="manual">Manual — .clear()</option>
+         </CustomSelect>
+       </Field>
+-      <Field label="Limite righe in memoria" hint="0 = nessun limite">
++      <Field label="Row limit in memory" hint="0 = no limit">
+         <input type="number" style={inputStyle} value={p('maxRows', '0')} onChange={u('maxRows')} min="0" />
+       </Field>
+ 
+diff --git a/src/nodes/types/pivot/MappingPanel.tsx b/src/nodes/types/pivot/MappingPanel.tsx
+index 51061f6..71be2d1 100644
+--- a/src/nodes/types/pivot/MappingPanel.tsx
++++ b/src/nodes/types/pivot/MappingPanel.tsx
+@@ -43,12 +43,12 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+   function getRole(fieldName: string): { label: string; color: string } {
+     if (mode === 'pivot') {
+-      if (identityFields.includes(fieldName)) return { label: 'identità', color: '#3ddc84' }
++      if (identityFields.includes(fieldName)) return { label: 'identity', color: '#3ddc84' }
+       if (fieldName === pivotField)           return { label: 'pivot',    color: ACCENT    }
+-      if (fieldName === valueField)           return { label: 'valore',   color: '#ffb347' }
++      if (fieldName === valueField)           return { label: 'value',   color: '#ffb347' }
+       return { label: 'ignorato', color: '#2a3349' }
+     } else {
+-      if (unpivotCols.includes(fieldName)) return { label: '→ righe', color: ACCENT }
++      if (unpivotCols.includes(fieldName)) return { label: '→ rows', color: ACCENT }
+       return { label: 'fissa', color: '#3ddc84' }
+     }
+   }
+@@ -147,7 +147,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
+-        Modifica campi e modalità nel tab <strong style={{ color: '#c8d4f0' }}>Configurazione</strong>.
++        Edit fields and mode in the <strong style={{ color: '#c8d4f0' }}>Configuration</strong> tab.
+       </div>
+     </div>
+   )
+diff --git a/src/nodes/types/pivot/Panel.tsx b/src/nodes/types/pivot/Panel.tsx
+index 29b3578..171a881 100644
+--- a/src/nodes/types/pivot/Panel.tsx
++++ b/src/nodes/types/pivot/Panel.tsx
+@@ -10,8 +10,8 @@ import { CustomSelect } from '../../../components/CustomSelect'
+ const ACCENT = '#f97316'
+ 
+ const ACCESS_OPTIONS = [
+-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
+-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
++  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
++  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
+ ]
+ 
+ const inputStyle: React.CSSProperties = {
+@@ -44,13 +44,13 @@ function Row({ children }: { children: React.ReactNode }) {
+ }
+ 
+ const AGG_FUNCTIONS = [
+-  { value: 'sum',   label: 'SUM — somma'         },
+-  { value: 'count', label: 'COUNT — conteggio'    },
+-  { value: 'avg',   label: 'AVG — media'          },
++  { value: 'sum',   label: 'SUM — sum'         },
++  { value: 'count', label: 'COUNT — count'    },
++  { value: 'avg',   label: 'AVG — average'          },
+   { value: 'max',   label: 'MAX — massimo'        },
+   { value: 'min',   label: 'MIN — minimo'         },
+-  { value: 'first', label: 'FIRST — primo valore' },
+-  { value: 'last',  label: 'LAST — ultimo valore' },
++  { value: 'first', label: 'FIRST — first value' },
++  { value: 'last',  label: 'LAST — last value' },
+ ]
+ 
+ interface PivotColumn { id: string; value: string; alias: string }
+@@ -80,7 +80,7 @@ function PivotColumnEditor({ columns, onChange }: {
+             placeholder="gen" />
+           <input style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: ACCENT }}
+             value={col.alias} onChange={(e) => update(col.id, 'alias', e.target.value)}
+-            placeholder="Gennaio (vuoto = usa valore)" />
++            placeholder="January (empty = use value)" />
+           <button onClick={() => remove(col.id)}
+             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
+@@ -197,7 +197,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+   const FieldSelect = ({ propKey, placeholder }: { propKey: string; placeholder: string }) =>
+     activeFields.length > 0 ? (
+       <CustomSelect style={inputStyle} value={p(propKey)} onChange={u(propKey)}>
+-        <option value="">— seleziona —</option>
++        <option value="">— select —</option>
+         {activeFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
+       </CustomSelect>
+     ) : (
+@@ -210,8 +210,8 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+       {/* Modalità Pivot / Unpivot */}
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+         {[
+-          { value: 'pivot',   label: '⊞ Pivot',   desc: 'Righe → Colonne', detail: 'Valori distinti di un campo diventano colonne' },
+-          { value: 'unpivot', label: '⊟ Unpivot', desc: 'Colonne → Righe',  detail: 'Più colonne collassate in coppie chiave/valore' },
++          { value: 'pivot',   label: '⊞ Pivot',   desc: 'Rows → Columns', detail: 'Distinct values of a field become columns' },
++          { value: 'unpivot', label: '⊟ Unpivot', desc: 'Columns → Rows',  detail: 'Multiple columns collapsed into key/value pairs' },
+         ].map((m) => (
+           <button key={m.value} onClick={() => updateProp(nodeId, 'pivotMode', m.value)}
+             style={{ padding: '10px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: mode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: mode === m.value ? `1.5px solid ${ACCENT}` : '1px solid #2a3349' }}>
+@@ -223,19 +223,19 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+       </div>
+ 
+       {/* ── Sorgente dati ── */}
+-      <SectionTitle label="Sorgente dati" color="#22d3ee" />
++      <SectionTitle label="Data source" color="#22d3ee" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+           {
+             value:    'flow',
+-            label:    '→ Da flusso',
+-            desc:     'Riceve righe via edge — bufferizza internamente, poi calcola.',
++            label:    '→ From flow',
++            desc:     'Receives rows via edge — buffers internally, then computes.',
+             disabled: false,
+           },
+           {
+             value:    'materialize',
+             label:    '◈ Da Materialize',
+-            desc:     'La riga in ingresso è trigger. I dati vengono letti dal Materialize selezionato.',
++            desc:     'The incoming row is a trigger. Data is read from the selected Materialize.',
+             disabled: materializeVars.length === 0,
+             hint:     materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
+           },
+@@ -261,9 +261,9 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+       {/* Selettore Materialize */}
+       {dataSource === 'materialize' && (
+         <>
+-          <Field label="Materialize sorgente" hint="Deve essere già popolato quando questo nodo viene attivato">
++          <Field label="Source Materialize" hint="Must already be populated when this node is activated">
+             <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
+-              <option value="">— seleziona —</option>
++              <option value="">— select —</option>
+               {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
+             </CustomSelect>
+           </Field>
+@@ -282,7 +282,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+           )}
+           {/* accessMode — come Aggregate accede al Materialize */}
+           {matName && (
+-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
++            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
+               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
+                 {ACCESS_OPTIONS.map((opt) => (
+                   <option key={opt.value} value={opt.value}>{opt.label}</option>
+@@ -306,15 +306,15 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+             <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Esempio</div>
+             <div>{'{ anno:2023, mese:"gen", importo:100 }'}</div>
+             <div>{'{ anno:2023, mese:"feb", importo:150 }'}</div>
+-            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ PIVOT su mese · SUM(importo)</div>
++            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ PIVOT on month · SUM(amount)</div>
+             <div style={{ color: '#3ddc84' }}>{'{ anno:2023, gen:100, feb:150 }'}</div>
+           </div>
+ 
+-          <SectionTitle label="Tipo di pivot" />
++          <SectionTitle label="Pivot type" />
+           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+             {[
+-              { value: 'static',  label: 'Statico',  desc: 'Colonne definite manualmente — schema noto a design time' },
+-              { value: 'dynamic', label: 'Dinamico', desc: 'Colonne dai valori distinti a runtime — schema non propagabile' },
++              { value: 'static',  label: 'Static',  desc: 'Columns defined manually — schema known at design time' },
++              { value: 'dynamic', label: 'Dynamic', desc: 'Columns from distinct values at runtime — schema not propagable' },
+             ].map((t) => (
+               <button key={t.value} onClick={() => updateProp(nodeId, 'pivotType', t.value)}
+                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: pivotType === t.value ? `color-mix(in srgb, ${ACCENT} 10%, #1a2030)` : '#1a2030', border: pivotType === t.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
+@@ -327,14 +327,14 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+           {pivotType === 'dynamic' && (
+             <div style={{ padding: '8px 12px', background: '#1a1000', borderRadius: 6, border: '0.5px solid #ffb34740', fontSize: 10, color: '#ffb347', lineHeight: 1.5 }}>
+               <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 6 }} />
+-              Il Pivot dinamico richiede un <strong>Materialize a monte</strong> che contenga tutti i valori distinti del campo pivot.
+-              Lo schema in uscita <strong>non è propagabile a design time</strong>.
++              Dynamic Pivot requires an <strong>upstream Materialize</strong> containing all the distinct values of the pivot field.
++              The output schema <strong>is not propagable at design time</strong>.
+             </div>
+           )}
+ 
+-          <SectionTitle label="Campi" />
++          <SectionTitle label="Fields" />
+ 
+-          <Field label="Campo identità (GROUP BY)" hint="Campi che rimangono come colonne fisse — virgola separati">
++          <Field label="Identity field (GROUP BY)" hint="Fields that remain as fixed columns — comma-separated">
+             {activeFields.length > 0 ? (
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                 <input style={inputStyle} value={p('identityField')} onChange={u('identityField')} placeholder="anno, regione" />
+@@ -361,21 +361,21 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+           </Field>
+ 
+           <Row>
+-            <Field label="Campo pivot" hint="I valori distinti diventano colonne">
+-              <FieldSelect propKey="pivotField" placeholder="mese" />
++            <Field label="Pivot field" hint="The distinct values become columns">
++              <FieldSelect propKey="pivotField" placeholder="month" />
+             </Field>
+-            <Field label="Campo valore" hint="Il dato che va nella cella">
++            <Field label="Value field" hint="The data that goes into the cell">
+               <FieldSelect propKey="valueField" placeholder="importo" />
+             </Field>
+           </Row>
+ 
+           <Row>
+-            <Field label="Funzione aggregazione cella">
++            <Field label="Cell aggregation function">
+               <CustomSelect style={inputStyle} value={p('aggFn', 'sum')} onChange={u('aggFn')}>
+                 {AGG_FUNCTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+               </CustomSelect>
+             </Field>
+-            <Field label="Valore celle null" hint="Valore default se la cella non ha dati">
++            <Field label="Null cell value" hint="Default value if the cell has no data">
+               <input style={inputStyle} value={p('nullValue', '0')} onChange={u('nullValue')} placeholder="0" />
+             </Field>
+           </Row>
+@@ -383,7 +383,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+           {/* Colonne pivot statiche */}
+           {pivotType === 'static' && (
+             <>
+-              <SectionTitle label="Colonne output" />
++              <SectionTitle label="Output columns" />
+               {pivotColumns.length === 0 && (
+                 <div style={{ padding: '8px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+                   Aggiungi i valori distinti del campo pivot da usare come colonne.
+@@ -396,39 +396,39 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+           {/* Pivot dinamico — Materialize per i valori distinti */}
+           {pivotType === 'dynamic' && dataSource === 'flow' && (
+             <>
+-              <SectionTitle label="Materialize valori distinti" />
++              <SectionTitle label="Distinct values Materialize" />
+               <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
+                 Per il pivot dinamico servono due Materialize:
+-                <br />1. <code style={{ color: '#22d3ee' }}>DISTINCT_VALUES</code> — raccoglie i valori distinti del campo pivot
+-                <br />2. <code style={{ color: '#22d3ee' }}>DATA</code> — contiene i dati da pivotare
+-                <br />Pattern: <code style={{ color: ACCENT }}>Source → Mat(pass) → [signal] → Pivot(da Mat)</code>
++                <br />1. <code style={{ color: '#22d3ee' }}>DISTINCT_VALUES</code> — collects the distinct values of the pivot field
++                <br />2. <code style={{ color: '#22d3ee' }}>DATA</code> — contains the data to pivot
++                <br />Pattern: <code style={{ color: ACCENT }}>Source → Mat(pass) → [signal] → Pivot(from Mat)</code>
+               </div>
+-              <Field label="Materialize valori distinti del campo pivot">
++              <Field label="Distinct values Materialize for the pivot field">
+                 {materializeVars.length > 0 ? (
+                   <CustomSelect style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')}>
+-                    <option value="">— seleziona —</option>
++                    <option value="">— select —</option>
+                     {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
+                   </CustomSelect>
+                 ) : (
+-                  <input style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')} placeholder="nome_materialize_distinct" />
++                  <input style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')} placeholder="distinct_materialize_name" />
+                 )}
+               </Field>
+             </>
+           )}
+ 
+-          <SectionTitle label="Opzioni" color="#4a9eff" />
++          <SectionTitle label="Options" color="#4a9eff" />
+           <Row>
+-            <Field label="Ordinamento colonne pivot">
++            <Field label="Pivot columns order">
+               <CustomSelect style={inputStyle} value={p('pivotSort', 'asc')} onChange={u('pivotSort')}>
+                 <option value="asc">Ascendente (A→Z, 1→9)</option>
+                 <option value="desc">Discendente (Z→A, 9→1)</option>
+-                <option value="natural">Naturale (ordine dati)</option>
++                <option value="natural">Natural (data order)</option>
+               </CustomSelect>
+             </Field>
+-            <Field label="Totale riga">
++            <Field label="Row total">
+               <CustomSelect style={inputStyle} value={p('addRowTotal', 'false')} onChange={u('addRowTotal')}>
+                 <option value="false">No</option>
+-                <option value="true">Sì — aggiungi colonna totale</option>
++                <option value="true">Yes — add total column</option>
+               </CustomSelect>
+             </Field>
+           </Row>
+@@ -441,22 +441,22 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+           <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
+             <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Esempio</div>
+             <div>{'{ prodotto:"A", nord:100, sud:80, ovest:60 }'}</div>
+-            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ UNPIVOT colonne nord, sud, ovest</div>
++            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ UNPIVOT columns north, south, west</div>
+             <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"nord", valore:100 }'}</div>
+             <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"sud",  valore:80  }'}</div>
+           </div>
+ 
+-          <SectionTitle label="Campi output" />
++          <SectionTitle label="Output fields" />
+           <Row>
+-            <Field label="Nome campo chiave" hint="Conterrà il nome della colonna originale">
++            <Field label="Key field name" hint="Will contain the name of the original column">
+               <input style={{ ...inputStyle, color: '#4a9eff' }} value={p('unpivotKeyField', 'chiave')} onChange={u('unpivotKeyField')} placeholder="chiave" />
+             </Field>
+-            <Field label="Nome campo valore" hint="Conterrà il valore della colonna originale">
++            <Field label="Value field name" hint="Will contain the value of the original column">
+               <input style={{ ...inputStyle, color: '#3ddc84' }} value={p('unpivotValueField', 'valore')} onChange={u('unpivotValueField')} placeholder="valore" />
+             </Field>
+           </Row>
+ 
+-          <SectionTitle label="Colonne da ruotare in righe" />
++          <SectionTitle label="Columns to rotate into rows" />
+           {activeFields.length === 0 ? (
+             <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+               <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
+@@ -506,20 +506,20 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
+             </>
+           )}
+ 
+-          <SectionTitle label="Opzioni" color="#4a9eff" />
++          <SectionTitle label="Options" color="#4a9eff" />
+           <Row>
+-            <Field label="Valori null">
++            <Field label="Null values">
+               <CustomSelect style={inputStyle} value={p('unpivotNullMode', 'exclude')} onChange={u('unpivotNullMode')}>
+-                <option value="exclude">Escludi righe con null</option>
+-                <option value="include">Includi righe con null</option>
++                <option value="exclude">Exclude rows with null</option>
++                <option value="include">Include rows with null</option>
+                 <option value="zero">Sostituisci null con 0</option>
+               </CustomSelect>
+             </Field>
+-            <Field label="Ordine righe output">
++            <Field label="Output rows order">
+               <CustomSelect style={inputStyle} value={p('unpivotOrder', 'identity_first')} onChange={u('unpivotOrder')}>
+-                <option value="identity_first">Per identità, poi chiave</option>
+-                <option value="key_first">Per chiave, poi identità</option>
+-                <option value="natural">Naturale (colonna per colonna)</option>
++                <option value="identity_first">By identity, then key</option>
++                <option value="key_first">By key, then identity</option>
++                <option value="natural">Natural (column by column)</option>
+               </CustomSelect>
+             </Field>
+           </Row>
+diff --git a/src/nodes/types/window/Panel.tsx b/src/nodes/types/window/Panel.tsx
+index bbea8d3..d6e2121 100644
+--- a/src/nodes/types/window/Panel.tsx
++++ b/src/nodes/types/window/Panel.tsx
+@@ -9,8 +9,8 @@ import { CustomSelect } from '../../../components/CustomSelect'
+ 
+ 
+ const ACCESS_OPTIONS = [
+-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
+-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
++  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
++  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
+ ]
+ 
+ 
+@@ -56,32 +56,32 @@ interface FnDef {
+ }
+ 
+ const WINDOW_FUNCTIONS: FnDef[] = [
+-  { value: 'row_number',     label: 'ROW_NUMBER',      category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Numero progressivo di riga nella partizione — unico per ogni riga' },
+-  { value: 'rank',           label: 'RANK',             category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank con salti per parità (1,1,3...) — stile gara olimpica' },
++  { value: 'row_number',     label: 'ROW_NUMBER',      category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Progressive row number within the partition — unique for each row' },
++  { value: 'rank',           label: 'RANK',             category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank with gaps on ties (1,1,3...) — Olympic style' },
+   { value: 'dense_rank',     label: 'DENSE_RANK',       category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank senza salti (1,1,2...) — preferibile per top-N' },
+-  { value: 'percent_rank',   label: 'PERCENT_RANK',     category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Rank percentuale 0.0→1.0 — posizione relativa nel gruppo' },
+-  { value: 'cume_dist',      label: 'CUME_DIST',        category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Distribuzione cumulativa — frazione di righe ≤ valore corrente' },
++  { value: 'percent_rank',   label: 'PERCENT_RANK',     category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentage rank 0.0→1.0 — relative position in the group' },
++  { value: 'cume_dist',      label: 'CUME_DIST',        category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Cumulative distribution — fraction of rows ≤ current value' },
+   { value: 'ntile',          label: 'NTILE',             category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'integer', desc: 'Suddivide in N bucket — es. quartili (N=4), decili (N=10)' },
+-  { value: 'topn_flag',      label: 'TOP-N FLAG',        category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'boolean', desc: 'true se la riga è tra le prime N della partizione' },
+-  { value: 'lag',            label: 'LAG',               category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Valore della riga N posizioni prima — confronto con periodo precedente' },
+-  { value: 'lead',           label: 'LEAD',              category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Valore della riga N posizioni dopo — anticipazione periodo successivo' },
+-  { value: 'first_value',    label: 'FIRST_VALUE',       category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'Primo valore nella partizione — baseline di confronto' },
+-  { value: 'last_value',     label: 'LAST_VALUE',        category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'Ultimo valore nella partizione' },
+-  { value: 'nth_value',      label: 'NTH_VALUE',         category: 'navigation', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'N-esimo valore nella partizione — generalizzazione di FIRST/LAST' },
+-  { value: 'cumsum',         label: 'CUMSUM',            category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Somma cumulativa crescente — vendite YTD, totale progressivo' },
+-  { value: 'cumcount',       label: 'CUMCOUNT',          category: 'cumulative', hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Conteggio cumulativo — numero di eventi fino a questa riga' },
++  { value: 'topn_flag',      label: 'TOP-N FLAG',        category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'boolean', desc: 'true if the row is among the first N of the partition' },
++  { value: 'lag',            label: 'LAG',               category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Value of the row N positions earlier — compare with previous period' },
++  { value: 'lead',           label: 'LEAD',              category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Value of the row N positions later — anticipate next period' },
++  { value: 'first_value',    label: 'FIRST_VALUE',       category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'First value in the partition — comparison baseline' },
++  { value: 'last_value',     label: 'LAST_VALUE',        category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'Last value in the partition' },
++  { value: 'nth_value',      label: 'NTH_VALUE',         category: 'navigation', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'N-th value in the partition — generalization of FIRST/LAST' },
++  { value: 'cumsum',         label: 'CUMSUM',            category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Growing cumulative sum — YTD sales, running total' },
++  { value: 'cumcount',       label: 'CUMCOUNT',          category: 'cumulative', hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Cumulative count — number of events up to this row' },
+   { value: 'cumprod',        label: 'CUMPROD',           category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Prodotto cumulativo — rendimento composto, crescita moltiplicativa' },
+-  { value: 'moving_avg',     label: 'MOVING AVG',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Media mobile su N righe — smoothing serie temporale, SMA' },
+-  { value: 'moving_sum',     label: 'MOVING SUM',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Somma mobile su N righe — totale scorrevole' },
+-  { value: 'moving_min',     label: 'MOVING MIN',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Minimo mobile su N righe — supporto tecnico in analisi prezzi' },
+-  { value: 'moving_max',     label: 'MOVING MAX',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Massimo mobile su N righe — resistenza tecnica in analisi prezzi' },
+-  { value: 'moving_stddev',  label: 'MOVING STDDEV',     category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Deviazione standard mobile — volatilità, Bollinger Bands' },
+-  { value: 'ratio_to_report',label: 'RATIO TO REPORT',   category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentuale sul totale della partizione — quota di mercato' },
+-  { value: 'delta',          label: 'DELTA',             category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Differenza rispetto alla riga precedente — variazione assoluta giornaliera' },
+-  { value: 'change_detect',  label: 'CHANGE DETECT',     category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'boolean', desc: 'true quando il valore cambia rispetto alla riga precedente — CDC light' },
++  { value: 'moving_avg',     label: 'MOVING AVG',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving average over N rows — time-series smoothing, SMA' },
++  { value: 'moving_sum',     label: 'MOVING SUM',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving sum over N rows — sliding total' },
++  { value: 'moving_min',     label: 'MOVING MIN',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Moving minimum over N rows — technical support in price analysis' },
++  { value: 'moving_max',     label: 'MOVING MAX',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Moving maximum over N rows — technical resistance in price analysis' },
++  { value: 'moving_stddev',  label: 'MOVING STDDEV',     category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving standard deviation — volatility, Bollinger Bands' },
++  { value: 'ratio_to_report',label: 'RATIO TO REPORT',   category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentage of the partition total — market share' },
++  { value: 'delta',          label: 'DELTA',             category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Difference from the previous row — absolute daily change' },
++  { value: 'change_detect',  label: 'CHANGE DETECT',     category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'boolean', desc: 'true when the value changes from the previous row — light CDC' },
+   { value: 'sessionize',     label: 'SESSIONIZE',        category: 'etl',        hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'string',  desc: 'Assegna ID sessione quando il gap temporale supera N secondi' },
+-  { value: 'streak',         label: 'STREAK',            category: 'etl',        hasField: false, hasOffset: false, hasN: false, hasExpr: true,  outputType: 'integer', desc: 'Conta righe consecutive che soddisfano una condizione' },
+-  { value: 'interpolate',    label: 'INTERPOLATE',       category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Riempie null interpolando linearmente tra valore precedente e successivo' },
++  { value: 'streak',         label: 'STREAK',            category: 'etl',        hasField: false, hasOffset: false, hasN: false, hasExpr: true,  outputType: 'integer', desc: 'Counts consecutive rows that satisfy a condition' },
++  { value: 'interpolate',    label: 'INTERPOLATE',       category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Fills nulls by linearly interpolating between the previous and next value' },
+ ]
+ 
+ const CATEGORY_META: Record<string, { label: string; color: string; icon: string }> = {
+@@ -89,7 +89,7 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: string
+   navigation: { label: 'Navigazione',        color: '#ffb347', icon: 'ti-arrows-move'  },
+   cumulative: { label: 'Cumulativo',         color: '#3ddc84', icon: 'ti-trending-up'  },
+   analytical: { label: 'Analitico / Moving', color: ACCENT,    icon: 'ti-chart-line'   },
+-  etl:        { label: 'ETL / Avanzato',     color: '#f97316', icon: 'ti-circuit-cell' },
++  etl:        { label: 'ETL / Advanced',     color: '#f97316', icon: 'ti-circuit-cell' },
+ }
+ 
+ interface WindowDef {
+@@ -180,23 +180,23 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* Info */}
+       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
+-        <span style={{ color: ACCENT, fontWeight: 600 }}>W</span> Calcola valori usando righe vicine nella stessa partizione.
+-        Le righe originali passano invariate con i <strong style={{ color: '#c8d4f0' }}>campi calcolati aggiunti</strong>.
++        <span style={{ color: ACCENT, fontWeight: 600 }}>W</span> Computes values using neighboring rows in the same partition.
++        The original rows pass through unchanged with the <strong style={{ color: '#c8d4f0' }}>computed fields added</strong>.
+       </div>
+ 
+       {/* ── Sorgente dati ── */}
+-      <SectionTitle label="Sorgente dati" color="#22d3ee" />
++      <SectionTitle label="Data source" color="#22d3ee" />
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+         {[
+           {
+             value: 'flow',
+-            label: '→ Da flusso',
+-            desc:  'Riceve righe via edge — la riga in ingresso è il dato da elaborare. Il nodo bufferizza internamente.',
++            label: '→ From flow',
++            desc:  'Receives rows via edge — the incoming row is the data to process. The node buffers internally.',
+           },
+           {
+             value:    'materialize',
+             label:    '◈ Da Materialize',
+-            desc:     'La riga in ingresso è solo un trigger di attivazione. I dati vengono letti dal Materialize selezionato.',
++            desc:     'The incoming row is only an activation trigger. Data is read from the selected Materialize.',
+             disabled: materializeVars.length === 0,
+             hint:     materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
+           },
+@@ -222,16 +222,16 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+       {/* Selettore Materialize */}
+       {dataSource === 'materialize' && (
+         <>
+-          <Field label="Materialize sorgente" hint="Deve essere già popolato quando questo nodo viene attivato">
++          <Field label="Source Materialize" hint="Must already be populated when this node is activated">
+             {materializeVars.length > 0 ? (
+               <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
+-                <option value="">— seleziona —</option>
++                <option value="">— select —</option>
+                 {materializeVars.map((v) => (
+                   <option key={v.id} value={v.name}>{v.name}</option>
+                 ))}
+               </CustomSelect>
+             ) : (
+-              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="nome_materialize" />
++              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="materialize_name" />
+             )}
+           </Field>
+           {matName && materializeFields.length === 0 && (
+@@ -249,12 +249,12 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+           )}
+           <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
+             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
+-            Pattern tipico: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Window</code>.
++            Typical pattern: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Window</code>.
+             Il signal del Materialize arriva come trigger, Window legge i dati dalla lane.
+           </div>
+           {/* accessMode — come Aggregate accede al Materialize */}
+           {matName && (
+-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
++            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
+               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
+                 {ACCESS_OPTIONS.map((opt) => (
+                   <option key={opt.value} value={opt.value}>{opt.label}</option>
+@@ -271,9 +271,9 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+       )}
+ 
+       {/* Partizione e ordinamento */}
+-      <SectionTitle label="Partizione e ordinamento" color="#4a9eff" />
++      <SectionTitle label="Partition and sorting" color="#4a9eff" />
+ 
+-      <Field label="Partition by — campi di partizione" hint="La finestra viene calcolata indipendentemente per ogni combinazione di valori">
++      <Field label="Partition by — partition fields" hint="The window is computed independently for each combination of values">
+         {activeFields.length > 0 ? (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+@@ -293,7 +293,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+               </div>
+             )}
+             {partitionFields.length === 0 && (
+-              <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>Nessuna partizione — finestra globale su tutti i dati</div>
++              <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>No partition — global window over all data</div>
+             )}
+           </div>
+         ) : (
+@@ -305,13 +305,13 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+         <Field label="Order by">
+           {activeFields.length > 0 ? (
+             <CustomSelect style={inputStyle} value={orderBy} onChange={u('orderBy')}>
+-              <option value="">— seleziona campo —</option>
++              <option value="">— select field —</option>
+               {activeFields.map((f) => (
+                 <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+               ))}
+             </CustomSelect>
+           ) : (
+-            <input style={inputStyle} value={orderBy} onChange={u('orderBy')} placeholder="data, id" />
++            <input style={inputStyle} value={orderBy} onChange={u('orderBy')} placeholder="date, id" />
+           )}
+         </Field>
+         <Field label="Direzione">
+@@ -385,20 +385,20 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+                     </CustomSelect>
+                   </div>
+                   <div>
+-                    <div style={labelStyle}>Campo output</div>
++                    <div style={labelStyle}>Output field</div>
+                     <input style={{ ...inputStyle, color }} value={w.outputField}
+                       onChange={(e) => updateWindow(w.id, { outputField: e.target.value })}
+-                      placeholder="nome_campo_output" />
++                      placeholder="output_field_name" />
+                   </div>
+                 </div>
+ 
+                 {fnDef?.hasField && (
+                   <div>
+-                    <div style={labelStyle}>Campo sorgente</div>
++                    <div style={labelStyle}>Source field</div>
+                     {activeFields.length > 0 ? (
+                       <CustomSelect style={inputStyle} value={w.field ?? ''}
+                         onChange={(e) => updateWindow(w.id, { field: e.target.value })}>
+-                        <option value="">— seleziona campo —</option>
++                        <option value="">— select field —</option>
+                         {activeFields.map((f) => (
+                           <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
+                         ))}
+@@ -406,7 +406,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+                     ) : (
+                       <input style={inputStyle} value={w.field ?? ''}
+                         onChange={(e) => updateWindow(w.id, { field: e.target.value })}
+-                        placeholder="nome_campo" />
++                        placeholder="field_name" />
+                     )}
+                   </div>
+                 )}
+@@ -420,7 +420,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+                     </div>
+                     {(w.fn === 'lag' || w.fn === 'lead') && (
+                       <div>
+-                        <div style={labelStyle}>Valore se null</div>
++                        <div style={labelStyle}>Value if null</div>
+                         <input style={inputStyle} value={w.nullDefault}
+                           onChange={(e) => updateWindow(w.id, { nullDefault: e.target.value })}
+                           placeholder="null" />
+@@ -448,12 +448,12 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+ 
+                 {fnDef?.hasExpr && (
+                   <div>
+-                    <div style={labelStyle}>Condizione streak</div>
++                    <div style={labelStyle}>Streak condition</div>
+                     <input style={{ ...inputStyle, color: '#f97316' }} value={w.expr ?? ''}
+                       onChange={(e) => updateWindow(w.id, { expr: e.target.value })}
+                       placeholder="amount > 0" />
+                     <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>
+-                      Conta le righe consecutive dove la condizione è vera. Reset a 0 quando è falsa.
++                      Counts consecutive rows where the condition is true. Resets to 0 when it is false.
+                     </div>
+                   </div>
+                 )}
+@@ -510,8 +510,8 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
+         <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
+           <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+           {dataSource === 'materialize'
+-            ? 'Legge tutti i dati dal Materialize in una volta — nessun buffering interno necessario.'
+-            : 'Le righe passano invariate con i campi calcolati aggiunti. Richiede visibilità sull\'intera partizione.'}
++            ? 'Reads all data from the Materialize at once — no internal buffering needed.'
++            : 'The rows pass through unchanged with the computed fields added. Requires visibility over the entire partition.'}
+         </div>
+       )}
+     </div>

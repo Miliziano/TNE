@@ -155,10 +155,10 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
     { value: 'contains', label: '∋ contiene'          },
     { value: 'starts',   label: '⊏ inizia con'        },
     { value: 'ends',     label: '⊐ finisce con'       },
-    { value: 'is_null',  label: '∅ è null'            },
-    { value: 'not_null', label: '≠∅ non è null'       },
-    { value: 'in',       label: '∈ è in lista'        },
-    { value: 'not_in',   label: '∉ non è in lista'    },
+    { value: 'is_null',  label: '∅ is null'            },
+    { value: 'not_null', label: '≠∅ is not null'       },
+    { value: 'in',       label: '∈ is in list'        },
+    { value: 'not_in',   label: '∉ is not in list'    },
     { value: 'regex',    label: '~ regex'             },
   ]
 
@@ -184,16 +184,16 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
             <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={labelStyle}>Campo</div>
+                  <div style={labelStyle}>Field</div>
                   {incomingFields.length > 0 ? (
                     <CustomSelect style={inputStyle} value={clause.field}
                       onChange={(e) => update(clause.id, 'field', e.target.value)}>
-                      <option value="">— seleziona —</option>
+                      <option value="">— select —</option>
                       {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                     </CustomSelect>
                   ) : (
                     <input style={inputStyle} value={clause.field}
-                      onChange={(e) => update(clause.id, 'field', e.target.value)} placeholder="nome_campo" />
+                      onChange={(e) => update(clause.id, 'field', e.target.value)} placeholder="field_name" />
                   )}
                 </div>
                 <button onClick={() => remove(clause.id)} disabled={clauses.length === 1}
@@ -205,7 +205,7 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: noValue ? '1fr' : '1fr 1fr', gap: 6 }}>
                 <div>
-                  <div style={labelStyle}>Operatore</div>
+                  <div style={labelStyle}>Operator</div>
                   <CustomSelect style={inputStyle} value={clause.operator}
                     onChange={(e) => update(clause.id, 'operator', e.target.value as ConditionOperator)}>
                     {OPERATORS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -244,7 +244,7 @@ function TemplateBuilder({ templateId, params, onChange }: {
       <div>
         <div style={labelStyle}>Template</div>
         <CustomSelect style={inputStyle} value={templateId} onChange={(e) => onChange(e.target.value, { ...params })}>
-          <option value="">— seleziona —</option>
+          <option value="">— select —</option>
           {Object.entries(byCategory).map(([cat, tpls]) => (
             <optgroup key={cat} label={cat}>
               {tpls.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
@@ -318,7 +318,7 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
           style={{ width: 18, height: 18, border: 'none', borderRadius: 3, padding: 0, cursor: 'pointer', background: 'none', flexShrink: 0 }} />
         <input value={cond.label} onChange={(e) => onUpdate({ label: e.target.value })}
           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, color: cond.color, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
-          placeholder="nome uscita" />
+          placeholder="output name" />
 
         {/* Selettori modalità — con tooltip che mostra il campo che verrà portato */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -363,9 +363,9 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
               background: `color-mix(in srgb, ${cond.color} 8%, #0f1117)`,
               borderRadius: 4, border: `0.5px solid ${cond.color}30` }}>
               <i className="ti ti-arrow-right" style={{ fontSize: 9, color: cond.color }} />
-              <span style={{ fontSize: 9, color: '#8593b5' }}>Campo: </span>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>Field: </span>
               <code style={{ fontSize: 10, color: cond.color }}>{currentField}</code>
-              <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 4 }}>— verrà portato se cambi modalità</span>
+              <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 4 }}>— will be carried over if you change mode</span>
             </div>
           )}
 
@@ -471,15 +471,15 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
 
       {incomingFields.length > 0 && (
         <div style={{ padding: '6px 10px', background: '#0d3d20', borderRadius: 4, border: '0.5px solid #1d6d40', fontSize: 10, color: '#3ddc84', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ color: '#8593b5', marginRight: 4 }}>Campi disponibili:</span>
+          <span style={{ color: '#8593b5', marginRight: 4 }}>Available fields:</span>
           {incomingFields.map((f) => <code key={f.name} style={{ background: '#1d6d4040', padding: '1px 6px', borderRadius: 3 }}>{f.name}</code>)}
         </div>
       )}
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#9a9aaa', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
-        Le condizioni sono valutate in ordine — ogni riga va sulla <strong style={{ color: ACCENT }}>prima che corrisponde</strong> (first-match).
-        Le righe che non soddisfano nessuna condizione vanno al <strong style={{ color: '#ff5f57' }}>reject</strong>.
+        Conditions are evaluated in order — each row goes to the <strong style={{ color: ACCENT }}>first that matches</strong> (first-match).
+        Rows that satisfy no condition go to <strong style={{ color: '#ff5f57' }}>reject</strong>.
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -498,7 +498,7 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
         {config.conditions.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', color: '#2a3349', fontSize: 11, background: '#0f1117', borderRadius: 8, border: '1px dashed #2a3349' }}>
             <i className="ti ti-filter" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: `${ACCENT}20` }} />
-            Nessuna condizione. Le righe vanno tutte al <span style={{ color: '#ff5f57' }}>reject</span>.
+            No condition. All rows go to <span style={{ color: '#ff5f57' }}>reject</span>.
           </div>
         ) : (
           config.conditions.map((cond, idx) => (
@@ -519,26 +519,26 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f57' }} />
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#ff5f57' }}>reject</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Righe che non soddisfano nessuna condizione — sempre presente</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Rows that satisfy no condition — always present</div>
         </div>
       </div>
 
       {/* Opzioni globali */}
       <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Opzioni globali</span>
+        <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Global options</span>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <Field label="Comportamento su null">
             <CustomSelect style={inputStyle} value={config.nullBehavior}
               onChange={(e) => saveConfig({ ...config, nullBehavior: e.target.value as FilterConfig['nullBehavior'] })}>
-              <option value="exclude">Escludi (→ reject)</option>
-              <option value="include">Includi nella valutazione</option>
-              <option value="error">Errore su null</option>
+              <option value="exclude">Exclude (→ reject)</option>
+              <option value="include">Include in evaluation</option>
+              <option value="error">Error on null</option>
             </CustomSelect>
           </Field>
           <Field label="Case sensitive">
             <CustomSelect style={inputStyle} value={config.caseSensitive ? 'true' : 'false'}
               onChange={(e) => saveConfig({ ...config, caseSensitive: e.target.value === 'true' })}>
-              <option value="true">Sì</option>
+              <option value="true">Yes</option>
               <option value="false">No</option>
             </CustomSelect>
           </Field>
@@ -546,13 +546,13 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-            Modalità esecuzione rami
+            Branch execution mode
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {[
               { value: 'parallel',     icon: '⇉', label: 'Tutti in parallelo',       desc: 'I rami partono contemporaneamente.',                                              color: '#4a9eff' },
-              { value: 'sequential',   icon: '→', label: 'Sequenziale',              desc: 'I rami partono in ordine di priorità senza aspettare il completamento.',          color: '#ffb347' },
-              { value: 'ordered_wait', icon: '⏱', label: 'Ordinato con attesa',      desc: 'Il ramo #N parte solo quando il ramo #N-1 ha completato l\'intera sotto-pipeline.', color: '#3ddc84' },
+              { value: 'sequential',   icon: '→', label: 'Sequential',              desc: 'Branches start in priority order without waiting for completion.',          color: '#ffb347' },
+              { value: 'ordered_wait', icon: '⏱', label: 'Ordered with wait',      desc: 'Branch #N starts only when branch #N-1 has completed the entire sub-pipeline.', color: '#3ddc84' },
             ].map((m) => (
               <button key={m.value} onClick={() => saveConfig({ ...config, execMode: m.value })}
                 style={{ padding: '8px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',

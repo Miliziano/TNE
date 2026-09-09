@@ -10,8 +10,8 @@ import { CustomSelect } from '../../../components/CustomSelect'
 const ACCENT = '#f97316'
 
 const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
+  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
+  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
 ]
 
 const inputStyle: React.CSSProperties = {
@@ -44,13 +44,13 @@ function Row({ children }: { children: React.ReactNode }) {
 }
 
 const AGG_FUNCTIONS = [
-  { value: 'sum',   label: 'SUM — somma'         },
-  { value: 'count', label: 'COUNT — conteggio'    },
-  { value: 'avg',   label: 'AVG — media'          },
+  { value: 'sum',   label: 'SUM — sum'         },
+  { value: 'count', label: 'COUNT — count'    },
+  { value: 'avg',   label: 'AVG — average'          },
   { value: 'max',   label: 'MAX — massimo'        },
   { value: 'min',   label: 'MIN — minimo'         },
-  { value: 'first', label: 'FIRST — primo valore' },
-  { value: 'last',  label: 'LAST — ultimo valore' },
+  { value: 'first', label: 'FIRST — first value' },
+  { value: 'last',  label: 'LAST — last value' },
 ]
 
 interface PivotColumn { id: string; value: string; alias: string }
@@ -80,7 +80,7 @@ function PivotColumnEditor({ columns, onChange }: {
             placeholder="gen" />
           <input style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: ACCENT }}
             value={col.alias} onChange={(e) => update(col.id, 'alias', e.target.value)}
-            placeholder="Gennaio (vuoto = usa valore)" />
+            placeholder="January (empty = use value)" />
           <button onClick={() => remove(col.id)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
@@ -197,7 +197,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
   const FieldSelect = ({ propKey, placeholder }: { propKey: string; placeholder: string }) =>
     activeFields.length > 0 ? (
       <CustomSelect style={inputStyle} value={p(propKey)} onChange={u(propKey)}>
-        <option value="">— seleziona —</option>
+        <option value="">— select —</option>
         {activeFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
       </CustomSelect>
     ) : (
@@ -210,8 +210,8 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
       {/* Modalità Pivot / Unpivot */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {[
-          { value: 'pivot',   label: '⊞ Pivot',   desc: 'Righe → Colonne', detail: 'Valori distinti di un campo diventano colonne' },
-          { value: 'unpivot', label: '⊟ Unpivot', desc: 'Colonne → Righe',  detail: 'Più colonne collassate in coppie chiave/valore' },
+          { value: 'pivot',   label: '⊞ Pivot',   desc: 'Rows → Columns', detail: 'Distinct values of a field become columns' },
+          { value: 'unpivot', label: '⊟ Unpivot', desc: 'Columns → Rows',  detail: 'Multiple columns collapsed into key/value pairs' },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'pivotMode', m.value)}
             style={{ padding: '10px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: mode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: mode === m.value ? `1.5px solid ${ACCENT}` : '1px solid #2a3349' }}>
@@ -223,19 +223,19 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* ── Sorgente dati ── */}
-      <SectionTitle label="Sorgente dati" color="#22d3ee" />
+      <SectionTitle label="Data source" color="#22d3ee" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           {
             value:    'flow',
-            label:    '→ Da flusso',
-            desc:     'Riceve righe via edge — bufferizza internamente, poi calcola.',
+            label:    '→ From flow',
+            desc:     'Receives rows via edge — buffers internally, then computes.',
             disabled: false,
           },
           {
             value:    'materialize',
             label:    '◈ Da Materialize',
-            desc:     'La riga in ingresso è trigger. I dati vengono letti dal Materialize selezionato.',
+            desc:     'The incoming row is a trigger. Data is read from the selected Materialize.',
             disabled: materializeVars.length === 0,
             hint:     materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
           },
@@ -261,9 +261,9 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
       {/* Selettore Materialize */}
       {dataSource === 'materialize' && (
         <>
-          <Field label="Materialize sorgente" hint="Deve essere già popolato quando questo nodo viene attivato">
+          <Field label="Source Materialize" hint="Must already be populated when this node is activated">
             <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
-              <option value="">— seleziona —</option>
+              <option value="">— select —</option>
               {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
             </CustomSelect>
           </Field>
@@ -282,7 +282,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           )}
           {/* accessMode — come Aggregate accede al Materialize */}
           {matName && (
-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
+            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
                 {ACCESS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -306,15 +306,15 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
             <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Esempio</div>
             <div>{'{ anno:2023, mese:"gen", importo:100 }'}</div>
             <div>{'{ anno:2023, mese:"feb", importo:150 }'}</div>
-            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ PIVOT su mese · SUM(importo)</div>
+            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ PIVOT on month · SUM(amount)</div>
             <div style={{ color: '#3ddc84' }}>{'{ anno:2023, gen:100, feb:150 }'}</div>
           </div>
 
-          <SectionTitle label="Tipo di pivot" />
+          <SectionTitle label="Pivot type" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[
-              { value: 'static',  label: 'Statico',  desc: 'Colonne definite manualmente — schema noto a design time' },
-              { value: 'dynamic', label: 'Dinamico', desc: 'Colonne dai valori distinti a runtime — schema non propagabile' },
+              { value: 'static',  label: 'Static',  desc: 'Columns defined manually — schema known at design time' },
+              { value: 'dynamic', label: 'Dynamic', desc: 'Columns from distinct values at runtime — schema not propagable' },
             ].map((t) => (
               <button key={t.value} onClick={() => updateProp(nodeId, 'pivotType', t.value)}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: pivotType === t.value ? `color-mix(in srgb, ${ACCENT} 10%, #1a2030)` : '#1a2030', border: pivotType === t.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
@@ -327,14 +327,14 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           {pivotType === 'dynamic' && (
             <div style={{ padding: '8px 12px', background: '#1a1000', borderRadius: 6, border: '0.5px solid #ffb34740', fontSize: 10, color: '#ffb347', lineHeight: 1.5 }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 6 }} />
-              Il Pivot dinamico richiede un <strong>Materialize a monte</strong> che contenga tutti i valori distinti del campo pivot.
-              Lo schema in uscita <strong>non è propagabile a design time</strong>.
+              Dynamic Pivot requires an <strong>upstream Materialize</strong> containing all the distinct values of the pivot field.
+              The output schema <strong>is not propagable at design time</strong>.
             </div>
           )}
 
-          <SectionTitle label="Campi" />
+          <SectionTitle label="Fields" />
 
-          <Field label="Campo identità (GROUP BY)" hint="Campi che rimangono come colonne fisse — virgola separati">
+          <Field label="Identity field (GROUP BY)" hint="Fields that remain as fixed columns — comma-separated">
             {activeFields.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <input style={inputStyle} value={p('identityField')} onChange={u('identityField')} placeholder="anno, regione" />
@@ -361,21 +361,21 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           </Field>
 
           <Row>
-            <Field label="Campo pivot" hint="I valori distinti diventano colonne">
-              <FieldSelect propKey="pivotField" placeholder="mese" />
+            <Field label="Pivot field" hint="The distinct values become columns">
+              <FieldSelect propKey="pivotField" placeholder="month" />
             </Field>
-            <Field label="Campo valore" hint="Il dato che va nella cella">
+            <Field label="Value field" hint="The data that goes into the cell">
               <FieldSelect propKey="valueField" placeholder="importo" />
             </Field>
           </Row>
 
           <Row>
-            <Field label="Funzione aggregazione cella">
+            <Field label="Cell aggregation function">
               <CustomSelect style={inputStyle} value={p('aggFn', 'sum')} onChange={u('aggFn')}>
                 {AGG_FUNCTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
               </CustomSelect>
             </Field>
-            <Field label="Valore celle null" hint="Valore default se la cella non ha dati">
+            <Field label="Null cell value" hint="Default value if the cell has no data">
               <input style={inputStyle} value={p('nullValue', '0')} onChange={u('nullValue')} placeholder="0" />
             </Field>
           </Row>
@@ -383,7 +383,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           {/* Colonne pivot statiche */}
           {pivotType === 'static' && (
             <>
-              <SectionTitle label="Colonne output" />
+              <SectionTitle label="Output columns" />
               {pivotColumns.length === 0 && (
                 <div style={{ padding: '8px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
                   Aggiungi i valori distinti del campo pivot da usare come colonne.
@@ -396,39 +396,39 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           {/* Pivot dinamico — Materialize per i valori distinti */}
           {pivotType === 'dynamic' && dataSource === 'flow' && (
             <>
-              <SectionTitle label="Materialize valori distinti" />
+              <SectionTitle label="Distinct values Materialize" />
               <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
                 Per il pivot dinamico servono due Materialize:
-                <br />1. <code style={{ color: '#22d3ee' }}>DISTINCT_VALUES</code> — raccoglie i valori distinti del campo pivot
-                <br />2. <code style={{ color: '#22d3ee' }}>DATA</code> — contiene i dati da pivotare
-                <br />Pattern: <code style={{ color: ACCENT }}>Source → Mat(pass) → [signal] → Pivot(da Mat)</code>
+                <br />1. <code style={{ color: '#22d3ee' }}>DISTINCT_VALUES</code> — collects the distinct values of the pivot field
+                <br />2. <code style={{ color: '#22d3ee' }}>DATA</code> — contains the data to pivot
+                <br />Pattern: <code style={{ color: ACCENT }}>Source → Mat(pass) → [signal] → Pivot(from Mat)</code>
               </div>
-              <Field label="Materialize valori distinti del campo pivot">
+              <Field label="Distinct values Materialize for the pivot field">
                 {materializeVars.length > 0 ? (
                   <CustomSelect style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')}>
-                    <option value="">— seleziona —</option>
+                    <option value="">— select —</option>
                     {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
                   </CustomSelect>
                 ) : (
-                  <input style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')} placeholder="nome_materialize_distinct" />
+                  <input style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')} placeholder="distinct_materialize_name" />
                 )}
               </Field>
             </>
           )}
 
-          <SectionTitle label="Opzioni" color="#4a9eff" />
+          <SectionTitle label="Options" color="#4a9eff" />
           <Row>
-            <Field label="Ordinamento colonne pivot">
+            <Field label="Pivot columns order">
               <CustomSelect style={inputStyle} value={p('pivotSort', 'asc')} onChange={u('pivotSort')}>
                 <option value="asc">Ascendente (A→Z, 1→9)</option>
                 <option value="desc">Discendente (Z→A, 9→1)</option>
-                <option value="natural">Naturale (ordine dati)</option>
+                <option value="natural">Natural (data order)</option>
               </CustomSelect>
             </Field>
-            <Field label="Totale riga">
+            <Field label="Row total">
               <CustomSelect style={inputStyle} value={p('addRowTotal', 'false')} onChange={u('addRowTotal')}>
                 <option value="false">No</option>
-                <option value="true">Sì — aggiungi colonna totale</option>
+                <option value="true">Yes — add total column</option>
               </CustomSelect>
             </Field>
           </Row>
@@ -441,22 +441,22 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
             <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Esempio</div>
             <div>{'{ prodotto:"A", nord:100, sud:80, ovest:60 }'}</div>
-            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ UNPIVOT colonne nord, sud, ovest</div>
+            <div style={{ color: ACCENT, margin: '4px 0' }}>↓ UNPIVOT columns north, south, west</div>
             <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"nord", valore:100 }'}</div>
             <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"sud",  valore:80  }'}</div>
           </div>
 
-          <SectionTitle label="Campi output" />
+          <SectionTitle label="Output fields" />
           <Row>
-            <Field label="Nome campo chiave" hint="Conterrà il nome della colonna originale">
+            <Field label="Key field name" hint="Will contain the name of the original column">
               <input style={{ ...inputStyle, color: '#4a9eff' }} value={p('unpivotKeyField', 'chiave')} onChange={u('unpivotKeyField')} placeholder="chiave" />
             </Field>
-            <Field label="Nome campo valore" hint="Conterrà il valore della colonna originale">
+            <Field label="Value field name" hint="Will contain the value of the original column">
               <input style={{ ...inputStyle, color: '#3ddc84' }} value={p('unpivotValueField', 'valore')} onChange={u('unpivotValueField')} placeholder="valore" />
             </Field>
           </Row>
 
-          <SectionTitle label="Colonne da ruotare in righe" />
+          <SectionTitle label="Columns to rotate into rows" />
           {activeFields.length === 0 ? (
             <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
               <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
@@ -506,20 +506,20 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
             </>
           )}
 
-          <SectionTitle label="Opzioni" color="#4a9eff" />
+          <SectionTitle label="Options" color="#4a9eff" />
           <Row>
-            <Field label="Valori null">
+            <Field label="Null values">
               <CustomSelect style={inputStyle} value={p('unpivotNullMode', 'exclude')} onChange={u('unpivotNullMode')}>
-                <option value="exclude">Escludi righe con null</option>
-                <option value="include">Includi righe con null</option>
+                <option value="exclude">Exclude rows with null</option>
+                <option value="include">Include rows with null</option>
                 <option value="zero">Sostituisci null con 0</option>
               </CustomSelect>
             </Field>
-            <Field label="Ordine righe output">
+            <Field label="Output rows order">
               <CustomSelect style={inputStyle} value={p('unpivotOrder', 'identity_first')} onChange={u('unpivotOrder')}>
-                <option value="identity_first">Per identità, poi chiave</option>
-                <option value="key_first">Per chiave, poi identità</option>
-                <option value="natural">Naturale (colonna per colonna)</option>
+                <option value="identity_first">By identity, then key</option>
+                <option value="key_first">By key, then identity</option>
+                <option value="natural">Natural (column by column)</option>
               </CustomSelect>
             </Field>
           </Row>

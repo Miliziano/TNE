@@ -9,8 +9,8 @@ import { CustomSelect } from '../../../components/CustomSelect'
 
 
 const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
+  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
+  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
 ]
 
 
@@ -56,32 +56,32 @@ interface FnDef {
 }
 
 const WINDOW_FUNCTIONS: FnDef[] = [
-  { value: 'row_number',     label: 'ROW_NUMBER',      category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Numero progressivo di riga nella partizione — unico per ogni riga' },
-  { value: 'rank',           label: 'RANK',             category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank con salti per parità (1,1,3...) — stile gara olimpica' },
+  { value: 'row_number',     label: 'ROW_NUMBER',      category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Progressive row number within the partition — unique for each row' },
+  { value: 'rank',           label: 'RANK',             category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank with gaps on ties (1,1,3...) — Olympic style' },
   { value: 'dense_rank',     label: 'DENSE_RANK',       category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank senza salti (1,1,2...) — preferibile per top-N' },
-  { value: 'percent_rank',   label: 'PERCENT_RANK',     category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Rank percentuale 0.0→1.0 — posizione relativa nel gruppo' },
-  { value: 'cume_dist',      label: 'CUME_DIST',        category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Distribuzione cumulativa — frazione di righe ≤ valore corrente' },
+  { value: 'percent_rank',   label: 'PERCENT_RANK',     category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentage rank 0.0→1.0 — relative position in the group' },
+  { value: 'cume_dist',      label: 'CUME_DIST',        category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Cumulative distribution — fraction of rows ≤ current value' },
   { value: 'ntile',          label: 'NTILE',             category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'integer', desc: 'Suddivide in N bucket — es. quartili (N=4), decili (N=10)' },
-  { value: 'topn_flag',      label: 'TOP-N FLAG',        category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'boolean', desc: 'true se la riga è tra le prime N della partizione' },
-  { value: 'lag',            label: 'LAG',               category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Valore della riga N posizioni prima — confronto con periodo precedente' },
-  { value: 'lead',           label: 'LEAD',              category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Valore della riga N posizioni dopo — anticipazione periodo successivo' },
-  { value: 'first_value',    label: 'FIRST_VALUE',       category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'Primo valore nella partizione — baseline di confronto' },
-  { value: 'last_value',     label: 'LAST_VALUE',        category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'Ultimo valore nella partizione' },
-  { value: 'nth_value',      label: 'NTH_VALUE',         category: 'navigation', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'N-esimo valore nella partizione — generalizzazione di FIRST/LAST' },
-  { value: 'cumsum',         label: 'CUMSUM',            category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Somma cumulativa crescente — vendite YTD, totale progressivo' },
-  { value: 'cumcount',       label: 'CUMCOUNT',          category: 'cumulative', hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Conteggio cumulativo — numero di eventi fino a questa riga' },
+  { value: 'topn_flag',      label: 'TOP-N FLAG',        category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'boolean', desc: 'true if the row is among the first N of the partition' },
+  { value: 'lag',            label: 'LAG',               category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Value of the row N positions earlier — compare with previous period' },
+  { value: 'lead',           label: 'LEAD',              category: 'navigation', hasField: true,  hasOffset: true,  hasN: false, hasExpr: false, outputType: 'any',     desc: 'Value of the row N positions later — anticipate next period' },
+  { value: 'first_value',    label: 'FIRST_VALUE',       category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'First value in the partition — comparison baseline' },
+  { value: 'last_value',     label: 'LAST_VALUE',        category: 'navigation', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'any',     desc: 'Last value in the partition' },
+  { value: 'nth_value',      label: 'NTH_VALUE',         category: 'navigation', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'N-th value in the partition — generalization of FIRST/LAST' },
+  { value: 'cumsum',         label: 'CUMSUM',            category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Growing cumulative sum — YTD sales, running total' },
+  { value: 'cumcount',       label: 'CUMCOUNT',          category: 'cumulative', hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Cumulative count — number of events up to this row' },
   { value: 'cumprod',        label: 'CUMPROD',           category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Prodotto cumulativo — rendimento composto, crescita moltiplicativa' },
-  { value: 'moving_avg',     label: 'MOVING AVG',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Media mobile su N righe — smoothing serie temporale, SMA' },
-  { value: 'moving_sum',     label: 'MOVING SUM',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Somma mobile su N righe — totale scorrevole' },
-  { value: 'moving_min',     label: 'MOVING MIN',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Minimo mobile su N righe — supporto tecnico in analisi prezzi' },
-  { value: 'moving_max',     label: 'MOVING MAX',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Massimo mobile su N righe — resistenza tecnica in analisi prezzi' },
-  { value: 'moving_stddev',  label: 'MOVING STDDEV',     category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Deviazione standard mobile — volatilità, Bollinger Bands' },
-  { value: 'ratio_to_report',label: 'RATIO TO REPORT',   category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentuale sul totale della partizione — quota di mercato' },
-  { value: 'delta',          label: 'DELTA',             category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Differenza rispetto alla riga precedente — variazione assoluta giornaliera' },
-  { value: 'change_detect',  label: 'CHANGE DETECT',     category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'boolean', desc: 'true quando il valore cambia rispetto alla riga precedente — CDC light' },
+  { value: 'moving_avg',     label: 'MOVING AVG',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving average over N rows — time-series smoothing, SMA' },
+  { value: 'moving_sum',     label: 'MOVING SUM',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving sum over N rows — sliding total' },
+  { value: 'moving_min',     label: 'MOVING MIN',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Moving minimum over N rows — technical support in price analysis' },
+  { value: 'moving_max',     label: 'MOVING MAX',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Moving maximum over N rows — technical resistance in price analysis' },
+  { value: 'moving_stddev',  label: 'MOVING STDDEV',     category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving standard deviation — volatility, Bollinger Bands' },
+  { value: 'ratio_to_report',label: 'RATIO TO REPORT',   category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentage of the partition total — market share' },
+  { value: 'delta',          label: 'DELTA',             category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Difference from the previous row — absolute daily change' },
+  { value: 'change_detect',  label: 'CHANGE DETECT',     category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'boolean', desc: 'true when the value changes from the previous row — light CDC' },
   { value: 'sessionize',     label: 'SESSIONIZE',        category: 'etl',        hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'string',  desc: 'Assegna ID sessione quando il gap temporale supera N secondi' },
-  { value: 'streak',         label: 'STREAK',            category: 'etl',        hasField: false, hasOffset: false, hasN: false, hasExpr: true,  outputType: 'integer', desc: 'Conta righe consecutive che soddisfano una condizione' },
-  { value: 'interpolate',    label: 'INTERPOLATE',       category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Riempie null interpolando linearmente tra valore precedente e successivo' },
+  { value: 'streak',         label: 'STREAK',            category: 'etl',        hasField: false, hasOffset: false, hasN: false, hasExpr: true,  outputType: 'integer', desc: 'Counts consecutive rows that satisfy a condition' },
+  { value: 'interpolate',    label: 'INTERPOLATE',       category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Fills nulls by linearly interpolating between the previous and next value' },
 ]
 
 const CATEGORY_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -89,7 +89,7 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: string
   navigation: { label: 'Navigazione',        color: '#ffb347', icon: 'ti-arrows-move'  },
   cumulative: { label: 'Cumulativo',         color: '#3ddc84', icon: 'ti-trending-up'  },
   analytical: { label: 'Analitico / Moving', color: ACCENT,    icon: 'ti-chart-line'   },
-  etl:        { label: 'ETL / Avanzato',     color: '#f97316', icon: 'ti-circuit-cell' },
+  etl:        { label: 'ETL / Advanced',     color: '#f97316', icon: 'ti-circuit-cell' },
 }
 
 interface WindowDef {
@@ -180,23 +180,23 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>W</span> Calcola valori usando righe vicine nella stessa partizione.
-        Le righe originali passano invariate con i <strong style={{ color: '#c8d4f0' }}>campi calcolati aggiunti</strong>.
+        <span style={{ color: ACCENT, fontWeight: 600 }}>W</span> Computes values using neighboring rows in the same partition.
+        The original rows pass through unchanged with the <strong style={{ color: '#c8d4f0' }}>computed fields added</strong>.
       </div>
 
       {/* ── Sorgente dati ── */}
-      <SectionTitle label="Sorgente dati" color="#22d3ee" />
+      <SectionTitle label="Data source" color="#22d3ee" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           {
             value: 'flow',
-            label: '→ Da flusso',
-            desc:  'Riceve righe via edge — la riga in ingresso è il dato da elaborare. Il nodo bufferizza internamente.',
+            label: '→ From flow',
+            desc:  'Receives rows via edge — the incoming row is the data to process. The node buffers internally.',
           },
           {
             value:    'materialize',
             label:    '◈ Da Materialize',
-            desc:     'La riga in ingresso è solo un trigger di attivazione. I dati vengono letti dal Materialize selezionato.',
+            desc:     'The incoming row is only an activation trigger. Data is read from the selected Materialize.',
             disabled: materializeVars.length === 0,
             hint:     materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
           },
@@ -222,16 +222,16 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
       {/* Selettore Materialize */}
       {dataSource === 'materialize' && (
         <>
-          <Field label="Materialize sorgente" hint="Deve essere già popolato quando questo nodo viene attivato">
+          <Field label="Source Materialize" hint="Must already be populated when this node is activated">
             {materializeVars.length > 0 ? (
               <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
-                <option value="">— seleziona —</option>
+                <option value="">— select —</option>
                 {materializeVars.map((v) => (
                   <option key={v.id} value={v.name}>{v.name}</option>
                 ))}
               </CustomSelect>
             ) : (
-              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="nome_materialize" />
+              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="materialize_name" />
             )}
           </Field>
           {matName && materializeFields.length === 0 && (
@@ -249,12 +249,12 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
           )}
           <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
-            Pattern tipico: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Window</code>.
+            Typical pattern: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Window</code>.
             Il signal del Materialize arriva come trigger, Window legge i dati dalla lane.
           </div>
           {/* accessMode — come Aggregate accede al Materialize */}
           {matName && (
-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
+            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
                 {ACCESS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -271,9 +271,9 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Partizione e ordinamento */}
-      <SectionTitle label="Partizione e ordinamento" color="#4a9eff" />
+      <SectionTitle label="Partition and sorting" color="#4a9eff" />
 
-      <Field label="Partition by — campi di partizione" hint="La finestra viene calcolata indipendentemente per ogni combinazione di valori">
+      <Field label="Partition by — partition fields" hint="The window is computed independently for each combination of values">
         {activeFields.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -293,7 +293,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
               </div>
             )}
             {partitionFields.length === 0 && (
-              <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>Nessuna partizione — finestra globale su tutti i dati</div>
+              <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>No partition — global window over all data</div>
             )}
           </div>
         ) : (
@@ -305,13 +305,13 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
         <Field label="Order by">
           {activeFields.length > 0 ? (
             <CustomSelect style={inputStyle} value={orderBy} onChange={u('orderBy')}>
-              <option value="">— seleziona campo —</option>
+              <option value="">— select field —</option>
               {activeFields.map((f) => (
                 <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
               ))}
             </CustomSelect>
           ) : (
-            <input style={inputStyle} value={orderBy} onChange={u('orderBy')} placeholder="data, id" />
+            <input style={inputStyle} value={orderBy} onChange={u('orderBy')} placeholder="date, id" />
           )}
         </Field>
         <Field label="Direzione">
@@ -385,20 +385,20 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                     </CustomSelect>
                   </div>
                   <div>
-                    <div style={labelStyle}>Campo output</div>
+                    <div style={labelStyle}>Output field</div>
                     <input style={{ ...inputStyle, color }} value={w.outputField}
                       onChange={(e) => updateWindow(w.id, { outputField: e.target.value })}
-                      placeholder="nome_campo_output" />
+                      placeholder="output_field_name" />
                   </div>
                 </div>
 
                 {fnDef?.hasField && (
                   <div>
-                    <div style={labelStyle}>Campo sorgente</div>
+                    <div style={labelStyle}>Source field</div>
                     {activeFields.length > 0 ? (
                       <CustomSelect style={inputStyle} value={w.field ?? ''}
                         onChange={(e) => updateWindow(w.id, { field: e.target.value })}>
-                        <option value="">— seleziona campo —</option>
+                        <option value="">— select field —</option>
                         {activeFields.map((f) => (
                           <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
                         ))}
@@ -406,7 +406,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                     ) : (
                       <input style={inputStyle} value={w.field ?? ''}
                         onChange={(e) => updateWindow(w.id, { field: e.target.value })}
-                        placeholder="nome_campo" />
+                        placeholder="field_name" />
                     )}
                   </div>
                 )}
@@ -420,7 +420,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                     </div>
                     {(w.fn === 'lag' || w.fn === 'lead') && (
                       <div>
-                        <div style={labelStyle}>Valore se null</div>
+                        <div style={labelStyle}>Value if null</div>
                         <input style={inputStyle} value={w.nullDefault}
                           onChange={(e) => updateWindow(w.id, { nullDefault: e.target.value })}
                           placeholder="null" />
@@ -448,12 +448,12 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
 
                 {fnDef?.hasExpr && (
                   <div>
-                    <div style={labelStyle}>Condizione streak</div>
+                    <div style={labelStyle}>Streak condition</div>
                     <input style={{ ...inputStyle, color: '#f97316' }} value={w.expr ?? ''}
                       onChange={(e) => updateWindow(w.id, { expr: e.target.value })}
                       placeholder="amount > 0" />
                     <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>
-                      Conta le righe consecutive dove la condizione è vera. Reset a 0 quando è falsa.
+                      Counts consecutive rows where the condition is true. Resets to 0 when it is false.
                     </div>
                   </div>
                 )}
@@ -510,8 +510,8 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
           {dataSource === 'materialize'
-            ? 'Legge tutti i dati dal Materialize in una volta — nessun buffering interno necessario.'
-            : 'Le righe passano invariate con i campi calcolati aggiunti. Richiede visibilità sull\'intera partizione.'}
+            ? 'Reads all data from the Materialize at once — no internal buffering needed.'
+            : 'The rows pass through unchanged with the computed fields added. Requires visibility over the entire partition.'}
         </div>
       )}
     </div>

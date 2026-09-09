@@ -58,8 +58,8 @@ const FN_COLOR: Record<string, string> = {
 
 // Opzioni accessMode per Aggregate — dataset è il default e il consigliato
 const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
+  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
+  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
 ]
 
 function AggRow({ agg, index, total, fields, onChange, onDelete }: {
@@ -104,11 +104,11 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
       )}
       {needsField && (
         <div>
-          <div style={labelStyle}>Campo su cui applicare</div>
+          <div style={labelStyle}>Field to apply to</div>
           {fields.length > 0 ? (
             <CustomSelect style={inputStyle} value={agg.field}
               onChange={(e) => onChange(agg.id, 'field', e.target.value)}>
-              <option value="">— seleziona campo —</option>
+              <option value="">— select field —</option>
               {fields.map((f) => (
                 <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
               ))}
@@ -116,7 +116,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
           ) : (
             <input type="text" style={inputStyle} value={agg.field}
               onChange={(e) => onChange(agg.id, 'field', e.target.value)}
-              placeholder="nome_campo" />
+              placeholder="field_name" />
           )}
         </div>
       )}
@@ -130,7 +130,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
         </div>
       )}
       <div>
-        <div style={labelStyle}>Filtro FILTER WHERE <span style={{ color: '#2a3349', fontWeight: 400 }}>(opzionale)</span></div>
+        <div style={labelStyle}>FILTER WHERE <span style={{ color: '#2a3349', fontWeight: 400 }}>(optional)</span></div>
         <input type="text" style={{ ...inputStyle, color: '#9a9aaa' }} value={agg.filter}
           onChange={(e) => onChange(agg.id, 'filter', e.target.value)}
           placeholder="status = 'active'" />
@@ -226,17 +226,17 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 8 }}>
         <span style={{ fontSize: 16, color: '#4a9eff' }}>Σ</span>
         <div style={{ lineHeight: 1.5 }}>
-          Raggruppa le righe per uno o più campi e calcola funzioni per ogni gruppo.
-          <strong style={{ color: '#c8d4f0' }}> Emette una riga per gruppo</strong>.
+          Groups the rows by one or more fields and computes functions for each group.
+          <strong style={{ color: '#c8d4f0' }}> Emits one row per group</strong>.
         </div>
       </div>
 
       {/* Sorgente dati */}
-      <SectionTitle label="Sorgente dati" color="#22d3ee" />
+      <SectionTitle label="Data source" color="#22d3ee" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { value: 'flow',        label: '→ Da flusso',       desc: 'Riceve righe via edge — bufferizza internamente finché il flusso non è esaurito, poi calcola.', disabled: false },
-          { value: 'materialize', label: '◈ Da Materialize',  desc: 'La riga in ingresso è solo trigger. I dati vengono letti dal Materialize selezionato.',         disabled: materializeVars.length === 0, hint: materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined },
+          { value: 'flow',        label: '→ From flow',       desc: 'Receives rows via edge — buffers internally until the flow is exhausted, then computes.', disabled: false },
+          { value: 'materialize', label: '◈ From Materialize',  desc: 'The incoming row is only a trigger. Data is read from the selected Materialize.',         disabled: materializeVars.length === 0, hint: materializeVars.length === 0 ? 'No Materialize published in this lane' : undefined },
         ].map((s) => (
           <button key={s.value}
             onClick={() => { if (!s.disabled) updateProp(nodeId, 'dataSource', s.value) }}
@@ -259,14 +259,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       {/* Selettore Materialize + accessMode */}
       {dataSource === 'materialize' && (
         <>
-          <Field label="Materialize sorgente" hint="Deve essere già popolato quando questo nodo viene attivato">
+          <Field label="Source Materialize" hint="Must already be populated when this node is activated">
             {materializeVars.length > 0 ? (
               <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
-                <option value="">— seleziona —</option>
+                <option value="">— select —</option>
                 {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
               </CustomSelect>
             ) : (
-              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="nome_materialize" />
+              <input style={inputStyle} value={matName} onChange={u('materializeName')} placeholder="materialize_name" />
             )}
           </Field>
           {matName && materializeFields.length === 0 && (
@@ -284,7 +284,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
 
           {/* accessMode — come Aggregate accede al Materialize */}
           {matName && (
-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
+            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
                 {ACCESS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -299,14 +299,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
 
           <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
-            Pattern tipico: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Aggregate</code>
+            Typical pattern: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Aggregate</code>
           </div>
         </>
       )}
 
       {/* GROUP BY */}
-      <SectionTitle label="Raggruppa per (GROUP BY)" color="#4a9eff" />
-      <Field label="Campi di raggruppamento" hint="Virgola separati — es: region, category, year">
+      <SectionTitle label="Group by (GROUP BY)" color="#4a9eff" />
+      <Field label="Grouping fields" hint="Comma-separated — e.g. region, category, year">
         {activeFields.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <input type="text" style={inputStyle} value={p('group_by')} onChange={u('group_by')} placeholder="region, category" />
@@ -332,13 +332,13 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       </Field>
 
      <div style={{ fontSize: 11, color: '#9a9aaa', lineHeight: 1.5 }}>
-      <b>Aggregate</b> collassa le righe: un gruppo, una riga.
-      Se vuoi <b>tenere le righe</b> e aggiungere un totale accanto,
-      usa <b>Window</b> con una funzione di partizione.
+      <b>Aggregate</b> collapses the rows: one group, one row.
+      If you want to <b>keep the rows</b> and add a total alongside,
+      use <b>Window</b> with a partition function.
      </div>
 
       {/* Funzioni */}
-      <SectionTitle label="Funzioni di aggregazione" color="#ffb347" />
+      <SectionTitle label="Aggregation functions" color="#ffb347" />
       <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 2 }}>
         Ogni funzione produce un campo in output. Dai un alias significativo a ciascuna.
       </div>
@@ -354,38 +354,38 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       </button>
 
       {/* HAVING */}
-      <SectionTitle label="Filtro post-aggregazione (HAVING)" color="#a78bfa" />
+      <SectionTitle label="Post-aggregation filter (HAVING)" color="#a78bfa" />
       <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #a78bfa20', fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
-        <strong style={{ color: '#a78bfa' }}>HAVING</strong> filtra i <strong style={{ color: '#c8d4f0' }}>gruppi</strong> dopo l'aggregazione.
+        <strong style={{ color: '#a78bfa' }}>HAVING</strong> filters the <strong style={{ color: '#c8d4f0' }}>groups</strong> after aggregation.
         Usa i nomi alias: <code style={{ color: '#a78bfa' }}>count &gt; 10</code>
       </div>
-      <Field label="Condizione HAVING">
+      <Field label="HAVING condition">
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 54, fontFamily: 'monospace' }}
           value={p('having')} onChange={u('having')}
           placeholder="count > 10 AND sum_amount > 1000" spellCheck={false} />
       </Field>
 
       {/* Ordinamento */}
-      <SectionTitle label="Ordinamento e limite" color="#3ddc84" />
+      <SectionTitle label="Sorting and limit" color="#3ddc84" />
       <Row>
-        <Field label="Ordina per">
+        <Field label="Order by">
           <input type="text" style={inputStyle} value={p('orderBy')} onChange={u('orderBy')} placeholder="count DESC, region ASC" />
         </Field>
-        <Field label="Limite risultati" hint="0 = nessun limite">
+        <Field label="Result limit" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
         </Field>
       </Row>
 
       {/* Opzioni */}
-      <SectionTitle label="Opzioni" />
+      <SectionTitle label="Options" />
       <Row>
         <Field label="Null nel GROUP BY">
           <CustomSelect style={inputStyle} value={p('nullGroups', 'include')} onChange={u('nullGroups')}>
-            <option value="include">Includi come gruppo separato</option>
-            <option value="exclude">Escludi righe con null</option>
+            <option value="include">Include as a separate group</option>
+            <option value="exclude">Exclude rows with null</option>
           </CustomSelect>
         </Field>
-        <Field label="Modalità esecuzione">
+        <Field label="Execution mode">
           <CustomSelect style={inputStyle} value={p('execMode', 'batch')} onChange={u('execMode')}>
             <option value="batch">Batch — attende tutti i dati</option>
             <option value="streaming">Streaming — risultati incrementali</option>
@@ -396,7 +396,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       {/* Schema output */}
       {outputPreview.length > 0 && (
         <>
-          <SectionTitle label="Schema output derivato" color="#22d3ee" />
+          <SectionTitle label="Derived output schema" color="#22d3ee" />
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
               {['Campo', 'Tipo', 'Origine'].map((h) => (

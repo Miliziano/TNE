@@ -167,7 +167,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-        Schema derivato automaticamente dalla configurazione. Modifica GROUP BY e funzioni nel tab <strong style={{ color: '#c8d4f0' }}>Configurazione</strong>.
+        Schema derived automatically from the configuration. Edit GROUP BY and functions in the <strong style={{ color: '#c8d4f0' }}>Configuration</strong> tab.
       </div>
     </div>
   )
