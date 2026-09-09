@@ -73,13 +73,13 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* ── Sorgente path ── */}
-      <SectionTitle label="Sorgente path file" />
+      <SectionTitle label="File path source" />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { value: 'static',   label: '📄 Statico',        desc: 'Path configurato direttamente qui sotto' },
-          { value: 'lane_var', label: '◎ Variabile Lane',  desc: 'Legge il path da una variabile della lane' },
-          { value: 'flow',     label: '→ Da flusso',       desc: 'Usa il campo path da ogni riga in ingresso (es. da DirWatcher)' },
+          { value: 'static',   label: '📄 Static',         desc: 'Path configured directly below' },
+          { value: 'lane_var', label: '◎ Lane variable',   desc: 'Reads the path from a lane variable' },
+          { value: 'flow',     label: '→ From flow',       desc: 'Uses the path field from each incoming row (e.g. from DirWatcher)' },
         ].map((s) => {
           const disabled = s.value === 'flow' && !hasInput
           return (
@@ -96,7 +96,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
               <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: pathSource === s.value ? ACCENT : '#2a3349' }} />
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: pathSource === s.value ? ACCENT : '#c8d4f0' }}>{s.label}</div>
-                <div style={{ fontSize: 9, color: '#8593b5' }}>{s.desc}{disabled ? ' — collega un edge prima' : ''}</div>
+                <div style={{ fontSize: 9, color: '#8593b5' }}>{s.desc}{disabled ? ' — connect an edge first' : ''}</div>
               </div>
             </button>
           )
@@ -105,27 +105,27 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
       {/* Configurazione sorgente */}
       {pathSource === 'static' && (
-        <Field label="Path file" hint="Percorso assoluto o relativo alla directory base del job">
+        <Field label="File path" hint="Absolute or relative path to the job base directory">
           <input type="text" style={inputStyle} value={p('path')} onChange={u('path')}
             placeholder="/data/input/file.csv" />
         </Field>
       )}
 
       {pathSource === 'lane_var' && (
-        <Field label="Variabile Lane" hint="Variabile di tipo stringa che contiene il path del file">
+        <Field label="Lane variable" hint="String variable containing the file path">
           {laneVars.length > 0 ? (
             <CustomSelect style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')}>
-              <option value="">— seleziona variabile —</option>
+              <option value="">— select variable —</option>
               {laneVars.map((v) => (
                 <option key={v.id} value={v.name}>
-                  {v.name}{v.value ? ` = "${v.value}"` : ' (vuota)'}
+                  {v.name}{v.value ? ` = "${v.value}"` : ' (empty)'}
                 </option>
               ))}
             </CustomSelect>
           ) : (
             <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '4px 0' }}>
-              Nessuna variabile stringa disponibile in questa lane.
-              Aggiungila dal tab Lane nel pannello proprietà.
+              No string variable available in this lane.
+              Add it from the Lane tab in the properties panel.
             </div>
           )}
         </Field>
@@ -133,8 +133,8 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
       {pathSource === 'flow' && (
         <Field
-          label="Campo path dal flusso"
-          hint="Nome del campo della riga che contiene il path del file — di solito 'path' dal DirWatcher"
+          label="Path field from flow"
+          hint="Name of the row field containing the file path — usually 'path' from the DirWatcher"
         >
           <input style={inputStyle} value={p('pathField', 'path')} onChange={u('pathField')}
             placeholder="path" />
@@ -150,10 +150,10 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Formato ── */}
-      <SectionTitle label="Formato" />
+      <SectionTitle label="Format" />
 
       <Row>
-        <Field label="Formato">
+        <Field label="Format">
           <CustomSelect style={inputStyle} value={format} onChange={(e) => {
             const newFormat = e.target.value
             updateProp(nodeId, 'format', newFormat)
@@ -190,7 +190,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
         )}
 
         {(format === 'pdf_binary' || format === 'binary') && (
-          <Field label="Encoding output">
+          <Field label="Output encoding">
             <CustomSelect style={inputStyle} value={p('binaryEncoding', 'base64')} onChange={u('binaryEncoding')}>
               <option value="base64">Base64</option>
               <option value="hex">Hex</option>
@@ -202,50 +202,50 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
       {/* ── Opzioni formato ── */}
       {(format === 'csv' || format === 'tsv') && (
         <>
-          <SectionTitle label="Opzioni CSV / TSV" />
+          <SectionTitle label="CSV / TSV options" />
           <Row>
-            <Field label="Separatore">
+            <Field label="Delimiter">
               <input type="text" style={inputStyle}
                 value={p('delimiter', format === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
             </Field>
-            <Field label="Carattere virgolette">
+            <Field label="Quote character">
               <input type="text" style={inputStyle} value={p('quoteChar', '"')} onChange={u('quoteChar')} />
             </Field>
           </Row>
           <Row>
-            <Field label="Intestazione">
+            <Field label="Header">
               <CustomSelect style={inputStyle} value={p('hasHeader', 'true')} onChange={u('hasHeader')}>
-                <option value="true">Prima riga = intestazione</option>
-                <option value="false">Nessuna intestazione</option>
+                <option value="true">First row = header</option>
+                <option value="false">No header</option>
               </CustomSelect>
             </Field>
-            <Field label="Carattere escape">
+            <Field label="Escape character">
               <input type="text" style={inputStyle} value={p('escapeChar', '\\')} onChange={u('escapeChar')} />
             </Field>
           </Row>
-          <Field label="Commento" hint="Righe che iniziano con questo carattere vengono saltate">
+          <Field label="Comment" hint="Rows starting with this character are skipped">
             <input type="text" style={inputStyle} value={p('commentChar', '')} onChange={u('commentChar')}
-              placeholder="# (opzionale)" />
+              placeholder="# (optional)" />
           </Field>
         </>
       )}
 
       {format === 'excel' && (
         <>
-          <SectionTitle label="Opzioni Excel" />
+          <SectionTitle label="Excel options" />
           <Row>
-            <Field label="Nome foglio" hint="Lascia vuoto per il primo foglio">
+            <Field label="Sheet name" hint="Leave empty for the first sheet">
               <input type="text" style={inputStyle} value={p('sheetName', '')} onChange={u('sheetName')}
-                placeholder="Sheet1 (opzionale)" />
+                placeholder="Sheet1 (optional)" />
             </Field>
-            <Field label="Riga iniziale dati" hint="1 = prima riga">
+            <Field label="Data start row" hint="1 = first row">
               <input type="number" style={inputStyle} value={p('startRow', '1')} onChange={u('startRow')} min="1" />
             </Field>
           </Row>
-          <Field label="Intestazione">
+          <Field label="Header">
             <CustomSelect style={inputStyle} value={p('hasHeader', 'true')} onChange={u('hasHeader')}>
-              <option value="true">Prima riga = intestazione</option>
-              <option value="false">Nessuna intestazione</option>
+              <option value="true">First row = header</option>
+              <option value="false">No header</option>
             </CustomSelect>
           </Field>
         </>
@@ -253,15 +253,15 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
       {(format === 'json' || format === 'jsonl') && (
         <>
-          <SectionTitle label="Opzioni JSON" />
-          <Field label="JSON Path radice" hint="Es: $.data.items per array annidato">
+          <SectionTitle label="JSON options" />
+          <Field label="Root JSON Path" hint="E.g. $.data.items for a nested array">
             <input type="text" style={inputStyle} value={p('jsonPath', '$')} onChange={u('jsonPath')} placeholder="$" />
           </Field>
           {format === 'json' && (
-            <Field label="Struttura">
+            <Field label="Structure">
               <CustomSelect style={inputStyle} value={p('jsonStructure', 'array')} onChange={u('jsonStructure')}>
-                <option value="array">Array di oggetti</option>
-                <option value="object">Oggetto singolo</option>
+                <option value="array">Array of objects</option>
+                <option value="object">Single object</option>
               </CustomSelect>
             </Field>
           )}
@@ -270,8 +270,8 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
       {(format === 'parquet' || format === 'orc' || format === 'avro') && (
         <>
-          <SectionTitle label={`Opzioni ${format.toUpperCase()}`} />
-          <Field label="Schema" hint="Lascia vuoto per leggere lo schema embedded nel file">
+          <SectionTitle label={`${format.toUpperCase()} options`} />
+          <Field label="Schema" hint="Leave empty to read the schema embedded in the file">
             <textarea
               style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontFamily: 'monospace' }}
               value={p('schemaOverride', '')} onChange={u('schemaOverride')}
@@ -283,16 +283,16 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
       {format === 'pdf_text' && (
         <>
-          <SectionTitle label="Opzioni estrazione PDF" />
+          <SectionTitle label="PDF extraction options" />
           <Row>
-            <Field label="Pagine" hint="Es: 1-5 o vuoto per tutte">
-              <input type="text" style={inputStyle} value={p('pdfPages', '')} onChange={u('pdfPages')} placeholder="tutte" />
+            <Field label="Pages" hint="E.g. 1-5, or empty for all">
+              <input type="text" style={inputStyle} value={p('pdfPages', '')} onChange={u('pdfPages')} placeholder="all" />
             </Field>
-            <Field label="Granularità output">
+            <Field label="Output granularity">
               <CustomSelect style={inputStyle} value={p('pdfGranularity', 'document')} onChange={u('pdfGranularity')}>
-                <option value="document">Documento intero</option>
-                <option value="page">Una riga per pagina</option>
-                <option value="paragraph">Un record per paragrafo</option>
+                <option value="document">Whole document</option>
+                <option value="page">One row per page</option>
+                <option value="paragraph">One record per paragraph</option>
               </CustomSelect>
             </Field>
           </Row>
@@ -300,20 +300,20 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Opzioni lettura ── */}
-      <SectionTitle label="Opzioni lettura" />
+      <SectionTitle label="Read options" />
       <Row>
-        <Field label="Righe da saltare" hint="Righe iniziali da ignorare">
+        <Field label="Rows to skip" hint="Initial rows to ignore">
           <input type="number" style={inputStyle} value={p('skipRows', '0')} onChange={u('skipRows')} min="0" />
         </Field>
-        <Field label="Limite righe" hint="0 = tutte le righe">
+        <Field label="Row limit" hint="0 = all rows">
           <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
         </Field>
       </Row>
 
       {STRUCTURED_FORMATS.includes(format) && (
-        <Field label="Pattern glob" hint="Per leggere più file: /data/*.csv — usato solo in modalità statica">
+        <Field label="Glob pattern" hint="To read multiple files: /data/*.csv — used only in static mode">
           <input type="text" style={inputStyle} value={p('glob', '')} onChange={u('glob')}
-            placeholder="/data/input/*.csv (opzionale)" />
+            placeholder="/data/input/*.csv (optional)" />
         </Field>
       )}
 

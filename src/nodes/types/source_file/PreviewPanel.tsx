@@ -56,10 +56,10 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
     setErrore(null); setOutput(null)
 
     if (pathSource !== 'static') {
-      setErrore('Percorso dinamico (da campo): l\u2019anteprima è disponibile solo con un percorso statico.')
+      setErrore('Dynamic path (from field): preview is available only with a static path.')
       return
     }
-    if (!path) { setErrore('Nessun percorso file impostato nel nodo.'); return }
+    if (!path) { setErrore('No file path set on the node.'); return }
 
     // Spec del nodo — STESSA ricetta di buildRustPlan: scalari nei props,
     // proiezione dello schema in config.fields (physicalName come nome).
@@ -108,17 +108,17 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
                    background: inCorso ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 22%, #0f1117)`,
                    color: inCorso ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}50`,
                    cursor: inCorso ? 'default' : 'pointer' }}>
-          {inCorso ? 'lettura…' : '\u25b6 campiona dal file'}
+          {inCorso ? 'reading…' : '\u25b6 sample from file'}
         </button>
         <label style={{ fontSize: 10, color: '#9a9aaa', display: 'flex', alignItems: 'center', gap: 6 }}>
-          righe
+          rows
           <input type="number" min={1} max={500} value={limite}
             onChange={(e) => setLimite(parseInt(e.target.value, 10) || 1)}
             style={{ width: 60, background: '#0f1117', border: '1px solid #2a3349', borderRadius: 5,
                      color: '#c8d4f0', fontSize: 11, padding: '3px 6px' }} />
         </label>
         <span style={{ fontSize: 9, color: '#8593b5' }}>
-          lettura reale del file (<b style={{ color: '#9a9aaa' }}>{format}</b>) — a leggere è il motore
+          real file read (<b style={{ color: '#9a9aaa' }}>{format}</b>) — the engine does the reading
         </span>
       </div>
 
@@ -134,13 +134,13 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
       {/* Uscita */}
       {output && (
         output.length === 0 ? (
-          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>Nessuna riga letta dal file.</div>
+          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>No rows read from the file.</div>
         ) : (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
                           letterSpacing: '.08em', padding: '4px 0',
                           borderBottom: `0.5px solid ${ACCENT}30`, marginBottom: 6 }}>
-              Campione — {output.length} riga/e
+              Sample — {output.length} row(s)
             </div>
             <div style={{ ...box, overflowX: 'auto', padding: 0 }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>

@@ -205,7 +205,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
 
   const addField = () => {
     const n = schema.length + 1
-    const name = `campo_${n}`
+    const name = `field_${n}`
     saveSchema([...schema, { id: `field_${Date.now()}`, name, physicalName: name, type: 'string' as TMapFieldType }])
   }
 
@@ -258,7 +258,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
 
       const sample = allRows.slice(0, 50)
       if (sample.length === 0) {
-        setLoadError('Il file è vuoto o non contiene righe leggibili.')
+        setLoadError('The file is empty or contains no readable rows.')
         return
       }
 
@@ -275,7 +275,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
         const existing = schema.find((f) => (f as any).physicalName === newField.physicalName || f.name === newField.name)
         if (existing) {
           if (perdeDati(existing.type, newField.type)) {
-            corretti.push(`${newField.name}: ${existing.type} → ${newField.type} (i valori del file non stanno in ${existing.type})`)
+            corretti.push(`${newField.name}: ${existing.type} → ${newField.type} (the file values don't fit in ${existing.type})`)
             return { ...newField, id: existing.id, name: existing.name }   // tipo NUOVO
           }
           return { ...newField, id: existing.id, name: existing.name, type: existing.type }
@@ -294,10 +294,10 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
         .map((f) => {
           const finale = merged.find((m) => m.name === f.name)?.type ?? f.type
           return f._soloVuoti
-            ? `${f.name}: solo valori vuoti nel campione → dedotto ${finale}`
-            : `${f.name}: valori misti (${f._misto}) → dedotto ${finale}`
+            ? `${f.name}: only empty values in the sample → inferred ${finale}`
+            : `${f.name}: mixed values (${f._misto}) → inferred ${finale}`
         })
-      const avvisi = [...corretti.map((c) => `tipo corretto — ${c}`), ...ambigue]
+      const avvisi = [...corretti.map((c) => `type corrected — ${c}`), ...ambigue]
       updateProp(nodeId, 'schemaAvvisi', avvisi.length ? JSON.stringify(avvisi) : '')
 
       // Tipi DEDOTTI dal file, conservati nel nodo: la validazione li confronta
@@ -310,7 +310,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       setLoadError(null)
 
     } catch (err) {
-      setLoadError(`Errore lettura file: ${err instanceof Error ? err.message : String(err)}`)
+      setLoadError(`File read error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setLoading(false)
     }
@@ -336,16 +336,16 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0', flex: 1 }}>
-          Schema di uscita
+          Output schema
           <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
-            — i campi propagati ai nodi successivi
+            — the fields propagated to downstream nodes
           </span>
         </div>
         {!isFixed && (
           <button
             onClick={loadPreview}
             disabled={loading || !hasEffectivePath}
-            title={!hasEffectivePath ? 'Configura prima il path del file nel tab Configurazione' : 'Legge il file reale e inferisce i tipi automaticamente'}
+            title={!hasEffectivePath ? 'Configure the file path first in the Configuration tab' : 'Reads the real file and infers types automatically'}
             style={{
               padding: '5px 12px', fontSize: 11, borderRadius: 4,
               cursor: loading || !hasEffectivePath ? 'not-allowed' : 'pointer',
@@ -358,7 +358,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a3a6a' }}
           >
             <i className={`ti ${loading ? 'ti-loader spin' : 'ti-file-search'}`} style={{ fontSize: 12 }} aria-hidden="true" />
-            {loading ? 'Lettura...' : 'Rileva dal file'}
+            {loading ? 'Reading...' : 'Detect from file'}
           </button>
         )}
       </div>
@@ -376,12 +376,12 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Info formato */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 11 }}>
         <i className="ti ti-file" style={{ fontSize: 13, color: '#4a9eff' }} aria-hidden="true" />
-        <span style={{ color: '#9a9aaa' }}>Formato:</span>
+        <span style={{ color: '#9a9aaa' }}>Format:</span>
         <span style={{ padding: '1px 7px', borderRadius: 8, fontSize: 10, background: '#1a3a6a', color: '#4a9eff', fontWeight: 600 }}>
           {format.toUpperCase()}
         </span>
-        {isFixed && <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>schema fisso</span>}
-        {!isFixed && <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>{schema.length} campi</span>}
+        {isFixed && <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>fixed schema</span>}
+        {!isFixed && <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 4, fontStyle: 'italic' }}>{schema.length} fields</span>}
       </div>
 
       {/* Schema fisso */}
@@ -389,11 +389,11 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
         <>
           <div style={{ padding: '8px 10px', fontSize: 11, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 12, marginRight: 5 }} />
-            {FIXED_FORMAT_HINT[format] ?? `Il formato ${format} produce uno schema fisso non modificabile.`}
+            {FIXED_FORMAT_HINT[format] ?? `The ${format} format produces a fixed, non-editable schema.`}
           </div>
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-              {['Campo', 'Tipo'].map((h) => (
+              {['Field', 'Type'].map((h) => (
                 <div key={h} style={{ fontSize: 10, color: '#4a9eff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
               ))}
             </div>
@@ -419,14 +419,14 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
           {schema.length === 0 && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
               <i className="ti ti-file-search" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} aria-hidden="true" />
-              Clicca <strong style={{ color: '#4a9eff' }}>Rileva dal file</strong> per leggere lo schema reale,<br />oppure aggiungi i campi manualmente.
+              Click <strong style={{ color: '#4a9eff' }}>Detect from file</strong> to read the real schema,<br />or add fields manually.
             </div>
           )}
 
           {schema.length > 0 && (
             <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(80px, 1fr) minmax(80px, 1fr) 80px minmax(80px, 1fr) 24px', gap: 6, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-                {['', 'Col. fisica', 'Nome logico', 'Tipo', 'Trasformazione', ''].map((h, i) => (
+                {['', 'Physical col.', 'Logical name', 'Type', 'Transformation', ''].map((h, i) => (
                   <div key={i} style={{ fontSize: 10, color: '#4a9eff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
                 ))}
               </div>
@@ -452,7 +452,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
                   <input type="text" value={field.name}
                     onChange={(e) => updateField(idx, 'name', e.target.value)}
                     style={{ ...inputStyle, fontSize: 11, padding: '3px 6px' }}
-                    placeholder="nome_logico" />
+                    placeholder="logical_name" />
 
                   <CustomSelect value={field.type}
                     onChange={(e) => updateField(idx, 'type', e.target.value)}
@@ -467,16 +467,16 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
 
                   <CustomSelect value={(field as any).transform ?? ''} onChange={(e) => updateField(idx, 'transform', e.target.value)}
                     style={{ ...inputStyle, fontSize: 10, padding: '3px 2px' }}>
-                    <option value="">nessuna</option>
+                    <option value="">none</option>
                     <option value="trim">trim</option>
                     <option value="uppercase">UPPER</option>
                     <option value="lowercase">lower</option>
                     <option value="to_int">→ int</option>
                     <option value="to_float">→ dec</option>
-                    <option value="to_date">→ data</option>
+                    <option value="to_date">→ date</option>
                     <option value="to_bool">→ bool</option>
                     <option value="to_string">→ str</option>
-                    <option value="nullify_empty">vuoto→null</option>
+                    <option value="nullify_empty">empty→null</option>
                   </CustomSelect>
 
                   <button onClick={() => deleteField(idx)}
@@ -495,13 +495,13 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a2030' }}>
             <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
-            Aggiungi campo manualmente
+            Add field manually
           </button>
 
           <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 11, marginRight: 4 }} aria-hidden="true" />
-            <strong style={{ color: '#9a9aaa' }}>Rileva dal file</strong> legge le prime 50 righe e inferisce i tipi automaticamente.
-            Puoi modificare nome logico e tipo dopo il rilevamento.
+            <strong style={{ color: '#9a9aaa' }}>Detect from file</strong> reads the first 50 rows and infers types automatically.
+            You can edit the logical name and type after detection.
           </div>
         </>
       )}

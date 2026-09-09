@@ -55,9 +55,9 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
 
   // Badge sorgente corrente
   const sourceLabel =
-    pathSource === 'lane_var' ? '◎ Variabile Lane' :
-    pathSource === 'flow'     ? '→ Da flusso'      :
-    '📄 Statico'
+    pathSource === 'lane_var' ? '◎ Lane variable' :
+    pathSource === 'flow'     ? '→ From flow'      :
+    '📄 Static'
 
   const sourceBadgeColor =
     pathSource === 'lane_var' ? '#a78bfa' :
@@ -83,17 +83,17 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
 
       {/* Campo dinamico in base a pathSource */}
       {pathSource === 'static' && (
-        <Field label="Percorso" hint="Path assoluto o relativo">
+        <Field label="Path" hint="Absolute or relative path">
           <input type="text" style={inputStyle} value={p('path')} onChange={u('path')}
             placeholder="/data/input.csv" />
         </Field>
       )}
 
       {pathSource === 'lane_var' && (
-        <Field label="Variabile Lane" hint="Variabile che contiene il path">
+        <Field label="Lane variable" hint="Variable containing the path">
           {laneVars.length > 0 ? (
             <CustomSelect style={inputStyle} value={p('laneVarName')} onChange={u('laneVarName')}>
-              <option value="">— seleziona variabile —</option>
+              <option value="">— select variable —</option>
               {laneVars.map((v) => (
                 <option key={v.id} value={v.name}>
                   {v.name}{v.value ? ` = "${v.value}"` : ''}
@@ -102,7 +102,7 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
             </CustomSelect>
           ) : (
             <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '4px 0' }}>
-              Nessuna variabile stringa nella lane
+              No string variable in the lane
             </div>
           )}
         </Field>
@@ -110,8 +110,8 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
 
       {pathSource === 'flow' && (
         <Field
-          label="Campo path dal flusso"
-          hint={hasInput ? 'Campo della riga con il path del file' : '⚠ Nessun edge in ingresso'}
+          label="Path field from flow"
+          hint={hasInput ? 'Row field with the file path' : '⚠ No incoming edge'}
         >
           <input style={{
             ...inputStyle,
@@ -141,7 +141,7 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
       })()}
 
       {/* Formato + limite — campi rapidi sempre utili */}
-      <Field label="Formato">
+      <Field label="Format">
         <CustomSelect style={inputStyle} value={format} onChange={u('format')}>
           {['csv', 'json', 'jsonl', 'parquet', 'tsv', 'xml', 'excel'].map((f) => (
             <option key={f} value={f}>{f.toUpperCase()}</option>
@@ -150,13 +150,13 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {(format === 'csv' || format === 'tsv') && (
-        <Field label="Separatore">
+        <Field label="Delimiter">
           <input type="text" style={inputStyle}
             value={p('delimiter', ',')} onChange={u('delimiter')} placeholder="," />
         </Field>
       )}
 
-      <Field label="Limite righe" hint="0 = tutte">
+      <Field label="Row limit" hint="0 = all">
         <input type="number" style={inputStyle}
           value={p('limit', '0')} onChange={u('limit')} min="0" />
       </Field>
@@ -164,7 +164,7 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
       {/* Link all'editor completo */}
       <div style={{ fontSize: 10, color: '#8593b5', padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
         <i className="ti ti-mouse" style={{ fontSize: 11 }} />
-        Doppio click per la configurazione completa
+        Double-click for the full configuration
       </div>
     </div>
   )
