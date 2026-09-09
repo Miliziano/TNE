@@ -145,7 +145,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
                   <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#0f1117', color: '#8593b5' }}>
                     {field.type}
                   </span>
-                  <span style={{ fontSize: 9, color: '#2a3349', fontFamily: 'monospace' }}>→ invariato</span>
+                  <span style={{ fontSize: 9, color: '#2a3349', fontFamily: 'monospace' }}>→ unchanged</span>
                   {fieldRules.length > 0 && (
                     <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: `color-mix(in srgb, ${accent} 10%, #0f1117)`, color: accent, border: `0.5px solid ${accent}30` }}>
                       {fieldRules.length} regl{fieldRules.length !== 1 ? 'a' : 'e'}
@@ -182,7 +182,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Output del nodo</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#0d3d20', color: ACCENT, border: `0.5px solid #1d6d40`, flexShrink: 0 }}>output</span>
-          <span style={{ fontSize: 9 }}>Righe valide — schema identico all'ingresso</span>
+          <span style={{ fontSize: 9 }}>Valid rows — schema identical to the input</span>
         </div>
        
       </div>
@@ -192,7 +192,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 10px', background: '#1a1000', borderRadius: 6, border: '0.5px solid #ffb34730', fontSize: 10, color: '#ffb347', display: 'flex', gap: 6 }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>Campi con regole non trovati nello schema</div>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>Fields with rules not found in the schema</div>
             <div style={{ fontFamily: 'monospace', fontSize: 9 }}>
               {orphanFields.join(', ')}
             </div>
@@ -207,7 +207,7 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 10px', background: '#1a1000', borderRadius: 6, border: '0.5px solid #ffb34730', fontSize: 10, color: '#ffb347', display: 'flex', gap: 6 }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 11, flexShrink: 0 }} />
           Nessuna regola configurata — tutti i dati passano come validi.
-          Configura le regole nel tab <strong>Configurazione</strong>.
+          Configure the rules in the <strong>Configuration</strong>.
         </div>
       )}
     </div>

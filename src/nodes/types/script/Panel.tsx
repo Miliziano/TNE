@@ -103,7 +103,7 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
         {transforms.length > 0 && (
           <button
             onClick={() => setOpen((v) => !v)}
-            title="Trasformazioni disponibili"
+            title="Available transformations"
             style={{ padding: '2px 5px 2px 3px', background: open ? `color-mix(in srgb, ${color} 20%, #161b27)` : '#161b27', border: 'none', borderLeft: '1px solid #2a3349', color: open ? color : '#8593b5', cursor: 'pointer', fontSize: 9, transition: 'all .1s' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
             onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -342,13 +342,13 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       <div style={{ background: '#161b27', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
 
         <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Sorgente delle righe</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Row source</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
-              { value: 'flusso', label: 'Dal flusso', icon: 'ti-arrow-right',
-                desc: 'una passata per riga' },
+              { value: 'flusso', label: 'From the flow', icon: 'ti-arrow-right',
+                desc: 'one pass per row' },
               { value: 'genera', label: 'Genera',     icon: 'ti-sparkles',
-                desc: 'nessun ingresso, una passata sola' },
+                desc: 'no input, a single pass' },
             ].map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'sourceMode', m.value)}
                 style={{
@@ -367,8 +367,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ marginTop: 6, fontSize: 9, lineHeight: 1.5, color: '#6a7a9a' }}>
             {sourceMode === 'genera'
-              ? <>La porta d'ingresso <b>sparisce dal canvas</b>: il corpo gira una volta sola e le righe escono <b>solo</b> dalle <code>emit</code>. Senza <code>emit</code> non esce niente.</>
-              : <>Il corpo gira <b>una volta per ogni riga</b> in arrivo. A fine corpo la riga esce anche senza <code>emit</code>; <code>skip</code> la trattiene, <code>emit</code> ne aggiunge altre.</>}
+              ? <>The input port <b>disappears from the canvas</b>: the body runs once and rows exit <b>only</b> through <code>emit</code>. Without <code>emit</code> nothing comes out.</>
+              : <>The body runs <b>once per incoming row</b>. At the end of the body the row exits even without <code>emit</code>; <code>skip</code> holds it back, <code>emit</code> adds more.</>}
           </div>
         </div>
 
@@ -376,7 +376,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Uscita verso valle</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
-              { value: 'passthrough', label: 'Dati',    icon: 'ti-table-row',    desc: 'righe elaborate', pronto: true  },
+              { value: 'passthrough', label: 'Data',    icon: 'ti-table-row',    desc: 'processed rows', pronto: true  },
               // «Innesco» cambia la porta sul canvas ma il motore continua
               // a mandare righe: lo Script non sa ancora emettere un
               // segnale né scrivere variabili di lane (è la fetta 3 del
@@ -384,7 +384,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
               // mantenuta — meglio dichiararlo indisponibile, come si è
               // fatto per il match sul codice errore nell'error handler.
               { value: 'signal',      label: 'Innesco', icon: 'ti-bolt',         desc: 'non ancora disponibile', pronto: false },
-              { value: 'none',        label: 'Niente',  icon: 'ti-player-stop',  desc: 'nessuna uscita',  pronto: true  },
+              { value: 'none',        label: 'None',  icon: 'ti-player-stop',  desc: 'no output',  pronto: true  },
             ].map((m) => (
               <button key={m.value} disabled={!m.pronto}
                 title={m.pronto ? undefined : 'Lo Script non emette ancora segnali: arriva con una fetta successiva'}
@@ -559,14 +559,14 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {[
-              { label: 'let',    snippet: 'let nome = ',             title: 'valore intermedio: non finisce nella riga' },
-              { label: 'var =',  snippet: 'var("nome") = ',           title: 'scrive una variabile di lane: sopravvive fra le righe (totali, deduplica)' },
-              { label: 'if',     snippet: 'if condizione {\n  \n}',  title: 'ramificazione' },
+              { label: 'let',    snippet: 'let name = ',             title: 'intermediate value: does not end up in the row' },
+              { label: 'var =',  snippet: 'var("name") = ',           title: 'writes a lane variable: survives across rows (totals, dedup)' },
+              { label: 'if',     snippet: 'if condition {\n  \n}',  title: 'branching' },
               { label: 'repeat', snippet: 'repeat 3 as i {\n  \n}',  title: 'ripete N volte' },
-              { label: 'for',    snippet: 'for x in campo {\n  \n}', title: 'ripete su ogni elemento di un array' },
-              { label: 'emit',   snippet: 'emit',                    title: 'manda a valle una copia della riga' },
-              { label: 'skip',   snippet: 'skip',                    title: 'la riga non esce da nessuna porta' },
-              { label: 'reject', snippet: 'reject "motivo"',         title: 'manda la riga alla porta reject', color: '#ff5f57' },
+              { label: 'for',    snippet: 'for x in field {\n  \n}', title: 'repeats over each element of an array' },
+              { label: 'emit',   snippet: 'emit',                    title: 'sends a copy of the row downstream' },
+              { label: 'skip',   snippet: 'skip',                    title: 'the row exits through no port' },
+              { label: 'reject', snippet: 'reject "reason"',         title: 'sends the row to the reject port', color: '#ff5f57' },
               { label: 'log',    snippet: 'log "messaggio"',         title: 'scrive nel pannello di log' },
               { label: 'error',  snippet: 'error "messaggio"',       title: 'fa fallire il nodo', color: '#ff5f57' },
             ].map((fn) => (
@@ -590,7 +590,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       {/* Selettore funzioni: avvolge la selezione, incluse le funzioni utente */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4, position: 'relative' }}>
         <button onClick={() => setPickerOpen(true)}
-          title="Applica una funzione: avvolge la selezione (con ricerca)"
+          title="Apply a function: wraps the selection (with search)"
           style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
                    background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
           ƒ applica…
@@ -638,7 +638,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       <div style={{ background: '#1a2030', border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
       <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
   <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-  I thread non sono permessi in nessuna modalità sandbox. Per il parallelismo usa più lane o più nodi script in pipeline.
+  Threads are not allowed in any sandbox mode. For parallelism use multiple lanes or multiple script nodes in a pipeline.
 </div>
         <button onClick={() => setShowAdvanced((v) => !v)}
           style={{ width: '100%', background: 'none', border: 'none', padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#9a9aaa', fontSize: 10 }}>

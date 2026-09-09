@@ -56,7 +56,7 @@ interface XmlOutputNode {
 }
 
 const TRANSFORMS = [
-  { value: '',           label: 'nessuna'    },
+  { value: '',           label: 'none'    },
   { value: 'to_string',  label: '→ string'   },
   { value: 'to_int',     label: '→ integer'  },
   { value: 'to_float',   label: '→ decimal'  },
@@ -106,7 +106,7 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
         <input value={node.namespace}
           onChange={(e) => onChange(node.id, { namespace: e.target.value })}
           style={{ ...inputStyle, fontSize: 9, padding: '2px 4px', width: 50, flexShrink: 0, color: '#8593b5' }}
-          placeholder="ns" title="Prefisso namespace (opzionale)" />
+          placeholder="ns" title="Namespace prefix (optional)" />
 
         {/* Nome XML */}
         <input value={node.xmlName}
@@ -122,14 +122,14 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
               <CustomSelect value={node.sourceField}
                 onChange={(e) => onChange(node.id, { sourceField: e.target.value })}
                 style={{ ...inputStyle, fontSize: 10, padding: '2px 3px', flex: 1 }}>
-                <option value="">— sorgente —</option>
+                <option value="">— source —</option>
                 {fields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
               </CustomSelect>
             ) : (
               <input value={node.sourceField}
                 onChange={(e) => onChange(node.id, { sourceField: e.target.value })}
                 style={{ ...inputStyle, fontSize: 10, padding: '2px 6px', flex: 1 }}
-                placeholder="campo_sorgente" />
+                placeholder="source_field" />
             )}
             <CustomSelect value={node.transform}
               onChange={(e) => onChange(node.id, { transform: e.target.value })}
@@ -306,44 +306,44 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>&lt;/&gt; XML Serializer</span> — converte righe del flusso in stringhe XML.
+        <span style={{ color: ACCENT, fontWeight: 600 }}>&lt;/&gt; XML Serializer</span> — converts flow rows into XML strings.
         Il risultato viene scritto nel campo <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code>.
       </div>
 
       {/* Elemento root */}
-      <SectionTitle label="Elemento root" />
+      <SectionTitle label="Root element" />
       <Row>
-        <Field label="Nome elemento root" hint="Elemento radice che contiene ogni riga serializzata">
+        <Field label="Root element name" hint="Root element that contains each serialized row">
           <input style={{ ...inputStyle, color: ACCENT }} value={p('rootElement', 'record')}
             onChange={u('rootElement')} placeholder="record" />
         </Field>
-        <Field label="Namespace root" hint="Namespace URI dell'elemento root (opzionale)">
+        <Field label="Root namespace" hint="Namespace URI of the root element (optional)">
           <input style={inputStyle} value={p('rootNamespace')} onChange={u('rootNamespace')}
             placeholder="http://esempio.com/schema" />
         </Field>
       </Row>
       <Row>
-        <Field label="Prefisso namespace root">
+        <Field label="Root namespace prefix">
           <input style={inputStyle} value={p('rootNsPrefix')} onChange={u('rootNsPrefix')} placeholder="ns" />
         </Field>
-        <Field label="Campo output nel record">
+        <Field label="Output field in the record">
           <input style={{ ...inputStyle, color: ACCENT }} value={p('outputField', 'xml_output')}
             onChange={u('outputField')} placeholder="xml_output" />
         </Field>
       </Row>
 
       {/* Opzioni serializzazione */}
-      <SectionTitle label="Opzioni serializzazione" />
+      <SectionTitle label="Serialization options" />
       <Row>
         <Field label="Pretty print">
           <CustomSelect style={inputStyle} value={p('pretty', 'false')} onChange={u('pretty')}>
-            <option value="false">Compatto — una riga</option>
-            <option value="true">Indentato — leggibile</option>
+            <option value="false">Compact — one line</option>
+            <option value="true">Indented — readable</option>
           </CustomSelect>
         </Field>
         <Field label="Dichiarazione XML">
           <CustomSelect style={inputStyle} value={p('xmlDeclaration', 'true')} onChange={u('xmlDeclaration')}>
-            <option value="true">Includi — &lt;?xml version="1.0"?&gt;</option>
+            <option value="true">Include — &lt;?xml version="1.0"?&gt;</option>
             <option value="false">Ometti</option>
           </CustomSelect>
         </Field>
@@ -356,18 +356,18 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
             <option value="ISO-8859-1">ISO-8859-1</option>
           </CustomSelect>
         </Field>
-        <Field label="Su errore serializzazione">
+        <Field label="On serialization error">
           <CustomSelect style={inputStyle} value={p('onError', 'reject')} onChange={u('onError')}>
             <option value="reject">Invia a output reject</option>
-            <option value="empty">Elemento vuoto</option>
-            <option value="skip">Salta la riga</option>
+            <option value="empty">Empty element</option>
+            <option value="skip">Skip the row</option>
             <option value="stop">Interrompi pipeline</option>
           </CustomSelect>
         </Field>
       </Row>
 
       {/* Namespace aggiuntivi */}
-      <Field label="Dichiarazioni namespace aggiuntive" hint="Una per riga: prefisso=http://uri">
+      <Field label="Additional namespace declarations" hint="One per line: prefix=http://uri">
         <textarea style={{ ...inputStyle, minHeight: 50, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
           value={p('namespaces')} onChange={u('namespaces')}
           placeholder={'xsi=http://www.w3.org/2001/XMLSchema-instance\nxsd=http://www.w3.org/2001/XMLSchema'}
@@ -375,15 +375,15 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Struttura XML */}
-      <SectionTitle label="Struttura XML output" />
+      <SectionTitle label="Output XML structure" />
 
       {/* Legenda */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
         {[
-          { label: '<elm> elemento', color: ACCENT },
-          { label: '@att attributo', color: '#4a9eff' },
+          { label: '<elm> element', color: ACCENT },
+          { label: '@att attribute', color: '#4a9eff' },
           { label: 'CDA CDATA',      color: '#a78bfa' },
-          { label: '<grp> gruppo',   color: '#ffb347' },
+          { label: '<grp> group',   color: '#ffb347' },
         ].map((item) => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color }} />
@@ -395,10 +395,10 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {[
-          { label: '+ elemento', kind: 'element' as const,   color: ACCENT },
-          { label: '+ @attributo', kind: 'attribute' as const, color: '#4a9eff' },
+          { label: '+ element', kind: 'element' as const,   color: ACCENT },
+          { label: '+ @attribute', kind: 'attribute' as const, color: '#4a9eff' },
           { label: '+ CDATA',    kind: 'cdata' as const,    color: '#a78bfa' },
-          { label: '+ gruppo',   kind: 'group' as const,    color: '#ffb347' },
+          { label: '+ group',   kind: 'group' as const,    color: '#ffb347' },
         ].map((btn) => (
           <button key={btn.kind} onClick={() => addRoot(btn.kind)}
             style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${btn.color} 12%, #1a2030)`, color: btn.color, border: `0.5px solid ${btn.color}40` }}>
@@ -440,8 +440,8 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
           <textarea
             style={{ ...inputStyle, minHeight: 120, resize: 'vertical', fontFamily: 'monospace', fontSize: 10 }}
             placeholder={importMode === 'xsd'
-              ? '<xs:schema>\n  <xs:element name="id" type="xs:integer"/>\n  <xs:element name="nome" type="xs:string"/>\n</xs:schema>'
-              : '<record>\n  <id>1</id>\n  <nome>Mario</nome>\n</record>'}
+              ? '<xs:schema>\n  <xs:element name="id" type="xs:integer"/>\n  <xs:element name="name" type="xs:string"/>\n</xs:schema>'
+              : '<record>\n  <id>1</id>\n  <name>John</name>\n</record>'}
             onChange={importMode === 'xsd' ? handleXsdImport : undefined}
             spellCheck={false} />
         </div>
@@ -450,7 +450,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       {/* Anteprima */}
       {showPreview && previewXml && (
         <div style={{ padding: '8px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}30` }}>
-          <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Anteprima struttura XML (valori come segnaposto)</div>
+          <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>XML structure preview (values as placeholders)</div>
           <pre style={{ margin: 0, fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {p('xmlDeclaration', 'true') === 'true' ? `<?xml version="1.0" encoding="${p('encoding', 'UTF-8')}"?>\n` : ''}
             {`<${p('rootNsPrefix') ? p('rootNsPrefix') + ':' : ''}${p('rootElement', 'record')}>\n${previewXml}\n</${p('rootNsPrefix') ? p('rootNsPrefix') + ':' : ''}${p('rootElement', 'record')}>`}
@@ -475,11 +475,11 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Validazione XSD output */}
-      <SectionTitle label="Validazione output" color="#8593b5" />
-      <Field label="Valida output contro XSD" hint="Opzionale — rallenta la pipeline, utile in sviluppo">
+      <SectionTitle label="Output validation" color="#8593b5" />
+      <Field label="Validate output against XSD" hint="Optional — slows the pipeline, useful in development">
         <CustomSelect style={inputStyle} value={p('validateOutput', 'false')} onChange={u('validateOutput')}>
-          <option value="false">No — salta validazione</option>
-          <option value="true">Sì — valida ogni riga XML prodotta</option>
+          <option value="false">No — skip validation</option>
+          <option value="true">Yes — validate every XML row produced</option>
         </CustomSelect>
       </Field>
 
@@ -488,11 +488,11 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d40' }}>output</span>
-          <span style={{ fontSize: 9, color: '#8593b5' }}>Righe originali + campo <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code> con XML serializzato</span>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>Original rows + <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code> field with serialized XML</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#1a0000', color: '#ff5f57', border: '0.5px solid #3d1010' }}>reject</span>
-          <span style={{ fontSize: 9, color: '#8593b5' }}>Righe non serializzabili + campo <code style={{ color: '#ff5f57' }}>_xml_error</code></span>
+          <span style={{ fontSize: 9, color: '#8593b5' }}>Non-serializable rows + <code style={{ color: '#ff5f57' }}>_xml_error</code> field</span>
         </div>
       </div>
     </div>

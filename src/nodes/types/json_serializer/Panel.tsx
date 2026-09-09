@@ -205,7 +205,7 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
         <input value={fi.jsonKey} onClick={(e) => e.stopPropagation()}
           onChange={(e) => onUpdate(fi.handle, { jsonKey: e.target.value })}
           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 12, fontWeight: 600, color, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
-          placeholder="chiave_json" />
+          placeholder="json_key" />
 
         {/* Modalità */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
@@ -235,8 +235,8 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           {incomingFields.length > 0 && (
             <div style={{ padding: '6px 10px', borderBottom: '0.5px solid #2a3349' }}>
               <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ flex: 1 }}>Campi in ingresso — clicca per mappare</span>
-                <button onClick={autoPopulate} title="Auto-popola tutti i campi"
+                <span style={{ flex: 1 }}>Incoming fields — click to map</span>
+                <button onClick={autoPopulate} title="Auto-populate all fields"
                   style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -262,16 +262,16 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
           {/* Campo scalare */}
           {fi.mode === 'value' && (
             <div style={{ padding: '6px 10px', borderBottom: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Campo sorgente (scalare)</div>
+              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Source field (scalar)</div>
               {incomingFields.length > 0 ? (
                 <CustomSelect value={fi.field ?? ''} onChange={(e) => onUpdate(fi.handle, { field: e.target.value })}
                   style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }}>
-                  <option value="">— seleziona campo —</option>
+                  <option value="">— select field —</option>
                   {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                 </CustomSelect>
               ) : (
                 <input value={fi.field ?? ''} onChange={(e) => onUpdate(fi.handle, { field: e.target.value })}
-                  style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }} placeholder="nome_campo" />
+                  style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }} placeholder="field_name" />
               )}
             </div>
           )}
@@ -302,16 +302,16 @@ function FlowCard({ fi, idx, incomingFields, treeNodes, selectedFlowHandle, onSe
                     {fi.fields.map((f, fidx) => (
                       <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 65px 55px 18px', gap: 4, alignItems: 'center', padding: '3px 8px', background: fidx % 2 === 0 ? '#1a2030' : 'transparent', borderBottom: '0.5px solid #2a3349' }}>
                         <input value={f.jsonKey} onChange={(e) => updateField(f.id, { jsonKey: e.target.value })}
-                          style={{ ...inputStyle, fontSize: 10, padding: '2px 5px', color }} placeholder="chiave" />
+                          style={{ ...inputStyle, fontSize: 10, padding: '2px 5px', color }} placeholder="key" />
                         {incomingFields.length > 0 ? (
                           <CustomSelect value={f.sourceField} onChange={(e) => updateField(f.id, { sourceField: e.target.value })}
                             style={{ ...inputStyle, fontSize: 10, padding: '2px 3px' }}>
-                            <option value="">— campo —</option>
+                            <option value="">— field —</option>
                             {incomingFields.map((sf) => <option key={sf.name} value={sf.name}>{sf.name}</option>)}
                           </CustomSelect>
                         ) : (
                           <input value={f.sourceField} onChange={(e) => updateField(f.id, { sourceField: e.target.value })}
-                            style={{ ...inputStyle, fontSize: 10, padding: '2px 5px' }} placeholder="campo" />
+                            style={{ ...inputStyle, fontSize: 10, padding: '2px 5px' }} placeholder="field" />
                         )}
                         <CustomSelect value={f.transform} onChange={(e) => updateField(f.id, { transform: e.target.value })}
                           style={{ ...inputStyle, fontSize: 9, padding: '2px 2px' }}>
@@ -480,7 +480,7 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
       {/* ── Info banner ── */}
       <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderBottom: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#9a9aaa', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>{'{ }'}</span>
-        <span>Ogni flusso in ingresso diventa una chiave del documento JSON.</span>
+        <span>Each incoming flow becomes a key of the JSON document.</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'monospace', color: ACCENT }}>→ {p('outputField', 'content')}</span>
         <button onClick={() => setShowOptions((v) => !v)}
           style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#8593b5', fontSize: 9 }}>
@@ -493,7 +493,7 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 10px', borderBottom: '0.5px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 8 }}>
             {[
-              { label: 'Campo output', key: 'outputField', def: 'content', type: 'input' },
+              { label: 'Output field', key: 'outputField', def: 'content', type: 'input' },
               { label: 'Envelope', key: 'envelope', def: '', type: 'input' },
             ].map((opt) => (
               <div key={opt.key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -511,15 +511,15 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
               </CustomSelect>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={labelStyle}>Valori null</div>
+              <div style={labelStyle}>Null values</div>
               <CustomSelect style={{ ...inputStyle, fontSize: 10, padding: '3px 4px' }} value={p('nullDefault', 'null')} onChange={(e) => updateProp(nodeId, 'nullDefault', e.target.value)}>
                 <option value="null">null</option>
-                <option value="omit">Ometti chiave</option>
+                <option value="omit">Omit key</option>
                 <option value="empty">""</option>
               </CustomSelect>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={labelStyle}>Su errore</div>
+              <div style={labelStyle}>On error</div>
               <CustomSelect style={{ ...inputStyle, fontSize: 10, padding: '3px 4px' }} value={p('onError', 'reject')} onChange={(e) => updateProp(nodeId, 'onError', e.target.value)}>
                 <option value="reject">Reject</option>
                 <option value="skip">Salta</option>
@@ -564,7 +564,7 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
             {/* Campi fissi */}
             {(flowInputs.length > 0 || fixedFields.length > 0) && (
               <div style={{ marginTop: 8 }}>
-                <SectionTitle label="Campi fissi (costanti)" color="#ffb347"
+                <SectionTitle label="Fixed fields (constants)" color="#ffb347"
                   action={
                     <button onClick={addFixed}
                       style={{ padding: '2px 8px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: 'color-mix(in srgb, #ffb347 12%, #0f1117)', color: '#ffb347', border: '0.5px solid #ffb34740' }}>
@@ -572,14 +572,14 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
                     </button>
                   } />
                 {fixedFields.length === 0 && (
-                  <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic', padding: '4px 0' }}>Nessun campo fisso</div>
+                  <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic', padding: '4px 0' }}>No fixed field</div>
                 )}
                 {fixedFields.map((f) => (
                   <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 50px 18px', gap: 4, marginBottom: 4, alignItems: 'center' }}>
                     <input value={f.key} onChange={(e) => updateFixed(f.id, { key: e.target.value })}
-                      style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: '#ffb347' }} placeholder="chiave" />
+                      style={{ ...inputStyle, fontSize: 10, padding: '3px 6px', color: '#ffb347' }} placeholder="key" />
                     <input value={f.value} onChange={(e) => updateFixed(f.id, { value: e.target.value })}
-                      style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }} placeholder="valore" />
+                      style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }} placeholder="value" />
                     <CustomSelect value={f.type} onChange={(e) => updateFixed(f.id, { type: e.target.value as any })}
                       style={{ ...inputStyle, fontSize: 9, padding: '2px 2px' }}>
                       <option value="string">str</option>

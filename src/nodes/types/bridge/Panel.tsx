@@ -160,17 +160,17 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-info-circle" style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }} />
         <span>
           {isOut
-            ? <>Il fallimento di un nodo di questa lane arriva alla lane di valle <b>solo se quel nodo è marcato «critico»</b>. Altrimenti la consegna si chiude regolarmente e la lane di valle riceve 0 righe senza accorgersi di nulla.</>
-            : <>Un fallimento nella lane sorgente arriva fin qui <b>solo se il nodo che fallisce è marcato «critico»</b>. Altrimenti la consegna risulta conclusa e questo nodo riceve 0 righe come se fosse tutto a posto.</>}
+            ? <>A failure of a node in this lane reaches the downstream lane <b>only if that node is marked «critical»</b>. Otherwise the delivery closes normally and the downstream lane receives 0 rows without noticing anything.</>
+            : <>A failure in the source lane reaches here <b>only if the failing node is marked «critical»</b>. Otherwise the delivery is considered complete and this node receives 0 rows as if everything were fine.</>}
         </span>
       </div>
 
       {/* ── Canale ── */}
-      <SectionTitle label="Canale" color={ACCENT} />
-      <Field label="Nome canale" hint="Deve corrispondere esattamente tra BridgeOut e BridgeIn">
+      <SectionTitle label="Channel" color={ACCENT} />
+      <Field label="Channel name" hint="Must match exactly between BridgeOut and BridgeIn">
         <input style={inputStyle} value={channelName} onChange={u('channelName')} placeholder="channel_a" />
       </Field>
-      <Field label="Colore canale">
+      <Field label="Channel color">
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {BRIDGE_COLORS.map((c) => (
             <div key={c} onClick={() => updateProp(nodeId, 'channelColor', c)}
@@ -204,9 +204,9 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 6,
               border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5',
               fontStyle: 'italic', lineHeight: 1.5 }}>
-              Nessuno schema rilevato a monte. Collega il BridgeOut a un nodo
-              con schema definito; se il collegamento c'è già, riapri o modifica
-              il nodo a monte per ripropagare lo schema.
+              No schema detected upstream. Connect BridgeOut to a node
+              with a defined schema; if the connection already exists, reopen or edit
+              the upstream node to re-propagate the schema.
             </div>
           )}
 
@@ -216,14 +216,14 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
               {
                 value: 'content',
                 label: '⬛ Content — one-shot',
-                desc:  'Tutto il flusso viene inviato in un unico payload. ' +
+                desc:  'The whole flow is sent in a single payload. ' +
                        'BridgeIn riceve tutte le righe prima di proseguire. ' +
                        'Ideale per dataset piccoli o quando B ha bisogno del quadro completo.',
               },
               {
                 value: 'stream',
                 label: '▶▶ Stream — row-by-row',
-                desc:  'Il flusso viene inviato in batch progressivi. ' +
+                desc:  'The flow is sent in progressive batches. ' +
                        'BridgeIn elabora man mano che arrivano i dati. ' +
                        'Ideale per dataset grandi — backpressure naturale.',
               },
@@ -240,8 +240,8 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
           </div>
 
           {transferMode === 'stream' && (
-            <Field label="Dimensione batch (righe per envelope)"
-              hint="Quante righe inviare per envelope. Default 100.">
+            <Field label="Batch size (rows per envelope)"
+              hint="How many rows to send per envelope. Default 100.">
               <input type="number" style={inputStyle} value={batchSize} onChange={u('batchSize')} min="1" max="10000" />
             </Field>
           )}
@@ -252,20 +252,20 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             {([
               {
                 value: 'none',
-                label: '✕ Nessun output',
-                desc:  'BridgeOut è un terminatore — la lane si ferma qui. ' +
+                label: '✕ No output',
+                desc:  'BridgeOut is a terminator — the lane stops here. ' +
                        'I dati sono stati consegnati al canale.',
               },
               {
                 value: 'passthrough',
                 label: '↻ Passthrough',
-                desc:  'Le stesse righe inviate al canale vengono anche emesse in output. ' +
+                desc:  'The same rows sent to the channel are also emitted as output. ' +
                        'Utile per loggare, scrivere su file o fare altro dopo il bridge.',
               },
               {
                 value: 'signal',
                 label: '⚡ Signal',
-                desc:  'Emette una sola riga di segnale { channel, rows_sent, status, sent_at }. ' +
+                desc:  'Emits a single signal row { channel, rows_sent, status, sent_at }. ' +
                        'Utile per notifiche o log di completamento senza riprocessare i dati.',
               },
             ] as const).map((m) => (
@@ -304,8 +304,8 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             value: 'gate',
             label: '⊟ Gate',
             desc:  isOut
-              ? 'Lane A si blocca finché Lane B non è pronta (reserved — implementazione futura).'
-              : 'Lane B si blocca finché Lane A non ha completato il flusso (comportamento default di BridgeIn).',
+              ? 'Lane A blocks until Lane B is ready (reserved — future implementation).'
+              : 'Lane B blocks until Lane A has completed the flow (BridgeIn default behavior).',
           },
         ] as const).map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'syncMode', m.value)}
@@ -324,7 +324,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         <>
           <SectionTitle label="Timeout" color={ACCENT} />
           <Field label="Timeout attesa (secondi)"
-            hint="Tempo massimo di attesa per il primo envelope da BridgeOut. Se scade, la pipeline fallisce con errore esplicito.">
+            hint="Maximum wait time for the first envelope from BridgeOut. If it expires, the pipeline fails with an explicit error.">
             <input type="number" style={inputStyle} value={timeoutSec} onChange={u('timeoutSec')} min="1" max="3600" />
           </Field>
         </>
@@ -334,16 +334,16 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
       {isOut && (
         <>
           <SectionTitle label="Buffer" color={ACCENT} />
-          <Field label="Dimensione buffer (righe)" hint="0 = illimitato. Il buffer accoda le righe se BridgeIn non è ancora in ascolto.">
+          <Field label="Buffer size (rows)" hint="0 = unlimited. The buffer queues rows if BridgeIn is not listening yet.">
             <input type="number" style={inputStyle} value={bufferSize} onChange={u('bufferSize')} min="0" />
           </Field>
           {parseInt(bufferSize) > 0 && (
             <Field label="Comportamento buffer pieno">
               <CustomSelect style={inputStyle} value={p('bufferFull', 'block')} onChange={u('bufferFull')}>
                 <option value="block">Blocca Lane A fino a svuotamento</option>
-                <option value="drop">Scarta le nuove righe</option>
-                <option value="drop_oldest">Scarta le righe più vecchie</option>
-                <option value="error">Errore — interrompe la pipeline</option>
+                <option value="drop">Drop the new rows</option>
+                <option value="drop_oldest">Drop the oldest rows</option>
+                <option value="error">Error — stops the pipeline</option>
               </CustomSelect>
             </Field>
           )}
@@ -357,14 +357,14 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         </div>
         {isOut ? (
           <>
-            <div>• Riceve il flusso dalla lane e lo pubblica sul canale <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
-            <div>• Non produce output verso i nodi successivi della lane</div>
-            <div>• Il canale è isolato per run: esecuzioni concorrenti non si interferiscono</div>
+            <div>• Receives the flow from the lane and publishes it to the channel <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
+            <div>• Does not produce output to the downstream nodes of the lane</div>
+            <div>• The channel is isolated per run: concurrent executions do not interfere</div>
           </>
         ) : (
           <>
-            <div>• Si blocca finché BridgeOut non pubblica sul canale <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
-            <div>• Emette le righe ricevute verso i nodi successivi della lane</div>
+            <div>• Blocks until BridgeOut publishes to the channel <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
+            <div>• Emits the received rows to the downstream nodes of the lane</div>
             <div>• Il timeout protegge da BridgeOut mancante o crashato</div>
           </>
         )}

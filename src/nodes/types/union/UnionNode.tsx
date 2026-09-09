@@ -39,7 +39,7 @@ export interface UnionInput {
 // Handle principale fisso — primo flusso
 const MAIN_INPUT: UnionInput = {
   id:    'input_main',
-  label: 'flusso_1',
+  label: 'flow_1',
   color: INPUT_COLORS[0],
 }
 
@@ -106,7 +106,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Badge editor */}
       <div
         onClick={(e) => { e.stopPropagation(); openNodeEditor(id) }}
-        title="Apri configurazione Union"
+        title="Open Union configuration"
         style={{
           position: 'absolute', top: -8, right: -8,
           width: 20, height: 20, borderRadius: '50%',
@@ -160,7 +160,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
           borderRadius: '50%',
           opacity:      0.6,
         }}
-        title="Trascina qui per aggiungere un nuovo flusso"
+        title="Drag here to add a new flow"
         isConnectable={true}
       />
 
@@ -200,7 +200,7 @@ export const UnionNode = memo(({ id, data, selected }: NodeProps) => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, opacity: 0.4, marginTop: 2 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, border: '1px dashed #8593b5' }} />
-          <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>+ nuovo flusso</span>
+          <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>+ new flow</span>
         </div>
 
         <div style={{

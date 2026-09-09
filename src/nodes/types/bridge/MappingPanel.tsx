@@ -58,27 +58,27 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
         border: `0.5px solid ${color}30`, display: 'flex', alignItems: 'center', gap: 8 }}>
         <i className="ti ti-lock" style={{ fontSize: 12, color, flexShrink: 0 }} />
         <span style={{ flex: 1 }}>
-          Schema <strong style={{ color }}>derivato</strong> dal BridgeOut del canale:
-          il BridgeIn emette esattamente ciò che gli viene mandato. Per cambiarlo,
-          agisci sul BridgeOut.
+          Schema <strong style={{ color }}>derived</strong> from the channel's BridgeOut:
+          BridgeIn emits exactly what it is sent. To change it,
+          act on BridgeOut.
         </span>
       </div>
 
       {/* ── Sorgente ── */}
       {!channelName ? (
         <div style={{ ...box, background: '#1a2030', border: '0.5px solid #3a2a2a', color: '#c88' }}>
-          Canale senza nome: configuralo nel pannello del nodo.
+          Unnamed channel: configure it in the node panel.
         </div>
       ) : ambiguous ? (
         <div style={{ ...box, background: '#1a2030', border: '0.5px solid #3a2a2a', color: '#c88' }}>
-          Il canale <code style={{ color }}>{channelName}</code> ha più di un BridgeOut:
-          il produttore è ambiguo e lo schema non può essere derivato.
-          Vedi il pannello Validazione.
+          The channel <code style={{ color }}>{channelName}</code> has more than one BridgeOut:
+          the producer is ambiguous and the schema cannot be derived.
+          See the Validation panel.
         </div>
       ) : !outNode ? (
         <div style={{ ...box, background: '#1a2030', border: '0.5px solid #3a2a2a', color: '#c88' }}>
-          Nessun BridgeOut sul canale <code style={{ color }}>{channelName}</code>:
-          finché manca il produttore non c'è nulla da derivare.
+          No BridgeOut on the channel <code style={{ color }}>{channelName}</code>:
+          while the producer is missing there is nothing to derive.
         </div>
       ) : (
         <div style={{ ...box, background: '#1a2030', border: '0.5px solid #2a3349',

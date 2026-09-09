@@ -134,7 +134,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
                 <input value={f.name}
                   onChange={(e) => updateFieldName(f.id, e.target.value)}
                   style={{ ...inputStyle, fontSize: 10, padding: '3px 6px' }}
-                  placeholder="nome campo" />
+                  placeholder="field name" />
                 <CustomSelect value={f.type}
                   onChange={(e) => updateFieldType(f.id, e.target.value)}
                   style={{ ...inputStyle, fontSize: 10, padding: '3px 4px' }}>
@@ -211,8 +211,8 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
           I campi vengono propagati automaticamente ai nodi collegati.
-          Flusso <strong style={{ color: '#4a9eff' }}>out</strong> sull'handle principale,
-          flusso <strong style={{ color: '#ff5f57' }}>reject</strong> sull'handle reject.
+          <strong style={{ color: '#4a9eff' }}>out</strong> flow on the main handle,
+          <strong style={{ color: '#ff5f57' }}>reject</strong> flow on the reject handle.
           I due flussi condividono i nomi dei campi ma hanno valori indipendenti.
         </div>
       )}

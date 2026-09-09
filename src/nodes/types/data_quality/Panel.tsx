@@ -54,10 +54,10 @@ const DIM_COLOR: Record<DQDimension, string> = {
 }
 
 const DIM_LABEL: Record<DQDimension, string> = {
-  completeness: 'Completezza',
-  conformity:   'Conformità',
-  consistency:  'Coerenza',
-  accuracy:     'Accuratezza',
+  completeness: 'Completeness',
+  conformity:   'Conformity',
+  consistency:  'Consistency',
+  accuracy:     'Accuracy',
 }
 
 // ─── Riga singola regola ─────────────────────────────────────────
@@ -142,29 +142,29 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
           {/* Riga 1: campo + etichetta */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <div style={labelStyle}>Campo</div>
+              <div style={labelStyle}>Field</div>
               {fields.length > 0 ? (
                 <CustomSelect style={inputStyle} value={rule.field}
                   onChange={(e) => onChange(rule.id, { field: e.target.value })}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {fields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                 </CustomSelect>
               ) : (
                 <input style={inputStyle} value={rule.field}
-                  onChange={(e) => onChange(rule.id, { field: e.target.value })} placeholder="nome_campo" />
+                  onChange={(e) => onChange(rule.id, { field: e.target.value })} placeholder="field_name" />
               )}
             </div>
             <div>
               <div style={labelStyle}>Etichetta</div>
               <input style={inputStyle} value={rule.label}
-                onChange={(e) => onChange(rule.id, { label: e.target.value })} placeholder="descrizione regola" />
+                onChange={(e) => onChange(rule.id, { label: e.target.value })} placeholder="rule description" />
             </div>
           </div>
 
           {/* Riga 2: dimensione + severity */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <div style={labelStyle}>Dimensione DTS</div>
+              <div style={labelStyle}>DTS dimension</div>
               <CustomSelect style={{ ...inputStyle, color: dimColor }} value={rule.dimension}
                 onChange={(e) => onChange(rule.id, { dimension: e.target.value as DQDimension })}>
                 {(Object.keys(DIM_COLOR) as DQDimension[]).map((d) => (
@@ -185,7 +185,7 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
 
           {/* Riga 3: tipo check */}
           <div>
-            <div style={labelStyle}>Tipo controllo</div>
+            <div style={labelStyle}>Check type</div>
             <CustomSelect style={inputStyle} value={rule.checkType}
               onChange={(e) => onChange(rule.id, { checkType: e.target.value as DQCheckType })}>
               {Object.entries(
@@ -226,21 +226,21 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
             </div>
           )}
           {checkDef?.params.includes('list') && (
-            <Field label="Lista valori (virgola)" hint="Es: A, B, C, D">
+            <Field label="Value list (comma)" hint="E.g. A, B, C, D">
               <input style={inputStyle} value={rule.list ?? ''} onChange={(e) => onChange(rule.id, { list: e.target.value })} placeholder="val1, val2, val3" />
             </Field>
           )}
           {checkDef?.params.includes('compareField') && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8 }}>
-              <Field label="Campo da confrontare">
+              <Field label="Field to compare">
                 {fields.length > 0 ? (
                   <CustomSelect style={inputStyle} value={rule.compareField ?? ''}
                     onChange={(e) => onChange(rule.id, { compareField: e.target.value })}>
-                    <option value="">— seleziona —</option>
+                    <option value="">— select —</option>
                     {fields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
                   </CustomSelect>
                 ) : (
-                  <input style={inputStyle} value={rule.compareField ?? ''} onChange={(e) => onChange(rule.id, { compareField: e.target.value })} placeholder="altro_campo" />
+                  <input style={inputStyle} value={rule.compareField ?? ''} onChange={(e) => onChange(rule.id, { compareField: e.target.value })} placeholder="other_field" />
                 )}
               </Field>
               <Field label="Op.">
@@ -256,22 +256,22 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
               {matVars.length > 0 ? (
                 <CustomSelect style={inputStyle} value={rule.matName ?? ''}
                   onChange={(e) => onChange(rule.id, { matName: e.target.value })}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {matVars.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
                 </CustomSelect>
               ) : (
-                <input style={inputStyle} value={rule.matName ?? ''} onChange={(e) => onChange(rule.id, { matName: e.target.value })} placeholder="nome_materialize" />
+                <input style={inputStyle} value={rule.matName ?? ''} onChange={(e) => onChange(rule.id, { matName: e.target.value })} placeholder="materialize_name" />
               )}
             </Field>
           )}
           {checkDef?.params.includes('refField') && (
-            <Field label="Campo chiave nel Materialize">
+            <Field label="Key field in the Materialize">
               <input style={inputStyle} value={rule.refField ?? ''} onChange={(e) => onChange(rule.id, { refField: e.target.value })} placeholder="id" />
             </Field>
           )}
           {checkDef?.params.includes('expression') && (
-            <Field label="Espressione FPEL"
-              hint="Deve restituire true (la riga passa) o false. Usa i nomi dei campi: età > 18 && email is not null">
+            <Field label="FPEL expression"
+              hint="Must return true (the row passes) or false. Use the field names: age > 18 && email is not null">
               <input style={{ ...inputStyle, color: '#f97316' }} value={rule.expression ?? ''}
                 onChange={(e) => onChange(rule.id, { expression: e.target.value })}
                 placeholder="row.eta >= 18 && row.eta <= 120" />
@@ -289,44 +289,44 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
 
           {/* Parametri repair */}
           {rule.repair === 'set_default' && (
-            <Field label="Valore di default">
+            <Field label="Default value">
               <input style={{ ...inputStyle, color: '#ffb347' }} value={rule.repairDefault ?? ''}
                 onChange={(e) => onChange(rule.id, { repairDefault: e.target.value })} placeholder="N/D" />
             </Field>
           )}
           {rule.repair === 'copy_from_field' && (
-            <Field label="Campo sorgente">
+            <Field label="Source field">
               {fields.length > 0 ? (
                 <CustomSelect style={inputStyle} value={rule.repairField ?? ''}
                   onChange={(e) => onChange(rule.id, { repairField: e.target.value })}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {fields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </CustomSelect>
               ) : (
-                <input style={inputStyle} value={rule.repairField ?? ''} onChange={(e) => onChange(rule.id, { repairField: e.target.value })} placeholder="altro_campo" />
+                <input style={inputStyle} value={rule.repairField ?? ''} onChange={(e) => onChange(rule.id, { repairField: e.target.value })} placeholder="other_field" />
               )}
             </Field>
           )}
           {rule.repair === 'concat_fields' && (
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-              <Field label="Campi da concatenare (virgola)">
-                <input style={inputStyle} value={rule.repairFields ?? ''} onChange={(e) => onChange(rule.id, { repairFields: e.target.value })} placeholder="nome, cognome" />
+              <Field label="Fields to concatenate (comma)">
+                <input style={inputStyle} value={rule.repairFields ?? ''} onChange={(e) => onChange(rule.id, { repairFields: e.target.value })} placeholder="name, surname" />
               </Field>
-              <Field label="Separatore">
+              <Field label="Delimiter">
                 <input style={inputStyle} value={rule.repairSeparator ?? ' '} onChange={(e) => onChange(rule.id, { repairSeparator: e.target.value })} placeholder=" " />
               </Field>
             </div>
           )}
           {rule.repair === 'lookup_from_file' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Field label="Path file CSV" hint="File con colonna chiave e colonna valore">
+              <Field label="CSV file path" hint="File with a key column and a value column">
                 <input style={inputStyle} value={rule.repairFile ?? ''} onChange={(e) => onChange(rule.id, { repairFile: e.target.value })} placeholder="/data/lookup.csv" />
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <Field label="Colonna chiave">
+                <Field label="Key column">
                   <input style={inputStyle} value={rule.repairFileKey ?? ''} onChange={(e) => onChange(rule.id, { repairFileKey: e.target.value })} placeholder="codice" />
                 </Field>
-                <Field label="Colonna valore">
+                <Field label="Value column">
                   <input style={inputStyle} value={rule.repairFileValue ?? ''} onChange={(e) => onChange(rule.id, { repairFileValue: e.target.value })} placeholder="descrizione" />
                 </Field>
               </div>
@@ -337,29 +337,29 @@ function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isF
               <Field label="Materialize">
                 {matVars.length > 0 ? (
                   <CustomSelect style={inputStyle} value={rule.matName ?? ''} onChange={(e) => onChange(rule.id, { matName: e.target.value })}>
-                    <option value="">— seleziona —</option>
+                    <option value="">— select —</option>
                     {matVars.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
                   </CustomSelect>
                 ) : (
-                  <input style={inputStyle} value={rule.matName ?? ''} onChange={(e) => onChange(rule.id, { matName: e.target.value })} placeholder="nome_materialize" />
+                  <input style={inputStyle} value={rule.matName ?? ''} onChange={(e) => onChange(rule.id, { matName: e.target.value })} placeholder="materialize_name" />
                 )}
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <Field label="Campo chiave">
+                <Field label="Key field">
                   <input style={inputStyle} value={rule.repairFileKey ?? ''} onChange={(e) => onChange(rule.id, { repairFileKey: e.target.value })} placeholder="codice" />
                 </Field>
-                <Field label="Campo valore">
+                <Field label="Value field">
                   <input style={inputStyle} value={rule.repairFileValue ?? ''} onChange={(e) => onChange(rule.id, { repairFileValue: e.target.value })} placeholder="descrizione" />
                 </Field>
               </div>
             </div>
           )}
           {rule.repair === 'expression' && (
-            <Field label="Espressione FPEL"
-              hint="Deve restituire il nuovo valore. Usa i nomi dei campi: coalesce(email, nome + '@azienda.it')">
+            <Field label="FPEL expression"
+              hint="Must return the new value. Use the field names: coalesce(email, name + '@company.com')">
               <input style={{ ...inputStyle, color: '#f97316' }} value={rule.repairExpression ?? ''}
                 onChange={(e) => onChange(rule.id, { repairExpression: e.target.value })}
-                placeholder="row.nome + ' ' + row.cognome" />
+                placeholder="row.name + ' ' + row.surname" />
             </Field>
           )}
         </div>
@@ -430,9 +430,9 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.6 }}>
         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>◈ Data Trust Score</div>
-        Ogni riga riceve un punteggio di affidabilità 0–1 nel campo <code style={{ color: ACCENT }}>{config.outputField}</code>.
-        I campi problematici vengono <strong style={{ color: '#ffb347' }}>riparati automaticamente</strong> dove possibile.
-        Le righe passano <strong style={{ color: '#3ddc84' }}>sempre tutte</strong> — usa un Filter dopo per separarle per score.
+        Each row receives a trust score 0–1 in the <code style={{ color: ACCENT }}>{config.outputField}</code> field.
+        Problematic fields are <strong style={{ color: '#ffb347' }}>repaired automatically</strong> where possible.
+        The rows <strong style={{ color: '#3ddc84' }}>always all pass</strong> — use a Filter afterwards to separate them by score.
       </div>
 
       {/* Stats dimensioni */}
@@ -459,7 +459,7 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       {config.rules.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-shield-star" style={{ fontSize: 24, display: 'block', marginBottom: 8, color: `${ACCENT}40` }} />
-          Aggiungi regole per valutare la qualità dei dati e, se necessario, ripararli automaticamente.
+          Add rules to assess data quality and, if needed, repair them automatically.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -502,7 +502,7 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Soglie */}
-      <SectionTitle label="Soglie di qualità" color="#8593b5" />
+      <SectionTitle label="Quality thresholds" color="#8593b5" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <Field label="Soglia valido (≥)" hint="_dq.valid = true">
           <input type="number" style={{ ...inputStyle, color: '#3ddc84' }} min="0" max="1" step="0.05"
@@ -518,23 +518,23 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
 
       {/* Opzioni output */}
       <SectionTitle label="Output" color="#8593b5" />
-      <Field label="Nome campo output" hint="Campo aggiunto a ogni riga con il risultato DTS">
+      <Field label="Output field name" hint="Field added to each row with the DTS result">
         <input style={{ ...inputStyle, color: ACCENT }} value={config.outputField}
           onChange={(e) => saveConfig({ ...config, outputField: e.target.value })} placeholder="_dq" />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Includi valori originali" hint="Prima della repair">
+        <Field label="Include original values" hint="Before the repair">
           <CustomSelect style={inputStyle} value={config.showOriginal ? 'true' : 'false'}
             onChange={(e) => saveConfig({ ...config, showOriginal: e.target.value === 'true' })}>
             <option value="false">No</option>
-            <option value="true">Sì — in _dq.issues[].original</option>
+            <option value="true">Yes — in _dq.issues[].original</option>
           </CustomSelect>
         </Field>
-        <Field label="Score pre-repair" hint="Calcola score prima e dopo">
+        <Field label="Score pre-repair" hint="Compute score before and after">
           <CustomSelect style={inputStyle} value={config.scoreBeforeRepair ? 'true' : 'false'}
             onChange={(e) => saveConfig({ ...config, scoreBeforeRepair: e.target.value === 'true' })}>
-            <option value="false">No — solo score finale</option>
-            <option value="true">Sì — anche _dq.scoreOriginal</option>
+            <option value="false">No — final score only</option>
+            <option value="true">Yes — also _dq.scoreOriginal</option>
           </CustomSelect>
         </Field>
       </div>
