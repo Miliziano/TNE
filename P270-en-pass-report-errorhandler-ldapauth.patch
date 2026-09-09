@@ -1,0 +1,1482 @@
+diff --git a/src/i18n/it-en.json b/src/i18n/it-en.json
+index f8724da..0bbbac1 100644
+--- a/src/i18n/it-en.json
++++ b/src/i18n/it-en.json
+@@ -5,6 +5,9 @@
+   " ritorna espressione ": " return expression ",
+   "#- rimuovi chiave": "#- remove key",
+   "${functions.length} funzione/i valida/e: ": "${functions.length} valid function(s): ",
++  "'true' se il nodo è marcato «escludi dal log»": "'true' if the node is marked «exclude from log»",
++  "'true' se l'errore ha interrotto la lane": "'true' if the error stopped the lane",
++  "'unhandled' oppure 'explicit' (copia da catch/reject)": "'unhandled' or 'explicit' (copy from catch/reject)",
+   "(nessuno — valori di default)": "(none — default values)",
+   "+ nuovo": "+ new",
+   "+ segreto": "+ secret",
+@@ -23,9 +26,13 @@
+   "1 riga di stato": "1 status row",
+   "2 spazi": "2 spaces",
+   "4 spazi": "4 spaces",
++  "< minore di": "< less than",
++  "= uguale a": "= equal to",
++  "> maggiore di": "> greater than",
+   "? contiene chiave": "? contains key",
+   "@> filtra": "@> filter",
+   "AMQP (porta 5672)": "AMQP (port 5672)",
++  "ANDato al match di login, es. (objectClass=person)": "ANDed with the login match, e.g. (objectClass=person)",
+   "API cloud Mailgun": "Mailgun cloud API",
+   "API cloud SendGrid": "SendGrid cloud API",
+   "Abilitato": "Enabled",
+@@ -37,6 +44,7 @@
+   "Aggiungi header": "Add header",
+   "Aggiungi i campi manualmente oppure configurali dopo aver eseguito il flusso.": "Add the fields manually or configure them after running the flow.",
+   "Aggiungi lane": "Add lane",
++  "Aggiungi regola": "Add rule",
+   "Aggiungi riga di mapping": "Add mapping row",
+   "Aggiungi un segreto (solo il nome; il valore arriva dal keychain a run-time)": "Add a secret (name only; the value comes from the keychain at run-time)",
+   "Aggiungi una risorsa Kafka dalla resource strip, poi selezionala nel tab Connessione.": "Add a Kafka resource from the resource strip, then select it in the Connection tab.",
+@@ -47,11 +55,14 @@
+   "Alternativa al topic fisso — sottoscrivi a tutti i topic che corrispondono": "Alternative to the fixed topic — subscribe to all matching topics",
+   "Ambienti": "Environments",
+   "Ambienti / profili (test, dev, prod)": "Environments / profiles (test, dev, prod)",
++  "Andamento temporale": "Trend over time",
+   "Anno": "Year",
+   "Annulla": "Cancel",
+   "Anteprima dati in uscita": "Output data preview",
+   "Anti-bumping (deduplicazione)": "Anti-bumping (deduplication)",
++  "Applica a": "Apply to",
+   "Applica una funzione: avvolge la selezione nell'editor (con ricerca)": "Apply a function: wraps the selection in the editor (searchable)",
++  "Apri editor nodo": "Open node editor",
+   "Apri progetto": "Open project",
+   "Array di oggetti": "Array of objects",
+   "Ascolta eventi del SO per nuovi file": "Listens to OS events for new files",
+@@ -63,6 +74,8 @@
+   "Attesa prima di processare — evita eventi doppi": "Wait before processing — avoids duplicate events",
+   "Attivo": "Active",
+   "Attributi (separati da virgola)": "Attributes (comma-separated)",
++  "Attributi da restituire (opz.)": "Attributes to return (opt.)",
++  "Attributo di login": "Login attribute",
+   "Autentica le credenziali di ogni riga contro LDAP (search-then-bind).": "Authenticates the credentials of each row against LDAP (search-then-bind).",
+   "Autenticazione": "Authentication",
+   "Auto — dopo ricezione": "Auto — after reception",
+@@ -77,6 +90,7 @@
+   "Binario": "Binary",
+   "Binario generico": "Generic binary",
+   "Blocca il flusso finché la condizione non è soddisfatta, poi sblocca e termina": "Blocks the flow until the condition is met, then unblocks and ends",
++  "Blue — professionale": "Blue — professional",
+   "Body JSON completo": "Full JSON body",
+   "Branch (opz.)": "Branch (opt.)",
+   "Buffer & Deduplicazione": "Buffer & deduplication",
+@@ -89,7 +103,10 @@
+   "Calcola window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).": "Computes window functions (ROW_NUMBER, RANK, LAG, LEAD, CUMSUM, MOVING_AVG...).",
+   "Campi JSON": "JSON fields",
+   "Campi JSON del payload espansi in root": "Payload JSON fields expanded at root",
++  "Campi KPI": "KPI fields",
++  "Campi aggiunti alle righe in uscita (error_out)": "Fields added to the outgoing rows (error_out)",
+   "Campi chiave": "Key fields",
++  "Campi da mostrare come card (separati da virgola) — vuoto = tutti": "Fields to show as cards (comma-separated) — empty = all",
+   "Campi da scrivere nel file": "Fields to write to the file",
+   "Campi dall'output JSON": "Fields from the JSON output",
+   "Campi della riga emessa": "Emitted row fields",
+@@ -97,7 +114,9 @@
+   "Campionamento": "Sampling",
+   "Campionamento casuale": "Random sampling",
+   "Campionamento uniforme — 1 ogni N righe": "Uniform sampling — 1 every N rows",
++  "Campo Data Quality": "Data Quality field",
+   "Campo allegato": "Attachment field",
++  "Campo asse X / categoria": "X-axis / category field",
+   "Campo body HTML": "HTML body field",
+   "Campo chiave": "Key field",
+   "Campo da scrivere": "Field to write",
+@@ -109,25 +128,37 @@
+   "Campo ingresso": "Input field",
+   "Campo owner": "Owner field",
+   "Campo partizione": "Partition field",
++  "Campo password (nella riga)": "Password field (in the row)",
+   "Campo path dal flusso": "Path field from flow",
+   "Campo repo": "Repo field",
+   "Campo specifico": "Specific field",
+   "Campo timestamp": "Timestamp field",
+   "Campo uscita": "Output field",
++  "Campo utente (nella riga)": "User field (in the row)",
++  "Campo valore (asse Y)": "Value field (Y-axis)",
+   "Carattere quote": "Quote character",
+   "Carattere virgolette": "Quote character",
++  "Card con metriche chiave": "Cards with key metrics",
++  "Cattura": "Catch",
+   "Cattura stderr": "Capture stderr",
+   "Cattura sul nodo — abilita handle catch": "Catch on node — enables catch handle",
++  "Cella": "Cell",
+   "Chiave messaggio": "Message key",
+   "Chiave privata (senza passphrase)": "Private key (no passphrase)",
+   "Chiave privata con passphrase": "Private key with passphrase",
+   "Chiudi": "Close",
+   "Clicca per inserire nel valore:": "Click to insert into the value:",
+   "Client — ack manuale": "Client — manual ack",
++  "Codice errore contiene — non ancora disponibile": "Error code contains — not yet available",
++  "Collega un nodo in ingresso per vedere i campi disponibili.": "Connect an incoming node to see the available fields.",
+   "Collega una risorsa DB al nodo per campionare i dati.": "Connect a DB resource to the node to sample the data.",
+   "Collettore centrale degli errori della lane — sempre attivo, non eliminabile. Riceve automaticamente ogni errore non gestito da catch/reject (e in copia quelli gestiti, se \"Log centralizzato\" è attivo).": "Central collector for lane errors — always active, cannot be deleted. Automatically receives every error not handled by catch/reject (and a copy of the handled ones, if \"Centralized log\" is active).",
++  "Collettore centrale degli errori di questa lane": "Central collector for the errors of this lane",
++  "Colonna": "Column",
+   "Colorato": "Colored",
+   "Colore": "Color",
++  "Colore accento": "Accent color",
++  "Colore primario": "Primary color",
+   "Comando": "Command",
+   "Comando eseguito": "Executed command",
+   "Comando post-scrittura": "Post-write command",
+@@ -140,15 +171,20 @@
+   "Comportamento": "Behavior",
+   "Compressione": "Compression",
+   "Con quale frequenza estrarre dal buffer": "How often to pull from the buffer",
++  "Condizione": "Condition",
+   "Condizione (solo header)": "Condition (header only)",
++  "Configura la gestione errori di ogni nodo senza apriri i singoli editor": "Configure error handling for each node without opening the individual editors",
+   "Configura una query nel tab Query prima di campionare.": "Configure a query in the Query tab before sampling.",
+   "Configura una tabella o una query personalizzata prima di rilevare lo schema.": "Configure a table or a custom query before detecting the schema.",
+   "Configurazione": "Configuration",
+   "Configurazione SMTP": "SMTP configuration",
++  "Configurazione attiva": "Active configuration",
++  "Configurazione grafico/KPI": "Chart/KPI configuration",
+   "Configurazione log": "Log configuration",
+   "Configurazione producer": "Producer configuration",
+   "Confluent Schema Registry o compatibile": "Confluent Schema Registry or compatible",
+   "Confronto": "Comparison",
++  "Confronto valori per categoria": "Compare values by category",
+   "Connessa": "Connected",
+   "Connessione": "Connection",
+   "Connessione broker": "Broker connection",
+@@ -156,6 +192,7 @@
+   "Consumer Kafka — legge messaggi da topic con configurazione offset e deserializzazione.": "Kafka consumer — reads messages from topics with offset and deserialization configuration.",
+   "Consumer/Producer ActiveMQ — protocolli STOMP, OpenWire, AMQP.": "ActiveMQ consumer/producer — STOMP, OpenWire, AMQP protocols.",
+   "Contatore controlli effettuati": "Counter of checks performed",
++  "Conteggio": "Count",
+   "Contenuto da scrivere": "Content to write",
+   "Contiene": "Contains",
+   "Continua comunque": "Continue anyway",
+@@ -163,6 +200,7 @@
+   "Continuo": "Continuous",
+   "Continuo (a sessioni)": "Continuous (per session)",
+   "Controllo di flusso: ferma deliberatamente la lane (rollback + chiusura connessioni) quando il flusso raggiunge questo nodo. Non è un fallimento. Multi-istanza — tipicamente a valle di un reject o di un handle di un filter.": "Flow control: deliberately stops the lane (rollback + closing connections) when the flow reaches this node. It is not a failure. Multi-instance — typically downstream of a reject or of a filter handle.",
++  "Copia anche gli errori gestiti da catch/reject espliciti": "Also copies errors handled by explicit catch/reject",
+   "Correlation ID dal campo": "Correlation ID from field",
+   "Cosa emette il nodo al termine della scrittura.": "What the node emits when writing finishes.",
+   "Cosa fa": "What it does",
+@@ -171,6 +209,7 @@
+   "Crea nuovo con timestamp": "Creates new with timestamp",
+   "Crea sempre un nuovo file — aggiunge suffisso numerico se esiste già": "Always creates a new file — adds a numeric suffix if it already exists",
+   "Crescente": "Ascending",
++  "Critico": "Critical",
+   "Cronologia": "History",
+   "Cronologia versioni": "Version history",
+   "Ctrl+Shift+F formatta · Alt+T suggerimenti": "Ctrl+Shift+F format · Alt+T suggestions",
+@@ -178,6 +217,7 @@
+   "Da campo — usa il campo HTML/testo dalla riga (es. da Report Generator)": "From field — use the HTML/text field from the row (e.g. from Report Generator)",
+   "Da campo — usa un campo della riga": "From field — use a row field",
+   "Da configurazione": "From configuration",
++  "Dark — moderno": "Dark — modern",
+   "Data (da campo timestamp)": "Date (from timestamp field)",
+   "Data corrente (2024-01-15)": "Current date (2024-01-15)",
+   "Data creazione": "Creation date",
+@@ -216,6 +256,7 @@
+   "Direzione": "Direction",
+   "Disabilitato": "Disabled",
+   "Disponibile solo nell'app desktop.": "Available only in the desktop app.",
++  "Distribuzione percentuale": "Percentage distribution",
+   "Dopo N righe il nodo smette di loggare": "After N rows the node stops logging",
+   "Dopo l'elaborazione": "After processing",
+   "Dopo l'input (a ramo esaurito)": "After input (when the branch is exhausted)",
+@@ -242,6 +283,7 @@
+   "Emette una riga ad ogni rilevazione positiva — rimane sempre attivo": "Emits a row on every positive detection — stays always active",
+   "Emette una riga solo quando lo stato cambia (falso→vero o vero→falso)": "Emits a row only when the state changes (false→true or true→false)",
+   "Emette una sola riga di stato.": "Emits a single status row.",
++  "Emetti — log + error_out": "Emit — log + error_out",
+   "Encoding valore": "Value encoding",
+   "Endpoint da controllare": "Endpoint to check",
+   "Entità": "Entity",
+@@ -249,6 +291,7 @@
+   "Entrambi": "Both",
+   "Entrambi — campo + lista fissa in CC": "Both — field + fixed list in CC",
+   "Enumera file esistenti in una directory": "Enumerates existing files in a directory",
++  "Error Handler — Gestione errori": "Error Handler — Error management",
+   "Error handler — la lane decide": "Error handler — the lane decides",
+   "Errore": "Error",
+   "Errore se esiste già": "Error if already exists",
+@@ -258,6 +301,7 @@
+   "Es: 10 = logga circa il 10% delle righe": "E.g. 10 = logs about 10% of the rows",
+   "Es: 10 = logga la riga 1, 11, 21, 31...": "E.g. 10 = logs row 1, 11, 21, 31...",
+   "Esatto": "Exact",
++  "Escludi dal log": "Exclude from log",
+   "Escludi i PR": "Exclude PRs",
+   "Esecuzione riuscita": "Execution succeeded",
+   "Esegue comandi bash/shell locali — output nel flusso": "Runs local bash/shell commands — output into the flow",
+@@ -272,6 +316,7 @@
+   "Esporta le funzioni come libreria .ffpel riusabile in altri progetti": "Export the functions as a reusable .ffpel library for other projects",
+   "Esporta lo schema dei campi su file (.json)": "Export the field schema to a file (.json)",
+   "Esporta…": "Export…",
++  "Espressione JS": "JS expression",
+   "Espressione chiave": "Key expression",
+   "Espressione custom": "Custom expression",
+   "Espressione per calcolare il topic da un campo della riga": "Expression to compute the topic from a row field",
+@@ -296,6 +341,7 @@
+   "Filtra ciò che il runner stampa e invia al monitor.": "Filter what the runner prints and sends to the monitor.",
+   "Filtri file": "File filters",
+   "Filtro LDAP": "LDAP filter",
++  "Filtro aggiuntivo (opz.)": "Additional filter (opt.)",
+   "Filtro messaggi SQL-like — es: type='order'": "SQL-like message filter — e.g. type='order'",
+   "Filtro nome file — lascia vuoto per tutti. Es: *.csv, report_*.json": "File name filter — leave empty for all. E.g. *.csv, report_*.json",
+   "Finestra dedicata (Log Viewer)": "Dedicated window (Log Viewer)",
+@@ -309,6 +355,7 @@
+   "Formato chiave": "Key format",
+   "Formato file": "File format",
+   "Formato messaggio": "Message format",
++  "Formato output": "Output format",
+   "Formato tab-separated": "Tab-separated format",
+   "Formato valore": "Value format",
+   "Frequenza & Limiti": "Frequency & limits",
+@@ -324,7 +371,9 @@
+   "Glob — es: *.csv, data_*.json": "Glob — e.g. *.csv, data_*.json",
+   "Granularità": "Granularity",
+   "Grassetto": "Bold",
++  "Green — natura/finance": "Green — nature/finance",
+   "Grezzo — nessun parsing": "Raw — no parsing",
++  "Gruppo richiesto (opz.)": "Required group (opt.)",
+   "HEAD e GET": "HEAD and GET",
+   "HEAD — solo header (raccomandato)": "HEAD — headers only (recommended)",
+   "HTML — documento web": "HTML — web document",
+@@ -340,13 +389,16 @@
+   "I valori dei segreti NON sono nell'artifact: vanno forniti sulla macchina di destinazione (keychain o variabili d'ambiente).": "Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).",
+   "ID del nodo": "Node ID",
+   "ID del nodo che ha generato l'errore": "ID of the node that raised the error",
++  "ID della lane in cui si è verificato l'errore": "ID of the lane where the error occurred",
+   "ID univoco (X-Webhook-Delivery o hash payload)": "Unique ID (X-Webhook-Delivery or payload hash)",
+   "INFO — normale": "INFO — normal",
+   "IP del chiamante": "Caller IP",
++  "Icona": "Icon",
+   "Identifica il gruppo — Kafka distribuisce le partizioni tra i consumer dello stesso gruppo": "Identifies the group — Kafka distributes the partitions among consumers of the same group",
+   "Identificatore opzionale del client per il monitoring": "Optional client identifier for monitoring",
+   "Identità": "Identity",
+   "Ignora chiave": "Ignore key",
++  "Ignora — né log né error_out": "Ignore — neither log nor error_out",
+   "Il campo <strong>Timeout</strong> è sincronizzato con <strong>Timeout watch</strong> nel tab Configurazione — modificando uno si aggiorna l'altro.": "The <strong>Timeout</strong> field is synced with <strong>Watch timeout</strong> in the Configuration tab — changing one updates the other.",
+   "Il file rimane nella posizione originale": "The file stays in its original location",
+   "Il file viene scaricato intero nel campo content (stringa)": "The whole file is downloaded into the content field (string)",
+@@ -357,6 +409,7 @@
+   "Importa da file…": "Import from file…",
+   "Importa funzioni da una libreria .ffpel (le aggiunge, saltando i nomi già presenti)": "Import functions from a .ffpel library (adds them, skipping names already present)",
+   "In caso di errore": "On error",
++  "In caso di errore (default nodi)": "On error (node default)",
+   "In memoria — si azzera a ogni esecuzione": "In memory — resets each run",
+   "Includi i PR": "Include PRs",
+   "Includi intestazione": "Include header",
+@@ -366,10 +419,12 @@
+   "Innesco": "Trigger",
+   "Integrità e deduplicazione": "Integrity and deduplication",
+   "Interroga una directory LDAP e produce una riga per voce.": "Queries an LDAP directory and produces one row per entry.",
++  "Interrompi la lane": "Stop the lane",
+   "Interrompi la pipeline": "Stop the pipeline",
+   "Interrompi pipeline": "Stop the pipeline",
+   "Intervallo commit (ms)": "Commit interval (ms)",
+   "Intervallo polling (secondi)": "Polling interval (seconds)",
++  "Intestazione": "Header",
+   "Invia email tramite SMTP, SendGrid, Amazon SES o Mailgun.": "Sends email via SMTP, SendGrid, Amazon SES or Mailgun.",
+   "Issue + Pull Request (di un repo)": "Issues + Pull Requests (of a repo)",
+   "Istruzioni": "Instructions",
+@@ -387,6 +442,7 @@
+   "La riga originale che ha causato l'errore": "The original row that caused the error",
+   "Lascia vuoto per disabilitare la verifica": "Leave empty to disable verification",
+   "Lascia vuoto per home": "Leave empty for home",
++  "Le celle segnalate vengono evidenziate e marcate da sole — non devi configurare nulla:": "Flagged cells are highlighted and marked automatically — you don't need to configure anything:",
+   "Le modifiche sono salvate automaticamente": "Changes are saved automatically",
+   "Legge continuamente — emette righe man mano che arrivano": "Reads continuously — emits rows as they arrive",
+   "Legge file da server FTP, FTPS o SFTP.": "Reads files from FTP, FTPS or SFTP servers.",
+@@ -403,11 +459,13 @@
+   "Limite righe": "Row limit",
+   "Lines — ogni riga stdout": "Lines — each stdout line",
+   "Lines — ogni riga stdout è una Row": "Lines — each stdout line is a Row",
++  "Lingua": "Language",
+   "Lista file": "File list",
+   "Livello": "Level",
+   "Livello QoS": "QoS level",
+   "Lo schema di uscita è identico allo schema di ingresso.": "The output schema is identical to the input schema.",
+   "Lo schema viene propagato automaticamente ai nodi collegati.": "The schema is propagated automatically to the connected nodes.",
++  "Log centralizzato": "Centralized log",
+   "Logga 1 ogni N righe": "Log 1 every N rows",
+   "Logga ogni riga — attenzione su volumi alti": "Logs every row — careful on high volumes",
+   "Logga solo le prime N righe del flusso": "Logs only the first N rows of the flow",
+@@ -422,6 +480,7 @@
+   "Max messaggi": "Max messages",
+   "Max messaggi in coda": "Max queued messages",
+   "Max tentativi": "Max attempts",
++  "Media": "Average",
+   "Mese": "Month",
+   "Messaggi da pre-caricare": "Messages to pre-load",
+   "Messaggio": "Message",
+@@ -449,15 +508,19 @@
+   "NOT NULL — clicca per nullable": "NOT NULL — click for nullable",
+   "Nessun campo in ingresso. Collega una sorgente a monte (es. un TMap) per pescarne i campi.": "No incoming field. Connect an upstream source (e.g. a TMap) to pull its fields.",
+   "Nessun mapping definito. Aggiungi una riga per mappare i campi.": "No mapping defined. Add a row to map the fields.",
++  "Nessun nodo in questa lane.": "No node in this lane.",
+   "Nessuna": "None",
+   "Nessuna (compatto)": "None (compact)",
+   "Nessuna chiave (null)": "No key (null)",
++  "Nessuna colonna configurata — verranno usati tutti i campi in ingresso.": "No columns configured — all incoming fields will be used.",
+   "Nessuna colonna rilevata — verifica la query e la connessione.": "No column detected — check the query and the connection.",
++  "Nessuna colonna — verranno usati tutti i campi in ingresso (senza formattazione condizionale).": "No columns — all incoming fields will be used (without conditional formatting).",
+   "Nessuna funzione definita.": "No functions defined.",
+   "Nessuna riga restituita.": "No rows returned.",
+   "Nessuna risorsa DB in questa lane. Aggiungine una dalla resource strip.": "No DB resource in this lane. Add one from the resource strip.",
+   "Nessuna risorsa GitHub collegata. Aggiungila dalla strip risorse e usa l'azione «source».": "No GitHub resource connected. Add it from the resource strip and use the «source» action.",
+   "Nessuna risorsa Kafka in questa lane.": "No Kafka resource in this lane.",
++  "Nessuna risorsa LDAP collegata. Aggiungi una risorsa LDAP dalla strip risorse e usa l'azione «auth».": "No LDAP resource connected. Add an LDAP resource from the resource strip and use the «auth» action.",
+   "Nessuna risorsa LDAP collegata. Aggiungi una risorsa LDAP dalla strip risorse e usa l'azione «query».": "No LDAP resource connected. Add an LDAP resource from the resource strip and use the «query» action.",
+   "Nessuna risorsa collegata al nodo.": "No resource connected to the node.",
+   "Nessuna risorsa disponibile in questa lane. Aggiungine una dalla resource strip.": "No resource available in this lane. Add one from the resource strip.",
+@@ -478,11 +541,14 @@
+   "No — scrivi direttamente nel file finale": "No — write directly to the final file",
+   "No — sessione duratura": "No — durable session",
+   "No — solo dati": "No — data only",
++  "No — solo errori non gestiti": "No — only unhandled errors",
+   "No — solo il payload deserializzato": "No — only the deserialized payload",
+   "No — solo la directory specificata": "No — only the specified directory",
+   "No — solo root": "No — root only",
+   "No — una volta sola": "No — only once",
+   "Nodi": "Nodes",
++  "Nodi della lane — policy errori": "Lane nodes — error policy",
++  "Nodo": "Node",
+   "Nodo trasparente — logga le righe in transito per debug. Non modifica i dati.": "Transparent node — logs the rows passing through for debugging. Does not modify the data.",
+   "Nome": "Name",
+   "Nome canale": "Channel name",
+@@ -490,17 +556,20 @@
+   "Nome colonna": "Column name",
+   "Nome crescente (A → Z)": "Name ascending (A → Z)",
+   "Nome decrescente (Z → A)": "Name descending (Z → A)",
++  "Nome del campo _dq aggiunto dal nodo Data Quality — default: _dq": "Name of the _dq field added by the Data Quality node — default: _dq",
+   "Nome del campo della riga che contiene il path della directory": "Name of the row field that contains the directory path",
+   "Nome del file": "File name",
+   "Nome del file scritto": "Name of the written file",
+   "Nome file": "File name",
+   "Nome file allegato": "Attachment file name",
+   "Nome file con estensione": "File name with extension",
++  "Nome file output": "Output file name",
+   "Nome foglio": "Sheet name",
+   "Nome header da controllare": "Header name to check",
+   "Nome mittente": "Sender name",
+   "Nome topic": "Topic name",
+   "Nome visualizzato": "Display name",
++  "Non applicabile: il nodo cattura gli errori da sé, non passano dall'error handler": "Not applicable: the node catches errors itself, they do not pass through the error handler",
+   "Non scarica — emette una riga per ogni file trovato con nome, path, dimensione, data": "Does not download — emits one row per file found with name, path, size, date",
+   "Non testata": "Untested",
+   "Normale": "Normal",
+@@ -509,8 +578,10 @@
+   "Note tecniche, avvertenze, TODO…": "Technical notes, warnings, TODO…",
+   "Notifica completamento (webhook URL)": "Completion notification (webhook URL)",
+   "Nullable — clicca per NOT NULL": "Nullable — click for NOT NULL",
++  "Numero": "Number",
+   "Numero di retry": "Retry count",
+   "Numero di righe da loggare": "Number of rows to log",
++  "Numero di righe elaborate": "Number of rows processed",
+   "Numero di righe scritte": "Number of rows written",
+   "Numero partizione": "Partition number",
+   "Numero riga": "Row number",
+@@ -539,6 +610,7 @@
+   "Opzioni publisher": "Publisher options",
+   "Opzioni subscriber": "Subscriber options",
+   "Ora": "Hour",
++  "Orange — energia": "Orange — energy",
+   "Ordina per": "Order by",
+   "Ordinamento": "Sorting",
+   "Ordinamento (ORDER BY)": "Order (ORDER BY)",
+@@ -584,6 +656,8 @@
+   "Persistenza deduplicazione": "Deduplication persistence",
+   "Piattaforma": "Platform",
+   "Piattaforma di destinazione": "Target platform",
++  "Policy di default della lane": "Lane default policy",
++  "Policy ereditata dai nuovi nodi di questa lane": "Policy inherited by new nodes in this lane",
+   "Politica overflow buffer": "Buffer overflow policy",
+   "Porta": "Port",
+   "Porta di ingresso da un'altra lane — riceve dal canale bridge.": "Entry port from another lane — receives from the bridge channel.",
+@@ -617,13 +691,16 @@
+   "Raggruppa le righe e calcola funzioni aggregate.": "Groups rows and computes aggregate functions.",
+   "Raggruppa per": "Group by",
+   "Raw — testo grezzo in campo content": "Raw — raw text in content field",
++  "Record in uscita — 1 record": "Output record — 1 record",
+   "Recupera dati da un endpoint HTTP.": "Retrieves data from an HTTP endpoint.",
+   "Regione AWS": "AWS region",
++  "Regole formattazione": "Formatting rules",
+   "Repos (di un'org o utente)": "Repos (of an org or user)",
+   "Resilienza": "Resilience",
+   "Retry connessione": "Connection retry",
+   "Retry invio": "Send retries",
+   "Retry su errore": "Retry on error",
++  "Retry — riprova N volte": "Retry — retry N times",
+   "Ricerca nelle sottocartelle": "Search in subfolders",
+   "Riceve eventi in ingresso, risponde 200 OK immediatamente, propaga row by row": "Receives incoming events, responds 200 OK immediately, propagates row by row",
+   "Riceve webhook — server condiviso con HMAC, buffer e dedup.": "Receives webhooks — shared server with HMAC, buffering and dedup.",
+@@ -632,7 +709,9 @@
+   "Riemette le righe originali dopo la scrittura.": "Re-emits the original rows after writing.",
+   "Riga di output": "Output line",
+   "Riga di testo": "Text line",
++  "Riga intera": "Whole row",
+   "Righe aggiornate": "Rows updated",
++  "Righe e colonne con totali": "Rows and columns with totals",
+   "Righe elaborate": "Rows processed",
+   "Righe filtrate (scartate)": "Rows filtered (discarded)",
+   "Righe inserite": "Rows inserted",
+@@ -648,6 +727,8 @@
+   "Rinomina il profilo (i valori restano)": "Rename the profile (values are kept)",
+   "Riprendi dall'ultimo offset committato per questo consumer group": "Resume from the last committed offset for this consumer group",
+   "Ripristina": "Restore",
++  "Riprova → cattura": "Retry → catch",
++  "Riprova → handler": "Retry → handler",
+   "Riprova, poi cattura sul nodo": "Retry, then catch on node",
+   "Riprova, poi error handler": "Retry, then error handler",
+   "Risorsa DB": "DB resource",
+@@ -688,6 +769,7 @@
+   "Scrive righe in una tabella di database.": "Writes rows into a database table.",
+   "Scrive righe su file.": "Writes rows to a file.",
+   "Scrivi intestazione": "Write header",
++  "Se a monte c'è un nodo Data Quality": "If there is a Data Quality node upstream",
+   "Se exit code ≠ 0": "If exit code ≠ 0",
+   "Se il file esiste, lo sovrascrive completamente": "If the file exists, overwrites it completely",
+   "Se impostato, usa questo campo come topic dinamico (sovrascrive il topic statico)": "If set, uses this field as the dynamic topic (overrides the static topic)",
+@@ -698,6 +780,7 @@
+   "Selettore JMS": "JMS selector",
+   "Seleziona risorsa": "Select resource",
+   "Semi-strutturato": "Semi-structured",
++  "Sempre": "Always",
+   "Separatore": "Delimiter",
+   "Serializza righe del flusso in stringhe JSON con struttura configurabile.": "Serializes flow rows into JSON strings with a configurable structure.",
+   "Serializza righe del flusso in stringhe XML con struttura e namespace configurabili.": "Serializes flow rows into XML strings with configurable structure and namespaces.",
+@@ -705,22 +788,27 @@
+   "Serializzazione": "Serialization",
+   "Serializzazione payload": "Payload serialization",
+   "Server mail standard": "Standard mail server",
++  "Sfondo": "Background",
+   "Sicurezza": "Security",
+   "Sincronismo": "Sync",
+   "Sincronizzato con Timeout nel tab Avanzate — 0 = infinito": "Synced with Timeout in the Advanced tab — 0 = infinite",
++  "Skip — salta il nodo": "Skip — skip the node",
+   "Smista le righe su N uscite in base a condizioni — first-match.": "Routes rows to N outputs based on conditions — first-match.",
+   "Solo GET": "GET only",
+   "Solo HEAD": "HEAD only",
+   "Solo SFTP/FTP Unix — es: 644, 755": "SFTP/FTP Unix only — e.g. 644, 755",
+   "Solo falling — quando diventa falso (servizio va down)": "Falling only — when it becomes false (service goes down)",
++  "Solo log — non manda a valle": "Log only — does not send downstream",
+   "Solo nuovi file": "New files only",
+   "Solo presente (qualsiasi valore)": "Present only (any value)",
+   "Solo rising — quando diventa vero (servizio torna su)": "Rising only — when it becomes true (service comes back up)",
++  "Somma": "Sum",
+   "Sorgente body": "Body source",
+   "Sorgente dati": "Data source",
+   "Sorgente delle righe": "Row source",
+   "Sorgente path directory": "Directory path source",
+   "Sorgente remota": "Remote source",
++  "Sottotitolo": "Subtitle",
+   "Sovrascrive il file": "Overwrites the file",
+   "Sposta in directory errori e continua": "Move to error directory and continue",
+   "Sposta in una directory di archivio": "Move to an archive directory",
+@@ -729,7 +817,9 @@
+   "Stato": "State",
+   "Stato precedente alla transizione": "State before the transition",
+   "Status — campi emessi verso il nodo successivo": "Status — fields emitted to the next node",
++  "Stile": "Style",
+   "Stile intestazione": "Header style",
++  "Stop — interrompi pipeline": "Stop — halt the pipeline",
+   "Strategia partizione": "Partition strategy",
+   "Stream — emette ad ogni rilevazione positiva, rimane attivo": "Stream — emits on every positive detection, stays active",
+   "String (testo grezzo)": "String (raw text)",
+@@ -739,6 +829,7 @@
+   "Su file — persiste tra esecuzioni": "To file — persists across runs",
+   "Su flussi ad alto volume, logga solo un sottoinsieme di righe per non intasare il log.": "On high-volume flows, log only a subset of rows to avoid flooding the log.",
+   "Subscriber MQTT — riceve messaggi da broker MQTT/MQTTS.": "MQTT subscriber — receives messages from MQTT/MQTTS brokers.",
++  "Summary + grafico + tabella": "Summary + chart + table",
+   "Summary — solo riepilogo": "Summary — summary only",
+   "Summary — solo riga di riepilogo finale": "Summary — only a final summary row",
+   "Supporta pipe, redirect, && — viene eseguito tramite /bin/sh": "Supports pipe, redirect, && — runs through /bin/sh",
+@@ -757,6 +848,7 @@
+   "Sì — include subdir": "Yes — include subdir",
+   "Sì — includi sottocartelle": "Yes — include subfolders",
+   "Sì — logga normalmente": "Yes — logs normally",
++  "Sì — logga tutto qui": "Yes — log everything here",
+   "Sì — mantieni messaggi offline": "Yes — keep messages offline",
+   "Sì — mostra il contatore righe": "Yes — show the row counter",
+   "Sì — nessuna persistenza": "Yes — no persistence",
+@@ -769,13 +861,16 @@
+   "Tab inserisce 2 spazi. Il codice viene eseguito sul server.": "Tab inserts 2 spaces. The code runs on the server.",
+   "Tabella": "Table",
+   "Tabella — IGNORATA": "Table — IGNORED",
++  "Tema colori": "Color theme",
+   "Template HTML": "HTML template",
+   "Template inline — scrivi il template qui": "Inline template — write the template here",
+   "Template messaggio": "Message template",
+   "Template messaggio log": "Log message template",
++  "Template report": "Report template",
+   "Tempo di ascolto (sec)": "Listen time (sec)",
+   "Tempo di esposizione (sec)": "Exposure time (sec)",
+   "Test in corso…": "Testing…",
++  "Testo": "Text",
+   "Testo (toString)": "Text (toString)",
+   "Testo body": "Body text",
+   "Testo semplice": "Plain text",
+@@ -799,6 +894,7 @@
+   "Timestamp dell'eccezione": "Exception timestamp",
+   "Timestamp di partenza": "Start timestamp",
+   "Timestamp elaborazione": "Processing timestamp",
++  "Timestamp generazione ISO8601": "ISO8601 generation timestamp",
+   "Timestamp ricezione": "Reception timestamp",
+   "Tipo": "Type",
+   "Tipo / codice errore": "Error type / code",
+@@ -807,13 +903,17 @@
+   "Tipo del nodo": "Node type",
+   "Tipo evento (X-Webhook-Event)": "Event type (X-Webhook-Event)",
+   "Tipo join": "Join type",
++  "Tipo nodo è": "Node type is",
+   "Tipo owner": "Owner type",
+   "Tipo risposta": "Response type",
++  "Titolo grafico": "Chart title",
++  "Titolo report": "Report title",
+   "Topic da campo riga": "Topic from row field",
+   "Topic del messaggio": "Message topic",
+   "Topic di pubblicazione": "Publish topic",
+   "Topic dinamico": "Dynamic topic",
+   "Topic/i": "Topic(s)",
++  "Totale riga": "Row total",
+   "Transazione": "Transaction",
+   "Transizione da emettere": "Transition to emit",
+   "Trascina per allargare": "Drag to widen",
+@@ -824,6 +924,7 @@
+   "Trasforma, rinomina e converte i campi di ogni riga con espressioni FPEL.": "Transforms, renames and converts the fields of each row with FPEL expressions.",
+   "Trasformatore visuale multi-input/output con mapping, join lookup e routing condizionale.": "Visual multi-input/output transformer with mapping, lookup joins and conditional routing.",
+   "Trasformazione": "Transformation",
++  "Trasmetti — usa catch/reject": "Propagate — use catch/reject",
+   "Tutte le righe": "All rows",
+   "Tutti (new/update/rename/delete)": "All (new/update/rename/delete)",
+   "Tutti gli header HTTP ricevuti": "All received HTTP headers",
+@@ -832,6 +933,7 @@
+   "Tutti i campi status vengono anche scritti nelle variabili di lane come": "All status fields are also written to lane variables as",
+   "UUID casuale": "Random UUID",
+   "UUID univoco": "Unique UUID",
++  "Un errore di questo nodo, dopo che l'handler ha concluso, interrompe la pipeline": "An error from this node, after the handler completes, stops the pipeline",
+   "Un topic o più separati da virgola — es: ordini, clienti, prodotti": "One topic or several separated by commas — e.g. orders, customers, products",
+   "Una funzione per riga:": "One function per line:",
+   "Una ogni N righe": "One every N rows",
+@@ -841,6 +943,7 @@
+   "Unisce due flussi su un campo chiave.": "Joins two flows on a key field.",
+   "Usa ${variabile} per topic dinamici": "Use ${variable} for dynamic topics",
+   "Usa il campo path da ogni riga in ingresso (richiede edge)": "Uses the path field from each incoming row (requires edge)",
++  "Usa row.campo — deve restituire true/false": "Use row.field — must return true/false",
+   "Usa variabili ${date}, ${datetime}, ${uuid}, ${seq} per path dinamici": "Use variables ${date}, ${datetime}, ${uuid}, ${seq} for dynamic paths",
+   "Usa {campo} per accedere ai valori della riga. Lascia vuoto per loggare la riga intera come JSON.": "Use {field} to access the row values. Leave empty to log the whole row as JSON.",
+   "Usa {nome_campo} per i valori della riga": "Use {field_name} for the row values",
+@@ -855,6 +958,7 @@
+   "Valore effettivo dell'header": "Actual header value",
+   "Valori": "Values",
+   "Valori multipli": "Multiple values",
++  "Valuta": "Currency",
+   "Variabile Lane": "Lane variable",
+   "Variabile di tipo stringa che contiene il path della directory": "String variable that contains the directory path",
+   "Variabili condivise (pool)": "Shared variables (pool)",
+@@ -869,6 +973,7 @@
+   "WARN — attenzione": "WARN — warning",
+   "array JSON": "JSON array",
+   "attributi multi-valore": "multi-value attributes",
++  "autentica E dev'essere membro di questo gruppo (DN)": "authenticates AND must be a member of this group (DN)",
+   "base (solo la voce base)": "base (base entry only)",
+   "campi:": "fields:",
+   "campo_dest": "target_field",
+@@ -880,20 +985,26 @@
+   "colonna della riga con l'org/utente": "row column with the org/user",
+   "commento": "comment",
+   "cosa prelevare da GitHub": "what to fetch from GitHub",
++  "da quale campo prendere lo username": "which field to take the username from",
+   "diventano le colonne d'uscita, oltre a dn": "become the output columns, in addition to dn",
++  "dove cercare gli utenti": "where to search for users",
+   "es. (&(objectClass=person)(mail=*))": "e.g. (&(objectClass=person)(mail=*))",
+   "es. marco-portatile": "e.g. mark-laptop",
++  "es. memberOf,displayName — aggiunti alle righe autenticate": "e.g. memberOf,displayName — added to the authenticated rows",
+   "es. ordini": "e.g. orders",
+   "es. ou=people,dc=example,dc=org": "e.g. ou=people,dc=example,dc=org",
+   "es. soglia di scarti superata": "e.g. reject threshold exceeded",
+   "esporta": "export",
+   "esporta .ffpel": "export .ffpel",
++  "ferma i nodi ancora in esecuzione": "stops the nodes still running",
+   "fine lane": "lane end",
+   "flusso": "flow",
+   "formato:": "format:",
+   "funzione nome(par1, par2) ": "function name(par1, par2) ",
+   "importa .ffpel": "import .ffpel",
+   "inizio lane": "lane start",
++  "l'attributo LDAP confrontato con lo username": "the LDAP attribute compared with the username",
++  "l'errore sparisce: il nodo resta rosso nel Monitor": "the error disappears: the node stays red in the Monitor",
+   "le issue includono i PR": "issues include PRs",
+   "mqtt:// — TCP (porta 1883)": "mqtt:// — TCP (port 1883)",
+   "mqtts:// — TLS (porta 8883)": "mqtts:// — TLS (port 8883)",
+@@ -923,26 +1034,39 @@
+   "simulata": "simulated",
+   "solo il primo": "first only",
+   "subtree (tutto il sottoalbero)": "subtree (entire subtree)",
++  "transitorio: usato per il bind, mai salvato né loggato": "transient: used for the bind, never saved or logged",
+   "true se condizione soddisfatta": "true if condition met",
+   "true se è una directory": "true if it is a directory",
+   "unisci (;)": "join (;)",
++  "usato": "used",
+   "valore di default": "default value",
+   "vuoto = branch di default del repo": "empty = repo default branch",
+   "ƒ applica…": "ƒ apply…",
++  "λ espressione JS": "λ JS expression",
+   "— nessun profilo —": "— no profile —",
+   "— nessuna —": "— none —",
+   "— seleziona campo —": "— select field —",
+   "— seleziona variabile —": "— select variable —",
+   "— seleziona —": "— select —",
++  "↑ Su": "↑ Up",
+   "→ Da flusso": "→ From flow",
+   "→ Sposta": "→ Move",
+   "→ Valore di un campo": "→ Value of a field",
++  "↓ Giù": "↓ Down",
+   "↺ Sovrascrive": "↺ Overwrite",
+   "⇩ Scarica e legge": "⇩ Download and read",
++  "∅ è vuoto/null": "∅ is empty/null",
++  "∋ contiene": "∋ contains",
++  "≠ diverso da": "≠ not equal to",
++  "≠∅ non è vuoto": "≠∅ is not empty",
++  "≤ minore o uguale": "≤ less than or equal",
++  "≥ maggiore o uguale": "≥ greater than or equal",
+   "⊂ canale non impostato": "⊂ channel not set",
+   "⊃ canale non impostato": "⊃ channel not set",
++  "⊕ Report completo": "⊕ Full report",
+   "⊕ campo flusso": "⊕ flow field",
+   "⊞ Righe del flusso": "⊞ Flow rows",
++  "⊞ Tabella dati": "⊞ Data table",
+   "▤ Elenca file": "▤ List files",
+   "▤ Lista file": "▤ File list",
+   "○ Lascia": "○ Leave",
+@@ -953,5 +1077,10 @@
+   "✕ Elimina": "✕ Delete",
+   "✕ Errore": "✕ Error",
+   "✦ Nuovo file": "✦ New file",
+-  "📁 Statico": "📁 Static"
++  "🎨 Personalizzato": "🎨 Custom",
++  "📁 Statico": "📁 Static",
++  "🔴 Danger — rosso": "🔴 Danger — red",
++  "🔵 Info — blu": "🔵 Info — blue",
++  "🟡 Warning — arancione": "🟡 Warning — orange",
++  "🟢 Success — verde": "🟢 Success — green"
+ }
+diff --git a/src/nodes/types/error_handler/MappingPanel.tsx b/src/nodes/types/error_handler/MappingPanel.tsx
+index 8f9a67b..7d618b1 100644
+--- a/src/nodes/types/error_handler/MappingPanel.tsx
++++ b/src/nodes/types/error_handler/MappingPanel.tsx
+@@ -65,21 +65,21 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: `color-mix(in srgb, ${ERR_COLOR} 8%, #161b27)`, borderRadius: 6, border: `1px solid ${ERR_COLOR}30` }}>
+         <i className="ti ti-list-details" style={{ fontSize: 16, color: ERR_COLOR }} />
+         <div>
+-          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Nodi della lane — policy errori</div>
+-          <div style={{ fontSize: 9, color: '#8593b5' }}>Configura la gestione errori di ogni nodo senza apriri i singoli editor</div>
++          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Lane nodes — error policy</div>
++          <div style={{ fontSize: 9, color: '#8593b5' }}>Configure error handling for each node without opening the individual editors</div>
+         </div>
+       </div>
+ 
+       <InfoBox>
+-        <strong style={{ color: '#c8d4f0' }}>Escludi dal log</strong>: l'errore di questo nodo non viene copiato su{' '}
+-        <code style={{ color: ERR_COLOR }}>error_out</code> anche se "Log centralizzato" è attivo.{' '}
+-        <strong style={{ color: '#c8d4f0' }}>Critico</strong>: un errore qui forza sempre l'interruzione della lane,
+-        indipendentemente dalla policy <code style={{ color: ERR_COLOR }}>onError</code> impostata.
++        <strong style={{ color: '#c8d4f0' }}>Exclude from log</strong>: the error of this node is not copied to{' '}
++        <code style={{ color: ERR_COLOR }}>error_out</code> even if "Centralized log" is active.{' '}
++        <strong style={{ color: '#c8d4f0' }}>Critical</strong>: an error here always forces the lane to stop,
++        regardless of the <code style={{ color: ERR_COLOR }}>onError</code> policy set.
+       </InfoBox>
+ 
+       {laneNodes.length === 0 && (
+         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+-          Nessun nodo in questa lane.
++          No node in this lane.
+         </div>
+       )}
+ 
+@@ -88,11 +88,11 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
+           {/* Header */}
+           <div style={{ display: 'grid', gridTemplateColumns: HEADER_COLS, gap: 8, padding: '6px 10px', background: '#1a2030', borderBottom: '1px solid #3a4a6a', alignItems: 'center' }}>
+             <div />
+-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Nodo</div>
+-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>In caso di errore</div>
++            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Node</div>
++            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>On error</div>
+             <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Retry</div>
+-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Escludi dal log</div>
+-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Critico</div>
++            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Exclude from log</div>
++            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Critical</div>
+             <div />
+           </div>
+ 
+@@ -127,9 +127,9 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
+                 <CustomSelect style={inputStyle} value={onError}
+                   onChange={(e) => updateAdvanced(n.id, 'onError', e.target.value)}>
+                   <option value="handler">Error handler</option>
+-                  <option value="catch">Cattura</option>
+-                  <option value="retry_handler">Riprova → handler</option>
+-                  <option value="retry_catch">Riprova → cattura</option>
++                  <option value="catch">Catch</option>
++                  <option value="retry_handler">Retry → handler</option>
++                  <option value="retry_catch">Retry → catch</option>
+                 </CustomSelect>
+ 
+                 {/* Retry count */}
+@@ -156,8 +156,8 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
+                     checked={critical === 'true' && !onErrorEmitsCatch(onError)}
+                     disabled={onErrorEmitsCatch(onError)}
+                     title={onErrorEmitsCatch(onError)
+-                      ? 'Non applicabile: il nodo cattura gli errori da sé, non passano dall\'error handler'
+-                      : 'Un errore di questo nodo, dopo che l\'handler ha concluso, interrompe la pipeline'}
++                      ? 'Not applicable: the node catches errors itself, they do not pass through the error handler'
++                      : 'An error from this node, after the handler completes, stops the pipeline'}
+                     style={{ accentColor: ERR_COLOR, width: 14, height: 14,
+                       cursor: onErrorEmitsCatch(onError) ? 'not-allowed' : 'pointer',
+                       opacity: onErrorEmitsCatch(onError) ? 0.35 : 1 }}
+@@ -165,7 +165,7 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
+                 </div>
+ 
+                 {/* Apri editor nodo */}
+-                <button onClick={() => openNodeEditor(n.id)} title="Apri editor nodo"
++                <button onClick={() => openNodeEditor(n.id)} title="Open node editor"
+                   style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '3px 5px', cursor: 'pointer', color: '#9a9aaa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                   <i className="ti ti-external-link" style={{ fontSize: 11 }} />
+                 </button>
+diff --git a/src/nodes/types/error_handler/Panel.tsx b/src/nodes/types/error_handler/Panel.tsx
+index 4b578e5..e0811b9 100644
+--- a/src/nodes/types/error_handler/Panel.tsx
++++ b/src/nodes/types/error_handler/Panel.tsx
+@@ -110,53 +110,53 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: `color-mix(in srgb, ${ERR_COLOR} 8%, #161b27)`, borderRadius: 6, border: `1px solid ${ERR_COLOR}30` }}>
+         <i className="ti ti-shield-exclamation" style={{ fontSize: 16, color: ERR_COLOR }} />
+         <div>
+-          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Error Handler — Gestione errori</div>
+-          <div style={{ fontSize: 9, color: '#8593b5' }}>Collettore centrale degli errori di questa lane</div>
++          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Error Handler — Error management</div>
++          <div style={{ fontSize: 9, color: '#8593b5' }}>Central collector for the errors of this lane</div>
+         </div>
+       </div>
+ 
+       <InfoBox color={ERR_COLOR}>
+-        Ogni errore non gestito da un <code style={{ color: ERR_COLOR }}>catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> esplicito
+-        confluisce automaticamente qui — nessun cavo da disegnare. Se un nodo ha
+-        <code style={{ color: ERR_COLOR }}> catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> collegato altrove, l'errore segue
+-        comunque quel percorso <strong>e</strong> arriva qui in copia (se "Log centralizzato" è attivo)
+-        per audit/log unificato. Collega <code style={{ color: ERR_COLOR }}>error_out</code> a un Sequencer
+-        o Filter per costruire un percorso di recovery/notifica personalizzato.
++        Every error not handled by an explicit <code style={{ color: ERR_COLOR }}>catch</code>/<code style={{ color: ERR_COLOR }}>reject</code>
++        automatically flows here — no wire to draw. If a node has
++        <code style={{ color: ERR_COLOR }}> catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> connected elsewhere, the error still follows
++        that path <strong>and</strong> also arrives here as a copy (if "Centralized log" is active)
++        for unified audit/log. Connect <code style={{ color: ERR_COLOR }}>error_out</code> to a Sequencer
++        or Filter to build a custom recovery/notification path.
+       </InfoBox>
+ 
+       {/* Policy default lane */}
+-      <SectionTitle label="Policy di default della lane" color={ERR_COLOR} />
++      <SectionTitle label="Lane default policy" color={ERR_COLOR} />
+       <Row2>
+-        <Field label="In caso di errore (default nodi)" hint="Policy ereditata dai nuovi nodi di questa lane">
++        <Field label="On error (node default)" hint="Policy inherited by new nodes in this lane">
+           <CustomSelect style={inputStyle} value={p('defaultOnError', 'stop')}
+             onChange={(e) => updateProp(nodeId, 'defaultOnError', e.target.value)}>
+-            <option value="stop">Stop — interrompi pipeline</option>
+-            <option value="skip">Skip — salta il nodo</option>
+-            <option value="retry">Retry — riprova N volte</option>
+-            <option value="propagate">Trasmetti — usa catch/reject</option>
++            <option value="stop">Stop — halt the pipeline</option>
++            <option value="skip">Skip — skip the node</option>
++            <option value="retry">Retry — retry N times</option>
++            <option value="propagate">Propagate — use catch/reject</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Log centralizzato" hint="Copia anche gli errori gestiti da catch/reject espliciti">
++        <Field label="Centralized log" hint="Also copies errors handled by explicit catch/reject">
+           <CustomSelect style={inputStyle} value={p('logAll', 'true')}
+             onChange={(e) => updateProp(nodeId, 'logAll', e.target.value)}>
+-            <option value="true">Sì — logga tutto qui</option>
+-            <option value="false">No — solo errori non gestiti</option>
++            <option value="true">Yes — log everything here</option>
++            <option value="false">No — only unhandled errors</option>
+           </CustomSelect>
+         </Field>
+       </Row2>
+ 
+       {/* Regole automatiche */}
+-      <SectionTitle label={`Regole automatiche — ${rules.length}`} color={ERR_COLOR} />
++      <SectionTitle label={`Automatic rules — ${rules.length}`} color={ERR_COLOR} />
+       <InfoBox color={ERR_COLOR}>
+-        Valutate in ordine, dall'alto verso il basso. La prima regola che corrisponde determina
+-        l'azione; ciò che non corrisponde a nessuna regola procede verso <code style={{ color: ERR_COLOR }}>error_out</code>.
+-        Una regola può alzare la gravità, non abbassarla: un nodo marcato <b>critico</b> interrompe
+-        comunque la lane, anche se la regola dice altro.
++        Evaluated in order, top to bottom. The first matching rule determines
++        the action; anything that matches no rule proceeds to <code style={{ color: ERR_COLOR }}>error_out</code>.
++        A rule can raise severity, not lower it: a node marked <b>critical</b> stops
++        the lane anyway, even if the rule says otherwise.
+       </InfoBox>
+ 
+       {rules.length === 0 && (
+         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+-          Nessuna regola — tutti gli errori procedono verso <code>error_out</code>.
++          No rules — all errors proceed to <code>error_out</code>.
+         </div>
+       )}
+ 
+@@ -166,16 +166,16 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+             <span style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', minWidth: 18 }}>#{idx + 1}</span>
+             <CustomSelect style={{ ...inputStyle, flex: '0 0 130px' }} value={rule.matchType}
+               onChange={(e) => updateRule(rule.id, { matchType: e.target.value as ErrorRule['matchType'] })}>
+-              <option value="always">Sempre</option>
+-              <option value="node_type">Tipo nodo è</option>
++              <option value="always">Always</option>
++              <option value="node_type">Node type is</option>
+               {/* Il motore non popola ancora `_error_code` (gli errori di nodo
+                   sono stringhe): una regola su questo campo non scatterebbe
+                   mai. Meglio dichiararlo indisponibile che offrirlo inerte. */}
+-              <option value="error_code" disabled>Codice errore contiene — non ancora disponibile</option>
++              <option value="error_code" disabled>Error code contains — not yet available</option>
+             </CustomSelect>
+             {rule.matchType !== 'always' && (
+               <input style={{ ...inputStyle, flex: 1 }} value={rule.matchValue}
+-                placeholder={rule.matchType === 'node_type' ? 'es. sink_db' : 'es. timeout'}
++                placeholder={rule.matchType === 'node_type' ? 'e.g. sink_db' : 'e.g. timeout'}
+                 onChange={(e) => updateRule(rule.id, { matchValue: e.target.value })} />
+             )}
+             <button onClick={() => removeRule(rule.id)}
+@@ -187,19 +187,19 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+             <span style={{ fontSize: 9, color: '#8593b5', minWidth: 18 }}>→</span>
+             <CustomSelect style={{ ...inputStyle, flex: '0 0 160px' }} value={rule.action}
+               onChange={(e) => updateRule(rule.id, { action: e.target.value as ErrorRule['action'] })}>
+-              <option value="emit">Emetti — log + error_out</option>
+-              <option value="log_only">Solo log — non manda a valle</option>
+-              <option value="ignore">Ignora — né log né error_out</option>
+-              <option value="stop">Interrompi la lane</option>
++              <option value="emit">Emit — log + error_out</option>
++              <option value="log_only">Log only — does not send downstream</option>
++              <option value="ignore">Ignore — neither log nor error_out</option>
++              <option value="stop">Stop the lane</option>
+             </CustomSelect>
+             {rule.action === 'stop' && (
+               <span style={{ fontSize: 9, color: ERR_COLOR }}>
+-                ferma i nodi ancora in esecuzione
++                stops the nodes still running
+               </span>
+             )}
+             {rule.action === 'ignore' && (
+               <span style={{ fontSize: 9, color: '#8593b5' }}>
+-                l'errore sparisce: il nodo resta rosso nel Monitor
++                the error disappears: the node stays red in the Monitor
+               </span>
+             )}
+           </div>
+@@ -209,25 +209,25 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
+       <button onClick={addRule}
+         style={{ background: '#1a2030', border: '1px dashed #2a3349', borderRadius: 6, padding: '8px', fontSize: 11, color: ERR_COLOR, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+         <i className="ti ti-plus" style={{ fontSize: 13 }} />
+-        Aggiungi regola
++        Add rule
+       </button>
+ 
+       {/* Schema output */}
+-      <SectionTitle label="Campi aggiunti alle righe in uscita (error_out)" color={ERR_COLOR} />
++      <SectionTitle label="Fields added to the outgoing rows (error_out)" color={ERR_COLOR} />
+       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+         {ERROR_HANDLER_SCHEMA.map((f) => (
+           <SchemaRow key={f.id} name={f.name} type={f.type}
+             desc={
+-              f.name === '_error_lane_id'   ? 'ID della lane in cui si è verificato l\'errore' :
+-              f.name === '_error_source'    ? "'unhandled' oppure 'explicit' (copia da catch/reject)" :
+-              f.name === '_error_message'   ? "Messaggio dell'eccezione" :
+-              f.name === '_error_code'      ? 'Tipo / codice errore' :
+-              f.name === '_error_node_id'   ? 'ID del nodo che ha generato l\'errore' :
+-              f.name === '_error_node_type' ? 'Tipo del nodo' :
+-              f.name === '_error_at'        ? "Timestamp dell'eccezione" :
+-              f.name === '_error_row'       ? 'La riga originale che ha causato l\'errore' :
+-              f.name === '_error_critical'  ? "'true' se l'errore ha interrotto la lane" :
+-              f.name === '_error_excluded'  ? "'true' se il nodo è marcato «escludi dal log»" : ''
++              f.name === '_error_lane_id'   ? 'ID of the lane where the error occurred' :
++              f.name === '_error_source'    ? "'unhandled' or 'explicit' (copy from catch/reject)" :
++              f.name === '_error_message'   ? "Exception message" :
++              f.name === '_error_code'      ? 'Error type / code' :
++              f.name === '_error_node_id'   ? 'ID of the node that raised the error' :
++              f.name === '_error_node_type' ? 'Node type' :
++              f.name === '_error_at'        ? "Exception timestamp" :
++              f.name === '_error_row'       ? 'The original row that caused the error' :
++              f.name === '_error_critical'  ? "'true' if the error stopped the lane" :
++              f.name === '_error_excluded'  ? "'true' if the node is marked «exclude from log»" : ''
+             } />
+         ))}
+       </div>
+diff --git a/src/nodes/types/ldap_auth/Panel.tsx b/src/nodes/types/ldap_auth/Panel.tsx
+index 3165477..353e375 100644
+--- a/src/nodes/types/ldap_auth/Panel.tsx
++++ b/src/nodes/types/ldap_auth/Panel.tsx
+@@ -72,19 +72,19 @@ export function LdapAuthPanel({ nodeId }: { nodeId: string }) {
+         </div>
+       ) : (
+         <div style={{ padding: '8px 12px', background: '#2a1a0a', borderRadius: 6, border: '0.5px solid #855', fontSize: 10, color: '#c8a060' }}>
+-          Nessuna risorsa LDAP collegata. Aggiungi una risorsa LDAP dalla strip risorse e usa l'azione «auth».
++          No LDAP resource connected. Add an LDAP resource from the resource strip and use the «auth» action.
+         </div>
+       )}
+ 
+-      <Field label="Campo utente (nella riga)" hint="da quale campo prendere lo username">
++      <Field label="User field (in the row)" hint="which field to take the username from">
+         <input style={inputStyle} value={p('usernameField', 'username')} onChange={u('usernameField')} placeholder="username" />
+       </Field>
+ 
+-      <Field label="Campo password (nella riga)" hint="transitorio: usato per il bind, mai salvato né loggato">
++      <Field label="Password field (in the row)" hint="transient: used for the bind, never saved or logged">
+         <input style={inputStyle} value={p('passwordField', 'password')} onChange={u('passwordField')} placeholder="password" />
+       </Field>
+ 
+-      <Field label="Attributo di login" hint="l'attributo LDAP confrontato con lo username">
++      <Field label="Login attribute" hint="the LDAP attribute compared with the username">
+         <CustomSelect style={inputStyle} value={p('loginAttribute', 'uid')} onChange={u('loginAttribute')}>
+           <option value="uid">uid</option>
+           <option value="sAMAccountName">sAMAccountName (AD)</option>
+@@ -94,19 +94,19 @@ export function LdapAuthPanel({ nodeId }: { nodeId: string }) {
+         </CustomSelect>
+       </Field>
+ 
+-      <Field label="Base DN" hint={baseDnDefault ? `default risorsa: ${baseDnDefault}` : 'dove cercare gli utenti'}>
++      <Field label="Base DN" hint={baseDnDefault ? `default risorsa: ${baseDnDefault}` : 'where to search for users'}>
+         <input style={inputStyle} value={p('baseDN', baseDnDefault)} onChange={u('baseDN')} placeholder={baseDnDefault || 'ou=people,dc=example,dc=org'} />
+       </Field>
+ 
+-      <Field label="Filtro aggiuntivo (opz.)" hint="ANDato al match di login, es. (objectClass=person)">
++      <Field label="Additional filter (opt.)" hint="ANDed with the login match, e.g. (objectClass=person)">
+         <input style={inputStyle} value={p('userFilter', '')} onChange={u('userFilter')} placeholder="(objectClass=person)" />
+       </Field>
+ 
+-      <Field label="Attributi da restituire (opz.)" hint="es. memberOf,displayName — aggiunti alle righe autenticate">
++      <Field label="Attributes to return (opt.)" hint="e.g. memberOf,displayName — added to the authenticated rows">
+         <input style={inputStyle} value={p('returnAttributes', '')} onChange={u('returnAttributes')} placeholder="memberOf,displayName" />
+       </Field>
+ 
+-      <Field label="Gruppo richiesto (opz.)" hint="autentica E dev'essere membro di questo gruppo (DN)">
++      <Field label="Required group (opt.)" hint="authenticates AND must be a member of this group (DN)">
+         <input style={inputStyle} value={p('requireGroup', '')} onChange={u('requireGroup')} placeholder="cn=admins,ou=groups,dc=example,dc=org" />
+       </Field>
+     </div>
+diff --git a/src/nodes/types/report_generator/MappingPanel.tsx b/src/nodes/types/report_generator/MappingPanel.tsx
+index c73ab5f..939ca92 100644
+--- a/src/nodes/types/report_generator/MappingPanel.tsx
++++ b/src/nodes/types/report_generator/MappingPanel.tsx
+@@ -60,8 +60,8 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
+       {/* Info */}
+       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
+         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>📊 Report Generator</div>
+-        Bufferizza tutte le righe in ingresso e produce <strong style={{ color: '#c8d4f0' }}>un solo record</strong> in uscita
+-        con il report completo in formato <strong style={{ color: ACCENT }}>{outputFmt.toUpperCase()}</strong>.
++        Buffers all incoming rows and produces <strong style={{ color: '#c8d4f0' }}>a single record</strong> as output
++        with the full report in <strong style={{ color: ACCENT }}>{outputFmt.toUpperCase()}</strong> format.
+       </div>
+ 
+       {/* Template e formato attivi */}
+@@ -76,13 +76,13 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* Campi in ingresso */}
+       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
+-        Campi in ingresso — {fields.length}
++        Incoming fields — {fields.length}
+       </div>
+ 
+       {fields.length === 0 ? (
+         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
+           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
+-          Collega un nodo in ingresso per vedere i campi disponibili.
++          Connect an incoming node to see the available fields.
+         </div>
+       ) : (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+@@ -94,7 +94,7 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
+                 <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{field.type}</span>
+                 {isUsed && (
+                   <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: `color-mix(in srgb, ${ACCENT} 10%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}30` }}>
+-                    usato
++                    used
+                   </span>
+                 )}
+               </div>
+@@ -107,17 +107,17 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
+       {(xField || yField || kpiFields.length > 0 || columns.length > 0) && (
+         <>
+           <div style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: '0.5px solid #2a3349' }}>
+-            Configurazione attiva
++            Active configuration
+           </div>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#9a9aaa' }}>
+-            {xField && <div>Asse X / Categoria: <code style={{ color: ACCENT }}>{xField}</code></div>}
+-            {yField && <div>Asse Y / Valore: <code style={{ color: ACCENT }}>{yField}</code></div>}
++            {xField && <div>X-axis / Category: <code style={{ color: ACCENT }}>{xField}</code></div>}
++            {yField && <div>Y-axis / Value: <code style={{ color: ACCENT }}>{yField}</code></div>}
+             {kpiFields.length > 0 && <div>KPI: {kpiFields.map((f) => <code key={f} style={{ color: ACCENT, marginRight: 4 }}>{f}</code>)}</div>}
+-            {columns.length > 0 && <div>Colonne configurate: <strong style={{ color: '#c8d4f0' }}>{columns.length}</strong></div>}
++            {columns.length > 0 && <div>Configured columns: <strong style={{ color: '#c8d4f0' }}>{columns.length}</strong></div>}
+             {columns.length === 0 && (templateId === 'table' || templateId === 'mixed') && (
+               <div style={{ color: '#ffb347' }}>
+                 <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
+-                Nessuna colonna configurata — verranno usati tutti i campi in ingresso.
++                No columns configured — all incoming fields will be used.
+               </div>
+             )}
+           </div>
+@@ -126,22 +126,22 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
+ 
+       {/* Schema output */}
+       <div style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: '0.5px solid #2a3349' }}>
+-        Record in uscita — 1 record
++        Output record — 1 record
+       </div>
+       <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+         <div style={{ display: 'grid', gridTemplateColumns: '120px 70px 1fr', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
+-          {['Campo', 'Tipo', 'Descrizione'].map((h) => (
++          {['Field', 'Type', 'Description'].map((h) => (
+             <div key={h} style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+           ))}
+         </div>
+         {[
+-          { name: 'content',      type: 'string',  desc: outputFmt === 'excel' ? 'Contenuto Excel codificato base64' : 'Documento HTML completo' },
++          { name: 'content',      type: 'string',  desc: outputFmt === 'excel' ? 'Base64-encoded Excel content' : 'Full HTML document' },
+           { name: 'content_type', type: 'string',  desc: outputFmt === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/html' },
+-          { name: 'filename',     type: 'string',  desc: `Nome file suggerito (es. report.${outputFmt === 'excel' ? 'xlsx' : 'html'})` },
+-          { name: 'row_count',    type: 'integer', desc: 'Numero di righe elaborate' },
+-          { name: 'generated_at', type: 'date',    desc: 'Timestamp generazione ISO8601' },
+-          { name: 'template',     type: 'string',  desc: `Template usato: ${templateId}` },
+-          { name: 'format',       type: 'string',  desc: `Formato: ${outputFmt}` },
++          { name: 'filename',     type: 'string',  desc: `Suggested file name (e.g. report.${outputFmt === 'excel' ? 'xlsx' : 'html'})` },
++          { name: 'row_count',    type: 'integer', desc: 'Number of rows processed' },
++          { name: 'generated_at', type: 'date',    desc: 'ISO8601 generation timestamp' },
++          { name: 'template',     type: 'string',  desc: `Template used: ${templateId}` },
++          { name: 'format',       type: 'string',  desc: `Format: ${outputFmt}` },
+         ].map((f, i, arr) => (
+           <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '120px 70px 1fr', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
+             <code style={{ fontFamily: 'monospace', fontSize: 10, color: ACCENT }}>{f.name}</code>
+diff --git a/src/nodes/types/report_generator/Panel.tsx b/src/nodes/types/report_generator/Panel.tsx
+index 33e6acb..49b1570 100644
+--- a/src/nodes/types/report_generator/Panel.tsx
++++ b/src/nodes/types/report_generator/Panel.tsx
+@@ -39,12 +39,12 @@ function SectionTitle({ label, color = '#f472b6' }: { label: string; color?: str
+ const ACCENT = '#f472b6'
+ 
+ const REPORT_TEMPLATES = [
+-  { id: 'table',      label: '⊞ Tabella dati',    desc: 'Righe e colonne con totali'           },
+-  { id: 'summary',    label: '◉ Summary KPI',      desc: 'Card con metriche chiave'             },
+-  { id: 'bar_chart',  label: '▦ Bar Chart',        desc: 'Confronto valori per categoria'       },
+-  { id: 'line_chart', label: '↗ Line Chart',       desc: 'Andamento temporale'                  },
+-  { id: 'pie_chart',  label: '◔ Pie / Donut',      desc: 'Distribuzione percentuale'            },
+-  { id: 'mixed',      label: '⊕ Report completo',  desc: 'Summary + grafico + tabella'          },
++  { id: 'table',      label: '⊞ Data table',    desc: 'Rows and columns with totals'           },
++  { id: 'summary',    label: '◉ Summary KPI',      desc: 'Cards with key metrics'             },
++  { id: 'bar_chart',  label: '▦ Bar Chart',        desc: 'Compare values by category'       },
++  { id: 'line_chart', label: '↗ Line Chart',       desc: 'Trend over time'                  },
++  { id: 'pie_chart',  label: '◔ Pie / Donut',      desc: 'Percentage distribution'            },
++  { id: 'mixed',      label: '⊕ Full report',  desc: 'Summary + chart + table'          },
+ ]
+ 
+ interface CellRule {
+@@ -60,28 +60,28 @@ interface ColumnConfig {
+ }
+ 
+ const CONDITION_OPTS = [
+-  { value: 'lt',       label: '< minore di'         },
+-  { value: 'lte',      label: '≤ minore o uguale'   },
+-  { value: 'gt',       label: '> maggiore di'        },
+-  { value: 'gte',      label: '≥ maggiore o uguale' },
+-  { value: 'eq',       label: '= uguale a'           },
+-  { value: 'neq',      label: '≠ diverso da'         },
+-  { value: 'contains', label: '∋ contiene'           },
+-  { value: 'is_null',  label: '∅ è vuoto/null'       },
+-  { value: 'not_null', label: '≠∅ non è vuoto'       },
+-  { value: 'custom',   label: 'λ espressione JS'     },
++  { value: 'lt',       label: '< less than'         },
++  { value: 'lte',      label: '≤ less than or equal'   },
++  { value: 'gt',       label: '> greater than'        },
++  { value: 'gte',      label: '≥ greater than or equal' },
++  { value: 'eq',       label: '= equal to'           },
++  { value: 'neq',      label: '≠ not equal to'         },
++  { value: 'contains', label: '∋ contains'           },
++  { value: 'is_null',  label: '∅ is empty/null'       },
++  { value: 'not_null', label: '≠∅ is not empty'       },
++  { value: 'custom',   label: 'λ JS expression'     },
+ ]
+ const STYLE_OPTS = [
+-  { value: 'danger',  label: '🔴 Danger — rosso'    },
+-  { value: 'warning', label: '🟡 Warning — arancione'},
+-  { value: 'success', label: '🟢 Success — verde'    },
+-  { value: 'info',    label: '🔵 Info — blu'          },
+-  { value: 'custom',  label: '🎨 Personalizzato'      },
++  { value: 'danger',  label: '🔴 Danger — red'    },
++  { value: 'warning', label: '🟡 Warning — orange'},
++  { value: 'success', label: '🟢 Success — green'    },
++  { value: 'info',    label: '🔵 Info — blue'          },
++  { value: 'custom',  label: '🎨 Custom'      },
+ ]
+ const ICON_OPTS = [
+-  { value: '',          label: 'Nessuna'    },
+-  { value: 'arrow_up',  label: '↑ Su'       },
+-  { value: 'arrow_down',label: '↓ Giù'      },
++  { value: '',          label: 'None'    },
++  { value: 'arrow_up',  label: '↑ Up'       },
++  { value: 'arrow_down',label: '↓ Down'      },
+   { value: 'warning',   label: '⚠ Warning'  },
+   { value: 'check',     label: '✓ Check'    },
+   { value: 'dot',       label: '● Dot'      },
+@@ -118,7 +118,7 @@ function RulesEditor({ col, fields, onChange }: {
+             {/* Riga 1: condizione + valore + target + elimina */}
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 90px 24px', gap: 6, alignItems: 'end' }}>
+               <div>
+-                <div style={labelStyle}>Condizione</div>
++                <div style={labelStyle}>Condition</div>
+                 <CustomSelect style={inputStyle} value={rule.condition}
+                   onChange={(e) => updateRule(rule.id, { condition: e.target.value })}>
+                   {CONDITION_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+@@ -126,17 +126,17 @@ function RulesEditor({ col, fields, onChange }: {
+               </div>
+               {needsValue(rule.condition) && rule.condition !== 'custom' ? (
+                 <div>
+-                  <div style={labelStyle}>Valore</div>
++                  <div style={labelStyle}>Value</div>
+                   <input style={inputStyle} value={rule.value}
+                     onChange={(e) => updateRule(rule.id, { value: e.target.value })} placeholder="0" />
+                 </div>
+               ) : <div />}
+               <div>
+-                <div style={labelStyle}>Applica a</div>
++                <div style={labelStyle}>Apply to</div>
+                 <CustomSelect style={inputStyle} value={rule.target}
+                   onChange={(e) => updateRule(rule.id, { target: e.target.value as 'cell' | 'row' })}>
+-                  <option value="cell">Cella</option>
+-                  <option value="row">Riga intera</option>
++                  <option value="cell">Cell</option>
++                  <option value="row">Whole row</option>
+                 </CustomSelect>
+               </div>
+               <button onClick={() => deleteRule(rule.id)}
+@@ -150,25 +150,25 @@ function RulesEditor({ col, fields, onChange }: {
+             {/* Espressione custom */}
+             {rule.condition === 'custom' && (
+               <div>
+-                <div style={labelStyle}>Espressione JS</div>
++                <div style={labelStyle}>JS expression</div>
+                 <input style={{ ...inputStyle, color: '#a78bfa' }} value={rule.expression ?? ''}
+                   onChange={(e) => updateRule(rule.id, { expression: e.target.value })}
+-                  placeholder={`row.${col.field} < row.minimo`} />
+-                <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>Usa <code style={{ color: '#a78bfa' }}>row.campo</code> — deve restituire true/false</div>
++                  placeholder={`row.${col.field} < row.minimum`} />
++                <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>Use <code style={{ color: '#a78bfa' }}>row.field</code> — must return true/false</div>
+               </div>
+             )}
+ 
+             {/* Riga 2: stile + icona */}
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+               <div>
+-                <div style={labelStyle}>Stile</div>
++                <div style={labelStyle}>Style</div>
+                 <CustomSelect style={{ ...inputStyle, color: styleColor }} value={rule.style}
+                   onChange={(e) => updateRule(rule.id, { style: e.target.value })}>
+                   {STYLE_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                 </CustomSelect>
+               </div>
+               <div>
+-                <div style={labelStyle}>Icona</div>
++                <div style={labelStyle}>Icon</div>
+                 <CustomSelect style={inputStyle} value={rule.icon ?? ''}
+                   onChange={(e) => updateRule(rule.id, { icon: e.target.value })}>
+                   {ICON_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+@@ -180,7 +180,7 @@ function RulesEditor({ col, fields, onChange }: {
+             {rule.style === 'custom' && (
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                 <div>
+-                  <div style={labelStyle}>Sfondo</div>
++                  <div style={labelStyle}>Background</div>
+                   <div style={{ display: 'flex', gap: 4 }}>
+                     <input type="color" value={rule.bgColor ?? '#fff0f0'}
+                       onChange={(e) => updateRule(rule.id, { bgColor: e.target.value })}
+@@ -190,7 +190,7 @@ function RulesEditor({ col, fields, onChange }: {
+                   </div>
+                 </div>
+                 <div>
+-                  <div style={labelStyle}>Testo</div>
++                  <div style={labelStyle}>Text</div>
+                   <div style={{ display: 'flex', gap: 4 }}>
+                     <input type="color" value={rule.textColor ?? '#c0392b'}
+                       onChange={(e) => updateRule(rule.id, { textColor: e.target.value })}
+@@ -206,7 +206,7 @@ function RulesEditor({ col, fields, onChange }: {
+       })}
+       <button onClick={addRule}
+         style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#f472b6', border: '0.5px dashed #f472b630', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi regola
++        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add rule
+       </button>
+     </div>
+   )
+@@ -228,11 +228,11 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
+       <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6 }}>
+           <div>
+-            <div style={labelStyle}>Campo</div>
++            <div style={labelStyle}>Field</div>
+             {incomingFields.length > 0 ? (
+               <CustomSelect style={inputStyle} value={col.field}
+                 onChange={(e) => onChange({ ...col, field: e.target.value })}>
+-                <option value="">— seleziona —</option>
++                <option value="">— select —</option>
+                 {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+               </CustomSelect>
+             ) : (
+@@ -241,9 +241,9 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
+             )}
+           </div>
+           <div>
+-            <div style={labelStyle}>Etichetta</div>
++            <div style={labelStyle}>Label</div>
+             <input style={inputStyle} value={col.label}
+-              onChange={(e) => onChange({ ...col, label: e.target.value })} placeholder="Intestazione" />
++              onChange={(e) => onChange({ ...col, label: e.target.value })} placeholder="Header" />
+           </div>
+           <button onClick={onDelete}
+             style={{ marginTop: 16, background: 'none', border: '1px solid #3d1010', borderRadius: 4, padding: '0 8px', cursor: 'pointer', color: '#ff5f57', alignSelf: 'flex-end', height: 28 }}>
+@@ -252,23 +252,23 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
+         </div>
+         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+           <div>
+-            <div style={labelStyle}>Tipo</div>
++            <div style={labelStyle}>Type</div>
+             <CustomSelect style={inputStyle} value={col.type}
+               onChange={(e) => onChange({ ...col, type: e.target.value as ColumnConfig['type'] })}>
+-              <option value="text">Testo</option>
+-              <option value="number">Numero</option>
+-              <option value="currency">Valuta</option>
+-              <option value="date">Data</option>
++              <option value="text">Text</option>
++              <option value="number">Number</option>
++              <option value="currency">Currency</option>
++              <option value="date">Date</option>
+             </CustomSelect>
+           </div>
+           <div>
+-            <div style={labelStyle}>Totale riga</div>
++            <div style={labelStyle}>Row total</div>
+             <CustomSelect style={inputStyle} value={col.total ?? 'none'}
+               onChange={(e) => onChange({ ...col, total: e.target.value })}>
+-              <option value="none">Nessuno</option>
+-              <option value="sum">Somma</option>
+-              <option value="avg">Media</option>
+-              <option value="count">Conteggio</option>
++              <option value="none">None</option>
++              <option value="sum">Sum</option>
++              <option value="avg">Average</option>
++              <option value="count">Count</option>
+             </CustomSelect>
+           </div>
+         </div>
+@@ -277,7 +277,7 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
+         <button onClick={() => setShowRules((v) => !v)}
+           style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: ruleCount > 0 ? `color-mix(in srgb, ${ACCENT} 10%, #0f1117)` : '#1e2535', color: ruleCount > 0 ? ACCENT : '#8593b5', border: `0.5px solid ${ruleCount > 0 ? ACCENT + '40' : '#2a3349'}`, display: 'flex', alignItems: 'center', gap: 5 }}>
+           <i className={`ti ${showRules ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 10 }} />
+-          Regole formattazione
++          Formatting rules
+           {ruleCount > 0 && <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 8, background: ACCENT, color: '#0f1117', fontWeight: 700 }}>{ruleCount}</span>}
+         </button>
+       </div>
+@@ -323,7 +323,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+ 
+       {/* Template */}
+-      <SectionTitle label="Template report" />
++      <SectionTitle label="Report template" />
+       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+         {REPORT_TEMPLATES.map((tmpl) => (
+           <button key={tmpl.id} onClick={() => updateProp(nodeId, 'templateId', tmpl.id)}
+@@ -338,7 +338,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+       </div>
+ 
+       {/* Formato */}
+-      <SectionTitle label="Formato output" />
++      <SectionTitle label="Output format" />
+       <div style={{ display: 'flex', gap: 6 }}>
+         {(['html', 'excel'] as const).map((fmt) => (
+           <button key={fmt} onClick={() => updateProp(nodeId, 'outputFormat', fmt)}
+@@ -352,15 +352,15 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+       </div>
+ 
+       {/* Intestazione */}
+-      <SectionTitle label="Intestazione" />
+-      <Field label="Titolo report">
+-        <input style={inputStyle} value={p('reportTitle')} onChange={u('reportTitle')} placeholder="Report mensile vendite" />
++      <SectionTitle label="Header" />
++      <Field label="Report title">
++        <input style={inputStyle} value={p('reportTitle')} onChange={u('reportTitle')} placeholder="Monthly sales report" />
+       </Field>
+       <Row>
+-        <Field label="Sottotitolo">
+-          <input style={inputStyle} value={p('reportSubtitle')} onChange={u('reportSubtitle')} placeholder="Periodo: {month}" />
++        <Field label="Subtitle">
++          <input style={inputStyle} value={p('reportSubtitle')} onChange={u('reportSubtitle')} placeholder="Period: {month}" />
+         </Field>
+-        <Field label="Nome file output">
++        <Field label="Output file name">
+           <input style={inputStyle} value={p('filename')} onChange={u('filename')} placeholder="report_{date}" />
+         </Field>
+       </Row>
+@@ -369,18 +369,18 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+       {(templateId === 'table' || templateId === 'mixed') && (
+         <>
+           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+-            <SectionTitle label={`Colonne — ${columns.length}`} />
++            <SectionTitle label={`Columns — ${columns.length}`} />
+             <button onClick={addColumn}
+               style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
+                 background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT,
+                 border: `1px solid ${ACCENT}60`, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+-              <i className="ti ti-plus" style={{ fontSize: 10 }} /> Colonna
++              <i className="ti ti-plus" style={{ fontSize: 10 }} /> Column
+             </button>
+           </div>
+ 
+           {columns.length === 0 ? (
+             <div style={{ padding: '12px', textAlign: 'center', color: '#2a3349', fontSize: 11, background: '#0f1117', borderRadius: 6, border: '1px dashed #2a3349' }}>
+-              Nessuna colonna — verranno usati tutti i campi in ingresso (senza formattazione condizionale).
++              No columns — all incoming fields will be used (without conditional formatting).
+             </div>
+           ) : (
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+@@ -396,31 +396,31 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+           <div style={{ padding: '10px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730', display: 'flex', flexDirection: 'column', gap: 8 }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, color: '#ffb347' }}>
+               <i className="ti ti-shield-check" style={{ fontSize: 12 }} />
+-              Se a monte c'è un nodo Data Quality
++              If there is a Data Quality node upstream
+             </div>
+             <div style={{ fontSize: 9, color: '#8a8a9a', lineHeight: 1.5 }}>
+-              Le celle segnalate vengono evidenziate e marcate da sole — non devi configurare nulla:
++              Flagged cells are highlighted and marked automatically — you don't need to configure anything:
+             </div>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 9, color: '#c8d4f0' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#f39c12', color: '#fff', fontWeight: 700 }}>✦</span>
+-                valore <strong>riparato</strong> dal Data Quality — passando il mouse vedi l'originale
++                value <strong>repaired</strong> by Data Quality — hover to see the original
+               </div>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#e74c3c', color: '#fff', fontWeight: 700 }}>!</span>
+-                <strong>errore</strong> di qualità non risolto
++                unresolved quality <strong>error</strong>
+               </div>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#f39c12', color: '#fff', fontWeight: 700 }}>⚠</span>
+-                <strong>avviso</strong> di qualità
++                quality <strong>warning</strong>
+               </div>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#1a3a6a', color: '#fff', fontWeight: 700, fontSize: 8 }}>DTS</span>
+-                colonna col <strong>punteggio</strong> di qualità per riga — verde ≥80%, arancio ≥60%, rosso sotto
++                column with the quality <strong>score</strong> per row — green ≥80%, orange ≥60%, red below
+               </div>
+             </div>
+             <div style={{ fontSize: 9, color: '#8593b5' }}>
+-              Il campo da leggere si imposta qui sotto (default <code style={{ color: '#8a8a9a' }}>_dq</code>).
++              The field to read is set below (default <code style={{ color: '#8a8a9a' }}>_dq</code>).
+             </div>
+           </div>
+         </>
+@@ -429,53 +429,53 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+       {/* Configurazione grafico */}
+       {['bar_chart','line_chart','pie_chart','mixed','summary'].includes(templateId) && (
+         <>
+-          <SectionTitle label="Configurazione grafico/KPI" />
++          <SectionTitle label="Chart/KPI configuration" />
+           <Row>
+-            <Field label="Campo asse X / categoria">
++            <Field label="X-axis / category field">
+               {incomingFields.length > 0 ? (
+                 <CustomSelect style={inputStyle} value={p('chartXField')} onChange={u('chartXField')}>
+-                  <option value="">— seleziona —</option>
++                  <option value="">— select —</option>
+                   {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+                 </CustomSelect>
+               ) : (
+-                <input style={inputStyle} value={p('chartXField')} onChange={u('chartXField')} placeholder="categoria" />
++                <input style={inputStyle} value={p('chartXField')} onChange={u('chartXField')} placeholder="category" />
+               )}
+             </Field>
+-            <Field label="Campo valore (asse Y)">
++            <Field label="Value field (Y-axis)">
+               {incomingFields.length > 0 ? (
+                 <CustomSelect style={inputStyle} value={p('chartYField')} onChange={u('chartYField')}>
+-                  <option value="">— seleziona —</option>
++                  <option value="">— select —</option>
+                   {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+                 </CustomSelect>
+               ) : (
+-                <input style={inputStyle} value={p('chartYField')} onChange={u('chartYField')} placeholder="valore" />
++                <input style={inputStyle} value={p('chartYField')} onChange={u('chartYField')} placeholder="value" />
+               )}
+             </Field>
+           </Row>
+-          <Field label="Titolo grafico">
+-            <input style={inputStyle} value={p('chartTitle')} onChange={u('chartTitle')} placeholder="Stipendi per città" />
++          <Field label="Chart title">
++            <input style={inputStyle} value={p('chartTitle')} onChange={u('chartTitle')} placeholder="Salaries by city" />
+           </Field>
+           {templateId === 'summary' && (
+-            <Field label="Campi KPI" hint="Campi da mostrare come card (separati da virgola) — vuoto = tutti">
+-              <input style={inputStyle} value={p('kpiFields')} onChange={u('kpiFields')} placeholder="totale, media, conteggio" />
++            <Field label="KPI fields" hint="Fields to show as cards (comma-separated) — empty = all">
++              <input style={inputStyle} value={p('kpiFields')} onChange={u('kpiFields')} placeholder="total, average, count" />
+             </Field>
+           )}
+         </>
+       )}
+ 
+       {/* Stile */}
+-      <SectionTitle label="Stile" />
++      <SectionTitle label="Style" />
+       <Row>
+-        <Field label="Tema colori">
++        <Field label="Color theme">
+           <CustomSelect style={inputStyle} value={p('colorTheme', 'blue')} onChange={u('colorTheme')}>
+-            <option value="blue">Blue — professionale</option>
+-            <option value="green">Green — natura/finance</option>
+-            <option value="dark">Dark — moderno</option>
+-            <option value="orange">Orange — energia</option>
++            <option value="blue">Blue — professional</option>
++            <option value="green">Green — nature/finance</option>
++            <option value="dark">Dark — modern</option>
++            <option value="orange">Orange — energy</option>
+             <option value="custom">Custom</option>
+           </CustomSelect>
+         </Field>
+-        <Field label="Lingua">
++        <Field label="Language">
+           <CustomSelect style={inputStyle} value={p('locale', 'it')} onChange={u('locale')}>
+             <option value="it">Italiano</option>
+             <option value="en">English</option>
+@@ -484,17 +484,17 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
+       </Row>
+       {p('colorTheme') === 'custom' && (
+         <Row>
+-          <Field label="Colore primario">
++          <Field label="Primary color">
+             <input type="color" style={{ ...inputStyle, padding: 2, height: 28 }} value={p('primaryColor', '#1a3a6a')} onChange={u('primaryColor')} />
+           </Field>
+-          <Field label="Colore accento">
++          <Field label="Accent color">
+             <input type="color" style={{ ...inputStyle, padding: 2, height: 28 }} value={p('accentColor', '#4a9eff')} onChange={u('accentColor')} />
+           </Field>
+         </Row>
+       )}
+ 
+       {/* Campo DQ */}
+-      <Field label="Campo Data Quality" hint="Nome del campo _dq aggiunto dal nodo Data Quality — default: _dq">
++      <Field label="Data Quality field" hint="Name of the _dq field added by the Data Quality node — default: _dq">
+         <input style={inputStyle} value={p('dqField', '_dq')} onChange={u('dqField')} placeholder="_dq" />
+       </Field>
+ 

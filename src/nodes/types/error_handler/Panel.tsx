@@ -110,53 +110,53 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: `color-mix(in srgb, ${ERR_COLOR} 8%, #161b27)`, borderRadius: 6, border: `1px solid ${ERR_COLOR}30` }}>
         <i className="ti ti-shield-exclamation" style={{ fontSize: 16, color: ERR_COLOR }} />
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Error Handler — Gestione errori</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Collettore centrale degli errori di questa lane</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Error Handler — Error management</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Central collector for the errors of this lane</div>
         </div>
       </div>
 
       <InfoBox color={ERR_COLOR}>
-        Ogni errore non gestito da un <code style={{ color: ERR_COLOR }}>catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> esplicito
-        confluisce automaticamente qui — nessun cavo da disegnare. Se un nodo ha
-        <code style={{ color: ERR_COLOR }}> catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> collegato altrove, l'errore segue
-        comunque quel percorso <strong>e</strong> arriva qui in copia (se "Log centralizzato" è attivo)
-        per audit/log unificato. Collega <code style={{ color: ERR_COLOR }}>error_out</code> a un Sequencer
-        o Filter per costruire un percorso di recovery/notifica personalizzato.
+        Every error not handled by an explicit <code style={{ color: ERR_COLOR }}>catch</code>/<code style={{ color: ERR_COLOR }}>reject</code>
+        automatically flows here — no wire to draw. If a node has
+        <code style={{ color: ERR_COLOR }}> catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> connected elsewhere, the error still follows
+        that path <strong>and</strong> also arrives here as a copy (if "Centralized log" is active)
+        for unified audit/log. Connect <code style={{ color: ERR_COLOR }}>error_out</code> to a Sequencer
+        or Filter to build a custom recovery/notification path.
       </InfoBox>
 
       {/* Policy default lane */}
-      <SectionTitle label="Policy di default della lane" color={ERR_COLOR} />
+      <SectionTitle label="Lane default policy" color={ERR_COLOR} />
       <Row2>
-        <Field label="In caso di errore (default nodi)" hint="Policy ereditata dai nuovi nodi di questa lane">
+        <Field label="On error (node default)" hint="Policy inherited by new nodes in this lane">
           <CustomSelect style={inputStyle} value={p('defaultOnError', 'stop')}
             onChange={(e) => updateProp(nodeId, 'defaultOnError', e.target.value)}>
-            <option value="stop">Stop — interrompi pipeline</option>
-            <option value="skip">Skip — salta il nodo</option>
-            <option value="retry">Retry — riprova N volte</option>
-            <option value="propagate">Trasmetti — usa catch/reject</option>
+            <option value="stop">Stop — halt the pipeline</option>
+            <option value="skip">Skip — skip the node</option>
+            <option value="retry">Retry — retry N times</option>
+            <option value="propagate">Propagate — use catch/reject</option>
           </CustomSelect>
         </Field>
-        <Field label="Log centralizzato" hint="Copia anche gli errori gestiti da catch/reject espliciti">
+        <Field label="Centralized log" hint="Also copies errors handled by explicit catch/reject">
           <CustomSelect style={inputStyle} value={p('logAll', 'true')}
             onChange={(e) => updateProp(nodeId, 'logAll', e.target.value)}>
-            <option value="true">Sì — logga tutto qui</option>
-            <option value="false">No — solo errori non gestiti</option>
+            <option value="true">Yes — log everything here</option>
+            <option value="false">No — only unhandled errors</option>
           </CustomSelect>
         </Field>
       </Row2>
 
       {/* Regole automatiche */}
-      <SectionTitle label={`Regole automatiche — ${rules.length}`} color={ERR_COLOR} />
+      <SectionTitle label={`Automatic rules — ${rules.length}`} color={ERR_COLOR} />
       <InfoBox color={ERR_COLOR}>
-        Valutate in ordine, dall'alto verso il basso. La prima regola che corrisponde determina
-        l'azione; ciò che non corrisponde a nessuna regola procede verso <code style={{ color: ERR_COLOR }}>error_out</code>.
-        Una regola può alzare la gravità, non abbassarla: un nodo marcato <b>critico</b> interrompe
-        comunque la lane, anche se la regola dice altro.
+        Evaluated in order, top to bottom. The first matching rule determines
+        the action; anything that matches no rule proceeds to <code style={{ color: ERR_COLOR }}>error_out</code>.
+        A rule can raise severity, not lower it: a node marked <b>critical</b> stops
+        the lane anyway, even if the rule says otherwise.
       </InfoBox>
 
       {rules.length === 0 && (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Nessuna regola — tutti gli errori procedono verso <code>error_out</code>.
+          No rules — all errors proceed to <code>error_out</code>.
         </div>
       )}
 
@@ -166,16 +166,16 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
             <span style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', minWidth: 18 }}>#{idx + 1}</span>
             <CustomSelect style={{ ...inputStyle, flex: '0 0 130px' }} value={rule.matchType}
               onChange={(e) => updateRule(rule.id, { matchType: e.target.value as ErrorRule['matchType'] })}>
-              <option value="always">Sempre</option>
-              <option value="node_type">Tipo nodo è</option>
+              <option value="always">Always</option>
+              <option value="node_type">Node type is</option>
               {/* Il motore non popola ancora `_error_code` (gli errori di nodo
                   sono stringhe): una regola su questo campo non scatterebbe
                   mai. Meglio dichiararlo indisponibile che offrirlo inerte. */}
-              <option value="error_code" disabled>Codice errore contiene — non ancora disponibile</option>
+              <option value="error_code" disabled>Error code contains — not yet available</option>
             </CustomSelect>
             {rule.matchType !== 'always' && (
               <input style={{ ...inputStyle, flex: 1 }} value={rule.matchValue}
-                placeholder={rule.matchType === 'node_type' ? 'es. sink_db' : 'es. timeout'}
+                placeholder={rule.matchType === 'node_type' ? 'e.g. sink_db' : 'e.g. timeout'}
                 onChange={(e) => updateRule(rule.id, { matchValue: e.target.value })} />
             )}
             <button onClick={() => removeRule(rule.id)}
@@ -187,19 +187,19 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
             <span style={{ fontSize: 9, color: '#8593b5', minWidth: 18 }}>→</span>
             <CustomSelect style={{ ...inputStyle, flex: '0 0 160px' }} value={rule.action}
               onChange={(e) => updateRule(rule.id, { action: e.target.value as ErrorRule['action'] })}>
-              <option value="emit">Emetti — log + error_out</option>
-              <option value="log_only">Solo log — non manda a valle</option>
-              <option value="ignore">Ignora — né log né error_out</option>
-              <option value="stop">Interrompi la lane</option>
+              <option value="emit">Emit — log + error_out</option>
+              <option value="log_only">Log only — does not send downstream</option>
+              <option value="ignore">Ignore — neither log nor error_out</option>
+              <option value="stop">Stop the lane</option>
             </CustomSelect>
             {rule.action === 'stop' && (
               <span style={{ fontSize: 9, color: ERR_COLOR }}>
-                ferma i nodi ancora in esecuzione
+                stops the nodes still running
               </span>
             )}
             {rule.action === 'ignore' && (
               <span style={{ fontSize: 9, color: '#8593b5' }}>
-                l'errore sparisce: il nodo resta rosso nel Monitor
+                the error disappears: the node stays red in the Monitor
               </span>
             )}
           </div>
@@ -209,25 +209,25 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
       <button onClick={addRule}
         style={{ background: '#1a2030', border: '1px dashed #2a3349', borderRadius: 6, padding: '8px', fontSize: 11, color: ERR_COLOR, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         <i className="ti ti-plus" style={{ fontSize: 13 }} />
-        Aggiungi regola
+        Add rule
       </button>
 
       {/* Schema output */}
-      <SectionTitle label="Campi aggiunti alle righe in uscita (error_out)" color={ERR_COLOR} />
+      <SectionTitle label="Fields added to the outgoing rows (error_out)" color={ERR_COLOR} />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         {ERROR_HANDLER_SCHEMA.map((f) => (
           <SchemaRow key={f.id} name={f.name} type={f.type}
             desc={
-              f.name === '_error_lane_id'   ? 'ID della lane in cui si è verificato l\'errore' :
-              f.name === '_error_source'    ? "'unhandled' oppure 'explicit' (copia da catch/reject)" :
-              f.name === '_error_message'   ? "Messaggio dell'eccezione" :
-              f.name === '_error_code'      ? 'Tipo / codice errore' :
-              f.name === '_error_node_id'   ? 'ID del nodo che ha generato l\'errore' :
-              f.name === '_error_node_type' ? 'Tipo del nodo' :
-              f.name === '_error_at'        ? "Timestamp dell'eccezione" :
-              f.name === '_error_row'       ? 'La riga originale che ha causato l\'errore' :
-              f.name === '_error_critical'  ? "'true' se l'errore ha interrotto la lane" :
-              f.name === '_error_excluded'  ? "'true' se il nodo è marcato «escludi dal log»" : ''
+              f.name === '_error_lane_id'   ? 'ID of the lane where the error occurred' :
+              f.name === '_error_source'    ? "'unhandled' or 'explicit' (copy from catch/reject)" :
+              f.name === '_error_message'   ? "Exception message" :
+              f.name === '_error_code'      ? 'Error type / code' :
+              f.name === '_error_node_id'   ? 'ID of the node that raised the error' :
+              f.name === '_error_node_type' ? 'Node type' :
+              f.name === '_error_at'        ? "Exception timestamp" :
+              f.name === '_error_row'       ? 'The original row that caused the error' :
+              f.name === '_error_critical'  ? "'true' if the error stopped the lane" :
+              f.name === '_error_excluded'  ? "'true' if the node is marked «exclude from log»" : ''
             } />
         ))}
       </div>

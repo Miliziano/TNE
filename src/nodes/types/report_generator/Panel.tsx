@@ -39,12 +39,12 @@ function SectionTitle({ label, color = '#f472b6' }: { label: string; color?: str
 const ACCENT = '#f472b6'
 
 const REPORT_TEMPLATES = [
-  { id: 'table',      label: '⊞ Tabella dati',    desc: 'Righe e colonne con totali'           },
-  { id: 'summary',    label: '◉ Summary KPI',      desc: 'Card con metriche chiave'             },
-  { id: 'bar_chart',  label: '▦ Bar Chart',        desc: 'Confronto valori per categoria'       },
-  { id: 'line_chart', label: '↗ Line Chart',       desc: 'Andamento temporale'                  },
-  { id: 'pie_chart',  label: '◔ Pie / Donut',      desc: 'Distribuzione percentuale'            },
-  { id: 'mixed',      label: '⊕ Report completo',  desc: 'Summary + grafico + tabella'          },
+  { id: 'table',      label: '⊞ Data table',    desc: 'Rows and columns with totals'           },
+  { id: 'summary',    label: '◉ Summary KPI',      desc: 'Cards with key metrics'             },
+  { id: 'bar_chart',  label: '▦ Bar Chart',        desc: 'Compare values by category'       },
+  { id: 'line_chart', label: '↗ Line Chart',       desc: 'Trend over time'                  },
+  { id: 'pie_chart',  label: '◔ Pie / Donut',      desc: 'Percentage distribution'            },
+  { id: 'mixed',      label: '⊕ Full report',  desc: 'Summary + chart + table'          },
 ]
 
 interface CellRule {
@@ -60,28 +60,28 @@ interface ColumnConfig {
 }
 
 const CONDITION_OPTS = [
-  { value: 'lt',       label: '< minore di'         },
-  { value: 'lte',      label: '≤ minore o uguale'   },
-  { value: 'gt',       label: '> maggiore di'        },
-  { value: 'gte',      label: '≥ maggiore o uguale' },
-  { value: 'eq',       label: '= uguale a'           },
-  { value: 'neq',      label: '≠ diverso da'         },
-  { value: 'contains', label: '∋ contiene'           },
-  { value: 'is_null',  label: '∅ è vuoto/null'       },
-  { value: 'not_null', label: '≠∅ non è vuoto'       },
-  { value: 'custom',   label: 'λ espressione JS'     },
+  { value: 'lt',       label: '< less than'         },
+  { value: 'lte',      label: '≤ less than or equal'   },
+  { value: 'gt',       label: '> greater than'        },
+  { value: 'gte',      label: '≥ greater than or equal' },
+  { value: 'eq',       label: '= equal to'           },
+  { value: 'neq',      label: '≠ not equal to'         },
+  { value: 'contains', label: '∋ contains'           },
+  { value: 'is_null',  label: '∅ is empty/null'       },
+  { value: 'not_null', label: '≠∅ is not empty'       },
+  { value: 'custom',   label: 'λ JS expression'     },
 ]
 const STYLE_OPTS = [
-  { value: 'danger',  label: '🔴 Danger — rosso'    },
-  { value: 'warning', label: '🟡 Warning — arancione'},
-  { value: 'success', label: '🟢 Success — verde'    },
-  { value: 'info',    label: '🔵 Info — blu'          },
-  { value: 'custom',  label: '🎨 Personalizzato'      },
+  { value: 'danger',  label: '🔴 Danger — red'    },
+  { value: 'warning', label: '🟡 Warning — orange'},
+  { value: 'success', label: '🟢 Success — green'    },
+  { value: 'info',    label: '🔵 Info — blue'          },
+  { value: 'custom',  label: '🎨 Custom'      },
 ]
 const ICON_OPTS = [
-  { value: '',          label: 'Nessuna'    },
-  { value: 'arrow_up',  label: '↑ Su'       },
-  { value: 'arrow_down',label: '↓ Giù'      },
+  { value: '',          label: 'None'    },
+  { value: 'arrow_up',  label: '↑ Up'       },
+  { value: 'arrow_down',label: '↓ Down'      },
   { value: 'warning',   label: '⚠ Warning'  },
   { value: 'check',     label: '✓ Check'    },
   { value: 'dot',       label: '● Dot'      },
@@ -118,7 +118,7 @@ function RulesEditor({ col, fields, onChange }: {
             {/* Riga 1: condizione + valore + target + elimina */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 90px 24px', gap: 6, alignItems: 'end' }}>
               <div>
-                <div style={labelStyle}>Condizione</div>
+                <div style={labelStyle}>Condition</div>
                 <CustomSelect style={inputStyle} value={rule.condition}
                   onChange={(e) => updateRule(rule.id, { condition: e.target.value })}>
                   {CONDITION_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -126,17 +126,17 @@ function RulesEditor({ col, fields, onChange }: {
               </div>
               {needsValue(rule.condition) && rule.condition !== 'custom' ? (
                 <div>
-                  <div style={labelStyle}>Valore</div>
+                  <div style={labelStyle}>Value</div>
                   <input style={inputStyle} value={rule.value}
                     onChange={(e) => updateRule(rule.id, { value: e.target.value })} placeholder="0" />
                 </div>
               ) : <div />}
               <div>
-                <div style={labelStyle}>Applica a</div>
+                <div style={labelStyle}>Apply to</div>
                 <CustomSelect style={inputStyle} value={rule.target}
                   onChange={(e) => updateRule(rule.id, { target: e.target.value as 'cell' | 'row' })}>
-                  <option value="cell">Cella</option>
-                  <option value="row">Riga intera</option>
+                  <option value="cell">Cell</option>
+                  <option value="row">Whole row</option>
                 </CustomSelect>
               </div>
               <button onClick={() => deleteRule(rule.id)}
@@ -150,25 +150,25 @@ function RulesEditor({ col, fields, onChange }: {
             {/* Espressione custom */}
             {rule.condition === 'custom' && (
               <div>
-                <div style={labelStyle}>Espressione JS</div>
+                <div style={labelStyle}>JS expression</div>
                 <input style={{ ...inputStyle, color: '#a78bfa' }} value={rule.expression ?? ''}
                   onChange={(e) => updateRule(rule.id, { expression: e.target.value })}
-                  placeholder={`row.${col.field} < row.minimo`} />
-                <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>Usa <code style={{ color: '#a78bfa' }}>row.campo</code> — deve restituire true/false</div>
+                  placeholder={`row.${col.field} < row.minimum`} />
+                <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>Use <code style={{ color: '#a78bfa' }}>row.field</code> — must return true/false</div>
               </div>
             )}
 
             {/* Riga 2: stile + icona */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               <div>
-                <div style={labelStyle}>Stile</div>
+                <div style={labelStyle}>Style</div>
                 <CustomSelect style={{ ...inputStyle, color: styleColor }} value={rule.style}
                   onChange={(e) => updateRule(rule.id, { style: e.target.value })}>
                   {STYLE_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
               </div>
               <div>
-                <div style={labelStyle}>Icona</div>
+                <div style={labelStyle}>Icon</div>
                 <CustomSelect style={inputStyle} value={rule.icon ?? ''}
                   onChange={(e) => updateRule(rule.id, { icon: e.target.value })}>
                   {ICON_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -180,7 +180,7 @@ function RulesEditor({ col, fields, onChange }: {
             {rule.style === 'custom' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 <div>
-                  <div style={labelStyle}>Sfondo</div>
+                  <div style={labelStyle}>Background</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <input type="color" value={rule.bgColor ?? '#fff0f0'}
                       onChange={(e) => updateRule(rule.id, { bgColor: e.target.value })}
@@ -190,7 +190,7 @@ function RulesEditor({ col, fields, onChange }: {
                   </div>
                 </div>
                 <div>
-                  <div style={labelStyle}>Testo</div>
+                  <div style={labelStyle}>Text</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <input type="color" value={rule.textColor ?? '#c0392b'}
                       onChange={(e) => updateRule(rule.id, { textColor: e.target.value })}
@@ -206,7 +206,7 @@ function RulesEditor({ col, fields, onChange }: {
       })}
       <button onClick={addRule}
         style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#f472b6', border: '0.5px dashed #f472b630', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi regola
+        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add rule
       </button>
     </div>
   )
@@ -228,11 +228,11 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
       <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6 }}>
           <div>
-            <div style={labelStyle}>Campo</div>
+            <div style={labelStyle}>Field</div>
             {incomingFields.length > 0 ? (
               <CustomSelect style={inputStyle} value={col.field}
                 onChange={(e) => onChange({ ...col, field: e.target.value })}>
-                <option value="">— seleziona —</option>
+                <option value="">— select —</option>
                 {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
               </CustomSelect>
             ) : (
@@ -241,9 +241,9 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
             )}
           </div>
           <div>
-            <div style={labelStyle}>Etichetta</div>
+            <div style={labelStyle}>Label</div>
             <input style={inputStyle} value={col.label}
-              onChange={(e) => onChange({ ...col, label: e.target.value })} placeholder="Intestazione" />
+              onChange={(e) => onChange({ ...col, label: e.target.value })} placeholder="Header" />
           </div>
           <button onClick={onDelete}
             style={{ marginTop: 16, background: 'none', border: '1px solid #3d1010', borderRadius: 4, padding: '0 8px', cursor: 'pointer', color: '#ff5f57', alignSelf: 'flex-end', height: 28 }}>
@@ -252,23 +252,23 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           <div>
-            <div style={labelStyle}>Tipo</div>
+            <div style={labelStyle}>Type</div>
             <CustomSelect style={inputStyle} value={col.type}
               onChange={(e) => onChange({ ...col, type: e.target.value as ColumnConfig['type'] })}>
-              <option value="text">Testo</option>
-              <option value="number">Numero</option>
-              <option value="currency">Valuta</option>
-              <option value="date">Data</option>
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="currency">Currency</option>
+              <option value="date">Date</option>
             </CustomSelect>
           </div>
           <div>
-            <div style={labelStyle}>Totale riga</div>
+            <div style={labelStyle}>Row total</div>
             <CustomSelect style={inputStyle} value={col.total ?? 'none'}
               onChange={(e) => onChange({ ...col, total: e.target.value })}>
-              <option value="none">Nessuno</option>
-              <option value="sum">Somma</option>
-              <option value="avg">Media</option>
-              <option value="count">Conteggio</option>
+              <option value="none">None</option>
+              <option value="sum">Sum</option>
+              <option value="avg">Average</option>
+              <option value="count">Count</option>
             </CustomSelect>
           </div>
         </div>
@@ -277,7 +277,7 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
         <button onClick={() => setShowRules((v) => !v)}
           style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: ruleCount > 0 ? `color-mix(in srgb, ${ACCENT} 10%, #0f1117)` : '#1e2535', color: ruleCount > 0 ? ACCENT : '#8593b5', border: `0.5px solid ${ruleCount > 0 ? ACCENT + '40' : '#2a3349'}`, display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className={`ti ${showRules ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 10 }} />
-          Regole formattazione
+          Formatting rules
           {ruleCount > 0 && <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 8, background: ACCENT, color: '#0f1117', fontWeight: 700 }}>{ruleCount}</span>}
         </button>
       </div>
@@ -323,7 +323,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Template */}
-      <SectionTitle label="Template report" />
+      <SectionTitle label="Report template" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {REPORT_TEMPLATES.map((tmpl) => (
           <button key={tmpl.id} onClick={() => updateProp(nodeId, 'templateId', tmpl.id)}
@@ -338,7 +338,7 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Formato */}
-      <SectionTitle label="Formato output" />
+      <SectionTitle label="Output format" />
       <div style={{ display: 'flex', gap: 6 }}>
         {(['html', 'excel'] as const).map((fmt) => (
           <button key={fmt} onClick={() => updateProp(nodeId, 'outputFormat', fmt)}
@@ -352,15 +352,15 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Intestazione */}
-      <SectionTitle label="Intestazione" />
-      <Field label="Titolo report">
-        <input style={inputStyle} value={p('reportTitle')} onChange={u('reportTitle')} placeholder="Report mensile vendite" />
+      <SectionTitle label="Header" />
+      <Field label="Report title">
+        <input style={inputStyle} value={p('reportTitle')} onChange={u('reportTitle')} placeholder="Monthly sales report" />
       </Field>
       <Row>
-        <Field label="Sottotitolo">
-          <input style={inputStyle} value={p('reportSubtitle')} onChange={u('reportSubtitle')} placeholder="Periodo: {month}" />
+        <Field label="Subtitle">
+          <input style={inputStyle} value={p('reportSubtitle')} onChange={u('reportSubtitle')} placeholder="Period: {month}" />
         </Field>
-        <Field label="Nome file output">
+        <Field label="Output file name">
           <input style={inputStyle} value={p('filename')} onChange={u('filename')} placeholder="report_{date}" />
         </Field>
       </Row>
@@ -369,18 +369,18 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
       {(templateId === 'table' || templateId === 'mixed') && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <SectionTitle label={`Colonne — ${columns.length}`} />
+            <SectionTitle label={`Columns — ${columns.length}`} />
             <button onClick={addColumn}
               style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
                 background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT,
                 border: `1px solid ${ACCENT}60`, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <i className="ti ti-plus" style={{ fontSize: 10 }} /> Colonna
+              <i className="ti ti-plus" style={{ fontSize: 10 }} /> Column
             </button>
           </div>
 
           {columns.length === 0 ? (
             <div style={{ padding: '12px', textAlign: 'center', color: '#2a3349', fontSize: 11, background: '#0f1117', borderRadius: 6, border: '1px dashed #2a3349' }}>
-              Nessuna colonna — verranno usati tutti i campi in ingresso (senza formattazione condizionale).
+              No columns — all incoming fields will be used (without conditional formatting).
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -396,31 +396,31 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
           <div style={{ padding: '10px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, color: '#ffb347' }}>
               <i className="ti ti-shield-check" style={{ fontSize: 12 }} />
-              Se a monte c'è un nodo Data Quality
+              If there is a Data Quality node upstream
             </div>
             <div style={{ fontSize: 9, color: '#8a8a9a', lineHeight: 1.5 }}>
-              Le celle segnalate vengono evidenziate e marcate da sole — non devi configurare nulla:
+              Flagged cells are highlighted and marked automatically — you don't need to configure anything:
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 9, color: '#c8d4f0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#f39c12', color: '#fff', fontWeight: 700 }}>✦</span>
-                valore <strong>riparato</strong> dal Data Quality — passando il mouse vedi l'originale
+                value <strong>repaired</strong> by Data Quality — hover to see the original
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#e74c3c', color: '#fff', fontWeight: 700 }}>!</span>
-                <strong>errore</strong> di qualità non risolto
+                unresolved quality <strong>error</strong>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#f39c12', color: '#fff', fontWeight: 700 }}>⚠</span>
-                <strong>avviso</strong> di qualità
+                quality <strong>warning</strong>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ minWidth: 26, textAlign: 'center', padding: '1px 5px', borderRadius: 3, background: '#1a3a6a', color: '#fff', fontWeight: 700, fontSize: 8 }}>DTS</span>
-                colonna col <strong>punteggio</strong> di qualità per riga — verde ≥80%, arancio ≥60%, rosso sotto
+                column with the quality <strong>score</strong> per row — green ≥80%, orange ≥60%, red below
               </div>
             </div>
             <div style={{ fontSize: 9, color: '#8593b5' }}>
-              Il campo da leggere si imposta qui sotto (default <code style={{ color: '#8a8a9a' }}>_dq</code>).
+              The field to read is set below (default <code style={{ color: '#8a8a9a' }}>_dq</code>).
             </div>
           </div>
         </>
@@ -429,53 +429,53 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
       {/* Configurazione grafico */}
       {['bar_chart','line_chart','pie_chart','mixed','summary'].includes(templateId) && (
         <>
-          <SectionTitle label="Configurazione grafico/KPI" />
+          <SectionTitle label="Chart/KPI configuration" />
           <Row>
-            <Field label="Campo asse X / categoria">
+            <Field label="X-axis / category field">
               {incomingFields.length > 0 ? (
                 <CustomSelect style={inputStyle} value={p('chartXField')} onChange={u('chartXField')}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </CustomSelect>
               ) : (
-                <input style={inputStyle} value={p('chartXField')} onChange={u('chartXField')} placeholder="categoria" />
+                <input style={inputStyle} value={p('chartXField')} onChange={u('chartXField')} placeholder="category" />
               )}
             </Field>
-            <Field label="Campo valore (asse Y)">
+            <Field label="Value field (Y-axis)">
               {incomingFields.length > 0 ? (
                 <CustomSelect style={inputStyle} value={p('chartYField')} onChange={u('chartYField')}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
                 </CustomSelect>
               ) : (
-                <input style={inputStyle} value={p('chartYField')} onChange={u('chartYField')} placeholder="valore" />
+                <input style={inputStyle} value={p('chartYField')} onChange={u('chartYField')} placeholder="value" />
               )}
             </Field>
           </Row>
-          <Field label="Titolo grafico">
-            <input style={inputStyle} value={p('chartTitle')} onChange={u('chartTitle')} placeholder="Stipendi per città" />
+          <Field label="Chart title">
+            <input style={inputStyle} value={p('chartTitle')} onChange={u('chartTitle')} placeholder="Salaries by city" />
           </Field>
           {templateId === 'summary' && (
-            <Field label="Campi KPI" hint="Campi da mostrare come card (separati da virgola) — vuoto = tutti">
-              <input style={inputStyle} value={p('kpiFields')} onChange={u('kpiFields')} placeholder="totale, media, conteggio" />
+            <Field label="KPI fields" hint="Fields to show as cards (comma-separated) — empty = all">
+              <input style={inputStyle} value={p('kpiFields')} onChange={u('kpiFields')} placeholder="total, average, count" />
             </Field>
           )}
         </>
       )}
 
       {/* Stile */}
-      <SectionTitle label="Stile" />
+      <SectionTitle label="Style" />
       <Row>
-        <Field label="Tema colori">
+        <Field label="Color theme">
           <CustomSelect style={inputStyle} value={p('colorTheme', 'blue')} onChange={u('colorTheme')}>
-            <option value="blue">Blue — professionale</option>
-            <option value="green">Green — natura/finance</option>
-            <option value="dark">Dark — moderno</option>
-            <option value="orange">Orange — energia</option>
+            <option value="blue">Blue — professional</option>
+            <option value="green">Green — nature/finance</option>
+            <option value="dark">Dark — modern</option>
+            <option value="orange">Orange — energy</option>
             <option value="custom">Custom</option>
           </CustomSelect>
         </Field>
-        <Field label="Lingua">
+        <Field label="Language">
           <CustomSelect style={inputStyle} value={p('locale', 'it')} onChange={u('locale')}>
             <option value="it">Italiano</option>
             <option value="en">English</option>
@@ -484,17 +484,17 @@ export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
       </Row>
       {p('colorTheme') === 'custom' && (
         <Row>
-          <Field label="Colore primario">
+          <Field label="Primary color">
             <input type="color" style={{ ...inputStyle, padding: 2, height: 28 }} value={p('primaryColor', '#1a3a6a')} onChange={u('primaryColor')} />
           </Field>
-          <Field label="Colore accento">
+          <Field label="Accent color">
             <input type="color" style={{ ...inputStyle, padding: 2, height: 28 }} value={p('accentColor', '#4a9eff')} onChange={u('accentColor')} />
           </Field>
         </Row>
       )}
 
       {/* Campo DQ */}
-      <Field label="Campo Data Quality" hint="Nome del campo _dq aggiunto dal nodo Data Quality — default: _dq">
+      <Field label="Data Quality field" hint="Name of the _dq field added by the Data Quality node — default: _dq">
         <input style={inputStyle} value={p('dqField', '_dq')} onChange={u('dqField')} placeholder="_dq" />
       </Field>
 

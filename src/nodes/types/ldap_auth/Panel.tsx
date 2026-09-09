@@ -72,19 +72,19 @@ export function LdapAuthPanel({ nodeId }: { nodeId: string }) {
         </div>
       ) : (
         <div style={{ padding: '8px 12px', background: '#2a1a0a', borderRadius: 6, border: '0.5px solid #855', fontSize: 10, color: '#c8a060' }}>
-          Nessuna risorsa LDAP collegata. Aggiungi una risorsa LDAP dalla strip risorse e usa l'azione «auth».
+          No LDAP resource connected. Add an LDAP resource from the resource strip and use the «auth» action.
         </div>
       )}
 
-      <Field label="Campo utente (nella riga)" hint="da quale campo prendere lo username">
+      <Field label="User field (in the row)" hint="which field to take the username from">
         <input style={inputStyle} value={p('usernameField', 'username')} onChange={u('usernameField')} placeholder="username" />
       </Field>
 
-      <Field label="Campo password (nella riga)" hint="transitorio: usato per il bind, mai salvato né loggato">
+      <Field label="Password field (in the row)" hint="transient: used for the bind, never saved or logged">
         <input style={inputStyle} value={p('passwordField', 'password')} onChange={u('passwordField')} placeholder="password" />
       </Field>
 
-      <Field label="Attributo di login" hint="l'attributo LDAP confrontato con lo username">
+      <Field label="Login attribute" hint="the LDAP attribute compared with the username">
         <CustomSelect style={inputStyle} value={p('loginAttribute', 'uid')} onChange={u('loginAttribute')}>
           <option value="uid">uid</option>
           <option value="sAMAccountName">sAMAccountName (AD)</option>
@@ -94,19 +94,19 @@ export function LdapAuthPanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
 
-      <Field label="Base DN" hint={baseDnDefault ? `default risorsa: ${baseDnDefault}` : 'dove cercare gli utenti'}>
+      <Field label="Base DN" hint={baseDnDefault ? `default risorsa: ${baseDnDefault}` : 'where to search for users'}>
         <input style={inputStyle} value={p('baseDN', baseDnDefault)} onChange={u('baseDN')} placeholder={baseDnDefault || 'ou=people,dc=example,dc=org'} />
       </Field>
 
-      <Field label="Filtro aggiuntivo (opz.)" hint="ANDato al match di login, es. (objectClass=person)">
+      <Field label="Additional filter (opt.)" hint="ANDed with the login match, e.g. (objectClass=person)">
         <input style={inputStyle} value={p('userFilter', '')} onChange={u('userFilter')} placeholder="(objectClass=person)" />
       </Field>
 
-      <Field label="Attributi da restituire (opz.)" hint="es. memberOf,displayName — aggiunti alle righe autenticate">
+      <Field label="Attributes to return (opt.)" hint="e.g. memberOf,displayName — added to the authenticated rows">
         <input style={inputStyle} value={p('returnAttributes', '')} onChange={u('returnAttributes')} placeholder="memberOf,displayName" />
       </Field>
 
-      <Field label="Gruppo richiesto (opz.)" hint="autentica E dev'essere membro di questo gruppo (DN)">
+      <Field label="Required group (opt.)" hint="authenticates AND must be a member of this group (DN)">
         <input style={inputStyle} value={p('requireGroup', '')} onChange={u('requireGroup')} placeholder="cn=admins,ou=groups,dc=example,dc=org" />
       </Field>
     </div>

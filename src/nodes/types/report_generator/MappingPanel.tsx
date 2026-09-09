@@ -60,8 +60,8 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>📊 Report Generator</div>
-        Bufferizza tutte le righe in ingresso e produce <strong style={{ color: '#c8d4f0' }}>un solo record</strong> in uscita
-        con il report completo in formato <strong style={{ color: ACCENT }}>{outputFmt.toUpperCase()}</strong>.
+        Buffers all incoming rows and produces <strong style={{ color: '#c8d4f0' }}>a single record</strong> as output
+        with the full report in <strong style={{ color: ACCENT }}>{outputFmt.toUpperCase()}</strong> format.
       </div>
 
       {/* Template e formato attivi */}
@@ -76,13 +76,13 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Campi in ingresso */}
       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
-        Campi in ingresso — {fields.length}
+        Incoming fields — {fields.length}
       </div>
 
       {fields.length === 0 ? (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
-          Collega un nodo in ingresso per vedere i campi disponibili.
+          Connect an incoming node to see the available fields.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -94,7 +94,7 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
                 <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{field.type}</span>
                 {isUsed && (
                   <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: `color-mix(in srgb, ${ACCENT} 10%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}30` }}>
-                    usato
+                    used
                   </span>
                 )}
               </div>
@@ -107,17 +107,17 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
       {(xField || yField || kpiFields.length > 0 || columns.length > 0) && (
         <>
           <div style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: '0.5px solid #2a3349' }}>
-            Configurazione attiva
+            Active configuration
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#9a9aaa' }}>
-            {xField && <div>Asse X / Categoria: <code style={{ color: ACCENT }}>{xField}</code></div>}
-            {yField && <div>Asse Y / Valore: <code style={{ color: ACCENT }}>{yField}</code></div>}
+            {xField && <div>X-axis / Category: <code style={{ color: ACCENT }}>{xField}</code></div>}
+            {yField && <div>Y-axis / Value: <code style={{ color: ACCENT }}>{yField}</code></div>}
             {kpiFields.length > 0 && <div>KPI: {kpiFields.map((f) => <code key={f} style={{ color: ACCENT, marginRight: 4 }}>{f}</code>)}</div>}
-            {columns.length > 0 && <div>Colonne configurate: <strong style={{ color: '#c8d4f0' }}>{columns.length}</strong></div>}
+            {columns.length > 0 && <div>Configured columns: <strong style={{ color: '#c8d4f0' }}>{columns.length}</strong></div>}
             {columns.length === 0 && (templateId === 'table' || templateId === 'mixed') && (
               <div style={{ color: '#ffb347' }}>
                 <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-                Nessuna colonna configurata — verranno usati tutti i campi in ingresso.
+                No columns configured — all incoming fields will be used.
               </div>
             )}
           </div>
@@ -126,22 +126,22 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Schema output */}
       <div style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: '0.5px solid #2a3349' }}>
-        Record in uscita — 1 record
+        Output record — 1 record
       </div>
       <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '120px 70px 1fr', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-          {['Campo', 'Tipo', 'Descrizione'].map((h) => (
+          {['Field', 'Type', 'Description'].map((h) => (
             <div key={h} style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
           ))}
         </div>
         {[
-          { name: 'content',      type: 'string',  desc: outputFmt === 'excel' ? 'Contenuto Excel codificato base64' : 'Documento HTML completo' },
+          { name: 'content',      type: 'string',  desc: outputFmt === 'excel' ? 'Base64-encoded Excel content' : 'Full HTML document' },
           { name: 'content_type', type: 'string',  desc: outputFmt === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/html' },
-          { name: 'filename',     type: 'string',  desc: `Nome file suggerito (es. report.${outputFmt === 'excel' ? 'xlsx' : 'html'})` },
-          { name: 'row_count',    type: 'integer', desc: 'Numero di righe elaborate' },
-          { name: 'generated_at', type: 'date',    desc: 'Timestamp generazione ISO8601' },
-          { name: 'template',     type: 'string',  desc: `Template usato: ${templateId}` },
-          { name: 'format',       type: 'string',  desc: `Formato: ${outputFmt}` },
+          { name: 'filename',     type: 'string',  desc: `Suggested file name (e.g. report.${outputFmt === 'excel' ? 'xlsx' : 'html'})` },
+          { name: 'row_count',    type: 'integer', desc: 'Number of rows processed' },
+          { name: 'generated_at', type: 'date',    desc: 'ISO8601 generation timestamp' },
+          { name: 'template',     type: 'string',  desc: `Template used: ${templateId}` },
+          { name: 'format',       type: 'string',  desc: `Format: ${outputFmt}` },
         ].map((f, i, arr) => (
           <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '120px 70px 1fr', gap: 8, padding: '6px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
             <code style={{ fontFamily: 'monospace', fontSize: 10, color: ACCENT }}>{f.name}</code>

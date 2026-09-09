@@ -65,21 +65,21 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: `color-mix(in srgb, ${ERR_COLOR} 8%, #161b27)`, borderRadius: 6, border: `1px solid ${ERR_COLOR}30` }}>
         <i className="ti ti-list-details" style={{ fontSize: 16, color: ERR_COLOR }} />
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Nodi della lane — policy errori</div>
-          <div style={{ fontSize: 9, color: '#8593b5' }}>Configura la gestione errori di ogni nodo senza apriri i singoli editor</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: ERR_COLOR }}>Lane nodes — error policy</div>
+          <div style={{ fontSize: 9, color: '#8593b5' }}>Configure error handling for each node without opening the individual editors</div>
         </div>
       </div>
 
       <InfoBox>
-        <strong style={{ color: '#c8d4f0' }}>Escludi dal log</strong>: l'errore di questo nodo non viene copiato su{' '}
-        <code style={{ color: ERR_COLOR }}>error_out</code> anche se "Log centralizzato" è attivo.{' '}
-        <strong style={{ color: '#c8d4f0' }}>Critico</strong>: un errore qui forza sempre l'interruzione della lane,
-        indipendentemente dalla policy <code style={{ color: ERR_COLOR }}>onError</code> impostata.
+        <strong style={{ color: '#c8d4f0' }}>Exclude from log</strong>: the error of this node is not copied to{' '}
+        <code style={{ color: ERR_COLOR }}>error_out</code> even if "Centralized log" is active.{' '}
+        <strong style={{ color: '#c8d4f0' }}>Critical</strong>: an error here always forces the lane to stop,
+        regardless of the <code style={{ color: ERR_COLOR }}>onError</code> policy set.
       </InfoBox>
 
       {laneNodes.length === 0 && (
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Nessun nodo in questa lane.
+          No node in this lane.
         </div>
       )}
 
@@ -88,11 +88,11 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
           {/* Header */}
           <div style={{ display: 'grid', gridTemplateColumns: HEADER_COLS, gap: 8, padding: '6px 10px', background: '#1a2030', borderBottom: '1px solid #3a4a6a', alignItems: 'center' }}>
             <div />
-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Nodo</div>
-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>In caso di errore</div>
+            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Node</div>
+            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>On error</div>
             <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Retry</div>
-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Escludi dal log</div>
-            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Critico</div>
+            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Exclude from log</div>
+            <div style={{ fontSize: 10, color: '#4a9eff', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, textAlign: 'center' }}>Critical</div>
             <div />
           </div>
 
@@ -127,9 +127,9 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
                 <CustomSelect style={inputStyle} value={onError}
                   onChange={(e) => updateAdvanced(n.id, 'onError', e.target.value)}>
                   <option value="handler">Error handler</option>
-                  <option value="catch">Cattura</option>
-                  <option value="retry_handler">Riprova → handler</option>
-                  <option value="retry_catch">Riprova → cattura</option>
+                  <option value="catch">Catch</option>
+                  <option value="retry_handler">Retry → handler</option>
+                  <option value="retry_catch">Retry → catch</option>
                 </CustomSelect>
 
                 {/* Retry count */}
@@ -156,8 +156,8 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
                     checked={critical === 'true' && !onErrorEmitsCatch(onError)}
                     disabled={onErrorEmitsCatch(onError)}
                     title={onErrorEmitsCatch(onError)
-                      ? 'Non applicabile: il nodo cattura gli errori da sé, non passano dall\'error handler'
-                      : 'Un errore di questo nodo, dopo che l\'handler ha concluso, interrompe la pipeline'}
+                      ? 'Not applicable: the node catches errors itself, they do not pass through the error handler'
+                      : 'An error from this node, after the handler completes, stops the pipeline'}
                     style={{ accentColor: ERR_COLOR, width: 14, height: 14,
                       cursor: onErrorEmitsCatch(onError) ? 'not-allowed' : 'pointer',
                       opacity: onErrorEmitsCatch(onError) ? 0.35 : 1 }}
@@ -165,7 +165,7 @@ export function ErrorHandlerNodesPanel({ nodeId }: { nodeId: string }) {
                 </div>
 
                 {/* Apri editor nodo */}
-                <button onClick={() => openNodeEditor(n.id)} title="Apri editor nodo"
+                <button onClick={() => openNodeEditor(n.id)} title="Open node editor"
                   style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '3px 5px', cursor: 'pointer', color: '#9a9aaa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-external-link" style={{ fontSize: 11 }} />
                 </button>
