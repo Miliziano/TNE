@@ -58,7 +58,7 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
       {/* Chiave di join */}
       {(leftKey || rightKey) && (
         <div style={{ padding: '6px 12px', background: '#161b27', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8, fontSize: 10 }}>
-          <span style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>Chiave</span>
+          <span style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em' }}>Key</span>
           <code style={{ color: LEFT_COLOR }}>{leftKey || '?'}</code>
           <span style={{ color: '#8593b5' }}>=</span>
           <code style={{ color: LOOKUP_COLOR }}>{rightKey || '?'}</code>

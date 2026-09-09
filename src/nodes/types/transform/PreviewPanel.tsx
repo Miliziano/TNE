@@ -112,7 +112,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: 20, textAlign: 'center', color: '#8593b5', fontSize: 11,
                     background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
         <i className="ti ti-eye-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-        Configura almeno un campo nel tab <b>Mapping</b> per provare l'anteprima.
+        Configure at least one field in the <b>Mapping</b> tab to try the preview.
       </div>
     )
   }
@@ -128,7 +128,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
-                         letterSpacing: '.08em' }}>Righe di prova</span>
+                         letterSpacing: '.08em' }}>Test rows</span>
           <div style={{ flex: 1 }} />
           <button onClick={semeVuoto}
             style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'none',
@@ -145,8 +145,8 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
                    fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5, boxSizing: 'border-box' }}
         />
         <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, lineHeight: 1.5 }}>
-          Un array JSON di oggetti; ogni oggetto è una riga in ingresso. Vivono su questo nodo:
-          l'anteprima è indipendente dalla catena a monte.
+          A JSON array of objects; each object is an incoming row. They live on this node:
+          the preview is independent from the upstream chain.
         </div>
       </div>
 
@@ -159,7 +159,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
                    cursor: inCorso ? 'default' : 'pointer' }}>
           {inCorso ? 'elaborazione…' : '\u25b6 elabora col motore'}
         </button>
-        <span style={{ fontSize: 9, color: '#8593b5' }}>a eseguire è il motore, come in produzione</span>
+        <span style={{ fontSize: 9, color: '#8593b5' }}>the engine runs it, as in production</span>
       </div>
 
       {/* Errore */}
@@ -174,7 +174,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* Uscita */}
       {output && (
         output.length === 0 ? (
-          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>Nessuna riga in uscita.</div>
+          <div style={{ ...box, fontSize: 11, color: '#8593b5' }}>No output row.</div>
         ) : (
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',

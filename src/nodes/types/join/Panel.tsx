@@ -8,8 +8,8 @@ import { CustomSelect } from '../../../components/CustomSelect'
 import { useIncomingSchemaFromHandle } from '../../useIncomingSchema'
 
 const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (consigliato — List completa, zero buffering aggiuntivo)' },
-  { value: 'iterator', label: 'Iterator — .values() (riga per riga con buffering interno)' },
+  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
+  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
 ]
 
 
@@ -44,13 +44,13 @@ function Row({ children }: { children: React.ReactNode }) {
 
 // ─── Diagramma di Venn ────────────────────────────────────────────
 const JOIN_CONFIGS: Record<string, { leftFill: string; rightFill: string; overlapColor: string; desc: string; leftLabel: string; rightLabel: string }> = {
-  inner: { leftFill: '#0d2a4a', rightFill: '#0d2a4a', overlapColor: '#4a9eff', desc: 'Solo righe con corrispondenza in entrambi i dataset',                  leftLabel: 'L', rightLabel: 'R' },
-  left:  { leftFill: '#1a3a6a', rightFill: '#0f1117', overlapColor: '#4a9eff', desc: 'Tutte le righe di sinistra, null per quelle senza corrispondenza a destra', leftLabel: 'L', rightLabel: 'R' },
-  right: { leftFill: '#0f1117', rightFill: '#1a3a6a', overlapColor: '#4a9eff', desc: 'Tutte le righe di destra, null per quelle senza corrispondenza a sinistra', leftLabel: 'L', rightLabel: 'R' },
-  full:  { leftFill: '#1a3a6a', rightFill: '#1a3a6a', overlapColor: '#4a9eff', desc: 'Tutte le righe di entrambi — null dove manca la corrispondenza',          leftLabel: 'L', rightLabel: 'R' },
-  cross: { leftFill: '#3d2a0a', rightFill: '#3d2a0a', overlapColor: '#ffb347', desc: 'Prodotto cartesiano — ogni riga sinistra × ogni riga destra (attenzione!)', leftLabel: 'L', rightLabel: 'R' },
-  anti:  { leftFill: '#3d1010', rightFill: '#0f1117', overlapColor: '#ff5f57', desc: 'Solo righe di sinistra SENZA corrispondenza a destra — utile per trovare "non presenti"', leftLabel: 'L', rightLabel: 'R' },
-  semi:  { leftFill: '#0d3d20', rightFill: '#0f1117', overlapColor: '#3ddc84', desc: 'Righe di sinistra che HANNO corrispondenza, senza includere i campi di destra', leftLabel: 'L', rightLabel: 'R' },
+  inner: { leftFill: '#0d2a4a', rightFill: '#0d2a4a', overlapColor: '#4a9eff', desc: 'Only rows with a match in both datasets',                  leftLabel: 'L', rightLabel: 'R' },
+  left:  { leftFill: '#1a3a6a', rightFill: '#0f1117', overlapColor: '#4a9eff', desc: 'All left rows, null for those without a match on the right', leftLabel: 'L', rightLabel: 'R' },
+  right: { leftFill: '#0f1117', rightFill: '#1a3a6a', overlapColor: '#4a9eff', desc: 'All right rows, null for those without a match on the left', leftLabel: 'L', rightLabel: 'R' },
+  full:  { leftFill: '#1a3a6a', rightFill: '#1a3a6a', overlapColor: '#4a9eff', desc: 'All rows from both — null where the match is missing',          leftLabel: 'L', rightLabel: 'R' },
+  cross: { leftFill: '#3d2a0a', rightFill: '#3d2a0a', overlapColor: '#ffb347', desc: 'Cartesian product — every left row × every right row (careful!)', leftLabel: 'L', rightLabel: 'R' },
+  anti:  { leftFill: '#3d1010', rightFill: '#0f1117', overlapColor: '#ff5f57', desc: 'Only left rows WITHOUT a match on the right — useful to find "not present"', leftLabel: 'L', rightLabel: 'R' },
+  semi:  { leftFill: '#0d3d20', rightFill: '#0f1117', overlapColor: '#3ddc84', desc: 'Left rows that HAVE a match, without including the right fields', leftLabel: 'L', rightLabel: 'R' },
 }
 
 function JoinVisual({ type }: { type: string }) {
@@ -110,23 +110,23 @@ function CompositeKeyEditor({ keys, leftFields, rightFields, onChange }: {
           {leftFields.length > 0 ? (
             <CustomSelect style={{ ...inputStyle, fontSize: 10, padding: '3px 5px' }} value={k.left}
               onChange={(e) => update(k.id, 'left', e.target.value)}>
-              <option value="">— sinistra —</option>
+              <option value="">— left —</option>
               {leftFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
             </CustomSelect>
           ) : (
             <input style={{ ...inputStyle, fontSize: 10, padding: '3px 5px' }} value={k.left}
-              onChange={(e) => update(k.id, 'left', e.target.value)} placeholder="campo_sx" />
+              onChange={(e) => update(k.id, 'left', e.target.value)} placeholder="left_field" />
           )}
           <span style={{ textAlign: 'center', color: '#8593b5', fontSize: 10 }}>=</span>
           {rightFields.length > 0 ? (
             <CustomSelect style={{ ...inputStyle, fontSize: 10, padding: '3px 5px' }} value={k.right}
               onChange={(e) => update(k.id, 'right', e.target.value)}>
-              <option value="">— destra —</option>
+              <option value="">— right —</option>
               {rightFields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
             </CustomSelect>
           ) : (
             <input style={{ ...inputStyle, fontSize: 10, padding: '3px 5px' }} value={k.right}
-              onChange={(e) => update(k.id, 'right', e.target.value)} placeholder="campo_dx" />
+              onChange={(e) => update(k.id, 'right', e.target.value)} placeholder="right_field" />
           )}
           <button onClick={() => remove(k.id)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -274,7 +274,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
 
       {/* Condizione custom */}
       {joinType === 'custom' && (
-        <Field label="Condizione join" hint="Condizione non-equi — es: range join, lookup per fascia">
+        <Field label="Join condition" hint="Non-equi condition — e.g. range join, band lookup">
           <textarea
             style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontFamily: 'monospace', color: '#a78bfa' }}
             value={p('customCondition')}
@@ -282,33 +282,33 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             placeholder="left.price >= right.min_price AND left.price <= right.max_price"
             spellCheck={false} />
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
-            Usa <code style={{ color: '#a78bfa' }}>left.campo</code> e <code style={{ color: '#a78bfa' }}>right.campo</code> per riferirsi ai due dataset.
+            Use <code style={{ color: '#a78bfa' }}>left.field</code> and <code style={{ color: '#a78bfa' }}>right.field</code> to refer to the two datasets.
             Attenzione: richiede nested loop — potenzialmente lento su dataset grandi.
           </div>
         </Field>
       )}
 
       {/* Sorgente destra */}
-      <SectionTitle label="Sorgente destra (lookup)" color="#22d3ee" />
+      <SectionTitle label="Right source (lookup)" color="#22d3ee" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           {
             value: 'materialize',
             label: '◈ Da Materialize',
-            desc:  'Lookup O(1) sulla hashtable — il pattern più efficiente. Il Materialize deve essere già popolato.',
+            desc:  'O(1) lookup on the hashtable — the most efficient pattern. The Materialize must already be populated.',
             disabled: materializeVars.length === 0,
             hint:  materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
           },
           {
             value: 'stream',
-            label: '→ Da flusso connesso',
-            desc:  'Il flusso destro arriva via edge. Viene bufferizzato internamente prima del join.',
+            label: '→ From connected flow',
+            desc:  'The right flow arrives via edge. It is buffered internally before the join.',
             disabled: false,
           },
           {
             value: 'inline',
             label: '⬡ Query inline',
-            desc:  'Esegue una query sulla stessa risorsa DB configurata nel nodo sorgente.',
+            desc:  'Runs a query on the same DB resource configured in the source node.',
             disabled: false,
           },
         ].map((s) => (
@@ -333,9 +333,9 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
       {/* Selettore Materialize */}
       {rightSource === 'materialize' && (
         <>
-          <Field label="Materialize sorgente">
+          <Field label="Source Materialize">
             <CustomSelect style={inputStyle} value={matName} onChange={u('materializeName')}>
-              <option value="">— seleziona —</option>
+              <option value="">— select —</option>
               {materializeVars.map((v) => (
                 <option key={v.id} value={v.name}>{v.name}</option>
               ))}
@@ -356,7 +356,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
           )}
           {/* accessMode — come Aggregate accede al Materialize */}
           {matName && (
-            <Field label="Modalità accesso al Materialize" hint="Determina come il codegen legge i dati dal Materialize">
+            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
               <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
                 {ACCESS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -375,11 +375,11 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
 
       {/* Query inline */}
       {rightSource === 'inline' && (
-        <Field label="Query sorgente destra" hint="Eseguita sulla stessa risorsa DB del nodo sorgente">
+        <Field label="Right source query" hint="Run on the same DB resource as the source node">
           <textarea
             style={{ ...inputStyle, resize: 'vertical', minHeight: 80, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 }}
             value={p('rightQuery')} onChange={u('rightQuery')}
-            placeholder="SELECT id, nome, prezzo FROM prodotti WHERE attivo = true"
+            placeholder="SELECT id, name, price FROM products WHERE active = true"
             spellCheck={false} />
         </Field>
       )}
@@ -389,20 +389,20 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
         <>
           <SectionTitle label="Chiavi di join" />
           <Row>
-            <Field label="Campo sinistra" hint="Campo del flusso principale">
+            <Field label="Left field" hint="Field of the main flow">
               {leftFields.length > 0 ? (
                 <CustomSelect style={inputStyle} value={p('leftKey')} onChange={u('leftKey')}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {leftFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                 </CustomSelect>
               ) : (
                 <input style={inputStyle} value={p('leftKey')} onChange={u('leftKey')} placeholder="user_id" />
               )}
             </Field>
-            <Field label="Campo destra" hint="Campo del dataset di lookup">
+            <Field label="Right field" hint="Field of the lookup dataset">
               {rightFields.length > 0 ? (
                 <CustomSelect style={inputStyle} value={p('rightKey')} onChange={u('rightKey')}>
-                  <option value="">— seleziona —</option>
+                  <option value="">— select —</option>
                   {rightFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                 </CustomSelect>
               ) : (
@@ -412,7 +412,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
           </Row>
 
           {/* Chiavi composite */}
-          <Field label="Chiavi composite aggiuntive" hint="Per join su più campi">
+          <Field label="Additional composite keys" hint="For joins on multiple fields">
             <CompositeKeyEditor
               keys={compositeKeys}
               leftFields={leftFields}
@@ -423,32 +423,32 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* Opzioni */}
-      <SectionTitle label="Opzioni" />
+      <SectionTitle label="Options" />
       <Row>
         <Field label="Case sensitive">
           <CustomSelect style={inputStyle} value={p('caseSensitive', 'true')} onChange={u('caseSensitive')}>
-            <option value="true">Sì — distingue maiuscole</option>
+            <option value="true">Yes — case sensitive</option>
             <option value="false">No — case insensitive</option>
           </CustomSelect>
         </Field>
-        <Field label="Prefisso campi destra" hint="Applicato ai campi che collidono con sinistra">
+        <Field label="Right fields prefix" hint="Applied to fields that collide with the left">
           <input style={inputStyle} value={p('rightPrefix', 'r_')} onChange={u('rightPrefix')} placeholder="r_" />
         </Field>
       </Row>
       <Row>
-        <Field label="Corrispondenze multiple">
+        <Field label="Multiple matches">
           <CustomSelect style={inputStyle} value={p('duplicates', 'all')} onChange={u('duplicates')}>
-            <option value="all">Tutte — una riga per ogni match</option>
-            <option value="first">Solo la prima corrispondenza</option>
-            <option value="last">Solo l'ultima corrispondenza</option>
-            <option value="error">Errore se più di una</option>
+            <option value="all">All — one row per match</option>
+            <option value="first">Only the first match</option>
+            <option value="last">Only the last match</option>
+            <option value="error">Error if more than one</option>
           </CustomSelect>
         </Field>
         <Field label="Chiavi null">
           <CustomSelect style={inputStyle} value={p('nullKeys', 'exclude')} onChange={u('nullKeys')}>
-            <option value="exclude">Escludi (null non fa match)</option>
-            <option value="include">Includi (null = null)</option>
-            <option value="error">Errore su null</option>
+            <option value="exclude">Exclude (null does not match)</option>
+            <option value="include">Include (null = null)</option>
+            <option value="error">Error on null</option>
           </CustomSelect>
         </Field>
       </Row>
@@ -458,12 +458,12 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
       <Row>
         <Field label="Algoritmo">
           <CustomSelect style={inputStyle} value={p('algorithm', 'hash')} onChange={u('algorithm')}>
-            <option value="hash">Hash join — O(n+m), dataset destro in memoria</option>
-            <option value="sort_merge">Sort-merge — entrambi ordinati per chiave</option>
+            <option value="hash">Hash join — O(n+m), right dataset in memory</option>
+            <option value="sort_merge">Sort-merge — both sorted by key</option>
             <option value="nested_loop">Nested loop — lento, per condizioni custom</option>
           </CustomSelect>
         </Field>
-        <Field label="Broadcast threshold (MB)" hint="Se il dataset destro è più piccolo → broadcast automatico">
+        <Field label="Broadcast threshold (MB)" hint="If the right dataset is smaller → automatic broadcast">
           <input type="number" style={inputStyle} value={p('broadcastThreshold', '100')} onChange={u('broadcastThreshold')} min="0" />
         </Field>
       </Row>
@@ -471,8 +471,8 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
       {rightSource === 'materialize' && (
         <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-zap" style={{ fontSize: 11, color: '#22d3ee', flexShrink: 0, marginTop: 1 }} />
-          Il Materialize è già una hashtable — l'algoritmo è automaticamente Hash Join con accesso O(1).
-          Nessun buffering aggiuntivo necessario.
+          The Materialize is already a hashtable — the algorithm is automatically Hash Join with O(1) access.
+          No extra buffering needed.
         </div>
       )}
 
@@ -513,7 +513,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
           {joinType === 'semi' && (
             <div style={{ fontSize: 9, color: '#3ddc84', fontStyle: 'italic', display: 'flex', gap: 5 }}>
               <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
-              SEMI JOIN — solo campi del lato sinistro in output. Il lato destro è usato solo per il filtro.
+              SEMI JOIN — only left-side fields in output. The right side is used only for filtering.
             </div>
           )}
         </>

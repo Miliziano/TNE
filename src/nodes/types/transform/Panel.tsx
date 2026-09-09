@@ -171,13 +171,13 @@ export function TransformPanel({ nodeId }: { nodeId: string }) {
       )}
 
       <div style={{ marginTop: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={S.label}>Campi non mappati</div>
+        <div style={S.label}>Unmapped fields</div>
         <CustomSelect
           style={S.input}
           value={unmappedFields}
           onChange={e => updateProp(nodeId, 'unmappedFields', e.target.value)}>
-          <option value="drop">Elimina — solo i campi configurati sopra passano</option>
-          <option value="passthrough">Passa invariati — aggiunge i campi non mappati</option>
+          <option value="drop">Drop — only the fields configured above pass</option>
+          <option value="passthrough">Pass unchanged — adds the unmapped fields</option>
         </CustomSelect>
       </div>
 
@@ -268,7 +268,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
                 params:   {},
               })
             }}>
-            <option value="">— campo —</option>
+            <option value="">— field —</option>
             {incomingFields.map(f => (
               <option key={f.name} value={f.name}>{f.name}</option>
             ))}
@@ -278,7 +278,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             style={{ ...S_input, opacity: field.enabled ? 1 : 0.45 }}
             value={field.source}
             onChange={e => onChange({ source: e.target.value })}
-            placeholder="campo_input" />
+            placeholder="input_field" />
         )}
 
         <i className="ti ti-arrow-right" style={{ fontSize: 10, color: '#8593b5', textAlign: 'center' as const }} />
@@ -302,7 +302,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, minWidth: 0, opacity: field.enabled ? 1 : 0.45 }}>
           <button
             onClick={() => setPickerTrasf(true)}
-            title="Scegli la trasformazione (con ricerca)"
+            title="Choose the transformation (with search)"
             style={{ ...S_input, fontSize: 10, flex: 1, minWidth: 0, cursor: 'pointer', textAlign: 'left',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               color: field.presetId === 'passthrough' ? '#8aa4d0' : '#c8d4f0' }}>
@@ -310,7 +310,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
           </button>
           {field.presetId !== 'passthrough' && (
             <button onClick={() => onChange({ presetId: 'passthrough', params: {}, expression: '' })}
-              title="Torna a «passa invariato»"
+              title="Back to «pass unchanged»"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5',
                 padding: 0, fontSize: 11, flexShrink: 0 }}>✕</button>
           )}
@@ -370,7 +370,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             <div style={{ flex: 1 }} />
             <button
               onClick={() => setPickerExpr(true)}
-              title="Applica una funzione: avvolge la selezione, o l’intera espressione se non c’è selezione (con ricerca)"
+              title="Apply a function: wraps the selection, or the whole expression if there is no selection (with search)"
               style={{ ...S_input, width: 'auto', fontSize: 9, padding: '2px 6px', cursor: 'pointer',
                 color: '#8aa4d0', flexShrink: 0 }}>
               ƒ applica…
@@ -393,8 +393,8 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             placeholder={`${field.source || 'campo'} — es: trim(nome), var("prefisso") + "/" + codice`}
           />
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
-            Usa il <code style={{ color: '#4a9eff' }}>nome del campo</code> così com'è,{' '}
-            <code style={{ color: '#a78bfa' }}>var("nome")</code> per le variabili di lane
+            Use the <code style={{ color: '#4a9eff' }}>field name</code> as is,{' '}
+            <code style={{ color: '#a78bfa' }}>var("name")</code> for lane variables
             (sola lettura).
             Il risultato diventa <code style={{ color: '#3ddc84' }}>{field.output || 'output'}</code>.
           </div>
