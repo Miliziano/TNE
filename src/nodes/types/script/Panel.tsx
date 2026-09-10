@@ -94,7 +94,7 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
       <div style={{ display: 'flex', alignItems: 'center', borderRadius: 10, overflow: 'hidden', border: `1px solid ${open ? color : '#2a3349'}`, transition: 'border-color .1s' }}>
         <button
           onClick={() => { onInsert(varName); setOpen(false) }}
-          title={`Inserisci ${varName} (${type})`}
+          title={`Insert ${varName} (${type})`}
           style={{ padding: '2px 6px 2px 8px', background: open ? `color-mix(in srgb, ${color} 15%, #161b27)` : '#0f1117', border: 'none', color: open ? color : '#9a9aaa', cursor: 'pointer', fontFamily: 'monospace', fontSize: 9, transition: 'all .1s' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color; (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${color} 10%, #161b27)` }}
           onMouseLeave={(e) => { if (!open) { (e.currentTarget as HTMLElement).style.color = '#9a9aaa'; (e.currentTarget as HTMLElement).style.background = '#0f1117' } }}>
@@ -115,7 +115,7 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#1a2030', border: `1px solid ${color}`, borderRadius: 6, marginTop: 3, minWidth: 220, maxWidth: 300, boxShadow: '0 8px 24px rgba(0,0,0,.6)', overflow: 'hidden' }}>
           <div style={{ padding: '5px 10px', background: `color-mix(in srgb, ${color} 10%, #161b27)`, borderBottom: '1px solid #2a3349' }}>
-            <span style={{ fontSize: 9, color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>trasformazioni · {type}</span>
+            <span style={{ fontSize: 9, color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>transforms · {type}</span>
           </div>
           <div onClick={() => { onInsert(varName); setOpen(false) }}
             style={{ padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #2a3349' }}
@@ -123,7 +123,7 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
             <span style={{ fontSize: 9, color: '#8593b5' }}>📋</span>
             <code style={{ fontSize: 9, color }}>{varName}</code>
-            <span style={{ fontSize: 9, color: '#8593b5', marginLeft: 'auto' }}>inserisci</span>
+            <span style={{ fontSize: 9, color: '#8593b5', marginLeft: 'auto' }}>insert</span>
           </div>
           <div onClick={() => { onWrap(varName); setOpen(false) }}
             style={{ padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #2a3349' }}
@@ -347,7 +347,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             {[
               { value: 'flusso', label: 'From the flow', icon: 'ti-arrow-right',
                 desc: 'one pass per row' },
-              { value: 'genera', label: 'Genera',     icon: 'ti-sparkles',
+              { value: 'genera', label: 'Generate',     icon: 'ti-sparkles',
                 desc: 'no input, a single pass' },
             ].map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'sourceMode', m.value)}
@@ -373,7 +373,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         </div>
 
         <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3349' }}>
-          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Uscita verso valle</div>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Output to downstream</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {[
               { value: 'passthrough', label: 'Data',    icon: 'ti-table-row',    desc: 'processed rows', pronto: true  },
@@ -383,7 +383,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
               // disegno). Offrirlo funzionante sarebbe una promessa non
               // mantenuta — meglio dichiararlo indisponibile, come si è
               // fatto per il match sul codice errore nell'error handler.
-              { value: 'signal',      label: 'Innesco', icon: 'ti-bolt',         desc: 'non ancora disponibile', pronto: false },
+              { value: 'signal',      label: 'Trigger', icon: 'ti-bolt',         desc: 'not yet available', pronto: false },
               { value: 'none',        label: 'None',  icon: 'ti-player-stop',  desc: 'no output',  pronto: true  },
             ].map((m) => (
               <button key={m.value} disabled={!m.pronto}
@@ -415,8 +415,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '6px 12px', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
           <span style={{ fontSize: 9, color: '#3ddc84' }}>
-            autocomplete attivo{schema.length > 0 ? ` su ${schema.length} campi, ` : ' su '}
-            variabili di lane e funzioni
+            autocomplete active{schema.length > 0 ? ` on ${schema.length} fields, ` : ' on '}
+            lane variables and functions
           </span>
         </div>
 
@@ -440,11 +440,11 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           </CustomSelect>
           <button onClick={() => updateProp(nodeId, 'code', '')}
             style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', color: '#8593b5' }}
-            title="Svuota editor">
+            title="Clear editor">
             <i className="ti ti-eraser" style={{ fontSize: 10 }} />
           </button>
           <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 'auto' }}>
-            Alt+T suggerimenti · Ctrl+Shift+F formatta
+            Alt+T suggestions · Ctrl+Shift+F format
           </span>
         </div>
       </div>
@@ -452,7 +452,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
       {/* ══ SEZ 2 — VARIABILI DISPONIBILI ══════════════════════ */}
       <div style={{ background: '#161b27', border: '1px solid #2a3349', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-          Variabili disponibili — clicca per inserire · ▾ per trasformazioni
+          Available variables — click to insert · ▾ for transforms
         </div>
 
         {/* I campi possono essere molti: qui stanno in una fascia con
@@ -465,7 +465,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         {schema.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 9, color: '#3ddc84', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-arrow-right" style={{ fontSize: 9 }} /> input · {schema.length} campi
+              <i className="ti ti-arrow-right" style={{ fontSize: 9 }} /> input · {schema.length} fields
             </div>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {schema.map((f) => (
@@ -482,7 +482,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         {outputFields.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 9, color: '#4a9eff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-arrow-right" style={{ fontSize: 9 }} /> out · {outputFields.length} campi
+              <i className="ti ti-arrow-right" style={{ fontSize: 9 }} /> out · {outputFields.length} fields
             </div>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {outputFields.map((f) => (
@@ -499,7 +499,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         {hasReject && outputFields.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 9, color: '#ff5f57', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-x" style={{ fontSize: 9 }} /> reject · {outputFields.length} campi
+              <i className="ti ti-x" style={{ fontSize: 9 }} /> reject · {outputFields.length} fields
             </div>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {outputFields.map((f) => (
@@ -555,20 +555,20 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             legge: si CLICCA, e finisce dritto nell'editor. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ fontSize: 9, color: '#22d3ee', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <i className="ti ti-function" style={{ fontSize: 9 }} /> istruzioni
+            <i className="ti ti-function" style={{ fontSize: 9 }} /> instructions
           </div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {[
               { label: 'let',    snippet: 'let name = ',             title: 'intermediate value: does not end up in the row' },
               { label: 'var =',  snippet: 'var("name") = ',           title: 'writes a lane variable: survives across rows (totals, dedup)' },
               { label: 'if',     snippet: 'if condition {\n  \n}',  title: 'branching' },
-              { label: 'repeat', snippet: 'repeat 3 as i {\n  \n}',  title: 'ripete N volte' },
+              { label: 'repeat', snippet: 'repeat 3 as i {\n  \n}',  title: 'repeats N times' },
               { label: 'for',    snippet: 'for x in field {\n  \n}', title: 'repeats over each element of an array' },
               { label: 'emit',   snippet: 'emit',                    title: 'sends a copy of the row downstream' },
               { label: 'skip',   snippet: 'skip',                    title: 'the row exits through no port' },
               { label: 'reject', snippet: 'reject "reason"',         title: 'sends the row to the reject port', color: '#ff5f57' },
-              { label: 'log',    snippet: 'log "messaggio"',         title: 'scrive nel pannello di log' },
-              { label: 'error',  snippet: 'error "messaggio"',       title: 'fa fallire il nodo', color: '#ff5f57' },
+              { label: 'log',    snippet: 'log "message"',         title: 'writes to the log panel' },
+              { label: 'error',  snippet: 'error "message"',       title: 'makes the node fail', color: '#ff5f57' },
             ].map((fn) => (
               <button key={fn.label} onClick={() => insertSnippet(fn.snippet)} title={fn.title}
                 style={{ padding: '2px 8px', borderRadius: 10, fontSize: 9, background: '#0f1117', border: '1px solid #2a3349', color: '#9a9aaa', cursor: 'pointer', fontFamily: 'monospace', flexShrink: 0 }}
@@ -582,7 +582,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
 
         {schema.length === 0 && laneVars.length === 0 && poolVars.length === 0 && outputFields.length === 0 && (
           <div style={{ fontSize: 10, color: '#2a3349', fontStyle: 'italic' }}>
-            Collega un nodo sorgente e definisci i campi output nel tab Mapping
+            Connect a source node and define the output fields in the Mapping tab
           </div>
         )}
       </div>
@@ -593,7 +593,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           title="Apply a function: wraps the selection (with search)"
           style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, cursor: 'pointer',
                    background: 'none', border: '1px solid #2a3349', color: '#8aa4d0' }}>
-          ƒ applica…
+          ƒ apply…
         </button>
         {pickerOpen && (
           <FunctionPicker
@@ -623,7 +623,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '6px 10px', background: '#1a0a0a', border: '1px solid #3a1a1a', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff5f57', flexShrink: 0 }} />
           <span style={{ fontSize: 10, color: '#ff5f57' }}>
-            Flusso reject attivo — handle visibile sul nodo · configura lo schema nel tab Mapping
+            Reject flow active — handle visible on the node · configure the schema in the Mapping tab
           </span>
         </div>
       )}
@@ -644,7 +644,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           style={{ width: '100%', background: 'none', border: 'none', padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#9a9aaa', fontSize: 10 }}>
           <i className={`ti ${showAdvanced ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 10 }} />
           <i className="ti ti-settings-2" style={{ fontSize: 11, color: '#8593b5' }} />
-          Opzioni avanzate
+          Advanced options
         </button>
         {showAdvanced && (
           <div style={{ padding: '8px 10px', borderTop: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 8 }}>

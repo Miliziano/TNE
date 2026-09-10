@@ -30,8 +30,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   // == Base =====================================================
   {
     id: 'base_trasforma', category: 'Base',
-    label: 'Aggiungere campi',
-    description: 'Calcola campi nuovi; quelli che non tocchi passano invariati',
+    label: 'Add fields',
+    description: 'Computes new fields; the ones you don\'t touch pass through unchanged',
     code: T(
       '// I campi si leggono per nome. Assegnare crea o sovrascrive.',
       '// Quello che non assegni passa a valle com\'era.',
@@ -41,8 +41,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   },
   {
     id: 'base_intermedi', category: 'Base',
-    label: 'Valori intermedi con let',
-    description: 'Calcoli d\'appoggio che non finiscono nella riga in uscita',
+    label: 'Intermediate values with let',
+    description: 'Helper calculations that don\'t end up in the output row',
     code: T(
       '// "let" NON crea un campo: vale solo dentro lo script.',
       'let imponibile = quantita * prezzo_unitario',
@@ -53,8 +53,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   },
   {
     id: 'base_condizione', category: 'Base',
-    label: 'Condizione',
-    description: 'Rami diversi secondo il contenuto della riga',
+    label: 'Condition',
+    description: 'Different branches based on the row content',
     code: T(
       'if totale > 1000 {',
       '  fascia = "alta"',
@@ -68,8 +68,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   },
   {
     id: 'base_filtro', category: 'Base',
-    label: 'Filtrare (skip)',
-    description: 'Le righe che non interessano non escono da nessuna porta',
+    label: 'Filter (skip)',
+    description: 'The rows you don\'t care about exit through no port',
     code: T(
       '// "skip" ferma l\'elaborazione di QUESTA riga: non esce da nessuna',
       '// parte e le istruzioni successive non vengono eseguite.',
@@ -80,8 +80,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   },
   {
     id: 'base_scarto', category: 'Base',
-    label: 'Scartare con motivo (reject)',
-    description: 'Manda la riga sulla porta reject spiegando perche',
+    label: 'Reject with a reason (reject)',
+    description: 'Sends the row to the reject port explaining why',
     code: T(
       '// Richiede la porta "reject" attiva nel pannello. Il motivo finisce',
       '// nel campo _reject_reason della riga scartata.',
@@ -95,8 +95,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   },
   {
     id: 'base_errore', category: 'Base',
-    label: 'Fallire (error)',
-    description: 'Ferma il nodo e manda l\'errore all\'error handler della lane',
+    label: 'Fail (error)',
+    description: 'Stops the node and sends the error to the lane\'s error handler',
     code: T(
       '// Diverso da reject: qui e\' il NODO a fallire, e l\'errore prende il',
       '// canale di controllo come qualunque altro fallimento.',
@@ -108,9 +108,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
 
   // == Piu righe ================================================
   {
-    id: 'fanout_ripeti', category: 'Piu righe',
-    label: 'Una riga -> N copie',
-    description: 'Duplica ogni riga un numero di volte',
+    id: 'fanout_ripeti', category: 'Multiple rows',
+    label: 'One row -> N copies',
+    description: 'Duplicates each row a number of times',
     code: T(
       '// "emit" manda a valle una copia della riga com\'e in quel momento;',
       '// non interrompe niente. Il "skip" finale evita che esca ANCHE',
@@ -123,9 +123,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     ),
   },
   {
-    id: 'fanout_array', category: 'Piu righe',
-    label: 'Espandere un array',
-    description: 'Un campo che contiene un array JSON diventa una riga per elemento',
+    id: 'fanout_array', category: 'Multiple rows',
+    label: 'Expand an array',
+    description: 'A field containing a JSON array becomes one row per element',
     code: T(
       '// Il campo deve contenere un array (per esempio da un JSON Parser).',
       'for elemento in dettagli {',
@@ -136,9 +136,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     ),
   },
   {
-    id: 'gen_serie', category: 'Piu righe',
-    label: 'Generare righe dal nulla',
-    description: 'Nodo di partenza: nessun ingresso, le righe le produce lui',
+    id: 'gen_serie', category: 'Multiple rows',
+    label: 'Generate rows from nothing',
+    description: 'Starting node: no input, it produces the rows itself',
     code: T(
       '// Metti "Sorgente delle righe" su GENERA: la porta d\'ingresso',
       '// sparisce, il corpo gira UNA volta sola e le righe escono solo',
@@ -154,9 +154,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
 
   // == Stringhe =================================================
   {
-    id: 'str_normalizza', category: 'Stringhe',
-    label: 'Normalizzare',
-    description: 'Spazi, maiuscole, accenti',
+    id: 'str_normalizza', category: 'Strings',
+    label: 'Normalize',
+    description: 'Spaces, uppercase, accents',
     code: T(
       'nome    = title_case(trim(nome))',
       'codice  = upper(trim(codice))',
@@ -164,18 +164,18 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     ),
   },
   {
-    id: 'str_maschera', category: 'Stringhe',
-    label: 'Mascherare dati sensibili',
-    description: 'Email e carte di credito offuscate',
+    id: 'str_maschera', category: 'Strings',
+    label: 'Mask sensitive data',
+    description: 'Obfuscated emails and credit cards',
     code: T(
       'email_pubblica = mask_email(email)',
       'carta_pubblica = mask_card(numero_carta)',
     ),
   },
   {
-    id: 'str_estrai', category: 'Stringhe',
-    label: 'Estrarre e sostituire',
-    description: 'Sottostringhe, riempimenti, espressioni regolari',
+    id: 'str_estrai', category: 'Strings',
+    label: 'Extract and replace',
+    description: 'Substrings, padding, regular expressions',
     code: T(
       'prefisso    = left(codice, 3)',
       'progressivo = pad_left(to_string(numero), 6, "0")',
@@ -186,8 +186,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   // == Date =====================================================
   {
     id: 'data_formatta', category: 'Date',
-    label: 'Formattare una data',
-    description: 'Da data a stringa nel formato che serve',
+    label: 'Format a date',
+    description: 'From date to string in the format you need',
     code: T(
       '// Il pattern accetta sia dd/MM/yyyy sia %d/%m/%Y.',
       'data_italiana = date_format(data_ordine, "dd/MM/yyyy")',
@@ -196,8 +196,8 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
   },
   {
     id: 'data_calcoli', category: 'Date',
-    label: 'Calcoli sulle date',
-    description: 'Scadenze, differenze, trimestri',
+    label: 'Date calculations',
+    description: 'Deadlines, differences, quarters',
     code: T(
       'scadenza      = add_days(data_fattura, 30)',
       'giorni_aperto = diff_days(today(), data_apertura)',
@@ -211,9 +211,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
 
   // == Numeri ===================================================
   {
-    id: 'num_calcoli', category: 'Numeri',
-    label: 'Calcoli e arrotondamenti',
-    description: 'Sconti, totali, valori entro un intervallo',
+    id: 'num_calcoli', category: 'Numbers',
+    label: 'Calculations and rounding',
+    description: 'Discounts, totals, values within a range',
     code: T(
       'let sconto_valido = clamp(sconto_percentuale, 0, 100)',
       'let scontato      = prezzo * (1 - sconto_valido / 100)',
@@ -223,9 +223,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     ),
   },
   {
-    id: 'num_sicuri', category: 'Numeri',
-    label: 'Difendersi dai valori mancanti',
-    description: 'Valori predefiniti e divisioni sicure',
+    id: 'num_sicuri', category: 'Numbers',
+    label: 'Guard against missing values',
+    description: 'Default values and safe divisions',
     code: T(
       '// coalesce restituisce il primo valore non nullo.',
       'let q = coalesce(quantita, 0)',
@@ -238,9 +238,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
 
   // == Controlli ================================================
   {
-    id: 'val_obbligatori', category: 'Controlli',
-    label: 'Campi obbligatori',
-    description: 'Scarta le righe incomplete dicendo cosa manca',
+    id: 'val_obbligatori', category: 'Checks',
+    label: 'Required fields',
+    description: 'Rejects incomplete rows saying what is missing',
     code: T(
       'if codice is null {',
       '  reject "manca il codice"',
@@ -254,9 +254,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     ),
   },
   {
-    id: 'val_formato', category: 'Controlli',
-    label: 'Formato di un campo',
-    description: 'Controlla la forma con un\'espressione regolare',
+    id: 'val_formato', category: 'Checks',
+    label: 'Field format',
+    description: 'Checks the shape with a regular expression',
     code: T(
       'if regex_match(email, "^[^@ ]+@[^@ ]+\\\\.[a-z]{2,}$") == false {',
       '  reject "email non valida: " + email',
@@ -268,9 +268,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
     ),
   },
   {
-    id: 'chiave_hash', category: 'Controlli',
-    label: 'Chiave stabile',
-    description: 'Un\'impronta riproducibile da piu campi',
+    id: 'chiave_hash', category: 'Checks',
+    label: 'Stable key',
+    description: 'A reproducible fingerprint from multiple fields',
     code: T(
       '// concat_ws con un separatore evita che "AB"+"C" e "A"+"BC"',
       '// producano la stessa chiave.',
@@ -280,9 +280,9 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
 
   // == Variabili di lane ========================================
   {
-    id: 'lane_leggi', category: 'Variabili di lane',
-    label: 'Leggere una variabile di lane',
-    description: 'Valori condivisi nella lane, letti con var()',
+    id: 'lane_leggi', category: 'Lane variables',
+    label: 'Read a lane variable',
+    description: 'Values shared in the lane, read with var()',
     code: T(
       '// var("nome") legge una variabile della lane. Scriverle dallo',
       '// script non e ancora possibile: arriva con una fetta successiva.',
