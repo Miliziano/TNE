@@ -60,17 +60,17 @@ export interface JoinPair {
 
 // ─── Trasformazioni guidate ───────────────────────────────────────
 export const JOIN_TRANSFORMS = [
-  { id: 'none',   label: 'nessuna',            fn: (f: string) => `row.${f}` },
+  { id: 'none',   label: 'none',            fn: (f: string) => `row.${f}` },
   { id: 'trim',   label: 'trim',               fn: (f: string) => `String(row.${f}??'').trim()` },
   { id: 'lower',  label: 'lowercase',          fn: (f: string) => `String(row.${f}??'').toLowerCase()` },
   { id: 'upper',  label: 'uppercase',          fn: (f: string) => `String(row.${f}??'').toUpperCase()` },
-  { id: 'year',   label: 'estrai anno',        fn: (f: string) => `new Date(row.${f}).getFullYear()` },
-  { id: 'month',  label: 'estrai mese',        fn: (f: string) => `new Date(row.${f}).getMonth()+1` },
-  { id: 'day',    label: 'estrai giorno',      fn: (f: string) => `new Date(row.${f}).getDate()` },
-  { id: 'date',   label: 'estrai data',        fn: (f: string) => `String(row.${f}??'').split('T')[0]` },
+  { id: 'year',   label: 'extract year',        fn: (f: string) => `new Date(row.${f}).getFullYear()` },
+  { id: 'month',  label: 'extract month',        fn: (f: string) => `new Date(row.${f}).getMonth()+1` },
+  { id: 'day',    label: 'extract day',      fn: (f: string) => `new Date(row.${f}).getDate()` },
+  { id: 'date',   label: 'extract date',        fn: (f: string) => `String(row.${f}??'').split('T')[0]` },
   { id: 'substr', label: 'substring(n,m)',     fn: (f: string, a='0', b='8') => `String(row.${f}??'').substring(${a},${b})` },
   { id: 'regex',  label: 'regex extract',      fn: (f: string, p='(.+)') => `(String(row.${f}??'').match(/${p}/)||[])[1]??''` },
-  { id: 'free',   label: 'espressione libera', fn: (f: string) => `row.${f}` },
+  { id: 'free',   label: 'free expression', fn: (f: string) => `row.${f}` },
 ]
 
 export function buildExpr(field: string, fnId: string, arg1: string, arg2: string): string {
@@ -118,7 +118,7 @@ function FnEditor({ value, arg1, arg2, onChange, accentColor }: {
         </div>
       )}
       {value === 'regex' && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="pattern es: (\d{4})" />}
-      {value === 'free'  && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="es: row.campo.split('-')[0]" />}
+      {value === 'free'  && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="e.g. row.field.split('-')[0]" />}
     </div>
   )
 }
@@ -268,7 +268,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
             <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>
               Join — <span style={{ color: dstColor }}>{inp.label}</span>
               <span style={{ fontSize: 10, color: '#8593b5', fontWeight: 400, marginLeft: 8 }}>
-                {pairs.length} {pairs.length === 1 ? 'condizione' : 'condizioni'}
+                {pairs.length} {pairs.length === 1 ? 'condition' : 'conditions'}
               </span>
             </div>
           </div>
@@ -300,7 +300,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
           {pairs.length === 0 && (
             <div style={{ padding: '32px 0', textAlign: 'center', color: '#2a3349', fontSize: 11, flexShrink: 0 }}>
               <i className="ti ti-link" style={{ fontSize: 28, display: 'block', marginBottom: 8 }} />
-              Nessuna condizione — aggiungine una o trascina un campo join
+              No condition — add one or drag a join field
             </div>
           )}
 
@@ -343,7 +343,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
 
                   {/* Selettore flusso sorgente */}
                   <div>
-                    <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Flusso sorgente</div>
+                    <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Source flow</div>
                     <CustomSelect style={{ ...iStyle, fontSize: 10 }} value={pair.srcInputId}
                       onChange={(e) => {
                         const newColor = getInputColor(tmap, e.target.value)
@@ -353,7 +353,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                           srcFields:  [{ id: `jf_${Date.now()}`, field: '', fn: 'none', arg1: '', arg2: '' }],
                         })
                       }}>
-                      <option value="">— seleziona flusso —</option>
+                      <option value="">— select flow —</option>
                       {srcInputs.map((i) => (
                         <option key={i.id} value={i.id}>{i.isMain ? '▶ MAIN' : '◆ LOOKUP'} — {i.label}</option>
                       ))}
@@ -363,11 +363,11 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                   {/* Campi sorgente — uno o più (chiave composta) */}
                   <div>
                     <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: srcColor }}>Campi — {srcInp?.label ?? '?'}</span>
+                      <span style={{ color: srcColor }}>Fields — {srcInp?.label ?? '?'}</span>
                       <button onClick={() => addSrcField(pair.id)}
-                        title="Aggiungi campo per chiave composta (più campi combinati = una sola condizione)"
+                        title="Add field for composite key (multiple combined fields = a single condition)"
                         style={{ background: 'none', border: `0.5px dashed ${srcColor}50`, borderRadius: 3, padding: '1px 5px', fontSize: 9, color: srcColor, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <i className="ti ti-plus" style={{ fontSize: 9 }} /> campo composto
+                        <i className="ti ti-plus" style={{ fontSize: 9 }} /> composite field
                       </button>
                     </div>
 
@@ -382,12 +382,12 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                             {srcFields.length > 0 ? (
                               <CustomSelect style={{ ...iStyle, flex: 1, fontSize: 9, borderColor: `${srcColor}40` }} value={sf.field}
                                 onChange={(e) => updateSrcField(pair.id, idx, { field: e.target.value })}>
-                                <option value="">— campo —</option>
+                                <option value="">— field —</option>
                                 {srcFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                               </CustomSelect>
                             ) : (
                               <input style={{ ...iStyle, flex: 1, fontSize: 9 }} value={sf.field}
-                                onChange={(e) => updateSrcField(pair.id, idx, { field: e.target.value })} placeholder="nome campo" />
+                                onChange={(e) => updateSrcField(pair.id, idx, { field: e.target.value })} placeholder="field name" />
                             )}
                             <button onClick={() => setShowFn(showFn === fnKey ? null : fnKey)}
                               style={{ padding: '2px 5px', borderRadius: 3, cursor: 'pointer', fontSize: 9, fontFamily: 'monospace',
@@ -434,7 +434,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                             </span>
                             {!isAuto && (
                               <button onClick={() => updatePair(pair.id, { combineExpr: auto })}
-                                title="Ripristina espressione automatica"
+                                title="Restore automatic expression"
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3ddc84', fontSize: 9, padding: 0 }}>
                                 ripristina auto
                               </button>
@@ -443,7 +443,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                           <input style={{ ...iStyle, borderColor: isAuto ? '#3ddc8430' : `${srcColor}40` }}
                             value={pair.combineExpr || auto}
                             onChange={(e) => updatePair(pair.id, { combineExpr: e.target.value })}
-                            placeholder={auto || "es: $0 + '-' + $1"} />
+                            placeholder={auto || "e.g. $0 + '-' + $1"} />
                           {pair.combineExpr && (
                             <code style={{ display: 'block', marginTop: 3, fontSize: 9, color: '#3ddc84', padding: '2px 6px', background: '#0d1a10', borderRadius: 3, wordBreak: 'break-all' }}>
                               → {pair.srcFields.reduce((acc, sf, i) => acc.replace(new RegExp(`\\$${i}`, 'g'), buildExpr(sf.field, sf.fn, sf.arg1, sf.arg2) || `$${i}`), pair.combineExpr || auto)}
@@ -464,11 +464,11 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                   {/* Campo/i destinatario — supporta chiave composta */}
                   <div>
                     <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6, color: dstColor }}>
-                      <span>Campi — {inp.label}</span>
+                      <span>Fields — {inp.label}</span>
                       <button onClick={() => addDstField(pair.id)}
-                        title="Aggiungi campo per chiave composta lato destinatario"
+                        title="Add field for composite key on the destination side"
                         style={{ background: 'none', border: `0.5px dashed ${dstColor}50`, borderRadius: 3, padding: '1px 5px', fontSize: 9, color: dstColor, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <i className="ti ti-plus" style={{ fontSize: 9 }} /> campo composto
+                        <i className="ti ti-plus" style={{ fontSize: 9 }} /> composite field
                       </button>
                     </div>
                     {(pair.dstFields ?? [{ id: 'legacy', field: (pair as any).dstField ?? '', fn: (pair as any).dstFn ?? 'none', arg1: (pair as any).dstArg1 ?? '', arg2: (pair as any).dstArg2 ?? '' }]).map((df, idx) => {
@@ -483,12 +483,12 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                             {dstFields.length > 0 ? (
                               <CustomSelect style={{ ...iStyle, flex: 1, borderColor: `${dstColor}40` }} value={df.field}
                                 onChange={(e) => updateDstField(pair.id, idx, { field: e.target.value })}>
-                                <option value="">— seleziona —</option>
+                                <option value="">— select —</option>
                                 {dstFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
                               </CustomSelect>
                             ) : (
                               <input style={{ ...iStyle, flex: 1 }} value={df.field}
-                                onChange={(e) => updateDstField(pair.id, idx, { field: e.target.value })} placeholder="campo" />
+                                onChange={(e) => updateDstField(pair.id, idx, { field: e.target.value })} placeholder="field" />
                             )}
                             <button onClick={() => setShowFn(showFn === fnKey ? null : fnKey)}
                               style={{ padding: '2px 5px', borderRadius: 3, cursor: 'pointer', fontSize: 9, fontFamily: 'monospace',
@@ -534,7 +534,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                             </span>
                             {!isAuto && (
                               <button onClick={() => updatePair(pair.id, { dstCombineExpr: auto })}
-                                title="Ripristina espressione automatica"
+                                title="Restore automatic expression"
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3ddc84', fontSize: 9, padding: 0 }}>
                                 ripristina auto
                               </button>
@@ -543,7 +543,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                           <input style={{ ...iStyle, borderColor: isAuto ? '#3ddc8430' : `${dstColor}40` }}
                             value={pair.dstCombineExpr || auto}
                             onChange={(e) => updatePair(pair.id, { dstCombineExpr: e.target.value })}
-                            placeholder={auto || "es: $0 + '-' + $1"} />
+                            placeholder={auto || "e.g. $0 + '-' + $1"} />
                           {(pair.dstCombineExpr || auto) && (
                             <code style={{ display: 'block', marginTop: 3, fontSize: 9, color: '#3ddc84', padding: '2px 6px', background: '#0d1a10', borderRadius: 3, wordBreak: 'break-all' }}>
                               → {dstArr.reduce((acc, df, i) => acc.replace(new RegExp(`\\$${i}`, 'g'), buildExpr(df.field, df.fn, df.arg1, df.arg2) || `$${i}`), pair.dstCombineExpr || auto)}
@@ -560,7 +560,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
 
           <button onClick={addPair}
             style={{ alignSelf: 'flex-start', flexShrink: 0, background: 'none', border: `0.5px dashed ${dstColor}40`, borderRadius: 6, padding: '5px 14px', fontSize: 10, color: dstColor, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi condizione join
+            <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add join condition
           </button>
         </div>
 
@@ -568,11 +568,11 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
         <div style={{ padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
           <button onClick={onClose}
             style={{ padding: '5px 14px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: 'none', border: '1px solid #2a3349', color: '#9a9aaa' }}>
-            Annulla
+            Cancel
           </button>
           <button onClick={save}
             style={{ padding: '5px 18px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${dstColor} 20%, #161b27)`, border: `1px solid ${dstColor}60`, color: dstColor, fontWeight: 600 }}>
-            Applica
+            Apply
           </button>
         </div>
       </div>
@@ -644,7 +644,7 @@ function StatusFieldsSection({ fields, inputId, containerRef, onDragStart, onHov
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0f1117' }}>
         <i className={`ti ${open ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 9, color: '#8593b5' }} />
         <i className="ti ti-activity" style={{ fontSize: 10, color: '#8593b5' }} />
-        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>status ({fields.length} campi)</span>
+        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>status ({fields.length} fields)</span>
       </div>
       {open && fields.map((field) => {
         const key = `${inputId}__${field.name}`; const joinKey = `${inputId}__${field.name}__join`
@@ -838,7 +838,7 @@ function JoinLinksOverlay({ tmap, draggingJoin, tick, onEditLookup, onDeletePair
                 {isAnyHov && (
                   <text x={mx} y={my - 14} textAnchor="middle" fontSize={8} fill="#ff5f57"
                     style={{ pointerEvents: 'none' }}>
-                    click elimina · doppio click edita
+                    click delete · double click edit
                   </text>
                 )}
               </>
@@ -974,14 +974,14 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                     useFlowStore.setState((s) => ({ nodes: updateNode(s.nodes, nodeId, (n) => { const tt = n.data.config.tmap as TMapConfig | undefined; if (!tt) return n; return { ...n, data: { ...n.data, config: { ...n.data.config, tmap: { ...tt, outputs: [...tt.outputs, { id: newOutputId, label: inp.label, color: outColor, filter: '', fields: newFields }] } } } } }) }))
                     setTimeout(() => { const s2 = useFlowStore.getState(); const cur = (s2.nodes.find((n) => n.id === nodeId)?.data.config?.tmap as TMapConfig | undefined)?.connections ?? []; s2.setTMapConnections(nodeId, [...cur, ...newFields.map((f) => ({ id: `${inp.id}__${f.name}__${newOutputId}__${f.id}`, inputId: inp.id, fieldName: f.name, outputId: newOutputId, fieldId: f.id, color: inp.isMain ? '#4a9eff' : '#ffb347' }))]) }, 50)
                   }}
-                  title="Trasferisci tutti i campi in un nuovo output"
+                  title="Transfer all fields to a new output"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px', flexShrink: 0 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
                   <i className="ti ti-arrow-bar-right" style={{ fontSize: 11 }} />
                 </button>
                 {!inp.isMain && (
-                  <button onClick={(e) => { e.stopPropagation(); onEditLookup(inp) }} title="Configura join"
+                  <button onClick={(e) => { e.stopPropagation(); onEditLookup(inp) }} title="Configure join"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: joinPairs.length > 0 ? color : '#8593b5', padding: '0 2px', flexShrink: 0 }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = joinPairs.length > 0 ? color : '#8593b5' }}>
@@ -1033,7 +1033,7 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                           style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: color, border: '2px solid #0f1117', cursor: 'crosshair', opacity: 0.6, transition: 'opacity .1s' }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.6' }}
-                          title="Trascina per join" />
+                          title="Drag to join" />
                         <span style={{ fontSize: 11, flex: 1, color: isConnected ? '#8593b5' : '#c8d4f0', fontFamily: 'monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {field.name}
                         </span>
@@ -1058,8 +1058,8 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                     <StatusFieldsSection fields={statusFields} inputId={inp.id} containerRef={containerRef}
                       onDragStart={onDragStart} onHover={onHover} color={color} onJoinDragStart={onJoinDragStart} />
                   )}
-                  <AddFieldRow color={color} label="aggiungi campo"
-                    onClick={() => addTMapInputField(nodeId, inp.id, { name: `campo_${Date.now().toString().slice(-3)}`, type: 'string' })} />
+                  <AddFieldRow color={color} label="add field"
+                    onClick={() => addTMapInputField(nodeId, inp.id, { name: `field_${Date.now().toString().slice(-3)}`, type: 'string' })} />
                 </>
               )}
             </FlowCard>
@@ -1137,7 +1137,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
   const importFromFile = async () => {
     setOpen(false)
     if (isTauri()) {
-      const res  = await openFileDialog({ title: 'Importa schema campi', filters: [{ name: 'Schema JSON', extensions: ['json'] }] })
+      const res  = await openFileDialog({ title: 'Import fields schema', filters: [{ name: 'Schema JSON', extensions: ['json'] }] })
       const path = Array.isArray(res) ? res[0] : res
       if (!path) return
       try { importSchemaFields(parseSchema(await readFile(path))) }
@@ -1225,7 +1225,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
       {outputFields.length > 0 && (
         <button
           onClick={() => downloadSchema(outputFields.map((f) => ({ name: f.name, type: f.type })), 'tmap-output', { node: 'tmap' })}
-          title="Esporta lo schema di questa uscita su file (.json)"
+          title="Export this output's schema to a file (.json)"
           style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 6px',
             cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color; (e.currentTarget as HTMLElement).style.borderColor = color }}
@@ -1236,7 +1236,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        title="Importa schema da nodo a valle"
+        title="Import schema from downstream node"
         style={{
           background:   open ? `color-mix(in srgb, ${color} 20%, #161b27)` : 'none',
           border:       `0.5px solid ${open ? color : '#2a3349'}`,
@@ -1285,7 +1285,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
             color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.07em',
             borderBottom: `0.5px solid ${color}20`, background: '#1a2030',
           }}>
-            Importa schema da
+            Import schema from
           </div>
 
           {/* Nodi a valle */}
@@ -1334,17 +1334,17 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
                   </div>
                   {count > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, flexShrink: 0 }}>
-                      <span style={{ fontSize: 9, color: '#8593b5' }}>{count} campi</span>
+                      <span style={{ fontSize: 9, color: '#8593b5' }}>{count} fields</span>
                       {newCount > 0 && (
-                        <span style={{ fontSize: 9, color: '#3ddc84' }}>+{newCount} nuovi</span>
+                        <span style={{ fontSize: 9, color: '#3ddc84' }}>+{newCount} new</span>
                       )}
                       {newCount === 0 && (
-                        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>già presenti</span>
+                        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>already present</span>
                       )}
                     </div>
                   ) : (
                     <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', flexShrink: 0 }}>
-                      nessuno schema
+                      no schema
                     </span>
                   )}
                 </div>
@@ -1352,7 +1352,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
             })
           ) : (
             <div style={{ padding: '8px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
-              Nessun nodo collegato a questo output
+              No node connected to this output
             </div>
           )}
 
@@ -1409,7 +1409,7 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
           style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 7px', fontSize: 9, color: '#8593b5', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#3ddc84' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
-          <i className="ti ti-plus" style={{ fontSize: 10 }} /> flusso
+          <i className="ti ti-plus" style={{ fontSize: 10 }} /> flow
         </button>
       </div>
       <div ref={scrollRef as React.RefObject<HTMLDivElement>} style={{ flex: 1, overflowY: 'auto', padding: '8px 8px' }}>
@@ -1435,9 +1435,9 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                   <input value={out.label} onChange={(e) => updateTMapOutput(nodeId, out.id, { label: e.target.value })}
                     style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, flex: 1, color, fontFamily: 'monospace', minWidth: 0 }} />
-                  <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>{out.fields.length} campi</span>
+                  <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0 }}>{out.fields.length} fields</span>
                   {duplicateNames.size > 0 && (
-                    <span title={`${duplicateNames.size} nome/i duplicato/i — verranno rinominati automaticamente in esecuzione`}
+                    <span title={`${duplicateNames.size} duplicate name(s) — they will be renamed automatically at runtime`}
                       style={{ fontSize: 9, color: '#ffb347', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                       <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
                       {duplicateNames.size}
@@ -1489,7 +1489,7 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                 </>
               }>
               <div style={{ padding: '6px 10px', background: `color-mix(in srgb, ${color} 3%, #0f1117)`, borderBottom: `0.5px solid ${color}20` }}>
-                <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Filtro routing</div>
+                <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Routing filter</div>
                 {out.id !== 'output_rejected' ? (
                   /* Il filtro vale per OGNI uscita, non solo dalla terza in poi:
                      il motore lo valuta per tutte tranne il reject (che riceve
@@ -1505,14 +1505,14 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                     <input type="text" value={out.filter ?? ''}
                       onChange={(e) => updateTMapOutput(nodeId, out.id, { filter: e.target.value })}
                       style={{ ...iStyle, fontSize: 10 }}
-                      placeholder='vuoto = tutte le righe — es: main.stato == "attivo"' />
+                      placeholder='empty = all rows — e.g. main.status == "active"' />
                     <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>
-                      legge ingressi e trasformazioni (non i campi di questa uscita)
+                      reads inputs and transforms (not this output's fields)
                     </div>
                   </>
                 ) : (
                   <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic', padding: '3px 6px', background: '#161b27', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-                    righe senza match dalla join
+                    rows with no match from the join
                   </div>
                 )}
               </div>
@@ -1548,7 +1548,7 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                       }}
                       style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, flex: 1, fontFamily: 'monospace', minWidth: 0, color: isDup ? '#ff5f57' : color }} />
                     {isDup && (
-                      <div title="Nome duplicato — verrà rinominato automaticamente in esecuzione (es: label__Nome)"
+                      <div title="Duplicate name — it will be renamed automatically at runtime (e.g. label__Name)"
                         style={{ color: '#ff5f57', flexShrink: 0, lineHeight: 1 }}>
                         <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
                       </div>
@@ -1609,9 +1609,9 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
                 )
               })}
               {out.fields.length === 0 && (
-                <div style={{ padding: '10px 12px', fontSize: 10, color: '#2a3349', fontStyle: 'italic', textAlign: 'center' }}>Nessun campo — trascina un campo qui</div>
+                <div style={{ padding: '10px 12px', fontSize: 10, color: '#2a3349', fontStyle: 'italic', textAlign: 'center' }}>No field — drag a field here</div>
               )}
-              <AddFieldRow color={color} label="aggiungi campo" onClick={() => addTMapOutputField(nodeId, out.id)} />
+              <AddFieldRow color={color} label="add field" onClick={() => addTMapOutputField(nodeId, out.id)} />
             </FlowCard>
           )
         })}
@@ -1683,32 +1683,32 @@ function CenterZone({ nodeId, width, height, onDropTransform, onAddInputToTransf
     <div style={{ width, height, position: 'relative', background: '#0f1117', overflow: 'auto' }}
       onMouseUp={(e) => { if (!dragging) return; const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); onDropTransform(e.clientX - rect.left, e.clientY - rect.top) }}>
       <div style={{ position: 'sticky', top: 0, fontSize: 9, fontWeight: 600, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '.08em', background: '#0f1117', padding: '6px 10px', borderBottom: '0.5px solid #2a3349', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Trasformazioni</span>
+        <span>Transforms</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {dragging && <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', fontWeight: 400 }}>rilascia qui per creare una trasformazione</span>}
+          {dragging && <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', fontWeight: 400 }}>drop here to create a transform</span>}
           <button
             onClick={() => {
               const newId = `transform_${Date.now()}`
               useFlowStore.getState().addTMapTransform(nodeId, {
                 id:         newId,
-                label:      `campo_${Math.random().toString(36).slice(2, 5)}`,
+                label:      `field_${Math.random().toString(36).slice(2, 5)}`,
                 mode:       'inline',
                 inputs:     [],
                 expression: '',
-                outputName: `campo_${Math.random().toString(36).slice(2, 5)}`,
+                outputName: `field_${Math.random().toString(36).slice(2, 5)}`,
                 outputType: 'string',
               })
             }}
             style={{ background: 'none', border: '0.5px dashed #a78bfa60', borderRadius: 4, padding: '2px 8px', fontSize: 9, color: '#a78bfa', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#a78bfa' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#a78bfa60' }}>
-            <i className="ti ti-plus" style={{ fontSize: 9 }} /> campo
+            <i className="ti ti-plus" style={{ fontSize: 9 }} /> field
           </button>
         </div>
       </div>
       {transforms.length === 0 && !dragging && (
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: 11, color: '#2a3349', textAlign: 'center', pointerEvents: 'none' }}>
-          <i className="ti ti-drag-drop" style={{ fontSize: 24, display: 'block', marginBottom: 6 }} />Trascina un campo qui
+          <i className="ti ti-drag-drop" style={{ fontSize: 24, display: 'block', marginBottom: 6 }} />Drag a field here
         </div>
       )}
       <div style={{ padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: 4, position: 'relative', zIndex: 15 }}>
@@ -2014,7 +2014,7 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
     // Forma unica di FPEL (`Etichetta.campo`, con virgolette se l'etichetta ha
     // spazi): il vecchio `$Etichetta.campo` non è più valido.
     const varName = `${riferimentoInput(tmap?.inputs.find((i) => i.id === dragging.inputId)?.label ?? dragging.inputId)}.${dragging.fieldName}`
-    useFlowStore.getState().addTMapTransform(nodeId, { id: newId, label: `trasf_${Math.random().toString(36).slice(2, 5)}`, mode: 'inline', inputs: [{ inputId: dragging.inputId, fieldName: dragging.fieldName }], expression: varName, outputName: dragging.fieldName, outputType: fieldType as TMapFieldType })
+    useFlowStore.getState().addTMapTransform(nodeId, { id: newId, label: `transf_${Math.random().toString(36).slice(2, 5)}`, mode: 'inline', inputs: [{ inputId: dragging.inputId, fieldName: dragging.fieldName }], expression: varName, outputName: dragging.fieldName, outputType: fieldType as TMapFieldType })
     setDragging(null)
   }, [dragging, nodeId, tmap])
 
@@ -2071,7 +2071,7 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
     useFlowStore.getState().updateTMapTransform(nodeId, transformId, { inputs: newInputs, expression: newExpression })
   }, [nodeId, tmap])
 
-  if (!tmap) return <div style={{ color: '#8593b5', padding: 20, fontSize: 12 }}>Nessun TMap configurato.</div>
+  if (!tmap) return <div style={{ color: '#8593b5', padding: 20, fontSize: 12 }}>No TMap configured.</div>
 
   return (
     <div ref={containerRef} style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
@@ -2175,9 +2175,9 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
     }
   }, [])
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'general',  label: 'Generale',      icon: 'ti-info-circle' },
-    { id: 'mapping',  label: 'Configurazione', icon: 'ti-adjustments' },
-    { id: 'advanced', label: 'Avanzate',       icon: 'ti-settings-2' },
+    { id: 'general',  label: 'General',      icon: 'ti-info-circle' },
+    { id: 'mapping',  label: 'Configuration', icon: 'ti-adjustments' },
+    { id: 'advanced', label: 'Advanced',       icon: 'ti-settings-2' },
   ]
 
   return createPortal(
@@ -2210,7 +2210,7 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-              <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
+              <i className="ti ti-x" style={{ fontSize: 12 }} /> close
             </button>
           </div>
         </div>
@@ -2230,7 +2230,7 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
           <div style={{ display: activeTab === 'advanced' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'auto', padding: 16 }}><TabAdvanced nodeId={nodeId} /></div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: '#2a1a4a', color: '#a78bfa', border: '1px solid #4a2a8a', fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#3a2a5a' }}
