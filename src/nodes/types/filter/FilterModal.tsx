@@ -32,19 +32,19 @@ const CONDITION_COLORS = [
 ]
 
 const OPERATORS: Array<{ value: ConditionOperator; label: string }> = [
-  { value: '==',       label: '= uguale'           },
-  { value: '!=',       label: '≠ diverso'           },
-  { value: '>',        label: '> maggiore'          },
-  { value: '>=',       label: '≥ maggiore o uguale' },
-  { value: '<',        label: '< minore'            },
-  { value: '<=',       label: '≤ minore o uguale'   },
-  { value: 'contains', label: '∋ contiene'          },
-  { value: 'starts',   label: '⊏ inizia con'        },
-  { value: 'ends',     label: '⊐ finisce con'       },
-  { value: 'is_null',  label: '∅ è null'            },
-  { value: 'not_null', label: '≠∅ non è null'       },
-  { value: 'in',       label: '∈ è in lista'        },
-  { value: 'not_in',   label: '∉ non è in lista'    },
+  { value: '==',       label: '= equal'           },
+  { value: '!=',       label: '≠ different'           },
+  { value: '>',        label: '> greater'          },
+  { value: '>=',       label: '≥ greater than or equal' },
+  { value: '<',        label: '< less'            },
+  { value: '<=',       label: '≤ less than or equal'   },
+  { value: 'contains', label: '∋ contains'          },
+  { value: 'starts',   label: '⊏ starts with'        },
+  { value: 'ends',     label: '⊐ ends with'       },
+  { value: 'is_null',  label: '∅ is null'            },
+  { value: 'not_null', label: '≠∅ is not null'       },
+  { value: 'in',       label: '∈ is in list'        },
+  { value: 'not_in',   label: '∉ is not in list'    },
   { value: 'regex',    label: '~ regex'             },
 ]
 
@@ -96,11 +96,11 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
             <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={labelStyle}>Campo</div>
+                  <div style={labelStyle}>Field</div>
                   {incomingFields.length > 0 ? (
                     <CustomSelect style={inputStyle} value={clause.field}
                       onChange={(e) => update(clause.id, 'field', e.target.value)}>
-                      <option value="">— seleziona campo —</option>
+                      <option value="">— select field —</option>
                       {incomingFields.map((f) => (
                         <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
                       ))}
@@ -108,7 +108,7 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
                   ) : (
                     <input style={inputStyle} value={clause.field}
                       onChange={(e) => update(clause.id, 'field', e.target.value)}
-                      placeholder="nome_campo" />
+                      placeholder="field_name" />
                   )}
                 </div>
                 <button onClick={() => remove(clause.id)} disabled={clauses.length === 1}
@@ -130,11 +130,11 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
                 {!noValue && (
                   <div>
                     <div style={labelStyle}>
-                      {['in', 'not_in'].includes(clause.operator) ? 'Valori (virgola)' : 'Valore'}
+                      {['in', 'not_in'].includes(clause.operator) ? 'Values (comma)' : 'Value'}
                     </div>
                     <input style={inputStyle} value={clause.value}
                       onChange={(e) => update(clause.id, 'value', e.target.value)}
-                      placeholder={['in', 'not_in'].includes(clause.operator) ? 'val1, val2' : 'valore'} />
+                      placeholder={['in', 'not_in'].includes(clause.operator) ? 'val1, val2' : 'value'} />
                   </div>
                 )}
               </div>
@@ -169,7 +169,7 @@ function TemplateBuilder({ templateId, params, onChange }: {
         <div style={labelStyle}>Template</div>
         <CustomSelect style={inputStyle} value={templateId}
           onChange={(e) => onChange(e.target.value, {})}>
-          <option value="">— seleziona template —</option>
+          <option value="">— select template —</option>
           {Object.entries(byCategory).map(([cat, templates]) => (
             <optgroup key={cat} label={cat}>
               {templates.map((t) => (
@@ -252,7 +252,7 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
         {/* Label */}
         <input value={cond.label} onChange={(e) => onUpdate({ label: e.target.value })}
           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, color: cond.color, fontFamily: 'monospace', flex: 1, minWidth: 0 }}
-          placeholder="nome uscita" />
+          placeholder="output name" />
 
         {/* Modalità */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -411,7 +411,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
     const color = ['#4a9eff', '#3ddc84', '#ffb347', '#a78bfa', '#22d3ee', '#f472b6'][idx % 6]
     const newCond: FilterCondition = {
       id:      `cond_${Date.now()}`,
-      label:   `uscita_${idx + 1}`,
+      label:   `output_${idx + 1}`,
       color,
       mode:    'visual',
       clauses: [{ id: `c_${Date.now()}`, field: '', operator: '==' as ConditionOperator, value: '', logic: 'AND' }],
@@ -483,7 +483,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
             </button>
             <button onClick={onClose}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
+              <i className="ti ti-x" style={{ fontSize: 12 }} /> close
             </button>
           </div>
         </div>
@@ -494,7 +494,7 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
             {/* Info schema */}
             {incomingFields.length > 0 && (
               <div style={{ padding: '6px 10px', background: '#0d3d20', borderRadius: 4, border: '0.5px solid #1d6d40', fontSize: 10, color: '#3ddc84', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ color: '#8593b5', marginRight: 4 }}>Campi disponibili:</span>
+                <span style={{ color: '#8593b5', marginRight: 4 }}>Available fields:</span>
                 {incomingFields.map((f) => (
                   <code key={f.name} style={{ background: '#1d6d4040', padding: '1px 6px', borderRadius: 3 }}>{f.name}</code>
                 ))}
@@ -504,18 +504,18 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
             {/* Info logica */}
             <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#9a9aaa', display: 'flex', alignItems: 'center', gap: 6 }}>
               <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
-              Le condizioni sono valutate in ordine — ogni riga va sulla <strong style={{ color: ACCENT }}>prima condizione</strong> che corrisponde.
-              Le righe che non soddisfano nessuna condizione vanno al <strong style={{ color: '#ff5f57' }}>reject</strong>.
+              Conditions are evaluated in order — each row goes to the <strong style={{ color: ACCENT }}>first matching condition</strong>.
+              Rows that meet no condition go to <strong style={{ color: '#ff5f57' }}>reject</strong>.
             </div>
 
             {/* Condizioni */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: -4 }}>
               <span style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', flex: 1 }}>
-                Condizioni — {config.conditions.length}
+                Conditions — {config.conditions.length}
               </span>
               <button onClick={addCondition}
                 style={{ padding: '3px 12px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <i className="ti ti-plus" style={{ fontSize: 11 }} /> Condizione
+                <i className="ti ti-plus" style={{ fontSize: 11 }} /> Condition
               </button>
             </div>
 
@@ -531,8 +531,8 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
                   {config.conditions.length === 0 ? (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
                         <i className="ti ti-filter" style={{ fontSize: 32, display: 'block', marginBottom: 10, color: `${ACCENT}20` }} />
-                        Nessuna condizione — aggiungi una condizione per creare un'uscita.<br />
-                        Le righe vanno sempre al <span style={{ color: '#ff5f57' }}>reject</span> se nessuna condizione corrisponde.
+                        No condition — add a condition to create an output.<br />
+                        Rows always go to <span style={{ color: '#ff5f57' }}>reject</span> if no condition matches.
                       </div>
                     ) : (
                       config.conditions.map((cond, idx) => (
@@ -555,26 +555,26 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f57', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#ff5f57' }}>reject</div>
-                <div style={{ fontSize: 10, color: '#8593b5' }}>Righe che non soddisfano nessuna condizione — sempre presente</div>
+                <div style={{ fontSize: 10, color: '#8593b5' }}>Rows that satisfy no condition — always present</div>
               </div>
             </div>
 
             {/* Opzioni globali */}
             <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Opzioni globali</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Global options</span>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <Field label="Comportamento su null">
+                <Field label="Null behavior">
                   <CustomSelect style={inputStyle} value={config.nullBehavior}
                     onChange={(e) => saveConfig({ ...config, nullBehavior: e.target.value as FilterConfig['nullBehavior'] })}>
-                    <option value="exclude">Escludi (→ reject)</option>
-                    <option value="include">Includi nella valutazione</option>
-                    <option value="error">Errore su null</option>
+                    <option value="exclude">Exclude (→ reject)</option>
+                    <option value="include">Include in evaluation</option>
+                    <option value="error">Error on null</option>
                   </CustomSelect>
                 </Field>
                 <Field label="Case sensitive">
                   <CustomSelect style={inputStyle} value={config.caseSensitive ? 'true' : 'false'}
                     onChange={(e) => saveConfig({ ...config, caseSensitive: e.target.value === 'true' })}>
-                    <option value="true">Sì</option>
+                    <option value="true">Yes</option>
                     <option value="false">No</option>
                   </CustomSelect>
                 </Field>
@@ -585,10 +585,10 @@ export function FilterModal({ nodeId, onClose }: { nodeId: string; onClose: () =
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 20%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}>
-            Fatto
+            Done
           </button>
         </div>
       </div>
