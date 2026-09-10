@@ -150,7 +150,7 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
         border: `1px solid ${counterpart ? color + '40' : '#3d1010'}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, textAlign: 'right' }}>
-            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>Questa lane (IN)</div>
+            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>This lane (IN)</div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>{thisLane?.label ?? laneId}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
@@ -158,7 +158,7 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
             {channelName && <code style={{ fontSize: 9, color, fontFamily: 'monospace' }}>{channelName}</code>}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>Lane sorgente (OUT)</div>
+            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>Source lane (OUT)</div>
             {counterpart ? (
               <button onClick={() => { selectNode(counterpart.id); selectLane(counterpart.data.laneId) }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, color, padding: 0, textDecoration: 'underline' }}>
@@ -174,16 +174,16 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
         {channelName && !counterpart && (
           <div style={{ marginTop: 8, padding: '5px 8px', background: '#2a1010', borderRadius: 4, fontSize: 10, color: '#ff5f57', display: 'flex', gap: 5 }}>
             <i className="ti ti-alert-circle" style={{ fontSize: 11, flexShrink: 0 }} />
-            BridgeOut con canale "{channelName}" non trovato in nessuna altra lane.
+            BridgeOut with channel "{channelName}" not found in any other lane.
           </div>
         )}
       </div>
 
-      <SectionTitle label="Canale" color={color} />
-      <Field label="Nome canale" hint="Deve corrispondere esattamente al BridgeOut">
+      <SectionTitle label="Channel" color={color} />
+      <Field label="Channel name" hint="Must match the BridgeOut exactly">
         <input style={iStyle} value={channelName} onChange={u('channelName')} placeholder="channel_a" />
       </Field>
-      <Field label="Colore canale">
+      <Field label="Channel color">
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {BRIDGE_COLORS.map((c) => (
             <div key={c} onClick={() => updateProp(nodeId, 'channelColor', c)}
@@ -195,12 +195,12 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
         </div>
       </Field>
 
-      <SectionTitle label="Sincronismo" color={color} />
+      <SectionTitle label="Sync" color={color} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {([
-          { value: 'fire_and_forget', label: '→ Fire & Forget', desc: 'Elabora i dati non appena arrivano, senza segnalare Lane A.' },
-          { value: 'wait_for_ack',    label: '⇄ Wait for Ack',  desc: 'Invia ACK a ogni envelope ricevuto (per canali remoti).' },
-          { value: 'gate',            label: '⊟ Gate',           desc: 'Si blocca finché Lane A non ha completato il flusso.' },
+          { value: 'fire_and_forget', label: '→ Fire & Forget', desc: 'Processes the data as soon as it arrives, without signaling Lane A.' },
+          { value: 'wait_for_ack',    label: '⇄ Wait for Ack',  desc: 'Sends an ACK for each received envelope (for remote channels).' },
+          { value: 'gate',            label: '⊟ Gate',           desc: 'Blocks until Lane A has completed the flow.' },
         ] as const).map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'syncMode', m.value)}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
@@ -221,8 +221,8 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.6 }}>
         <div style={{ color, fontWeight: 600, marginBottom: 4 }}>BridgeIn — come funziona</div>
-        <div>• Si blocca finché BridgeOut non pubblica sul canale <code style={{ color }}>{channelName || '…'}</code></div>
-        <div>• Emette le righe ricevute verso i nodi successivi della lane</div>
+        <div>• Blocks until BridgeOut publishes on channel <code style={{ color }}>{channelName || '…'}</code></div>
+        <div>• Emits the received rows to the downstream nodes of the lane</div>
         <div>• Il timeout protegge da BridgeOut mancante o crashato</div>
       </div>
     </div>
@@ -302,7 +302,7 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
 
   const addField = () => {
     const n    = schema.length + 1
-    const name = `campo_${n}`
+    const name = `field_${n}`
     saveSchema([...schema, { id: `f_${Date.now()}`, name, physicalName: name, type: 'string' }])
   }
 
@@ -327,11 +327,11 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${color} 8%, #0f1117)`,
         border: `0.5px solid ${color}30`, borderRadius: 6, fontSize: 10, color: '#9a9aaa', lineHeight: 1.6 }}>
         <div style={{ color, fontWeight: 600, marginBottom: 4 }}>Schema output di BridgeIn</div>
-        <div>Dichiara qui i campi che BridgeIn riceverà dal canale. Questi campi vengono propagati
-        automaticamente ai nodi successivi (TMap, Filter, ecc.) come schema di input.</div>
+        <div>Declare here the fields that BridgeIn will receive from the channel. These fields are propagated
+        automatically to the downstream nodes (TMap, Filter, etc.) as input schema.</div>
         <div style={{ marginTop: 4, color: '#8593b5' }}>
-          Lo schema viene usato solo per la configurazione visuale — a runtime BridgeIn
-          riceve i dati reali dal canale indipendentemente da questa dichiarazione.
+          The schema is used only for visual configuration — at runtime BridgeIn
+          receives the real data from the channel regardless of this declaration.
         </div>
       </div>
 
@@ -342,7 +342,7 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
             background: `color-mix(in srgb, ${color} 15%, #1a2030)`,
             color, border: `1px solid ${color}60`, fontWeight: 600,
             display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-plus" style={{ fontSize: 11 }} /> Aggiungi campo
+          <i className="ti ti-plus" style={{ fontSize: 11 }} /> Add field
         </button>
         {schema.length > 0 && (
           <button onClick={() => { if (confirm('Svuotare lo schema?')) saveSchema([]) }}
@@ -354,7 +354,7 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
           </button>
         )}
         <span style={{ fontSize: 10, color: '#8593b5', marginLeft: 'auto' }}>
-          {schema.length} {schema.length === 1 ? 'campo' : 'campi'}
+          {schema.length} {schema.length === 1 ? 'field' : 'fields'}
         </span>
       </div>
 
@@ -363,14 +363,14 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '40px', textAlign: 'center', color: '#2a3349', fontSize: 11,
           background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-schema" style={{ fontSize: 32, display: 'block', marginBottom: 10, color: `${color}20` }} />
-          Nessun campo definito — aggiungi i campi che BridgeIn emetterà
+          No field defined — add the fields that BridgeIn will emit
         </div>
       ) : (
         <div style={{ background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', overflow: 'hidden' }}>
           {/* Header tabella */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 24px 24px 24px',
             gap: 6, padding: '6px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Nome campo', 'Nome fisico / alias', 'Tipo', '', '', ''].map((h, i) => (
+            {['Field name', 'Physical name / alias', 'Type', '', '', ''].map((h, i) => (
               <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
             ))}
           </div>
@@ -387,13 +387,13 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
               <input value={field.name}
                 onChange={(e) => updateField(idx, 'name', e.target.value)}
                 style={{ ...iStyle, fontSize: 10, padding: '3px 6px', color }}
-                placeholder="nome_campo" />
+                placeholder="field_name" />
 
               {/* Nome fisico */}
               <input value={field.physicalName}
                 onChange={(e) => updateField(idx, 'physicalName', e.target.value)}
                 style={{ ...iStyle, fontSize: 10, padding: '3px 6px', color: '#9a9aaa' }}
-                placeholder={field.name || 'nome_fisico'} />
+                placeholder={field.name || 'physical_name'} />
 
               {/* Tipo */}
               <CustomSelect value={field.type}
@@ -437,8 +437,8 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4,
           border: '0.5px solid #2a3349', fontSize: 9, color: '#8593b5', display: 'flex', gap: 6 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 10, color, flexShrink: 0 }} />
-          Lo schema viene propagato automaticamente ai nodi collegati all'output di questo BridgeIn.
-          I campi verranno aggiunti come input ai TMap e come schema in ingresso agli altri nodi.
+          The schema is propagated automatically to the nodes connected to this BridgeIn's output.
+          The fields will be added as input to TMaps and as incoming schema to the other nodes.
         </div>
       )}
     </div>
@@ -487,10 +487,10 @@ export function BridgeInModal({ nodeId, onClose }: { nodeId: string; onClose: ()
   if (!node) return null
 
   const TABS: { id: Tab; label: string; icon: string; badge?: number }[] = [
-    { id: 'config',   label: 'Configurazione', icon: 'ti-adjustments' },
+    { id: 'config',   label: 'Configuration',  icon: 'ti-adjustments' },
     { id: 'schema',   label: 'Schema output',  icon: 'ti-table',       badge: schemaFields > 0 ? schemaFields : undefined },
-    { id: 'general',  label: 'Generale',        icon: 'ti-info-circle' },
-    { id: 'advanced', label: 'Avanzate',         icon: 'ti-settings-2'  },
+    { id: 'general',  label: 'General',         icon: 'ti-info-circle' },
+    { id: 'advanced', label: 'Advanced',         icon: 'ti-settings-2'  },
   ]
 
   return createPortal(
@@ -529,7 +529,7 @@ export function BridgeInModal({ nodeId, onClose }: { nodeId: string; onClose: ()
               {node.data.config?.displayName || 'Bridge In'}
             </div>
             <div style={{ fontSize: 10, color: '#8593b5', fontFamily: 'monospace' }}>
-              {nodeId} · canale: <span style={{ color: channelColor }}>{channelName}</span>
+              {nodeId} · channel: <span style={{ color: channelColor }}>{channelName}</span>
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
@@ -543,7 +543,7 @@ export function BridgeInModal({ nodeId, onClose }: { nodeId: string; onClose: ()
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-              <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
+              <i className="ti ti-x" style={{ fontSize: 12 }} /> close
             </button>
           </div>
         </div>
@@ -580,14 +580,14 @@ export function BridgeInModal({ nodeId, onClose }: { nodeId: string; onClose: ()
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
           padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer',
               background: `color-mix(in srgb, ${channelColor} 15%, #161b27)`,
               color: channelColor, border: `1px solid ${channelColor}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${channelColor} 25%, #161b27)` }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${channelColor} 15%, #161b27)` }}>
-            Fatto
+            Done
           </button>
         </div>
 
