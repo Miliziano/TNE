@@ -41,16 +41,16 @@ export interface VoceApplicabile {
 /** Costrutti del linguaggio: non stanno nel catalogo (non sono trasformazioni di
  *  campo) né fra le funzioni (non sono chiamate), ma servono di frequente. */
 const COSTRUTTI: VoceApplicabile[] = [
-  { id: 'c:isnull',   nome: 'è null',            ritorna: 'boolean', uso: 'valore is null',
-    desc: 'Vero se il valore è vuoto',            categoria: 'costrutti', codice: '$sel is null' },
-  { id: 'c:notnull',  nome: 'non è null',        ritorna: 'boolean', uso: 'valore is not null',
-    desc: 'Vero se il valore è valorizzato',      categoria: 'costrutti', codice: '$sel is not null' },
-  { id: 'c:iif',      nome: 'se… allora… altrimenti', ritorna: '—',  uso: 'iif(condizione, a, b)',
-    desc: 'Sceglie fra due valori',               categoria: 'costrutti', codice: 'iif($sel is null, "vuoto", "pieno")' },
+  { id: 'c:isnull',   nome: 'is null',            ritorna: 'boolean', uso: 'value is null',
+    desc: 'True if the value is empty',            categoria: 'constructs', codice: '$sel is null' },
+  { id: 'c:notnull',  nome: 'is not null',        ritorna: 'boolean', uso: 'value is not null',
+    desc: 'True if the value is set',      categoria: 'constructs', codice: '$sel is not null' },
+  { id: 'c:iif',      nome: 'if… then… else', ritorna: '—',  uso: 'iif(condition, a, b)',
+    desc: 'Chooses between two values',               categoria: 'constructs', codice: 'iif($sel is null, "empty", "full")' },
   { id: 'c:case',     nome: 'case when…',        ritorna: '—',       uso: 'case when … then … else … end',
-    desc: 'Più condizioni in cascata',            categoria: 'costrutti', codice: 'case when $sel > 0 then "positivo" else "altro" end' },
-  { id: 'c:var',      nome: 'variabile di lane', ritorna: '—',       uso: 'var("nome")',
-    desc: 'Legge una variabile condivisa',        categoria: 'costrutti', codice: 'var("nome_variabile")' },
+    desc: 'Multiple cascading conditions',            categoria: 'constructs', codice: 'case when $sel > 0 then "positive" else "other" end' },
+  { id: 'c:var',      nome: 'lane variable', ritorna: '—',       uso: 'var("name")',
+    desc: 'Reads a shared variable',        categoria: 'constructs', codice: 'var("variable_name")' },
 ]
 
 /** Le fonti condivise, unite in un elenco solo. */
@@ -65,8 +65,8 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
     try { codice = resolveTemplate(t, '$sel', valoriDefault) } catch { continue }
     voci.push({
       id: `t:${t.id}`, nome: t.label, ritorna: t.outputType ?? '—',
-      uso: codice.replace(/\$sel/g, 'valore'), desc: t.description ?? '',
-      categoria: 'trasformazioni pronte', codice,
+      uso: codice.replace(/\$sel/g, 'value'), desc: t.description ?? '',
+      categoria: 'built-in transforms', codice,
     })
   }
 
@@ -79,7 +79,7 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
     voci.push({
       id: `f:${f.name}`, nome: f.name, ritorna: f.returns ?? '—',
       uso: f.usage ?? `${f.name}(…)`, desc: f.desc ?? '',
-      categoria: f.category ?? 'altre',
+      categoria: f.category ?? 'other',
       // Sempre `nome($sel)`: avvolge ciò che si stava guardando. Per le funzioni
       // che vogliono più argomenti il testo inserito è incompleto — ma è meglio
       // che una virgola sospesa: il parser dice «richiede almeno N argomenti»,
@@ -97,8 +97,8 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
     const args = u.params.map((p, i) => (i === 0 ? '$sel' : p))
     voci.push({
       id: `u:${u.name}`, nome: u.name, ritorna: '—',
-      uso: `${u.name}(${u.params.join(', ')})`, desc: 'Funzione utente',
-      categoria: 'funzioni utente',
+      uso: `${u.name}(${u.params.join(', ')})`, desc: 'User function',
+      categoria: 'user functions',
       codice: `${u.name}(${args.join(', ')})`,
     })
   }
@@ -155,12 +155,12 @@ export function FunctionPicker({ tipo, soloTrasformazioni, onScegli, onChiudi }:
 
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #2a3349',
           display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#dce6ff' }}>Applica una funzione</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#dce6ff' }}>Apply a function</span>
           <input
             autoFocus
             value={cerca}
             onChange={(e) => setCerca(e.target.value)}
-            placeholder="cerca per nome o descrizione — es: unisci, data, maiuscolo"
+            placeholder="search by name or description — e.g. join, date, uppercase"
             style={{ flex: 1, background: '#0f1117', color: '#dce6ff', fontSize: 11,
               border: '1px solid #2a3349', borderRadius: 5, padding: '4px 8px' }} />
           <button onClick={onChiudi}
@@ -170,7 +170,7 @@ export function FunctionPicker({ tipo, soloTrasformazioni, onScegli, onChiudi }:
         <div style={{ overflowY: 'auto', padding: '6px 0' }}>
           {perCategoria.length === 0 && (
             <div style={{ padding: 16, fontSize: 11, color: '#5a6a8a' }}>
-              Nessuna funzione corrisponde a «{cerca}».
+              No function matches "{cerca}".
             </div>
           )}
           {perCategoria.map(([cat, elenco]) => (
@@ -198,7 +198,7 @@ export function FunctionPicker({ tipo, soloTrasformazioni, onScegli, onChiudi }:
         </div>
 
         <div style={{ padding: '6px 12px', borderTop: '1px solid #2a3349', fontSize: 9, color: '#5a6a8a' }}>
-          La funzione scelta <b>avvolge</b> il testo selezionato; senza selezione, l'intera espressione.
+          The chosen function <b>wraps</b> the selected text; with no selection, the whole expression.
         </div>
       </div>
     </div>

@@ -92,7 +92,7 @@ interface ParamDef {
 // funzione aggiunta là compare subito in ENTRAMBI, con la stessa etichetta e lo
 // stesso comportamento. Un catalogo solo, un linguaggio solo.
 const NESSUNA: FnDef = {
-  id: 'none', label: 'nessuna', outputType: '__same__', sameType: true, expression: '$value',
+  id: 'none', label: 'none', outputType: '__same__', sameType: true, expression: '$value',
 }
 
 /** Voce del catalogo condiviso → voce nella forma usata da questa interfaccia. */
@@ -117,7 +117,7 @@ function daTemplate(t: TransformTemplate): FnDef {
 }
 
 /** Funzione "finale": si applica al risultato — stesse voci, tipo generico. */
-const FINAL_FNS: FnDef[] = [{ ...NESSUNA, label: '— nessuna —' },
+const FINAL_FNS: FnDef[] = [{ ...NESSUNA, label: '— none —' },
                             ...getPresetsForType('string' as FieldType).map(daTemplate)]
 
 function fnDef(id: string | undefined): FnDef {
@@ -209,7 +209,7 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
                   fontFamily: 'monospace', flexShrink: 0 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}
-                title={`Inserisci ${v} al cursore`}>
+                title={`Insert ${v} at the cursor`}>
                 {v}
               </button>
             ))}
@@ -220,9 +220,9 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
             propria, con voci ed etichette diverse da quelle del menu inline. */}
         <button
           onClick={() => setPickerScript(true)}
-          title="Scegli una funzione o una trasformazione (con ricerca)"
+          title="Choose a function or a transform (with search)"
           style={{ ...iStyle, fontSize: 9, width: 150, cursor: 'pointer', textAlign: 'left', color: '#8aa4d0' }}>
-          ƒ applica…
+          ƒ apply…
         </button>
         {pickerScript && (
           <FunctionPicker
@@ -234,7 +234,7 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
               const end   = ta ? ta.selectionEnd   : cursorPos.current.end
               const sel   = expr.slice(start, end)
               // avvolge la selezione; senza selezione, il primo campo collegato
-              const code  = voce.codice.replace(/\$sel/g, sel || inputVars[0] || 'campo')
+              const code  = voce.codice.replace(/\$sel/g, sel || inputVars[0] || 'field')
               onChange(expr.slice(0, start) + code + expr.slice(end))
             }} />
         )}
@@ -260,17 +260,17 @@ function ScriptEditor({ expr, outputType, inputVars, onChange }: {
             border: 'none', outline: 'none', color: '#c8d4f0',
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
             lineHeight: '15px', padding: '4px 6px', tabSize: 2 }}
-          placeholder={'espressione FPEL — es: upper(trim(Anagrafica.nome))\ncampo di un ingresso: Anagrafica.nome · con spazi: "Anagrafica clienti".nome · trasformazione: imponibile'}
+          placeholder={'FPEL expression — e.g. upper(trim(Customers.name))\nfield from an input: Customers.name · with spaces: "Customer list".name · transform: taxable'}
           spellCheck={false}
         />
       </div>
 
       {/* ── Hint — aggiunto lane.var ── */}
       <div style={{ fontSize: 9, color: '#2a3349', lineHeight: 1.6 }}>
-        <code style={{ color: '#4a9eff' }}>$value</code> = primo campo ·{' '}
-        <code style={{ color: '#4a9eff' }}>$label.campo</code> = campo specifico ·{' '}
-        <code style={{ color: '#a78bfa' }}>lane.var</code> = variabile di lane ·{' '}
-        seleziona testo e scegli snippet per avvolgere
+        <code style={{ color: '#4a9eff' }}>$value</code> = first field ·{' '}
+        <code style={{ color: '#4a9eff' }}>$label.field</code> = specific field ·{' '}
+        <code style={{ color: '#a78bfa' }}>lane.var</code> = lane variable ·{' '}
+        select text and choose a snippet to wrap
       </div>
     </div>
   )
@@ -284,7 +284,7 @@ function buildSummary(value: FieldTransform, inputVars: string[]): string {
     return line.length > 50 ? line.slice(0, 50) + '…' : (line || 'script')
   }
   const ff   = finalFnDef(value.finalFn)
-  const expr = value.expression || inputVars.join(' + ') || '(vuota)'
+  const expr = value.expression || inputVars.join(' + ') || '(empty)'
   const full = ff.id !== 'none' ? applyFinalFnToExpr(expr, ff, value.finalParams ?? {}) : expr
   return full.length > 60 ? full.slice(0, 60) + '…' : full
 }
@@ -327,7 +327,7 @@ export function FieldTransformEditor({
   }, [value, inputType, onChange])
 
   function handleDelete() {
-    if (window.confirm(`Eliminare la trasformazione "${value.outputName || 'senza nome'}"?\nQuesta operazione non è reversibile.`)) {
+    if (window.confirm(`Delete the transform "${value.outputName || 'unnamed'}"?\nThis operation cannot be undone.`)) {
       onDelete?.()
     }
   }
@@ -363,7 +363,7 @@ export function FieldTransformEditor({
     const { start, end } = caretRef.current
     const sel = currentExpr.slice(start, end)
     if (!sel) {
-      const base  = (currentExpr || inputVars[0] || 'campo').trim()
+      const base  = (currentExpr || inputVars[0] || 'field').trim()
       const nuovo = voce.codice.replace(/\$sel/g, base)
       handlePatch({ expression: nuovo })
       requestAnimationFrame(() => {
@@ -470,7 +470,7 @@ export function FieldTransformEditor({
           <input value={value.outputName ?? ''}
             onChange={e => onChange({ ...value, outputName: e.target.value })}
             style={{ ...iStyle, width: 72, color: '#3ddc84' }}
-            placeholder="nome" />
+            placeholder="name" />
           <button onClick={() => onChange({ ...value, collapsed: true })}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 2px' }}>
             <i className="ti ti-chevron-up" style={{ fontSize: 10 }} />
@@ -515,11 +515,11 @@ export function FieldTransformEditor({
               {inputVars.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0,
-                    textTransform: 'uppercase', letterSpacing: '.05em' }}>campi</span>
+                    textTransform: 'uppercase', letterSpacing: '.05em' }}>fields</span>
                   {inputVars.map((v, i) => (
                     <button key={i}
                       onClick={() => inserisciCampo(v)}
-                      title={`Inserisci ${v} al punto del cursore`}
+                      title={`Insert ${v} at the cursor position`}
                       style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: '#0f1117',
                         border: '1px solid #2a3349', color: '#4a9eff', cursor: 'pointer', flexShrink: 0,
                         fontFamily: 'monospace' }}>
@@ -533,12 +533,12 @@ export function FieldTransformEditor({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ fontSize: 9, color: '#8593b5', flexShrink: 0,
-                    textTransform: 'uppercase', letterSpacing: '.05em' }}>espressione</span>
+                    textTransform: 'uppercase', letterSpacing: '.05em' }}>expression</span>
                   <div style={{ flex: 1 }} />
                   {value.expression && value.expression !== autoExpr && inputVars.length > 0 && (
                     <button
                       onClick={() => handlePatch({ expression: autoExpr })}
-                      title="Riporta alla concatenazione automatica dei campi"
+                      title="Reset to automatic field concatenation"
                       style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: 'none',
                         border: '1px solid #2a3349', color: '#8593b5', cursor: 'pointer', flexShrink: 0 }}>
                       ⟳ auto
@@ -546,10 +546,10 @@ export function FieldTransformEditor({
                   )}
                   <button
                     onClick={() => setPickerAperto(true)}
-                    title="Applica una funzione: avvolge la selezione, o l’intera espressione se non c’è selezione (con ricerca)"
+                    title="Apply a function: wraps the selection, or the whole expression if there is no selection (with search)"
                     style={{ ...iStyle, fontSize: 9, width: 96, flexShrink: 0, cursor: 'pointer',
                       textAlign: 'left', color: '#8aa4d0' }}>
-                    ƒ applica…
+                    ƒ apply…
                   </button>
                   {pickerAperto && (
                     <FunctionPicker
@@ -568,15 +568,15 @@ export function FieldTransformEditor({
                   onClick={aggiornaCaret}
                   onFocus={() => { if (!value.expression && inputVars.length > 0) handlePatch({ expression: autoExpr }) }}
                   style={{ ...iStyle, fontSize: 10, color: '#22d3ee', fontFamily: "'JetBrains Mono', monospace" }}
-                  placeholder={autoExpr || 'es: upper(campo)'}
+                  placeholder={autoExpr || 'e.g. upper(field)'}
                   spellCheck={false}
                 />
 
                 {/* Variabili di lane: l'unica forma è var("nome"), in sola lettura. */}
                 <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.5 }}>
-                  <code style={{ color: '#a78bfa' }}>var("nome")</code>
-                  {' '}per leggere una variabile di lane · es:{' '}
-                  <code style={{ color: '#a78bfa', opacity: 0.7 }}>var("prefisso") + "/" + codice</code>
+                  <code style={{ color: '#a78bfa' }}>var("name")</code>
+                  {' '}to read a lane variable · e.g.{' '}
+                  <code style={{ color: '#a78bfa', opacity: 0.7 }}>var("prefix") + "/" + code</code>
                 </div>
               </div>
 
