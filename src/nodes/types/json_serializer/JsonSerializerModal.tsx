@@ -310,7 +310,7 @@ function TreeNodeRow({
                       background: `color-mix(in srgb, ${sc} 15%, #0f1117)`,
                       border: `0.5px solid ${sc}40`,
                       cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}
-                    title={`${s.handle} → ${s.field} (click per rimuovere)`}
+                    title={`${s.handle} → ${s.field} (click to remove)`}
                     onClick={() => onRemoveSource(node.id, si)}>
                     {s.field}
                     {allSources.length > 1 && <i className="ti ti-x" style={{ fontSize: 7 }} />}
@@ -333,14 +333,14 @@ function TreeNodeRow({
                 if (e.key === 'Enter') { onChangeExpr(node.id, exprVal); setExprEditing(false) }
                 if (e.key === 'Escape') { setExprVal(node.expr ?? ''); setExprEditing(false) }
               }}
-              placeholder={mappedField ? `row.${mappedField}` : 'es: row.campo.trim()'}
+              placeholder={mappedField ? `row.${mappedField}` : 'e.g. row.field.trim()'}
               style={{ ...iStyle, fontSize: 9, padding: '1px 5px', flex: 1, minWidth: 80,
                 color: '#ffb347', borderColor: '#ffb34760', background: '#1a1500' }}
             />
           ) : (
             <button
               onClick={() => { setExprVal(node.expr ?? ''); setExprEditing(true) }}
-              title={node.expr ? `Espressione: ${node.expr}` : 'Aggiungi espressione custom'}
+              title={node.expr ? `Expression: ${node.expr}` : 'Add custom expression'}
               style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, cursor: 'pointer', flexShrink: 0,
                 background: node.expr ? 'color-mix(in srgb, #ffb347 15%, #0f1117)' : 'none',
                 color: node.expr ? '#ffb347' : '#2a3349',
@@ -358,7 +358,7 @@ function TreeNodeRow({
 
         {/* iterHandle — solo per nodi array: quale flusso guida l'iterazione */}
         {node.type === 'array' && availableHandles.length > 0 && (
-          <div onClick={(e) => e.stopPropagation()} title="Flusso che guida l'iterazione di questo array" style={{ flexShrink: 0 }}>
+          <div onClick={(e) => e.stopPropagation()} title="Flow that drives the iteration of this array" style={{ flexShrink: 0 }}>
             <CustomSelect value={node.iterHandle ?? ''}
               onChange={(e) => { onSetIterHandle(node.id, e.target.value) }}
               style={{ fontSize: 9, padding: '1px 3px', width: 68,
@@ -405,7 +405,7 @@ function TreeNodeRow({
                 if (e.key === 'Enter') { onChangeCondition(node.id, condVal); setCondEditing(false) }
                 if (e.key === 'Escape') { setCondVal(node.condition ?? ''); setCondEditing(false) }
               }}
-              placeholder="es: row.età > 0"
+              placeholder="e.g. row.age > 0"
               style={{ ...iStyle, fontSize: 9, padding: '1px 5px', width: 120, flexShrink: 0,
                 color: '#a78bfa', borderColor: '#a78bfa60', background: '#110d1a' }}
               onClick={(e) => e.stopPropagation()} />
@@ -427,17 +427,17 @@ function TreeNodeRow({
 
           {/* Aggiungi figli — disponibile su tutti i nodi */}
           <button onClick={(e) => { e.stopPropagation(); onAddChild(node.id, 'leaf') }}
-            title="Aggiungi campo figlio"
+            title="Add child field"
             style={{ background: 'none', border: `0.5px solid ${typeColor}40`, borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: typeColor, fontSize: 9 }}>
-            +campo
+            +field
           </button>
           <button onClick={(e) => { e.stopPropagation(); onAddChild(node.id, 'object') }}
-            title="Aggiungi oggetto figlio"
+            title="Add child object"
             style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
             +{'{}'}
           </button>
           <button onClick={(e) => { e.stopPropagation(); onAddChild(node.id, 'array') }}
-            title="Aggiungi array figlio"
+            title="Add child array"
             style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
             +{'[]'}
           </button>
@@ -445,7 +445,7 @@ function TreeNodeRow({
           {/* Bottone condizione — solo foglie */}
           {isLeaf && (
             <button onClick={(e) => { e.stopPropagation(); setCondVal(node.condition ?? ''); setCondEditing(true) }}
-              title="Aggiungi condizione (il campo viene omesso se falsa)"
+              title="Add condition (the field is omitted if false)"
               style={{ background: 'none', border: '0.5px solid #a78bfa40', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#a78bfa' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -540,7 +540,7 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
         <span style={{ fontSize: 9, color: '#8593b5', flex: 1 }} />
         {/* Bacchetta auto-mappa — inserisce sotto nodo selezionato nell'albero */}
         <button onClick={() => onAutoMap(mapping.handle)}
-          title="Auto-mappa tutti i campi nel nodo selezionato dell'albero (o in root se nessuno selezionato)"
+          title="Auto-map all fields into the selected tree node (or in root if none selected)"
           style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -549,7 +549,7 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
         {/* Toggle deduplicazione */}
         <button
           onClick={() => onUpdate(mapping.handle, { dedup: !mapping.dedup })}
-          title={mapping.dedup ? 'Deduplicazione attiva — click per disattivare' : 'Attiva deduplicazione righe'}
+          title={mapping.dedup ? 'Deduplication active — click to disable' : 'Enable row deduplication'}
           style={{
             background: mapping.dedup ? `color-mix(in srgb, ${color} 20%, #0f1117)` : 'none',
             border: `0.5px solid ${mapping.dedup ? color : '#2a3349'}`,
@@ -625,7 +625,7 @@ function FieldRow({ name, type, handle, handleIdx, isMapped, color, isManual,
           e.dataTransfer.setData('field', name)
           e.dataTransfer.effectAllowed = 'copy'
         }}
-        title="Trascina sull'albero JSON"
+        title="Drag onto the JSON tree"
         style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
           background: isMapped ? color : 'transparent',
           border: `1.5px solid ${isMapped ? color : '#8593b5'}`,
@@ -639,7 +639,7 @@ function FieldRow({ name, type, handle, handleIdx, isMapped, color, isManual,
           onBlur={() => onNameChange?.(localName)}
           onKeyDown={(e) => { if (e.key === 'Enter') { onNameChange?.(localName); (e.target as HTMLInputElement).blur() } }}
           style={{ ...iStyle, fontSize: 9, padding: '2px 4px', color, background: '#1a2030' }}
-          placeholder="nome_campo" />
+          placeholder="field_name" />
       ) : (
         <span style={{ fontSize: 10, fontFamily: 'monospace', color: isMapped ? color : '#9a9aaa',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -869,9 +869,9 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
   }, [inputs, setTreeNodes])
 
   const handleAddChild = useCallback((parentId: string, type: 'leaf'|'object'|'array') => {
-    const child = type === 'object' ? makeObject('oggetto')
-      : type === 'array' ? makeArray('lista')
-      : makeLeaf('campo')
+    const child = type === 'object' ? makeObject('object')
+      : type === 'array' ? makeArray('list')
+      : makeLeaf('field')
     setTreeNodes((prev) => {
       // Se il parent è una foglia, lo converte in object prima di aggiungere il figlio
       const promoted = updateNode(prev, parentId, (n) => {
@@ -885,9 +885,9 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
   }, [setTreeNodes])
 
   const handleAddRoot = (type: 'leaf'|'object'|'array') => {
-    const n = type === 'object' ? makeObject('oggetto')
-      : type === 'array' ? makeArray('lista')
-      : makeLeaf('campo')
+    const n = type === 'object' ? makeObject('object')
+      : type === 'array' ? makeArray('list')
+      : makeLeaf('field')
     setTreeNodes((prev) => [...prev, n])
   }
 
@@ -926,7 +926,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
   const handleImportSample = () => {
     try {
       const nodes = parseTreeFromJson(sampleRaw)
-      if (nodes.length === 0) { setSampleErr('JSON vuoto o non valido'); return }
+      if (nodes.length === 0) { setSampleErr('Empty or invalid JSON'); return }
       setTreeNodes(() => nodes)
       setSampleErr('')
       setSampleRaw('')
@@ -1033,11 +1033,11 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
       {/* Banner */}
       <div style={{ padding: '5px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderBottom: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#9a9aaa', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>{'{ }'}</span>
-        <span>Trascina i campi sull'albero JSON di output a destra.</span>
+        <span>Drag the fields onto the output JSON tree on the right.</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'monospace', color: ACCENT }}>→ {p('outputField', 'content')}</span>
         <button onClick={() => setShowOptions((v) => !v)}
           style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#8593b5', fontSize: 9 }}>
-          <i className="ti ti-settings-2" style={{ fontSize: 9, marginRight: 3 }} />opzioni
+          <i className="ti ti-settings-2" style={{ fontSize: 9, marginRight: 3 }} />options
         </button>
       </div>
 
@@ -1045,7 +1045,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
       {showOptions && (
         <div style={{ padding: '6px 12px', borderBottom: '0.5px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-            {[{label:'Campo output',key:'outputField',def:'content'},{label:'Envelope',key:'envelope',def:''}].map((opt) => (
+            {[{label:'Output field',key:'outputField',def:'content'},{label:'Envelope',key:'envelope',def:''}].map((opt) => (
               <div key={opt.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{opt.label}</div>
                 <input style={{ ...iStyle, fontSize: 10, padding: '3px 6px', color: ACCENT }}
@@ -1079,7 +1079,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
         <div style={{ width: resizeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #2a3349' }}>
           <div style={{ padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
             <span style={{ fontSize: 9, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
-              Flussi in ingresso — {incomingEdges.length}
+              Incoming flows — {incomingEdges.length}
             </span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
@@ -1117,12 +1117,12 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
           {/* Header albero */}
           <div style={{ padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 9, fontWeight: 600, color: '#ffb347', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
-              Struttura JSON output
+              Output JSON structure
             </span>
             {/* Aggiungi nodi radice */}
             <button onClick={() => handleAddRoot('leaf')}
               style={{ background: 'none', border: '0.5px dashed #ffb34760', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#ffb347', fontSize: 9 }}>
-              +campo
+              +field
             </button>
             <button onClick={() => handleAddRoot('object')}
               style={{ background: 'none', border: '0.5px dashed #8593b5', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}>
@@ -1137,7 +1137,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
                   const json = treeToJson(treeNodes)
                   navigator.clipboard?.writeText(json).catch(() => {})
                 }}
-                title="Copia struttura JSON"
+                title="Copy JSON structure"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 4px' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = ACCENT }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -1145,8 +1145,8 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
               </button>
             )}
             {hasTree && (
-              <button onClick={() => { if (confirm('Svuotare l\'albero?')) setTreeNodes(() => []) }}
-                title="Svuota albero"
+              <button onClick={() => { if (confirm('Empty the tree?')) setTreeNodes(() => []) }}
+                title="Empty tree"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 4px' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -1176,9 +1176,9 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
             {treeNodes.length === 0 ? (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: '#2a3349', pointerEvents: 'none' }}>
                 <i className="ti ti-file-code" style={{ fontSize: 32, display: 'block', marginBottom: 10, color: '#ffb34720' }} />
-                <div style={{ fontSize: 11, marginBottom: 6 }}>Albero vuoto</div>
+                <div style={{ fontSize: 11, marginBottom: 6 }}>Empty tree</div>
                 <div style={{ fontSize: 9, color: '#2a3349' }}>
-                  Trascina campi qui · usa +campo/+{'{}'}/+[] · oppure importa da JSON
+                  Drag fields here · use +field/+{'{}'}/+[] · or import from JSON
                 </div>
               </div>
             ) : (
@@ -1295,7 +1295,7 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-              <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
+              <i className="ti ti-x" style={{ fontSize: 12 }} /> close
             </button>
           </div>
         </div>
@@ -1318,7 +1318,7 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 25%, #161b27)` }}
