@@ -1057,15 +1057,15 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
               </div>
             ))}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Formato</div>
+              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Format</div>
               <CustomSelect style={{ ...iStyle, fontSize: 10, padding: '3px 4px' }} value={p('pretty','false')} onChange={(e) => updateNodeProp(nodeId, 'pretty', e.target.value)}>
-                <option value="false">Compatto</option><option value="true">Pretty print</option>
+                <option value="false">Compact</option><option value="true">Pretty print</option>
               </CustomSelect>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Valori null</div>
+              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Null values</div>
               <CustomSelect style={{ ...iStyle, fontSize: 10, padding: '3px 4px' }} value={p('nullDefault','null')} onChange={(e) => updateNodeProp(nodeId, 'nullDefault', e.target.value)}>
-                <option value="null">null</option><option value="omit">Ometti</option><option value="empty">""</option>
+                <option value="null">null</option><option value="omit">Omit</option><option value="empty">""</option>
               </CustomSelect>
             </div>
           </div>
@@ -1086,7 +1086,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
             {incomingEdges.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
                 <i className="ti ti-plug-connected-x" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: `${ACCENT}20` }} />
-                Collega un flusso sul canvas
+                Connect a flow on the canvas
               </div>
             ) : (
               incomingEdges.map((edge, idx) => {
@@ -1205,11 +1205,11 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
 
           {/* Import da sample JSON */}
           <div style={{ borderTop: '1px solid #2a3349', padding: '6px 10px', background: '#1a2030', flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>IMPORTA STRUTTURA DA JSON DI ESEMPIO</div>
+            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>IMPORT STRUCTURE FROM EXAMPLE JSON</div>
             <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
               <textarea style={{ ...iStyle, resize: 'none', height: 44, fontSize: 9, fontFamily: 'monospace', flex: 1 }}
                 value={sampleRaw} onChange={(e) => setSampleRaw(e.target.value)}
-                placeholder={'{"id":1,"nome":"...","ordini":[]}'} spellCheck={false} />
+                placeholder={'{"id":1,"name":"...","orders":[]}'} spellCheck={false} />
               <button onClick={handleImportSample} disabled={!sampleRaw}
                 style={{ padding: '5px 10px', fontSize: 9, borderRadius: 4, cursor: sampleRaw ? 'pointer' : 'not-allowed',
                   background: sampleRaw ? `color-mix(in srgb, #ffb347 20%, #161b27)` : '#1e2535',
@@ -1255,9 +1255,9 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
   }, [onClose])
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'general',  label: 'Generale',      icon: 'ti-info-circle' },
-    { id: 'mapping',  label: 'Configurazione', icon: 'ti-adjustments' },
-    { id: 'advanced', label: 'Avanzate',       icon: 'ti-settings-2' },
+    { id: 'general',  label: 'General',       icon: 'ti-info-circle' },
+    { id: 'mapping',  label: 'Configuration',  icon: 'ti-adjustments' },
+    { id: 'advanced', label: 'Advanced',       icon: 'ti-settings-2' },
   ]
 
   return createPortal(
@@ -1323,7 +1323,7 @@ export function JsonSerializerModal({ nodeId, onClose }: { nodeId: string; onClo
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 25%, #161b27)` }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 15%, #161b27)` }}>
-            Fatto
+            Done
           </button>
         </div>
 

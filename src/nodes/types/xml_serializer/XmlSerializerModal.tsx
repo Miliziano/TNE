@@ -371,7 +371,7 @@ function XmlTreeNodeRow({
                 if (e.key === 'Enter') { onChangeExpr(node.id, exprVal); setExprEditing(false) }
                 if (e.key === 'Escape') { setExprVal(node.expr ?? ''); setExprEditing(false) }
               }}
-              placeholder={node.sourceField ? `row.${node.sourceField}` : 'es: row.campo.trim()'}
+              placeholder={node.sourceField ? `row.${node.sourceField}` : 'e.g. row.field.trim()'}
               onClick={(e) => e.stopPropagation()}
               style={{ ...iStyle, fontSize: 9, padding: '1px 5px', flex: 1, minWidth: 80,
                 color: '#ffb347', borderColor: '#ffb34760', background: '#1a1500' }} />
@@ -390,7 +390,7 @@ function XmlTreeNodeRow({
 
         {/* iterHandle per element con figli */}
         {canHaveChildren && availableHandles.length > 0 && (
-          <div onClick={(e) => e.stopPropagation()} title="Flusso che guida l'iterazione" style={{ flexShrink: 0 }}>
+          <div onClick={(e) => e.stopPropagation()} title="Flow that drives the iteration" style={{ flexShrink: 0 }}>
             <CustomSelect value={node.iterHandle ?? ''}
               onChange={(e) => { onSetIterHandle(node.id, e.target.value) }}
               style={{ fontSize: 9, padding: '1px 3px', width: 68, flexShrink: 0,
@@ -442,7 +442,7 @@ function XmlTreeNodeRow({
               if (e.key === 'Escape') { setCondVal(node.condition ?? ''); setCondEditing(false) }
             }}
             onClick={(e) => e.stopPropagation()}
-            placeholder="es: row.valore !== null"
+            placeholder="e.g. row.value !== null"
             style={{ ...iStyle, fontSize: 9, padding: '1px 5px', width: 120, flexShrink: 0, color: '#a78bfa', borderColor: '#a78bfa60', background: '#110d1a' }} />
         )}
 
@@ -465,7 +465,7 @@ function XmlTreeNodeRow({
               <>
                 {/* Promuovi a element con figli */}
                 <button onClick={(e) => { e.stopPropagation(); onAddChild(node.id, 'element') }}
-                  title="Aggiungi figlio (converte in elemento con figli)"
+                  title="Add child (converts to element with children)"
                   style={{ background: 'none', border: `0.5px solid ${kc}40`, borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: kc, fontSize: 9 }}>+elm</button>
                 <button onClick={(e) => { e.stopPropagation(); setCondVal(node.condition ?? ''); setCondEditing(true) }}
                   title="Aggiungi condizione"
@@ -516,7 +516,7 @@ function FieldRow({ name, type, handle, handleIdx, isMapped, color, onDelete }: 
         borderBottom: '0.5px solid #1a2030', transition: 'background .1s' }}>
       <div draggable
         onDragStart={(e) => { e.dataTransfer.setData('handle', handle); e.dataTransfer.setData('field', name); e.dataTransfer.effectAllowed = 'copy' }}
-        title="Trascina sull'albero XML"
+        title="Drag onto the XML tree"
         style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
           background: isMapped ? color : 'transparent', border: `1.5px solid ${isMapped ? color : '#8593b5'}`,
           cursor: 'grab', transition: 'all .12s', boxShadow: isMapped ? `0 0 4px ${color}60` : 'none' }} />
@@ -577,7 +577,7 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
         <span style={{ flex: 1 }} />
         {/* Auto-mappa */}
         <button onClick={() => onAutoMap(mapping.handle)}
-          title="Auto-mappa nel nodo selezionato"
+          title="Auto-map into the selected node"
           style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -585,7 +585,7 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
         </button>
         {/* Dedup */}
         <button onClick={() => onUpdate(mapping.handle, { dedup: !mapping.dedup })}
-          title={mapping.dedup ? 'Dedup attivo' : 'Attiva deduplicazione'}
+          title={mapping.dedup ? 'Dedup active' : 'Enable deduplication'}
           style={{ background: mapping.dedup ? `color-mix(in srgb, ${color} 20%, #0f1117)` : 'none',
             border: `0.5px solid ${mapping.dedup ? color : '#2a3349'}`,
             borderRadius: 3, padding: '1px 6px', cursor: 'pointer',
@@ -603,7 +603,7 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
         <div style={{ background: '#161b27' }}>
           {schemaFields.length === 0 ? (
             <div style={{ padding: '8px 10px', fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>
-              Schema non disponibile — collega il nodo sorgente
+              Schema not available — connect the source node
             </div>
           ) : (
             <div style={{ padding: '3px 0' }}>
@@ -732,7 +732,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
   }, [inputs, setTreeNodes])
 
   const handleAddChild = useCallback((parentId: string, kind: XmlNodeKind) => {
-    const child = makeNode(kind, kind === 'element' ? 'elemento' : kind === 'attribute' ? 'attr' : kind === 'cdata' ? 'cdata' : 'gruppo')
+    const child = makeNode(kind, kind === 'element' ? 'element' : kind === 'attribute' ? 'attr' : kind === 'cdata' ? 'cdata' : 'group')
     setTreeNodes((prev) => {
       const promoted = updateXNode(prev, parentId, (n) => {
         if (n.kind !== 'element' && n.kind !== 'group') return { ...n, kind: 'element' as XmlNodeKind }
@@ -770,7 +770,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
   const handleImport = () => {
     if (!sampleRaw.trim()) return
     const nodes = importMode === 'xsd' ? parseXsdToXmlTree(sampleRaw) : parseXmlSample(sampleRaw)
-    if (nodes.length === 0) { setSampleErr('Nessuna struttura rilevata'); return }
+    if (nodes.length === 0) { setSampleErr('No structure detected'); return }
     setTreeNodes(() => nodes); setSampleErr(''); setSampleRaw('')
   }
 
@@ -839,11 +839,11 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
       {/* Banner */}
       <div style={{ padding: '5px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderBottom: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#9a9aaa', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>&lt;/&gt;</span>
-        <span>Trascina i campi sull'albero XML di output a destra.</span>
+        <span>Drag the fields onto the output XML tree on the right.</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'monospace', color: ACCENT }}>→ {p('outputField', 'xml_output')}</span>
         <button onClick={() => setShowOptions((v) => !v)}
           style={{ background: 'none', border: `0.5px solid ${showOptions ? ACCENT : '#2a3349'}`, borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: showOptions ? ACCENT : '#8593b5', fontSize: 9 }}>
-          <i className="ti ti-settings-2" style={{ fontSize: 9, marginRight: 3 }} />opzioni
+          <i className="ti ti-settings-2" style={{ fontSize: 9, marginRight: 3 }} />options
         </button>
       </div>
 
@@ -851,7 +851,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
       {showOptions && (
         <div style={{ padding: '6px 12px', borderBottom: '0.5px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 6 }}>
-            {[{label:'Campo output',key:'outputField',def:'xml_output'},{label:'Elemento root',key:'rootElement',def:'record'},{label:'Prefisso NS root',key:'rootNsPrefix',def:''}].map((opt) => (
+            {[{label:'Output field',key:'outputField',def:'xml_output'},{label:'Root element',key:'rootElement',def:'record'},{label:'Root NS prefix',key:'rootNsPrefix',def:''}].map((opt) => (
               <div key={opt.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{opt.label}</div>
                 <input style={{ ...iStyle, fontSize: 10, padding: '3px 6px', color: ACCENT }}
@@ -865,22 +865,22 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Pretty print</div>
               <CustomSelect style={{ ...iStyle, fontSize: 10, padding: '3px 4px' }} value={p('pretty','false')} onChange={(e) => updateNodeProp(nodeId, 'pretty', e.target.value)}>
-                <option value="false">Compatto</option><option value="true">Indentato</option>
+                <option value="false">Compact</option><option value="true">Indented</option>
               </CustomSelect>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Dichiarazione XML</div>
+              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>XML declaration</div>
               <CustomSelect style={{ ...iStyle, fontSize: 10, padding: '3px 4px' }} value={p('xmlDeclaration','true')} onChange={(e) => updateNodeProp(nodeId, 'xmlDeclaration', e.target.value)}>
-                <option value="true">Includi</option><option value="false">Ometti</option>
+                <option value="true">Include</option><option value="false">Omit</option>
               </CustomSelect>
             </div>
           </div>
           <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Namespace root URI</div>
-            <input style={{ ...iStyle, fontSize: 10 }} value={p('rootNamespace')} onChange={(e) => updateNodeProp(nodeId, 'rootNamespace', e.target.value)} placeholder="http://esempio.com/schema" />
+            <input style={{ ...iStyle, fontSize: 10 }} value={p('rootNamespace')} onChange={(e) => updateNodeProp(nodeId, 'rootNamespace', e.target.value)} placeholder="http://example.com/schema" />
           </div>
           <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Namespace aggiuntivi (prefisso=uri, uno per riga)</div>
+            <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Additional namespaces (prefix=uri, one per line)</div>
             <textarea style={{ ...iStyle, resize: 'none', height: 44, fontSize: 9, fontFamily: 'monospace' }}
               value={p('namespaces')} onChange={(e) => updateNodeProp(nodeId, 'namespaces', e.target.value)}
               placeholder={'xsi=http://www.w3.org/2001/XMLSchema-instance'} spellCheck={false} />
@@ -895,14 +895,14 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
         <div style={{ width: resizeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #2a3349' }}>
           <div style={{ padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', flexShrink: 0 }}>
             <span style={{ fontSize: 9, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-              Flussi in ingresso — {incomingEdges.length}
+              Incoming flows — {incomingEdges.length}
             </span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
             {incomingEdges.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
                 <i className="ti ti-plug-connected-x" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: `${ACCENT}20` }} />
-                Collega un flusso sul canvas
+                Connect a flow on the canvas
               </div>
             ) : (
               incomingEdges.map((edge, idx) => {
@@ -931,7 +931,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
           {/* Header albero */}
           <div style={{ padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 9, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
-              Struttura XML output
+              Output XML structure
             </span>
             {/* Aggiungi root */}
             {([
@@ -945,12 +945,12 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
                 {btn.label}
               </button>
             ))}
-            <button onClick={() => setShowPreview((v) => !v)} title="Anteprima XML"
+            <button onClick={() => setShowPreview((v) => !v)} title="XML preview"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: showPreview ? ACCENT : '#8593b5', padding: '0 4px' }}>
               <i className="ti ti-eye" style={{ fontSize: 11 }} />
             </button>
             {hasTree && (
-              <button onClick={() => { if (confirm('Svuotare l\'albero?')) setTreeNodes(() => []) }}
+              <button onClick={() => { if (confirm('Empty the tree?')) setTreeNodes(() => []) }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '0 4px' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
@@ -962,7 +962,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
           {/* Anteprima */}
           {showPreview && hasTree && (
             <div style={{ padding: '6px 10px', background: '#0a0f1a', borderBottom: '0.5px solid #2a3349', flexShrink: 0, maxHeight: 140, overflowY: 'auto' }}>
-              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Anteprima struttura (valori come segnaposto)</div>
+              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Structure preview (values as placeholders)</div>
               <pre style={{ margin: 0, fontSize: 9, color: '#3ddc84', fontFamily: 'monospace', whiteSpace: 'pre', overflow: 'auto' }}>
                 {p('xmlDeclaration','true') === 'true' ? `<?xml version="1.0" encoding="${p('encoding','UTF-8')}"?>\n` : ''}{xmlPreview}
               </pre>
@@ -985,8 +985,8 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
             {treeNodes.length === 0 ? (
               <div style={{ padding: '40px 20px', textAlign: 'center', color: '#2a3349', pointerEvents: 'none' }}>
                 <i className="ti ti-code" style={{ fontSize: 32, display: 'block', marginBottom: 10, color: `${ACCENT}20` }} />
-                <div style={{ fontSize: 11, marginBottom: 6 }}>Albero vuoto</div>
-                <div style={{ fontSize: 9 }}>Trascina campi · usa +elm/@att/CDA/+grp · o importa XML/XSD</div>
+                <div style={{ fontSize: 11, marginBottom: 6 }}>Empty tree</div>
+                <div style={{ fontSize: 9 }}>Drag fields · use +elm/@att/CDA/+grp · or import XML/XSD</div>
               </div>
             ) : (
               <div style={{ paddingBottom: 8 }}>
@@ -1019,13 +1019,13 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
                 </button>
               ))}
               <span style={{ fontSize: 9, color: '#8593b5' }}>
-                {importMode === 'xsd' ? 'Incolla XSD — elementi semplici importati come struttura' : 'Incolla XML di esempio — struttura importata come template'}
+                {importMode === 'xsd' ? 'Paste XSD — simple elements imported as structure' : 'Paste example XML — structure imported as template'}
               </span>
             </div>
             <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
               <textarea style={{ ...iStyle, resize: 'none', height: 44, fontSize: 9, fontFamily: 'monospace', flex: 1 }}
                 value={sampleRaw} onChange={(e) => setSampleRaw(e.target.value)}
-                placeholder={importMode === 'xsd' ? '<xs:schema>...</xs:schema>' : '<record><id>1</id><nome>Mario</nome></record>'}
+                placeholder={importMode === 'xsd' ? '<xs:schema>...</xs:schema>' : '<record><id>1</id><name>John</name></record>'}
                 spellCheck={false} />
               <button onClick={handleImport} disabled={!sampleRaw}
                 style={{ padding: '5px 10px', fontSize: 9, borderRadius: 4, cursor: sampleRaw ? 'pointer' : 'not-allowed',
@@ -1071,9 +1071,9 @@ export function XmlSerializerModal({ nodeId, onClose }: { nodeId: string; onClos
   }, [onClose])
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'general',  label: 'Generale',      icon: 'ti-info-circle' },
-    { id: 'mapping',  label: 'Configurazione', icon: 'ti-adjustments' },
-    { id: 'advanced', label: 'Avanzate',       icon: 'ti-settings-2' },
+    { id: 'general',  label: 'General',       icon: 'ti-info-circle' },
+    { id: 'mapping',  label: 'Configuration',  icon: 'ti-adjustments' },
+    { id: 'advanced', label: 'Advanced',       icon: 'ti-settings-2' },
   ]
 
   return createPortal(
@@ -1112,7 +1112,7 @@ export function XmlSerializerModal({ nodeId, onClose }: { nodeId: string; onClos
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#8593b5' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349' }}>
-              <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
+              <i className="ti ti-x" style={{ fontSize: 12 }} /> close
             </button>
           </div>
         </div>
@@ -1138,12 +1138,12 @@ export function XmlSerializerModal({ nodeId, onClose }: { nodeId: string; onClos
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 25%, #161b27)` }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 15%, #161b27)` }}>
-            Fatto
+            Done
           </button>
         </div>
 
