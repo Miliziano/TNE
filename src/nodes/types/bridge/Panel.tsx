@@ -105,7 +105,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, textAlign: isOut ? 'left' : 'right' }}>
             <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
-              {isOut ? 'Questa lane (OUT)' : 'Questa lane (IN)'}
+              {isOut ? 'This lane (OUT)' : 'This lane (IN)'}
             </div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>
               {thisLane?.label ?? laneId}
@@ -121,7 +121,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ flex: 1, textAlign: isOut ? 'right' : 'left' }}>
             <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
-              {isOut ? 'Lane target (IN)' : 'Lane sorgente (OUT)'}
+              {isOut ? 'Target lane (IN)' : 'Source lane (OUT)'}
             </div>
             {counterpart ? (
               <button
@@ -131,7 +131,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
               </button>
             ) : (
               <div style={{ fontSize: 11, color: '#ff5f57', fontStyle: 'italic' }}>
-                {channelName ? 'Non trovato' : '—'}
+                {channelName ? 'Not found' : '—'}
               </div>
             )}
           </div>
@@ -139,7 +139,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         {channelName && !counterpart && (
           <div style={{ marginTop: 8, padding: '5px 8px', background: '#2a1010', borderRadius: 4, fontSize: 10, color: '#ff5f57', display: 'flex', gap: 5 }}>
             <i className="ti ti-alert-circle" style={{ fontSize: 11, flexShrink: 0 }} />
-            Nodo {isOut ? 'BridgeIn' : 'BridgeOut'} con canale "{channelName}" non trovato in nessuna altra lane.
+            Node {isOut ? 'BridgeIn' : 'BridgeOut'} with channel "{channelName}" not found in any other lane.
           </div>
         )}
       </div>
@@ -160,8 +160,8 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-info-circle" style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }} />
         <span>
           {isOut
-            ? <>A failure of a node in this lane reaches the downstream lane <b>only if that node is marked «critical»</b>. Otherwise the delivery closes normally and the downstream lane receives 0 rows without noticing anything.</>
-            : <>A failure in the source lane reaches here <b>only if the failing node is marked «critical»</b>. Otherwise the delivery is considered complete and this node receives 0 rows as if everything were fine.</>}
+            ? <>A failure of a node in this lane reaches the downstream lane <b>only if that node is marked "critical"</b>. Otherwise the delivery closes normally and the downstream lane receives 0 rows without noticing anything.</>
+            : <>A failure in the source lane reaches here <b>only if the failing node is marked "critical"</b>. Otherwise the delivery is considered complete and this node receives 0 rows as if everything were fine.</>}
         </span>
       </div>
 
@@ -186,7 +186,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
       {isOut && (
         <>
           {/* ── Campi trasferiti ── */}
-          <SectionTitle label={`Campi trasferiti (${transferFields.length})`} color={ACCENT} />
+          <SectionTitle label={`Transferred fields (${transferFields.length})`} color={ACCENT} />
           {transferFields.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 180,
               overflowY: 'auto', padding: '4px 2px', background: '#141a28',
@@ -210,22 +210,22 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             </div>
           )}
 
-          <SectionTitle label="Trasferimento" color={ACCENT} />
+          <SectionTitle label="Transfer" color={ACCENT} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {([
               {
                 value: 'content',
                 label: '⬛ Content — one-shot',
                 desc:  'The whole flow is sent in a single payload. ' +
-                       'BridgeIn riceve tutte le righe prima di proseguire. ' +
-                       'Ideale per dataset piccoli o quando B ha bisogno del quadro completo.',
+                       'BridgeIn receives all rows before continuing. ' +
+                       'Ideal for small datasets or when B needs the complete picture.',
               },
               {
                 value: 'stream',
                 label: '▶▶ Stream — row-by-row',
                 desc:  'The flow is sent in progressive batches. ' +
-                       'BridgeIn elabora man mano che arrivano i dati. ' +
-                       'Ideale per dataset grandi — backpressure naturale.',
+                       'BridgeIn processes the data as it arrives. ' +
+                       'Ideal for large datasets — natural backpressure.',
               },
             ] as const).map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'transferMode', m.value)}
@@ -247,26 +247,26 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
           )}
 
           {/* Output mode */}
-          <SectionTitle label="Output verso lane corrente" color={ACCENT} />
+          <SectionTitle label="Output to current lane" color={ACCENT} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {([
               {
                 value: 'none',
                 label: '✕ No output',
                 desc:  'BridgeOut is a terminator — the lane stops here. ' +
-                       'I dati sono stati consegnati al canale.',
+                       'The data has been delivered to the channel.',
               },
               {
                 value: 'passthrough',
                 label: '↻ Passthrough',
                 desc:  'The same rows sent to the channel are also emitted as output. ' +
-                       'Utile per loggare, scrivere su file o fare altro dopo il bridge.',
+                       'Useful to log, write to file or do something else after the bridge.',
               },
               {
                 value: 'signal',
                 label: '⚡ Signal',
                 desc:  'Emits a single signal row { channel, rows_sent, status, sent_at }. ' +
-                       'Utile per notifiche o log di completamento senza riprocessare i dati.',
+                       'Useful for notifications or completion logs without reprocessing the data.',
               },
             ] as const).map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'outputMode', m.value)}
@@ -283,22 +283,22 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Sincronismo ── */}
-      <SectionTitle label="Sincronismo" color={ACCENT} />
+      <SectionTitle label="Sync" color={ACCENT} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {([
           {
             value: 'fire_and_forget',
             label: '→ Fire & Forget',
             desc:  isOut
-              ? 'Lane A invia i dati e prosegue immediatamente senza aspettare nulla.'
-              : 'Lane B elabora i dati non appena arrivano, senza segnalare Lane A.',
+              ? 'Lane A sends the data and continues immediately without waiting for anything.'
+              : 'Lane B processes the data as soon as it arrives, without signaling Lane A.',
           },
           {
             value: 'wait_for_ack',
             label: '⇄ Wait for Ack',
             desc:  isOut
-              ? 'Lane A aspetta la conferma di ricezione di ogni batch prima di inviare il successivo. Produce backpressure.'
-              : 'Lane B invia ACK a ogni envelope ricevuto (futuro: per canali remoti).',
+              ? 'Lane A waits for the receipt confirmation of each batch before sending the next. Produces backpressure.'
+              : 'Lane B sends an ACK for each received envelope (future: for remote channels).',
           },
           {
             value: 'gate',
@@ -323,7 +323,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
       {!isOut && (
         <>
           <SectionTitle label="Timeout" color={ACCENT} />
-          <Field label="Timeout attesa (secondi)"
+          <Field label="Wait timeout (seconds)"
             hint="Maximum wait time for the first envelope from BridgeOut. If it expires, the pipeline fails with an explicit error.">
             <input type="number" style={inputStyle} value={timeoutSec} onChange={u('timeoutSec')} min="1" max="3600" />
           </Field>
@@ -338,9 +338,9 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             <input type="number" style={inputStyle} value={bufferSize} onChange={u('bufferSize')} min="0" />
           </Field>
           {parseInt(bufferSize) > 0 && (
-            <Field label="Comportamento buffer pieno">
+            <Field label="Full buffer behavior">
               <CustomSelect style={inputStyle} value={p('bufferFull', 'block')} onChange={u('bufferFull')}>
-                <option value="block">Blocca Lane A fino a svuotamento</option>
+                <option value="block">Block Lane A until drained</option>
                 <option value="drop">Drop the new rows</option>
                 <option value="drop_oldest">Drop the oldest rows</option>
                 <option value="error">Error — stops the pipeline</option>
