@@ -343,9 +343,9 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
       }
       const schema = p('querySchema', resCfg.schema ?? 'public')
       const table  = p('table')
-      if (!table) { setConstraintsError('Configura la tabella nel tab Configurazione.'); setLoadingConstraints(false); return }
+      if (!table) { setConstraintsError('Configure the table in the Configuration tab.'); setLoadingConstraints(false); return }
       const result = await invoke<DbConstraintInfo[]>('db_list_constraints', { request: { connection, schema, table } })
-      if (result.length === 0) setConstraintsError('Nessun vincolo UNIQUE o PRIMARY KEY trovato su questa tabella.')
+      if (result.length === 0) setConstraintsError('No UNIQUE or PRIMARY KEY constraint found on this table.')
       setConstraints(result)
     } catch (err) { setConstraintsError(String(err)) }
     finally { setLoadingConstraints(false) }
@@ -378,10 +378,10 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
       }
       const schema = p('querySchema', resCfg.schema ?? 'public')
       const table  = p('table')
-      if (!table) { setInferError('Configura la tabella nel tab Configurazione.'); setInferring(false); return }
+      if (!table) { setInferError('Configure the table in the Configuration tab.'); setInferring(false); return }
       const query  = dial === 'sqlite' ? `SELECT * FROM "${table}" LIMIT 0` : `SELECT * FROM "${schema}"."${table}" LIMIT 0`
       const columns = await invoke<DbColumnInfo[]>('db_infer_schema', { request: { connection, query } })
-      if (columns.length === 0) { setInferError('Nessuna colonna rilevata.'); setInferring(false); return }
+      if (columns.length === 0) { setInferError('No column detected.'); setInferring(false); return }
       setPreview(columns)
     } catch (err) { setInferError(String(err)) }
     finally { setInferring(false) }
@@ -468,19 +468,19 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
         <button onClick={handleInferSchema} disabled={inferring || !resId}
           style={{ padding: '6px 12px', fontSize: 11, borderRadius: 4, cursor: (!resId || inferring) ? 'not-allowed' : 'pointer', background: `color-mix(in srgb, ${color} 10%, #1a2030)`, color: !resId ? '#8593b5' : color, border: `1px solid ${!resId ? '#2a3349' : color + '50'}`, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
           <i className={`ti ${inferring ? 'ti-loader' : 'ti-database-search'}`} style={{ fontSize: 13 }} />
-          {inferring ? 'Recupero…' : 'Importa da DB'}
+          {inferring ? 'Fetching…' : 'Import from DB'}
         </button>
 
         <button onClick={importFromFlow} disabled={incomingFields.length === 0}
           style={{ padding: '6px 12px', fontSize: 11, borderRadius: 4, cursor: incomingFields.length === 0 ? 'not-allowed' : 'pointer', background: '#1a2030', color: incomingFields.length === 0 ? '#8593b5' : '#c8d4f0', border: '1px solid #3a4a6a', display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className="ti ti-arrows-exchange" style={{ fontSize: 13 }} />
-          Importa da flusso{incomingFields.length > 0 && <span style={{ fontSize: 9, color: '#8593b5' }}>({incomingFields.length})</span>}
+          Import from flow{incomingFields.length > 0 && <span style={{ fontSize: 9, color: '#8593b5' }}>({incomingFields.length})</span>}
         </button>
 
         <button onClick={addManual}
           style={{ padding: '6px 12px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#c8d4f0', border: '1px solid #3a4a6a', display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className="ti ti-plus" style={{ fontSize: 13 }} />
-          Aggiungi riga
+          Add row
         </button>
 
         {mapping.length > 0 && (
@@ -489,15 +489,15 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
             p('table') || 'sink-db',
             { node: 'sink_db', table: p('table') || undefined },
           )}
-            title="Esporta lo schema delle colonne target su file (.json)"
+            title="Export the target columns schema to a file (.json)"
             style={{ padding: '6px 12px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8aa4d0', border: '1px solid #3a4a6a', display: 'flex', alignItems: 'center', gap: 5 }}>
             <i className="ti ti-download" style={{ fontSize: 13 }} />
-            Esporta schema
+            Export schema
           </button>
         )}
 
         {mapping.length > 0 && (
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#8593b5' }}>{enabledCount} / {mapping.length} abilitate</span>
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#8593b5' }}>{enabledCount} / {mapping.length} enabled</span>
         )}
       </div>
 
@@ -507,11 +507,11 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ background: '#0f1117', borderRadius: 6, border: `1px solid ${color}40`, overflow: 'hidden' }}>
           <div style={{ padding: '7px 12px', background: `color-mix(in srgb, ${color} 10%, #1a2030)`, display: 'flex', alignItems: 'center', gap: 8 }}>
             <i className="ti ti-key" style={{ fontSize: 12, color }} />
-            <span style={{ fontSize: 11, fontWeight: 600, color, flex: 1 }}>Vincolo per ON CONFLICT</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color, flex: 1 }}>Constraint for ON CONFLICT</span>
             <button onClick={loadConstraints} disabled={loadingConstraints || !resId}
               style={{ padding: '4px 12px', fontSize: 10, borderRadius: 4, cursor: (!resId || loadingConstraints) ? 'not-allowed' : 'pointer', background: `color-mix(in srgb, ${color} 12%, #1a2030)`, color: !resId ? '#8593b5' : color, border: `1px solid ${color}50`, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
               <i className={`ti ${loadingConstraints ? 'ti-loader' : 'ti-refresh'}`} style={{ fontSize: 11 }} />
-              {loadingConstraints ? 'Carico…' : 'Carica vincoli'}
+              {loadingConstraints ? 'Loading…' : 'Load constraints'}
             </button>
           </div>
           {constraintsError && (
@@ -546,7 +546,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
 
       {!resId && (
         <div style={{ fontSize: 10, color: '#ff9f57', padding: '5px 8px', background: '#2a1e10', borderRadius: 4, border: '0.5px solid #3d2a10' }}>
-          Seleziona prima una risorsa DB nel tab Configurazione per importare lo schema.
+          Select a DB resource in the Configuration tab first to import the schema.
         </div>
       )}
 
@@ -560,10 +560,10 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ background: '#0f1117', borderRadius: 6, border: `1px solid ${color}40`, overflow: 'hidden' }}>
           <div style={{ padding: '7px 12px', background: `color-mix(in srgb, ${color} 10%, #1a2030)`, display: 'flex', alignItems: 'center', gap: 8 }}>
             <i className="ti ti-table" style={{ fontSize: 12, color }} />
-            <span style={{ fontSize: 11, fontWeight: 600, color, flex: 1 }}>Anteprima — {preview.length} colonne</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color, flex: 1 }}>Preview — {preview.length} columns</span>
             <button onClick={importFromDb}
               style={{ padding: '4px 14px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: color, color: '#0f1117', border: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-download" style={{ fontSize: 11 }} /> Importa
+              <i className="ti ti-download" style={{ fontSize: 11 }} /> Import
             </button>
             <button onClick={() => setPreview(null)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: '4px 6px' }}>
@@ -589,8 +589,8 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
       {mapping.length === 0 && !preview && (
         <div style={{ padding: '28px 12px', textAlign: 'center', color: '#2a3349', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-table-off" style={{ fontSize: 26, display: 'block', marginBottom: 8 }} />
-          Nessuna colonna configurata.<br />
-          Usa <strong style={{ color }}>Importa da DB</strong> o <strong style={{ color }}>Importa da flusso</strong>.
+          No column configured.<br />
+          Use <strong style={{ color }}>Import from DB</strong> or <strong style={{ color }}>Import from flow</strong>.
         </div>
       )}
 
@@ -604,7 +604,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
                 : '24px minmax(0,1fr) minmax(0,110px) minmax(0,120px) 56px 110px 50px 50px 24px',
               gap: 4, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349'
             }}>
-              {['✓', 'Colonna DB', 'Campo sorgente', 'Funzione DB', 'Tipo DB', 'Chiave WHERE',
+              {['✓', 'DB column', 'Source field', 'DB function', 'DB type', 'WHERE key',
                 ...(passthroughActive ? ['Hash'] : []),
                 'Logic', 'Flag', ''].map((h, i) => (
                 <div key={i} style={{ fontSize: 9, color: h === 'Hash' ? HASH_COLOR : color, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
@@ -627,18 +627,18 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
                   {col.enabled && <i className="ti ti-check" style={{ fontSize: 9, color }} />}
                 </div>
                 <input value={col.dbColumn} onChange={e => updateCol(idx, 'dbColumn', e.target.value)}
-                  style={{ ...iStyle, color: col.isPk ? '#ffb347' : '#c8d4f0' }} placeholder="nome_colonna" />
+                  style={{ ...iStyle, color: col.isPk ? '#ffb347' : '#c8d4f0' }} placeholder="column_name" />
                 {incomingFields.length > 0 ? (
                   <CustomSelect value={col.sourceField} onChange={e => updateCol(idx, 'sourceField', e.target.value)} style={iStyle}>
-                    <option value="">— nessuno —</option>
+                    <option value="">— none —</option>
                     {incomingFields.map(f => <option key={f} value={f}>{f}</option>)}
                   </CustomSelect>
                 ) : (
-                  <input value={col.sourceField} onChange={e => updateCol(idx, 'sourceField', e.target.value)} style={iStyle} placeholder="campo_sorgente" />
+                  <input value={col.sourceField} onChange={e => updateCol(idx, 'sourceField', e.target.value)} style={iStyle} placeholder="source_field" />
                 )}
                 <input value={col.dbFunction ?? ''} onChange={e => updateCol(idx, 'dbFunction', e.target.value)}
                   disabled={!col.enabled}
-                  style={{ ...iStyle, color: (col.dbFunction ?? '') ? '#ffb347' : '#8593b5' }} placeholder="es: NOW()" />
+                  style={{ ...iStyle, color: (col.dbFunction ?? '') ? '#ffb347' : '#8593b5' }} placeholder="e.g. NOW()" />
                 <CustomSelect value={col.dbType} onChange={e => updateCol(idx, 'dbType', e.target.value)}
                   style={{ ...iStyle, color: '#9a9aaa', fontSize: 9, padding: '2px 4px' }}>
                   {DB_TYPES[dialect]?.map(t => <option key={t} value={t}>{t}</option>)}
@@ -667,7 +667,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
                 <div>
                   {col.isKey && (() => {
                     const priorKeyExists = mapping.slice(0, idx).some(c => c.isKey)
-                    if (!priorKeyExists) return <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: '#1a2030', color: '#9a9aaa', border: '0.5px solid #3a4a6a', display: 'inline-block', fontWeight: 600 }}>1ª chiave</span>
+                    if (!priorKeyExists) return <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: '#1a2030', color: '#9a9aaa', border: '0.5px solid #3a4a6a', display: 'inline-block', fontWeight: 600 }}>1st key</span>
                     return (
                       <CustomSelect value={col.keyLogic ?? 'AND'} onChange={e => updateCol(idx, 'keyLogic', e.target.value)}
                         disabled={isUpsert}
@@ -701,21 +701,21 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
                   <i className="ti ti-bolt" style={{ fontSize: 12, color: HASH_COLOR }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ fontSize: 9, color: HASH_COLOR, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>Campo in uscita</div>
+                  <div style={{ fontSize: 9, color: HASH_COLOR, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>Output field</div>
                   <input value={generatedKeyCfg.outputFieldName} onChange={e => saveGeneratedKeyConfig({ ...generatedKeyCfg, outputFieldName: e.target.value })} style={{ ...iStyle, color: HASH_COLOR, borderColor: `${HASH_COLOR}50` }} placeholder="__table_id" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>Colonna PK nel DB</div>
+                  <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>PK column in the DB</div>
                   <input value={generatedKeyCfg.sourceDbColumn} onChange={e => saveGeneratedKeyConfig({ ...generatedKeyCfg, sourceDbColumn: e.target.value })} style={iStyle} placeholder="id" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>Sequenza (opz.)</div>
+                  <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>Sequence (opt.)</div>
                   <input value={generatedKeyCfg.dbFunction} onChange={e => saveGeneratedKeyConfig({ ...generatedKeyCfg, dbFunction: e.target.value })} style={{ ...iStyle, color: generatedKeyCfg.dbFunction ? '#ffb347' : '#8593b5' }} placeholder="nextval('seq')" />
                 </div>
                 <CustomSelect value={generatedKeyCfg.dbType} onChange={e => saveGeneratedKeyConfig({ ...generatedKeyCfg, dbType: e.target.value })} style={{ ...iStyle, color: '#9a9aaa', fontSize: 9, padding: '2px 4px', alignSelf: 'flex-end' }}>
                   {DB_TYPES[dialect]?.map(t => <option key={t} value={t}>{t}</option>)}
                 </CustomSelect>
-                <div style={{ fontSize: 9, color: HASH_COLOR, padding: '2px 6px', borderRadius: 3, background: `${HASH_COLOR}15`, border: `0.5px solid ${HASH_COLOR}40`, whiteSpace: 'nowrap', alignSelf: 'flex-end' }}>generato dal DB</div>
+                <div style={{ fontSize: 9, color: HASH_COLOR, padding: '2px 6px', borderRadius: 3, background: `${HASH_COLOR}15`, border: `0.5px solid ${HASH_COLOR}40`, whiteSpace: 'nowrap', alignSelf: 'flex-end' }}>generated by the DB</div>
               </div>
             )}
           </div>
@@ -724,13 +724,13 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
             <div style={{ background: '#0f1117', borderRadius: 6, border: `1px solid ${HASH_COLOR}30`, overflow: 'hidden' }}>
               <div style={{ padding: '7px 12px', background: `color-mix(in srgb, ${HASH_COLOR} 8%, #1a2030)`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <i className="ti ti-database-export" style={{ fontSize: 12, color: HASH_COLOR }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: HASH_COLOR }}>Persistenza identity map</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: HASH_COLOR }}>Identity map persistence</span>
               </div>
               <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
-                  { value: 'none',             label: 'Anonima',                                 desc: 'La map vive solo durante questo run.' },
-                  { value: 'lane_var',          label: 'Variabile di Lane',                       desc: 'Persiste tra run successivi. Utile per ETL incrementali.' },
-                  { value: 'lane_var_tx_reset', label: 'Variabile di Lane + reset su rollback TX', desc: 'Come sopra, ma se la transazione va in rollback la map viene ripristinata.' },
+                  { value: 'none',             label: 'Anonymous',                                 desc: 'The map lives only during this run.' },
+                  { value: 'lane_var',          label: 'Lane variable',                       desc: 'Persists across subsequent runs. Useful for incremental ETL.' },
+                  { value: 'lane_var_tx_reset', label: 'Lane variable + reset on TX rollback', desc: 'As above, but if the transaction rolls back the map is restored.' },
                 ].map(opt => (
                   <label key={opt.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
                     <input type="radio" name={`idmap-persist-${nodeId}`}
@@ -742,13 +742,13 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
                       <div style={{ fontSize: 10, color: '#8593b5', marginTop: 2 }}>{opt.desc}</div>
                       {identityMapPersist === opt.value && opt.value !== 'none' && (
                         <div style={{ marginTop: 6 }}>
-                          <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 3 }}>Nome variabile</div>
+                          <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 3 }}>Variable name</div>
                           <input value={identityMapVarName} onChange={e => updateProp(nodeId, 'identityMapVarName', e.target.value)}
                             style={{ ...iStyle, borderColor: `${HASH_COLOR}50`, color: HASH_COLOR }} placeholder={`__${p('table', 'table')}_identity_map`} />
                           {opt.value === 'lane_var_tx_reset' && (
                             <div style={{ marginTop: 6 }}>
-                              <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 3 }}>Gruppo transazionale</div>
-                              <input value={identityMapTxGroup} onChange={e => updateProp(nodeId, 'identityMapTxGroup', e.target.value)} style={iStyle} placeholder="nome_gruppo_tx" />
+                              <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 3 }}>Transaction group</div>
+                              <input value={identityMapTxGroup} onChange={e => updateProp(nodeId, 'identityMapTxGroup', e.target.value)} style={iStyle} placeholder="tx_group_name" />
                             </div>
                           )}
                         </div>
@@ -762,9 +762,9 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
 
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {[
-              { icon: 'ti-checks', label: 'Abilita tutte',       action: () => saveMapping(mapping.map(c => ({ ...c, enabled: true }))) },
-              { icon: 'ti-square', label: 'Disabilita tutte',    action: () => saveMapping(mapping.map(c => ({ ...c, enabled: false }))) },
-              { icon: 'ti-wand',   label: 'Auto-match per nome', action: () => saveMapping(mapping.map(c => ({ ...c, sourceField: incomingFields.includes(c.dbColumn) ? c.dbColumn : c.sourceField }))) },
+              { icon: 'ti-checks', label: 'Enable all',       action: () => saveMapping(mapping.map(c => ({ ...c, enabled: true }))) },
+              { icon: 'ti-square', label: 'Disable all',    action: () => saveMapping(mapping.map(c => ({ ...c, enabled: false }))) },
+              { icon: 'ti-wand',   label: 'Auto-match by name', action: () => saveMapping(mapping.map(c => ({ ...c, sourceField: incomingFields.includes(c.dbColumn) ? c.dbColumn : c.sourceField }))) },
             ].map(btn => (
               <button key={btn.label} onClick={btn.action}
                 style={{ flex: 1, minWidth: 90, padding: '5px 6px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#9a9aaa', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>

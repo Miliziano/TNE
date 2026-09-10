@@ -103,7 +103,7 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
     const retCol = generatedKeyCfg.sourceDbColumn || 'id'
 
     if (cols.length === 0) {
-      mainSql = `-- Configura le colonne nel tab Mapping`
+      mainSql = `-- Configure the columns in the Mapping tab`
     } else {
       const colList  = mapping.map(c => `"${c.dbColumn}"`).join(', ')
       const valList  = mapping.map(c => paramFor(c)).join(', ')
@@ -112,15 +112,15 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
         const updateCols = mapping.filter(c => !c.isKey)
         const conflictOn = keyFields.length > 0
           ? keyFields.map(k => `"${k}"`).join(', ')
-          : `-- configura chiavi WHERE`
+          : `-- configure WHERE keys`
 
         // Suffisso RETURNING per dialetto
         const returning = dialect === 'postgresql'
           ? `\nRETURNING "${retCol}"`
           : dialect === 'mysql'
-          ? `;\n-- → SELECT LAST_INSERT_ID()  -- chiave generata`
+          ? `;\n-- → SELECT LAST_INSERT_ID()  -- generated key`
           : dialect === 'sqlite'
-          ? `;\n-- → SELECT last_insert_rowid()  -- chiave generata`
+          ? `;\n-- → SELECT last_insert_rowid()  -- generated key`
           : `\nRETURNING "${retCol}"`
 
         mainSql = `INSERT INTO ${tRef}\n  (${colList})\nVALUES\n  (${valList})\nON CONFLICT (${conflictOn}) DO UPDATE SET\n  ${updateCols.map(c => `"${c.dbColumn}" = EXCLUDED."${c.dbColumn}"`).join(',\n  ')}${returning};`
@@ -129,9 +129,9 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
         const returning = dialect === 'postgresql'
           ? `\nRETURNING "${retCol}"`
           : dialect === 'mysql'
-          ? `;\n-- → SELECT LAST_INSERT_ID()  -- chiave generata`
+          ? `;\n-- → SELECT LAST_INSERT_ID()  -- generated key`
           : dialect === 'sqlite'
-          ? `;\n-- → SELECT last_insert_rowid()  -- chiave generata`
+          ? `;\n-- → SELECT last_insert_rowid()  -- generated key`
           : `\nRETURNING "${retCol}"`
 
         mainSql = `INSERT INTO ${tRef}\n  (${colList})\nVALUES\n  (${valList})${returning};`
@@ -139,14 +139,14 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
 
       // Sezione separata: come viene arricchito il record in uscita
       const hashComment = hashCols.length > 0
-        ? `-- Hash key: ${hashKeyLabels}\n-- Hash calcolato sui valori correnti → identity map\n\n`
-        : `-- ⚠ Nessuna colonna Hash configurata — deduplicazione disabilitata\n\n`
+        ? `-- Hash key: ${hashKeyLabels}\n-- Hash computed on current values → identity map\n\n`
+        : `-- ⚠ No Hash column configured — deduplication disabled\n\n`
 
       passthroughSql =
         `${hashComment}` +
-        `-- Dopo l'INSERT, il record viene arricchito:\n` +
-        `-- { ...riga_originale, "${generatedKeyCfg.outputFieldName}": <valore di "${retCol}"> }\n\n` +
-        `-- Il record arricchito viene passato al nodo successivo.`
+        `-- After the INSERT, the record is enriched:\n` +
+        `-- { ...original_row, "${generatedKeyCfg.outputFieldName}": <value of "${retCol}"> }\n\n` +
+        `-- The enriched record is passed to the next node.`
     }
 
     const fnList = mapping
@@ -161,24 +161,24 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
       params,
       postSql: p('postSql', '').trim(),
       summary: {
-        'Tabella':          dialect === 'sqlite' ? table : `${schema}.${table}`,
-        'Modalità':         `${mode.toUpperCase()} (pass-through)`,
-        'Colonne master':   cols.length > 0 ? String(cols.length) : '—',
-        'Hash key':         hashCols.length > 0 ? hashCols.map(c => c.dbColumn).join(', ') : '— non configurate',
-        'Chiave generata':  `"${generatedKeyCfg.outputFieldName}" ← ${retCol}`,
-        'Batch size':       '1 (per riga — identity map)',
-        'Funzioni DB':      fnList.length > 0 ? fnList.join(', ') : '—',
-        ...(generatedKeyCfg.dbFunction ? { 'Sequenza DB': generatedKeyCfg.dbFunction } : {}),
+        'Table':          dialect === 'sqlite' ? table : `${schema}.${table}`,
+        'Mode':         `${mode.toUpperCase()} (pass-through)`,
+        'Master columns':   cols.length > 0 ? String(cols.length) : '—',
+        'Hash key':         hashCols.length > 0 ? hashCols.map(c => c.dbColumn).join(', ') : '— not configured',
+        'Generated key':  `"${generatedKeyCfg.outputFieldName}" ← ${retCol}`,
+        'Batch size':       '1 (per row — identity map)',
+        'DB functions':      fnList.length > 0 ? fnList.join(', ') : '—',
+        ...(generatedKeyCfg.dbFunction ? { 'DB sequence': generatedKeyCfg.dbFunction } : {}),
       },
     }
   }
 
   // ── Modalità classica (invariata) ────────────────────────────
   if (customMode !== 'none') {
-    mainSql = p('customSql', '').trim() || '-- nessuna query custom configurata'
+    mainSql = p('customSql', '').trim() || '-- no custom query configured'
   } else if (mode === 'insert' || mode === 'truncate_insert') {
     if (cols.length === 0) {
-      mainSql = `INSERT INTO ${tRef}\n  (/* configura le colonne nel tab Mapping */)\nVALUES\n  (...);`
+      mainSql = `INSERT INTO ${tRef}\n  (/* configure the columns in the Mapping tab */)\nVALUES\n  (...);`
     } else {
       mainSql = `INSERT INTO ${tRef}\n  (${cols.map(c => `"${c}"`).join(', ')})\nVALUES\n  (${mapping.map(c => paramFor(c)).join(', ')});`
     }
@@ -190,14 +190,14 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
   } else if (mode === 'update') {
     const updateMappingCols = mapping.filter(c => !c.isKey)
     mainSql = cols.length === 0
-      ? `UPDATE ${tRef}\nSET ...\nWHERE ${keyCols.length > 0 ? '/* configura chiavi nel tab Mapping */' : '...'};`
-      : `UPDATE ${tRef}\nSET\n  ${updateMappingCols.map(c => `"${c.dbColumn}" = ${paramFor(c)}`).join(',\n  ')}\nWHERE ${keyCols.length > 0 ? buildWhereClause(keyCols, paramFor) : '/* nessuna chiave configurata nel tab Mapping */'};`
+      ? `UPDATE ${tRef}\nSET ...\nWHERE ${keyCols.length > 0 ? '/* configure keys in the Mapping tab */' : '...'};`
+      : `UPDATE ${tRef}\nSET\n  ${updateMappingCols.map(c => `"${c.dbColumn}" = ${paramFor(c)}`).join(',\n  ')}\nWHERE ${keyCols.length > 0 ? buildWhereClause(keyCols, paramFor) : '/* no key configured in the Mapping tab */'};`
   } else if (mode === 'delete') {
-    mainSql = `DELETE FROM ${tRef}\nWHERE ${keyCols.length > 0 ? buildWhereClause(keyCols, paramFor) : '/* nessuna chiave configurata nel tab Mapping */'};`
+    mainSql = `DELETE FROM ${tRef}\nWHERE ${keyCols.length > 0 ? buildWhereClause(keyCols, paramFor) : '/* no key configured in the Mapping tab */'};`
   } else if (mode === 'merge') {
-    mainSql = `-- MERGE: la condizione è configurata nel tab Query (SQL avanzato)`
+    mainSql = `-- MERGE: the condition is configured in the Query tab (advanced SQL)`
   } else {
-    mainSql = `-- modalità "${mode}" non riconosciuta`
+    mainSql = `-- mode "${mode}" not recognized`
   }
 
   const fnList = mapping
@@ -212,14 +212,14 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
     params,
     postSql:       p('postSql', '').trim(),
     summary: {
-      'Tabella':        dialect === 'sqlite' ? table : `${schema}.${table}`,
-      'Modalità':       customMode !== 'none' ? `SQL custom (${customMode})` : mode.toUpperCase(),
-      'Colonne attive': cols.length > 0 ? String(cols.length) : '— configura il mapping',
+      'Table':        dialect === 'sqlite' ? table : `${schema}.${table}`,
+      'Mode':       customMode !== 'none' ? `Custom SQL (${customMode})` : mode.toUpperCase(),
+      'Active columns': cols.length > 0 ? String(cols.length) : '— configure the mapping',
       'Batch size':     p('batchSize', '1000'),
-      'Chiavi':         keyCols.length > 0
+      'Keys':         keyCols.length > 0
                           ? keyCols.map((c, i) => `${i > 0 ? `${c.keyLogic ?? 'AND'} ` : ''}${c.dbColumn} ${c.keyOperator ?? '='}`).join(' ')
                           : '—',
-      'Funzioni DB':    fnList.length > 0 ? fnList.join(', ') : '—',
+      'DB functions':    fnList.length > 0 ? fnList.join(', ') : '—',
     },
   }
 }
@@ -241,7 +241,7 @@ function CodeBlock({ sql, accent }: { sql: string; accent?: string }) {
       whiteSpace: 'pre-wrap',
       wordBreak: 'break-word',
     }}>
-      {sql || <span style={{ color: '#2a3349', fontStyle: 'italic' }}>-- nessun contenuto</span>}
+      {sql || <span style={{ color: '#2a3349', fontStyle: 'italic' }}>-- no content</span>}
     </pre>
   )
 }
@@ -288,10 +288,10 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button onClick={() => setKey(k => k + 1)}
           style={{ padding: '5px 12px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${color} 10%, #1a2030)`, color, border: `1px solid ${color}50`, display: 'flex', alignItems: 'center', gap: 5 }}>
-          <i className="ti ti-refresh" style={{ fontSize: 12 }} /> Rigenera
+          <i className="ti ti-refresh" style={{ fontSize: 12 }} /> Regenerate
         </button>
         <span style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
-          Anteprima dell'SQL generato dalla configurazione attuale — sola lettura
+          Preview of the SQL generated from the current configuration — read-only
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {passthroughActive && (
@@ -309,10 +309,10 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 12px', background: `${PT_COLOR}0d`, borderRadius: 6, border: `1px solid ${PT_COLOR}35`, fontSize: 10, color: PT_COLOR, lineHeight: 1.5, display: 'flex', gap: 8 }}>
           <i className="ti ti-bolt" style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }} />
           <span>
-            Modalità <strong>pass-through master-detail</strong> attiva.
-            La query master qui sotto viene eseguita <strong>una sola volta per ogni hash univoco</strong>.
-            I record già visti vengono recuperati dalla identity map senza toccare il DB.
-            Il campo chiave generato viene iniettato nel record prima di passare al nodo successivo.
+            <strong>pass-through master-detail</strong> mode active.
+            The master query below runs <strong>only once per unique hash</strong>.
+            Records already seen are retrieved from the identity map without touching the DB.
+            The generated key field is injected into the record before passing to the next node.
           </span>
         </div>
       )}
@@ -320,14 +320,14 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* ── Pre-scrittura ── */}
       {preview.preSql ? (
         <div>
-          {secLabel('Pre-scrittura', '#4a9eff')}
+          {secLabel('Pre-write', '#4a9eff')}
           <CodeBlock sql={preview.preSql} accent="#2a5a9a" />
         </div>
       ) : (
         <div>
-          {secLabel('Pre-scrittura', '#2a3349')}
+          {secLabel('Pre-write', '#2a3349')}
           <div style={{ fontSize: 10, color: '#2a3349', fontStyle: 'italic', padding: '5px 8px', background: '#0f1117', borderRadius: 4 }}>
-            — nessuna query pre-scrittura configurata
+            — no pre-write query configured
           </div>
         </div>
       )}
@@ -335,7 +335,7 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* ── Query principale (INSERT master) ── */}
       <div>
         {secLabel(
-          passthroughActive ? 'Insert master (eseguito per hash univoci)' : 'Query principale',
+          passthroughActive ? 'Insert master (run for unique hashes)' : 'Main query',
           passthroughActive ? PT_COLOR : color
         )}
         <CodeBlock sql={preview.mainSql} accent={passthroughActive ? `${PT_COLOR}60` : `${color}60`} />
@@ -344,7 +344,7 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* ── Sezione arricchimento — solo pass-through ── */}
       {passthroughActive && preview.passthroughSql && (
         <div>
-          {secLabel('Arricchimento record in uscita', PT_COLOR)}
+          {secLabel('Output record enrichment', PT_COLOR)}
           <CodeBlock sql={preview.passthroughSql} accent={`${PT_COLOR}35`} />
         </div>
       )}
@@ -354,10 +354,10 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
 
         {preview.params.length > 0 && (
           <div>
-            {secLabel('Parametri bind', '#8593b5')}
+            {secLabel('Bind parameters', '#8593b5')}
             <div style={{ background: '#0f1117', border: '0.5px solid #2a3349', borderRadius: 5, overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 70px', gap: 6, padding: '4px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-                {['#', 'Sorgente', 'Tipo DB'].map(h => (
+                {['#', 'Source', 'DB type'].map(h => (
                   <div key={h} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
                 ))}
               </div>
@@ -373,11 +373,11 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
         )}
 
         <div>
-          {secLabel('Riepilogo', '#8593b5')}
+          {secLabel('Summary', '#8593b5')}
           <div style={{ background: '#0f1117', border: '0.5px solid #2a3349', borderRadius: 5, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
             {Object.entries(preview.summary).map(([k, v]) => {
               const isPassthroughRow = passthroughActive && (
-                k === 'Hash key' || k === 'Chiave generata' || k === 'Sequenza DB'
+                k === 'Hash key' || k === 'Generated key' || k === 'DB sequence'
               )
               return (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10 }}>
@@ -398,14 +398,14 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       {/* ── Post-scrittura ── */}
       {preview.postSql ? (
         <div>
-          {secLabel('Post-scrittura', '#3ddc84')}
+          {secLabel('Post-write', '#3ddc84')}
           <CodeBlock sql={preview.postSql} accent="#1d6d40" />
         </div>
       ) : (
         <div>
-          {secLabel('Post-scrittura', '#2a3349')}
+          {secLabel('Post-write', '#2a3349')}
           <div style={{ fontSize: 10, color: '#2a3349', fontStyle: 'italic', padding: '5px 8px', background: '#0f1117', borderRadius: 4 }}>
-            — nessuna query post-scrittura configurata
+            — no post-write query configured
           </div>
         </div>
       )}
@@ -414,8 +414,8 @@ export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
         {passthroughActive
-          ? `L'SQL è costruito dalla configurazione corrente. In modalità pass-through, RETURNING / LAST_INSERT_ID / last_insert_rowid vengono usati automaticamente in base al dialetto (${dialect}).`
-          : 'L\'SQL è costruito dalla configurazione corrente. I valori reali vengono sostituiti a runtime. Le funzioni DB (NOW, ROUND…) vengono emesse come SQL letterale, non come parametri bind.'
+          ? `The SQL is built from the current configuration. In pass-through mode, RETURNING / LAST_INSERT_ID / last_insert_rowid are used automatically based on the dialect (${dialect}).`
+          : 'The SQL is built from the current configuration. Real values are substituted at runtime. DB functions (NOW, ROUND…) are emitted as literal SQL, not as bind parameters.'
         }
       </div>
     </div>

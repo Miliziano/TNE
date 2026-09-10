@@ -67,12 +67,12 @@ const PT_COLOR = '#a855f7'
 // ─── Modalità scrittura ───────────────────────────────────────────
 
 const WRITE_MODES_ALL = [
-  { value: 'insert',          label: 'INSERT',    icon: 'ti-row-insert-bottom', desc: 'Inserisce nuove righe',          disclaimer: null,                                           passthroughOk: true  },
-  { value: 'upsert',          label: 'UPSERT',    icon: 'ti-arrows-exchange',   desc: 'Insert o update su conflitto',   disclaimer: 'Non disponibile su Oracle e SQL Server',       passthroughOk: true  },
-  { value: 'update',          label: 'UPDATE',    icon: 'ti-edit',              desc: 'Aggiorna righe esistenti',       disclaimer: null,                                           passthroughOk: false },
-  { value: 'delete',          label: 'DELETE',    icon: 'ti-trash',             desc: 'Elimina righe',                  disclaimer: null,                                           passthroughOk: false },
-  { value: 'truncate_insert', label: 'TRUNC+INS', icon: 'ti-refresh',           desc: 'Svuota e reinserisce',           disclaimer: null,                                           passthroughOk: false },
-  { value: 'merge',           label: 'MERGE',     icon: 'ti-git-merge',         desc: 'Standard SQL — richiede PG 15+', disclaimer: 'Consigliato per Oracle e SQL Server',          passthroughOk: false },
+  { value: 'insert',          label: 'INSERT',    icon: 'ti-row-insert-bottom', desc: 'Inserts new rows',          disclaimer: null,                                           passthroughOk: true  },
+  { value: 'upsert',          label: 'UPSERT',    icon: 'ti-arrows-exchange',   desc: 'Insert or update on conflict',   disclaimer: 'Not available on Oracle and SQL Server',       passthroughOk: true  },
+  { value: 'update',          label: 'UPDATE',    icon: 'ti-edit',              desc: 'Updates existing rows',       disclaimer: null,                                           passthroughOk: false },
+  { value: 'delete',          label: 'DELETE',    icon: 'ti-trash',             desc: 'Deletes rows',                  disclaimer: null,                                           passthroughOk: false },
+  { value: 'truncate_insert', label: 'TRUNC+INS', icon: 'ti-refresh',           desc: 'Empties and reinserts',           disclaimer: null,                                           passthroughOk: false },
+  { value: 'merge',           label: 'MERGE',     icon: 'ti-git-merge',         desc: 'Standard SQL — requires PG 15+', disclaimer: 'Recommended for Oracle and SQL Server',          passthroughOk: false },
 ]
 
 function mergeConditionConfig(mode: string): { show: boolean } {
@@ -162,27 +162,27 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '8px 10px', background: '#1a1a0a', borderRadius: 6, border: '1px solid #ffb34760' }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#ffb347', flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: 10, color: '#ffb347', lineHeight: 1.5, flex: 1 }}>
-            <strong>SQL custom attivo</strong> nel tab Query — la modalità scrittura qui sotto è ignorata durante l'esecuzione.
+            <strong>Custom SQL active</strong> in the Query tab — the write mode below is ignored during execution.
             <button onClick={() => updateProp(nodeId, 'customQueryMode', 'none')}
               style={{ marginLeft: 8, padding: '1px 8px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: '#ffb34720', border: '1px solid #ffb34760', color: '#ffb347', fontWeight: 600 }}>
-              Disabilita SQL custom
+              Disable custom SQL
             </button>
           </div>
         </div>
       )}
 
       {/* ── Risorsa DB ── */}
-      <SectionTitle label="Risorsa DB" color={color} />
+      <SectionTitle label="DB resource" color={color} />
 
       {dbRes.length === 0 ? (
         <div style={{ padding: 12, textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-database-off" style={{ fontSize: 18, display: 'block', marginBottom: 6 }} />
-          Nessuna risorsa DB in questa lane. Aggiungila dalla resource strip.
+          No DB resource in this lane. Add it from the resource strip.
         </div>
       ) : (
-        <Field label="Risorsa DB" hint="I parametri di connessione si configurano nella risorsa">
+        <Field label="DB resource" hint="Connection parameters are configured in the resource">
           <CustomSelect style={iStyle} value={resId} onChange={e => handleResourceChange(e.target.value)}>
-            <option value="">— seleziona risorsa —</option>
+            <option value="">— select resource —</option>
             {dbRes.map((r: any) => (
               <option key={r.id} value={r.id}>
                 {r.label} {r.status === 'ok' ? '✓' : r.status === 'error' ? '✗' : '○'}
@@ -201,7 +201,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
       )}
 
       {/* ── Destinazione ── */}
-      <SectionTitle label="Destinazione" color={color} />
+      <SectionTitle label="Destination" color={color} />
 
       <Row2>
         {!isSqlite && (
@@ -209,38 +209,38 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
             <input style={iStyle} value={p('querySchema', 'public')} onChange={u('querySchema')} placeholder="public" />
           </Field>
         )}
-        <Field label="Tabella">
-          <input style={iStyle} value={p('table')} onChange={u('table')} placeholder="nome_tabella" />
+        <Field label="Table">
+          <input style={iStyle} value={p('table')} onChange={u('table')} placeholder="my_table" />
         </Field>
       </Row2>
 
       {/* ── Opzioni tabella ── */}
-      <Field label="Opzioni tabella">
+      <Field label="Table options">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: '#c8d4f0' }}>
             <input type="checkbox" checked={createIfNotExists} onChange={e => updateProp(nodeId, 'createIfNotExists', e.target.checked ? 'true' : 'false')} style={{ accentColor: color }} />
-            Crea tabella se non esiste
+            Create table if it doesn't exist
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: '#ff5f57' }}>
             <input type="checkbox" checked={dropAndCreate} onChange={e => updateProp(nodeId, 'dropAndCreate', e.target.checked ? 'true' : 'false')} style={{ accentColor: '#ff5f57' }} />
-            DROP + CREATE ⚠ (pericoloso)
+            DROP + CREATE ⚠ (dangerous)
           </label>
           {needsDdlPk && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4, borderTop: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600 }}>Colonna PRIMARY KEY</div>
-              <input style={iStyle} value={p('ddlPrimaryKey', '')} onChange={u('ddlPrimaryKey')} placeholder="es: id" />
+              <div style={{ fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600 }}>PRIMARY KEY column</div>
+              <input style={iStyle} value={p('ddlPrimaryKey', '')} onChange={u('ddlPrimaryKey')} placeholder="e.g. id" />
             </div>
           )}
         </div>
       </Field>
 
       {/* ── Modalità scrittura ── */}
-      <SectionTitle label="Modalità scrittura" color={color} />
+      <SectionTitle label="Write mode" color={color} />
 
       {passthroughActive && (
         <div style={{ fontSize: 10, color: PT_COLOR, padding: '5px 8px', background: `${PT_COLOR}10`, borderRadius: 4, border: `0.5px solid ${PT_COLOR}30`, display: 'flex', gap: 5 }}>
           <i className="ti ti-bolt" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }} />
-          Modalità pass-through attiva — solo INSERT e UPSERT disponibili.
+          Pass-through mode active — only INSERT and UPSERT available.
         </div>
       )}
 
@@ -292,33 +292,33 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {needsKeys && (
-        <Warning text={`La modalità ${writeMode.toUpperCase()} richiede un vincolo UNIQUE o PRIMARY KEY sulla colonna chiave nel DB.`} />
+        <Warning text={`The ${writeMode.toUpperCase()} mode requires a UNIQUE or PRIMARY KEY constraint on the key column in the DB.`} />
       )}
 
       {needsKeys && (
-        <Field label="Colonne chiave (WHERE)" hint="Configurate nel tab Mapping — colonna 'Chiave WHERE'">
+        <Field label="Key columns (WHERE)" hint="Configured in the Mapping tab — 'WHERE key' column">
           {mappingKeyCount > 0 ? (
             <div style={{ fontSize: 11, color: '#4a9eff', display: 'flex', alignItems: 'center', gap: 6 }}>
               <i className="ti ti-key" style={{ fontSize: 12 }} />
-              {mappingKeyCount} colonna{mappingKeyCount > 1 ? 'e' : ''} chiave configurat{mappingKeyCount > 1 ? 'e' : 'a'}
+              {mappingKeyCount} key column{mappingKeyCount > 1 ? 's' : ''} configured
             </div>
           ) : (
             <div style={{ fontSize: 11, color: '#ff9f57', display: 'flex', alignItems: 'center', gap: 6 }}>
               <i className="ti ti-alert-circle" style={{ fontSize: 12 }} />
-              Nessuna colonna chiave — vai al tab Mapping
+              No key column — go to the Mapping tab
             </div>
           )}
         </Field>
       )}
 
       {mergeCfg.show && (
-        <Field label="Condizione MERGE ON">
+        <Field label="MERGE ON condition">
           <textarea style={{ ...iStyle, resize: 'vertical', minHeight: 48 }} value={p('mergeCondition', '')} onChange={u('mergeCondition')} placeholder="target.id = source.id" spellCheck={false} />
         </Field>
       )}
 
       {/* ── Modalità output — pass-through master-detail ── */}
-      <SectionTitle label="Modalità output" color={PT_COLOR} />
+      <SectionTitle label="Output mode" color={PT_COLOR} />
 
       <div style={{ background: '#0f1117', borderRadius: 6, border: `1px solid ${passthroughActive ? PT_COLOR + '50' : '#2a3349'}`, overflow: 'hidden', transition: 'border-color .15s' }}>
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', cursor: 'pointer' }}>
@@ -338,14 +338,14 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
               </span>
             </div>
             <div style={{ fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-              Il nodo inserisce solo le colonne mappate, recupera la chiave generata dal DB
-              e la inietta nel record. Il flusso continua verso il nodo successivo — ideale
-              per pattern master → detail con più tabelle in cascata.
+              The node inserts only the mapped columns, retrieves the key generated by the DB
+              and injects it into the record. The flow continues to the next node — ideal
+              for master → detail patterns with multiple cascading tables.
             </div>
             {passthroughActive && (
               <div style={{ marginTop: 8, padding: '6px 8px', background: `${PT_COLOR}10`, borderRadius: 4, border: `0.5px solid ${PT_COLOR}30`, fontSize: 10, color: PT_COLOR }}>
                 <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-                Configura le colonne Hash e la riga chiave nel tab <strong>Mapping</strong>.
+                Configure the Hash columns and the key row in the <strong>Mapping</strong> tab.
               </div>
             )}
           </div>
@@ -358,30 +358,30 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         <Field label="Batch size">
           <input type="number" style={iStyle} value={p('batchSize', '1000')} onChange={u('batchSize')} min="1" />
         </Field>
-        <Field label="Commit ogni N batch">
+        <Field label="Commit every N batches">
           <input type="number" style={iStyle} value={p('commitInterval', '0')} onChange={u('commitInterval')} min="0" />
         </Field>
       </Row2>
       <Row2>
-        <Field label="Connessioni parallele">
+        <Field label="Parallel connections">
           <input type="number" style={iStyle} value={p('parallelConnections', '1')} onChange={u('parallelConnections')} min="1" max="20" />
         </Field>
-        <Field label="Timeout transazione (s)">
+        <Field label="Transaction timeout (s)">
           <input type="number" style={iStyle} value={p('txTimeout', '60')} onChange={u('txTimeout')} min="1" />
         </Field>
       </Row2>
 
       {/* ── Gestione errori ── */}
-      <SectionTitle label="Gestione errori" color={color} />
-      <Field label="Su errore di vincolo">
+      <SectionTitle label="Error handling" color={color} />
+      <Field label="On constraint error">
         <CustomSelect style={iStyle} value={p('onConstraintError', 'stop')} onChange={u('onConstraintError')}>
-          <option value="stop">Stop — interrompi</option>
-          <option value="skip">Skip — salta la riga</option>
-          <option value="log">Log — registra e continua</option>
-          <option value="update">Update — aggiorna invece</option>
+          <option value="stop">Stop — abort</option>
+          <option value="skip">Skip — skip the row</option>
+          <option value="log">Log — record and continue</option>
+          <option value="update">Update — update instead</option>
         </CustomSelect>
       </Field>
-      <Field label="Dead letter table" hint="Tabella dove scrivere le righe in errore">
+      <Field label="Dead letter table" hint="Table to write the failed rows to">
         <input style={iStyle} value={p('deadLetterTable', '')} onChange={u('deadLetterTable')} placeholder="errors.failed_rows" />
       </Field>
 
@@ -394,7 +394,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         const NEUTRAL    = '#34d399'  // colore sezione a riposo
         return (
           <>
-            <SectionTitle label="Transazione" color={isActive ? TX_COLOR : NEUTRAL} />
+            <SectionTitle label="Transaction" color={isActive ? TX_COLOR : NEUTRAL} />
 
             <div style={{ background: '#0f1117', borderRadius: 6,
                           border: `1px solid ${isActive ? TX_COLOR + '60' : '#2a3349'}`,
@@ -405,7 +405,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
                      style={{ fontSize: 14, color: isActive ? TX_COLOR : '#8593b5' }} />
                   <span style={{ fontSize: 12, fontWeight: 600,
                                  color: isActive ? TX_COLOR : '#c8d4f0' }}>
-                    {isActive ? `In transazione: ${activeTx!.name}` : 'Autocommit (nessuna transazione)'}
+                    {isActive ? `In transaction: ${activeTx!.name}` : 'Autocommit (no transaction)'}
                   </span>
                   {isActive && (
                     <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700,
@@ -419,14 +419,14 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
 
                 <div style={{ fontSize: 10, color: '#9a9aaa', lineHeight: 1.5, marginBottom: 10 }}>
                   {isActive
-                    ? 'Le scritture di questo nodo fanno parte della transazione: commit o rollback insieme agli altri membri.'
-                    : 'Senza transazione il nodo scrive in autocommit (ogni batch committato indipendentemente). Associa una transazione per la scrittura atomica di gruppo.'}
+                    ? 'The writes of this node are part of the transaction: commit or rollback together with the other members.'
+                    : 'Without a transaction the node writes in autocommit (each batch committed independently). Associate a transaction for atomic group writing.'}
                 </div>
 
                 <CustomSelect style={iStyle}
                   value={txId}
                   onChange={u('transactionId')}>
-                  <option value="">— nessuna (autocommit) —</option>
+                  <option value="">— none (autocommit) —</option>
                   {laneTransactions.map(tx => (
                     <option key={tx.id} value={tx.id}>
                       {tx.name} ({tx.mode})
@@ -441,16 +441,16 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
                     <i className="ti ti-info-circle" style={{ fontSize: 10 }} />
                     <span>
                       {activeTx!.onError === 'rollback_all'
-                        ? 'Su errore: rollback dell\u2019intero gruppo.'
-                        : 'Su errore: rollback solo di questo nodo.'}
-                      {' '}Timeout {activeTx!.timeout}s. Configura nel tab Transazioni.
+                        ? 'On error: rollback of the entire group.'
+                        : 'On error: rollback of this node only.'}
+                      {' '}Timeout {activeTx!.timeout}s. Configure in the Transactions tab.
                     </span>
                   </div>
                 )}
 
                 {laneTransactions.length === 0 && (
                   <div style={{ marginTop: 8, fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
-                    Nessuna transazione nella lane. Creane una dal tab "Transazioni" del pannello proprietà.
+                    No transaction in this lane. Create one from the "Transactions" tab of the properties panel.
                   </div>
                 )}
               </div>
