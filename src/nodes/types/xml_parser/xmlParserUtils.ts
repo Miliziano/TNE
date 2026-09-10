@@ -67,7 +67,7 @@ export function inferTreeFromXml(xmlString: string): XmlTreeNode[] {
   const parser  = new DOMParser()
   const doc     = parser.parseFromString(xmlString, 'application/xml')
   const errNode = doc.querySelector('parsererror')
-  if (errNode) throw new Error(errNode.textContent ?? 'XML non valido')
+  if (errNode) throw new Error(errNode.textContent ?? 'Invalid XML')
   return [parseElement(doc.documentElement, '')]
 }
 
@@ -103,7 +103,7 @@ function assignXPaths(nodes: XmlTreeNode[], parentXPath = ''): XmlTreeNode[] {
 
 export function inferTreeFromXsd(xsdString: string): XmlTreeNode[] {
   const xsdNodes = parseXsd(xsdString)
-  if (xsdNodes.length === 0) throw new Error('XSD non valido o struttura non riconosciuta')
+  if (xsdNodes.length === 0) throw new Error('Invalid XSD or unrecognized structure')
   const converted = xsdNodes.map((n) => xsdNodeToTreeNode(n, 0))
   return assignXPaths(converted)
 }

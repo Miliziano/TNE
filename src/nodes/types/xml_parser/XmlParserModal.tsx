@@ -78,7 +78,7 @@ const TRANSFORMS: Array<{ value: XmlFieldTransform; label: string }> = [
 const ON_MISSING: Array<{ value: XmlFieldMissing; label: string }> = [
   { value: 'null',    label: 'null'        },
   { value: 'default', label: 'Usa default' },
-  { value: 'skip',    label: 'Salta riga'  },
+  { value: 'skip',    label: 'Skip row'  },
   { value: 'error',   label: 'Reject'      },
 ]
 
@@ -339,9 +339,9 @@ function XmlTreeNodeRow({ node, depth, flows, onToggleFieldInFlow, onGenerateFlo
 
         {!isAttr && !isLeaf && (
           <button onClick={(e) => { e.stopPropagation(); onGenerateFlow(node) }}
-            title="Genera flusso da questo elemento"
+            title="Generate flow from this element"
             style={{ background: '#0d3d20', border: '1px solid #1d6d40', borderRadius: 3, padding: '1px 6px', cursor: 'pointer', color: '#3ddc84', fontSize: 9, flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <i className="ti ti-plus" style={{ fontSize: 9 }} /> flusso
+            <i className="ti ti-plus" style={{ fontSize: 9 }} /> flow
           </button>
         )}
       </div>
@@ -369,7 +369,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
 
   const addField = () => {
     const n = flow.fields.length + 1
-    onUpdate({ fields: [...flow.fields, { id: `f_${Date.now()}`, name: `campo_${n}`, xpath: `/root/campo_${n}`, type: 'string', isAttribute: false, transform: 'none', onMissing: 'null' }] })
+    onUpdate({ fields: [...flow.fields, { id: `f_${Date.now()}`, name: `field_${n}`, xpath: `/root/field_${n}`, type: 'string', isAttribute: false, transform: 'none', onMissing: 'null' }] })
   }
   const updateField = (id: string, key: string, value: any) =>
     onUpdate({ fields: flow.fields.map((f) => f.id === id ? { ...f, [key]: value } : f) })
@@ -411,7 +411,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
             <input value={flow.xpath} onChange={(e) => onUpdate({ xpath: e.target.value })}
               style={{ ...inputStyle, fontSize: 9, padding: '2px 6px', width: 180 }} placeholder="/root/element" />
             {[
-              { key: 'isRepeating', label: '[ ] Ripetuto', title: 'Genera una riga per ogni match' },
+              { key: 'isRepeating', label: '[ ] Repeating', title: 'Generate one row per match' },
               { key: 'streaming',   label: '〜 Stream',     title: 'Streaming'                      },
             ].map((opt) => (
               <button key={opt.key} title={opt.title} onClick={() => onUpdate({ [opt.key]: !(flow as any)[opt.key] })}
@@ -423,13 +423,13 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
               style={{ marginLeft: 'auto', background: 'none', border: `0.5px dashed ${color}60`, borderRadius: 4, padding: '2px 8px', fontSize: 9, cursor: 'pointer', color }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = color }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${color}60` }}>
-              <i className="ti ti-plus" style={{ fontSize: 9 }} /> campo
+              <i className="ti ti-plus" style={{ fontSize: 9 }} /> field
             </button>
           </div>
 
           {flow.fields.length === 0 ? (
             <div style={{ padding: '12px', textAlign: 'center', fontSize: 10, color: '#2a3349', fontStyle: 'italic' }}>
-              Seleziona i campi dall'albero oppure aggiungi manualmente
+              Select the fields from the tree or add manually
             </div>
           ) : (
             <>
@@ -445,9 +445,9 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                     <input value={f.name} onChange={(e) => updateField(f.id, 'name', e.target.value)}
                       style={{ ...inputStyle, fontSize: 10, padding: '2px 5px' }} />
                     <input value={f.xpath} onChange={(e) => updateField(f.id, 'xpath', e.target.value)}
-                      style={{ ...inputStyle, fontSize: 9, padding: '2px 5px', color: '#9a9aaa' }} placeholder="/root/campo" />
+                      style={{ ...inputStyle, fontSize: 9, padding: '2px 5px', color: '#9a9aaa' }} placeholder="/root/field" />
                     <button onClick={() => updateField(f.id, 'isAttribute', !f.isAttribute)}
-                      title={f.isAttribute ? 'È un attributo XML' : 'È un elemento'}
+                      title={f.isAttribute ? 'It is an XML attribute' : 'It is an element'}
                       style={{ padding: '2px 4px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: f.isAttribute ? '#2a1a4a' : 'transparent', color: f.isAttribute ? '#a78bfa' : '#2a3349', border: f.isAttribute ? '1px solid #4a2a8a' : '1px solid #2a3349', fontFamily: 'monospace', fontWeight: 700 }}>
                       @
                     </button>
@@ -652,7 +652,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
     try {
       if (inputMode === 'xsd') {
         const tree = buildXmlTreeFromXsd(rawInput)
-        if (tree.length === 0) { setParseError('XSD non valido o struttura non riconosciuta'); return }
+        if (tree.length === 0) { setParseError('Invalid XSD or unrecognized structure'); return }
         setXmlTree(tree)
         saveConfig({ ...config, _sampleXml: rawInput, inputMode: 'xsd' } as any)
         setParseError('')
@@ -714,7 +714,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
     const idx   = config.flows.length
     const color = FLOW_COLORS[idx % FLOW_COLORS.length]
     const newFlow: XmlParserFlow = {
-      id: `flow_${Date.now()}`, label: `flusso_${idx + 1}`, color,
+      id: `flow_${Date.now()}`, label: `flow_${idx + 1}`, color,
       xpath: '/root', isRepeating: false, streaming: false, fields: [],
     }
     saveConfig({ ...config, flows: [...config.flows, newFlow] })
@@ -743,9 +743,9 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
   }, [onClose])
 
   const TABS: Array<{ id: Tab; label: string; icon: string }> = [
-    { id: 'config',   label: 'Configurazione', icon: 'ti-adjustments' },
-    { id: 'general',  label: 'Generale',        icon: 'ti-info-circle' },
-    { id: 'advanced', label: 'Avanzate',         icon: 'ti-settings-2'  },
+    { id: 'config',   label: 'Configuration',  icon: 'ti-adjustments' },
+    { id: 'general',  label: 'General',         icon: 'ti-info-circle' },
+    { id: 'advanced', label: 'Advanced',         icon: 'ti-settings-2'  },
   ]
 
   return createPortal(
@@ -783,7 +783,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
             </button>
             <button onClick={onClose}
               style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', color: '#9a9aaa', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <i className="ti ti-x" style={{ fontSize: 12 }} /> chiudi
+              <i className="ti ti-x" style={{ fontSize: 12 }} /> close
             </button>
           </div>
         </div>
@@ -803,17 +803,17 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
           <div style={{ display: activeTab === 'config' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column', overflow: 'hidden' }}>
 
             <div style={{ flexShrink: 0, padding: '10px 16px', borderBottom: '1px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
-              <SectionTitle label="Configurazione globale" />
+              <SectionTitle label="Global configuration" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 200px', gap: 10 }}>
 
-                <Field label="Campo sorgente XML">
+                <Field label="XML source field">
                   <CustomSelect style={inputStyle} value={config.sourceField}
                     onChange={(e) => updateConfig({ sourceField: e.target.value })}>
-                    <option value="">— seleziona —</option>
+                    <option value="">— select —</option>
                     {incomingFields.map((f) => (
                       <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
                     ))}
-                    {incomingFields.length === 0 && <option value="" disabled>— collega un nodo sorgente —</option>}
+                    {incomingFields.length === 0 && <option value="" disabled>— connect a source node —</option>}
                   </CustomSelect>
                 </Field>
 
@@ -838,11 +838,11 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                     <button onClick={handleAnalyze} disabled={!rawInput}
                       style={{ padding: '3px 14px', fontSize: 10, borderRadius: 4, cursor: rawInput ? 'pointer' : 'not-allowed', background: rawInput ? `color-mix(in srgb, ${ACCENT} 20%, #161b27)` : '#1e2535', color: rawInput ? ACCENT : '#8593b5', border: `1px solid ${rawInput ? ACCENT + '60' : '#2a3349'}`, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <i className="ti ti-player-play" style={{ fontSize: 9 }} />
-                      Analizza {inputMode.toUpperCase()} e genera flussi
+                      Parse {inputMode.toUpperCase()} and generate flows
                     </button>
                     {parseError && <span style={{ fontSize: 9, color: '#ff5f57' }}>{parseError}</span>}
                     {hasTree && !parseError && (
-                      <span style={{ fontSize: 9, color: '#3ddc84' }}>✓ {allNodes.length} nodi · {config.flows.length} flussi</span>
+                      <span style={{ fontSize: 9, color: '#3ddc84' }}>✓ {allNodes.length} nodes · {config.flows.length} flows</span>
                     )}
                   </div>
                 </div>
@@ -850,8 +850,8 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {[
                     { key: 'hasReject',        label: config.hasReject ? 'Reject attivo' : 'Reject disabilitato', color: config.hasReject ? '#ff5f57' : '#8593b5', activeColor: '#ff5f57', border: config.hasReject ? '#3a1a1a' : '#2a3349' },
-                    { key: 'ignoreNamespaces', label: 'Ignora namespace',      color: config.ignoreNamespaces ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
-                    { key: 'trimText',         label: 'Trim testo automatico', color: config.trimText ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
+                    { key: 'ignoreNamespaces', label: 'Ignore namespaces',      color: config.ignoreNamespaces ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
+                    { key: 'trimText',         label: 'Automatic text trim', color: config.trimText ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
                   ].map((opt) => (
                     <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `1px solid ${opt.border}` }}>
                       <button onClick={() => updateConfig({ [opt.key]: !(config as any)[opt.key] })}
@@ -864,7 +864,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                   {incomingFields.length === 0 && (
                     <div style={{ padding: '5px 8px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
-                      Nessun nodo in ingresso
+                      No incoming node
                     </div>
                   )}
                 </div>
@@ -878,7 +878,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                   <div style={{ padding: '8px 12px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <i className="ti ti-code" style={{ fontSize: 12, color: ACCENT }} />
                     <span style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
-                      Struttura — {allNodes.length} nodi
+                      Structure — {allNodes.length} nodes
                     </span>
                     {selectedFlowId && (
                       <span style={{ fontSize: 9, color: '#3ddc84', fontStyle: 'italic' }}>
@@ -913,7 +913,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                 <div style={{ padding: '8px 12px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                   <i className="ti ti-git-branch" style={{ fontSize: 12, color: '#3ddc84' }} />
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#3ddc84', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
-                    Flussi output — {config.flows.length}
+                    Output flows — {config.flows.length}
                   </span>
                   {selectedFlowId && (
                     <span style={{ fontSize: 9, color: ACCENT, fontStyle: 'italic' }}>
@@ -924,15 +924,15 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                     style={{ padding: '3px 12px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#0d3d20', color: '#3ddc84', border: '1px solid #1d6d40', display: 'flex', alignItems: 'center', gap: 4 }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1d6d40' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0d3d20' }}>
-                    <i className="ti ti-plus" style={{ fontSize: 11 }} /> Flusso
+                    <i className="ti ti-plus" style={{ fontSize: 11 }} /> Flow
                   </button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column' }}>
                   {config.flows.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
                       <i className="ti ti-code" style={{ fontSize: 36, display: 'block', marginBottom: 12, color: `${ACCENT}20` }} />
-                      Incolla un XML o XSD di esempio e clicca "Analizza" per generare i flussi automaticamente,
-                      oppure aggiungi un flusso manuale.
+                      Paste an example XML or XSD and click "Parse" to generate the flows automatically,
+                      or add a manual flow.
                     </div>
                   ) : (
                     config.flows.map((flow) => (
@@ -956,12 +956,12 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 16px', borderTop: '1px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Le modifiche sono salvate automaticamente</span>
+          <span style={{ fontSize: 11, color: '#8593b5', marginRight: 'auto' }}>Changes are saved automatically</span>
           <button onClick={onClose}
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 20%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 35%, #161b27)` }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${ACCENT} 20%, #161b27)` }}>
-            Fatto
+            Done
           </button>
         </div>
 
