@@ -86,7 +86,7 @@ export function LogView() {
                   </span>
                   <span
                     onClick={() => isLong && setExpandedId(entry.id)}
-                    title={isLong ? 'Click per vedere il messaggio completo' : undefined}
+                    title={isLong ? 'Click to see the full message' : undefined}
                     style={{
                       color: entry.level === 'error' ? '#ff5f57'
                            : entry.level === 'warn'  ? '#ffb347'
@@ -158,7 +158,7 @@ export function LogView() {
               fontSize: 9, color: '#8593b5', display: 'flex', alignItems: 'center', gap: 6,
             }}>
               <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
-              {expandedEntry.message.length.toLocaleString()} caratteri · click fuori per chiudere
+              {expandedEntry.message.length.toLocaleString()} characters · click outside to close
             </div>
           </div>
         </div>

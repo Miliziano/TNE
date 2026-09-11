@@ -225,7 +225,7 @@ export function LogViewerWindow() {
         }}>
         <i className="ti ti-terminal-2" style={{ fontSize: 13, color: ACCENT }} />
         <span style={{ fontSize: 11, fontWeight: 600, color: ACCENT, flex: 1 }}>Log Viewer</span>
-        <span style={{ fontSize: 10, color: '#8593b5' }}>{rows.length.toLocaleString()} righe</span>
+        <span style={{ fontSize: 10, color: '#8593b5' }}>{rows.length.toLocaleString()} rows</span>
 
         <button onClick={() => setAutoScroll((v) => !v)}
           title={autoScroll ? 'Auto-scroll attivo' : 'Auto-scroll disattivato'}
@@ -239,11 +239,11 @@ export function LogViewerWindow() {
           <i className="ti ti-arrow-down" style={{ fontSize: 9 }} /> auto
         </button>
 
-        <button onClick={clearRows} title="Pulisci log"
+        <button onClick={clearRows} title="Clear log"
           style={{ background: 'none', border: `0.5px solid ${BORDER}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#8593b5', fontSize: 9, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57'; (e.currentTarget as HTMLElement).style.borderColor = '#ff5f57' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5'; (e.currentTarget as HTMLElement).style.borderColor = BORDER }}>
-          <i className="ti ti-trash" style={{ fontSize: 9 }} /> pulisci
+          <i className="ti ti-trash" style={{ fontSize: 9 }} /> clear
         </button>
 
         <button onClick={closeViewer}
@@ -263,7 +263,7 @@ export function LogViewerWindow() {
         borderBottom: `0.5px solid ${BORDER}`,
         flexShrink: 0,
       }}>
-        {['Ora', 'Nodo', 'Messaggio'].map((h) => (
+        {['Time', 'Node', 'Message'].map((h) => (
           <div key={h} style={{ fontSize: 9, color: '#8593b5', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
         ))}
       </div>
@@ -276,7 +276,7 @@ export function LogViewerWindow() {
         {rows.length === 0 ? (
           <div style={{ padding: '30px', textAlign: 'center', color: '#2a3349', fontSize: 11 }}>
             <i className="ti ti-terminal-2" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: `${ACCENT}30` }} />
-            In attesa di righe dal nodo Log…
+            Waiting for rows from the Log node…
           </div>
         ) : (
           <div style={{ height: totalHeight, position: 'relative' }}>
@@ -324,7 +324,7 @@ export function LogViewerWindow() {
                       </span>
                       <span
                         onClick={() => row.message.length > 80 && setExpandedRowId(row.id)}
-                        title={row.message.length > 80 ? 'Click per vedere il messaggio completo' : undefined}
+                        title={row.message.length > 80 ? 'Click to see the full message' : undefined}
                         style={{
                           fontSize: 10, color: isCurrent ? (LEVEL_COLORS[row.level] ?? '#c8d4f0') : '#a79c97',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4,
@@ -354,7 +354,7 @@ export function LogViewerWindow() {
         display: 'flex', alignItems: 'center', gap: 8,
       }}>
         <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
-        <span>{rows.length.toLocaleString()} righe · trascina l'intestazione per spostare · bordi per ridimensionare</span>
+        <span>{rows.length.toLocaleString()} rows · drag the header to move · edges to resize</span>
       </div>
 
       {/* Overlay messaggio espanso — testo completo per righe lunghe */}
@@ -406,7 +406,7 @@ export function LogViewerWindow() {
                 fontSize: 9, color: '#8593b5', display: 'flex', alignItems: 'center', gap: 6,
               }}>
                 <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
-                {row.message.length.toLocaleString()} caratteri · click fuori per chiudere
+                {row.message.length.toLocaleString()} characters · click outside to close
               </div>
             </div>
           </div>
