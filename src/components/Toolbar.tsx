@@ -223,7 +223,7 @@ function startPolling() {
             // rotto, trovare la causa tocca all'utente.
             store.setNodeStatus(p.node_id, 'warning', p.reason)
             store.setNodeStats(p.node_id, { status: 'warning' })
-            store.addLog('warn', `${p.node_id}: interrotto — ${p.reason}`, p.node_id)
+            store.addLog('warn', `${p.node_id}: interrupted — ${p.reason}`, p.node_id)
             // Il timing va chiuso comunque, o nel Monitor il nodo resta
             // giallo "running" per sempre (v. il caso NodeFailed). Il testo
             // passato dice "interrotto", quindi il pannello non lo scambia
@@ -286,7 +286,7 @@ function startPolling() {
               console.warn('[bus] nodi senza NodeCompleted a fine run:', stuck)
             }
             store.setRunning(false)
-            store.addLog('ok', `✓ Run completato in ${p.elapsed_ms}ms`)
+            store.addLog('ok', `✓ Run completed in ${p.elapsed_ms}ms`)
             monitor.runEnd()
             stopPolling()
             break
@@ -298,7 +298,7 @@ function startPolling() {
               if (st.status === 'running') store.setNodeStats(id, { status: 'idle' })
             })
             store.setRunning(false)
-            store.addLog('error', `❌ Run fallito: ${p.error}`)
+            store.addLog('error', `❌ Run failed: ${p.error}`)
             monitor.runEnd()
             stopPolling()
             break
@@ -1282,7 +1282,7 @@ export function Toolbar() {
   // col profilo attivo CONGELATO e i ${SEGRETO}/${MONITOR_URL} intatti) + un
   // piccolo manifesto. È il dato che il runner headless eseguirà.
   const esportaArtifact = async (monitorUrl: string, platform: string, logLevel = 'normale') => {
-    if (!isTauri()) { addLog('error', 'Esportazione disponibile solo nell\'app desktop.'); return }
+    if (!isTauri()) { addLog('error', 'Export is available only in the desktop app.'); return }
     const { nodes, edges, pool, environments, currentPath } = useFlowStore.getState()
     const runId = `export-${Date.now()}`
     // Nome del piano = nome del file .ffplan aperto (senza percorso ne' estensione);
@@ -1295,7 +1295,7 @@ export function Toolbar() {
     try {
       plan = buildRustPlan(nodes, edges, pool, runId)
     } catch (e) {
-      addLog('error', `Compilezione del flusso fallita: ${(e as Error).message}`)
+      addLog('error', `Flow compilation failed: ${(e as Error).message}`)
       return
     }
     const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
@@ -1354,8 +1354,8 @@ export function Toolbar() {
     const path = await saveFileDialog({ title: 'Genera artifact', defaultPath: `artifact-${platform}.ffart`, filters: [{ name: 'Artifact FlowPilot', extensions: ['ffart', 'json'] }] })
     if (!path) return
     const ok = await writeFile(path, JSON.stringify(artifact, null, 2)).then(() => true).catch(() => false)
-    if (ok) { addLog('ok', `Artifact generato: ${path} (profilo: ${artifact.profile}, ${platform})${requiredSecrets.length ? ` — richiede i segreti: ${requiredSecrets.join(', ')}` : ''}`); setCompileOpen(false) }
-    else addLog('error', 'Impossibile scrivere l\'artifact.')
+    if (ok) { addLog('ok', `Artifact generated: ${path} (profile: ${artifact.profile}, ${platform})${requiredSecrets.length ? ` — requires the secrets: ${requiredSecrets.join(', ')}` : ''}`); setCompileOpen(false) }
+    else addLog('error', 'Could not write the artifact.')
   }
 
   // ── Run — usa Rust Engine ─────────────────────────────────────
@@ -1384,7 +1384,7 @@ export function Toolbar() {
     try {
       plan = buildRustPlan(nodes, edges, pool, runId)
     } catch (e) {
-      addLog('error', `Compilezione del flusso fallita:\n${(e as Error).message}`)
+      addLog('error', `Flow compilation failed:\n${(e as Error).message}`)
       setRunning(false)   // ← adatta al nome reale dello stato "in corso"
       return
     }
@@ -1395,9 +1395,9 @@ export function Toolbar() {
 
     try {
       await invoke('engine_run', { planJson: JSON.stringify(plan) })
-      addLog('info', `▶ Run avviato — runId: ${runId}`)
+      addLog('info', `▶ Run started — runId: ${runId}`)
     } catch (e) {
-      addLog('error', `❌ Errore avvio run: ${e}`)
+      addLog('error', `❌ Run start error: ${e}`)
       setRunning(false)
       stopPolling()
     }
@@ -1443,7 +1443,7 @@ export function Toolbar() {
     // activeRun resta valorizzato e il MonitorPanel (che deriva isRunning
     // da activeRun !== null) continua a mostrare "● running" all'infinito.
     monitor.runEnd()
-    addLog('warn', "Pipeline interrotta dall'utente.")
+    addLog('warn', "Pipeline interrupted by the user.")
     setRunning(false)
   }
 
@@ -1481,7 +1481,7 @@ export function Toolbar() {
     }, null, 2)
     await writeFile(path, payload)
     useFlowStore.setState({ currentPath: path })
-    addLog('ok', `Progetto salvato: ${path}${history.length ? ` (cronologia: ${history.length})` : ''}`)
+    addLog('ok', `Project saved: ${path}${history.length ? ` (history: ${history.length})` : ''}`)
   }
 
   // Ripristina una versione dalla cronologia nel canvas (poi si salva per persistere).
@@ -1493,7 +1493,7 @@ export function Toolbar() {
       selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
     })
     resyncNodeCounter(plan.nodes as FlowNode<NodeData>[])
-    addLog('ok', 'Versione ripristinata — salva per persistere.')
+    addLog('ok', 'Version restored — save to persist.')
     setHistoryOpen(false)
   }
 
@@ -1512,16 +1512,16 @@ export function Toolbar() {
     try {
       const data = JSON.parse(await readFile(path))
       const plan = data.plan ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
-      if (!plan) { addLog('error', 'File non valido — impossibile aggiornare il commento.'); return }
+      if (!plan) { addLog('error', 'Invalid file — could not update the comment.'); return }
       const version = (data.version && typeof data.version === 'object')
         ? data.version
         : { id: `v${Date.now()}`, savedAt: data.savedAt ?? new Date().toISOString() }
       const history = Array.isArray(data.history) ? data.history : []
       const payload = JSON.stringify({ formatVersion: 2, version: { ...version, label }, plan, environments: data.environments ?? { active: '', profiles: {} }, history }, null, 2)
       await writeFile(path, payload)
-      addLog('ok', label ? `Commento aggiornato: "${label}"` : 'Commento rimosso.')
+      addLog('ok', label ? `Comment updated: "${label}"` : 'Comment removed.')
     } catch (e) {
-      addLog('error', `Impossibile aggiornare il commento: ${e}`)
+      addLog('error', `Could not update the comment: ${e}`)
     }
   }
 
@@ -1533,7 +1533,7 @@ export function Toolbar() {
     try {
       const data = JSON.parse(await readFile(path))
       const plan = data.plan ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
-      if (!plan) { addLog('error', 'File non valido.'); return }
+      if (!plan) { addLog('error', 'Invalid file.'); return }
       const version = (data.version && typeof data.version === 'object')
         ? data.version
         : { id: `v${Date.now()}`, savedAt: data.savedAt ?? new Date().toISOString(), label: '' }
@@ -1542,16 +1542,16 @@ export function Toolbar() {
       const next = history.filter((_: unknown, i: number) => i !== index)
       const payload = JSON.stringify({ formatVersion: 2, version, plan, environments: data.environments ?? { active: '', profiles: {} }, history: next }, null, 2)
       await writeFile(path, payload)
-      addLog('ok', 'Versione eliminata dalla cronologia.')
+      addLog('ok', 'Version deleted from history.')
     } catch (e) {
-      addLog('error', `Impossibile eliminare la versione: ${e}`)
+      addLog('error', `Could not delete the version: ${e}`)
     }
   }
 
   // "Save as": chiede sempre dove salvare.
   const handleSaveAs = async () => {
     if (!isTauri()) {
-      addLog('warn', 'Salvataggio file disponibile solo nell\'app desktop.')
+      addLog('warn', 'File saving is available only in the desktop app.')
       return
     }
     setSaving(true)
@@ -1560,7 +1560,7 @@ export function Toolbar() {
       if (!path) return
       await scriviProgetto(path)
     } catch (e) {
-      addLog('error', `Errore salvataggio: ${e}`)
+      addLog('error', `Save error: ${e}`)
     } finally {
       setSaving(false)
     }
@@ -1572,14 +1572,14 @@ export function Toolbar() {
     const current = useFlowStore.getState().currentPath
     if (!current) { await handleSaveAs(); return }
     if (!isTauri()) {
-      addLog('warn', 'Salvataggio file disponibile solo nell\'app desktop.')
+      addLog('warn', 'File saving is available only in the desktop app.')
       return
     }
     setSaving(true)
     try {
       await scriviProgetto(current)
     } catch (e) {
-      addLog('error', `Errore salvataggio: ${e}`)
+      addLog('error', `Save error: ${e}`)
     } finally {
       setSaving(false)
     }
@@ -1588,7 +1588,7 @@ export function Toolbar() {
   // ── Apri ──────────────────────────────────────────────────────
   const handleOpen = async () => {
     if (!isTauri()) {
-      addLog('warn', 'Apertura file disponibile solo nell\'app desktop.')
+      addLog('warn', 'File opening is available only in the desktop app.')
       return
     }
     setOpening(true)
@@ -1601,7 +1601,7 @@ export function Toolbar() {
       const plan = data.plan
         ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
       if (!plan || !plan.pool || !plan.nodes || !plan.edges) {
-        addLog('error', 'File non valido — mancano pool, nodes o edges.')
+        addLog('error', 'Invalid file — pool, nodes or edges are missing.')
         return
       }
       useFlowStore.setState({
@@ -1616,9 +1616,9 @@ export function Toolbar() {
       })
       resyncNodeCounter(plan.nodes)
       const histN = Array.isArray(data.history) ? data.history.length : 0
-      addLog('ok', `Progetto aperto: ${path}${histN ? ` (${histN} versioni in cronologia)` : ''}`)
+      addLog('ok', `Project opened: ${path}${histN ? ` (${histN} versions in history)` : ''}`)
     } catch (e) {
-      addLog('error', `Errore apertura: ${e}`)
+      addLog('error', `Open error: ${e}`)
     } finally {
       setOpening(false)
     }

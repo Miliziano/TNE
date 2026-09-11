@@ -597,7 +597,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
       if (!src || !tgt) return
       if (src.data.laneId !== tgt.data.laneId) {
-        get().addLog('warn', 'Connessioni cross-lane non permesse.')
+        get().addLog('warn', 'Cross-lane connections are not allowed.')
         return
       }
       const normalizedConnection = {
@@ -655,13 +655,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       },
     }
     set((s) => ({ nodes: [...s.nodes, node] }))
-    get().addLog('info', `Aggiunto ${def.label}`, id, laneId)
+    get().addLog('info', `Added ${def.label}`, id, laneId)
   },
 
   deleteNode: (id) => {
     const node = get().nodes.find((n) => n.id === id)
     if (node?.data.type === 'error_handler') {
-      get().addLog('warn', 'Il nodo Error Handler non può essere eliminato.', id, node.data.laneId)
+      get().addLog('warn', 'The Error Handler node cannot be deleted.', id, node.data.laneId)
       return
     }
     set((s) => ({
@@ -1467,7 +1467,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     setTimeout(() => {
       get()._addLaneStartEnd(laneId)
       get()._addLaneErrorHandler(laneId)          // ← aggiungere
-      get().addLog('info', `Lane "${newLane.label}" aggiunta.`)
+      get().addLog('info', `Lane "${newLane.label}" added.`)
     }, 0)
   },
 
@@ -1488,7 +1488,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       selectedLaneId:     s.selectedLaneId     === id ? null : s.selectedLaneId,
       selectedResourceId: null,
     }))
-    get().addLog('warn', 'Lane eliminata.')
+    get().addLog('warn', 'Lane deleted.')
   },
 
   updateLane: (id, patch) => {
@@ -1530,7 +1530,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         ),
       },
     }))
-    get().addLog('info', `Risorsa "${full.label}" aggiunta.`, undefined, laneId)
+    get().addLog('info', `Resource "${full.label}" added.`, undefined, laneId)
   },
 
   deleteResource: (laneId, resourceId) => {
@@ -1626,12 +1626,12 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     if (!res) return
 
     setResourceStatus(laneId, resourceId, 'testing')
-    addLog('info', `Test connessione "${res.label}"…`, undefined, laneId)
+    addLog('info', `Testing connection "${res.label}"…`, undefined, laneId)
 
     // FTP/SFTP — usa ftpClient invece di invoke direttamente
     if (res.kind === 'ftp') {
       setResourceStatus(laneId, resourceId, 'testing')
-      addLog('info', `Test connessione "${res.label}"…`, undefined, laneId)
+      addLog('info', `Testing connection "${res.label}"…`, undefined, laneId)
       try {
         const { ftpTest, buildFtpConnection } = await import('../lib/ftpClient')
         const result = await ftpTest(buildFtpConnection(res))
