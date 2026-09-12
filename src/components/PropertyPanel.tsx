@@ -46,7 +46,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'props',     label: 'Nodo',  icon: 'ti-settings' },
+    { id: 'props',     label: 'Node',  icon: 'ti-settings' },
     { id: 'lane-vars', label: 'Lane',  icon: 'ti-variable' },
     { id: 'transactions', label: 'Transazioni', icon: 'ti-arrows-exchange' },
     { id: 'bridge',    label: 'Bridge', icon: 'ti-arrows-transfer-up' },
@@ -91,18 +91,18 @@ function MatVarChip({ variable, onDelete, onNavigate }: {
           {variable.name}
         </div>
         <div style={{ fontSize: 9, color: '#8593b5' }}>
-          materialize · in-memory per esecuzione
+          materialize · in-memory per run
         </div>
       </div>
       <button
         onClick={() => onNavigate(variable.value)}
-        title="Vai al nodo"
+        title="Go to node"
         style={{ background: 'none', border: `1px solid ${ACCENT}40`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: ACCENT, fontSize: 10, flexShrink: 0 }}>
         <i className="ti ti-arrow-right" style={{ fontSize: 10 }} />
       </button>
       <button
         onClick={() => onDelete(variable.id)}
-        title="Rimuovi dalla lane"
+        title="Remove from lane"
         style={{ background: 'none', border: '1px solid #3d1010', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: '#ff5f57', fontSize: 10, flexShrink: 0 }}>
         <i className="ti ti-x" style={{ fontSize: 10 }} />
       </button>
@@ -170,7 +170,7 @@ function VariableEditor({
             background: '#3ddc84', flexShrink: 0,
             animation: 'liveVarPulse 1.5s ease-in-out infinite',
           }} />
-          Valori live — aggiornati in tempo reale dal runner
+          Live values — updated in real time by the runner
         </div>
       )}
 
@@ -213,12 +213,12 @@ function VariableEditor({
         <div style={{ margin: '4px 8px 8px' }}>
           <div style={{ fontSize: 10, color: '#5a6a8a', padding: '4px 2px', display: 'flex', alignItems: 'center', gap: 5 }}>
             <i className="ti ti-arrow-down-left" aria-hidden="true" />
-            dal pool — leggibili qui, si modificano in «Ambienti»
+            from the pool — readable here, edited in "Environments"
           </div>
           {ereditate.map((e) => (
             <div key={e.name} title={e.ombreggiata
-              ? `Una variabile locale con lo stesso nome ha la precedenza in questa lane`
-              : `Variabile condivisa: valore del profilo attivo`}
+              ? `A local variable with the same name takes precedence in this lane`
+              : `Shared variable: value of the active profile`}
               style={{
                 margin: '3px 0', padding: '5px 8px',
                 background: '#151c2c', borderRadius: 5,
@@ -240,7 +240,7 @@ function VariableEditor({
               )}
               {e.ombreggiata && (
                 <span style={{ marginLeft: 'auto', fontSize: 9, color: '#c8a060', whiteSpace: 'nowrap' }}>
-                  coperta dalla lane
+                  covered by the lane
                 </span>
               )}
             </div>
@@ -289,7 +289,7 @@ function VariableEditor({
                 pool, dove può avere un valore diverso per ogni profilo. */}
             {!running && onPromote && (
               <button onClick={() => onPromote(v.id)}
-                title={`Promuovi "${v.name}" a variabile condivisa (pool): potrà avere un valore per profilo. Esce da questa lane.`}
+                title={`Promote "${v.name}" to a shared variable (pool): it can have a value per profile. It leaves this lane.`}
                 style={{ background: 'none', border: '1px solid #2a3349', borderRadius: 4, padding: '0 6px', cursor: 'pointer', color: '#8aa4d0', fontSize: 12 }}>
                 <i className="ti ti-arrow-up" style={{ fontSize: 11 }} aria-hidden="true" />
               </button>
@@ -342,7 +342,7 @@ function VariableEditor({
               </div>
             ) : (
               <input value={v.value} onChange={(e) => onUpdate(v.id, 'value', e.target.value)}
-                placeholder="valore" style={{ ...inputStyle, flex: 1 }} />
+                placeholder="value" style={{ ...inputStyle, flex: 1 }} />
             )}
           </div>
         </div>
@@ -419,7 +419,7 @@ export function PropertyPanel() {
   if (selectedResource && resourceLaneId) {
     return (
       <aside style={getPanelStyle(true)}>
-        <div style={headerStyle}>Proprietà</div>
+        <div style={headerStyle}>Properties</div>
         <ResourcePanel resource={selectedResource} laneId={resourceLaneId} />
       </aside>
     )
@@ -427,7 +427,7 @@ export function PropertyPanel() {
 
   return (
     <aside style={getPanelStyle(expanded)}>
-      <div style={headerStyle}>Proprietà</div>
+      <div style={headerStyle}>Properties</div>
       <TabBar active={activeTab} onChange={setActiveTab} />
 
       {/* ── TAB: Nodo ── */}
@@ -436,7 +436,7 @@ export function PropertyPanel() {
           {!node || !def ? (
             <div style={emptyMsgStyle}>
               <i className="ti ti-cursor-text" style={{ fontSize: 28, display: 'block', marginBottom: 10, color: '#2a3349' }} aria-hidden="true" />
-              Seleziona un nodo sul canvas per modificarne le proprietà.
+              Select a node on the canvas to edit its properties.
             </div>
           ) : (
             <>
@@ -469,7 +469,7 @@ export function PropertyPanel() {
                 {isSpecial && (
                   <div style={{ marginTop: 6, padding: '4px 8px', background: '#3d2a0a', color: '#ffb347', border: '0.5px solid #854f0b', borderRadius: 4, fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <i className="ti ti-lock" style={{ fontSize: 11 }} aria-hidden="true" />
-                    Nodo obbligatorio — non eliminabile
+                    Required node — cannot be deleted
                   </div>
                 )}
               </div>
@@ -505,9 +505,9 @@ export function PropertyPanel() {
                         }}>
                           <i className="ti ti-alert-triangle" style={{ fontSize: 13, marginTop: 1 }} aria-hidden="true" />
                           <span>
-                            <b>«{dominante}» ha la precedenza.</b> Il motore esegue quella e
-                            ignora: {ignorati.map((f) => f.label).join(', ')}. Svuota il campo
-                            «{dominante}» per tornare a usarli.
+                            <b>"{dominante}" takes precedence.</b> The engine runs that one and
+                            ignores: {ignorati.map((f) => f.label).join(', ')}. Clear the
+                            "{dominante}" field to use them again.
                           </span>
                         </div>
                       )}
@@ -533,7 +533,7 @@ export function PropertyPanel() {
                                 value={node.data.props[field.key] ?? field.default}
                                 onChange={(e) => updateNodeProp(node.id, field.key, e.target.value)}
                                 disabled={inerte(field)}
-                                title={inerte(field) ? `Ignorato: ha la precedenza «${dominante}»` : undefined}
+                                title={inerte(field) ? `Ignored: "${dominante}" takes precedence` : undefined}
                                 style={inputStyle} />
                             )}
                           </Field>
@@ -542,7 +542,7 @@ export function PropertyPanel() {
                       {!isSpecial && (
                         <div style={{ margin: '8px', padding: '6px 10px', background: '#1a2030', borderRadius: 4, fontSize: 10, color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 5 }}>
                           <i className="ti ti-mouse" style={{ fontSize: 11 }} aria-hidden="true" />
-                          Doppio click sul nodo per l'editor completo
+                          Double-click the node for the full editor
                         </div>
                       )}
                     </>
@@ -557,7 +557,7 @@ export function PropertyPanel() {
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,95,87,0.16)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,95,87,0.08)' }}>
                     <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
-                    Elimina nodo
+                    Delete node
                   </button>
                 </div>
               )}
@@ -572,7 +572,7 @@ export function PropertyPanel() {
           {!currentLane ? (
             <div style={emptyMsgStyle}>
               <i className="ti ti-hand-click" style={{ fontSize: 28, display: 'block', marginBottom: 10, color: '#2a3349' }} aria-hidden="true" />
-              Clicca sul canvas di una lane per selezionarla.
+              Click on a lane's canvas to select it.
             </div>
           ) : (
             <>
@@ -597,7 +597,7 @@ export function PropertyPanel() {
                     // scoping lessicale: a parità di nome vince la lane
                     ombreggiata: currentLane.variables.some((lv) => lv.name === v.name),
                   }))}
-                emptyMessage="Nessuna variabile locale in questa lane."
+                emptyMessage="No local variable in this lane."
                 onAdd={() => addVariable('lane', currentLane.id, { name: 'nuova_var', type: 'string', value: '' })}
                 onDelete={(id) => deleteVariable('lane', currentLane.id, id)}
                 onUpdate={(id, key, value) => updateVariable('lane', currentLane.id, id, { [key]: value } as Partial<Variable>)}
@@ -605,8 +605,8 @@ export function PropertyPanel() {
                 onNavigateMat={navigateToMatNode}
                 onPromote={(id) => {
                   const errore = promuoviVariabile(currentLane.id, id)
-                  if (errore) addLog('warn', `Promozione non riuscita — ${errore}`)
-                  else addLog('info', 'Variabile promossa a condivisa: ora ha un valore per profilo (editor «Ambienti»).')
+                  if (errore) addLog('warn', `Promotion failed — ${errore}`)
+                  else addLog('info', 'Variable promoted to shared: it now has a value per profile ("Environments" editor).')
                 }}
               />
             </>
