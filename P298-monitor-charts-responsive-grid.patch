@@ -1,0 +1,191 @@
+diff --git a/src/monitoring/MonitorPanel.tsx b/src/monitoring/MonitorPanel.tsx
+index afbff55..06f0286 100644
+--- a/src/monitoring/MonitorPanel.tsx
++++ b/src/monitoring/MonitorPanel.tsx
+@@ -13,7 +13,7 @@
+  * - Toggle enable/disable monitoring
+  */
+ 
+-import { useState, useEffect, useRef, useCallback } from 'react'
++import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
+ import { monitor } from '../monitoring/MonitoringBus'
+ import type {
+   Reporter, MonitorEvent, ExecutionSummary,
+@@ -54,21 +54,42 @@ function ms(n: number | undefined): string {
+   return `${(n / 1000).toFixed(2)} s`
+ }
+ 
+-// ─── Mini grafico heap (SVG) ──────────────────────────────────────
++// ─── Larghezza reale del contenitore (ResizeObserver) ────────────
++// Serve a disegnare gli SVG a pixel reali: così lo spessore delle
++// linee resta costante quando la finestra si allarga (niente "zoom"),
++// e il grafico guadagna risoluzione invece di scalare.
++function useWidth<T extends HTMLElement>(fallback = 300) {
++  const ref = useRef<T>(null)
++  const [w, setW] = useState(fallback)
++  useLayoutEffect(() => {
++    const el = ref.current
++    if (!el) return
++    const measure = () => { const cw = el.clientWidth; if (cw > 0) setW(cw) }
++    measure()
++    const ro = new ResizeObserver(measure)
++    ro.observe(el)
++    return () => ro.disconnect()
++  }, [])
++  return [ref, w] as const
++}
+ 
+ // ─── Mini grafico singola serie ──────────────────────────────────
+ function MiniChart({ values, color, label, unit = 'MB' }: {
+   values: number[]; color: string; label: string; unit?: string
+ }) {
++  const [ref, w] = useWidth<HTMLDivElement>(300)
++  const H = 52, PAD = 3
+   if (values.length < 2) {
+     return (
+-      <div style={{ height: 52, display: 'flex', alignItems: 'center',
+-        justifyContent: 'center', color: '#2a3349', fontSize: 9 }}>
+-        Waiting…
++      <div style={{ padding: '5px 10px 4px' }}>
++        <div ref={ref} style={{ height: H, display: 'flex', alignItems: 'center',
++          justifyContent: 'center', color: '#2a3349', fontSize: 9 }}>
++          Waiting…
++        </div>
+       </div>
+     )
+   }
+-  const W = 300, H = 52, PAD = 3
++  const W = Math.max(60, w)   // pixel reali: stroke a spessore costante
+   const max   = Math.max(...values, 1)
+   const min   = 0
+   const last  = values[values.length - 1]
+@@ -81,9 +102,12 @@ function MiniChart({ values, color, label, unit = 'MB' }: {
+   const points = values.map((v, i) => {
+     const x = PAD + (i / (values.length - 1)) * (W - PAD * 2)
+     const y = H - PAD - ((v - min) / (max - min || 1)) * (H - PAD * 2)
+-    return `${x},${y}`
++    return `${x.toFixed(1)},${y.toFixed(1)}`
+   }).join(' ')
+ 
++  // griglia orizzontale (25/50/75%) come riferimento di lettura
++  const grid = [0.25, 0.5, 0.75].map(f => PAD + f * (H - PAD * 2))
++
+   return (
+     <div style={{ padding: '5px 10px 4px' }}>
+       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, alignItems: 'baseline' }}>
+@@ -99,13 +123,20 @@ function MiniChart({ values, color, label, unit = 'MB' }: {
+           )}
+         </span>
+       </div>
+-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+-        <polyline points={`${PAD},${H} ${points} ${W - PAD},${H}`}
+-          fill={color} fillOpacity={0.08} stroke="none" />
+-        <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+-        <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
+-          stroke="#1e2535" strokeWidth={0.5} />
+-      </svg>
++      <div ref={ref} style={{ width: '100%' }}>
++        <svg width={W} height={H} style={{ display: 'block' }}>
++          {grid.map((gy, i) => (
++            <line key={i} x1={PAD} y1={gy} x2={W - PAD} y2={gy}
++              stroke="#1e2535" strokeWidth={0.5} strokeDasharray="2 3" />
++          ))}
++          <polyline points={`${PAD},${H} ${points} ${W - PAD},${H}`}
++            fill={color} fillOpacity={0.08} stroke="none" />
++          <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
++          <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
++            stroke="#1e2535" strokeWidth={0.5} />
++          <text x={W - PAD - 1} y={PAD + 7} fontSize={8} fill="#4a5570" textAnchor="end">{toMb(max)} {unit}</text>
++        </svg>
++      </div>
+     </div>
+   )
+ }
+@@ -591,6 +622,7 @@ function RunOverview({ timings, summary, isRunning }: {
+ function TimelineProfile({ timings, samples }: {
+   timings: NodeTiming[]; samples: MemorySnapshot[]
+ }) {
++  const [ref, w] = useWidth<HTMLDivElement>(320)
+   const done = timings.filter(t => t.endAt != null)
+   if (done.length === 0) {
+     return <div style={{ padding: 16, color: '#8593b5', fontSize: 11 }}>
+@@ -603,7 +635,8 @@ function TimelineProfile({ timings, samples }: {
+   const t1 = Math.max(...done.map(t => t.endAt ?? t.startAt), ...(memTs.length ? memTs : [-Infinity]))
+   const span = Math.max(1, t1 - t0)
+ 
+-  const W = 320, rowH = 17, padL = 88, padR = 8, chartH = 46
++  const rowH = 22, padL = 100, padR = 14, chartH = 48
++  const W = Math.max(320, w)   // pixel reali: usa tutta la larghezza disponibile
+   const x = (t: number) => padL + ((t - t0) / span) * (W - padL - padR)
+ 
+   const mem = samples.map(s => ({ t: s.timestamp, v: (s.totalRss ?? s.heapUsed) / 1024 / 1024 }))
+@@ -613,30 +646,50 @@ function TimelineProfile({ timings, samples }: {
+     .join(' ')
+ 
+   const rows = [...done].sort((a, b) => a.startAt - b.startAt)
+-  const H = chartH + 8 + rows.length * rowH + 6
++  const gridTop = chartH + 10
++  const gridBot = gridTop + rows.length * rowH
++  const H = gridBot + 20
++
++  // tick temporali equispaziati (griglia verticale + etichette in ms)
++  const TICKS = 5
++  const ticks = Array.from({ length: TICKS + 1 }, (_, k) => ({
++    gx: padL + (k / TICKS) * (W - padL - padR),
++    label: ms((k / TICKS) * span),
++  }))
+ 
+   return (
+     <div style={card}>
+       <div style={sectionTitle(BLUE)}>Timeline — nodes × memory</div>
+-      <div style={{ padding: 8, overflowX: 'auto' }}>
+-        <svg width={W} height={H} style={{ display: 'block' }}>
+-          {mem.length > 0 && <path d={memPath} fill="none" stroke={ACCENT} strokeWidth={1.2} opacity={0.85} />}
+-          <text x={padL} y={9} fontSize={9} fill="#8593b5">memory — peak {Math.round(memMax)}MB</text>
+-          {rows.map((t, i) => {
+-            const y  = chartH + 8 + i * rowH
+-            const bx = x(t.startAt)
+-            const bw = Math.max(2, x(t.endAt ?? t.startAt) - bx)
+-            const col = t.error ? RED : t.rowsRejected > 0 ? ORANGE : GREEN
+-            return (
+-              <g key={t.nodeId}>
+-                <text x={0} y={y + rowH - 5} fontSize={10} fill="#8a96b4">{t.nodeLabel.slice(0, 13)}</text>
+-                <rect x={bx} y={y + 1} width={bw} height={rowH - 5} rx={2} fill={col} opacity={0.8}>
+-                  <title>{t.nodeLabel}: {ms(t.durationMs ?? 0)}</title>
+-                </rect>
++      <div style={{ padding: 8 }}>
++        <div ref={ref} style={{ width: '100%' }}>
++          <svg width={W} height={H} style={{ display: 'block' }}>
++            {/* griglia verticale + tick temporali */}
++            {ticks.map((tk, i) => (
++              <g key={i}>
++                <line x1={tk.gx} y1={gridTop - 4} x2={tk.gx} y2={gridBot}
++                  stroke="#1e2535" strokeWidth={0.5} strokeDasharray="2 3" />
++                <text x={tk.gx} y={gridBot + 12} fontSize={8} fill="#4a5570" textAnchor="middle">{tk.label}</text>
+               </g>
+-            )
+-          })}
+-        </svg>
++            ))}
++            {mem.length > 0 && <path d={memPath} fill="none" stroke={ACCENT} strokeWidth={1.2} opacity={0.85} />}
++            <text x={padL} y={9} fontSize={9} fill="#8593b5">memory — peak {Math.round(memMax)}MB</text>
++            {rows.map((t, i) => {
++              const y  = gridTop + i * rowH
++              const bx = x(t.startAt)
++              const bw = Math.max(2, x(t.endAt ?? t.startAt) - bx)
++              const col = t.error ? RED : t.rowsRejected > 0 ? ORANGE : GREEN
++              return (
++                <g key={t.nodeId}>
++                  <text x={0} y={y + rowH / 2 + 3} fontSize={10} fill="#8a96b4">{t.nodeLabel.slice(0, 15)}</text>
++                  <rect x={bx} y={y + 2} width={bw} height={rowH - 6} rx={2} fill={col} opacity={0.85}>
++                    <title>{t.nodeLabel}: {ms(t.durationMs ?? 0)}</title>
++                  </rect>
++                  <text x={bx + bw + 4} y={y + rowH / 2 + 3} fontSize={8} fill="#6b7896">{ms(t.durationMs ?? 0)}</text>
++                </g>
++              )
++            })}
++          </svg>
++        </div>
+       </div>
+     </div>
+   )
