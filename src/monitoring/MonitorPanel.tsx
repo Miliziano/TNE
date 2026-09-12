@@ -64,7 +64,7 @@ function MiniChart({ values, color, label, unit = 'MB' }: {
     return (
       <div style={{ height: 52, display: 'flex', alignItems: 'center',
         justifyContent: 'center', color: '#2a3349', fontSize: 9 }}>
-        In attesa…
+        Waiting…
       </div>
     )
   }
@@ -148,7 +148,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
   if (samples.length < 2) {
     return (
       <div style={{ padding: '10px', textAlign: 'center', color: '#2a3349', fontSize: 10 }}>
-        In attesa di dati…
+        Waiting for data…
       </div>
     )
   }
@@ -174,7 +174,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
           <div style={{ fontSize: 9, color: GREEN, padding: '4px 10px 0',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
             <i className="ti ti-certificate" style={{ fontSize: 10 }} />
-            Memoria privata (Private) — la metrica migliore per i leak
+            Private memory (Private) — the best metric for leaks
           </div>
           <MiniChart values={valuesPrivate} color={GREEN} label="Private" />
         </div>
@@ -185,9 +185,9 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
         <div style={{ borderBottom: '0.5px solid #1e2535' }}>
           <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-            PSS totale (proportional set size)
+            Total PSS (proportional set size)
           </div>
-          <MiniChart values={valuesTotalPss} color={BLUE} label="PSS totale" />
+          <MiniChart values={valuesTotalPss} color={BLUE} label="Total PSS" />
         </div>
       )}
 
@@ -196,7 +196,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
         <div style={{ borderBottom: '0.5px solid #1e2535' }}>
           <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-            Memoria condivisa (Shared) — librerie, mmap
+            Shared memory (Shared) — libraries, mmap
           </div>
           <MiniChart values={valuesShared} color="#8593b5" label="Shared" />
         </div>
@@ -206,16 +206,16 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
       <div style={{ borderBottom: '0.5px solid #1e2535' }}>
         <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
           textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-          RSS totale app {hasPss && <span style={{ fontStyle: 'italic' }}>(può sovrastimare — vedi PSS sopra)</span>}
+          Total app RSS {hasPss && <span style={{ fontStyle: 'italic' }}>(may overestimate — see PSS above)</span>}
         </div>
-        <MiniChart values={valuesTotalRss} color={hasPss ? '#8593b5' : BLUE} label="RSS totale" />
+        <MiniChart values={valuesTotalRss} color={hasPss ? '#8593b5' : BLUE} label="Total RSS" />
       </div>
 
       {/* Processo principale */}
       <div style={{ borderBottom: '0.5px solid #1e2535' }}>
         <div style={{ fontSize: 9, color: '#8593b5', padding: '4px 10px 0',
           textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-          Processo principale (Tauri/Rust)
+          Main process (Tauri/Rust)
         </div>
         <MiniChart values={valuesMain} color={GREEN} label="RSS main" />
       </div>
@@ -236,7 +236,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
         <div>
           <div style={{ fontSize: 9, color: '#8593b5', padding: '6px 10px 3px',
             textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-            Dettaglio processi ({lastSample.processes.length})
+            Process detail ({lastSample.processes.length})
           </div>
           <ProcessTable processes={lastSample.processes} />
         </div>
@@ -249,7 +249,7 @@ function HeapChart({ samples }: { samples: MemorySnapshot[] }) {
 
 function NodeTable({ timings }: { timings: NodeTiming[] }) {
   if (timings.length === 0) {
-    return <div style={{ padding: '10px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>Nessun nodo eseguito</div>
+    return <div style={{ padding: '10px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>No node executed</div>
   }
 
   const sorted = [...timings].sort((a, b) => (b.durationMs ?? 0) - (a.durationMs ?? 0))
@@ -259,7 +259,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
         <thead>
           <tr style={{ background: '#161b27' }}>
-            {['Lane', 'Nodo', 'Tipo', 'Durata', 'Righe in', 'Righe out', 'Scartate', 'Stato'].map(h => (
+            {['Lane', 'Node', 'Type', 'Duration', 'Rows in', 'Rows out', 'Dropped', 'Status'].map(h => (
               <th key={h} style={{ padding: '4px 8px', textAlign: 'left', color: '#8593b5', fontWeight: 600, fontSize: 9, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '0.5px solid #2a3349', whiteSpace: 'nowrap' }}>
                 {h}
               </th>
@@ -295,7 +295,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
                   {interrupted
                     ? <span style={{ color: SLATE, fontSize: 9 }}>■ interrotto</span>
                     : hasError
-                    ? <span style={{ color: RED, fontSize: 9 }}>✗ errore</span>
+                    ? <span style={{ color: RED, fontSize: 9 }}>✗ error</span>
                     : isRunning
                     ? <span style={{ color: ORANGE, fontSize: 9 }}>● running</span>
                     : <span style={{ color: GREEN, fontSize: 9 }}>✓ ok</span>
@@ -353,7 +353,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
   }
 
   if (byResource.size === 0) {
-    return <div style={{ padding: '10px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>Nessuna connessione</div>
+    return <div style={{ padding: '10px', fontSize: 10, color: '#8593b5', textAlign: 'center' }}>No connection</div>
   }
 
   // 2. Per ogni nodo, il contesto di connessione DICHIARATO (config, non dedotto).
@@ -370,8 +370,8 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
   const statusColor = (s: Conn['status']) =>
     s === 'error' ? RED : s === 'open' ? (runEnded ? '#6b7280' : ORANGE) : GREEN
   const statusLabel = (s: Conn['status']) =>
-    s === 'error' ? '✗ errore'
-    : s === 'open' ? (runEnded ? '? stato ignoto' : '● in uso')
+    s === 'error' ? '✗ error'
+    : s === 'open' ? (runEnded ? '? unknown status' : '● in use')
     : '✓ chiusa'
 
   const fmt = (ms?: number) => ms === undefined ? '—' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)} s`
@@ -402,7 +402,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
               <span style={{ fontSize: 11, fontWeight: 600, color: '#c8d4f0' }}>{resource}</span>
               <span style={{ fontSize: 9, color: '#8593b5' }}>{type}</span>
               <span style={{ fontSize: 9, marginLeft: 'auto', color: '#8593b5' }}>
-                {list.length} {list.length === 1 ? 'nodo' : 'nodi'}
+                {list.length} {list.length === 1 ? 'node' : 'nodes'}
               </span>
             </div>
 
@@ -425,7 +425,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
                       </span>
                     )}
                     <span style={{ fontSize: 9, marginLeft: 'auto', color: '#8593b5' }}>
-                      {grp.items.length} {grp.items.length === 1 ? 'nodo' : 'nodi'}
+                      {grp.items.length} {grp.items.length === 1 ? 'node' : 'nodes'}
                     </span>
                   </div>
 
@@ -471,7 +471,7 @@ function ConnectionList({ connections, runEnded }: { connections: ConnectionEven
 
 function LoiteringList({ objects }: { objects: LoiteringObject[] }) {
   if (objects.length === 0) {
-    return <div style={{ padding: '10px', fontSize: 10, color: GREEN, textAlign: 'center' }}>✓ Nessun loitering object rilevato</div>
+    return <div style={{ padding: '10px', fontSize: 10, color: GREEN, textAlign: 'center' }}>✓ No loitering object detected</div>
   }
 
   return (
@@ -515,7 +515,7 @@ function RunOverview({ timings, summary, isRunning }: {
 }) {
   if (timings.length === 0 && !summary) {
     return <div style={{ padding: 16, color: '#8593b5', fontSize: 11 }}>
-      Nessun run ancora — lancia un flusso.
+      No run yet — launch a flow.
     </div>
   }
 
@@ -540,14 +540,14 @@ function RunOverview({ timings, summary, isRunning }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
       <div style={card}>
-        <div style={sectionTitle()}>{isRunning ? '● Run in corso' : 'Ultimo run'}</div>
+        <div style={sectionTitle()}>{isRunning ? '● Run in progress' : 'Last run'}</div>
         <div style={{ padding: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          {stat('Stato', isRunning ? 'in corso' : 'completato', isRunning ? ORANGE : GREEN)}
-          {stat('Durata', duration != null ? ms(duration) : '—')}
-          {stat('Nodi', String(timings.length))}
-          {stat('Righe in', totalIn.toLocaleString())}
-          {stat('Righe out', totalOut.toLocaleString())}
-          {stat('Scartate', totalRej.toLocaleString(), totalRej > 0 ? RED : '#c8d4f0')}
+          {stat('Status', isRunning ? 'in progress' : 'completed', isRunning ? ORANGE : GREEN)}
+          {stat('Duration', duration != null ? ms(duration) : '—')}
+          {stat('Nodes', String(timings.length))}
+          {stat('Rows in', totalIn.toLocaleString())}
+          {stat('Rows out', totalOut.toLocaleString())}
+          {stat('Dropped', totalRej.toLocaleString(), totalRej > 0 ? RED : '#c8d4f0')}
         </div>
       </div>
 
@@ -567,7 +567,7 @@ function RunOverview({ timings, summary, isRunning }: {
 
       {rejecting.length > 0 && (
         <div style={card}>
-          <div style={sectionTitle(RED)}>Scarti per nodo</div>
+          <div style={sectionTitle(RED)}>Drops per node</div>
           <div style={{ padding: '4px 10px 8px' }}>
             {rejecting.map(t => (
               <div key={t.nodeId} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 11 }}>
@@ -594,7 +594,7 @@ function TimelineProfile({ timings, samples }: {
   const done = timings.filter(t => t.endAt != null)
   if (done.length === 0) {
     return <div style={{ padding: 16, color: '#8593b5', fontSize: 11 }}>
-      Timeline disponibile a run completato.
+      Timeline available when the run is complete.
     </div>
   }
 
@@ -617,11 +617,11 @@ function TimelineProfile({ timings, samples }: {
 
   return (
     <div style={card}>
-      <div style={sectionTitle(BLUE)}>Timeline — nodi × memoria</div>
+      <div style={sectionTitle(BLUE)}>Timeline — nodes × memory</div>
       <div style={{ padding: 8, overflowX: 'auto' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {mem.length > 0 && <path d={memPath} fill="none" stroke={ACCENT} strokeWidth={1.2} opacity={0.85} />}
-          <text x={padL} y={9} fontSize={9} fill="#8593b5">memoria — picco {Math.round(memMax)}MB</text>
+          <text x={padL} y={9} fontSize={9} fill="#8593b5">memory — peak {Math.round(memMax)}MB</text>
           {rows.map((t, i) => {
             const y  = chartH + 8 + i * rowH
             const bx = x(t.startAt)
@@ -775,10 +775,10 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
 
   const TABS = [
     { id: 'run' as const,         label: 'Run',          badge: null },
-    { id: 'memory' as const,      label: 'Memoria',      badge: null },
-    { id: 'nodes' as const,       label: 'Nodi',         badge: nodeTimings.length || null },
+    { id: 'memory' as const,      label: 'Memory',       badge: null },
+    { id: 'nodes' as const,       label: 'Nodes',        badge: nodeTimings.length || null },
     { id: 'timeline' as const,    label: 'Timeline',     badge: null },
-    { id: 'connections' as const, label: 'Connessioni',  badge: connections.filter(c => c.action === 'open').length || null },
+    { id: 'connections' as const, label: 'Connections',  badge: connections.filter(c => c.action === 'open').length || null },
     { id: 'loitering' as const,   label: 'Loitering',    badge: loitering.length || null },
   ]
 
@@ -801,13 +801,13 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
 
         {lastSummary && !isRunning && (
           <span style={{ fontSize: 9, color: '#8593b5' }}>
-            Ultimo run: {ms(lastSummary.totalDurationMs)} · {Math.round(lastSummary.peakHeapMb)}MB peak
+            Last run: {ms(lastSummary.totalDurationMs)} · {Math.round(lastSummary.peakHeapMb)}MB peak
           </span>
         )}
 
         <button onClick={toggleMonitor}
           style={{ padding: '2px 10px', fontSize: 9, borderRadius: 4, cursor: 'pointer', fontWeight: 600, border: `1px solid ${enabled ? RED + '60' : GREEN + '60'}`, background: enabled ? `${RED}15` : `${GREEN}15`, color: enabled ? RED : GREEN }}>
-          {enabled ? 'Disabilita' : 'Abilita'}
+          {enabled ? 'Disable' : 'Enable'}
         </button>
       </div>
 
@@ -831,7 +831,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
         {!enabled ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11 }}>
             <i className="ti ti-chart-line" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-            Monitor disabilitato — premi Abilita per iniziare
+            Monitor disabled — press Enable to start
           </div>
         ) : (
           <>
@@ -846,20 +846,20 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
             {activeTab === 'memory' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
                 <div style={card}>
-                  <div style={sectionTitle()}>Memoria</div>
+                  <div style={sectionTitle()}>Memory</div>
                   <HeapChart samples={memorySamples} />
                 </div>
                 {lastSummary && (
                   <div style={card}>
-                    <div style={sectionTitle('#8593b5')}>Ultimo run</div>
+                    <div style={sectionTitle('#8593b5')}>Last run</div>
                     <div style={{ padding: '8px 10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                       {[
-                        ['Durata',      ms(lastSummary.totalDurationMs)],
+                        ['Duration',    ms(lastSummary.totalDurationMs)],
                         ['Peak heap',   `${Math.round(lastSummary.peakHeapMb)} MB`],
                         ['Avg heap',    `${Math.round(lastSummary.avgHeapMb)} MB`],
-                        ['Righe in',    lastSummary.totalRowsIn.toLocaleString()],
-                        ['Righe out',   lastSummary.totalRowsOut.toLocaleString()],
-                        ['Scartate',    lastSummary.totalRejected.toLocaleString()],
+                        ['Rows in',     lastSummary.totalRowsIn.toLocaleString()],
+                        ['Rows out',    lastSummary.totalRowsOut.toLocaleString()],
+                        ['Dropped',     lastSummary.totalRejected.toLocaleString()],
                       ].map(([k, v]) => (
                         <div key={k}>
                           <div style={{ fontSize: 9, color: '#8593b5' }}>{k}</div>
@@ -874,7 +874,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
 
             {activeTab === 'nodes' && (
               <div style={card}>
-                <div style={sectionTitle(BLUE)}>Nodi — timing e throughput</div>
+                <div style={sectionTitle(BLUE)}>Nodes — timing and throughput</div>
                 <NodeTable timings={nodeTimings} />
               </div>
             )}

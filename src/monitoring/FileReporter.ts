@@ -121,7 +121,7 @@ export class FileReporter implements Reporter {
     this.flushSync()
 
     if (this.alsoConsole) {
-      console.log(`[MONITOR] Run ${summary.runId} completato in ${summary.totalDurationMs}ms`)
+      console.log(`[MONITOR] Run ${summary.runId} completed in ${summary.totalDurationMs}ms`)
       console.log(`[MONITOR] Peak heap: ${Math.round(summary.peakHeapMb)}MB`)
       if (summary.loitering.length > 0) {
         console.warn(`[MONITOR] ⚠ Loitering objects rilevati:`)
@@ -229,7 +229,7 @@ export class FileReporter implements Reporter {
 
       this.fs.appendFileSync(this.logPath, content, 'utf-8')
     } catch (err) {
-      console.error('[FileReporter] Errore scrittura log:', err)
+      console.error('[FileReporter] Log write error:', err)
     }
   }
 
