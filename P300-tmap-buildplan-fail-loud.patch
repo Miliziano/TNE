@@ -1,0 +1,19 @@
+diff --git a/src/components/Toolbar.tsx b/src/components/Toolbar.tsx
+index aba9007..b5b911a 100644
+--- a/src/components/Toolbar.tsx
++++ b/src/components/Toolbar.tsx
+@@ -757,7 +757,13 @@ function buildRustPlan(
+               const tmapPlan = buildTMapPlan(tmapConfig, userFns)
+               Object.assign(specConfig, tmapPlan as unknown as Record<string, unknown>)
+             } catch (e) {
+-              console.warn('[buildRustPlan] buildTMapPlan fallito:', e)
++              // Come il caso 'transform': un errore NON deve degradare a una
++              // config incompleta. Prima veniva ingoiato con un console.warn,
++              // e il motore falliva a runtime con un serde oscuro
++              // ("missing field `main_input_id`"). Ora si blocca il run col
++              // motivo vero (es. "input sconosciuto: $DBActor").
++              const msg = e instanceof Error ? e.message : String(e)
++              throw new Error(`TMap "${node.data.label}": ${msg}`)
+             }
+           }
+           break

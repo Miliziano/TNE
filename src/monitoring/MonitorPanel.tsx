@@ -630,16 +630,21 @@ function TimelineProfile({ timings, samples }: {
     </div>
   }
 
-  const memTs = samples.map(s => s.timestamp)
-  const t0 = Math.min(...done.map(t => t.startAt),        ...(memTs.length ? memTs : [Infinity]))
-  const t1 = Math.max(...done.map(t => t.endAt ?? t.startAt), ...(memTs.length ? memTs : [-Infinity]))
+  // L'asse temporale segue la FINESTRA DI ESECUZIONE DEI NODI, non i
+  // timestamp dei campioni di memoria: l'idle-polling continua prima/dopo
+  // il run e, se incluso, schiaccerebbe le barre in una frazione di pixel.
+  const t0 = Math.min(...done.map(t => t.startAt))
+  const t1 = Math.max(...done.map(t => t.endAt ?? t.startAt), t0 + 1)
   const span = Math.max(1, t1 - t0)
 
   const rowH = 22, padL = 100, padR = 14, chartH = 48
   const W = Math.max(320, w)   // pixel reali: usa tutta la larghezza disponibile
   const x = (t: number) => padL + ((t - t0) / span) * (W - padL - padR)
 
-  const mem = samples.map(s => ({ t: s.timestamp, v: (s.totalRss ?? s.heapUsed) / 1024 / 1024 }))
+  // solo i campioni dentro la finestra del run (correlazione onesta)
+  const mem = samples
+    .filter(s => s.timestamp >= t0 && s.timestamp <= t1)
+    .map(s => ({ t: s.timestamp, v: (s.totalRss ?? s.heapUsed) / 1024 / 1024 }))
   const memMax = Math.max(1, ...mem.map(m => m.v))
   const memPath = mem
     .map((m, i) => `${i === 0 ? 'M' : 'L'} ${x(m.t).toFixed(1)} ${(chartH - (m.v / memMax) * chartH + 2).toFixed(1)}`)
