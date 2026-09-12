@@ -881,7 +881,7 @@ export function MonitorPanel({ position = 'bottom', width = 420, height = 320 }:
 
             {activeTab === 'connections' && (
               <div style={card}>
-                <div style={sectionTitle(ORANGE)}>Connessioni risorse</div>
+                <div style={sectionTitle(ORANGE)}>Resource connections</div>
                 <ConnectionList connections={connections} runEnded={isRunning} />
               </div>
             )}

@@ -1652,7 +1652,7 @@ export function Toolbar() {
       {/* File */}
       <TbBtn onClick={handleOpen} disabled={opening} title="Open project">
         <i className="ti ti-folder-open" style={{ fontSize: 13 }} aria-hidden="true" />
-        {opening ? 'Apertura…' : 'Apri'}
+        {opening ? 'Opening…' : 'Open'}
       </TbBtn>
       <TbBtn onClick={handleSave} disabled={saving} title="Save (overwrites the open file)">
         <i className="ti ti-device-floppy" style={{ fontSize: 13 }} aria-hidden="true" />

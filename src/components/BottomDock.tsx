@@ -136,7 +136,7 @@ export function BottomDock() {
         paddingRight: 8, flexShrink: 0,
       }}>
         {tabBtn('log', 'Log', logs.length)}
-        {tabBtn('problems', 'Validazione', problems.length)}
+        {tabBtn('problems', 'Validation', problems.length)}
         {/* Validation: riservato al futuro cruscotto coverage/predizione */}
 
         <div style={{ flex: 1 }} />
@@ -144,10 +144,10 @@ export function BottomDock() {
         {/* Azioni contestuali al tab attivo */}
         {tab === 'log' && !collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8 }}>
-            {iconBtn('ti-file-text', 'Esporta log come .txt', exportTxt)}
-            {iconBtn('ti-code', 'Esporta log come .ndjson', exportNdjson)}
-            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia log negli appunti', () => copyText(logsToText(logs)), copied)}
-            <button onClick={clearLogs} title="Svuota il log"
+            {iconBtn('ti-file-text', 'Export logs as .txt', exportTxt)}
+            {iconBtn('ti-code', 'Export logs as .ndjson', exportNdjson)}
+            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copied!' : 'Copy logs to clipboard', () => copyText(logsToText(logs)), copied)}
+            <button onClick={clearLogs} title="Clear the log"
               style={{ background: 'none', border: '0.5px solid #2a3349', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#8593b5', fontSize: 10, fontFamily: 'inherit' }}>
               clear
             </button>
@@ -158,15 +158,15 @@ export function BottomDock() {
             derivati dalla validazione, quindi niente "clear") */}
         {tab === 'problems' && !collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8 }}>
-            {iconBtn('ti-file-text', 'Esporta problemi come .txt', () => download(problemsToText(problems), 'problems', 'txt'))}
-            {iconBtn('ti-code', 'Esporta problemi come .ndjson', () => download(problemsToNdjson(problems), 'problems', 'ndjson'))}
-            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copiato!' : 'Copia problemi negli appunti', () => copyText(problemsToText(problems)), copied)}
+            {iconBtn('ti-file-text', 'Export problems as .txt', () => download(problemsToText(problems), 'problems', 'txt'))}
+            {iconBtn('ti-code', 'Export problems as .ndjson', () => download(problemsToNdjson(problems), 'problems', 'ndjson'))}
+            {iconBtn(copied ? 'ti-check' : 'ti-copy', copied ? 'Copied!' : 'Copy problems to clipboard', () => copyText(problemsToText(problems)), copied)}
           </div>
         )}
 
         {/* Collassa / espandi */}
         {iconBtn(collapsed ? 'ti-chevron-up' : 'ti-chevron-down',
-                 collapsed ? 'Espandi pannello' : 'Riduci a barra',
+                 collapsed ? 'Expand panel' : 'Collapse to bar',
                  () => setColl((c) => !c))}
       </div>
 

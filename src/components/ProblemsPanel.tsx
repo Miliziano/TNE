@@ -98,7 +98,7 @@ export function ProblemsView() {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, color: '#3ddc84', fontSize: 12 }}>
         <i className="ti ti-circle-check" style={{ fontSize: 22, opacity: 0.8 }} />
-        Nessun problema — tutto validato
+        No problem — all validated
       </div>
     )
   }
@@ -164,7 +164,7 @@ export function ProblemsView() {
         })}
         {shown.length === 0 && (
           <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11 }}>
-            Nessun elemento per questo filtro.
+            No element for this filter.
           </div>
         )}
       </div>

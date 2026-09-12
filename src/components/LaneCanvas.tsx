@@ -166,7 +166,7 @@ function ResourceChip({ resource, laneId }: { resource: LaneResource; laneId: st
       <div style={{ width: '0.5px', background: 'var(--color-border-secondary)', flexShrink: 0 }} />
       <div
         onClick={() => setMenuOpen((o) => !o)}
-        title="Aggiungi nodo al canvas"
+        title="Add node to canvas"
         style={{ display: 'flex', alignItems: 'center', padding: '3px 7px', borderRadius: '0 20px 20px 0', border: '0.5px solid var(--color-border-secondary)', borderLeft: 'none', background: 'var(--color-background-secondary)', cursor: 'pointer', transition: 'background .12s' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-background-tertiary)' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-background-secondary)' }}
@@ -248,15 +248,15 @@ function ResourceStrip({ lane }: { lane: Lane }) {
         actions: actionsForKind('github'),   // i nodi (repos/issues/commits) arrivano nelle fette successive
       }),
     },
-    { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'Nuovo DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Aggiungi come input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Aggiungi come output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },
-    { kind: 'http', label: '⇄ HTTP / REST API', build: () => ({ kind: 'http' as const, label: 'Nuova API', config: { url: HTTP_DEFAULTS.url, method: HTTP_DEFAULTS.method, authType: HTTP_DEFAULTS.authType, headers: HTTP_DEFAULTS.headers }, actions: [ { id: 'in', label: 'Aggiungi come source HTTP', nodeType: 'source_http', propsOverride: {} as Record<string, string> } ] }) },
-    { kind: 'kafka', label: '≋ Kafka', build: () => ({ kind: 'kafka' as const, label: 'Nuovo Kafka', config: { broker: 'localhost:9092' }, actions: [ 
-      { id: 'in', label: 'Aggiungi come source Kafka', nodeType: 'source_kafka', propsOverride: { broker: 'localhost:9092' } as Record<string, string> }, 
-      { id: 'out', label: 'Aggiungi come sink Kafka', nodeType: 'sink_kafka', propsOverride: { broker: 'localhost:9092', topic: 'output' } as Record<string, string> } ] }) },
-    { kind: 'mqtt', label: '⊛ MQTT', build: () => ({ kind: 'mqtt' as const, label: 'Nuovo MQTT', config: { broker: 'localhost', port: '1883' }, actions: [ 
-      { id: 'in', label: 'Aggiungi come source MQTT', nodeType: 'source_mqtt', propsOverride: { url: 'mqtt://localhost:1883' } as Record<string, string> } ,
-      { id: 'out',  label: 'Aggiungi come publisher (sink)',  nodeType: 'sink_mqtt',  propsOverride: { url: 'mqtt://localhost:1883', topic: 'pipeline/output' } as Record<string, string>}] } ) },
-    { kind: 'ftp', label: '⇄ FTP / SFTP', build: () => ({ kind: 'ftp' as const, label: 'Nuovo FTP', config: { protocol: 'sftp', host: 'ftp.esempio.com', port: '22', user: '', authType: 'password', keyPath: '' }, actions: [ { id: 'in', label: 'Aggiungi come FTP Source', nodeType: 'source_ftp', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Aggiungi come FTP Sink', nodeType: 'sink_ftp', propsOverride: {} as Record<string, string> } ] }) },
+    { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'New DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Add as input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Add as output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },
+    { kind: 'http', label: '⇄ HTTP / REST API', build: () => ({ kind: 'http' as const, label: 'New API', config: { url: HTTP_DEFAULTS.url, method: HTTP_DEFAULTS.method, authType: HTTP_DEFAULTS.authType, headers: HTTP_DEFAULTS.headers }, actions: [ { id: 'in', label: 'Add as HTTP source', nodeType: 'source_http', propsOverride: {} as Record<string, string> } ] }) },
+    { kind: 'kafka', label: '≋ Kafka', build: () => ({ kind: 'kafka' as const, label: 'New Kafka', config: { broker: 'localhost:9092' }, actions: [ 
+      { id: 'in', label: 'Add as Kafka source', nodeType: 'source_kafka', propsOverride: { broker: 'localhost:9092' } as Record<string, string> }, 
+      { id: 'out', label: 'Add as Kafka sink', nodeType: 'sink_kafka', propsOverride: { broker: 'localhost:9092', topic: 'output' } as Record<string, string> } ] }) },
+    { kind: 'mqtt', label: '⊛ MQTT', build: () => ({ kind: 'mqtt' as const, label: 'New MQTT', config: { broker: 'localhost', port: '1883' }, actions: [ 
+      { id: 'in', label: 'Add as MQTT source', nodeType: 'source_mqtt', propsOverride: { url: 'mqtt://localhost:1883' } as Record<string, string> } ,
+      { id: 'out',  label: 'Add as publisher (sink)',  nodeType: 'sink_mqtt',  propsOverride: { url: 'mqtt://localhost:1883', topic: 'pipeline/output' } as Record<string, string>}] } ) },
+    { kind: 'ftp', label: '⇄ FTP / SFTP', build: () => ({ kind: 'ftp' as const, label: 'New FTP', config: { protocol: 'sftp', host: 'ftp.example.com', port: '22', user: '', authType: 'password', keyPath: '' }, actions: [ { id: 'in', label: 'Add as FTP Source', nodeType: 'source_ftp', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Add as FTP Sink', nodeType: 'sink_ftp', propsOverride: {} as Record<string, string> } ] }) },
     {
       kind: 'webhook' as const,
       label: '⤵ Webhook',
@@ -273,7 +273,7 @@ function ResourceStrip({ lane }: { lane: Lane }) {
         actions: [
           {
             id:            'receiver',
-            label:         'Aggiungi Receiver',
+            label:         'Add Receiver',
             nodeType:      'webhook_receiver',
             propsOverride: { port: '9110', path: '/webhook' } as Record<string, string>,
           },
@@ -285,10 +285,10 @@ function ResourceStrip({ lane }: { lane: Lane }) {
       label: '⌁ SSH',
       build: () => ({
         kind: 'ssh',
-        label: 'Server SSH',
+        label: 'SSH Server',
         config: { host: '', port: '22', user: '', authType: 'password' },
         actions: [
-          { id: 'exec', label: 'Aggiungi SSH Executor', nodeType: 'ssh_exec', propsOverride: {} }
+          { id: 'exec', label: 'Add SSH Executor', nodeType: 'ssh_exec', propsOverride: {} }
           ]
       })
     } 
@@ -296,18 +296,18 @@ function ResourceStrip({ lane }: { lane: Lane }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)', flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em', marginRight: 2, flexShrink: 0 }}>Risorse</span>
+      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em', marginRight: 2, flexShrink: 0 }}>Resources</span>
       {lane.resources.map((res) => <ResourceChip key={res.id} resource={res} laneId={lane.id} />)}
       <div style={{ marginLeft: 'auto' }}>
         <button ref={triggerRef} onClick={() => setOpen((o) => !o)}
           style={{ background: 'none', border: '0.5px dashed var(--color-border-secondary)', borderRadius: 20, padding: '3px 10px', fontSize: 11, color: 'var(--color-text-tertiary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
           <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
-          Aggiungi risorsa
+          Add resource
           <i className="ti ti-chevron-down" style={{ fontSize: 11 }} aria-hidden="true" />
         </button>
         {open && createPortal(
           <div ref={portalRef} style={{ position: 'absolute', top: pos.top, left: pos.left, minWidth: 220, zIndex: 9999, background: 'color-mix(in srgb, var(--color-background-primary) 98%, transparent)', backdropFilter: 'blur(8px)', border: '0.5px solid var(--color-border-secondary)', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,.5)', overflow: 'hidden' }}>
-            <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em', borderBottom: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)' }}>Tipo di risorsa</div>
+            <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em', borderBottom: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)' }}>Resource type</div>
             {RESOURCE_TEMPLATES.map((tmpl) => (
               <div key={tmpl.kind} onClick={() => { addResource(lane.id, tmpl.build()); setOpen(false) }}
                 style={{ padding: '9px 14px', fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', gap: 8 }}
@@ -689,29 +689,29 @@ export function LaneCanvas({ lane }: { lane: Lane }) {
         <input value={lane.label} onChange={(e) => updateLane(lane.id, { label: e.target.value })}
           style={{ background: 'none', border: 'none', outline: 'none', fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)', cursor: 'text', padding: 0, width: 120 }} />
         <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginLeft: 4 }}>
-          {nodeCount} nodi · {lane.resources.length} risorse · {lane.height}px
+          {nodeCount} nodes · {lane.resources.length} resources · {lane.height}px
         </span>
         <input type="color" value={lane.color} onChange={(e) => updateLane(lane.id, { color: e.target.value })} title="Colore lane"
           style={{ width: 20, height: 20, border: 'none', borderRadius: 4, padding: 0, cursor: 'pointer', background: 'none' }} />
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           {([
-            { icon: 'ti-chevron-up',   title: 'Sposta su',  disabled: isFirst, fn: () => moveLane(lane.id, 'up') },
-            { icon: 'ti-chevron-down', title: 'Sposta giù', disabled: isLast,  fn: () => moveLane(lane.id, 'down') },
+            { icon: 'ti-chevron-up',   title: 'Move up',  disabled: isFirst, fn: () => moveLane(lane.id, 'up') },
+            { icon: 'ti-chevron-down', title: 'Move down', disabled: isLast,  fn: () => moveLane(lane.id, 'down') },
           ] as const).map(({ icon, title, disabled, fn }) => (
             <button key={icon} onClick={fn} disabled={disabled} title={title} style={iconBtn(disabled)}>
               <i className={`ti ${icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
             </button>
           ))}
-          <button onClick={fitAll} title="Distribuisci altezza equamente" style={iconBtn(false)}>
+          <button onClick={fitAll} title="Distribute height evenly" style={iconBtn(false)}>
             <i className="ti ti-layout-distribute-vertical" style={{ fontSize: 13 }} aria-hidden="true" />
           </button>
-          <button onClick={toggleMaximize} title={isMaximized ? 'Riduci' : 'Massimizza'} style={iconBtn(false)}>
+          <button onClick={toggleMaximize} title={isMaximized ? 'Shrink' : 'Maximize'} style={iconBtn(false)}>
             <i className={`ti ${isMaximized ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} style={{ fontSize: 13 }} aria-hidden="true" />
           </button>
-          <button onClick={() => updateLane(lane.id, { collapsed: !lane.collapsed })} title={lane.collapsed ? 'Espandi' : 'Collassa'} style={iconBtn(false)}>
+          <button onClick={() => updateLane(lane.id, { collapsed: !lane.collapsed })} title={lane.collapsed ? 'Expand' : 'Collapse'} style={iconBtn(false)}>
             <i className={`ti ${lane.collapsed ? 'ti-layout-rows' : 'ti-layout-bottombar'}`} style={{ fontSize: 13 }} aria-hidden="true" />
           </button>
-          <button onClick={() => { if (confirm(`Eliminare "${lane.label}"?`)) deleteLane(lane.id) }} title="Elimina lane" style={{ ...iconBtn(false), color: 'var(--color-text-danger)' }}>
+          <button onClick={() => { if (confirm(`Delete "${lane.label}"?`)) deleteLane(lane.id) }} title="Delete lane" style={{ ...iconBtn(false), color: 'var(--color-text-danger)' }}>
             <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true" />
           </button>
         </div>
@@ -720,7 +720,7 @@ export function LaneCanvas({ lane }: { lane: Lane }) {
         <div style={{ overflow: 'hidden', borderRadius: '0 0 6px 6px' }}>
           <ResourceStrip lane={lane} />
           <ReactFlowProvider><LaneFlow lane={lane} /></ReactFlowProvider>
-          <div onMouseDown={onResizeStart} title="Trascina per ridimensionare"
+          <div onMouseDown={onResizeStart} title="Drag to resize"
             style={{ height: 6, cursor: 'ns-resize', background: `color-mix(in srgb, ${lane.color} 15%, var(--color-background-secondary))`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${lane.color} 40%, var(--color-background-secondary))` }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = `color-mix(in srgb, ${lane.color} 15%, var(--color-background-secondary))` }}>
