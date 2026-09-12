@@ -469,7 +469,7 @@ function buildRustPlan(
   const { functions: userFns, errors: fnErrors } = parseUserFunctions(pool.userFunctions ?? [])
   if (fnErrors.length > 0) {
     const d = fnErrors.map((e) => `  • ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')
-    throw new Error(`Functions utente — ${fnErrors.length} errore/i:\n${d}`)
+    throw new Error(`User functions — ${fnErrors.length} error(s):\n${d}`)
   }
 
  // ── Bridge tra lane — accoppiati per channelName condiviso.
@@ -484,14 +484,14 @@ function buildRustPlan(
     for (const out of outNodes) {
       const name = (out.data.props?.['channelName'] as string) || ''
       if (!name) {
-        throw new Error(`Bridge Out "${out.data.label}": canale senza nome`)
+        throw new Error(`Bridge Out "${out.data.label}": channel without a name`)
       }
       const inNode = inNodes.find(
         n => ((n.data.props?.['channelName'] as string) || '') === name
       )
       if (!inNode) {
         throw new Error(
-          `Bridge "${name}": manca il Bridge In corrispondente (canale incompleto)`
+          `Bridge "${name}": the matching Bridge In is missing (incomplete channel)`
         )
       }
       bridges.push({
@@ -506,11 +506,11 @@ function buildRustPlan(
     for (const inn of inNodes) {
       const name = (inn.data.props?.['channelName'] as string) || ''
       if (!name) {
-        throw new Error(`Bridge In "${inn.data.label}": canale senza nome`)
+        throw new Error(`Bridge In "${inn.data.label}": channel without a name`)
       }
       if (!outNodes.some(n => ((n.data.props?.['channelName'] as string) || '') === name)) {
         throw new Error(
-          `Bridge "${name}": manca il Bridge Out corrispondente (canale incompleto)`
+          `Bridge "${name}": the matching Bridge Out is missing (incomplete channel)`
         )
       }
     }
@@ -776,12 +776,12 @@ function buildRustPlan(
           if (raw) {
             let fields: TransformFieldSpec[]
             try { fields = JSON.parse(raw as string) }
-            catch { throw new Error(`Transform "${node.data.label}": configurazione campi illeggibile`) }
+            catch { throw new Error(`Transform "${node.data.label}": unreadable fields configuration`) }
 
             const { compiled, errors } = compileTransformFields(fields, userFns)
             if (errors.length > 0) {
               const dettagli = errors.map(e => `  • ${e.message}`).join('\n')
-              throw new Error(`Transform "${node.data.label}" — ${errors.length} errore/i:\n${dettagli}`)
+              throw new Error(`Transform "${node.data.label}" — ${errors.length} error(s):\n${dettagli}`)
             }
 
             // Traduzione della scelta utente nel `mode` del motore.
@@ -839,7 +839,7 @@ function buildRustPlan(
             const raw = props['unionMapping']
             if (raw) fields = JSON.parse(raw as string)
           } catch {
-            throw new Error(`Union "${node.data.label}": mappatura campi illeggibile`)
+            throw new Error(`Union "${node.data.label}": unreadable field mapping`)
           }
 
           // Etichette leggibili degli handle, per il campo _union_source
@@ -881,7 +881,7 @@ function buildRustPlan(
 
           if (mode === 'pivot' && (!props['pivotField'] || !props['valueField'])) {
             throw new Error(
-              `Pivot "${node.data.label}": campo pivot e campo valore sono obbligatori.`)
+              `Pivot "${node.data.label}": pivot field and value field are required.`)
           }
           if (mode === 'unpivot') {
             let cols: unknown[] = []
@@ -902,8 +902,8 @@ function buildRustPlan(
           if (mode === 'pivot' && rawNull !== '' &&
               !/^-?\d+(\.\d+)?$/.test(rawNull) && rawNull !== 'true' && rawNull !== 'false') {
             console.warn(
-              `[pivot "${node.data.label}"] valore celle vuote "${rawNull}" è testuale: ` +
-              `se le colonne pivot sono numeriche, le operazioni a valle potrebbero fallire.`)
+              `[pivot "${node.data.label}"] empty cell value "${rawNull}" is text: ` +
+              `if the pivot columns are numeric, downstream operations may fail.`)
           }
           break
         }
@@ -939,7 +939,7 @@ function buildRustPlan(
             const s = props['dqConfig']
             if (s) raw = JSON.parse(s as string)
           } catch {
-            throw new Error(`Data Quality "${node.data.label}": configurazione illeggibile`)
+            throw new Error(`Data Quality "${node.data.label}": unreadable configuration`)
           }
 
           const rules = (raw.rules ?? []).map((r) => {
@@ -971,25 +971,25 @@ function buildRustPlan(
             const compile = (src: string | undefined, what: string) => {
               if (!src?.trim()) {
                 throw new Error(
-                  `Data Quality "${node.data.label}", regola "${r.label || r.id}": ` +
-                  `${what} richiede un'espressione.`)
+                  `Data Quality "${node.data.label}", rule "${r.label || r.id}": ` +
+                  `${what} requires an expression.`)
               }
               try { return parseExpression(src) }
               catch (e) {
                 const detail = e instanceof ExprParseError ? e.pretty() : String(e)
                 throw new Error(
-                  `Data Quality "${node.data.label}", regola "${r.label || r.id}":\n${detail}`)
+                  `Data Quality "${node.data.label}", rule "${r.label || r.id}":\n${detail}`)
               }
             }
 
-            if (r.checkType === 'custom') out.expression = compile(r.expression, "il check 'custom'")
-            if (r.repair === 'expression') out.repair_expression = compile(r.repairExpression, "il repair 'expression'")
+            if (r.checkType === 'custom') out.expression = compile(r.expression, "the 'custom' check")
+            if (r.repair === 'expression') out.repair_expression = compile(r.repairExpression, "the 'expression' repair")
 
             if (r.repair === 'lookup_from_file') {
               throw new Error(
-                `Data Quality "${node.data.label}", regola "${r.label || r.id}": ` +
-                `il lookup da file non è supportato. Carica il file con ` +
-                `source_file → materialize("tabella") e usa "lookup_from_materialize".`)
+                `Data Quality "${node.data.label}", rule "${r.label || r.id}": ` +
+                `file lookup is not supported. Load the file with ` +
+                `source_file → materialize("my_table") and use "lookup_from_materialize".`)
             }
 
             return out
@@ -1033,7 +1033,7 @@ function buildRustPlan(
             const raw = props['aggFunctions']
             if (raw) fns = JSON.parse(raw as string)
           } catch {
-            throw new Error(`Aggregate "${node.data.label}": configurazione funzioni illeggibile`)
+            throw new Error(`Aggregate "${node.data.label}": unreadable functions configuration`)
           }
 
           if (fns.length === 0) {
@@ -1047,9 +1047,9 @@ function buildRustPlan(
           const win = props['window'] ?? 'none'
           if (win !== 'none' && win !== '') {
             throw new Error(
-              `Aggregate "${node.data.label}": le finestre temporali non sono ` +
-              `supportate da questo nodo. Aggregate collassa le righe in gruppi ` +
-              `(GROUP BY) e materializza. Per le finestre serve un nodo dedicato.`)
+              `Aggregate "${node.data.label}": time windows are not ` +
+              `supported by this node. Aggregate collapses rows into groups ` +
+              `(GROUP BY) and materializes. For windows, use a dedicated node.`)
           }
 
           // `having` e i `filter` sono FPEL: lo studio li compila in IR
@@ -1103,7 +1103,7 @@ function buildRustPlan(
             const raw = props['windows']
             if (raw) defs = JSON.parse(raw as string)
           } catch {
-            throw new Error(`Window "${node.data.label}": configurazione funzioni illeggibile`)
+            throw new Error(`Window "${node.data.label}": unreadable functions configuration`)
           }
 
           if (defs.length === 0) {
