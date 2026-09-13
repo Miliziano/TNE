@@ -559,7 +559,7 @@ pub async fn execute_lane(
                 // in modalità handler marca comunque la lane fallita: la
                 // revisione (critical, solo-l'EH-interrompe) è il passo 3.
                 if lane_result.is_ok() {
-                    lane_result = Err(format!("Nodo {} fallito: {}", node_id_str, e));
+                    lane_result = Err(format!("Node {} failed: {}", node_id_str, e));
                 }
             }
             // Task interrotto dall'error_handler (errore critico): NON è
@@ -572,7 +572,7 @@ pub async fn execute_lane(
                 // volta che a fermare la lane era una regola.
                 let motivo = lane_abort.reason().await;
                 let motivo = if motivo.is_empty() {
-                    "interruzione della lane".to_string()
+                    "lane interruption".to_string()
                 } else {
                     motivo
                 };
@@ -593,7 +593,7 @@ pub async fn execute_lane(
                     error:   format!("panic: {}", e),
                 });
                 if lane_result.is_ok() {
-                    lane_result = Err(format!("Panic nel nodo {}: {}", node_id_str, e));
+                    lane_result = Err(format!("Panic in node {}: {}", node_id_str, e));
                 }
             }
         }
@@ -627,7 +627,7 @@ pub async fn execute_lane(
                     // node_label alle righe NodeLog, e con più nodi troncati
                     // si leggerebbero righe identiche senza sapere di chi.
                     message:    format!(
-                        "{}: pipeline a valle interrotta, le {} righe emesse non sono state elaborate del tutto",
+                        "{}: downstream pipeline interrupted, the {} emitted rows were not fully processed",
                         node_id_str, stats.rows_out,
                     ),
                     target:     "panel".to_string(),
@@ -657,9 +657,9 @@ pub async fn execute_lane(
         // ma NON contata fra le non-riuscite (fetta 2b).
         deliberate_stop = motivo.starts_with("stop deliberato");
         lane_result = Err(if motivo.trim().is_empty() {
-            "Lane interrotta".to_string()
+            "Lane interrupted".to_string()
         } else {
-            format!("Lane interrotta: {}", motivo)
+            format!("Lane interrupted: {}", motivo)
         });
     }
 
@@ -816,7 +816,7 @@ async fn run_node(
 
         "ldap_auth" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("ldap_auth {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("ldap_auth {} requires a connected input", ctx.node_id.0))?;
             // Multi-uscita: output + reject → passa l'intera mappa (come filter).
             super::nodes::ldap_auth::run(ctx, rx, outputs).await
         }
@@ -829,14 +829,14 @@ async fn run_node(
 
         "http_request" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("http_request {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("http_request {} requires a connected input", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs);
             super::nodes::http_request::run(ctx, rx, tx).await
         }
 
         "sink_file" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("sink_file {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("sink_file {} requires a connected input", ctx.node_id.0))?;
             // signal/replay: il sink può emettere a valle DOPO la scrittura
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_file::run(ctx, rx, tx).await
@@ -844,28 +844,28 @@ async fn run_node(
 
         "sink_ftp" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("sink_ftp {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("sink_ftp {} requires a connected input", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_ftp::run(ctx, rx, tx).await
         }
 
         "sink_mqtt" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("sink_mqtt {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("sink_mqtt {} requires a connected input", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_mqtt::run(ctx, rx, tx).await
         }
 
         "sink_http" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("sink_http {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("sink_http {} requires a connected input", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs);
             super::nodes::sink_http::run(ctx, rx, tx).await
         }
 
         "sink_db" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("sink_db {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("sink_db {} requires a connected input", ctx.node_id.0))?;
             // Output opzionale: presente solo in master-detail (righe
             // arricchite inoltrate); None per sink terminale.
             let tx = take_primary_output(&mut outputs);
@@ -874,13 +874,13 @@ async fn run_node(
 
         "bridge_out" => {
             let rx  = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("bridge_out {} richiede un input collegato", ctx.node_id.0))?;
-            let btx = bridge_tx.ok_or_else(|| format!("bridge_out {}: bridge_id non trovato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("bridge_out {} requires a connected input", ctx.node_id.0))?;
+            let btx = bridge_tx.ok_or_else(|| format!("bridge_out {}: bridge_id not found", ctx.node_id.0))?;
             super::bridge::run_bridge_out(ctx, rx, btx).await
         }
 
         "bridge_in" => {
-            let brx = bridge_rx.ok_or_else(|| format!("bridge_in {}: bridge_id non trovato", ctx.node_id.0))?;
+            let brx = bridge_rx.ok_or_else(|| format!("bridge_in {}: bridge_id not found", ctx.node_id.0))?;
             let tx  = take_primary_output(&mut outputs);
             super::bridge::run_bridge_in(ctx, brx, tx).await
         }
@@ -903,7 +903,7 @@ async fn run_node(
 
             let main_rx = inputs.remove("input_main")
                 .or_else(|| take_single_input(&mut inputs))
-                .ok_or_else(|| format!("tmap {} richiede input main collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("tmap {} requires a connected main input", ctx.node_id.0))?;
 
             // Uscite: nell'ordine della config (main per primo).
             // Uscita non collegata → drain, così il TMap non si
@@ -945,7 +945,7 @@ async fn run_node(
 
         "transform" | "transform_fields" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("transform {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("transform {} requires a connected input", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::transform::run(ctx, rx, tx).await
         }
@@ -979,7 +979,7 @@ async fn run_node(
 
         "materialize" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("materialize {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("materialize {} requires a connected input", ctx.node_id.0))?;
             // Multi-uscita: output + reject (righe troncate) → mappa intera.
             super::nodes::materialize::run(ctx, rx, outputs).await
         }
@@ -999,7 +999,7 @@ async fn run_node(
 
         "filter" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("filter {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("filter {} requires a connected input", ctx.node_id.0))?;
             // First-match multi-uscita: riceve tutti gli handle (cond_* + reject)
             super::nodes::filter::run(ctx, rx, outputs).await
         }
@@ -1026,7 +1026,7 @@ async fn run_node(
 
         "data_quality" => {
             let rx = take_single_input(&mut inputs)
-                .ok_or_else(|| format!("data_quality {} richiede un input collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("data_quality {} requires a connected input", ctx.node_id.0))?;
             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
             super::nodes::data_quality::run(ctx, rx, tx).await
         }
@@ -1043,7 +1043,7 @@ async fn run_node(
         }
         "union" => {
             let tx = take_primary_output(&mut outputs)
-                .ok_or_else(|| format!("union {} richiede un output collegato", ctx.node_id.0))?;
+                .ok_or_else(|| format!("union {} requires a connected output", ctx.node_id.0))?;
 
             // L'ordine degli input determina l'ordine di `concat`.
             // Non si può usare l'ordine del HashMap (non deterministico):
@@ -1078,7 +1078,7 @@ async fn run_node(
             }
 
             if ordered.is_empty() {
-                return Err(format!("union {}: nessun flusso collegato", ctx.node_id.0));
+                return Err(format!("union {}: no connected flow", ctx.node_id.0));
             }
 
             super::nodes::union::run(ctx, ordered, tx).await
@@ -1178,6 +1178,6 @@ async fn run_node(
             Ok(stats)
         }
 
-        other => Err(format!("Tipo nodo non supportato: {}", other))
+        other => Err(format!("Unsupported node type: {}", other))
     }
 }

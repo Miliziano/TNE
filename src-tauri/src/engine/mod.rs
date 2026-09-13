@@ -57,15 +57,15 @@ pub async fn engine_ping(delay_ms: u64) -> Result<String, String> {
 pub async fn engine_ping_parallel(id: u32, delay_ms: u64) -> Result<String, String> {
     let start = Instant::now();
     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-    Ok(format!("task #{id} completato dopo {}ms", start.elapsed().as_millis()))
+    Ok(format!("task #{id} completed after {}ms", start.elapsed().as_millis()))
 }
 
 #[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_validate_plan(plan_json: String) -> Result<String, String> {
     let plan: Plan = serde_json::from_str(&plan_json)
-        .map_err(|e| format!("Plan non valido: {}", e))?;
+        .map_err(|e| format!("Invalid plan: {}", e))?;
     Ok(format!(
-        "Plan valido: run_id={}, {} lane, {} bridge",
+        "Valid plan: run_id={}, {} lanes, {} bridges",
         plan.run_id.0, plan.lanes.len(), plan.bridges.len(),
     ))
 }
@@ -103,7 +103,7 @@ pub async fn engine_test_bus(event_count: u32, interval_ms: u64) -> Result<Strin
             elapsed_ms: event_count as u64 * interval_ms,
         });
     });
-    Ok(format!("Test bus avviato: {} eventi ogni {}ms", event_count, interval_ms))
+    Ok(format!("Test bus started: {} events every {}ms", event_count, interval_ms))
 }
 
 // ── Fase 3-4 — engine_run con multi-lane e bridge ─────────────────
@@ -111,7 +111,7 @@ pub async fn engine_test_bus(event_count: u32, interval_ms: u64) -> Result<Strin
 #[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn engine_run(plan_json: String) -> Result<String, String> {
     let plan: Plan = serde_json::from_str(&plan_json)
-        .map_err(|e| format!("Plan non valido: {}", e))?;
+        .map_err(|e| format!("Invalid plan: {}", e))?;
 
     let run_id     = plan.run_id.clone();
     let run_id_str = run_id.0.clone();
@@ -341,9 +341,9 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
             // derivati, che è un'altra questione (l'errore di nodo
             // strutturato).
             let error = match lane_errors.len() {
-                0 => "Errore sconosciuto".to_string(),
+                0 => "Unknown error".to_string(),
                 1 => lane_errors.join(""),
-                n => format!("{} lane fallite — {}", n, lane_errors.join("  |  ")),
+                n => format!("{} lanes failed — {}", n, lane_errors.join("  |  ")),
             };
             push_event(EngineEvent::RunFailed {
                 run_id,
@@ -400,7 +400,7 @@ pub async fn stop_run(run_id: String) -> Result<(), String> {
     let tok = run_cancels().lock().unwrap().get(&run_id).cloned();
     match tok {
         Some(t) => { t.cancel(); Ok(()) }
-        None    => Err(format!("run '{}' non trovato (gia' concluso?)", run_id)),
+        None    => Err(format!("run '{}' not found (already finished?)", run_id)),
     }
 }
 
@@ -426,11 +426,11 @@ pub async fn engine_preview_node(
 
     // 1) righe di mock → Vec<Row> (stessa conversione dei nodi sorgente)
     let raw: Vec<serde_json::Value> = serde_json::from_str(&rows_json)
-        .map_err(|e| format!("righe di prova non valide: {}", e))?;
+        .map_err(|e| format!("invalid test rows: {}", e))?;
     let mut rows_in: Vec<Row> = Vec::with_capacity(raw.len());
     for (i, v) in raw.into_iter().enumerate() {
         let obj = v.as_object()
-            .ok_or_else(|| format!("la riga {} non è un oggetto JSON", i + 1))?;
+            .ok_or_else(|| format!("row {} is not a JSON object", i + 1))?;
         let mut map: HashMap<String, Value> = HashMap::new();
         for (k, val) in obj {
             map.insert(k.clone(), Value::from_json(val.clone()));
@@ -442,7 +442,7 @@ pub async fn engine_preview_node(
     let variables: HashMap<String, Value> = match variables_json {
         Some(s) if !s.trim().is_empty() => {
             let obj: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&s)
-                .map_err(|e| format!("variabili di prova non valide: {}", e))?;
+                .map_err(|e| format!("invalid test variables: {}", e))?;
             obj.into_iter().map(|(k, v)| (k, Value::from_json(v))).collect()
         }
         _ => HashMap::new(),
@@ -450,7 +450,7 @@ pub async fn engine_preview_node(
 
     // 3) spec compilato del nodo (stessa forma dell'esecutore)
     let spec: serde_json::Value = serde_json::from_str(&spec_json)
-        .map_err(|e| format!("spec del nodo non valido: {}", e))?;
+        .map_err(|e| format!("invalid node spec: {}", e))?;
     let config = spec.get("config").cloned().unwrap_or(serde_json::Value::Null);
 
     // 4) contesto ISOLATO: registri vuoti, nessun error handler
@@ -492,7 +492,7 @@ pub async fn engine_preview_node(
                 crate::engine::nodes::source_file::run(ctx, None, Some(tx_out)).await
             })
         }
-        other => return Err(format!("anteprima non supportata per il nodo «{}»", other)),
+        other => return Err(format!("preview not supported for node "{}"", other)),
     };
 
     // Drena l'uscita fermandosi al tetto di righe: una sorgente ne produce
@@ -512,9 +512,9 @@ pub async fn engine_preview_node(
             Ok(Ok(_stats))             => {}
             Ok(Err(e))                 => return Err(e),
             Err(e) if e.is_cancelled() => {}
-            Err(e)                     => return Err(format!("anteprima interrotta: {}", e)),
+            Err(e)                     => return Err(format!("preview interrupted: {}", e)),
         }
     }
 
-    serde_json::to_string(&out).map_err(|e| format!("serializzazione uscita: {}", e))
+    serde_json::to_string(&out).map_err(|e| format!("output serialization: {}", e))
 }

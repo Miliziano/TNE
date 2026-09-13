@@ -116,7 +116,7 @@ impl Spec {
             .and_then(json_to_string)
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| format!("campo obbligatorio '{}' mancante o vuoto", key))
+            .ok_or_else(|| format!("required field '{}' missing or empty", key))
     }
 
     /// Stringa con default (applicato anche se presente ma vuota).

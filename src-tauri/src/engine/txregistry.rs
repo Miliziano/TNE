@@ -90,7 +90,7 @@ impl LaneTransactions {
         let mut groups = self.groups.lock().await;
         let run_id = self.run_id.clone();
         let g = groups.get_mut(group_id)
-            .ok_or_else(|| format!("transazione '{}' non dichiarata nella lane", group_id))?;
+            .ok_or_else(|| format!("transaction '{}' not declared in the lane", group_id))?;
 
         // Native: vietato coinvolgere più risorse (servirebbe XA).
         if !g.is_xa() && !g.conns.is_empty() && !g.conns.contains_key(resource_id) {
@@ -106,9 +106,9 @@ impl LaneTransactions {
         }
 
         let mut conn = pool.acquire().await
-            .map_err(|e| format!("tx '{}': acquire fallito ({}): {}", group_id, resource_id, e))?;
+            .map_err(|e| format!("tx '{}': acquire failed ({}): {}", group_id, resource_id, e))?;
         sqlx::query("BEGIN").execute(&mut *conn).await
-            .map_err(|e| format!("tx '{}': BEGIN fallito ({}): {}", group_id, resource_id, e))?;
+            .map_err(|e| format!("tx '{}': BEGIN failed ({}): {}", group_id, resource_id, e))?;
 
         let shared: SharedConn = Arc::new(Mutex::new(conn));
         g.conns.insert(resource_id.to_string(), shared.clone());

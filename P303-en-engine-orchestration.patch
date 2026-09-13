@@ -1,0 +1,427 @@
+diff --git a/src-tauri/src/engine/bridge.rs b/src-tauri/src/engine/bridge.rs
+index 232d68a..7d10e4a 100644
+--- a/src-tauri/src/engine/bridge.rs
++++ b/src-tauri/src/engine/bridge.rs
+@@ -215,7 +215,7 @@ pub async fn run_bridge_in(
+         // decide con le sue regole. Marcare «critico» il bridge_in è ciò
+         // che ferma anche la lane di valle.
+         return Err(format!(
+-            "lane sorgente interrotta dopo {} righe: la consegna del bridge è incompleta",
++            "source lane interrupted after {} rows: the bridge delivery is incomplete",
+             rows_in,
+         ));
+     }
+diff --git a/src-tauri/src/engine/executor.rs b/src-tauri/src/engine/executor.rs
+index cadf6b4..c96f4eb 100644
+--- a/src-tauri/src/engine/executor.rs
++++ b/src-tauri/src/engine/executor.rs
+@@ -559,7 +559,7 @@ pub async fn execute_lane(
+                 // in modalità handler marca comunque la lane fallita: la
+                 // revisione (critical, solo-l'EH-interrompe) è il passo 3.
+                 if lane_result.is_ok() {
+-                    lane_result = Err(format!("Nodo {} fallito: {}", node_id_str, e));
++                    lane_result = Err(format!("Node {} failed: {}", node_id_str, e));
+                 }
+             }
+             // Task interrotto dall'error_handler (errore critico): NON è
+@@ -572,7 +572,7 @@ pub async fn execute_lane(
+                 // volta che a fermare la lane era una regola.
+                 let motivo = lane_abort.reason().await;
+                 let motivo = if motivo.is_empty() {
+-                    "interruzione della lane".to_string()
++                    "lane interruption".to_string()
+                 } else {
+                     motivo
+                 };
+@@ -593,7 +593,7 @@ pub async fn execute_lane(
+                     error:   format!("panic: {}", e),
+                 });
+                 if lane_result.is_ok() {
+-                    lane_result = Err(format!("Panic nel nodo {}: {}", node_id_str, e));
++                    lane_result = Err(format!("Panic in node {}: {}", node_id_str, e));
+                 }
+             }
+         }
+@@ -627,7 +627,7 @@ pub async fn execute_lane(
+                     // node_label alle righe NodeLog, e con più nodi troncati
+                     // si leggerebbero righe identiche senza sapere di chi.
+                     message:    format!(
+-                        "{}: pipeline a valle interrotta, le {} righe emesse non sono state elaborate del tutto",
++                        "{}: downstream pipeline interrupted, the {} emitted rows were not fully processed",
+                         node_id_str, stats.rows_out,
+                     ),
+                     target:     "panel".to_string(),
+@@ -657,9 +657,9 @@ pub async fn execute_lane(
+         // ma NON contata fra le non-riuscite (fetta 2b).
+         deliberate_stop = motivo.starts_with("stop deliberato");
+         lane_result = Err(if motivo.trim().is_empty() {
+-            "Lane interrotta".to_string()
++            "Lane interrupted".to_string()
+         } else {
+-            format!("Lane interrotta: {}", motivo)
++            format!("Lane interrupted: {}", motivo)
+         });
+     }
+ 
+@@ -816,7 +816,7 @@ async fn run_node(
+ 
+         "ldap_auth" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("ldap_auth {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("ldap_auth {} requires a connected input", ctx.node_id.0))?;
+             // Multi-uscita: output + reject → passa l'intera mappa (come filter).
+             super::nodes::ldap_auth::run(ctx, rx, outputs).await
+         }
+@@ -829,14 +829,14 @@ async fn run_node(
+ 
+         "http_request" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("http_request {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("http_request {} requires a connected input", ctx.node_id.0))?;
+             let tx = take_primary_output(&mut outputs);
+             super::nodes::http_request::run(ctx, rx, tx).await
+         }
+ 
+         "sink_file" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("sink_file {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("sink_file {} requires a connected input", ctx.node_id.0))?;
+             // signal/replay: il sink può emettere a valle DOPO la scrittura
+             let tx = take_primary_output(&mut outputs);
+             super::nodes::sink_file::run(ctx, rx, tx).await
+@@ -844,28 +844,28 @@ async fn run_node(
+ 
+         "sink_ftp" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("sink_ftp {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("sink_ftp {} requires a connected input", ctx.node_id.0))?;
+             let tx = take_primary_output(&mut outputs);
+             super::nodes::sink_ftp::run(ctx, rx, tx).await
+         }
+ 
+         "sink_mqtt" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("sink_mqtt {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("sink_mqtt {} requires a connected input", ctx.node_id.0))?;
+             let tx = take_primary_output(&mut outputs);
+             super::nodes::sink_mqtt::run(ctx, rx, tx).await
+         }
+ 
+         "sink_http" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("sink_http {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("sink_http {} requires a connected input", ctx.node_id.0))?;
+             let tx = take_primary_output(&mut outputs);
+             super::nodes::sink_http::run(ctx, rx, tx).await
+         }
+ 
+         "sink_db" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("sink_db {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("sink_db {} requires a connected input", ctx.node_id.0))?;
+             // Output opzionale: presente solo in master-detail (righe
+             // arricchite inoltrate); None per sink terminale.
+             let tx = take_primary_output(&mut outputs);
+@@ -874,13 +874,13 @@ async fn run_node(
+ 
+         "bridge_out" => {
+             let rx  = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("bridge_out {} richiede un input collegato", ctx.node_id.0))?;
+-            let btx = bridge_tx.ok_or_else(|| format!("bridge_out {}: bridge_id non trovato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("bridge_out {} requires a connected input", ctx.node_id.0))?;
++            let btx = bridge_tx.ok_or_else(|| format!("bridge_out {}: bridge_id not found", ctx.node_id.0))?;
+             super::bridge::run_bridge_out(ctx, rx, btx).await
+         }
+ 
+         "bridge_in" => {
+-            let brx = bridge_rx.ok_or_else(|| format!("bridge_in {}: bridge_id non trovato", ctx.node_id.0))?;
++            let brx = bridge_rx.ok_or_else(|| format!("bridge_in {}: bridge_id not found", ctx.node_id.0))?;
+             let tx  = take_primary_output(&mut outputs);
+             super::bridge::run_bridge_in(ctx, brx, tx).await
+         }
+@@ -903,7 +903,7 @@ async fn run_node(
+ 
+             let main_rx = inputs.remove("input_main")
+                 .or_else(|| take_single_input(&mut inputs))
+-                .ok_or_else(|| format!("tmap {} richiede input main collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("tmap {} requires a connected main input", ctx.node_id.0))?;
+ 
+             // Uscite: nell'ordine della config (main per primo).
+             // Uscita non collegata → drain, così il TMap non si
+@@ -945,7 +945,7 @@ async fn run_node(
+ 
+         "transform" | "transform_fields" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("transform {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("transform {} requires a connected input", ctx.node_id.0))?;
+             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+             super::nodes::transform::run(ctx, rx, tx).await
+         }
+@@ -979,7 +979,7 @@ async fn run_node(
+ 
+         "materialize" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("materialize {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("materialize {} requires a connected input", ctx.node_id.0))?;
+             // Multi-uscita: output + reject (righe troncate) → mappa intera.
+             super::nodes::materialize::run(ctx, rx, outputs).await
+         }
+@@ -999,7 +999,7 @@ async fn run_node(
+ 
+         "filter" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("filter {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("filter {} requires a connected input", ctx.node_id.0))?;
+             // First-match multi-uscita: riceve tutti gli handle (cond_* + reject)
+             super::nodes::filter::run(ctx, rx, outputs).await
+         }
+@@ -1026,7 +1026,7 @@ async fn run_node(
+ 
+         "data_quality" => {
+             let rx = take_single_input(&mut inputs)
+-                .ok_or_else(|| format!("data_quality {} richiede un input collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("data_quality {} requires a connected input", ctx.node_id.0))?;
+             let tx = take_primary_output(&mut outputs).unwrap_or_else(make_drain);
+             super::nodes::data_quality::run(ctx, rx, tx).await
+         }
+@@ -1043,7 +1043,7 @@ async fn run_node(
+         }
+         "union" => {
+             let tx = take_primary_output(&mut outputs)
+-                .ok_or_else(|| format!("union {} richiede un output collegato", ctx.node_id.0))?;
++                .ok_or_else(|| format!("union {} requires a connected output", ctx.node_id.0))?;
+ 
+             // L'ordine degli input determina l'ordine di `concat`.
+             // Non si può usare l'ordine del HashMap (non deterministico):
+@@ -1078,7 +1078,7 @@ async fn run_node(
+             }
+ 
+             if ordered.is_empty() {
+-                return Err(format!("union {}: nessun flusso collegato", ctx.node_id.0));
++                return Err(format!("union {}: no connected flow", ctx.node_id.0));
+             }
+ 
+             super::nodes::union::run(ctx, ordered, tx).await
+@@ -1178,6 +1178,6 @@ async fn run_node(
+             Ok(stats)
+         }
+ 
+-        other => Err(format!("Tipo nodo non supportato: {}", other))
++        other => Err(format!("Unsupported node type: {}", other))
+     }
+ }
+\ No newline at end of file
+diff --git a/src-tauri/src/engine/mod.rs b/src-tauri/src/engine/mod.rs
+index f4bb9ff..9d98cef 100644
+--- a/src-tauri/src/engine/mod.rs
++++ b/src-tauri/src/engine/mod.rs
+@@ -57,15 +57,15 @@ pub async fn engine_ping(delay_ms: u64) -> Result<String, String> {
+ pub async fn engine_ping_parallel(id: u32, delay_ms: u64) -> Result<String, String> {
+     let start = Instant::now();
+     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+-    Ok(format!("task #{id} completato dopo {}ms", start.elapsed().as_millis()))
++    Ok(format!("task #{id} completed after {}ms", start.elapsed().as_millis()))
+ }
+ 
+ #[cfg_attr(feature = "desktop", tauri::command)]
+ pub async fn engine_validate_plan(plan_json: String) -> Result<String, String> {
+     let plan: Plan = serde_json::from_str(&plan_json)
+-        .map_err(|e| format!("Plan non valido: {}", e))?;
++        .map_err(|e| format!("Invalid plan: {}", e))?;
+     Ok(format!(
+-        "Plan valido: run_id={}, {} lane, {} bridge",
++        "Valid plan: run_id={}, {} lanes, {} bridges",
+         plan.run_id.0, plan.lanes.len(), plan.bridges.len(),
+     ))
+ }
+@@ -103,7 +103,7 @@ pub async fn engine_test_bus(event_count: u32, interval_ms: u64) -> Result<Strin
+             elapsed_ms: event_count as u64 * interval_ms,
+         });
+     });
+-    Ok(format!("Test bus avviato: {} eventi ogni {}ms", event_count, interval_ms))
++    Ok(format!("Test bus started: {} events every {}ms", event_count, interval_ms))
+ }
+ 
+ // ── Fase 3-4 — engine_run con multi-lane e bridge ─────────────────
+@@ -111,7 +111,7 @@ pub async fn engine_test_bus(event_count: u32, interval_ms: u64) -> Result<Strin
+ #[cfg_attr(feature = "desktop", tauri::command)]
+ pub async fn engine_run(plan_json: String) -> Result<String, String> {
+     let plan: Plan = serde_json::from_str(&plan_json)
+-        .map_err(|e| format!("Plan non valido: {}", e))?;
++        .map_err(|e| format!("Invalid plan: {}", e))?;
+ 
+     let run_id     = plan.run_id.clone();
+     let run_id_str = run_id.0.clone();
+@@ -341,9 +341,9 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
+             // derivati, che è un'altra questione (l'errore di nodo
+             // strutturato).
+             let error = match lane_errors.len() {
+-                0 => "Errore sconosciuto".to_string(),
++                0 => "Unknown error".to_string(),
+                 1 => lane_errors.join(""),
+-                n => format!("{} lane fallite — {}", n, lane_errors.join("  |  ")),
++                n => format!("{} lanes failed — {}", n, lane_errors.join("  |  ")),
+             };
+             push_event(EngineEvent::RunFailed {
+                 run_id,
+@@ -400,7 +400,7 @@ pub async fn stop_run(run_id: String) -> Result<(), String> {
+     let tok = run_cancels().lock().unwrap().get(&run_id).cloned();
+     match tok {
+         Some(t) => { t.cancel(); Ok(()) }
+-        None    => Err(format!("run '{}' non trovato (gia' concluso?)", run_id)),
++        None    => Err(format!("run '{}' not found (already finished?)", run_id)),
+     }
+ }
+ 
+@@ -426,11 +426,11 @@ pub async fn engine_preview_node(
+ 
+     // 1) righe di mock → Vec<Row> (stessa conversione dei nodi sorgente)
+     let raw: Vec<serde_json::Value> = serde_json::from_str(&rows_json)
+-        .map_err(|e| format!("righe di prova non valide: {}", e))?;
++        .map_err(|e| format!("invalid test rows: {}", e))?;
+     let mut rows_in: Vec<Row> = Vec::with_capacity(raw.len());
+     for (i, v) in raw.into_iter().enumerate() {
+         let obj = v.as_object()
+-            .ok_or_else(|| format!("la riga {} non è un oggetto JSON", i + 1))?;
++            .ok_or_else(|| format!("row {} is not a JSON object", i + 1))?;
+         let mut map: HashMap<String, Value> = HashMap::new();
+         for (k, val) in obj {
+             map.insert(k.clone(), Value::from_json(val.clone()));
+@@ -442,7 +442,7 @@ pub async fn engine_preview_node(
+     let variables: HashMap<String, Value> = match variables_json {
+         Some(s) if !s.trim().is_empty() => {
+             let obj: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&s)
+-                .map_err(|e| format!("variabili di prova non valide: {}", e))?;
++                .map_err(|e| format!("invalid test variables: {}", e))?;
+             obj.into_iter().map(|(k, v)| (k, Value::from_json(v))).collect()
+         }
+         _ => HashMap::new(),
+@@ -450,7 +450,7 @@ pub async fn engine_preview_node(
+ 
+     // 3) spec compilato del nodo (stessa forma dell'esecutore)
+     let spec: serde_json::Value = serde_json::from_str(&spec_json)
+-        .map_err(|e| format!("spec del nodo non valido: {}", e))?;
++        .map_err(|e| format!("invalid node spec: {}", e))?;
+     let config = spec.get("config").cloned().unwrap_or(serde_json::Value::Null);
+ 
+     // 4) contesto ISOLATO: registri vuoti, nessun error handler
+@@ -492,7 +492,7 @@ pub async fn engine_preview_node(
+                 crate::engine::nodes::source_file::run(ctx, None, Some(tx_out)).await
+             })
+         }
+-        other => return Err(format!("anteprima non supportata per il nodo «{}»", other)),
++        other => return Err(format!("preview not supported for node '{}'", other)),
+     };
+ 
+     // Drena l'uscita fermandosi al tetto di righe: una sorgente ne produce
+@@ -512,9 +512,9 @@ pub async fn engine_preview_node(
+             Ok(Ok(_stats))             => {}
+             Ok(Err(e))                 => return Err(e),
+             Err(e) if e.is_cancelled() => {}
+-            Err(e)                     => return Err(format!("anteprima interrotta: {}", e)),
++            Err(e)                     => return Err(format!("preview interrupted: {}", e)),
+         }
+     }
+ 
+-    serde_json::to_string(&out).map_err(|e| format!("serializzazione uscita: {}", e))
++    serde_json::to_string(&out).map_err(|e| format!("output serialization: {}", e))
+ }
+diff --git a/src-tauri/src/engine/pool.rs b/src-tauri/src/engine/pool.rs
+index 723a0bf..a6a4054 100644
+--- a/src-tauri/src/engine/pool.rs
++++ b/src-tauri/src/engine/pool.rs
+@@ -122,7 +122,7 @@ impl LaneResources {
+                     // silenzio non si distingue da un blocco.
+                     if attempt > 0 {
+                         on_retry(format!(
+-                            "Connessione riuscita al tentativo {} di {}",
++                            "Connection succeeded on attempt {} of {}",
+                             attempt + 1, retries + 1,
+                         ));
+                     }
+@@ -132,7 +132,7 @@ impl LaneResources {
+                     if attempt >= retries {
+                         if retries > 0 {
+                             on_retry(format!(
+-                                "Connessione fallita dopo {} tentativi: {}",
++                                "Connection failed after {} attempts: {}",
+                                 retries + 1, e,
+                             ));
+                         }
+@@ -140,7 +140,7 @@ impl LaneResources {
+                     }
+                     attempt += 1;
+                     let msg = format!(
+-                        "Risorsa non disponibile ({}). Ritento {}/{} tra {}s",
++                        "Resource unavailable ({}). Retrying {}/{} in {}s",
+                         e, attempt, retries, delay_secs,
+                     );
+                     eprintln!("[pool] risorsa '{}': {}", resource_id, msg);
+@@ -178,7 +178,7 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
+                 .max_connections(max)
+                 .acquire_timeout(to)
+                 .connect(&params.conn_str).await
+-                .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
++                .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+             Ok(DbPool::Pg(pool))
+         }
+         "mysql" => {
+@@ -186,7 +186,7 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
+                 .max_connections(max)
+                 .acquire_timeout(to)
+                 .connect(&params.conn_str).await
+-                .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
++                .map_err(|e| format!("MySQL connection failed: {}", e))?;
+             Ok(DbPool::My(pool))
+         }
+         "sqlite" => {
+@@ -194,9 +194,9 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
+                 .max_connections(max)
+                 .acquire_timeout(to)
+                 .connect(&params.conn_str).await
+-                .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
++                .map_err(|e| format!("SQLite connection failed: {}", e))?;
+             Ok(DbPool::Sqlite(pool))
+         }
+-        d => Err(format!("Dialetto '{}' non supportato", d)),
++        d => Err(format!("Dialect '{}' not supported", d)),
+     }
+ }
+diff --git a/src-tauri/src/engine/spec.rs b/src-tauri/src/engine/spec.rs
+index 1a0b6bc..3593e3b 100644
+--- a/src-tauri/src/engine/spec.rs
++++ b/src-tauri/src/engine/spec.rs
+@@ -116,7 +116,7 @@ impl Spec {
+             .and_then(json_to_string)
+             .map(|s| s.trim().to_string())
+             .filter(|s| !s.is_empty())
+-            .ok_or_else(|| format!("campo obbligatorio '{}' mancante o vuoto", key))
++            .ok_or_else(|| format!("required field '{}' missing or empty", key))
+     }
+ 
+     /// Stringa con default (applicato anche se presente ma vuota).
+diff --git a/src-tauri/src/engine/txregistry.rs b/src-tauri/src/engine/txregistry.rs
+index e557e21..4d45db6 100644
+--- a/src-tauri/src/engine/txregistry.rs
++++ b/src-tauri/src/engine/txregistry.rs
+@@ -90,7 +90,7 @@ impl LaneTransactions {
+         let mut groups = self.groups.lock().await;
+         let run_id = self.run_id.clone();
+         let g = groups.get_mut(group_id)
+-            .ok_or_else(|| format!("transazione '{}' non dichiarata nella lane", group_id))?;
++            .ok_or_else(|| format!("transaction '{}' not declared in the lane", group_id))?;
+ 
+         // Native: vietato coinvolgere più risorse (servirebbe XA).
+         if !g.is_xa() && !g.conns.is_empty() && !g.conns.contains_key(resource_id) {
+@@ -106,9 +106,9 @@ impl LaneTransactions {
+         }
+ 
+         let mut conn = pool.acquire().await
+-            .map_err(|e| format!("tx '{}': acquire fallito ({}): {}", group_id, resource_id, e))?;
++            .map_err(|e| format!("tx '{}': acquire failed ({}): {}", group_id, resource_id, e))?;
+         sqlx::query("BEGIN").execute(&mut *conn).await
+-            .map_err(|e| format!("tx '{}': BEGIN fallito ({}): {}", group_id, resource_id, e))?;
++            .map_err(|e| format!("tx '{}': BEGIN failed ({}): {}", group_id, resource_id, e))?;
+ 
+         let shared: SharedConn = Arc::new(Mutex::new(conn));
+         g.conns.insert(resource_id.to_string(), shared.clone());
