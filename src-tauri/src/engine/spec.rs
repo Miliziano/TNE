@@ -80,8 +80,7 @@ impl Spec {
     pub fn from_ctx(spec: &Json) -> Result<Spec, String> {
         if spec.is_null() {
             return Err(
-                "spec mancante nel plan: lo studio deve emettere la busta \
-                 spec per ogni nodo (v. docs/node-spec.md §2)".to_string(),
+                "spec missing in the plan: the studio must emit the spec envelope for every node (see docs/node-spec.md §2)".to_string(),
             );
         }
         let props = spec.get("props")
@@ -116,7 +115,7 @@ impl Spec {
             .and_then(json_to_string)
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| format!("campo obbligatorio '{}' mancante o vuoto", key))
+            .ok_or_else(|| format!("required field '{}' missing or empty", key))
     }
 
     /// Stringa con default (applicato anche se presente ma vuota).

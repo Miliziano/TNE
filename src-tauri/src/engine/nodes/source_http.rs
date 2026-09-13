@@ -98,7 +98,7 @@ pub(crate) async fn auth_headers(spec: &Spec)
             // server. Handshake 401→Authorization gestito in execute_single_request.
         }
         other => {
-            return Err(format!("authType '{}' non riconosciuto", other));
+            return Err(format!("authType '{}' not recognized", other));
         }
     }
     Ok((headers, api_key_query))
@@ -140,13 +140,13 @@ async fn oauth2_cc_token(spec: &Spec) -> Result<String, String> {
     if !audience.is_empty() { form.push(("audience".into(), audience)); }
 
     let res = req.form(&form).send().await
-        .map_err(|e| format!("OAuth2 CC: richiesta token fallita: {}", e))?;
+        .map_err(|e| format!("OAuth2 CC: token request failed: {}", e))?;
     if !res.status().is_success() {
         return Err(format!("OAuth2 CC: token HTTP {}", res.status().as_u16()));
     }
-    let body: J = res.json().await.map_err(|e| format!("OAuth2 CC: risposta non JSON: {}", e))?;
+    let body: J = res.json().await.map_err(|e| format!("OAuth2 CC: non-JSON response: {}", e))?;
     let token = body.get("access_token").and_then(|v| v.as_str())
-        .ok_or("OAuth2 CC: 'access_token' assente")?.to_string();
+        .ok_or("OAuth2 CC: 'access_token' missing")?.to_string();
     let expires_in = body.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
 
     let map = OAUTH2_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
@@ -191,7 +191,7 @@ fn build_body(spec: &Spec, row: &Row, method: &str) -> Result<(Option<Vec<u8>>, 
             let ct    = spec.str_or("inputBinaryContentType", "application/octet-stream");
             let b64   = row.get(&field).map(|v| v.as_str_repr()).unwrap_or_default();
             let bytes = base64::engine::general_purpose::STANDARD.decode(b64.trim())
-                .map_err(|e| format!("body binary: base64 non valido nel campo '{}': {}", field, e))?;
+                .map_err(|e| format!("body binary: invalid base64 in field '{}': {}", field, e))?;
             Ok((Some(bytes), Some(ct)))
         }
         _ => Ok((None, None)),
@@ -253,7 +253,7 @@ pub(crate) async fn execute_single_request(
     }
 
     let m = reqwest::Method::from_bytes(method.as_bytes())
-        .map_err(|_| format!("metodo HTTP non valido: {}", method))?;
+        .map_err(|_| format!("invalid HTTP method: {}", method))?;
 
     // Retry
     let retry_count: u32 = spec.u64_or("retryCount", 0) as u32;
@@ -317,7 +317,7 @@ pub(crate) async fn execute_single_request(
                     tokio::time::sleep(Duration::from_secs(retry_delay)).await;
                     continue;
                 }
-                return Err(format!("HTTP fallita dopo {} tentativi: {}", retry_count + 1, last_err));
+                return Err(format!("HTTP failed after {} attempts: {}", retry_count + 1, last_err));
             }
         }
     }
@@ -344,7 +344,7 @@ pub(crate) async fn process_response(res: reqwest::Response, spec: &Spec, t0: In
     let response_type = spec.str_or("responseType", "json");
     match response_type.as_str() {
         "json" => {
-            let text = res.text().await.map_err(|e| format!("lettura risposta: {}", e))?;
+            let text = res.text().await.map_err(|e| format!("response read: {}", e))?;
             let parsed: J = serde_json::from_str(&text).unwrap_or(J::Null);
             let target = resolve_json_path(&parsed, &spec.str_or("jsonPath", "$")).unwrap_or(J::Null);
             let items: Vec<J> = match target {
@@ -375,7 +375,7 @@ pub(crate) async fn process_response(res: reqwest::Response, spec: &Spec, t0: In
             Ok(out)
         }
         "json_raw" => {
-            let text = res.text().await.map_err(|e| format!("lettura risposta: {}", e))?;
+            let text = res.text().await.map_err(|e| format!("response read: {}", e))?;
             let parsed: J = serde_json::from_str(&text).unwrap_or(J::Null);
             let mut row = Row::new();
             fixed(&mut row);
@@ -384,7 +384,7 @@ pub(crate) async fn process_response(res: reqwest::Response, spec: &Spec, t0: In
             Ok(vec![row])
         }
         "binary" | "pdf" => {
-            let bytes = res.bytes().await.map_err(|e| format!("lettura risposta: {}", e))?;
+            let bytes = res.bytes().await.map_err(|e| format!("response read: {}", e))?;
             let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
             let mut row = Row::new();
             fixed(&mut row);
@@ -394,7 +394,7 @@ pub(crate) async fn process_response(res: reqwest::Response, spec: &Spec, t0: In
         }
         _ => {
             // text / xml / csv / default
-            let body = res.text().await.map_err(|e| format!("lettura risposta: {}", e))?;
+            let body = res.text().await.map_err(|e| format!("response read: {}", e))?;
             let mut row = Row::new();
             fixed(&mut row);
             row.set("body".into(), Value::String(body));
@@ -564,7 +564,7 @@ pub(crate) async fn execute_with_pagination(
 
         all.extend(page_rows);
         ctx.emit_log(&ctx.label, "info", 0,
-            format!("HTTP paginazione {} pagina {}: {} righe", pagination, page_num, got), "panel");
+            format!("HTTP pagination {} page {}: {} rows", pagination, page_num, got), "panel");
         if !has_more { break; }
     }
     Ok(all)
@@ -593,7 +593,7 @@ pub async fn run(
     spec.log_unconsumed("source_http", &ctx.node_id.0);
 
     if spec.str_or("url", "").trim().is_empty() {
-        let msg = format!("source_http {}: URL non configurato", ctx.node_id.0);
+        let msg = format!("source_http {}: URL not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -641,7 +641,7 @@ pub async fn run(
                     ctx.emit_failed(msg.clone());
                     return Err(msg);
                 }
-                ctx.emit_log(&ctx.label, "error", 0, format!("HTTP errore su una riga: {}", e), "panel");
+                ctx.emit_log(&ctx.label, "error", 0, format!("HTTP row error: {}", e), "panel");
                 let mut er = Row::new();
                 er.set("status_code".into(),  Value::Int(0));
                 er.set("content_type".into(), Value::String(String::new()));

@@ -38,7 +38,7 @@ pub async fn run(
     let start = Instant::now();
 
     if rows.is_empty() {
-        ctx.emit_log(&ctx.label, "warn", 0, "Kafka Sink: nessuna riga in ingresso".to_string(), "panel");
+        ctx.emit_log(&ctx.label, "warn", 0, "Kafka Sink: no input row".to_string(), "panel");
         let stats = NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
         ctx.emit_completed(stats.clone());
         return Ok(stats);
@@ -47,8 +47,7 @@ pub async fn run(
     // ── Nativo non disponibile (fase 1) ──────────────────────────
     if rest_proxy.is_empty() {
         ctx.emit_log(&ctx.label, "warn", 0, format!(
-            "Kafka Sink [{}]: il protocollo nativo Kafka non è disponibile in fase 1 (richiede librdkafka). \
-             Configura una REST Proxy URL nel pannello per pubblicare. In fase 2 verrà generato codice nativo.",
+            "Kafka Sink [{}]: the native Kafka protocol is not available in phase 1 (requires librdkafka). Configure a REST Proxy URL in the panel to publish. In phase 2 native code will be generated.",
             topic
         ), "panel");
         let mut row = Row::new();
@@ -102,10 +101,10 @@ pub async fn run(
             .header("Accept", "application/vnd.kafka.v2+json")
             .json(&serde_json::json!({ "records": batch }))
             .send().await
-            .map_err(|e| { let m = format!("Kafka REST Sink: invio batch — {}", e); ctx.emit_failed(m.clone()); m })?;
+            .map_err(|e| { let m = format!("Kafka REST Sink: batch send — {}", e); ctx.emit_failed(m.clone()); m })?;
         if !res.status().is_success() {
             let body = res.text().await.unwrap_or_default();
-            let msg = format!("Kafka REST Sink: errore invio batch — {}", body);
+            let msg = format!("Kafka REST Sink: batch send error — {}", body);
             ctx.emit_failed(msg.clone());
             return Err(msg);
         }

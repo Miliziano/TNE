@@ -100,8 +100,7 @@ pub async fn run(
     spec.log_unconsumed("sink_file", &ctx.node_id.0);
 
     if config.path.trim().is_empty() {
-        return Err(format!("sink_file {}: percorso del file di output non \
-                            specificato.", ctx.node_id.0));
+        return Err(format!("sink_file {}: output file path not specified.", ctx.node_id.0));
     }
 
     let format       = config.format.as_deref().unwrap_or("csv").to_string();
@@ -146,9 +145,7 @@ pub async fn run(
     // ── Formati non implementabili in rows mode ────────────────────
     if !effective_raw && matches!(format.as_str(), "excel" | "parquet" | "orc" | "avro") {
         return Err(format!(
-            "sink_file {}: il formato '{}' non è ancora supportato dal motore Rust. \
-             Usa csv/tsv/json/jsonl/xml, oppure la modalità 'valore di un campo' \
-             (es. Report Generator → excel_b64).", ctx.node_id.0, format));
+            "sink_file {}: format '{}' is not yet supported by the Rust engine. Use csv/tsv/json/jsonl/xml, or the 'field value' mode (e.g. Report Generator → excel_b64).", ctx.node_id.0, format));
     }
 
     // ── Apertura file secondo mode ─────────────────────────────────
@@ -156,7 +153,7 @@ pub async fn run(
     let append = mode == "append";
     if (mode == "new" || mode == "error") && exists {
         return Err(format!(
-            "sink_file {}: il file '{}' esiste già (modalità '{}')",
+            "sink_file {}: file '{}' already exists (mode '{}')",
             ctx.node_id.0, config.path, mode));
     }
 
@@ -164,10 +161,10 @@ pub async fn run(
         std::fs::OpenOptions::new()
             .append(true).create(true)
             .open(&config.path)
-            .map_err(|e| format!("Impossibile aprire '{}' in append: {}", config.path, e))?
+            .map_err(|e| format!("Cannot open '{}' in append: {}", config.path, e))?
     } else {
         File::create(&config.path)
-            .map_err(|e| format!("Impossibile creare '{}': {}", config.path, e))?
+            .map_err(|e| format!("Cannot create '{}': {}", config.path, e))?
     };
     let mut writer = BufWriter::new(file);
 
@@ -204,11 +201,11 @@ pub async fn run(
             if raw_b64 {
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(val.trim())
-                    .map_err(|e| format!("sink_file {}: base64 non valido nel campo '{}' (riga {}): {}",
+                    .map_err(|e| format!("sink_file {}: invalid base64 in field '{}' (row {}): {}",
                         ctx.node_id.0, raw_field, rows_in, e))?;
                 bytes_written += bytes.len() as u64;
                 writer.write_all(&bytes)
-                    .map_err(|e| format!("Errore scrittura binaria riga {}: {}", rows_in, e))?;
+                    .map_err(|e| format!("Binary write error row {}: {}", rows_in, e))?;
             } else {
                 write_str(&mut writer, &val, &mut bytes_written)?;
                 write_str(&mut writer, ending, &mut bytes_written)?;
@@ -279,7 +276,7 @@ pub async fn run(
         let should_progress = rows_in % PROGRESS_EVERY_ROWS == 0
             || last_progress.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
         if should_progress {
-            writer.flush().map_err(|e| format!("Errore flush: {}", e))?;
+            writer.flush().map_err(|e| format!("Flush error: {}", e))?;
             let elapsed_secs = start.elapsed().as_secs_f64();
             let rps = if elapsed_secs > 0.0 { rows_in as f64 / elapsed_secs } else { 0.0 };
             ctx.emit_progress(rows_in, rows_written, 0, rps);
@@ -299,7 +296,7 @@ pub async fn run(
         }
     }
 
-    writer.flush().map_err(|e| format!("Errore flush finale: {}", e))?;
+    writer.flush().map_err(|e| format!("Final flush error: {}", e))?;
     let elapsed_ms = start.elapsed().as_millis() as u64;
 
     // ── Output a valle — SOLO dopo la scrittura completa ──────────
@@ -338,7 +335,7 @@ pub async fn run(
 
 pub(crate) fn write_str<W: Write>(w: &mut W, s: &str, bytes: &mut u64) -> Result<(), String> {
     *bytes += s.len() as u64;
-    w.write_all(s.as_bytes()).map_err(|e| format!("Errore scrittura: {}", e))
+    w.write_all(s.as_bytes()).map_err(|e| format!("Write error: {}", e))
 }
 
 pub(crate) fn row_to_json(row: &Row) -> serde_json::Value {

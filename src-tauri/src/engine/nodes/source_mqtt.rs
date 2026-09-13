@@ -53,8 +53,7 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("source_mqtt {}: {}", ctx.node_id.0, e))?;
     if !spec.has_resource() {
-        let msg = format!("source_mqtt {}: nessuna risorsa MQTT configurata \
-                           (selezionare un broker nel pannello del nodo)", ctx.node_id.0);
+        let msg = format!("source_mqtt {}: no MQTT resource configured (select a broker in the node panel)", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -88,7 +87,7 @@ pub async fn run(
         }
     };
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("MQTT: ricevuti {} messaggi", messages.len()), "panel");
+        format!("MQTT: received {} messages", messages.len()), "panel");
 
     let mut rows_out = 0u64;
     for msg in messages {

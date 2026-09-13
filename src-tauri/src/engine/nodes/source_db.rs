@@ -81,11 +81,10 @@ fn default_port(dialect: &str) -> u16 {
 fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
     // Strutture compilate dalla busta config (calco: aggregate.rs:88).
     let st: SourceDbConfigStruct = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("config strutturata non valida (queryCompiled): {}", e))?;
+        .map_err(|e| format!("invalid structured config (queryCompiled): {}", e))?;
 
     if !spec.has_resource() {
-        return Err("nessuna risorsa DB collegata (selezionare una \
-                    connessione nel pannello del nodo)".to_string());
+        return Err("no DB resource connected (select a connection in the node panel)".to_string());
     }
 
     let dialect = spec.res_str_or("dialect", "postgresql");
@@ -101,7 +100,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         custom
     } else {
         let table = spec.str_req("table")
-            .map_err(|_| "specificare una tabella o una query SQL".to_string())?;
+            .map_err(|_| "specify a table or an SQL query".to_string())?;
         let schema = spec.str_or("querySchema", "public");
         let qualified = if !schema.is_empty() && schema != "public" {
             format!("{}.{}", schema, table)
@@ -182,8 +181,7 @@ fn resolve_binds(
     }
     let Some(row) = params else {
         return Err(format!(
-            "source_db {}: la query usa i parametri [{}] ma al nodo non è arrivata \
-             nessuna riga in ingresso. Collega a monte il nodo che li calcola.",
+            "source_db {}: the query uses parameters [{}] but no input row reached the node. Connect upstream the node that computes them.",
             node_id, compiled.binds.join(", ")
         ));
     };
@@ -195,8 +193,7 @@ fn resolve_binds(
                 let mut avail: Vec<&str> = row.0.keys().map(|k| k.as_str()).collect();
                 avail.sort_unstable();
                 return Err(format!(
-                    "source_db {}: la query usa il parametro `${{{}}}` ma la riga in \
-                     ingresso non ha quel campo. Campi arrivati: {}",
+                    "source_db {}: the query uses the parameter `${{{}}}` but the input row does not have that field. Fields received: {}",
                     node_id, name,
                     if avail.is_empty() { "(nessuno)".to_string() } else { avail.join(", ") }
                 ));
@@ -269,7 +266,7 @@ fn connection_string(c: &SourceDbConfig) -> Result<String, String> {
             c.host, c.port, c.database
         )),
         "sqlite" => Ok(format!("sqlite:{}", c.database)),
-        d => Err(format!("Dialetto '{}' non supportato", d)),
+        d => Err(format!("Dialect '{}' not supported", d)),
     }
 }
 
@@ -324,9 +321,7 @@ pub async fn run(
             let holes = c.sql.matches('?').count();
             if holes != c.binds.len() {
                 return Err(format!(
-                    "source_db {}: la query ha {} punti interrogativi ma {} parametri \
-                     dichiarati. Un `?` scritto a mano in una query con parametri non è \
-                     distinguibile da un segnaposto: toglilo, o usa `${{campo}}`.",
+                    "source_db {}: the query has {} question marks but {} declared parameters. A `?` typed by hand in a parametrized query is not distinguishable from a placeholder: remove it, or use `${{field}}`.",
                     ctx.node_id.0, holes, c.binds.len()
                 ));
             }
@@ -486,7 +481,7 @@ async fn run_pg(
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
-            .map_err(|e| format!("PostgreSQL errore riga {}: {}", *rows_out + 1, e))?;
+            .map_err(|e| format!("PostgreSQL row error {}: {}", *rows_out + 1, e))?;
 
         let mut engine_row = Row::new();
         for (i, col) in row.columns().iter().enumerate() {
@@ -525,7 +520,7 @@ async fn run_mysql(
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
-            .map_err(|e| format!("MySQL errore riga {}: {}", *rows_out + 1, e))?;
+            .map_err(|e| format!("MySQL row error {}: {}", *rows_out + 1, e))?;
 
         let mut engine_row = Row::new();
         for col in row.columns() {
@@ -566,7 +561,7 @@ async fn run_sqlite(
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
-            .map_err(|e| format!("SQLite errore riga {}: {}", *rows_out + 1, e))?;
+            .map_err(|e| format!("SQLite row error {}: {}", *rows_out + 1, e))?;
 
         let mut engine_row = Row::new();
         for col in row.columns() {

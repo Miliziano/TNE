@@ -263,7 +263,7 @@ pub async fn run(
     let directory = directory.trim_end_matches('/').to_string();
 
     if directory.is_empty() {
-        let msg = format!("dir_watcher {}: directory non configurata", ctx.node_id.0);
+        let msg = format!("dir_watcher {}: directory not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }

@@ -29,7 +29,7 @@ pub async fn run(
     spec.log_unconsumed("sink_http", &ctx.node_id.0);
 
     if spec.str_or("url", "").trim().is_empty() {
-        let msg = format!("sink_http {}: URL non configurato", ctx.node_id.0);
+        let msg = format!("sink_http {}: URL not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -49,9 +49,9 @@ pub async fn run(
             Err(e) => {
                 errors += 1;
                 ctx.emit_log(&ctx.label, "error", 0,
-                    format!("HTTP: invio riga {} fallito — {}", rows_in, e), "panel");
+                    format!("HTTP: sending row {} failed — {}", rows_in, e), "panel");
                 if errors > MAX_ERRORS {
-                    let msg = format!("sink_http {}: troppi errori di invio ({})", ctx.node_id.0, errors);
+                    let msg = format!("sink_http {}: too many send errors ({})", ctx.node_id.0, errors);
                     ctx.emit_failed(msg.clone());
                     return Err(msg);
                 }
@@ -60,7 +60,7 @@ pub async fn run(
     }
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("HTTP: {} inviate, {} errori", sent, errors), "panel");
+        format!("HTTP: {} sent, {} errors", sent, errors), "panel");
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
 

@@ -50,9 +50,7 @@ fn serialize_rows(rows: &[Row], o: &SerOpts) -> Result<Vec<u8>, String> {
     if o.effective_raw {
         // Modalità raw: scrive il valore di un campo per riga.
         if o.raw_b64 {
-            return Err("sink_ftp: la modalità raw base64 (binari, es. excel_b64) non è \
-                        ancora supportata su FTP in v1 — `ftp_write` accetta testo. \
-                        Usa un formato testuale (html/csv/json) o un sink_file locale.".to_string());
+            return Err("sink_ftp: raw base64 mode (binaries, e.g. excel_b64) is not yet supported on FTP in v1 — `ftp_write` accepts text. Use a text format (html/csv/json) or a local sink_file.".to_string());
         }
         for row in rows {
             let val = row.get(&o.raw_field).map(|v| v.as_str_repr()).unwrap_or_default();
@@ -148,8 +146,7 @@ pub async fn run(
 
     if !spec.has_resource() {
         let msg = format!(
-            "sink_ftp {}: nessuna risorsa FTP configurata \
-             (selezionare una connessione nel pannello del nodo)", ctx.node_id.0);
+            "sink_ftp {}: no FTP resource configured (select a connection in the node panel)", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -158,7 +155,7 @@ pub async fn run(
     let conn        = build_conn(&spec);
     let remote_path = spec.str_or("remotePath", "");
     if remote_path.trim().is_empty() {
-        let msg = format!("sink_ftp {}: percorso remoto (remotePath) non specificato", ctx.node_id.0);
+        let msg = format!("sink_ftp {}: remote path (remotePath) not specified", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -215,7 +212,7 @@ pub async fn run(
     };
     let content = String::from_utf8(bytes)
         .map_err(|e| {
-            let msg = format!("sink_ftp {}: contenuto non UTF-8: {}", ctx.node_id.0, e);
+            let msg = format!("sink_ftp {}: non-UTF-8 content: {}", ctx.node_id.0, e);
             ctx.emit_failed(msg.clone());
             msg
         })?;
@@ -228,7 +225,7 @@ pub async fn run(
     // ── Scrittura remota (fonte unica: ftp_write_impl) ────────────
     if let Err(e) = ftp_write_impl(conn.clone(), remote_path.clone(),
                                    content, Some(create_dirs), Some(atomic)).await {
-        let msg = format!("sink_ftp {}: scrittura di '{}' fallita: {}", ctx.node_id.0, remote_path, e);
+        let msg = format!("sink_ftp {}: writing '{}' failed: {}", ctx.node_id.0, remote_path, e);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }

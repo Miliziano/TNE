@@ -23,7 +23,7 @@ pub async fn run(
     spec.log_unconsumed("http_request", &ctx.node_id.0);
 
     if spec.str_or("url", "").trim().is_empty() {
-        let msg = format!("http_request {}: URL non configurato", ctx.node_id.0);
+        let msg = format!("http_request {}: URL not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -62,7 +62,7 @@ pub async fn run(
             Err(e) => {
                 // Resilienza per-riga: una riga d'errore, si continua.
                 errors += 1;
-                ctx.emit_log(&ctx.label, "error", 0, format!("HTTP errore su una riga: {}", e), "panel");
+                ctx.emit_log(&ctx.label, "error", 0, format!("HTTP row error: {}", e), "panel");
                 let mut er = Row::new();
                 er.set("status_code".into(),  Value::Int(0));
                 er.set("content_type".into(), Value::String(String::new()));

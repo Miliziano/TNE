@@ -110,8 +110,7 @@ fn opt_nonempty(s: String) -> Option<String> {
 
 fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
     if !spec.has_resource() {
-        return Err("nessuna risorsa DB collegata (selezionare una \
-                    connessione nel pannello del nodo)".to_string());
+        return Err("no DB resource connected (select a connection in the node panel)".to_string());
     }
 
     let dialect = spec.res_str_or("dialect", "postgresql");
@@ -155,8 +154,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
     let mode = spec.str_or("mode", "insert");
     if matches!(mode.as_str(), "update" | "upsert" | "delete") && key_fields.is_none() {
         return Err(format!(
-            "modalità '{}' richiede almeno un campo chiave: nel mapping del sink \
-             marca una o più colonne come 'chiave' (badge blu), non come PK",
+            "mode '{}' requires at least one key field: in the sink mapping mark one or more columns as 'key' (blue badge), not as PK",
             mode
         ));
     }
@@ -245,18 +243,17 @@ pub async fn run(
     // Master-detail richiede insert/upsert (serve una chiave generata).
     if config.passthrough_md && !matches!(config.mode.as_str(), "insert" | "upsert" | "truncate_insert") {
         return Err(format!(
-            "sink_db {}: master-detail richiede modalità insert/upsert (non '{}')",
+            "sink_db {}: master-detail requires insert/upsert mode (not '{}')",
             ctx.node_id.0, config.mode
         ));
     }
     if config.passthrough_md && tx.is_none() {
         ctx.emit_log(&ctx.label, "warn", 0,
-            "[sink_db] master-detail attivo ma nessun nodo a valle: le righe \
-             arricchite non vanno da nessuna parte".to_string(), "panel");
+            "[sink_db] master-detail active but no downstream node: the enriched rows go nowhere".to_string(), "panel");
     }
     if config.passthrough_md {
         ctx.emit_log(&ctx.label, "info", 0,
-            "[sink_db] master-detail: scrittura riga-per-riga (performance ridotta)".to_string(), "panel");
+            "[sink_db] master-detail: row-by-row write (reduced performance)".to_string(), "panel");
     }
 
     let resource_id = config.resource_id.clone();
@@ -478,7 +475,7 @@ async fn write_all_tx(
             let mut guard = conn.lock().await;
             match sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
                 Ok(_) => {}
-                Err(e) => { write_result = Err(format!("SAVEPOINT fallito: {}", e)); break 'outer; }
+                Err(e) => { write_result = Err(format!("SAVEPOINT failed: {}", e)); break 'outer; }
             }
             let req = build_tx_req(config, &buf);
             let r = crate::pg_write_conn(&mut **guard, &req, Instant::now()).await
@@ -587,7 +584,7 @@ async fn write_master_detail_tx(
         let chunk_res: Result<(), String> = {
             let mut guard = conn.lock().await;
             if let Err(e) = sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
-                write_result = Err(format!("SAVEPOINT fallito: {}", e));
+                write_result = Err(format!("SAVEPOINT failed: {}", e));
                 break 'outer;
             }
 
@@ -676,19 +673,19 @@ async fn tx_ddl_and_presql(
         let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
         eprintln!("[tx][ddl] {}", drop);
         sqlx::query(&drop).execute(&mut **guard).await
-            .map_err(|e| format!("DROP TABLE fallito: {}", e))?;
+            .map_err(|e| format!("DROP TABLE failed: {}", e))?;
     }
     if needs_ddl {
         if let Some(ddl) = build_create_table(config) {
             eprintln!("[tx][ddl] CREATE TABLE {}", qualified_ddl_table(config));
             sqlx::query(&ddl).execute(&mut **guard).await
-                .map_err(|e| format!("CREATE TABLE fallito: {}", e))?;
+                .map_err(|e| format!("CREATE TABLE failed: {}", e))?;
         }
     }
     if !config.pre_sql.trim().is_empty() {
         for stmt in config.pre_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
             sqlx::query(stmt).execute(&mut **guard).await
-                .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
+                .map_err(|e| format!("Pre-SQL failed: {}", e))?;
         }
     }
     Ok(())
@@ -703,7 +700,7 @@ async fn tx_postsql(
     let mut guard = conn.lock().await;
     for stmt in config.post_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
         sqlx::query(stmt).execute(&mut **guard).await
-            .map_err(|e| format!("Post-SQL fallito: {}", e))?;
+            .map_err(|e| format!("Post-SQL failed: {}", e))?;
     }
     Ok(())
 }
@@ -988,7 +985,7 @@ fn build_conn_str(config: &SinkDbConfig) -> Result<String, String> {
             urlencoding::encode(&config.user), urlencoding::encode(&config.password),
             config.host, config.port, config.database)),
         "sqlite" => Ok(format!("sqlite:{}", config.database)),
-        d => Err(format!("Dialetto '{}' non supportato", d)),
+        d => Err(format!("Dialect '{}' not supported", d)),
     }
 }
 
@@ -1022,7 +1019,7 @@ async fn exec_pre_post(
             DbPool::My(p)     => sqlx::query(stmt).execute(p).await.map(|_| ()),
             DbPool::Sqlite(p) => sqlx::query(stmt).execute(p).await.map(|_| ()),
         };
-        res.map_err(|e| format!("{} fallito: {}", label, e))?;
+        res.map_err(|e| format!("{} failed: {}", label, e))?;
     }
     Ok(())
 }

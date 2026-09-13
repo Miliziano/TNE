@@ -133,16 +133,16 @@ async fn fetch_entity(
 ) -> Result<u64, String> {
     let (path, extra_query) = match entity {
         "issues" => {
-            if owner.is_empty() || repo.is_empty() { return Err("owner/repo mancanti".to_string()); }
+            if owner.is_empty() || repo.is_empty() { return Err("owner/repo missing".to_string()); }
             (format!("/repos/{}/{}/issues", owner, repo), format!("&state={}", state))
         }
         "commits" => {
-            if owner.is_empty() || repo.is_empty() { return Err("owner/repo mancanti".to_string()); }
+            if owner.is_empty() || repo.is_empty() { return Err("owner/repo missing".to_string()); }
             let q = if branch.is_empty() { String::new() } else { format!("&sha={}", branch) };
             (format!("/repos/{}/{}/commits", owner, repo), q)
         }
         _ => {
-            if owner.is_empty() { return Err("owner mancante".to_string()); }
+            if owner.is_empty() { return Err("owner missing".to_string()); }
             let seg = if owner_type == "user" { "users" } else { "orgs" };
             (format!("/{}/{}/repos", seg, owner), String::new())
         }
@@ -162,7 +162,7 @@ async fn fetch_entity(
             req = req.bearer_auth(token.trim());
         }
 
-        let resp = req.send().await.map_err(|e| format!("richiesta fallita — {}", e))?;
+        let resp = req.send().await.map_err(|e| format!("request failed — {}", e))?;
         let status = resp.status();
         let has_next = resp.headers().get("link")
             .and_then(|h| h.to_str().ok())
@@ -173,16 +173,16 @@ async fn fetch_entity(
             let code = status.as_u16();
             return Err(match code {
                 403 => "rate limit o accesso negato (403)".to_string(),
-                404 => "non trovato (404)".to_string(),
-                401 => "token non valido (401)".to_string(),
+                404 => "not found (404)".to_string(),
+                401 => "invalid token (401)".to_string(),
                 _   => format!("HTTP {}", code),
             });
         }
 
-        let body: Json = resp.json().await.map_err(|e| format!("JSON non valido — {}", e))?;
+        let body: Json = resp.json().await.map_err(|e| format!("invalid JSON — {}", e))?;
         let arr = match body {
             Json::Array(a) => a,
-            _ => return Err("risposta inattesa (atteso un array)".to_string()),
+            _ => return Err("unexpected response (expected an array)".to_string()),
         };
         if arr.is_empty() { break; }
 
@@ -254,7 +254,7 @@ pub async fn run(
             while let Some(r) = rxc.recv().await { input.push(r); }
         }
         ctx.emit_log(&ctx.label, "info", 0,
-            format!("GitHub per-riga: {} — {} target", entity, input.len()), "panel");
+            format!("GitHub per-row: {} — {} target", entity, input.len()), "panel");
 
         for row in &input {
             if ctx.cancel.is_cancelled() { break; }
@@ -287,7 +287,7 @@ pub async fn run(
     }
 
     ctx.emit_log(&ctx.label, "ok", 0,
-        format!("GitHub {}: {} righe in {}ms", entity, rows_out, start.elapsed().as_millis()), "panel");
+        format!("GitHub {}: {} rows in {}ms", entity, rows_out, start.elapsed().as_millis()), "panel");
 
     let stats = NodeStats {
         rows_in: 0, rows_out, rows_rejected: 0,

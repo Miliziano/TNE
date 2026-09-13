@@ -102,8 +102,7 @@ pub async fn run(
 
     if !spec.has_resource() {
         let msg = format!(
-            "source_ftp {}: nessuna risorsa FTP configurata \
-             (selezionare una connessione nel pannello del nodo)", ctx.node_id.0);
+            "source_ftp {}: no FTP resource configured (select a connection in the node panel)", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -134,7 +133,7 @@ pub async fn run(
     let entries = match ftp_list_impl(conn.clone(), remote_path.clone(), pattern.clone(), Some(false)).await {
         Ok(e) => e,
         Err(e) => {
-            let msg = format!("source_ftp {}: lista di '{}' fallita: {}", ctx.node_id.0, remote_path, e);
+            let msg = format!("source_ftp {}: listing of '{}' failed: {}", ctx.node_id.0, remote_path, e);
             ctx.emit_failed(msg.clone());
             return Err(msg);
         }
@@ -142,7 +141,7 @@ pub async fn run(
 
     if entries.is_empty() {
         ctx.emit_log(&ctx.label, "warn", 0,
-            format!("FTP: nessun file in '{}'", remote_path), "panel");
+            format!("FTP: no file in '{}'", remote_path), "panel");
     }
 
     // ── Modalità LISTA FILE — metadati, niente download ───────────
@@ -179,7 +178,7 @@ pub async fn run(
         let content = match ftp_read_impl(conn.clone(), file.path.clone()).await {
             Ok(c) => c,
             Err(e) => {
-                let detail = format!("FTP: errore su {} — {}", file.name, e);
+                let detail = format!("FTP: error on {} — {}", file.name, e);
                 if on_file_err == "stop" {
                     let msg = format!("source_ftp {}: {}", ctx.node_id.0, detail);
                     ctx.emit_failed(msg.clone());

@@ -47,10 +47,8 @@ pub async fn run(
     // ── Nativo non disponibile (fase 1) ──────────────────────────
     if rest_proxy.is_empty() {
         ctx.emit_log(&ctx.label, "warn", 0, format!(
-            "Kafka Source [{}]: il protocollo nativo Kafka non è disponibile in fase 1 (richiede librdkafka). \
-             Configura una REST Proxy URL nel pannello per testare, oppure usa una sorgente File/Script. \
-             In fase 2 verrà generato codice nativo.",
-            if topics.is_empty() { "topic non configurato" } else { &topics }
+            "Kafka Source [{}]: the native Kafka protocol is not available in phase 1 (requires librdkafka). Configure a REST Proxy URL in the panel to test, or use a File/Script source. In phase 2 native code will be generated.",
+            if topics.is_empty() { "topic not configured" } else { &topics }
         ), "panel");
         let stats = NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
         ctx.emit_completed(stats.clone());
@@ -60,7 +58,7 @@ pub async fn run(
     // ── REST Proxy (Confluent) ───────────────────────────────────
     let topic_list: Vec<String> = topics.split(',').map(|t| t.trim().to_string()).filter(|t| !t.is_empty()).collect();
     if topic_list.is_empty() {
-        let msg = format!("source_kafka {}: nessun topic configurato", ctx.node_id.0);
+        let msg = format!("source_kafka {}: no topic configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -85,18 +83,18 @@ pub async fn run(
         .header("Content-Type", "application/vnd.kafka.v2+json")
         .header("Accept", "application/vnd.kafka.v2+json")
         .json(&create_body).send().await
-        .map_err(|e| { let m = format!("Kafka REST: creazione consumer — {}", e); ctx.emit_failed(m.clone()); m })?;
+        .map_err(|e| { let m = format!("Kafka REST: consumer creation — {}", e); ctx.emit_failed(m.clone()); m })?;
     if !inst_res.status().is_success() {
         let body = inst_res.text().await.unwrap_or_default();
-        let msg = format!("Kafka REST: errore creazione consumer — {}", body);
+        let msg = format!("Kafka REST: consumer creation error — {}", body);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
     let instance: serde_json::Value = inst_res.json().await
-        .map_err(|e| format!("Kafka REST: risposta consumer non valida — {}", e))?;
+        .map_err(|e| format!("Kafka REST: invalid consumer response — {}", e))?;
     let instance_url = instance.get("base_uri").and_then(|v| v.as_str()).unwrap_or("").to_string();
     if instance_url.is_empty() {
-        let msg = "Kafka REST: base_uri mancante nella risposta del consumer".to_string();
+        let msg = "Kafka REST: base_uri missing in the consumer response".to_string();
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -159,10 +157,10 @@ async fn poll_records(
         .map_err(|e| format!("fetch — {}", e))?;
     if !rec_res.status().is_success() {
         let body = rec_res.text().await.unwrap_or_default();
-        return Err(format!("errore fetch — {}", body));
+        return Err(format!("fetch error — {}", body));
     }
     let records: Vec<serde_json::Value> = rec_res.json().await
-        .map_err(|e| format!("record non validi — {}", e))?;
+        .map_err(|e| format!("invalid records — {}", e))?;
 
     let mut rows_out = 0u64;
     for r in records.iter().take(max_messages) {

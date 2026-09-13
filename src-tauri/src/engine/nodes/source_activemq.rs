@@ -97,7 +97,7 @@ pub async fn run(
     };
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("ActiveMQ Consumer: ricevuti {} messaggi", messages.len()), "panel");
+        format!("ActiveMQ Consumer: received {} messages", messages.len()), "panel");
 
     let mut rows_out = 0u64;
     for msg in &messages {

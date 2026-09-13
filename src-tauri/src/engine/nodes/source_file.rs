@@ -64,7 +64,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceFileConfig, String> {
     let fields: Vec<FieldType> =
         serde_json::from_value(
             spec.config().get("fields").cloned().unwrap_or(serde_json::json!([]))
-        ).map_err(|e| format!("schema campi non valido: {}", e))?;
+        ).map_err(|e| format!("invalid fields schema: {}", e))?;
 
     // delimiter: prima char di una stringa (default ',').
     let delim_str = spec.str_or("delimiter", ",");
@@ -139,7 +139,7 @@ pub async fn run(
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(e) => {
-                let msg = format!("source_file {}: impossibile leggere '{}': {}",
+                let msg = format!("source_file {}: cannot read '{}': {}",
                                   ctx.node_id.0, path, e);
                 ctx.emit_completed(NodeStats {
                     rows_in: 0, rows_out: 0, rows_rejected: 0,
@@ -175,7 +175,7 @@ pub async fn run(
         let file = match File::open(&path_clone) {
             Ok(f) => f,
             Err(e) => {
-                let _ = line_tx.blocking_send(Err(format!("Impossibile aprire '{}': {}", path_clone, e)));
+                let _ = line_tx.blocking_send(Err(format!("Cannot open '{}': {}", path_clone, e)));
                 return;
             }
         };
@@ -188,7 +188,7 @@ pub async fn run(
         for line_result in lines {
             match line_result {
                 Err(e) => {
-                    let _ = line_tx.blocking_send(Err(format!("Errore lettura: {}", e)));
+                    let _ = line_tx.blocking_send(Err(format!("Read error: {}", e)));
                     return;
                 }
                 Ok(line) => {

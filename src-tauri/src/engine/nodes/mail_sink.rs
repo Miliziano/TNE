@@ -147,7 +147,7 @@ pub async fn run(
     };
 
     if rows.is_empty() {
-        ctx.emit_log(&ctx.label, "warn", 0, "MailSink: nessuna riga in ingresso".to_string(), "panel");
+        ctx.emit_log(&ctx.label, "warn", 0, "MailSink: no input row".to_string(), "panel");
         let row = summary(0, 0);
         let rows_out = match &tx { Some(t) => { let _ = t.send(row).await; 1 } None => 0 };
         let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
@@ -158,8 +158,7 @@ pub async fn run(
     // Provider cloud-REST non ancora portati (fase 1).
     if provider != "smtp" {
         ctx.emit_log(&ctx.label, "warn", 0, format!(
-            "MailSink: il provider '{}' (cloud REST) non è ancora portato nel motore — usa SMTP. \
-             In fase 2 verrà generato il codice per sendgrid/mailgun/ses.", provider), "panel");
+            "MailSink: provider '{}' (cloud REST) is not yet ported into the engine — use SMTP. In phase 2 code will be generated for sendgrid/mailgun/ses.", provider), "panel");
         let mut row = summary(0, 0);
         row.set("_mail_skipped".to_string(), Value::Int(rows_in as i64));
         let rows_out = match &tx { Some(t) => { let _ = t.send(row).await; 1 } None => 0 };
@@ -169,13 +168,13 @@ pub async fn run(
     }
 
     if from_email.is_empty() {
-        let msg = format!("mail_sink {}: email mittente non configurata", ctx.node_id.0);
+        let msg = format!("mail_sink {}: sender email not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("MailSink [smtp] — modalità {} · {} righe", send_mode, rows_in), "panel");
+        format!("MailSink [smtp] — mode {} · {} rows", send_mode, rows_in), "panel");
 
     let smtp = build_smtp(&spec);
     let mut sent   = 0u64;
@@ -186,7 +185,7 @@ pub async fn run(
         let first = &rows[0];
         let (to, cc, bcc) = build_recipients(&spec, first);
         if to.is_empty() {
-            ctx.emit_log(&ctx.label, "warn", 0, "MailSink batch: nessun destinatario".to_string(), "panel");
+            ctx.emit_log(&ctx.label, "warn", 0, "MailSink batch: no recipient".to_string(), "panel");
             let row = summary(0, 0);
             let rows_out = match &tx { Some(t) => { let _ = t.send(row).await; 1 } None => 0 };
             let stats = NodeStats { rows_in, rows_out, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
@@ -211,7 +210,7 @@ pub async fn run(
             Ok(()) => sent += 1,
             Err(e) => {
                 errors += 1;
-                let msg = format!("mail_sink {}: invio batch fallito — {}", ctx.node_id.0, e);
+                let msg = format!("mail_sink {}: batch send failed — {}", ctx.node_id.0, e);
                 ctx.emit_failed(msg.clone());
                 return Err(msg);
             }
@@ -222,7 +221,7 @@ pub async fn run(
             if ctx.cancel.is_cancelled() { break; }
             let (to, cc, bcc) = build_recipients(&spec, row);
             if to.is_empty() {
-                ctx.emit_log(&ctx.label, "warn", 0, "MailSink: riga senza destinatario — saltata".to_string(), "panel");
+                ctx.emit_log(&ctx.label, "warn", 0, "MailSink: row with no recipient — skipped".to_string(), "panel");
                 continue;
             }
             let subject = interpolate(&spec.str_or("subject", "Notifica"), row);
@@ -236,9 +235,9 @@ pub async fn run(
                 Err(e) => {
                     errors += 1;
                     ctx.emit_log(&ctx.label, "error", 0,
-                        format!("MailSink: errore invio a {} — {}", to.join(","), e), "panel");
+                        format!("MailSink: send error to {} — {}", to.join(","), e), "panel");
                     if on_error == "stop" {
-                        let msg = format!("mail_sink {}: invio fallito — {}", ctx.node_id.0, e);
+                        let msg = format!("mail_sink {}: send failed — {}", ctx.node_id.0, e);
                         ctx.emit_failed(msg.clone());
                         return Err(msg);
                     }
@@ -248,7 +247,7 @@ pub async fn run(
     }
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("MailSink: {} email inviate, {} errori", sent, errors), "panel");
+        format!("MailSink: {} emails sent, {} errors", sent, errors), "panel");
 
     let row = summary(sent, errors);
     let rows_out = match &tx { Some(t) => { let _ = t.send(row).await; 1 } None => 0 };

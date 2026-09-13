@@ -86,19 +86,19 @@ pub async fn run(
     };
 
     if conn.host.is_empty() {
-        let m = format!("ldap_source {}: host non configurato (collega una risorsa LDAP)", ctx.node_id.0);
+        let m = format!("ldap_source {}: host not configured (connect an LDAP resource)", ctx.node_id.0);
         ctx.emit_failed(m.clone());
         return Err(m);
     }
     if base_dn.is_empty() {
-        let m = format!("ldap_source {}: base DN non configurato", ctx.node_id.0);
+        let m = format!("ldap_source {}: base DN not configured", ctx.node_id.0);
         ctx.emit_failed(m.clone());
         return Err(m);
     }
 
     let start = Instant::now();
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("LDAP: search base={} scope={} filtro={}", base_dn, scope_s, filter), "panel");
+        format!("LDAP: search base={} scope={} filter={}", base_dn, scope_s, filter), "panel");
 
     // Connessione + bind di servizio (helper condiviso con ldap_test).
     let mut ldap = crate::ldap_connect_and_bind(&conn).await.map_err(|e| {
@@ -121,7 +121,7 @@ pub async fn run(
         .streaming_search_with(adapters, &base_dn, scope, &filter, attrs_for_search)
         .await
         .map_err(|e| {
-            let m = format!("ldap_source {}: search fallita — {}", ctx.node_id.0, e);
+            let m = format!("ldap_source {}: search failed — {}", ctx.node_id.0, e);
             ctx.emit_failed(m.clone());
             m
         })?;
@@ -132,7 +132,7 @@ pub async fn run(
         if ctx.cancel.is_cancelled() { break; }
 
         let next = stream.next().await.map_err(|e| {
-            let m = format!("ldap_source {}: lettura voce fallita — {}", ctx.node_id.0, e);
+            let m = format!("ldap_source {}: entry read failed — {}", ctx.node_id.0, e);
             ctx.emit_failed(m.clone());
             m
         })?;

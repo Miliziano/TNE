@@ -44,10 +44,10 @@ pub async fn run(
 
     let conn = super::source_activemq::build_connection(&spec);
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("ActiveMQ Producer — {}:{} | {}: {} | {} righe", conn.host, conn.port, dest_type, destination, rows_in), "panel");
+        format!("ActiveMQ Producer — {}:{} | {}: {} | {} rows", conn.host, conn.port, dest_type, destination, rows_in), "panel");
 
     if rows.is_empty() {
-        ctx.emit_log(&ctx.label, "warn", 0, "ActiveMQ Producer: nessuna riga da pubblicare".to_string(), "panel");
+        ctx.emit_log(&ctx.label, "warn", 0, "ActiveMQ Producer: no row to publish".to_string(), "panel");
         let stats = NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
         ctx.emit_completed(stats.clone());
         return Ok(stats);
@@ -82,7 +82,7 @@ pub async fn run(
             Ok(_) => published += 1,
             Err(e) => {
                 errors += 1;
-                ctx.emit_log(&ctx.label, "error", 0, format!("ActiveMQ Producer: pubblicazione fallita — {}", e), "panel");
+                ctx.emit_log(&ctx.label, "error", 0, format!("ActiveMQ Producer: publish failed — {}", e), "panel");
                 if errors > 5 {
                     let msg = format!("sink_activemq {}: troppi errori di pubblicazione ({})", ctx.node_id.0, errors);
                     ctx.emit_failed(msg.clone());
@@ -93,7 +93,7 @@ pub async fn run(
     }
 
     ctx.emit_log(&ctx.label, "ok", 0,
-        format!("ActiveMQ Producer: pubblicati {} messaggi ({} errori)", published, errors), "panel");
+        format!("ActiveMQ Producer: {} messages published ({} errors)", published, errors), "panel");
 
     // Riga di riepilogo (come il runner).
     let mut summary = Row::new();

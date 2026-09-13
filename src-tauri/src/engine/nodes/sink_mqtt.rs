@@ -27,8 +27,7 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("sink_mqtt {}: {}", ctx.node_id.0, e))?;
     if !spec.has_resource() {
-        let msg = format!("sink_mqtt {}: nessuna risorsa MQTT configurata \
-                           (selezionare un broker nel pannello del nodo)", ctx.node_id.0);
+        let msg = format!("sink_mqtt {}: no MQTT resource configured (select a broker in the node panel)", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -86,7 +85,7 @@ pub async fn run(
             Err(e)  => {
                 errors += 1;
                 ctx.emit_log(&ctx.label, "error", 0,
-                    format!("MQTT: pubblicazione su '{}' fallita — {}", topic, e), "panel");
+                    format!("MQTT: publish to '{}' failed — {}", topic, e), "panel");
                 if errors > MAX_ERRORS {
                     let msg = format!("sink_mqtt {}: troppi errori di pubblicazione ({})",
                                       ctx.node_id.0, errors);
@@ -98,7 +97,7 @@ pub async fn run(
     }
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("MQTT: {} messaggi pubblicati, {} errori", published, errors), "panel");
+        format!("MQTT: {} messages published, {} errors", published, errors), "panel");
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
 
