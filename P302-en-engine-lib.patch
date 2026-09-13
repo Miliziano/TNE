@@ -1,0 +1,856 @@
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 3eb6030..3591bd1 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -346,7 +346,7 @@ async fn db_list_constraints(request: DbListConstraintsRequest) -> Result<Vec<Db
+     "postgresql" => pg_list_constraints(&conn_str, request.schema.as_deref().unwrap_or("public"), &request.table).await,
+     "mysql"      => mysql_list_constraints(&conn_str, &request.connection.database.clone().unwrap_or_default(), &request.table).await,
+     "sqlite"     => sqlite_list_constraints(&conn_str, &request.table).await,
+-    d            => Err(format!("Dialetto '{}' non supportato per lista vincoli", d)),
++    d            => Err(format!("Dialect '{}' not supported for constraint list", d)),
+   }
+ }
+ 
+@@ -381,7 +381,7 @@ pub(crate) fn build_connection_string(conn: &DbConnectionParams) -> Result<Strin
+         host, port, database, charset))
+     }
+     "sqlite" => Ok(format!("sqlite:{}", database)),
+-    d => Err(format!("Dialetto '{}' non supportato.", d)),
++    d => Err(format!("Dialect '{}' not supported.", d)),
+   }
+ }
+ 
+@@ -393,7 +393,7 @@ async fn db_query(request: DbQueryRequest) -> Result<Vec<serde_json::Value>, Str
+     "postgresql" => pg_query(&conn_str, &request.query, request.timeout).await,
+     "mysql"      => mysql_query(&conn_str, &request.query, request.timeout).await,
+     "sqlite"     => sqlite_query(&conn_str, &request.query, request.timeout).await,
+-    d            => Err(format!("Dialetto '{}' non supportato", d)),
++    d            => Err(format!("Dialect '{}' not supported", d)),
+   }
+ }
+ 
+@@ -406,13 +406,13 @@ async fn db_infer_schema(request: DbQueryRequest) -> Result<Vec<DbColumnInfo>, S
+     "postgresql" | "mysql" | "sqlite" => format!("SELECT * FROM ({}) AS __probe__ LIMIT 0", base),
+     "oracle"   => format!("SELECT * FROM ({}) WHERE ROWNUM = 0", base),
+     "informix" => format!("SELECT FIRST 0 * FROM ({}) t", base),
+-    d          => return Err(format!("Dialetto '{}' non supportato", d)),
++    d          => return Err(format!("Dialect '{}' not supported", d)),
+   };
+   match request.connection.dialect.as_str() {
+     "postgresql" => pg_infer(&conn_str, &probe).await,
+     "mysql"      => mysql_infer(&conn_str, &probe).await,
+     "sqlite"     => sqlite_infer(&conn_str, &probe).await,
+-    d            => Err(format!("Dialetto '{}' non supportato", d)),
++    d            => Err(format!("Dialect '{}' not supported", d)),
+   }
+ }
+ 
+@@ -474,7 +474,7 @@ async fn db_write(request: DbWriteRequest) -> Result<DbWriteResult, String> {
+     "postgresql" => pg_write(&conn_str, &request, start).await,
+     "mysql"      => mysql_write(&conn_str, &request, start).await,
+     "sqlite"     => sqlite_write(&conn_str, &request, start).await,
+-    d            => Err(format!("Dialetto '{}' non supportato per scrittura", d)),
++    d            => Err(format!("Dialect '{}' not supported for writing", d)),
+   }
+ }
+ 
+@@ -492,14 +492,14 @@ async fn sqlite_list_constraints(conn_str: &str, table: &str) -> Result<Vec<DbCo
+   let pool = SqlitePoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(10))
+     .connect(conn_str).await
+-    .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
++    .map_err(|e| format!("SQLite connection failed: {}", e))?;
+ 
+   let mut result = Vec::new();
+ 
+   // PRIMARY KEY — da table_info, colonne con pk > 0, ordinate per pk
+   let pk_rows = sqlx::query(&format!("PRAGMA table_info('{}')", table.replace('\'', "''")))
+     .fetch_all(&pool).await
+-    .map_err(|e| format!("SQLite table_info fallita: {}", e))?;
++    .map_err(|e| format!("SQLite table_info failed: {}", e))?;
+ 
+   let mut pk_cols: Vec<(i64, String)> = pk_rows.iter().filter_map(|row| {
+     let pk: i64 = row.try_get("pk").unwrap_or(0);
+@@ -521,7 +521,7 @@ async fn sqlite_list_constraints(conn_str: &str, table: &str) -> Result<Vec<DbCo
+   // UNIQUE — da index_list con origin='u' o 'pk', poi index_info per le colonne
+   let idx_rows = sqlx::query(&format!("PRAGMA index_list('{}')", table.replace('\'', "''")))
+     .fetch_all(&pool).await
+-    .map_err(|e| format!("SQLite index_list fallita: {}", e))?;
++    .map_err(|e| format!("SQLite index_list failed: {}", e))?;
+ 
+   for idx_row in &idx_rows {
+     let is_unique: i64 = idx_row.try_get("unique").unwrap_or(0);
+@@ -531,7 +531,7 @@ async fn sqlite_list_constraints(conn_str: &str, table: &str) -> Result<Vec<DbCo
+     let idx_name: String = idx_row.try_get("name").unwrap_or_default();
+     let col_rows = sqlx::query(&format!("PRAGMA index_info('{}')", idx_name.replace('\'', "''")))
+       .fetch_all(&pool).await
+-      .map_err(|e| format!("SQLite index_info fallita: {}", e))?;
++      .map_err(|e| format!("SQLite index_info failed: {}", e))?;
+ 
+     let mut cols: Vec<(i64, String)> = col_rows.iter().map(|r| {
+       let seqno: i64 = r.try_get("seqno").unwrap_or(0);
+@@ -558,7 +558,7 @@ async fn mysql_list_constraints(conn_str: &str, database: &str, table: &str) ->
+   let pool = MySqlPoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(10))
+     .connect(conn_str).await
+-    .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
++    .map_err(|e| format!("MySQL connection failed: {}", e))?;
+ 
+   let query = r#"
+     SELECT
+@@ -581,7 +581,7 @@ async fn mysql_list_constraints(conn_str: &str, database: &str, table: &str) ->
+     .bind(database)
+     .bind(table)
+     .fetch_all(&pool).await
+-    .map_err(|e| format!("MySQL lista vincoli fallita: {}", e))?;
++    .map_err(|e| format!("MySQL constraint list failed: {}", e))?;
+ 
+   // Raggruppa manualmente per nome vincolo (MySQL non ha array_agg nativo facile via sqlx qui)
+   let mut grouped: std::collections::BTreeMap<(String, String), Vec<String>> = std::collections::BTreeMap::new();
+@@ -607,7 +607,7 @@ async fn pg_list_constraints(conn_str: &str, schema: &str, table: &str) -> Resul
+   let pool = PgPoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(10))
+     .connect(conn_str).await
+-    .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
++    .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+ 
+   // pg_constraint.contype: 'p' = primary key, 'u' = unique
+   // conkey è un array di attnum — join con pg_attribute per i nomi colonna,
+@@ -633,7 +633,7 @@ async fn pg_list_constraints(conn_str: &str, schema: &str, table: &str) -> Resul
+     .bind(schema)
+     .bind(table)
+     .fetch_all(&pool).await
+-    .map_err(|e| format!("PostgreSQL lista vincoli fallita: {}", e))?;
++    .map_err(|e| format!("PostgreSQL constraint list failed: {}", e))?;
+ 
+   let result = rows.iter().map(|row| {
+     let columns: Vec<String> = row.get("columns");
+@@ -743,7 +743,7 @@ pub(crate)  fn extract_row_data(
+ async fn exec_sql_block<'a, E>(executor: E, sql: &str) -> Result<(), String>
+ where E: sqlx::Executor<'a, Database = sqlx::Postgres> + Copy {
+   for stmt in sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+-    sqlx::query(stmt).execute(executor).await.map_err(|e| format!("SQL fallito: {}", e))?;
++    sqlx::query(stmt).execute(executor).await.map_err(|e| format!("SQL failed: {}", e))?;
+   }
+   Ok(())
+ }
+@@ -775,7 +775,7 @@ pub async fn pg_write(
+         .max_connections(1)
+         .acquire_timeout(std::time::Duration::from_secs(30))
+         .connect(conn_str).await
+-        .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
++        .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+     let result = pg_write_pool(&pool, req, start).await;
+     pool.close().await;
+     result
+@@ -803,14 +803,14 @@ pub async fn pg_write_pool(
+         if !pre.trim().is_empty() {
+             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                 sqlx::query(stmt).execute(pool).await
+-                    .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
++                    .map_err(|e| format!("Pre-SQL failed: {}", e))?;
+             }
+         }
+     }
+ 
+     if req.mode == "truncate_insert" {
+         sqlx::query(&format!("TRUNCATE TABLE {}", tbl)).execute(pool).await
+-            .map_err(|e| format!("TRUNCATE fallito: {}", e))?;
++            .map_err(|e| format!("TRUNCATE failed: {}", e))?;
+     }
+ 
+     for chunk in req.rows.chunks(req.batch_size.max(1)) {
+@@ -901,7 +901,7 @@ pub async fn pg_write_pool(
+                     }
+                     Err(e) => match req.on_constraint_error.as_str() {
+                         "skip" => { skipped += 1; }
+-                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
++                        "stop" => { return Err(format!("SinkDB row error: {}", e)); }
+                         _ => { errors += 1; }
+                     }
+                 }
+@@ -913,7 +913,7 @@ pub async fn pg_write_pool(
+                     Ok(_) => { written += 1; }
+                     Err(e) => match req.on_constraint_error.as_str() {
+                         "skip" => { skipped += 1; }
+-                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
++                        "stop" => { return Err(format!("SinkDB row error: {}", e)); }
+                         _ => { errors += 1; }
+                     }
+                 }
+@@ -925,7 +925,7 @@ pub async fn pg_write_pool(
+         if !post.trim().is_empty() {
+             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                 sqlx::query(stmt).execute(pool).await
+-                    .map_err(|e| format!("Post-SQL fallito: {}", e))?;
++                    .map_err(|e| format!("Post-SQL failed: {}", e))?;
+             }
+         }
+     }
+@@ -1025,7 +1025,7 @@ pub async fn pg_write_conn(
+                     Ok(row) => { written += 1; generated_keys.push(pg_row_to_json_value(&row, 0)); }
+                     Err(e) => match req.on_constraint_error.as_str() {
+                         "skip" => { skipped += 1; }
+-                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
++                        "stop" => { return Err(format!("SinkDB row error: {}", e)); }
+                         _ => { errors += 1; }
+                     }
+                 }
+@@ -1036,7 +1036,7 @@ pub async fn pg_write_conn(
+                     Ok(_) => { written += 1; }
+                     Err(e) => match req.on_constraint_error.as_str() {
+                         "skip" => { skipped += 1; }
+-                        "stop" => { return Err(format!("SinkDB errore riga: {}", e)); }
++                        "stop" => { return Err(format!("SinkDB row error: {}", e)); }
+                         _ => { errors += 1; }
+                     }
+                 }
+@@ -1103,7 +1103,7 @@ pub async fn mysql_write(
+         .max_connections(1)
+         .acquire_timeout(std::time::Duration::from_secs(30))
+         .connect(conn_str).await
+-        .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
++        .map_err(|e| format!("MySQL connection failed: {}", e))?;
+ 
+      let result = mysql_write_pool(&pool, req, start).await;
+     pool.close().await;
+@@ -1136,13 +1136,13 @@ pub async fn mysql_write_pool(
+         if !pre.trim().is_empty() {
+             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                 sqlx::query(stmt).execute(pool).await
+-                    .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
++                    .map_err(|e| format!("Pre-SQL failed: {}", e))?;
+             }
+         }
+     }
+     if req.mode == "truncate_insert" {
+         sqlx::query(&format!("TRUNCATE TABLE `{}`", tbl)).execute(pool).await
+-            .map_err(|e| format!("TRUNCATE fallito: {}", e))?;
++            .map_err(|e| format!("TRUNCATE failed: {}", e))?;
+     }
+ 
+     for chunk in req.rows.chunks(req.batch_size.max(1)) {
+@@ -1246,7 +1246,7 @@ pub async fn mysql_write_pool(
+                 }
+                 Err(e) => match req.on_constraint_error.as_str() {
+                     "skip" => { skipped += 1; }
+-                    "stop" => { pool.close().await; return Err(format!("SinkDB errore riga: {}", e)); }
++                    "stop" => { pool.close().await; return Err(format!("SinkDB row error: {}", e)); }
+                     _ => { errors += 1; }
+                 }
+             }
+@@ -1257,7 +1257,7 @@ pub async fn mysql_write_pool(
+         if !post.trim().is_empty() {
+             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                 sqlx::query(stmt).execute(pool).await
+-                    .map_err(|e| format!("Post-SQL fallito: {}", e))?;
++                    .map_err(|e| format!("Post-SQL failed: {}", e))?;
+             }
+         }
+     }
+@@ -1288,7 +1288,7 @@ pub async fn sqlite_write(
+         .max_connections(1)
+         .acquire_timeout(std::time::Duration::from_secs(30))
+         .connect(conn_str).await
+-        .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
++        .map_err(|e| format!("SQLite connection failed: {}", e))?;
+ 
+       let result = sqlite_write_pool(&pool, req, start).await;
+     pool.close().await;
+@@ -1320,13 +1320,13 @@ pub async fn sqlite_write_pool(
+         if !pre.trim().is_empty() {
+             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                 sqlx::query(stmt).execute(pool).await
+-                    .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
++                    .map_err(|e| format!("Pre-SQL failed: {}", e))?;
+             }
+         }
+     }
+     if req.mode == "truncate_insert" {
+         sqlx::query(&format!("DELETE FROM {}", tbl)).execute(pool).await
+-            .map_err(|e| format!("DELETE fallito: {}", e))?;
++            .map_err(|e| format!("DELETE failed: {}", e))?;
+     }
+ 
+     for chunk in req.rows.chunks(req.batch_size.max(1)) {
+@@ -1403,7 +1403,7 @@ pub async fn sqlite_write_pool(
+                 }
+                 Err(e) => match req.on_constraint_error.as_str() {
+                     "skip" => { skipped += 1; }
+-                    "stop" => { pool.close().await; return Err(format!("SinkDB errore riga: {}", e)); }
++                    "stop" => { pool.close().await; return Err(format!("SinkDB row error: {}", e)); }
+                     _ => { errors += 1; }
+                 }
+             }
+@@ -1414,7 +1414,7 @@ pub async fn sqlite_write_pool(
+         if !post.trim().is_empty() {
+             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                 sqlx::query(stmt).execute(pool).await
+-                    .map_err(|e| format!("Post-SQL fallito: {}", e))?;
++                    .map_err(|e| format!("Post-SQL failed: {}", e))?;
+             }
+         }
+     }
+@@ -1434,8 +1434,8 @@ async fn pg_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Result<V
+   use sqlx::postgres::PgPoolOptions;
+   let pool = PgPoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(timeout.unwrap_or(30)))
+-    .connect(conn_str).await.map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
+-  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("PostgreSQL query fallita: {}", e))?;
++    .connect(conn_str).await.map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
++  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("PostgreSQL query failed: {}", e))?;
+   let result = rows.iter().map(|row| {
+     let mut obj = serde_json::Map::new();
+     // Un solo lettore: la preview (db_query) decodifica le celle con LO STESSO
+@@ -1457,8 +1457,8 @@ async fn pg_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>, Stri
+   use sqlx::Executor;
+   let pool = PgPoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(10))
+-    .connect(conn_str).await.map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
+-  let described = pool.describe(probe).await.map_err(|e| format!("PostgreSQL describe fallita: {}", e))?;
++    .connect(conn_str).await.map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
++  let described = pool.describe(probe).await.map_err(|e| format!("PostgreSQL describe failed: {}", e))?;
+   pool.close().await;
+   Ok(described.columns().iter().enumerate().map(|(i, col)| DbColumnInfo {
+     name: col.name().to_string(), db_type: col.type_info().name().to_string(),
+@@ -1495,8 +1495,8 @@ async fn mysql_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Resul
+   use sqlx::mysql::MySqlPoolOptions;
+   let pool = MySqlPoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(timeout.unwrap_or(30)))
+-    .connect(conn_str).await.map_err(|e| format!("MySQL connessione fallita: {}", e))?;
+-  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("MySQL query fallita: {}", e))?;
++    .connect(conn_str).await.map_err(|e| format!("MySQL connection failed: {}", e))?;
++  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("MySQL query failed: {}", e))?;
+   let result = rows.iter().map(|row| {
+     let mut obj = serde_json::Map::new();
+     for col in row.columns() {
+@@ -1514,8 +1514,8 @@ async fn mysql_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>, S
+   use sqlx::Executor;
+   let pool = MySqlPoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(10))
+-    .connect(conn_str).await.map_err(|e| format!("MySQL connessione fallita: {}", e))?;
+-  let described = pool.describe(probe).await.map_err(|e| format!("MySQL describe fallita: {}", e))?;
++    .connect(conn_str).await.map_err(|e| format!("MySQL connection failed: {}", e))?;
++  let described = pool.describe(probe).await.map_err(|e| format!("MySQL describe failed: {}", e))?;
+   pool.close().await;
+   Ok(described.columns().iter().enumerate().map(|(i, col)| DbColumnInfo {
+     name: col.name().to_string(), db_type: col.type_info().name().to_string(),
+@@ -1527,8 +1527,8 @@ async fn sqlite_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Resu
+   use sqlx::sqlite::SqlitePoolOptions;
+   let pool = SqlitePoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(timeout.unwrap_or(30)))
+-    .connect(conn_str).await.map_err(|e| format!("SQLite connessione fallita: {}", e))?;
+-  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("SQLite query fallita: {}", e))?;
++    .connect(conn_str).await.map_err(|e| format!("SQLite connection failed: {}", e))?;
++  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("SQLite query failed: {}", e))?;
+   let result = rows.iter().map(|row| {
+     let mut obj = serde_json::Map::new();
+     for col in row.columns() {
+@@ -1552,8 +1552,8 @@ async fn sqlite_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>,
+   use sqlx::Executor;
+   let pool = SqlitePoolOptions::new().max_connections(1)
+     .acquire_timeout(std::time::Duration::from_secs(10))
+-    .connect(conn_str).await.map_err(|e| format!("SQLite connessione fallita: {}", e))?;
+-  let described = pool.describe(probe).await.map_err(|e| format!("SQLite describe fallita: {}", e))?;
++    .connect(conn_str).await.map_err(|e| format!("SQLite connection failed: {}", e))?;
++  let described = pool.describe(probe).await.map_err(|e| format!("SQLite describe failed: {}", e))?;
+   pool.close().await;
+   Ok(described.columns().iter().enumerate().map(|(i, col)| DbColumnInfo {
+     name: col.name().to_string(), db_type: col.type_info().name().to_string(),
+@@ -1564,13 +1564,13 @@ async fn sqlite_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>,
+ #[cfg(feature = "desktop")]
+ #[tauri::command]
+ async fn read_file(path: String) -> Result<String, String> {
+-  std::fs::read_to_string(&path).map_err(|e| format!("Errore lettura {}: {}", path, e))
++  std::fs::read_to_string(&path).map_err(|e| format!("Read error {}: {}", path, e))
+ }
+ 
+ #[cfg(feature = "desktop")]
+ #[tauri::command]
+ async fn read_file_bytes(path: String) -> Result<String, String> {
+-  let bytes = std::fs::read(&path).map_err(|e| format!("Errore lettura {}: {}", path, e))?;
++  let bytes = std::fs::read(&path).map_err(|e| format!("Read error {}: {}", path, e))?;
+   Ok(BASE64.encode(&bytes))
+ }
+ 
+@@ -1578,25 +1578,25 @@ async fn read_file_bytes(path: String) -> Result<String, String> {
+ #[tauri::command]
+ async fn write_file(path: String, content: String) -> Result<(), String> {
+   if let Some(parent) = std::path::Path::new(&path).parent() {
+-    std::fs::create_dir_all(parent).map_err(|e| format!("Errore creazione directory: {}", e))?;
++    std::fs::create_dir_all(parent).map_err(|e| format!("Directory creation error: {}", e))?;
+   }
+-  std::fs::write(&path, content.into_bytes()).map_err(|e| format!("Errore scrittura {}: {}", path, e))
++  std::fs::write(&path, content.into_bytes()).map_err(|e| format!("Write error {}: {}", path, e))
+ }
+ 
+ #[cfg(feature = "desktop")]
+ #[tauri::command]
+ async fn write_file_bytes(path: String, content_base64: String) -> Result<(), String> {
+   if let Some(parent) = std::path::Path::new(&path).parent() {
+-    std::fs::create_dir_all(parent).map_err(|e| format!("Errore creazione directory: {}", e))?;
++    std::fs::create_dir_all(parent).map_err(|e| format!("Directory creation error: {}", e))?;
+   }
+-  let bytes = BASE64.decode(&content_base64).map_err(|e| format!("Errore decodifica base64: {}", e))?;
+-  std::fs::write(&path, bytes).map_err(|e| format!("Errore scrittura {}: {}", path, e))
++  let bytes = BASE64.decode(&content_base64).map_err(|e| format!("Base64 decode error: {}", e))?;
++  std::fs::write(&path, bytes).map_err(|e| format!("Write error {}: {}", path, e))
+ }
+ 
+ #[cfg(feature = "desktop")]
+ #[tauri::command]
+ async fn list_directory(path: String) -> Result<Vec<FileEntry>, String> {
+-  let entries = std::fs::read_dir(&path).map_err(|e| format!("Errore lettura directory {}: {}", path, e))?;
++  let entries = std::fs::read_dir(&path).map_err(|e| format!("Directory read error {}: {}", path, e))?;
+   let mut result = Vec::new();
+   for entry in entries {
+     let entry    = entry.map_err(|e| e.to_string())?;
+@@ -1674,7 +1674,7 @@ async fn ftp_test(connection: FtpConnectionParams) -> Result<FtpTestResult, Stri
+   match connection.protocol.as_str() {
+     "sftp"        => sftp_test(&connection, start).await,
+     "ftp" | "ftps" => ftp_plain_test(&connection, start).await,
+-    p             => Err(format!("Protocollo '{}' non supportato. Usa: ftp, ftps, sftp", p)),
++    p             => Err(format!("Protocol '{}' not supported. Use: ftp, ftps, sftp", p)),
+   }
+ }
+ 
+@@ -1691,7 +1691,7 @@ pub async fn ftp_list_impl(
+   match connection.protocol.as_str() {
+     "sftp"        => sftp_list(&connection, &remote_path, pattern.as_deref(), recursive.unwrap_or(false)).await,
+     "ftp" | "ftps" => ftp_plain_list(&connection, &remote_path, pattern.as_deref()).await,
+-    p             => Err(format!("Protocollo '{}' non supportato", p)),
++    p             => Err(format!("Protocol '{}' not supported", p)),
+   }
+ }
+ 
+@@ -1710,7 +1710,7 @@ pub async fn ftp_read_impl(connection: FtpConnectionParams, remote_path: String)
+   match connection.protocol.as_str() {
+     "sftp"        => sftp_read(&connection, &remote_path).await,
+     "ftp" | "ftps" => ftp_plain_read(&connection, &remote_path).await,
+-    p             => Err(format!("Protocollo '{}' non supportato", p)),
++    p             => Err(format!("Protocol '{}' not supported", p)),
+   }
+ }
+ 
+@@ -1730,7 +1730,7 @@ pub async fn ftp_write_impl(
+   match connection.protocol.as_str() {
+     "sftp"        => sftp_write(&connection, &remote_path, &content, create_dirs.unwrap_or(true), atomic.unwrap_or(true)).await,
+     "ftp" | "ftps" => ftp_plain_write(&connection, &remote_path, &content).await,
+-    p             => Err(format!("Protocollo '{}' non supportato", p)),
++    p             => Err(format!("Protocol '{}' not supported", p)),
+   }
+ }
+ 
+@@ -1751,28 +1751,28 @@ fn sftp_connect_sync(conn: &FtpConnectionParams) -> Result<ssh2::Session, String
+   let addr    = format!("{}:{}", conn.host, conn.port);
+   use std::net::ToSocketAddrs;
+   let socket_addr = addr.to_socket_addrs()
+-    .map_err(|e| format!("Risoluzione DNS fallita per '{}': {}", addr, e))?
++    .map_err(|e| format!("DNS resolution failed for '{}': {}", addr, e))?
+     .next()
+-    .ok_or_else(|| format!("Nessun indirizzo trovato per '{}'", addr))?;
++    .ok_or_else(|| format!("No address found for '{}'", addr))?;
+   let tcp = std::net::TcpStream::connect_timeout(&socket_addr, timeout)
+-    .map_err(|e| format!("Connessione TCP fallita a {}: {}", addr, e))?;
++    .map_err(|e| format!("TCP connection failed to {}: {}", addr, e))?;
+   tcp.set_read_timeout(Some(timeout)).ok();
+   tcp.set_write_timeout(Some(timeout)).ok();
+-  let mut session = ssh2::Session::new().map_err(|e| format!("Errore sessione SSH: {}", e))?;
++  let mut session = ssh2::Session::new().map_err(|e| format!("SSH session error: {}", e))?;
+   session.set_tcp_stream(tcp);
+-  session.handshake().map_err(|e| format!("SSH handshake fallito: {}", e))?;
++  session.handshake().map_err(|e| format!("SSH handshake failed: {}", e))?;
+   let auth_type = conn.auth_type.as_deref().unwrap_or("password");
+   if auth_type == "key" {
+-    let key_path  = conn.key_path.as_deref().ok_or("keyPath non specificato")?;
++    let key_path  = conn.key_path.as_deref().ok_or("keyPath not specified")?;
+     let passphrase = conn.password.as_deref();
+     session.userauth_pubkey_file(&conn.user, None, std::path::Path::new(key_path), passphrase)
+-      .map_err(|e| format!("Auth SSH con chiave fallita: {}", e))?;
++      .map_err(|e| format!("SSH key auth failed: {}", e))?;
+   } else {
+     let password = conn.password.as_deref().unwrap_or("");
+     session.userauth_password(&conn.user, password)
+-      .map_err(|e| format!("Auth SSH con password fallita: {}", e))?;
++      .map_err(|e| format!("SSH password auth failed: {}", e))?;
+   }
+-  if !session.authenticated() { return Err("Autenticazione SSH fallita".to_string()); }
++  if !session.authenticated() { return Err("SSH authentication failed".to_string()); }
+   Ok(session)
+ }
+ 
+@@ -1790,8 +1790,8 @@ async fn sftp_test(conn: &FtpConnectionParams, start: std::time::Instant) -> Res
+   ).await;
+   match result {
+     Ok(Ok(r)) => r,
+-    Ok(Err(e)) => Ok(FtpTestResult { ok: false, message: format!("Errore interno: {}", e), elapsed_ms: start.elapsed().as_millis() }),
+-    Err(_) => Ok(FtpTestResult { ok: false, message: format!("Timeout: nessuna risposta da {}:{} entro {}s", conn.host, conn.port, conn.connect_timeout.unwrap_or(10)), elapsed_ms: start.elapsed().as_millis() }),
++    Ok(Err(e)) => Ok(FtpTestResult { ok: false, message: format!("Internal error: {}", e), elapsed_ms: start.elapsed().as_millis() }),
++    Err(_) => Ok(FtpTestResult { ok: false, message: format!("Timeout: no response from {}:{} within {}s", conn.host, conn.port, conn.connect_timeout.unwrap_or(10)), elapsed_ms: start.elapsed().as_millis() }),
+   }
+ }
+ 
+@@ -1850,7 +1850,7 @@ async fn ftp_plain_connect(conn: &FtpConnectionParams) -> Result<suppaftp::Async
+   let addr     = format!("{}:{}", conn.host, conn.port);
+   let user     = conn.user.clone();
+   let password = conn.password.clone().unwrap_or_default();
+-  let mut ftp  = suppaftp::AsyncFtpStream::connect(&addr).await.map_err(|e| format!("FTP connessione a {}: {}", addr, e))?;
++  let mut ftp  = suppaftp::AsyncFtpStream::connect(&addr).await.map_err(|e| format!("FTP connection to {}: {}", addr, e))?;
+   ftp.login(&user, &password).await.map_err(|e| format!("FTP login: {}", e))?;
+   Ok(ftp)
+ }
+@@ -1863,7 +1863,7 @@ async fn ftp_plain_test(conn: &FtpConnectionParams, start: std::time::Instant) -
+   match result {
+     Ok(Ok(mut ftp)) => { let _ = ftp.quit().await; Ok(FtpTestResult { ok: true, message: format!("FTP connesso a {} come {}", addr, user), elapsed_ms: start.elapsed().as_millis() }) }
+     Ok(Err(e)) => Ok(FtpTestResult { ok: false, message: e, elapsed_ms: start.elapsed().as_millis() }),
+-    Err(_) => Ok(FtpTestResult { ok: false, message: format!("Timeout: nessuna risposta da {} entro {}s", addr, conn.connect_timeout.unwrap_or(10)), elapsed_ms: start.elapsed().as_millis() }),
++    Err(_) => Ok(FtpTestResult { ok: false, message: format!("Timeout: no response from {} within {}s", addr, conn.connect_timeout.unwrap_or(10)), elapsed_ms: start.elapsed().as_millis() }),
+   }
+ }
+ 
+@@ -1944,14 +1944,14 @@ async fn mail_send(request: MailSendRequest) -> Result<(), String> {
+ 
+ /// FONTE UNICA dell'invio email (comando Tauri + nodo `mail_sink`). SMTP via lettre.
+ pub async fn mail_send_impl(request: MailSendRequest) -> Result<(), String> {
+-    let from_mailbox = request.from.parse::<lettre::message::Mailbox>().map_err(|e| format!("Indirizzo mittente non valido: {}", e))?;
++    let from_mailbox = request.from.parse::<lettre::message::Mailbox>().map_err(|e| format!("Invalid sender address: {}", e))?;
+     let mut builder = Message::builder().from(from_mailbox);
+-    for addr in &request.to { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("TO non valido '{}': {}", addr, e))?; builder = builder.to(mb); }
+-    for addr in &request.cc { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("CC non valido '{}': {}", addr, e))?; builder = builder.cc(mb); }
+-    for addr in &request.bcc { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("BCC non valido '{}': {}", addr, e))?; builder = builder.bcc(mb); }
++    for addr in &request.to { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("Invalid TO '{}': {}", addr, e))?; builder = builder.to(mb); }
++    for addr in &request.cc { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("Invalid CC '{}': {}", addr, e))?; builder = builder.cc(mb); }
++    for addr in &request.bcc { let mb = addr.parse::<lettre::message::Mailbox>().map_err(|e| format!("Invalid BCC '{}': {}", addr, e))?; builder = builder.bcc(mb); }
+     builder = builder.subject(&request.subject);
+     let body = build_mail_body(&request)?;
+-    let email = builder.multipart(body).map_err(|e| format!("Errore costruzione email: {}", e))?;
++    let email = builder.multipart(body).map_err(|e| format!("Email build error: {}", e))?;
+     let creds = Credentials::new(request.smtp.username.clone(), request.smtp.password.clone());
+     let transport: AsyncSmtpTransport<Tokio1Executor> = match request.smtp.security.as_str() {
+         "ssl" => {
+@@ -1961,7 +1961,7 @@ pub async fn mail_send_impl(request: MailSendRequest) -> Result<(), String> {
+         "none" => AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&request.smtp.host).port(request.smtp.port).credentials(creds).build(),
+         _ => AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&request.smtp.host).map_err(|e| format!("STARTTLS error: {}", e))?.port(request.smtp.port).credentials(creds).build(),
+     };
+-    transport.send(email).await.map_err(|e| format!("Invio SMTP fallito: {}", e))?;
++    transport.send(email).await.map_err(|e| format!("SMTP send failed: {}", e))?;
+     Ok(())
+ }
+ 
+@@ -1975,7 +1975,7 @@ fn build_mail_body(request: &MailSendRequest) -> Result<MultiPart, String> {
+     if request.attachments.is_empty() { return Ok(text_part); }
+     let mut mixed = MultiPart::mixed().multipart(text_part);
+     for att in &request.attachments {
+-        let data = base64::engine::general_purpose::STANDARD.decode(&att.content_b64).map_err(|e| format!("Allegato '{}' base64 non valido: {}", att.filename, e))?;
++        let data = base64::engine::general_purpose::STANDARD.decode(&att.content_b64).map_err(|e| format!("Attachment '{}' invalid base64: {}", att.filename, e))?;
+         let content_type = att.content_type.parse::<lettre::message::header::ContentType>().unwrap_or_else(|_| "application/octet-stream".parse().unwrap());
+         mixed = mixed.singlepart(Attachment::new(att.filename.clone()).body(data, content_type));
+     }
+@@ -2011,7 +2011,7 @@ pub async fn mqtt_subscribe_impl(request: MqttSubscribeRequest) -> Result<Vec<Mq
+     use rumqttc::{AsyncClient, Event, Incoming};
+     let opts = build_mqtt_options(&request.connection);
+     let (client, mut eventloop) = AsyncClient::new(opts, 64);
+-    client.subscribe(&request.topic, mqtt_qos(request.qos)).await.map_err(|e| format!("MQTT subscribe fallito: {}", e))?;
++    client.subscribe(&request.topic, mqtt_qos(request.qos)).await.map_err(|e| format!("MQTT subscribe failed: {}", e))?;
+     let mut messages: Vec<MqttMessage> = Vec::new();
+     let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(request.timeout_ms);
+     loop {
+@@ -2021,7 +2021,7 @@ pub async fn mqtt_subscribe_impl(request: MqttSubscribeRequest) -> Result<Vec<Mq
+                 messages.push(MqttMessage { topic: publish.topic.clone(), payload: String::from_utf8_lossy(&publish.payload).to_string(), qos: publish.qos as u8, retain: publish.retain, received_at: chrono::Utc::now().to_rfc3339() });
+             }
+             Ok(Ok(_)) => {}
+-            Ok(Err(e)) => { return Err(format!("MQTT errore connessione: {}", e)); }
++            Ok(Err(e)) => { return Err(format!("MQTT connection error: {}", e)); }
+             Err(_) => { break; }
+         }
+     }
+@@ -2044,11 +2044,11 @@ pub async fn mqtt_publish_impl(request: MqttPublishRequest) -> Result<(), String
+         match tokio::time::timeout_at(deadline, eventloop.poll()).await {
+             Ok(Ok(Event::Incoming(Incoming::ConnAck(_)))) => break,
+             Ok(Ok(_)) => {}
+-            Ok(Err(e)) => return Err(format!("MQTT connessione fallita: {}", e)),
+-            Err(_)     => return Err("MQTT: timeout connessione (10s)".to_string()),
++            Ok(Err(e)) => return Err(format!("MQTT connection failed: {}", e)),
++            Err(_)     => return Err("MQTT: connection timeout (10s)".to_string()),
+         }
+     }
+-    client.publish(&request.topic, mqtt_qos(request.qos), request.retain, request.payload.as_bytes()).await.map_err(|e| format!("MQTT publish fallito: {}", e))?;
++    client.publish(&request.topic, mqtt_qos(request.qos), request.retain, request.payload.as_bytes()).await.map_err(|e| format!("MQTT publish failed: {}", e))?;
+     if request.qos > 0 {
+         let deadline2 = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+         loop {
+@@ -2056,7 +2056,7 @@ pub async fn mqtt_publish_impl(request: MqttPublishRequest) -> Result<(), String
+                 Ok(Ok(Event::Incoming(Incoming::PubAck(_)))) => break,
+                 Ok(Ok(Event::Incoming(Incoming::PubComp(_)))) => break,
+                 Ok(Ok(_)) => {}
+-                Ok(Err(e)) => return Err(format!("MQTT ack fallito: {}", e)),
++                Ok(Err(e)) => return Err(format!("MQTT ack failed: {}", e)),
+                 Err(_) => break,
+             }
+         }
+@@ -2092,20 +2092,20 @@ pub async fn stomp_subscribe_impl(request: StompSubscribeRequest) -> Result<Vec<
+     use tokio::net::TcpStream;
+     let addr = format!("{}:{}", request.connection.host, request.connection.port);
+     let stream = tokio::time::timeout(std::time::Duration::from_secs(10), TcpStream::connect(&addr)).await
+-        .map_err(|_| format!("STOMP: timeout connessione a {}", addr))?
+-        .map_err(|e| format!("STOMP: connessione fallita a {}: {}", addr, e))?;
++        .map_err(|_| format!("STOMP: connection timeout to {}", addr))?
++        .map_err(|e| format!("STOMP: connection failed to {}: {}", addr, e))?;
+     let (reader, mut writer) = stream.into_split();
+     let mut reader = BufReader::new(reader);
+     let connect_frame = format!("CONNECT\naccept-version:1.0,1.1,1.2\nhost:{}\nlogin:{}\npasscode:{}\n\n\0", request.connection.vhost, request.connection.username, request.connection.password);
+-    writer.write_all(connect_frame.as_bytes()).await.map_err(|e| format!("STOMP CONNECT fallito: {}", e))?;
++    writer.write_all(connect_frame.as_bytes()).await.map_err(|e| format!("STOMP CONNECT failed: {}", e))?;
+     let connected = read_stomp_frame(&mut reader).await?;
+-    if !connected.starts_with("CONNECTED") { return Err(format!("STOMP: handshake fallito — risposta: {}", &connected[..connected.len().min(100)])); }
++    if !connected.starts_with("CONNECTED") { return Err(format!("STOMP: handshake failed — response: {}", &connected[..connected.len().min(100)])); }
+     let dest = format_stomp_destination(&request.destination, &request.dest_type);
+     let ack = if request.ack_mode == "client" { "client" } else { "auto" };
+     let mut sub_frame = format!("SUBSCRIBE\nid:sub-0\ndestination:{}\nack:{}\n", dest, ack);
+     if let Some(sel) = &request.selector { sub_frame.push_str(&format!("selector:{}\n", sel)); }
+     sub_frame.push_str("\n\0");
+-    writer.write_all(sub_frame.as_bytes()).await.map_err(|e| format!("STOMP SUBSCRIBE fallito: {}", e))?;
++    writer.write_all(sub_frame.as_bytes()).await.map_err(|e| format!("STOMP SUBSCRIBE failed: {}", e))?;
+     let mut messages: Vec<StompMessage> = Vec::new();
+     let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(request.timeout_ms);
+     loop {
+@@ -2119,7 +2119,7 @@ pub async fn stomp_subscribe_impl(request: StompSubscribeRequest) -> Result<Vec<
+                     }
+                 }
+             }
+-            Ok(Err(e)) => return Err(format!("STOMP: errore lettura: {}", e)),
++            Ok(Err(e)) => return Err(format!("STOMP: read error: {}", e)),
+             Err(_) => break,
+         }
+     }
+@@ -2140,14 +2140,14 @@ pub async fn stomp_publish_impl(request: StompPublishRequest) -> Result<(), Stri
+     use tokio::net::TcpStream;
+     let addr = format!("{}:{}", request.connection.host, request.connection.port);
+     let stream = tokio::time::timeout(std::time::Duration::from_secs(10), TcpStream::connect(&addr)).await
+-        .map_err(|_| format!("STOMP: timeout connessione a {}", addr))?
+-        .map_err(|e| format!("STOMP: connessione fallita: {}", e))?;
++        .map_err(|_| format!("STOMP: connection timeout to {}", addr))?
++        .map_err(|e| format!("STOMP: connection failed: {}", e))?;
+     let (reader, mut writer) = stream.into_split();
+     let mut reader = BufReader::new(reader);
+     let connect_frame = format!("CONNECT\naccept-version:1.0,1.1,1.2\nhost:{}\nlogin:{}\npasscode:{}\n\n\0", request.connection.vhost, request.connection.username, request.connection.password);
+-    writer.write_all(connect_frame.as_bytes()).await.map_err(|e| format!("STOMP CONNECT fallito: {}", e))?;
++    writer.write_all(connect_frame.as_bytes()).await.map_err(|e| format!("STOMP CONNECT failed: {}", e))?;
+     let connected = read_stomp_frame(&mut reader).await?;
+-    if !connected.starts_with("CONNECTED") { return Err(format!("STOMP: handshake fallito")); }
++    if !connected.starts_with("CONNECTED") { return Err(format!("STOMP: handshake failed")); }
+     let dest = format_stomp_destination(&request.destination, &request.dest_type);
+     let receipt_id = format!("send-{}", chrono::Utc::now().timestamp_millis());
+     let mut send_frame = format!("SEND\ndestination:{}\ncontent-length:{}\ndelivery-mode:{}\npriority:{}\nreceipt:{}\n", dest, request.payload.len(), if request.persistent { "persistent" } else { "non-persistent" }, request.priority, receipt_id);
+@@ -2156,14 +2156,14 @@ pub async fn stomp_publish_impl(request: StompPublishRequest) -> Result<(), Stri
+     send_frame.push('\n');
+     send_frame.push_str(&request.payload);
+     send_frame.push('\0');
+-    writer.write_all(send_frame.as_bytes()).await.map_err(|e| format!("STOMP SEND fallito: {}", e))?;
++    writer.write_all(send_frame.as_bytes()).await.map_err(|e| format!("STOMP SEND failed: {}", e))?;
+     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+     loop {
+         match tokio::time::timeout_at(deadline, read_stomp_frame(&mut reader)).await {
+             Ok(Ok(frame)) if frame.starts_with("RECEIPT") => break,
+             Ok(Ok(frame)) if frame.starts_with("ERROR") => { return Err(format!("STOMP ERROR: {}", &frame[..frame.len().min(200)])); }
+             Ok(Ok(_)) => {}
+-            Ok(Err(e)) => return Err(format!("STOMP: errore attesa receipt: {}", e)),
++            Ok(Err(e)) => return Err(format!("STOMP: receipt wait error: {}", e)),
+             Err(_) => break,
+         }
+     }
+@@ -2328,7 +2328,7 @@ pub async fn webhook_server_start_impl(request: WebhookServerStartRequest) -> Re
+ 
+     { let reg = webhook_servers().lock().unwrap(); if reg.contains_key(&request.resource_id) { return Ok(()); } }
+ 
+-    let addr: std::net::SocketAddr = format!("0.0.0.0:{}", request.port).parse().map_err(|e| format!("Porta non valida: {}", e))?;
++    let addr: std::net::SocketAddr = format!("0.0.0.0:{}", request.port).parse().map_err(|e| format!("Invalid port: {}", e))?;
+     let state    = Arc::new(Mutex::new(WebhookServerState::new()));
+     let state_cl = Arc::clone(&state);
+     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+@@ -2402,7 +2402,7 @@ async fn webhook_subscribe(request: WebhookSubscribeRequest) -> Result<(), Strin
+ 
+ pub async fn webhook_subscribe_impl(request: WebhookSubscribeRequest) -> Result<(), String> {
+     let reg   = webhook_servers().lock().unwrap();
+-    let entry = reg.get(&request.resource_id).ok_or_else(|| format!("Server webhook '{}' non avviato", request.resource_id))?;
++    let entry = reg.get(&request.resource_id).ok_or_else(|| format!("Webhook server '{}' not started", request.resource_id))?;
+     let mut state = entry.state.lock().unwrap();
+     let sub = WebhookSubscriber::new(request.node_id.clone(), request.secret, request.sig_header.to_lowercase(), request.sig_algo, request.dedup_ttl_sec, request.max_buffer.max(1), request.overflow);
+     state.subscribers.insert(request.path.clone(), sub);
+@@ -2466,7 +2466,7 @@ pub async fn webhook_responder_start_impl(request: WebhookResponderStartRequest)
+     use http_body_util::Full;
+     use hyper::body::Bytes;
+ 
+-    let addr: std::net::SocketAddr = format!("0.0.0.0:{}", request.port).parse().map_err(|e| format!("Porta non valida: {}", e))?;
++    let addr: std::net::SocketAddr = format!("0.0.0.0:{}", request.port).parse().map_err(|e| format!("Invalid port: {}", e))?;
+ 
+     let (tx, rx)  = tokio::sync::oneshot::channel::<()>();
+     let req_count = Arc::new(std::sync::atomic::AtomicU64::new(0));
+@@ -2674,11 +2674,11 @@ pub async fn shell_exec_impl(request: ShellExecRequest) -> Result<ShellResult, S
+         )
+         .await
+         .map_err(|_| format!("Shell: timeout dopo {}s", timeout_secs))?
+-        .map_err(|e| format!("Shell: errore avvio — {}", e))?
++        .map_err(|e| format!("Shell: start error — {}", e))?
+     } else {
+         cmd.output()
+             .await
+-            .map_err(|e| format!("Shell: errore avvio — {}", e))?
++            .map_err(|e| format!("Shell: start error — {}", e))?
+     };
+ 
+     let duration_ms = start.elapsed().as_millis() as u64;
+@@ -2726,26 +2726,26 @@ fn build_ssh_session(conn: &SshConnection) -> Result<ssh2::Session, String> {
+ 
+     let addr = format!("{}:{}", conn.host, conn.port);
+     let tcp  = TcpStream::connect_timeout(
+-        &addr.parse().map_err(|e| format!("SSH: indirizzo non valido — {}", e))?,
++        &addr.parse().map_err(|e| format!("SSH: invalid address — {}", e))?,
+         Duration::from_secs(conn.connect_timeout_sec),
+-    ).map_err(|e| format!("SSH: connessione TCP fallita — {}", e))?;
++    ).map_err(|e| format!("SSH: TCP connection failed — {}", e))?;
+ 
+     let mut sess = ssh2::Session::new()
+-        .map_err(|e| format!("SSH: errore sessione — {}", e))?;
++        .map_err(|e| format!("SSH: session error — {}", e))?;
+     sess.set_tcp_stream(tcp);
+     sess.handshake()
+-        .map_err(|e| format!("SSH: handshake fallito — {}", e))?;
++        .map_err(|e| format!("SSH: handshake failed — {}", e))?;
+ 
+     // Autenticazione
+     match conn.auth_type.as_str() {
+         "password" => {
+             let pwd = conn.password.as_deref().unwrap_or("");
+             sess.userauth_password(&conn.user, pwd)
+-                .map_err(|e| format!("SSH: autenticazione password fallita — {}", e))?;
++                .map_err(|e| format!("SSH: password authentication failed — {}", e))?;
+         }
+         "key" | "key_passphrase" => {
+             let key_path = conn.key_path.as_deref()
+-                .ok_or("SSH: key_path non configurato")?;
++                .ok_or("SSH: key_path not configured")?;
+             let passphrase = if conn.auth_type == "key_passphrase" {
+                 conn.key_passphrase.as_deref()
+             } else {
+@@ -2756,13 +2756,13 @@ fn build_ssh_session(conn: &SshConnection) -> Result<ssh2::Session, String> {
+                 None,
+                 std::path::Path::new(key_path),
+                 passphrase,
+-            ).map_err(|e| format!("SSH: autenticazione chiave fallita — {}", e))?;
++            ).map_err(|e| format!("SSH: key authentication failed — {}", e))?;
+         }
+-        _ => return Err(format!("SSH: auth_type '{}' non supportato", conn.auth_type)),
++        _ => return Err(format!("SSH: auth_type '{}' not supported", conn.auth_type)),
+     }
+ 
+     if !sess.authenticated() {
+-        return Err("SSH: autenticazione fallita".to_string());
++        return Err("SSH: authentication failed".to_string());
+     }
+ 
+     Ok(sess)
+@@ -2789,22 +2789,22 @@ pub async fn ssh_exec_impl(request: SshExecRequest) -> Result<ShellResult, Strin
+         let sess  = build_ssh_session(&conn)?;
+ 
+         let mut channel = sess.channel_session()
+-            .map_err(|e| format!("SSH: errore apertura canale — {}", e))?;
++            .map_err(|e| format!("SSH: channel open error — {}", e))?;
+ 
+         channel.exec(&command)
+-            .map_err(|e| format!("SSH: errore esecuzione — {}", e))?;
++            .map_err(|e| format!("SSH: execution error — {}", e))?;
+ 
+         let mut stdout_buf = String::new();
+         let mut stderr_buf = String::new();
+ 
+         channel.read_to_string(&mut stdout_buf)
+-            .map_err(|e| format!("SSH: errore lettura stdout — {}", e))?;
++            .map_err(|e| format!("SSH: stdout read error — {}", e))?;
+ 
+         channel.stderr().read_to_string(&mut stderr_buf)
+-            .map_err(|e| format!("SSH: errore lettura stderr — {}", e))?;
++            .map_err(|e| format!("SSH: stderr read error — {}", e))?;
+ 
+         channel.wait_close()
+-            .map_err(|e| format!("SSH: errore chiusura canale — {}", e))?;
++            .map_err(|e| format!("SSH: channel close error — {}", e))?;
+ 
+         let exit_code   = channel.exit_status().unwrap_or(-1);
+         let duration_ms = start.elapsed().as_millis() as u64;
+@@ -2812,7 +2812,7 @@ pub async fn ssh_exec_impl(request: SshExecRequest) -> Result<ShellResult, Strin
+         Ok(ShellResult { exit_code, stdout: stdout_buf, stderr: stderr_buf, duration_ms })
+     })
+     .await
+-    .map_err(|e| format!("SSH: errore thread — {}", e))??;
++    .map_err(|e| format!("SSH: thread error — {}", e))??;
+ 
+     Ok(result)
+ }
+@@ -2841,7 +2841,7 @@ async fn ssh_test(connection: SshConnection) -> Result<SshTestResult, String> {
+     match result {
+         Ok(_) => Ok(SshTestResult {
+             ok:         true,
+-            message:    format!("Connessione a {}:{} riuscita ({}ms)", connection.host, connection.port, elapsed_ms),
++            message:    format!("Connection to {}:{} succeeded ({}ms)", connection.host, connection.port, elapsed_ms),
+             elapsed_ms,
+         }),
+         Err(e) => Ok(SshTestResult {
+@@ -2900,20 +2900,20 @@ pub async fn ldap_connect_and_bind(conn: &LdapConnection) -> Result<ldap3::Ldap,
+     let url = ldap_url(conn);
+     let (driver, mut ldap) = ldap3::LdapConnAsync::with_settings(settings, &url)
+         .await
+-        .map_err(|e| format!("LDAP: connessione a {} fallita — {}", url, e))?;
++        .map_err(|e| format!("LDAP: connection to {} failed — {}", url, e))?;
+     ldap3::drive!(driver);
+ 
+     // Un bindDN con password vuota NON è consentito: sarebbe un bind anonimo
+     // travestito da account di servizio, che molti server accettano.
+     if !conn.bind_dn.is_empty() {
+         if conn.password.is_empty() {
+-            return Err("LDAP: password dell'account di servizio vuota (bind anonimo mascherato non consentito)".to_string());
++            return Err("LDAP: service account password empty (masked anonymous bind not allowed)".to_string());
+         }
+         ldap.simple_bind(&conn.bind_dn, &conn.password)
+             .await
+-            .map_err(|e| format!("LDAP: bind fallito — {}", e))?
++            .map_err(|e| format!("LDAP: bind failed — {}", e))?
+             .success()
+-            .map_err(|e| format!("LDAP: bind rifiutato dal server — {}", e))?;
++            .map_err(|e| format!("LDAP: bind refused by the server — {}", e))?;
+     }
+ 
+     Ok(ldap)
+@@ -2926,11 +2926,11 @@ pub async fn ldap_test_impl(connection: LdapConnection) -> Result<LdapTestResult
+     match outcome {
+         Ok(mut ldap) => {
+             let _ = ldap.unbind().await;
+-            let how = if connection.bind_dn.is_empty() { "connessione (anonima)" }
+-                      else { "connessione + bind di servizio" };
++            let how = if connection.bind_dn.is_empty() { "connection (anonymous)" }
++                      else { "connection + service bind" };
+             Ok(LdapTestResult {
+                 ok:      true,
+-                message: format!("{} a {}:{} riuscita ({}ms)", how, connection.host, connection.port, elapsed_ms),
++                message: format!("{} to {}:{} succeeded ({}ms)", how, connection.host, connection.port, elapsed_ms),
+                 elapsed_ms,
+             })
+         }
+@@ -2992,7 +2992,7 @@ pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTest
+         req = req.bearer_auth(connection.token.trim());
+     }
+ 
+-    let resp = req.send().await.map_err(|e| format!("richiesta a GitHub fallita: {}", e))?;
++    let resp = req.send().await.map_err(|e| format!("GitHub request failed: {}", e))?;
+     let status = resp.status();
+ 
+     if status.is_success() {
+@@ -3004,7 +3004,7 @@ pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTest
+         };
+         Ok(GithubTestResult { ok: true, message })
+     } else if status.as_u16() == 401 {
+-        Ok(GithubTestResult { ok: false, message: "Token non valido o assente (401)".to_string() })
++        Ok(GithubTestResult { ok: false, message: "Invalid or missing token (401)".to_string() })
+     } else {
+         Ok(GithubTestResult { ok: false, message: format!("GitHub ha risposto HTTP {}", status.as_u16()) })
+     }

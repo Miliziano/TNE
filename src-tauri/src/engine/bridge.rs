@@ -215,7 +215,7 @@ pub async fn run_bridge_in(
         // decide con le sue regole. Marcare «critico» il bridge_in è ciò
         // che ferma anche la lane di valle.
         return Err(format!(
-            "source lane interrupted after {} rows: the bridge delivery is incomplete",
+            "lane sorgente interrotta dopo {} righe: la consegna del bridge è incompleta",
             rows_in,
         ));
     }

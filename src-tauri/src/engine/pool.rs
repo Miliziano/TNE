@@ -122,7 +122,7 @@ impl LaneResources {
                     // silenzio non si distingue da un blocco.
                     if attempt > 0 {
                         on_retry(format!(
-                            "Connection succeeded on attempt {} of {}",
+                            "Connessione riuscita al tentativo {} di {}",
                             attempt + 1, retries + 1,
                         ));
                     }
@@ -132,7 +132,7 @@ impl LaneResources {
                     if attempt >= retries {
                         if retries > 0 {
                             on_retry(format!(
-                                "Connection failed after {} attempts: {}",
+                                "Connessione fallita dopo {} tentativi: {}",
                                 retries + 1, e,
                             ));
                         }
@@ -140,7 +140,7 @@ impl LaneResources {
                     }
                     attempt += 1;
                     let msg = format!(
-                        "Resource unavailable ({}). Retrying {}/{} in {}s",
+                        "Risorsa non disponibile ({}). Ritento {}/{} tra {}s",
                         e, attempt, retries, delay_secs,
                     );
                     eprintln!("[pool] risorsa '{}': {}", resource_id, msg);
@@ -178,7 +178,7 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
                 .max_connections(max)
                 .acquire_timeout(to)
                 .connect(&params.conn_str).await
-                .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+                .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
             Ok(DbPool::Pg(pool))
         }
         "mysql" => {
@@ -186,7 +186,7 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
                 .max_connections(max)
                 .acquire_timeout(to)
                 .connect(&params.conn_str).await
-                .map_err(|e| format!("MySQL connection failed: {}", e))?;
+                .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
             Ok(DbPool::My(pool))
         }
         "sqlite" => {
@@ -194,9 +194,9 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
                 .max_connections(max)
                 .acquire_timeout(to)
                 .connect(&params.conn_str).await
-                .map_err(|e| format!("SQLite connection failed: {}", e))?;
+                .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
             Ok(DbPool::Sqlite(pool))
         }
-        d => Err(format!("Dialect '{}' not supported", d)),
+        d => Err(format!("Dialetto '{}' non supportato", d)),
     }
 }
