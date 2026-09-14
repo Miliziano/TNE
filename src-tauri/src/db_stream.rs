@@ -86,7 +86,7 @@ async fn stream_query(
         "postgresql" => stream_pg(app, &conn_str, &request.query, &request.stream_id, timeout).await,
         "mysql"      => stream_mysql(app, &conn_str, &request.query, &request.stream_id, timeout).await,
         "sqlite"     => stream_sqlite(app, &conn_str, &request.query, &request.stream_id, timeout).await,
-        d            => Err(format!("Dialetto '{}' non supportato per streaming", d)),
+        d            => Err(format!("Dialect '{}' not supported for streaming", d)),
     }
 }
 
@@ -105,7 +105,7 @@ async fn stream_pg(
         .max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(timeout))
         .connect(conn_str).await
-        .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
+        .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
 
     let mut stream = sqlx::query(query).fetch(&pool);
     let mut rows_read: u64 = 0;
@@ -128,7 +128,7 @@ async fn stream_pg(
                 pool.close().await;
                 let done = DbStreamDone {
                     rows_read,
-                    error: Some(format!("PostgreSQL errore riga {}: {}", rows_read + 1, e)),
+                    error: Some(format!("PostgreSQL row error {}: {}", rows_read + 1, e)),
                 };
                 let _ = app.emit(&format!("db_stream_done_{}", stream_id), done);
                 return Ok(());
@@ -157,7 +157,7 @@ async fn stream_mysql(
         .max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(timeout))
         .connect(conn_str).await
-        .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
+        .map_err(|e| format!("MySQL connection failed: {}", e))?;
 
     let mut stream = sqlx::query(query).fetch(&pool);
     let mut rows_read: u64 = 0;
@@ -180,7 +180,7 @@ async fn stream_mysql(
                 pool.close().await;
                 let done = DbStreamDone {
                     rows_read,
-                    error: Some(format!("MySQL errore riga {}: {}", rows_read + 1, e)),
+                    error: Some(format!("MySQL row error {}: {}", rows_read + 1, e)),
                 };
                 let _ = app.emit(&format!("db_stream_done_{}", stream_id), done);
                 return Ok(());
@@ -209,7 +209,7 @@ async fn stream_sqlite(
         .max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(timeout))
         .connect(conn_str).await
-        .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
+        .map_err(|e| format!("SQLite connection failed: {}", e))?;
 
     let mut stream = sqlx::query(query).fetch(&pool);
     let mut rows_read: u64 = 0;
@@ -236,7 +236,7 @@ async fn stream_sqlite(
                 pool.close().await;
                 let done = DbStreamDone {
                     rows_read,
-                    error: Some(format!("SQLite errore riga {}: {}", rows_read + 1, e)),
+                    error: Some(format!("SQLite row error {}: {}", rows_read + 1, e)),
                 };
                 let _ = app.emit(&format!("db_stream_done_{}", stream_id), done);
                 return Ok(());

@@ -160,7 +160,7 @@ pub async fn run(
                     ctx.emit_log(&ctx.label, "info", 0,
                         format!("Watchdog [gate]: attempt {} — HTTP {} | {}: {} | {}ms",
                             attempt, res.status_code, header_name,
-                            res.header_found.clone().unwrap_or_else(|| "(assente)".to_string()), res.elapsed_ms), "panel");
+                            res.header_found.clone().unwrap_or_else(|| "(missing)".to_string()), res.elapsed_ms), "panel");
                     if res.matched {
                         ctx.emit_log(&ctx.label, "ok", 0,
                             format!("Watchdog [gate]: condition met after {} attempt(s)", attempt), "panel");

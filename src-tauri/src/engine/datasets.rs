@@ -181,8 +181,7 @@ impl LaneDatasets {
             let mut slots = self.slots.lock().await;
             for (name, _) in &pending {
                 slots.insert(name.clone(), Slot::Failed(
-                    "il Materialize non ha mai pubblicato il dataset (fallito, o non \
-                     collegato a una sorgente)".to_string()));
+                    "the Materialize never published the dataset (failed, or not connected to a source)".to_string()));
             }
         }
         for (name, notify) in pending {
@@ -224,9 +223,7 @@ pub fn check_dataset_cycles(
             let Some(producer) = producers.get(ds_name) else { continue };
             if reachable(&adj, consumer, producer) {
                 return Err(format!(
-                    "dipendenza circolare: il nodo '{}' legge il dataset '{}', \
-                     ma il Materialize che lo pubblica ('{}') è a valle di '{}'. \
-                     Il dataset non sarà mai pronto.",
+                    "circular dependency: node '{}' reads dataset '{}', but the Materialize that publishes it ('{}') is downstream of '{}'. The dataset will never be ready.",
                     consumer, ds_name, producer, consumer));
             }
         }

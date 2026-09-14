@@ -70,10 +70,10 @@ pub async fn db_tx_begin(request: DbTxBeginRequest) -> Result<(), String> {
       let pool = PgPoolOptions::new().max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
-        .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
-      let mut conn = pool.acquire().await.map_err(|e| format!("PostgreSQL acquire fallito: {}", e))?;
+        .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+      let mut conn = pool.acquire().await.map_err(|e| format!("PostgreSQL acquire failed: {}", e))?;
       sqlx::query("BEGIN").execute(&mut *conn).await
-        .map_err(|e| format!("BEGIN fallito: {}", e))?;
+        .map_err(|e| format!("BEGIN failed: {}", e))?;
       tx_registry().lock().unwrap().insert(request.tx_id, TxConnection::Pg(conn));
     }
     "mysql" => {
@@ -81,10 +81,10 @@ pub async fn db_tx_begin(request: DbTxBeginRequest) -> Result<(), String> {
       let pool = MySqlPoolOptions::new().max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
-        .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
-      let mut conn = pool.acquire().await.map_err(|e| format!("MySQL acquire fallito: {}", e))?;
+        .map_err(|e| format!("MySQL connection failed: {}", e))?;
+      let mut conn = pool.acquire().await.map_err(|e| format!("MySQL acquire failed: {}", e))?;
       sqlx::query("START TRANSACTION").execute(&mut *conn).await
-        .map_err(|e| format!("START TRANSACTION fallito: {}", e))?;
+        .map_err(|e| format!("START TRANSACTION failed: {}", e))?;
       tx_registry().lock().unwrap().insert(request.tx_id, TxConnection::MySql(conn));
     }
     "sqlite" => {
@@ -92,15 +92,15 @@ pub async fn db_tx_begin(request: DbTxBeginRequest) -> Result<(), String> {
       let pool = SqlitePoolOptions::new().max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
-        .map_err(|e| format!("SQLite connessione fallita: {}", e))?;
-      let mut conn = pool.acquire().await.map_err(|e| format!("SQLite acquire fallito: {}", e))?;
+        .map_err(|e| format!("SQLite connection failed: {}", e))?;
+      let mut conn = pool.acquire().await.map_err(|e| format!("SQLite acquire failed: {}", e))?;
       // BEGIN IMMEDIATE — acquisisce il lock di scrittura subito,
       // evita "database is locked" a metà transazione su scritture successive.
       sqlx::query("BEGIN IMMEDIATE").execute(&mut *conn).await
-        .map_err(|e| format!("BEGIN IMMEDIATE fallito: {}", e))?;
+        .map_err(|e| format!("BEGIN IMMEDIATE failed: {}", e))?;
       tx_registry().lock().unwrap().insert(request.tx_id, TxConnection::Sqlite(conn));
     }
-    d => return Err(format!("Dialetto '{}' non supporta transazioni native", d)),
+    d => return Err(format!("Dialect '{}' does not support native transactions", d)),
   }
 
   Ok(())
@@ -125,7 +125,7 @@ pub async fn db_tx_write(request: DbTxWriteRequest) -> Result<DbWriteResult, Str
   let mut entry = {
     let mut reg = tx_registry().lock().unwrap();
     reg.remove(&request.tx_id)
-      .ok_or_else(|| format!("Transazione '{}' non trovata o già chiusa", request.tx_id))?
+      .ok_or_else(|| format!("Transaction '{}' not found or already closed", request.tx_id))?
   };
 
   let start  = std::time::Instant::now();
@@ -169,15 +169,15 @@ async fn finish_tx(tx_id: String, sql: &str) -> Result<(), String> {
   match entry {
     TxConnection::Pg(mut conn) => {
       sqlx::query(sql).execute(&mut *conn).await
-        .map_err(|e| format!("{} fallito (postgresql, tx '{}'): {}", sql, tx_id, e))?;
+        .map_err(|e| format!("{} failed (postgresql, tx '{}'): {}", sql, tx_id, e))?;
     }
     TxConnection::MySql(mut conn) => {
       sqlx::query(sql).execute(&mut *conn).await
-        .map_err(|e| format!("{} fallito (mysql, tx '{}'): {}", sql, tx_id, e))?;
+        .map_err(|e| format!("{} failed (mysql, tx '{}'): {}", sql, tx_id, e))?;
     }
     TxConnection::Sqlite(mut conn) => {
       sqlx::query(sql).execute(&mut *conn).await
-        .map_err(|e| format!("{} fallito (sqlite, tx '{}'): {}", sql, tx_id, e))?;
+        .map_err(|e| format!("{} failed (sqlite, tx '{}'): {}", sql, tx_id, e))?;
     }
   }
   // `conn` esce di scope qui — torna al pool (che si chiude da solo,
@@ -221,13 +221,13 @@ pub(crate) async fn pg_tx_write(
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sqlx::query(stmt).execute(&mut **conn).await
-                    .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
+                    .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
         sqlx::query(&format!("TRUNCATE TABLE {}", tbl)).execute(&mut **conn).await
-            .map_err(|e| format!("TRUNCATE fallito: {}", e))?;
+            .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
 
     for chunk in req.rows.chunks(req.batch_size.max(1)) {
@@ -312,7 +312,7 @@ pub(crate) async fn pg_tx_write(
                     }
                     Err(e) => match req.on_constraint_error.as_str() {
                         "skip" => { skipped += 1; }
-                        "stop" => return Err(format!("SinkDB errore riga (transazione): {}", e)),
+                        "stop" => return Err(format!("SinkDB row error (transaction): {}", e)),
                         _ => { errors += 1; }
                     }
                 }
@@ -323,7 +323,7 @@ pub(crate) async fn pg_tx_write(
                     Ok(_) => { written += 1; }
                     Err(e) => match req.on_constraint_error.as_str() {
                         "skip" => { skipped += 1; }
-                        "stop" => return Err(format!("SinkDB errore riga (transazione): {}", e)),
+                        "stop" => return Err(format!("SinkDB row error (transaction): {}", e)),
                         _ => { errors += 1; }
                     }
                 }
@@ -335,7 +335,7 @@ pub(crate) async fn pg_tx_write(
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sqlx::query(stmt).execute(&mut **conn).await
-                    .map_err(|e| format!("Post-SQL fallito: {}", e))?;
+                    .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
     }
@@ -381,13 +381,13 @@ pub(crate) async fn mysql_tx_write(
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sqlx::query(stmt).execute(&mut **conn).await
-                    .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
+                    .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
         sqlx::query(&format!("TRUNCATE TABLE `{}`", tbl)).execute(&mut **conn).await
-            .map_err(|e| format!("TRUNCATE fallito: {}", e))?;
+            .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
 
     for chunk in req.rows.chunks(req.batch_size.max(1)) {
@@ -465,7 +465,7 @@ pub(crate) async fn mysql_tx_write(
                 }
                 Err(e) => match req.on_constraint_error.as_str() {
                     "skip" => { skipped += 1; }
-                    "stop" => return Err(format!("SinkDB errore riga (transazione): {}", e)),
+                    "stop" => return Err(format!("SinkDB row error (transaction): {}", e)),
                     _ => { errors += 1; }
                 }
             }
@@ -476,7 +476,7 @@ pub(crate) async fn mysql_tx_write(
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sqlx::query(stmt).execute(&mut **conn).await
-                    .map_err(|e| format!("Post-SQL fallito: {}", e))?;
+                    .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
     }
@@ -512,13 +512,13 @@ pub(crate) async fn sqlite_tx_write(
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sqlx::query(stmt).execute(&mut **conn).await
-                    .map_err(|e| format!("Pre-SQL fallito: {}", e))?;
+                    .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
         sqlx::query(&format!("DELETE FROM {}", tbl)).execute(&mut **conn).await
-            .map_err(|e| format!("DELETE fallito: {}", e))?;
+            .map_err(|e| format!("DELETE failed: {}", e))?;
     }
 
     for chunk in req.rows.chunks(req.batch_size.max(1)) {
@@ -591,7 +591,7 @@ pub(crate) async fn sqlite_tx_write(
                 }
                 Err(e) => match req.on_constraint_error.as_str() {
                     "skip" => { skipped += 1; }
-                    "stop" => return Err(format!("SinkDB errore riga (transazione): {}", e)),
+                    "stop" => return Err(format!("SinkDB row error (transaction): {}", e)),
                     _ => { errors += 1; }
                 }
             }
@@ -602,7 +602,7 @@ pub(crate) async fn sqlite_tx_write(
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 sqlx::query(stmt).execute(&mut **conn).await
-                    .map_err(|e| format!("Post-SQL fallito: {}", e))?;
+                    .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
     }
@@ -660,7 +660,7 @@ pub async fn db_tx_xa_prepare(request: DbTxXaPrepareRequest) -> Result<DbWriteRe
   match request.write.connection.dialect.as_str() {
     "postgresql" => pg_xa_prepare(&conn_str, &xid, &request.write, start).await,
     "mysql"      => mysql_xa_prepare(&conn_str, &xid, &request.write, start).await,
-    d => Err(format!("Dialetto '{}' non supporta XA two-phase commit", d)),
+    d => Err(format!("Dialect '{}' does not support XA two-phase commit", d)),
   }
 }
 
@@ -669,16 +669,16 @@ async fn pg_xa_prepare(conn_str: &str, xid: &str, req: &DbWriteRequest, start: s
   let pool = PgPoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(30))
     .connect(conn_str).await
-    .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
-  let mut conn = pool.acquire().await.map_err(|e| format!("PostgreSQL acquire fallito: {}", e))?;
+    .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+  let mut conn = pool.acquire().await.map_err(|e| format!("PostgreSQL acquire failed: {}", e))?;
 
   sqlx::query("BEGIN").execute(&mut *conn).await
-    .map_err(|e| format!("BEGIN fallito: {}", e))?;
+    .map_err(|e| format!("BEGIN failed: {}", e))?;
 
   match pg_tx_write(&mut conn, req, start).await {
     Ok(result) => {
       sqlx::query(&format!("PREPARE TRANSACTION '{}'", xid)).execute(&mut *conn).await
-        .map_err(|e| format!("PREPARE TRANSACTION fallita: {}", e))?;
+        .map_err(|e| format!("PREPARE TRANSACTION failed: {}", e))?;
       // conn chiusa qui (drop) — la transazione preparata persiste nel DB
       Ok(result)
     }
@@ -697,18 +697,18 @@ async fn mysql_xa_prepare(conn_str: &str, xid: &str, req: &DbWriteRequest, start
   let pool = MySqlPoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(30))
     .connect(conn_str).await
-    .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
-  let mut conn = pool.acquire().await.map_err(|e| format!("MySQL acquire fallito: {}", e))?;
+    .map_err(|e| format!("MySQL connection failed: {}", e))?;
+  let mut conn = pool.acquire().await.map_err(|e| format!("MySQL acquire failed: {}", e))?;
 
   sqlx::query(&format!("XA START '{}'", xid)).execute(&mut *conn).await
-    .map_err(|e| format!("XA START fallita: {}", e))?;
+    .map_err(|e| format!("XA START failed: {}", e))?;
 
   match mysql_tx_write(&mut conn, req, start).await {
     Ok(result) => {
       sqlx::query(&format!("XA END '{}'", xid)).execute(&mut *conn).await
-        .map_err(|e| format!("XA END fallita: {}", e))?;
+        .map_err(|e| format!("XA END failed: {}", e))?;
       sqlx::query(&format!("XA PREPARE '{}'", xid)).execute(&mut *conn).await
-        .map_err(|e| format!("XA PREPARE fallita: {}", e))?;
+        .map_err(|e| format!("XA PREPARE failed: {}", e))?;
       Ok(result)
     }
     Err(e) => {
@@ -743,14 +743,14 @@ pub async fn db_tx_xa_finish(request: DbTxXaFinishRequest) -> Result<(), String>
     "postgresql" => match request.action.as_str() {
       "commit"   => format!("COMMIT PREPARED '{}'", xid),
       "rollback" => format!("ROLLBACK PREPARED '{}'", xid),
-      a => return Err(format!("Azione XA '{}' non valida", a)),
+      a => return Err(format!("Invalid XA action '{}'", a)),
     },
     "mysql" => match request.action.as_str() {
       "commit"   => format!("XA COMMIT '{}'", xid),
       "rollback" => format!("XA ROLLBACK '{}'", xid),
-      a => return Err(format!("Azione XA '{}' non valida", a)),
+      a => return Err(format!("Invalid XA action '{}'", a)),
     },
-    d => return Err(format!("Dialetto '{}' non supporta XA", d)),
+    d => return Err(format!("Dialect '{}' does not support XA", d)),
   };
 
   match request.connection.dialect.as_str() {
@@ -759,9 +759,9 @@ pub async fn db_tx_xa_finish(request: DbTxXaFinishRequest) -> Result<(), String>
       let pool = PgPoolOptions::new().max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
-        .map_err(|e| format!("PostgreSQL connessione fallita: {}", e))?;
+        .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
       sqlx::query(&sql).execute(&pool).await
-        .map_err(|e| format!("{} fallita: {}", sql, e))?;
+        .map_err(|e| format!("{} failed: {}", sql, e))?;
       pool.close().await;
     }
     "mysql" => {
@@ -769,9 +769,9 @@ pub async fn db_tx_xa_finish(request: DbTxXaFinishRequest) -> Result<(), String>
       let pool = MySqlPoolOptions::new().max_connections(1)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
-        .map_err(|e| format!("MySQL connessione fallita: {}", e))?;
+        .map_err(|e| format!("MySQL connection failed: {}", e))?;
       sqlx::query(&sql).execute(&pool).await
-        .map_err(|e| format!("{} fallita: {}", sql, e))?;
+        .map_err(|e| format!("{} failed: {}", sql, e))?;
       pool.close().await;
     }
     _ => unreachable!(),
