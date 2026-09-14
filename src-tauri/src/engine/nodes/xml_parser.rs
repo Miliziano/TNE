@@ -175,12 +175,12 @@ fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
             }
             Ok(Event::End(_)) => { stack.pop(); }
             Ok(Event::Eof) => break,
-            Err(e) => return Err(format!("XML non valido: {}", e)),
+            Err(e) => return Err(format!("Invalid XML: {}", e)),
             _ => {}
         }
     }
 
-    if root.is_none() { return Err("XML vuoto o senza root".into()); }
+    if root.is_none() { return Err("Empty XML or without root".into()); }
     Ok(XmlDom { nodes, root })
 }
 
@@ -384,18 +384,18 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("xml_parser {}: {}", ctx.node_id.0, e))?;
     let cfg: XmlParserConfig = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("xml_parser {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("xml_parser {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("xml_parser", &ctx.node_id.0);
 
     if cfg.source_field.is_empty() {
-        return Err(format!("xml_parser {}: campo sorgente non configurato.", ctx.node_id.0));
+        return Err(format!("xml_parser {}: source field not configured.", ctx.node_id.0));
     }
     if cfg.flows.is_empty() {
-        return Err(format!("xml_parser {}: nessun flusso configurato.", ctx.node_id.0));
+        return Err(format!("xml_parser {}: no flow configured.", ctx.node_id.0));
     }
 
     let mut rx = rx.ok_or_else(||
-        format!("xml_parser {} richiede un input collegato", ctx.node_id.0))?;
+        format!("xml_parser {} requires a connected input", ctx.node_id.0))?;
 
     let start = Instant::now();
     let mut rows_in:       u64 = 0;

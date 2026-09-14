@@ -1,0 +1,577 @@
+diff --git a/src-tauri/src/engine/nodes/aggregate.rs b/src-tauri/src/engine/nodes/aggregate.rs
+index 10aca6c..e87cae4 100644
+--- a/src-tauri/src/engine/nodes/aggregate.rs
++++ b/src-tauri/src/engine/nodes/aggregate.rs
+@@ -86,7 +86,7 @@ fn d_sep() -> String { ", ".into() }
+ fn config_from_spec(spec: &Spec) -> Result<AggConfig, String> {
+     // Strutture compilate dalla busta config.
+     let st: AggConfigStruct = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("config strutturata non valida (functions/having): {}", e))?;
++        .map_err(|e| format!("invalid structured config (functions/having): {}", e))?;
+ 
+     Ok(AggConfig {
+         data_source:      spec.str_or("dataSource",      "flow"),
+@@ -117,8 +117,7 @@ pub async fn run(
+ 
+     if cfg.functions.is_empty() {
+         return Err(format!(
+-            "aggregate {}: nessuna funzione di aggregazione. Apri il tab Mapping \
+-             e aggiungine almeno una.", ctx.node_id.0));
++            "aggregate {}: no aggregation function. Open the Mapping tab and add at least one.", ctx.node_id.0));
+     }
+ 
+     let start = Instant::now();
+@@ -126,8 +125,7 @@ pub async fn run(
+     // ── Le righe ───────────────────────────────────────────────────
+     let rows: Vec<Row> = if cfg.data_source == "materialize" {
+         if cfg.materialize_name.is_empty() {
+-            return Err(format!("aggregate {}: sorgente 'Materialize' senza nome del \
+-                                dataset. Selezionalo nel pannello.", ctx.node_id.0));
++            return Err(format!("aggregate {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
+         }
+         if let Some(mut rx) = rx { while rx.recv().await.is_some() {} }   // trigger
+         let ds = ctx.lane_datasets.get(&cfg.materialize_name).await?;
+@@ -136,8 +134,7 @@ pub async fn run(
+         ds.rows().to_vec()
+     } else {
+         let Some(mut rx) = rx else {
+-            return Err(format!("aggregate {}: nessun input collegato. Collega un flusso, \
+-                                oppure scegli un dataset Materialize.", ctx.node_id.0));
++            return Err(format!("aggregate {}: no connected input. Connect a flow, or choose a Materialize dataset.", ctx.node_id.0));
+         };
+         let mut v = Vec::new();
+         while let Some(row) = rx.recv().await { v.push(row) }
+diff --git a/src-tauri/src/engine/nodes/data_quality.rs b/src-tauri/src/engine/nodes/data_quality.rs
+index 2592523..64517cd 100644
+--- a/src-tauri/src/engine/nodes/data_quality.rs
++++ b/src-tauri/src/engine/nodes/data_quality.rs
+@@ -133,7 +133,7 @@ pub async fn run(
+     let spec = Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("data_quality {}: {}", ctx.node_id.0, e))?;
+     let cfg: DqConfig = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("data_quality {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("data_quality {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("data_quality", &ctx.node_id.0);
+ 
+     let rules: Vec<&Rule> = cfg.rules.iter().filter(|r| r.enabled).collect();
+@@ -421,7 +421,7 @@ fn coerce_literal(s: &str) -> Value {
+ 
+ fn message(r: &Rule) -> String {
+     if !r.label.is_empty() { return r.label.clone() }
+-    format!("{}: check '{}' fallito", r.field, r.check_type)
++    format!("{}: check '{}' failed", r.field, r.check_type)
+ }
+ 
+ // ─── Lo score ──────────────────────────────────────────────────────
+diff --git a/src-tauri/src/engine/nodes/explode.rs b/src-tauri/src/engine/nodes/explode.rs
+index 9e94364..2ae9225 100644
+--- a/src-tauri/src/engine/nodes/explode.rs
++++ b/src-tauri/src/engine/nodes/explode.rs
+@@ -86,20 +86,17 @@ pub async fn run(
+     // silenzioso. `lane_var` non è mai stata implementata nel motore;
+     // `json_path` come structureType è mestiere di json_parser.
+     if cfg.source == "lane_var" {
+-        return Err(format!("explode {}: la sorgente 'variabile di lane' non è \
+-                            supportata. Carica i dati in un Materialize e leggilo da lì.",
++        return Err(format!("explode {}: the 'lane variable' source is not supported. Load the data into a Materialize and read it from there.",
+                            ctx.node_id.0));
+     }
+     if cfg.structure_type == "json_path" {
+-        return Err(format!("explode {}: il tipo 'json_path' non è supportato. Per \
+-                            navigare una struttura annidata usa un JSON Parser a monte, \
+-                            poi esplodi il campo array che ne risulta.", ctx.node_id.0));
++        return Err(format!("explode {}: the 'json_path' type is not supported. To navigate a nested structure use a JSON Parser upstream, then explode the resulting array field.", ctx.node_id.0));
+     }
+ 
+     match cfg.source.as_str() {
+         "materialize" => from_materialize(ctx, rx, tx, cfg, start).await,
+         "flow_field"  => from_flow_field(ctx, rx, tx, reject_tx, cfg, start).await,
+-        other => Err(format!("explode {}: sorgente sconosciuta '{}'", ctx.node_id.0, other)),
++        other => Err(format!("explode {}: unknown source '{}'", ctx.node_id.0, other)),
+     }
+ }
+ 
+@@ -114,8 +111,7 @@ async fn from_materialize(
+ ) -> Result<NodeStats, String> {
+ 
+     if cfg.materialize_name.is_empty() {
+-        return Err(format!("explode {}: sorgente 'Materialize' senza nome del dataset. \
+-                            Selezionalo nel pannello.", ctx.node_id.0));
++        return Err(format!("explode {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
+     }
+ 
+     // L'input, se collegato, è il segnale di partenza: consumalo.
+@@ -129,7 +125,7 @@ async fn from_materialize(
+ 
+     if ds.is_empty() {
+         match cfg.on_empty.as_str() {
+-            "error" => return Err(format!("explode {}: il dataset '{}' è vuoto",
++            "error" => return Err(format!("explode {}: dataset '{}' is empty",
+                                           ctx.node_id.0, cfg.materialize_name)),
+             "null_row" => { let _ = tx.send(Row::new()).await; }
+             _ => {}   // skip
+@@ -163,10 +159,10 @@ async fn from_flow_field(
+ ) -> Result<NodeStats, String> {
+ 
+     let Some(mut rx) = rx else {
+-        return Err(format!("explode {}: nessun input collegato.", ctx.node_id.0));
++        return Err(format!("explode {}: no connected input.", ctx.node_id.0));
+     };
+     if cfg.field.is_empty() {
+-        return Err(format!("explode {}: nessun campo da esplodere. Selezionalo nel pannello.",
++        return Err(format!("explode {}: no field to explode. Select it in the panel.",
+                            ctx.node_id.0));
+     }
+ 
+@@ -183,7 +179,7 @@ async fn from_flow_field(
+ 
+         if is_null {
+             match cfg.on_empty.as_str() {
+-                "error" => return Err(format!("explode {}: il campo '{}' è null",
++                "error" => return Err(format!("explode {}: field '{}' is null",
+                                               ctx.node_id.0, cfg.field)),
+                 "null_row" => {
+                     let row = if cfg.include_parent { parent.clone() } else { Row::new() };
+@@ -202,8 +198,7 @@ async fn from_flow_field(
+ 
+         if exploded.is_empty() {
+             match cfg.on_empty.as_str() {
+-                "error" => return Err(format!("explode {}: il campo '{}' produce una \
+-                                               struttura vuota", ctx.node_id.0, cfg.field)),
++                "error" => return Err(format!("explode {}: field '{}' produces an empty structure", ctx.node_id.0, cfg.field)),
+                 "null_row" => {
+                     let row = if cfg.include_parent { parent.clone() } else { Row::new() };
+                     if tx.send(row).await.is_err() { break }
+@@ -299,7 +294,7 @@ fn explode_value(v: &Value, structure: &str, on_primitive: &str) -> Result<Vec<R
+             None => primitive(v, on_primitive),
+         },
+ 
+-        other => Err(format!("explode: tipo di struttura sconosciuto '{}'", other)),
++        other => Err(format!("explode: unknown structure type '{}'", other)),
+     }
+ }
+ 
+@@ -323,7 +318,7 @@ fn json_to_row(v: &serde_json::Value) -> Row {
+ /// Il campo non è una collezione.
+ fn primitive(v: &Value, mode: &str) -> Result<Vec<Row>, String> {
+     match mode {
+-        "error" => Err(format!("explode: il campo non è una collezione (valore: {})",
++        "error" => Err(format!("explode: the field is not a collection (value: {})",
+                                v.as_str_repr())),
+         "skip"  => Ok(Vec::new()),
+         _ => {   // wrap: una riga sola, col valore
+diff --git a/src-tauri/src/engine/nodes/filter.rs b/src-tauri/src/engine/nodes/filter.rs
+index 9bae246..ea28f09 100644
+--- a/src-tauri/src/engine/nodes/filter.rs
++++ b/src-tauri/src/engine/nodes/filter.rs
+@@ -94,7 +94,7 @@ pub async fn run(
+     // dal builder → spec.config. Filter non usa FPEL: le condizioni sono
+     // clausole strutturate o template, non espressioni compilate.
+     let plan: FilterPlan = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("filter {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("filter {}: invalid config: {}", ctx.node_id.0, e))?;
+ 
+     let start = Instant::now();
+     let mut rows_in       = 0u64;
+@@ -216,7 +216,7 @@ fn eval_visual_clause(row: &Row, clause: &VisualClause, null_behavior: &str) ->
+             "not_null" => return Ok(false),
+             _ => match null_behavior {
+                 "exclude" => return Ok(false),
+-                "error"   => return Err(format!("Campo '{}' è null", clause.field)),
++                "error"   => return Err(format!("Field '{}' is null", clause.field)),
+                 _         => {} // include: prosegue con stringa vuota
+             },
+         }
+diff --git a/src-tauri/src/engine/nodes/join.rs b/src-tauri/src/engine/nodes/join.rs
+index 5e968c5..d3d861c 100644
+--- a/src-tauri/src/engine/nodes/join.rs
++++ b/src-tauri/src/engine/nodes/join.rs
+@@ -163,13 +163,11 @@ pub async fn run(
+     // Feature rimandate: avvisa invece di fallire in silenzio.
+     if !cfg.custom_cond.trim().is_empty() {
+         ctx.emit_log(&ctx.label, "warn", 0,
+-            "[join] condizione custom ignorata: non ancora supportata dal motore \
+-             (v. docs/TODO.md)".to_string(), "panel");
++            "[join] custom condition ignored: not yet supported by the engine (see docs/TODO.md)".to_string(), "panel");
+     }
+     if cfg.right_source == "materialize" {
+         ctx.emit_log(&ctx.label, "warn", 0,
+-            "[join] rightSource=materialize non ancora supportato: uso lo stream \
+-             input_right".to_string(), "panel");
++            "[join] rightSource=materialize not yet supported: using the input_right stream".to_string(), "panel");
+     }
+ 
+     // Uscite: 'output' primaria (fallback drain, il join non deve bloccarsi) e
+@@ -241,7 +239,7 @@ pub async fn run(
+ 
+             if is_null_key(&lk) {
+                 if cfg.null_keys == "error" {
+-                    return Err(format!("join {}: chiave null nel flusso sinistro (campo '{}')",
++                    return Err(format!("join {}: null key in the left flow (field '{}')",
+                         ctx.node_id.0, cfg.left_key));
+                 }
+                 // exclude: nessun match possibile
+@@ -289,7 +287,7 @@ pub async fn run(
+                 "first" => vec![match_idx[0]],
+                 "last"  => vec![*match_idx.last().unwrap()],
+                 "error" if match_idx.len() > 1 => {
+-                    return Err(format!("join {}: corrispondenze multiple per chiave '{}' (duplicates=error)",
++                    return Err(format!("join {}: multiple matches for key '{}' (duplicates=error)",
+                         ctx.node_id.0, lk));
+                 }
+                 _ => match_idx,
+@@ -315,7 +313,7 @@ pub async fn run(
+ 
+     let elapsed_ms = start.elapsed().as_millis() as u64;
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("[join] {}: {} righe in ingresso, {} in uscita, {} scartate",
++        format!("[join] {}: {} input rows, {} output, {} dropped",
+             jt.to_uppercase(), rows_in, rows_out, rows_rejected), "panel");
+ 
+     // Conteggi per handle di uscita → badge sul canvas (come filter).
+diff --git a/src-tauri/src/engine/nodes/json_parser.rs b/src-tauri/src/engine/nodes/json_parser.rs
+index ee42ba6..39229d5 100644
+--- a/src-tauri/src/engine/nodes/json_parser.rs
++++ b/src-tauri/src/engine/nodes/json_parser.rs
+@@ -72,18 +72,18 @@ pub async fn run(
+     let spec = Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("json_parser {}: {}", ctx.node_id.0, e))?;
+     let cfg: JsonParserConfig = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("json_parser {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("json_parser {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("json_parser", &ctx.node_id.0);
+ 
+     if cfg.source_field.is_empty() {
+-        return Err(format!("json_parser {}: campo sorgente non configurato.", ctx.node_id.0));
++        return Err(format!("json_parser {}: source field not configured.", ctx.node_id.0));
+     }
+     if cfg.flows.is_empty() {
+-        return Err(format!("json_parser {}: nessun flusso configurato.", ctx.node_id.0));
++        return Err(format!("json_parser {}: no flow configured.", ctx.node_id.0));
+     }
+ 
+     let mut rx = rx.ok_or_else(||
+-        format!("json_parser {} richiede un input collegato", ctx.node_id.0))?;
++        format!("json_parser {} requires a connected input", ctx.node_id.0))?;
+ 
+     let start = Instant::now();
+     let mut rows_in:       u64 = 0;
+diff --git a/src-tauri/src/engine/nodes/json_serializer.rs b/src-tauri/src/engine/nodes/json_serializer.rs
+index c010a55..22d155f 100644
+--- a/src-tauri/src/engine/nodes/json_serializer.rs
++++ b/src-tauri/src/engine/nodes/json_serializer.rs
+@@ -131,7 +131,7 @@ pub async fn run(
+     let spec = Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("json_serializer {}: {}", ctx.node_id.0, e))?;
+     let plan: SerPlan = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("json_serializer {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("json_serializer {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("json_serializer", &ctx.node_id.0);
+ 
+     let start = Instant::now();
+@@ -244,7 +244,7 @@ pub async fn run(
+             (sent, 0u64)
+         }
+         Err(e) => {
+-            let msg = format!("serializzazione fallita: {}", e);
++            let msg = format!("serialization failed: {}", e);
+             eprintln!("[json_serializer {}] {}", ctx.node_id.0, msg);
+             match plan.on_error.as_str() {
+                 "stop" => return Err(format!("json_serializer {}: {}", ctx.node_id.0, msg)),
+diff --git a/src-tauri/src/engine/nodes/materialize.rs b/src-tauri/src/engine/nodes/materialize.rs
+index 0a11fc3..ca4d4cc 100644
+--- a/src-tauri/src/engine/nodes/materialize.rs
++++ b/src-tauri/src/engine/nodes/materialize.rs
+@@ -87,7 +87,7 @@ pub async fn run(
+ 
+         if rows_in > max_rows {
+             if on_overflow == "error" {
+-                bail!(format!("materialize {}: superato il limite di {} righe",
++                bail!(format!("materialize {}: exceeded the limit of {} rows",
+                               ctx.node_id.0, max_rows));
+             }
+             truncated = true;
+@@ -148,7 +148,7 @@ pub async fn run(
+             }
+         }
+ 
+-        other => bail!(format!("materialize {}: modalità sconosciuta '{}'",
++        other => bail!(format!("materialize {}: unknown mode '{}'",
+                                ctx.node_id.0, other)),
+     }
+ 
+diff --git a/src-tauri/src/engine/nodes/pivot.rs b/src-tauri/src/engine/nodes/pivot.rs
+index 952192e..9aa4eda 100644
+--- a/src-tauri/src/engine/nodes/pivot.rs
++++ b/src-tauri/src/engine/nodes/pivot.rs
+@@ -128,12 +128,10 @@ pub async fn run(
+     // Validazioni (doppio strato: il builder le fa a design-time, il
+     // motore le ri-valida come errori parlanti per l'esecuzione headless).
+     if cfg.mode == "pivot" && (cfg.pivot_field.is_empty() || cfg.value_field.is_empty()) {
+-        return Err(format!("pivot {}: in modalità pivot, campo pivot e campo \
+-                            valore sono obbligatori.", ctx.node_id.0));
++        return Err(format!("pivot {}: in pivot mode, pivot field and value field are required.", ctx.node_id.0));
+     }
+     if cfg.mode == "unpivot" && cfg.unpivot_columns.is_empty() {
+-        return Err(format!("pivot {}: in modalità unpivot, seleziona almeno una \
+-                            colonna da ruotare.", ctx.node_id.0));
++        return Err(format!("pivot {}: in unpivot mode, select at least one column to rotate.", ctx.node_id.0));
+     }
+ 
+     let start = Instant::now();
+@@ -141,8 +139,7 @@ pub async fn run(
+     // ── Le righe: dal flusso, o da un dataset della lane ────────────
+     let rows: Vec<Row> = if cfg.data_source == "materialize" {
+         if cfg.materialize_name.is_empty() {
+-            return Err(format!("pivot {}: sorgente 'Materialize' senza nome del \
+-                                dataset. Selezionalo nel pannello.", ctx.node_id.0));
++            return Err(format!("pivot {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
+         }
+         if let Some(mut rx) = rx {
+             while rx.recv().await.is_some() {}   // trigger, scartato
+@@ -153,8 +150,7 @@ pub async fn run(
+         ds.rows().to_vec()
+     } else {
+         let Some(mut rx) = rx else {
+-            return Err(format!("pivot {}: nessun input collegato. Collega un flusso, \
+-                                oppure scegli un dataset Materialize.", ctx.node_id.0));
++            return Err(format!("pivot {}: no connected input. Connect a flow, or choose a Materialize dataset.", ctx.node_id.0));
+         };
+         let mut v = Vec::new();
+         while let Some(row) = rx.recv().await { v.push(row) }
+@@ -166,7 +162,7 @@ pub async fn run(
+     let out = match cfg.mode.as_str() {
+         "pivot"   => do_pivot(&rows, &cfg)?,
+         "unpivot" => do_unpivot(&rows, &cfg),
+-        other     => return Err(format!("pivot {}: modalità sconosciuta '{}'",
++        other     => return Err(format!("pivot {}: unknown mode '{}'",
+                                         ctx.node_id.0, other)),
+     };
+ 
+@@ -188,7 +184,7 @@ pub async fn run(
+ 
+ fn do_pivot(rows: &[Row], cfg: &PivotConfig) -> Result<Vec<Row>, String> {
+     if cfg.pivot_field.is_empty() || cfg.value_field.is_empty() {
+-        return Err("pivot: campo pivot e campo valore sono obbligatori".to_string());
++        return Err("pivot: pivot field and value field are required".to_string());
+     }
+ 
+     // Raggruppa per identità, conservando l'ordine di prima apparizione.
+diff --git a/src-tauri/src/engine/nodes/script.rs b/src-tauri/src/engine/nodes/script.rs
+index bae3357..b1c8cb0 100644
+--- a/src-tauri/src/engine/nodes/script.rs
++++ b/src-tauri/src/engine/nodes/script.rs
+@@ -100,7 +100,7 @@ pub async fn run(
+     // `fields` del transform.
+     let body: Vec<ScriptStmt> = match spec.config().get("body") {
+         Some(v) => serde_json::from_value(v.clone())
+-            .map_err(|e| format!("script {}: corpo non valido: {}", ctx.node_id.0, e))?,
++            .map_err(|e| format!("script {}: invalid body: {}", ctx.node_id.0, e))?,
+         // Nessun corpo = passthrough, che è anche il `fallback`
+         // dichiarato nel contratto porte. Non è un errore: è uno script
+         // ancora da scrivere.
+@@ -136,8 +136,7 @@ pub async fn run(
+                 &ctx.label,
+                 "warn",
+                 0,
+-                "Dichiarato come GENERATORE ma ha un collegamento in ingresso: le righe in \
+-                 arrivo vengono ignorate. Scollega l'arco, oppure riporta il nodo in modalità 'flusso'."
++                "Declared as GENERATOR but has an incoming connection: incoming rows are ignored. Disconnect the edge, or set the node back to 'flow' mode."
+                     .to_string(),
+                 "panel",
+             );
+@@ -305,11 +304,11 @@ fn esegui(
+                 let quante = match valuta(count, riga, locali, variables).as_f64_lossy() {
+                     Some(n) if n >= 0.0 => n as u64,
+                     _ => return Flow::Fallisci(
+-                        "repeat: il numero di giri non è un numero non negativo".to_string()),
++                        "repeat: the number of iterations is not a non-negative number".to_string()),
+                 };
+                 if quante > MAX_GIRI {
+                     return Flow::Fallisci(format!(
+-                        "repeat: {} giri richiesti, il massimo è {}", quante, MAX_GIRI));
++                        "repeat: {} iterations requested, the maximum is {}", quante, MAX_GIRI));
+                 }
+                 for i in 0..quante {
+                     if let Some(nome) = var_name {
+@@ -333,11 +332,11 @@ fn esegui(
+                 let elementi: Vec<serde_json::Value> = match &v {
+                     Value::Object(serde_json::Value::Array(a)) => a.clone(),
+                     _ => return Flow::Fallisci(
+-                        "for: l'espressione non è un array".to_string()),
++                        "for: the expression is not an array".to_string()),
+                 };
+                 if elementi.len() as u64 > MAX_GIRI {
+                     return Flow::Fallisci(format!(
+-                        "for: {} elementi, il massimo è {}", elementi.len(), MAX_GIRI));
++                        "for: {} elements, the maximum is {}", elementi.len(), MAX_GIRI));
+                 }
+                 for el in elementi {
+                     locali.0.insert(var_name.clone(), Value::from_json(el));
+diff --git a/src-tauri/src/engine/nodes/tmap.rs b/src-tauri/src/engine/nodes/tmap.rs
+index d618db2..58f0d9e 100644
+--- a/src-tauri/src/engine/nodes/tmap.rs
++++ b/src-tauri/src/engine/nodes/tmap.rs
+@@ -119,7 +119,7 @@ pub async fn run(
+     let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("tmap {}: {}", ctx.node_id.0, e))?;
+     let plan: TMapPlan = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("tmap {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("tmap {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("tmap", &ctx.node_id.0);
+ 
+     let start     = Instant::now();
+diff --git a/src-tauri/src/engine/nodes/union.rs b/src-tauri/src/engine/nodes/union.rs
+index a0e4614..7e7166e 100644
+--- a/src-tauri/src/engine/nodes/union.rs
++++ b/src-tauri/src/engine/nodes/union.rs
+@@ -118,11 +118,11 @@ pub async fn run(
+     let spec = Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("union {}: {}", ctx.node_id.0, e))?;
+     let cfg: UnionConfig = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("union {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("union {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("union", &ctx.node_id.0);
+ 
+     if inputs.is_empty() {
+-        return Err(format!("union {}: nessun flusso collegato", ctx.node_id.0));
++        return Err(format!("union {}: no connected flow", ctx.node_id.0));
+     }
+     if cfg.fields.is_empty() {
+         eprintln!("[union][WARN] {}: nessuna mappatura campi — le righe passano \
+@@ -137,7 +137,7 @@ pub async fn run(
+         "concat" => run_concat(&ctx, inputs, &tx, &cfg, has_mapping).await?,
+         "mix"    => run_mix(&ctx, inputs, &tx, &cfg, has_mapping).await?,
+         "zip"    => run_zip(&ctx, inputs, &tx, &cfg).await?,
+-        other    => return Err(format!("union {}: modalità sconosciuta '{}'", ctx.node_id.0, other)),
++        other    => return Err(format!("union {}: unknown mode '{}'", ctx.node_id.0, other)),
+     };
+ 
+     let elapsed_ms = start.elapsed().as_millis() as u64;
+@@ -248,8 +248,7 @@ async fn run_zip(
+     let start = Instant::now();
+ 
+     if cfg.fields.is_empty() {
+-        return Err(format!("union {}: la modalità zip richiede la mappatura \
+-                            dei campi (tab Mapping)", ctx.node_id.0));
++        return Err(format!("union {}: zip mode requires field mapping (Mapping tab)", ctx.node_id.0));
+     }
+ 
+     let mut live: Vec<(String, RowReceiver, bool)> = inputs.into_iter()
+diff --git a/src-tauri/src/engine/nodes/window.rs b/src-tauri/src/engine/nodes/window.rs
+index 25a82c1..e36c317 100644
+--- a/src-tauri/src/engine/nodes/window.rs
++++ b/src-tauri/src/engine/nodes/window.rs
+@@ -87,7 +87,7 @@ struct WindowRun {
+ /// Default: docs/node-spec.md §11.
+ fn config_from_spec(spec: &Spec) -> Result<WindowRun, String> {
+     let st: WindowConfig = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("config strutturata non valida (windows): {}", e))?;
++        .map_err(|e| format!("invalid structured config (windows): {}", e))?;
+ 
+     Ok(WindowRun {
+         data_source:      spec.str_or("dataSource",      "flow"),
+@@ -117,8 +117,7 @@ pub async fn run(
+ 
+     if cfg.windows.is_empty() {
+         return Err(format!(
+-            "window {}: nessuna funzione configurata. Apri il tab Mapping \
+-             e aggiungi almeno una funzione window.", ctx.node_id.0));
++            "window {}: no function configured. Open the Mapping tab and add at least one window function.", ctx.node_id.0));
+     }
+ 
+     let start = Instant::now();
+@@ -138,8 +137,7 @@ pub async fn run(
+         // La riga viene scartata.
+         if cfg.materialize_name.is_empty() {
+             return Err(format!(
+-                "window {}: sorgente 'Materialize' senza nome del dataset. \
+-                 Selezionalo nel pannello.", ctx.node_id.0));
++                "window {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
+         }
+ 
+         // Se l'arco c'è (caso 1) la riga è il segnale di partenza: consumala.
+@@ -160,8 +158,7 @@ pub async fn run(
+         // ── Caso 3: bufferizza da sé le righe del flusso ───────────
+         let Some(mut rx) = rx else {
+             return Err(format!(
+-                "window {}: nessun input collegato. Collega un flusso, oppure \
+-                 scegli un dataset Materialize come sorgente.", ctx.node_id.0));
++                "window {}: no connected input. Connect a flow, or choose a Materialize dataset as source.", ctx.node_id.0));
+         };
+         let mut v: Vec<Row> = Vec::new();
+         while let Some(row) = rx.recv().await { v.push(row) }
+@@ -453,8 +450,7 @@ fn compute_windows(
+             // L'espressione è FPEL, compilata dallo studio: niente JS.
+             "streak" => {
+                 let Some(expr) = &w.expr else {
+-                    return Err(format!("window: la funzione streak richiede una condizione \
+-                                        (campo 'Condizione streak')"));
++                    return Err(format!("window: the streak function requires a condition (field 'Streak condition')"));
+                 };
+                 let mut streak = 0i64;
+                 for i in 0..n {
+@@ -489,7 +485,7 @@ fn compute_windows(
+                 }
+             }
+ 
+-            other => return Err(format!("window: funzione sconosciuta '{}'", other)),
++            other => return Err(format!("window: unknown function '{}'", other)),
+         }
+     }
+ 
+diff --git a/src-tauri/src/engine/nodes/xml_parser.rs b/src-tauri/src/engine/nodes/xml_parser.rs
+index 648cbb1..f13e154 100644
+--- a/src-tauri/src/engine/nodes/xml_parser.rs
++++ b/src-tauri/src/engine/nodes/xml_parser.rs
+@@ -175,12 +175,12 @@ fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
+             }
+             Ok(Event::End(_)) => { stack.pop(); }
+             Ok(Event::Eof) => break,
+-            Err(e) => return Err(format!("XML non valido: {}", e)),
++            Err(e) => return Err(format!("Invalid XML: {}", e)),
+             _ => {}
+         }
+     }
+ 
+-    if root.is_none() { return Err("XML vuoto o senza root".into()); }
++    if root.is_none() { return Err("Empty XML or without root".into()); }
+     Ok(XmlDom { nodes, root })
+ }
+ 
+@@ -384,18 +384,18 @@ pub async fn run(
+     let spec = Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("xml_parser {}: {}", ctx.node_id.0, e))?;
+     let cfg: XmlParserConfig = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("xml_parser {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("xml_parser {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("xml_parser", &ctx.node_id.0);
+ 
+     if cfg.source_field.is_empty() {
+-        return Err(format!("xml_parser {}: campo sorgente non configurato.", ctx.node_id.0));
++        return Err(format!("xml_parser {}: source field not configured.", ctx.node_id.0));
+     }
+     if cfg.flows.is_empty() {
+-        return Err(format!("xml_parser {}: nessun flusso configurato.", ctx.node_id.0));
++        return Err(format!("xml_parser {}: no flow configured.", ctx.node_id.0));
+     }
+ 
+     let mut rx = rx.ok_or_else(||
+-        format!("xml_parser {} richiede un input collegato", ctx.node_id.0))?;
++        format!("xml_parser {} requires a connected input", ctx.node_id.0))?;
+ 
+     let start = Instant::now();
+     let mut rows_in:       u64 = 0;
+diff --git a/src-tauri/src/engine/nodes/xml_serializer.rs b/src-tauri/src/engine/nodes/xml_serializer.rs
+index cb80663..8912849 100644
+--- a/src-tauri/src/engine/nodes/xml_serializer.rs
++++ b/src-tauri/src/engine/nodes/xml_serializer.rs
+@@ -141,7 +141,7 @@ pub async fn run(
+     let spec = Spec::from_ctx(&ctx.spec)
+         .map_err(|e| format!("xml_serializer {}: {}", ctx.node_id.0, e))?;
+     let plan: XmlPlan = serde_json::from_value(spec.config().clone())
+-        .map_err(|e| format!("xml_serializer {}: config non valida: {}", ctx.node_id.0, e))?;
++        .map_err(|e| format!("xml_serializer {}: invalid config: {}", ctx.node_id.0, e))?;
+     spec.log_unconsumed("xml_serializer", &ctx.node_id.0);
+ 
+     let start = Instant::now();

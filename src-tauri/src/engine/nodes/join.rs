@@ -163,13 +163,11 @@ pub async fn run(
     // Feature rimandate: avvisa invece di fallire in silenzio.
     if !cfg.custom_cond.trim().is_empty() {
         ctx.emit_log(&ctx.label, "warn", 0,
-            "[join] condizione custom ignorata: non ancora supportata dal motore \
-             (v. docs/TODO.md)".to_string(), "panel");
+            "[join] custom condition ignored: not yet supported by the engine (see docs/TODO.md)".to_string(), "panel");
     }
     if cfg.right_source == "materialize" {
         ctx.emit_log(&ctx.label, "warn", 0,
-            "[join] rightSource=materialize non ancora supportato: uso lo stream \
-             input_right".to_string(), "panel");
+            "[join] rightSource=materialize not yet supported: using the input_right stream".to_string(), "panel");
     }
 
     // Uscite: 'output' primaria (fallback drain, il join non deve bloccarsi) e
@@ -241,7 +239,7 @@ pub async fn run(
 
             if is_null_key(&lk) {
                 if cfg.null_keys == "error" {
-                    return Err(format!("join {}: chiave null nel flusso sinistro (campo '{}')",
+                    return Err(format!("join {}: null key in the left flow (field '{}')",
                         ctx.node_id.0, cfg.left_key));
                 }
                 // exclude: nessun match possibile
@@ -289,7 +287,7 @@ pub async fn run(
                 "first" => vec![match_idx[0]],
                 "last"  => vec![*match_idx.last().unwrap()],
                 "error" if match_idx.len() > 1 => {
-                    return Err(format!("join {}: corrispondenze multiple per chiave '{}' (duplicates=error)",
+                    return Err(format!("join {}: multiple matches for key '{}' (duplicates=error)",
                         ctx.node_id.0, lk));
                 }
                 _ => match_idx,
@@ -315,7 +313,7 @@ pub async fn run(
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("[join] {}: {} righe in ingresso, {} in uscita, {} scartate",
+        format!("[join] {}: {} input rows, {} output, {} dropped",
             jt.to_uppercase(), rows_in, rows_out, rows_rejected), "panel");
 
     // Conteggi per handle di uscita → badge sul canvas (come filter).

@@ -72,18 +72,18 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("json_parser {}: {}", ctx.node_id.0, e))?;
     let cfg: JsonParserConfig = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("json_parser {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("json_parser {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("json_parser", &ctx.node_id.0);
 
     if cfg.source_field.is_empty() {
-        return Err(format!("json_parser {}: campo sorgente non configurato.", ctx.node_id.0));
+        return Err(format!("json_parser {}: source field not configured.", ctx.node_id.0));
     }
     if cfg.flows.is_empty() {
-        return Err(format!("json_parser {}: nessun flusso configurato.", ctx.node_id.0));
+        return Err(format!("json_parser {}: no flow configured.", ctx.node_id.0));
     }
 
     let mut rx = rx.ok_or_else(||
-        format!("json_parser {} richiede un input collegato", ctx.node_id.0))?;
+        format!("json_parser {} requires a connected input", ctx.node_id.0))?;
 
     let start = Instant::now();
     let mut rows_in:       u64 = 0;

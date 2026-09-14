@@ -87,7 +87,7 @@ struct WindowRun {
 /// Default: docs/node-spec.md §11.
 fn config_from_spec(spec: &Spec) -> Result<WindowRun, String> {
     let st: WindowConfig = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("config strutturata non valida (windows): {}", e))?;
+        .map_err(|e| format!("invalid structured config (windows): {}", e))?;
 
     Ok(WindowRun {
         data_source:      spec.str_or("dataSource",      "flow"),
@@ -117,8 +117,7 @@ pub async fn run(
 
     if cfg.windows.is_empty() {
         return Err(format!(
-            "window {}: nessuna funzione configurata. Apri il tab Mapping \
-             e aggiungi almeno una funzione window.", ctx.node_id.0));
+            "window {}: no function configured. Open the Mapping tab and add at least one window function.", ctx.node_id.0));
     }
 
     let start = Instant::now();
@@ -138,8 +137,7 @@ pub async fn run(
         // La riga viene scartata.
         if cfg.materialize_name.is_empty() {
             return Err(format!(
-                "window {}: sorgente 'Materialize' senza nome del dataset. \
-                 Selezionalo nel pannello.", ctx.node_id.0));
+                "window {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
         }
 
         // Se l'arco c'è (caso 1) la riga è il segnale di partenza: consumala.
@@ -160,8 +158,7 @@ pub async fn run(
         // ── Caso 3: bufferizza da sé le righe del flusso ───────────
         let Some(mut rx) = rx else {
             return Err(format!(
-                "window {}: nessun input collegato. Collega un flusso, oppure \
-                 scegli un dataset Materialize come sorgente.", ctx.node_id.0));
+                "window {}: no connected input. Connect a flow, or choose a Materialize dataset as source.", ctx.node_id.0));
         };
         let mut v: Vec<Row> = Vec::new();
         while let Some(row) = rx.recv().await { v.push(row) }
@@ -453,8 +450,7 @@ fn compute_windows(
             // L'espressione è FPEL, compilata dallo studio: niente JS.
             "streak" => {
                 let Some(expr) = &w.expr else {
-                    return Err(format!("window: la funzione streak richiede una condizione \
-                                        (campo 'Condizione streak')"));
+                    return Err(format!("window: the streak function requires a condition (field 'Streak condition')"));
                 };
                 let mut streak = 0i64;
                 for i in 0..n {
@@ -489,7 +485,7 @@ fn compute_windows(
                 }
             }
 
-            other => return Err(format!("window: funzione sconosciuta '{}'", other)),
+            other => return Err(format!("window: unknown function '{}'", other)),
         }
     }
 

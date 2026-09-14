@@ -94,7 +94,7 @@ pub async fn run(
     // dal builder → spec.config. Filter non usa FPEL: le condizioni sono
     // clausole strutturate o template, non espressioni compilate.
     let plan: FilterPlan = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("filter {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("filter {}: invalid config: {}", ctx.node_id.0, e))?;
 
     let start = Instant::now();
     let mut rows_in       = 0u64;
@@ -216,7 +216,7 @@ fn eval_visual_clause(row: &Row, clause: &VisualClause, null_behavior: &str) -> 
             "not_null" => return Ok(false),
             _ => match null_behavior {
                 "exclude" => return Ok(false),
-                "error"   => return Err(format!("Campo '{}' è null", clause.field)),
+                "error"   => return Err(format!("Field '{}' is null", clause.field)),
                 _         => {} // include: prosegue con stringa vuota
             },
         }

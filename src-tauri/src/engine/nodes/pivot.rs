@@ -128,12 +128,10 @@ pub async fn run(
     // Validazioni (doppio strato: il builder le fa a design-time, il
     // motore le ri-valida come errori parlanti per l'esecuzione headless).
     if cfg.mode == "pivot" && (cfg.pivot_field.is_empty() || cfg.value_field.is_empty()) {
-        return Err(format!("pivot {}: in modalità pivot, campo pivot e campo \
-                            valore sono obbligatori.", ctx.node_id.0));
+        return Err(format!("pivot {}: in pivot mode, pivot field and value field are required.", ctx.node_id.0));
     }
     if cfg.mode == "unpivot" && cfg.unpivot_columns.is_empty() {
-        return Err(format!("pivot {}: in modalità unpivot, seleziona almeno una \
-                            colonna da ruotare.", ctx.node_id.0));
+        return Err(format!("pivot {}: in unpivot mode, select at least one column to rotate.", ctx.node_id.0));
     }
 
     let start = Instant::now();
@@ -141,8 +139,7 @@ pub async fn run(
     // ── Le righe: dal flusso, o da un dataset della lane ────────────
     let rows: Vec<Row> = if cfg.data_source == "materialize" {
         if cfg.materialize_name.is_empty() {
-            return Err(format!("pivot {}: sorgente 'Materialize' senza nome del \
-                                dataset. Selezionalo nel pannello.", ctx.node_id.0));
+            return Err(format!("pivot {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
         }
         if let Some(mut rx) = rx {
             while rx.recv().await.is_some() {}   // trigger, scartato
@@ -153,8 +150,7 @@ pub async fn run(
         ds.rows().to_vec()
     } else {
         let Some(mut rx) = rx else {
-            return Err(format!("pivot {}: nessun input collegato. Collega un flusso, \
-                                oppure scegli un dataset Materialize.", ctx.node_id.0));
+            return Err(format!("pivot {}: no connected input. Connect a flow, or choose a Materialize dataset.", ctx.node_id.0));
         };
         let mut v = Vec::new();
         while let Some(row) = rx.recv().await { v.push(row) }
@@ -166,7 +162,7 @@ pub async fn run(
     let out = match cfg.mode.as_str() {
         "pivot"   => do_pivot(&rows, &cfg)?,
         "unpivot" => do_unpivot(&rows, &cfg),
-        other     => return Err(format!("pivot {}: modalità sconosciuta '{}'",
+        other     => return Err(format!("pivot {}: unknown mode '{}'",
                                         ctx.node_id.0, other)),
     };
 
@@ -188,7 +184,7 @@ pub async fn run(
 
 fn do_pivot(rows: &[Row], cfg: &PivotConfig) -> Result<Vec<Row>, String> {
     if cfg.pivot_field.is_empty() || cfg.value_field.is_empty() {
-        return Err("pivot: campo pivot e campo valore sono obbligatori".to_string());
+        return Err("pivot: pivot field and value field are required".to_string());
     }
 
     // Raggruppa per identità, conservando l'ordine di prima apparizione.

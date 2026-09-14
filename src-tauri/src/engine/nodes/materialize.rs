@@ -87,7 +87,7 @@ pub async fn run(
 
         if rows_in > max_rows {
             if on_overflow == "error" {
-                bail!(format!("materialize {}: superato il limite di {} righe",
+                bail!(format!("materialize {}: exceeded the limit of {} rows",
                               ctx.node_id.0, max_rows));
             }
             truncated = true;
@@ -148,7 +148,7 @@ pub async fn run(
             }
         }
 
-        other => bail!(format!("materialize {}: modalità sconosciuta '{}'",
+        other => bail!(format!("materialize {}: unknown mode '{}'",
                                ctx.node_id.0, other)),
     }
 

@@ -131,7 +131,7 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("json_serializer {}: {}", ctx.node_id.0, e))?;
     let plan: SerPlan = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("json_serializer {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("json_serializer {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("json_serializer", &ctx.node_id.0);
 
     let start = Instant::now();
@@ -244,7 +244,7 @@ pub async fn run(
             (sent, 0u64)
         }
         Err(e) => {
-            let msg = format!("serializzazione fallita: {}", e);
+            let msg = format!("serialization failed: {}", e);
             eprintln!("[json_serializer {}] {}", ctx.node_id.0, msg);
             match plan.on_error.as_str() {
                 "stop" => return Err(format!("json_serializer {}: {}", ctx.node_id.0, msg)),

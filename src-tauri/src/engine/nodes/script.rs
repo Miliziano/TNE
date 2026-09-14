@@ -100,7 +100,7 @@ pub async fn run(
     // `fields` del transform.
     let body: Vec<ScriptStmt> = match spec.config().get("body") {
         Some(v) => serde_json::from_value(v.clone())
-            .map_err(|e| format!("script {}: corpo non valido: {}", ctx.node_id.0, e))?,
+            .map_err(|e| format!("script {}: invalid body: {}", ctx.node_id.0, e))?,
         // Nessun corpo = passthrough, che è anche il `fallback`
         // dichiarato nel contratto porte. Non è un errore: è uno script
         // ancora da scrivere.
@@ -136,8 +136,7 @@ pub async fn run(
                 &ctx.label,
                 "warn",
                 0,
-                "Dichiarato come GENERATORE ma ha un collegamento in ingresso: le righe in \
-                 arrivo vengono ignorate. Scollega l'arco, oppure riporta il nodo in modalità 'flusso'."
+                "Declared as GENERATOR but has an incoming connection: incoming rows are ignored. Disconnect the edge, or set the node back to 'flow' mode."
                     .to_string(),
                 "panel",
             );
@@ -305,11 +304,11 @@ fn esegui(
                 let quante = match valuta(count, riga, locali, variables).as_f64_lossy() {
                     Some(n) if n >= 0.0 => n as u64,
                     _ => return Flow::Fallisci(
-                        "repeat: il numero di giri non è un numero non negativo".to_string()),
+                        "repeat: the number of iterations is not a non-negative number".to_string()),
                 };
                 if quante > MAX_GIRI {
                     return Flow::Fallisci(format!(
-                        "repeat: {} giri richiesti, il massimo è {}", quante, MAX_GIRI));
+                        "repeat: {} iterations requested, the maximum is {}", quante, MAX_GIRI));
                 }
                 for i in 0..quante {
                     if let Some(nome) = var_name {
@@ -333,11 +332,11 @@ fn esegui(
                 let elementi: Vec<serde_json::Value> = match &v {
                     Value::Object(serde_json::Value::Array(a)) => a.clone(),
                     _ => return Flow::Fallisci(
-                        "for: l'espressione non è un array".to_string()),
+                        "for: the expression is not an array".to_string()),
                 };
                 if elementi.len() as u64 > MAX_GIRI {
                     return Flow::Fallisci(format!(
-                        "for: {} elementi, il massimo è {}", elementi.len(), MAX_GIRI));
+                        "for: {} elements, the maximum is {}", elementi.len(), MAX_GIRI));
                 }
                 for el in elementi {
                     locali.0.insert(var_name.clone(), Value::from_json(el));

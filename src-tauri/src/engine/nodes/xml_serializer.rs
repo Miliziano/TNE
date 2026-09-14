@@ -141,7 +141,7 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("xml_serializer {}: {}", ctx.node_id.0, e))?;
     let plan: XmlPlan = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("xml_serializer {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("xml_serializer {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("xml_serializer", &ctx.node_id.0);
 
     let start = Instant::now();

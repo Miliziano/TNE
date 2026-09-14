@@ -86,7 +86,7 @@ fn d_sep() -> String { ", ".into() }
 fn config_from_spec(spec: &Spec) -> Result<AggConfig, String> {
     // Strutture compilate dalla busta config.
     let st: AggConfigStruct = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("config strutturata non valida (functions/having): {}", e))?;
+        .map_err(|e| format!("invalid structured config (functions/having): {}", e))?;
 
     Ok(AggConfig {
         data_source:      spec.str_or("dataSource",      "flow"),
@@ -117,8 +117,7 @@ pub async fn run(
 
     if cfg.functions.is_empty() {
         return Err(format!(
-            "aggregate {}: nessuna funzione di aggregazione. Apri il tab Mapping \
-             e aggiungine almeno una.", ctx.node_id.0));
+            "aggregate {}: no aggregation function. Open the Mapping tab and add at least one.", ctx.node_id.0));
     }
 
     let start = Instant::now();
@@ -126,8 +125,7 @@ pub async fn run(
     // ── Le righe ───────────────────────────────────────────────────
     let rows: Vec<Row> = if cfg.data_source == "materialize" {
         if cfg.materialize_name.is_empty() {
-            return Err(format!("aggregate {}: sorgente 'Materialize' senza nome del \
-                                dataset. Selezionalo nel pannello.", ctx.node_id.0));
+            return Err(format!("aggregate {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
         }
         if let Some(mut rx) = rx { while rx.recv().await.is_some() {} }   // trigger
         let ds = ctx.lane_datasets.get(&cfg.materialize_name).await?;
@@ -136,8 +134,7 @@ pub async fn run(
         ds.rows().to_vec()
     } else {
         let Some(mut rx) = rx else {
-            return Err(format!("aggregate {}: nessun input collegato. Collega un flusso, \
-                                oppure scegli un dataset Materialize.", ctx.node_id.0));
+            return Err(format!("aggregate {}: no connected input. Connect a flow, or choose a Materialize dataset.", ctx.node_id.0));
         };
         let mut v = Vec::new();
         while let Some(row) = rx.recv().await { v.push(row) }

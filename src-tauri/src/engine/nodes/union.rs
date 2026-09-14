@@ -118,11 +118,11 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("union {}: {}", ctx.node_id.0, e))?;
     let cfg: UnionConfig = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("union {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("union {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("union", &ctx.node_id.0);
 
     if inputs.is_empty() {
-        return Err(format!("union {}: nessun flusso collegato", ctx.node_id.0));
+        return Err(format!("union {}: no connected flow", ctx.node_id.0));
     }
     if cfg.fields.is_empty() {
         eprintln!("[union][WARN] {}: nessuna mappatura campi — le righe passano \
@@ -137,7 +137,7 @@ pub async fn run(
         "concat" => run_concat(&ctx, inputs, &tx, &cfg, has_mapping).await?,
         "mix"    => run_mix(&ctx, inputs, &tx, &cfg, has_mapping).await?,
         "zip"    => run_zip(&ctx, inputs, &tx, &cfg).await?,
-        other    => return Err(format!("union {}: modalità sconosciuta '{}'", ctx.node_id.0, other)),
+        other    => return Err(format!("union {}: unknown mode '{}'", ctx.node_id.0, other)),
     };
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -248,8 +248,7 @@ async fn run_zip(
     let start = Instant::now();
 
     if cfg.fields.is_empty() {
-        return Err(format!("union {}: la modalità zip richiede la mappatura \
-                            dei campi (tab Mapping)", ctx.node_id.0));
+        return Err(format!("union {}: zip mode requires field mapping (Mapping tab)", ctx.node_id.0));
     }
 
     let mut live: Vec<(String, RowReceiver, bool)> = inputs.into_iter()

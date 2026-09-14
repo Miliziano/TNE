@@ -119,7 +119,7 @@ pub async fn run(
     let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("tmap {}: {}", ctx.node_id.0, e))?;
     let plan: TMapPlan = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("tmap {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("tmap {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("tmap", &ctx.node_id.0);
 
     let start     = Instant::now();

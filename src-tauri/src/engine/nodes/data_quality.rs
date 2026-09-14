@@ -133,7 +133,7 @@ pub async fn run(
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("data_quality {}: {}", ctx.node_id.0, e))?;
     let cfg: DqConfig = serde_json::from_value(spec.config().clone())
-        .map_err(|e| format!("data_quality {}: config non valida: {}", ctx.node_id.0, e))?;
+        .map_err(|e| format!("data_quality {}: invalid config: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("data_quality", &ctx.node_id.0);
 
     let rules: Vec<&Rule> = cfg.rules.iter().filter(|r| r.enabled).collect();
@@ -421,7 +421,7 @@ fn coerce_literal(s: &str) -> Value {
 
 fn message(r: &Rule) -> String {
     if !r.label.is_empty() { return r.label.clone() }
-    format!("{}: check '{}' fallito", r.field, r.check_type)
+    format!("{}: check '{}' failed", r.field, r.check_type)
 }
 
 // ─── Lo score ──────────────────────────────────────────────────────

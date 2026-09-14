@@ -86,20 +86,17 @@ pub async fn run(
     // silenzioso. `lane_var` non è mai stata implementata nel motore;
     // `json_path` come structureType è mestiere di json_parser.
     if cfg.source == "lane_var" {
-        return Err(format!("explode {}: la sorgente 'variabile di lane' non è \
-                            supportata. Carica i dati in un Materialize e leggilo da lì.",
+        return Err(format!("explode {}: the 'lane variable' source is not supported. Load the data into a Materialize and read it from there.",
                            ctx.node_id.0));
     }
     if cfg.structure_type == "json_path" {
-        return Err(format!("explode {}: il tipo 'json_path' non è supportato. Per \
-                            navigare una struttura annidata usa un JSON Parser a monte, \
-                            poi esplodi il campo array che ne risulta.", ctx.node_id.0));
+        return Err(format!("explode {}: the 'json_path' type is not supported. To navigate a nested structure use a JSON Parser upstream, then explode the resulting array field.", ctx.node_id.0));
     }
 
     match cfg.source.as_str() {
         "materialize" => from_materialize(ctx, rx, tx, cfg, start).await,
         "flow_field"  => from_flow_field(ctx, rx, tx, reject_tx, cfg, start).await,
-        other => Err(format!("explode {}: sorgente sconosciuta '{}'", ctx.node_id.0, other)),
+        other => Err(format!("explode {}: unknown source '{}'", ctx.node_id.0, other)),
     }
 }
 
@@ -114,8 +111,7 @@ async fn from_materialize(
 ) -> Result<NodeStats, String> {
 
     if cfg.materialize_name.is_empty() {
-        return Err(format!("explode {}: sorgente 'Materialize' senza nome del dataset. \
-                            Selezionalo nel pannello.", ctx.node_id.0));
+        return Err(format!("explode {}: 'Materialize' source without a dataset name. Select it in the panel.", ctx.node_id.0));
     }
 
     // L'input, se collegato, è il segnale di partenza: consumalo.
@@ -129,7 +125,7 @@ async fn from_materialize(
 
     if ds.is_empty() {
         match cfg.on_empty.as_str() {
-            "error" => return Err(format!("explode {}: il dataset '{}' è vuoto",
+            "error" => return Err(format!("explode {}: dataset '{}' is empty",
                                           ctx.node_id.0, cfg.materialize_name)),
             "null_row" => { let _ = tx.send(Row::new()).await; }
             _ => {}   // skip
@@ -163,10 +159,10 @@ async fn from_flow_field(
 ) -> Result<NodeStats, String> {
 
     let Some(mut rx) = rx else {
-        return Err(format!("explode {}: nessun input collegato.", ctx.node_id.0));
+        return Err(format!("explode {}: no connected input.", ctx.node_id.0));
     };
     if cfg.field.is_empty() {
-        return Err(format!("explode {}: nessun campo da esplodere. Selezionalo nel pannello.",
+        return Err(format!("explode {}: no field to explode. Select it in the panel.",
                            ctx.node_id.0));
     }
 
@@ -183,7 +179,7 @@ async fn from_flow_field(
 
         if is_null {
             match cfg.on_empty.as_str() {
-                "error" => return Err(format!("explode {}: il campo '{}' è null",
+                "error" => return Err(format!("explode {}: field '{}' is null",
                                               ctx.node_id.0, cfg.field)),
                 "null_row" => {
                     let row = if cfg.include_parent { parent.clone() } else { Row::new() };
@@ -202,8 +198,7 @@ async fn from_flow_field(
 
         if exploded.is_empty() {
             match cfg.on_empty.as_str() {
-                "error" => return Err(format!("explode {}: il campo '{}' produce una \
-                                               struttura vuota", ctx.node_id.0, cfg.field)),
+                "error" => return Err(format!("explode {}: field '{}' produces an empty structure", ctx.node_id.0, cfg.field)),
                 "null_row" => {
                     let row = if cfg.include_parent { parent.clone() } else { Row::new() };
                     if tx.send(row).await.is_err() { break }
@@ -299,7 +294,7 @@ fn explode_value(v: &Value, structure: &str, on_primitive: &str) -> Result<Vec<R
             None => primitive(v, on_primitive),
         },
 
-        other => Err(format!("explode: tipo di struttura sconosciuto '{}'", other)),
+        other => Err(format!("explode: unknown structure type '{}'", other)),
     }
 }
 
@@ -323,7 +318,7 @@ fn json_to_row(v: &serde_json::Value) -> Row {
 /// Il campo non è una collezione.
 fn primitive(v: &Value, mode: &str) -> Result<Vec<Row>, String> {
     match mode {
-        "error" => Err(format!("explode: il campo non è una collezione (valore: {})",
+        "error" => Err(format!("explode: the field is not a collection (value: {})",
                                v.as_str_repr())),
         "skip"  => Ok(Vec::new()),
         _ => {   // wrap: una riga sola, col valore
