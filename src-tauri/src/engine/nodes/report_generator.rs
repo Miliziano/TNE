@@ -81,7 +81,7 @@ pub async fn run(
 
     // ── Bufferizza tutte le righe ──────────────────────────────────
     let Some(mut rx) = rx else {
-        return Err(format!("report_generator {}: nessun input collegato. Collega un flusso di dati.", ctx.node_id.0));
+        return Err(format!("report_generator {}: no connected input. Connect a data flow.", ctx.node_id.0));
     };
     let start = Instant::now();
     let mut rows: Vec<Row> = Vec::new();
@@ -374,7 +374,7 @@ fn build_summary(rows: &[Row], kpi_fields: &[String], header_col: &str, accent_c
         let (display, sub) = if is_num {
             let sum: f64 = nums.iter().sum();
             (fmt_num(sum, locale, false, false),
-             format!("Media: {} · N: {}", fmt_num(sum / nums.len() as f64, locale, false, false), nums.len()))
+             format!("Average: {} · N: {}", fmt_num(sum / nums.len() as f64, locale, false, false), nums.len()))
         } else {
             let uniq: std::collections::HashSet<String> = present.iter().map(|v| v.as_str_repr()).collect();
             (uniq.len().to_string(), format!("Valori unici: {}", uniq.len()))
@@ -389,7 +389,7 @@ fn build_summary(rows: &[Row], kpi_fields: &[String], header_col: &str, accent_c
 // ─── Tabella HTML ──────────────────────────────────────────────────
 fn build_table(rows: &[Row], columns: &[ColumnConfig], header_col: &str, accent_col: &str, theme: &Theme, locale: &str, dq_field: &str) -> String {
     if rows.is_empty() {
-        return "<p style=\"color:#999;font-style:italic\">Nessun dato disponibile.</p>".to_string();
+        return "<p style=\"color:#999;font-style:italic\">No data available.</p>".to_string();
     }
     let cols = effective_cols(rows, columns, dq_field);
     let has_totals = cols.iter().any(|c| matches!(c.total.as_deref(), Some(t) if t != "none"));
@@ -653,7 +653,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-ser
 @media print{{body{{background:#fff;padding:0}}.report{{box-shadow:none;border-radius:0}}}}</style></head>
 <body><div class=\"report\">
 <div class=\"rh\"><div><div class=\"rt\">{title}</div>{sub}</div>
-<div class=\"rm\"><div>{date}</div><div>{n} righe</div></div></div>
+<div class=\"rm\"><div>{date}</div><div>{n} rows</div></div></div>
 <div class=\"rb\">{body}</div></div></body></html>",
         lang = locale, title = esc(title), bg = theme.bg, text = theme.text, panel = panel,
         header = header_col, htext = theme.header_text, sub = sub, date = date, n = rows.len(), body = body)

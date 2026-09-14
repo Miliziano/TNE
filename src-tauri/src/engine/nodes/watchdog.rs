@@ -25,7 +25,7 @@ async fn check(req: &WatchdogCheckRequest, ctx: &NodeContext) -> Option<Watchdog
         Ok(r)  => Some(r),
         Err(e) => {
             ctx.emit_log(&ctx.label, "warn", 0,
-                format!("Watchdog: check fallito — {}", e), "panel");
+                format!("Watchdog: check failed — {}", e), "panel");
             None
         }
     }
@@ -95,7 +95,7 @@ pub async fn run(
     let edge_trigger   = spec.str_or("edgeTrigger", "both");   // edge: both|rising|falling
 
     if url.is_empty() {
-        let msg = format!("watchdog {}: URL non configurato", ctx.node_id.0);
+        let msg = format!("watchdog {}: URL not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -142,14 +142,14 @@ pub async fn run(
                 }
                 if let Some(d) = global_deadline_ms {
                     if start.elapsed().as_millis() >= d {
-                        let msg = format!("Watchdog [gate]: timeout globale ({} min) dopo {} tentativi", global_ttl_min, attempt);
+                        let msg = format!("Watchdog [gate]: global timeout ({} min) after {} attempts", global_ttl_min, attempt);
                         if on_timeout == "error" { ctx.emit_failed(msg.clone()); return Err(msg); }
                         ctx.emit_log(&ctx.label, "warn", 0, msg, "panel");
                         break;
                     }
                 }
                 if max_attempts > 0 && attempt >= max_attempts {
-                    let msg = format!("Watchdog [gate]: limite tentativi ({})", max_attempts);
+                    let msg = format!("Watchdog [gate]: attempt limit ({})", max_attempts);
                     if on_timeout == "error" { ctx.emit_failed(msg.clone()); return Err(msg); }
                     ctx.emit_log(&ctx.label, "warn", 0, msg, "panel");
                     break;
@@ -158,12 +158,12 @@ pub async fn run(
                 attempt += 1;
                 if let Some(res) = check(&req, &ctx).await {
                     ctx.emit_log(&ctx.label, "info", 0,
-                        format!("Watchdog [gate]: tentativo {} — HTTP {} | {}: {} | {}ms",
+                        format!("Watchdog [gate]: attempt {} — HTTP {} | {}: {} | {}ms",
                             attempt, res.status_code, header_name,
                             res.header_found.clone().unwrap_or_else(|| "(assente)".to_string()), res.elapsed_ms), "panel");
                     if res.matched {
                         ctx.emit_log(&ctx.label, "ok", 0,
-                            format!("Watchdog [gate]: condizione soddisfatta dopo {} tentativo/i", attempt), "panel");
+                            format!("Watchdog [gate]: condition met after {} attempt(s)", attempt), "panel");
                         let meta = build_meta(&res, attempt, &url, &header_name);
                         rows_out = emit_gate(&tx, &input_rows, &meta).await;
                         matched = true;
@@ -201,7 +201,7 @@ pub async fn run(
                         if tx.send(row_with(&meta)).await.is_err() { break; }
                         rows_out += 1;
                         ctx.emit_log(&ctx.label, "info", 0,
-                            format!("Watchdog [stream]: emessa riga #{} | {}: {}",
+                            format!("Watchdog [stream]: emitted row #{} | {}: {}",
                                 rows_out, header_name, res.header_found.clone().unwrap_or_default()), "panel");
                     }
                 }
@@ -258,7 +258,7 @@ pub async fn run(
         }
 
         other => {
-            let msg = format!("watchdog {}: modalità '{}' sconosciuta", ctx.node_id.0, other);
+            let msg = format!("watchdog {}: unknown mode '{}'", ctx.node_id.0, other);
             ctx.emit_failed(msg.clone());
             return Err(msg);
         }

@@ -111,7 +111,7 @@ pub async fn run(
     let start = Instant::now();
 
     if command.trim().is_empty() {
-        let msg = format!("shell_exec {}: comando non configurato", ctx.node_id.0);
+        let msg = format!("shell_exec {}: command not configured", ctx.node_id.0);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -156,7 +156,7 @@ pub async fn run(
             Ok(r) => r,
             Err(e) => {
                 ctx.emit_log(&ctx.label, "error", 0,
-                    format!("Shell: invocazione fallita — {}", e), "panel");
+                    format!("Shell: invocation failed — {}", e), "panel");
                 if on_error == "stop" {
                     let msg = format!("shell_exec {}: {}", ctx.node_id.0, e);
                     ctx.emit_failed(msg.clone());
@@ -171,7 +171,7 @@ pub async fn run(
 
         ctx.emit_log(&ctx.label,
             if result.exit_code == 0 { "ok" } else { "warn" }, 0,
-            format!("Shell: exit {} | {}ms | stdout: {} righe",
+            format!("Shell: exit {} | {}ms | stdout: {} rows",
                 result.exit_code, result.duration_ms, out_lines.len()), "panel");
 
         if capture_stderr {
@@ -222,7 +222,7 @@ pub async fn run(
                     }
                     Err(_) => {
                         ctx.emit_log(&ctx.label, "warn", 0,
-                            "Shell [json]: output non è JSON valido — fallback a lines".into(), "panel");
+                            "Shell [json]: output is not valid JSON — fallback to lines".into(), "panel");
                         for (i, line) in out_lines.iter().enumerate() {
                             let mut r = row.clone();
                             r.set("line".into(),        Value::String((*line).to_string()));

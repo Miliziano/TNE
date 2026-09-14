@@ -175,7 +175,7 @@ pub async fn run(
     })?;
 
     ctx.emit_log(&ctx.label, "ok", 0,
-        format!("LDAP: {} voci in {}ms", rows_out, start.elapsed().as_millis()), "panel");
+        format!("LDAP: {} entries in {}ms", rows_out, start.elapsed().as_millis()), "panel");
 
     let stats = NodeStats {
         rows_in: 0, rows_out, rows_rejected: 0,

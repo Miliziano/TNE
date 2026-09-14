@@ -108,13 +108,13 @@ pub async fn run(
         Err(msg)
     };
     if command.trim().is_empty() {
-        return fail(&ctx, format!("ssh_exec {}: comando non configurato", ctx.node_id.0));
+        return fail(&ctx, format!("ssh_exec {}: command not configured", ctx.node_id.0));
     }
     if host.is_empty() {
-        return fail(&ctx, format!("ssh_exec {}: host non configurato", ctx.node_id.0));
+        return fail(&ctx, format!("ssh_exec {}: host not configured", ctx.node_id.0));
     }
     if user.is_empty() {
-        return fail(&ctx, format!("ssh_exec {}: utente non configurato", ctx.node_id.0));
+        return fail(&ctx, format!("ssh_exec {}: user not configured", ctx.node_id.0));
     }
 
     let connection = SshConnection {
@@ -158,7 +158,7 @@ pub async fn run(
             Ok(r) => r,
             Err(e) => {
                 ctx.emit_log(&ctx.label, "error", 0,
-                    format!("SSH: connessione fallita — {}", e), "panel");
+                    format!("SSH: connection failed — {}", e), "panel");
                 if on_error == "stop" {
                     return fail(&ctx, format!("ssh_exec {}: {}", ctx.node_id.0, e));
                 }

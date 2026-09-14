@@ -124,7 +124,7 @@ pub async fn run(
                 let msg  = field_str(&row, "_error_message");
                 ctx.emit_log(
                     &ctx.label, "warn", rows_in,
-                    format!("Chiusura deliberata da {}: {}", node, msg),
+                    format!("Deliberate shutdown by {}: {}", node, msg),
                     "panel",
                 );
                 if valle_aperta {
@@ -214,7 +214,7 @@ pub async fn run(
                             &ctx.label,
                             "warn",
                             rows_in,
-                            "Pipeline a valle di error_out chiusa: gli errori successivi restano nel pannello".to_string(),
+                            "Downstream pipeline of error_out closed: subsequent errors stay in the panel".to_string(),
                             "panel",
                         );
                     } else {
@@ -234,7 +234,7 @@ pub async fn run(
                 // Il motivo viaggia col fire: sarà la frase che l'utente
                 // legge accanto a OGNI nodo interrotto, non solo qui.
                 let motivo = if critical {
-                    format!("errore critico su {}", node)
+                    format!("critical error on {}", node)
                 } else {
                     format!("regola «interrompi» su {}", node)
                 };
@@ -246,7 +246,7 @@ pub async fn run(
                         rows_in,
                         format!(
                             "{} su {}: interrotti {} nodi ancora in esecuzione",
-                            if critical { "Errore CRITICO" } else { "Regola «interrompi»" },
+                            if critical { "CRITICAL error" } else { "Regola «interrompi»" },
                             node, stopped.len(),
                         ),   // NB il testo qui resta invariato: `motivo` è la
                              // forma breve che accompagna i nodi fermati.

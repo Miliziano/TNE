@@ -80,10 +80,7 @@ pub async fn await_params(
 
     if count > 1 {
         return Err(format!(
-            "{} {}: sull'ingresso sono arrivate {} righe, ma un nodo sorgente si \
-             configura con UNA sola riga di parametri. Riduci il flusso a monte a \
-             una riga (per esempio con un aggregate o un filter), oppure scollega \
-             l'arco e configura il nodo dal pannello.",
+            "{} {}: {} rows arrived on the input, but a source node is configured with a SINGLE parameter row. Reduce the upstream flow to one row (for example with an aggregate or a filter), or disconnect the edge and configure the node from the panel.",
             node_type, node_id, count
         ));
     }

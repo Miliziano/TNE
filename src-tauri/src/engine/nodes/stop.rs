@@ -119,7 +119,7 @@ pub async fn run(
     ctx.emit_log(
         &ctx.label, "warn", rows_in,
         format!(
-            "Chiusura deliberata della lane ({} — {} righe ricevute).",
+            "Deliberate lane shutdown ({} — {} rows received).",
             if trigger == "after_input" { "dopo l'esaurimento dell'input" } else { "innesco immediato" },
             rows_in,
         ),

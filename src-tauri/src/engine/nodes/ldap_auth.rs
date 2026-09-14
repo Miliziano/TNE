@@ -53,7 +53,7 @@ async fn authenticate(
 ) -> Result<HashMap<String, Vec<String>>, String> {
     // Credenziali presenti (password vuota = rifiuto: niente bind anonimo).
     if username.is_empty() || user_password.is_empty() {
-        return Err("credenziali mancanti (username o password vuota)".to_string());
+        return Err("missing credentials (empty username or password)".to_string());
     }
 
     // Search dell'utente, con escape del valore nel filtro.
@@ -65,11 +65,11 @@ async fn authenticate(
     };
     let (entries, _res) = service_ldap
         .search(base_dn, Scope::Subtree, &filter, search_attrs.to_vec())
-        .await.map_err(|e| format!("search fallita: {}", e))?
-        .success().map_err(|e| format!("search rifiutata: {}", e))?;
+        .await.map_err(|e| format!("search failed: {}", e))?
+        .success().map_err(|e| format!("search rejected: {}", e))?;
 
-    if entries.is_empty()  { return Err("utente non trovato".to_string()); }
-    if entries.len() > 1   { return Err("più voci corrispondono (ambiguo)".to_string()); }
+    if entries.is_empty()  { return Err("user not found".to_string()); }
+    if entries.len() > 1   { return Err("multiple entries match (ambiguous)".to_string()); }
     let se = SearchEntry::construct(entries.into_iter().next().unwrap());
 
     // SECONDO bind: come l'utente, con la sua password (riusa l'helper condiviso,
@@ -79,14 +79,14 @@ async fn authenticate(
     user_conn.password = user_password.to_string();
     match crate::ldap_connect_and_bind(&user_conn).await {
         Ok(mut l) => { let _ = l.unbind().await; }
-        Err(_)    => return Err("password non valida".to_string()),
+        Err(_)    => return Err("invalid password".to_string()),
     }
 
     // Autorizzazione opzionale: appartenenza a un gruppo.
     if !require_group.is_empty() {
         let groups = se.attrs.get("memberOf").cloned().unwrap_or_default();
         if !groups.iter().any(|g| g.eq_ignore_ascii_case(require_group)) {
-            return Err("non appartiene al gruppo richiesto".to_string());
+            return Err("does not belong to the required group".to_string());
         }
     }
 
@@ -146,7 +146,7 @@ pub async fn run(
         .split(',').map(|a| a.trim().to_string()).filter(|a| !a.is_empty()).collect();
 
     if service_conn.host.is_empty() {
-        let m = format!("ldap_auth {}: host non configurato (collega una risorsa LDAP)", ctx.node_id.0);
+        let m = format!("ldap_auth {}: host not configured (connect an LDAP resource)", ctx.node_id.0);
         ctx.emit_failed(m.clone());
         return Err(m);
     }
@@ -206,7 +206,7 @@ pub async fn run(
             Err(reason) => {
                 row.set("authenticated".into(), Value::Bool(false));
                 row.set("auth_error".into(), Value::String(reason.clone()));
-                ctx.emit_log(&ctx.label, "warn", 0, format!("Auth FALLITA: {} — {}", username, reason), "panel");
+                ctx.emit_log(&ctx.label, "warn", 0, format!("Auth FAILED: {} — {}", username, reason), "panel");
                 if let Some(t) = reject_tx {
                     let _ = t.send(row).await;
                 }

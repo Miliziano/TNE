@@ -167,7 +167,7 @@ pub async fn run(
 
     let _ = webhook_responder_stop_impl(ctx.node_id.0.clone()).await;
     ctx.emit_log(&ctx.label, "ok", 0,
-        format!("Webhook Responder [{}]: terminato — {} righe", mode, rows_out), "panel");
+        format!("Webhook Responder [{}]: finished — {} rows", mode, rows_out), "panel");
 
     let stats = NodeStats {
         rows_in, rows_out, rows_rejected: 0,
