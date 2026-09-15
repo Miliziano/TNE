@@ -176,7 +176,7 @@ pub async fn run(
         if result.exit_code != 0 && on_error == "stop" {
             let detail = if result.stderr.is_empty() { &result.stdout } else { &result.stderr };
             return fail(&ctx, format!(
-                "ssh_exec {}: exit code {} su {}\n{}", ctx.node_id.0, result.exit_code, host, detail));
+                "ssh_exec {}: exit code {} on {}\n{}", ctx.node_id.0, result.exit_code, host, detail));
         }
 
         // Senza valle: eseguito per gli effetti, niente da emettere.

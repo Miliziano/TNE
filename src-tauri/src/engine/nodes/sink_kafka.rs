@@ -113,7 +113,7 @@ pub async fn run(
         published += n as u64;
     }
 
-    ctx.emit_log(&ctx.label, "info", 0, format!("Kafka Sink REST: {} record pubblicati", published), "panel");
+    ctx.emit_log(&ctx.label, "info", 0, format!("Kafka Sink REST: {} records published", published), "panel");
 
     let mut row = Row::new();
     row.set("_kafka_published".to_string(), Value::Int(published as i64));

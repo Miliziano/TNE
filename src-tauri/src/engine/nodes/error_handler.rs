@@ -236,7 +236,7 @@ pub async fn run(
                 let motivo = if critical {
                     format!("critical error on {}", node)
                 } else {
-                    format!("regola «interrompi» su {}", node)
+                    format!("'stop' rule on {}", node)
                 };
                 let stopped = ctx.lane_abort.fire(&motivo).await;
                 if !stopped.is_empty() {
@@ -245,8 +245,8 @@ pub async fn run(
                         "error",
                         rows_in,
                         format!(
-                            "{} su {}: interrotti {} nodi ancora in esecuzione",
-                            if critical { "CRITICAL error" } else { "Regola «interrompi»" },
+                            "{} on {}: interrupted {} nodes still running",
+                            if critical { "CRITICAL error" } else { "'Stop' rule" },
                             node, stopped.len(),
                         ),   // NB il testo qui resta invariato: `motivo` è la
                              // forma breve che accompagna i nodi fermati.

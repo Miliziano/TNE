@@ -195,7 +195,7 @@ fn resolve_binds(
                 return Err(format!(
                     "source_db {}: the query uses the parameter `${{{}}}` but the input row does not have that field. Fields received: {}",
                     node_id, name,
-                    if avail.is_empty() { "(nessuno)".to_string() } else { avail.join(", ") }
+                    if avail.is_empty() { "(none)".to_string() } else { avail.join(", ") }
                 ));
             }
         }

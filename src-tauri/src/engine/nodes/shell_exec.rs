@@ -145,7 +145,7 @@ pub async fn run(
                            else { Some(resolve_template(&cwd_tpl, row, &lane_vars)) };
 
         ctx.emit_log(&ctx.label, "info", 0,
-            format!("Shell: eseguo — {}", resolved_command), "panel");
+            format!("Shell: running — {}", resolved_command), "panel");
 
         let result: ShellResult = match shell_exec_impl(ShellExecRequest {
             command:     resolved_command.clone(),

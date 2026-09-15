@@ -115,12 +115,12 @@ pub async fn run(
         node_id: ctx.node_id.0.clone(), port, path: path.clone(), methods, headers: HashMap::new(),
         expose_body,
     }).await {
-        let msg = format!("webhook_responder {}: avvio — {}", ctx.node_id.0, e);
+        let msg = format!("webhook_responder {}: starting — {}", ctx.node_id.0, e);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("Webhook Responder: attivo su porta {}{} — prova: http://localhost:{}{}", port, path, port, path), "panel");
+        format!("Webhook Responder: active on port {}{} — try: http://localhost:{}{}", port, path, port, path), "panel");
 
     let mut rows_in  = 0u64;
     let mut rows_out = 0u64;
@@ -135,7 +135,7 @@ pub async fn run(
         let headers = resolve_header_template(&tpl_raw, &values);
         let _ = webhook_responder_update_headers_impl(ctx.node_id.0.clone(), headers).await;
         ctx.emit_log(&ctx.label, "info", 0,
-            "Webhook Responder [monitor]: header impostati dalle variabili di lane".to_string(), "panel");
+            "Webhook Responder [monitor]: headers set from lane variables".to_string(), "panel");
         keep_alive(&ctx, &start, deadline_ms).await;
     } else {
         // flow: per ogni riga aggiorna gli header dai suoi campi e la passa a valle.

@@ -145,8 +145,8 @@ impl LaneDatasets {
                     Some(Slot::Failed(e))    => return Err(format!("dataset '{}': {}", name, e)),
                     Some(Slot::Pending(n))   => n.clone(),
                     None => return Err(format!(
-                        "dataset '{}' non dichiarato in questa lane. Pubblica il nodo \
-                         Materialize nella lane (tab Configurazione) e verifica il nome.",
+                        "dataset '{}' not declared in this lane. Publish the \
+                         Materialize node in the lane (Configuration tab) and check the name.",
                         name)),
                 }
             };

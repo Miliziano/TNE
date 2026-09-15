@@ -78,7 +78,7 @@ pub async fn run(
     if let Err(e) = webhook_server_start_impl(WebhookServerStartRequest {
         resource_id: resource_id.clone(), port, ip_whitelist,
     }).await {
-        let msg = format!("webhook_receiver {}: avvio server — {}", ctx.node_id.0, e);
+        let msg = format!("webhook_receiver {}: starting server — {}", ctx.node_id.0, e);
         ctx.emit_failed(msg.clone());
         return Err(msg);
     }
@@ -98,7 +98,7 @@ pub async fn run(
     }
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("Webhook Receiver: in ascolto su http://0.0.0.0:{}{}", port, path), "panel");
+        format!("Webhook Receiver: listening on http://0.0.0.0:{}{}", port, path), "panel");
 
     let deadline_ms: Option<u64> = if listen_sec > 0 { Some(listen_sec * 1000) } else { None };
     let mut rows_out      = 0u64;

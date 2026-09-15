@@ -288,7 +288,7 @@ pub async fn run(
 
    let outcome = if !tx_group.is_empty() {
         if config.dialect != "postgresql" {
-            return Err(format!("sink_db {}: transazioni supportate solo su PostgreSQL (per ora)", ctx.node_id.0));
+            return Err(format!("sink_db {}: transactions supported only on PostgreSQL (for now)", ctx.node_id.0));
         }
         if config.passthrough_md {
             // Master-detail DENTRO transazione: riga-per-riga con RETURNING,
@@ -429,7 +429,7 @@ async fn write_all_tx(
 
     let pg_pool = match pool {
         DbPool::Pg(p) => p,
-        _ => return Err("transazioni supportate solo su PostgreSQL (per ora)".to_string()),
+        _ => return Err("transactions supported only on PostgreSQL (for now)".to_string()),
     };
     let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
 
@@ -538,7 +538,7 @@ async fn write_master_detail_tx(
 
     let pg_pool = match pool {
         DbPool::Pg(p) => p,
-        _ => return Err("master-detail transazionale: solo PostgreSQL (per ora)".to_string()),
+        _ => return Err("master-detail transactional: PostgreSQL only (for now)".to_string()),
     };
     let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
 

@@ -126,7 +126,7 @@ pub async fn run(
     let interval = std::time::Duration::from_secs(interval_sec);
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("Watchdog [{}] — {} {} | {} | ogni {}s", watch_mode, req.method, url, header_name, interval_sec), "panel");
+        format!("Watchdog [{}] — {} {} | {} | every {}s", watch_mode, req.method, url, header_name, interval_sec), "panel");
 
     let mut rows_out = 0u64;
 
@@ -137,7 +137,7 @@ pub async fn run(
             let mut matched = false;
             loop {
                 if ctx.cancel.is_cancelled() {
-                    ctx.emit_log(&ctx.label, "warn", 0, "Watchdog [gate]: interrotto".to_string(), "panel");
+                    ctx.emit_log(&ctx.label, "warn", 0, "Watchdog [gate]: aborted".to_string(), "panel");
                     break;
                 }
                 if let Some(d) = global_deadline_ms {
@@ -211,7 +211,7 @@ pub async fn run(
                 }
             }
             ctx.emit_log(&ctx.label, "ok", 0,
-                format!("Watchdog [stream]: terminato — {} rilevazioni positive in {} check", rows_out, attempt), "panel");
+                format!("Watchdog [stream]: finished — {} positive detections in {} checks", rows_out, attempt), "panel");
         }
 
         // ── EDGE ──────────────────────────────────────────────────
@@ -231,7 +231,7 @@ pub async fn run(
                             let edge = if curr { "rising" } else { "falling" };
                             let should = edge_trigger == "both" || edge_trigger == edge;
                             ctx.emit_log(&ctx.label, "info", 0,
-                                format!("Watchdog [edge]: transizione {} — {}: {} → {}", edge, header_name, p, curr), "panel");
+                                format!("Watchdog [edge]: transition {} — {}: {} → {}", edge, header_name, p, curr), "panel");
                             if should {
                                 let mut meta = build_meta(&res, attempt, &url, &header_name);
                                 meta.push(("watchdog_edge".to_string(), Value::String(edge.to_string())));
@@ -242,7 +242,7 @@ pub async fn run(
                         }
                         None => {
                             ctx.emit_log(&ctx.label, "info", 0,
-                                format!("Watchdog [edge]: stato iniziale — matched {}", curr), "panel");
+                                format!("Watchdog [edge]: initial state — matched {}", curr), "panel");
                         }
                         _ => {}
                     }
@@ -254,7 +254,7 @@ pub async fn run(
                 }
             }
             ctx.emit_log(&ctx.label, "ok", 0,
-                format!("Watchdog [edge]: terminato — {} transizioni in {} check", rows_out, attempt), "panel");
+                format!("Watchdog [edge]: finished — {} transitions in {} checks", rows_out, attempt), "panel");
         }
 
         other => {

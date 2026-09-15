@@ -58,7 +58,7 @@ pub fn start_watch(
             let _ = tx.send(ev);
         }
     })
-    .map_err(|e| format!("watch_subs: creazione watcher: {}", e))?;
+    .map_err(|e| format!("watch_subs: creating watcher: {}", e))?;
 
     watcher
         .watch(

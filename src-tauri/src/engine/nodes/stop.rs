@@ -147,7 +147,7 @@ pub async fn run(
     if !stopped.is_empty() {
         ctx.emit_log(
             &ctx.label, "warn", rows_in,
-            format!("Stop deliberato: interrotti {} nodi ancora in esecuzione", stopped.len()),
+            format!("Deliberate stop: interrupted {} nodes still running", stopped.len()),
             "panel",
         );
     }

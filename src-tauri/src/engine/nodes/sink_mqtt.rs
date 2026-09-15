@@ -87,7 +87,7 @@ pub async fn run(
                 ctx.emit_log(&ctx.label, "error", 0,
                     format!("MQTT: publish to '{}' failed — {}", topic, e), "panel");
                 if errors > MAX_ERRORS {
-                    let msg = format!("sink_mqtt {}: troppi errori di pubblicazione ({})",
+                    let msg = format!("sink_mqtt {}: too many publish errors ({})",
                                       ctx.node_id.0, errors);
                     ctx.emit_failed(msg.clone());
                     return Err(msg);

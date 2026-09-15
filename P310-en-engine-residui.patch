@@ -1,0 +1,415 @@
+diff --git a/src-tauri/src/engine/datasets.rs b/src-tauri/src/engine/datasets.rs
+index 27bb8c1..aff7f4c 100644
+--- a/src-tauri/src/engine/datasets.rs
++++ b/src-tauri/src/engine/datasets.rs
+@@ -145,8 +145,8 @@ impl LaneDatasets {
+                     Some(Slot::Failed(e))    => return Err(format!("dataset '{}': {}", name, e)),
+                     Some(Slot::Pending(n))   => n.clone(),
+                     None => return Err(format!(
+-                        "dataset '{}' non dichiarato in questa lane. Pubblica il nodo \
+-                         Materialize nella lane (tab Configurazione) e verifica il nome.",
++                        "dataset '{}' not declared in this lane. Publish the \
++                         Materialize node in the lane (Configuration tab) and check the name.",
+                         name)),
+                 }
+             };
+diff --git a/src-tauri/src/engine/mod.rs b/src-tauri/src/engine/mod.rs
+index 9d98cef..7ea848b 100644
+--- a/src-tauri/src/engine/mod.rs
++++ b/src-tauri/src/engine/mod.rs
+@@ -50,7 +50,7 @@ use events::EngineEvent;
+ pub async fn engine_ping(delay_ms: u64) -> Result<String, String> {
+     let start = Instant::now();
+     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+-    Ok(format!("pong dopo {}ms (richiesti {}ms)", start.elapsed().as_millis(), delay_ms))
++    Ok(format!("pong after {}ms (requested {}ms)", start.elapsed().as_millis(), delay_ms))
+ }
+ 
+ #[cfg_attr(feature = "desktop", tauri::command)]
+@@ -458,7 +458,7 @@ pub async fn engine_preview_node(
+         run_id:  RunId("preview".to_string()),
+         lane_id: LaneId("preview".to_string()),
+         node_id: NodeId("preview".to_string()),
+-        label:   "anteprima".to_string(),
++        label:   "preview".to_string(),
+         config,
+         spec,
+         variables,
+diff --git a/src-tauri/src/engine/nodes/dir_watcher.rs b/src-tauri/src/engine/nodes/dir_watcher.rs
+index e4f37d0..9e8144f 100644
+--- a/src-tauri/src/engine/nodes/dir_watcher.rs
++++ b/src-tauri/src/engine/nodes/dir_watcher.rs
+@@ -346,7 +346,7 @@ pub async fn run(
+     ).map_err(|e| format!("dir_watcher {}: watch '{}': {}", ctx.node_id.0, directory, e))?;
+ 
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("DirWatcher watch: in ascolto su {} (eventi SO, tetto {}s)", directory, timeout_sec), "panel");
++        format!("DirWatcher watch: listening on {} (OS events, cap {}s)", directory, timeout_sec), "panel");
+ 
+     // Drena i `notify::Event` GREZZI (attesa bloccante fuori dal runtime async):
+     // primo evento entro il tetto, poi il burst ravvicinato entro il debounce.
+diff --git a/src-tauri/src/engine/nodes/error_handler.rs b/src-tauri/src/engine/nodes/error_handler.rs
+index 29052c9..ab472ca 100644
+--- a/src-tauri/src/engine/nodes/error_handler.rs
++++ b/src-tauri/src/engine/nodes/error_handler.rs
+@@ -236,7 +236,7 @@ pub async fn run(
+                 let motivo = if critical {
+                     format!("critical error on {}", node)
+                 } else {
+-                    format!("regola «interrompi» su {}", node)
++                    format!("'stop' rule on {}", node)
+                 };
+                 let stopped = ctx.lane_abort.fire(&motivo).await;
+                 if !stopped.is_empty() {
+@@ -245,8 +245,8 @@ pub async fn run(
+                         "error",
+                         rows_in,
+                         format!(
+-                            "{} su {}: interrotti {} nodi ancora in esecuzione",
+-                            if critical { "CRITICAL error" } else { "Regola «interrompi»" },
++                            "{} on {}: interrupted {} nodes still running",
++                            if critical { "CRITICAL error" } else { "'Stop' rule" },
+                             node, stopped.len(),
+                         ),   // NB il testo qui resta invariato: `motivo` è la
+                              // forma breve che accompagna i nodi fermati.
+diff --git a/src-tauri/src/engine/nodes/report_generator.rs b/src-tauri/src/engine/nodes/report_generator.rs
+index 477bc38..e2b55d9 100644
+--- a/src-tauri/src/engine/nodes/report_generator.rs
++++ b/src-tauri/src/engine/nodes/report_generator.rs
+@@ -75,7 +75,7 @@ pub async fn run(
+     let chart_title = {
+         let t = spec.str_or("chartTitle", "");
+         if !t.is_empty() { t }
+-        else if !x_field.is_empty() && !y_field.is_empty() { format!("{} per {}", y_field, x_field) }
++        else if !x_field.is_empty() && !y_field.is_empty() { format!("{} by {}", y_field, x_field) }
+         else { String::new() }
+     };
+ 
+@@ -377,7 +377,7 @@ fn build_summary(rows: &[Row], kpi_fields: &[String], header_col: &str, accent_c
+              format!("Average: {} · N: {}", fmt_num(sum / nums.len() as f64, locale, false, false), nums.len()))
+         } else {
+             let uniq: std::collections::HashSet<String> = present.iter().map(|v| v.as_str_repr()).collect();
+-            (uniq.len().to_string(), format!("Valori unici: {}", uniq.len()))
++            (uniq.len().to_string(), format!("Unique values: {}", uniq.len()))
+         };
+         format!(
+             "<div style=\"flex:1;min-width:150px;padding:18px 20px;background:{h};border-radius:8px;border-left:4px solid {a};box-shadow:0 2px 8px rgba(0,0,0,.1)\"><div style=\"font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;font-weight:600\">{f}</div><div style=\"font-size:26px;font-weight:700;color:{a};margin-bottom:4px\">{d}</div><div style=\"font-size:11px;color:rgba(255,255,255,.5)\">{s}</div></div>",
+diff --git a/src-tauri/src/engine/nodes/shell_exec.rs b/src-tauri/src/engine/nodes/shell_exec.rs
+index 3963304..1728d1f 100644
+--- a/src-tauri/src/engine/nodes/shell_exec.rs
++++ b/src-tauri/src/engine/nodes/shell_exec.rs
+@@ -145,7 +145,7 @@ pub async fn run(
+                            else { Some(resolve_template(&cwd_tpl, row, &lane_vars)) };
+ 
+         ctx.emit_log(&ctx.label, "info", 0,
+-            format!("Shell: eseguo — {}", resolved_command), "panel");
++            format!("Shell: running — {}", resolved_command), "panel");
+ 
+         let result: ShellResult = match shell_exec_impl(ShellExecRequest {
+             command:     resolved_command.clone(),
+diff --git a/src-tauri/src/engine/nodes/sink_activemq.rs b/src-tauri/src/engine/nodes/sink_activemq.rs
+index 105ebb9..698a1a9 100644
+--- a/src-tauri/src/engine/nodes/sink_activemq.rs
++++ b/src-tauri/src/engine/nodes/sink_activemq.rs
+@@ -84,7 +84,7 @@ pub async fn run(
+                 errors += 1;
+                 ctx.emit_log(&ctx.label, "error", 0, format!("ActiveMQ Producer: publish failed — {}", e), "panel");
+                 if errors > 5 {
+-                    let msg = format!("sink_activemq {}: troppi errori di pubblicazione ({})", ctx.node_id.0, errors);
++                    let msg = format!("sink_activemq {}: too many publish errors ({})", ctx.node_id.0, errors);
+                     ctx.emit_failed(msg.clone());
+                     return Err(msg);
+                 }
+diff --git a/src-tauri/src/engine/nodes/sink_db.rs b/src-tauri/src/engine/nodes/sink_db.rs
+index 6c80a0b..11f2c46 100644
+--- a/src-tauri/src/engine/nodes/sink_db.rs
++++ b/src-tauri/src/engine/nodes/sink_db.rs
+@@ -288,7 +288,7 @@ pub async fn run(
+ 
+    let outcome = if !tx_group.is_empty() {
+         if config.dialect != "postgresql" {
+-            return Err(format!("sink_db {}: transazioni supportate solo su PostgreSQL (per ora)", ctx.node_id.0));
++            return Err(format!("sink_db {}: transactions supported only on PostgreSQL (for now)", ctx.node_id.0));
+         }
+         if config.passthrough_md {
+             // Master-detail DENTRO transazione: riga-per-riga con RETURNING,
+@@ -429,7 +429,7 @@ async fn write_all_tx(
+ 
+     let pg_pool = match pool {
+         DbPool::Pg(p) => p,
+-        _ => return Err("transazioni supportate solo su PostgreSQL (per ora)".to_string()),
++        _ => return Err("transactions supported only on PostgreSQL (for now)".to_string()),
+     };
+     let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
+ 
+@@ -538,7 +538,7 @@ async fn write_master_detail_tx(
+ 
+     let pg_pool = match pool {
+         DbPool::Pg(p) => p,
+-        _ => return Err("master-detail transazionale: solo PostgreSQL (per ora)".to_string()),
++        _ => return Err("master-detail transactional: PostgreSQL only (for now)".to_string()),
+     };
+     let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
+ 
+diff --git a/src-tauri/src/engine/nodes/sink_ftp.rs b/src-tauri/src/engine/nodes/sink_ftp.rs
+index 04a546d..3876708 100644
+--- a/src-tauri/src/engine/nodes/sink_ftp.rs
++++ b/src-tauri/src/engine/nodes/sink_ftp.rs
+@@ -219,7 +219,7 @@ pub async fn run(
+     let bytes_written = content.len() as u64;
+ 
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("FTP: scrivo {} ({} byte) su {}:{}", remote_path, bytes_written, conn.host, conn.port),
++        format!("FTP: writing {} ({} bytes) to {}:{}", remote_path, bytes_written, conn.host, conn.port),
+         "panel");
+ 
+     // ── Scrittura remota (fonte unica: ftp_write_impl) ────────────
+diff --git a/src-tauri/src/engine/nodes/sink_kafka.rs b/src-tauri/src/engine/nodes/sink_kafka.rs
+index 28d3e15..c3ba704 100644
+--- a/src-tauri/src/engine/nodes/sink_kafka.rs
++++ b/src-tauri/src/engine/nodes/sink_kafka.rs
+@@ -113,7 +113,7 @@ pub async fn run(
+         published += n as u64;
+     }
+ 
+-    ctx.emit_log(&ctx.label, "info", 0, format!("Kafka Sink REST: {} record pubblicati", published), "panel");
++    ctx.emit_log(&ctx.label, "info", 0, format!("Kafka Sink REST: {} records published", published), "panel");
+ 
+     let mut row = Row::new();
+     row.set("_kafka_published".to_string(), Value::Int(published as i64));
+diff --git a/src-tauri/src/engine/nodes/sink_mqtt.rs b/src-tauri/src/engine/nodes/sink_mqtt.rs
+index 07702a1..2a91e25 100644
+--- a/src-tauri/src/engine/nodes/sink_mqtt.rs
++++ b/src-tauri/src/engine/nodes/sink_mqtt.rs
+@@ -87,7 +87,7 @@ pub async fn run(
+                 ctx.emit_log(&ctx.label, "error", 0,
+                     format!("MQTT: publish to '{}' failed — {}", topic, e), "panel");
+                 if errors > MAX_ERRORS {
+-                    let msg = format!("sink_mqtt {}: troppi errori di pubblicazione ({})",
++                    let msg = format!("sink_mqtt {}: too many publish errors ({})",
+                                       ctx.node_id.0, errors);
+                     ctx.emit_failed(msg.clone());
+                     return Err(msg);
+diff --git a/src-tauri/src/engine/nodes/source_db.rs b/src-tauri/src/engine/nodes/source_db.rs
+index 01d6212..ceb1e83 100644
+--- a/src-tauri/src/engine/nodes/source_db.rs
++++ b/src-tauri/src/engine/nodes/source_db.rs
+@@ -195,7 +195,7 @@ fn resolve_binds(
+                 return Err(format!(
+                     "source_db {}: the query uses the parameter `${{{}}}` but the input row does not have that field. Fields received: {}",
+                     node_id, name,
+-                    if avail.is_empty() { "(nessuno)".to_string() } else { avail.join(", ") }
++                    if avail.is_empty() { "(none)".to_string() } else { avail.join(", ") }
+                 ));
+             }
+         }
+diff --git a/src-tauri/src/engine/nodes/source_ftp.rs b/src-tauri/src/engine/nodes/source_ftp.rs
+index bb36bc3..27032b2 100644
+--- a/src-tauri/src/engine/nodes/source_ftp.rs
++++ b/src-tauri/src/engine/nodes/source_ftp.rs
+@@ -127,7 +127,7 @@ pub async fn run(
+ 
+     let start = Instant::now();
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("FTP: connessione a {}:{} ({})", conn.host, conn.port, conn.protocol), "panel");
++        format!("FTP: connecting to {}:{} ({})", conn.host, conn.port, conn.protocol), "panel");
+ 
+     // ── Lista file (con filtro glob lato lib.rs) ──────────────────
+     let entries = match ftp_list_impl(conn.clone(), remote_path.clone(), pattern.clone(), Some(false)).await {
+diff --git a/src-tauri/src/engine/nodes/ssh_exec.rs b/src-tauri/src/engine/nodes/ssh_exec.rs
+index 5c40744..76fd8d9 100644
+--- a/src-tauri/src/engine/nodes/ssh_exec.rs
++++ b/src-tauri/src/engine/nodes/ssh_exec.rs
+@@ -176,7 +176,7 @@ pub async fn run(
+         if result.exit_code != 0 && on_error == "stop" {
+             let detail = if result.stderr.is_empty() { &result.stdout } else { &result.stderr };
+             return fail(&ctx, format!(
+-                "ssh_exec {}: exit code {} su {}\n{}", ctx.node_id.0, result.exit_code, host, detail));
++                "ssh_exec {}: exit code {} on {}\n{}", ctx.node_id.0, result.exit_code, host, detail));
+         }
+ 
+         // Senza valle: eseguito per gli effetti, niente da emettere.
+diff --git a/src-tauri/src/engine/nodes/stop.rs b/src-tauri/src/engine/nodes/stop.rs
+index 60ecfd4..61a30f7 100644
+--- a/src-tauri/src/engine/nodes/stop.rs
++++ b/src-tauri/src/engine/nodes/stop.rs
+@@ -147,7 +147,7 @@ pub async fn run(
+     if !stopped.is_empty() {
+         ctx.emit_log(
+             &ctx.label, "warn", rows_in,
+-            format!("Stop deliberato: interrotti {} nodi ancora in esecuzione", stopped.len()),
++            format!("Deliberate stop: interrupted {} nodes still running", stopped.len()),
+             "panel",
+         );
+     }
+diff --git a/src-tauri/src/engine/nodes/union.rs b/src-tauri/src/engine/nodes/union.rs
+index 7e7166e..7e13c60 100644
+--- a/src-tauri/src/engine/nodes/union.rs
++++ b/src-tauri/src/engine/nodes/union.rs
+@@ -275,7 +275,7 @@ async fn run_zip(
+             match cfg.zip_mismatch.as_str() {
+                 "truncate" => break,                // ferma al più corto
+                 "error"    => return Err(format!(
+-                    "union {}: zip — i flussi hanno lunghezza diversa \
++                    "union {}: zip — flows have different lengths \
+                      (zip_mismatch=error)", ctx.node_id.0)),
+                 _ => { /* pad_null: prosegui, i mancanti danno null */ }
+             }
+diff --git a/src-tauri/src/engine/nodes/watchdog.rs b/src-tauri/src/engine/nodes/watchdog.rs
+index d4c311f..16677a9 100644
+--- a/src-tauri/src/engine/nodes/watchdog.rs
++++ b/src-tauri/src/engine/nodes/watchdog.rs
+@@ -126,7 +126,7 @@ pub async fn run(
+     let interval = std::time::Duration::from_secs(interval_sec);
+ 
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("Watchdog [{}] — {} {} | {} | ogni {}s", watch_mode, req.method, url, header_name, interval_sec), "panel");
++        format!("Watchdog [{}] — {} {} | {} | every {}s", watch_mode, req.method, url, header_name, interval_sec), "panel");
+ 
+     let mut rows_out = 0u64;
+ 
+@@ -137,7 +137,7 @@ pub async fn run(
+             let mut matched = false;
+             loop {
+                 if ctx.cancel.is_cancelled() {
+-                    ctx.emit_log(&ctx.label, "warn", 0, "Watchdog [gate]: interrotto".to_string(), "panel");
++                    ctx.emit_log(&ctx.label, "warn", 0, "Watchdog [gate]: aborted".to_string(), "panel");
+                     break;
+                 }
+                 if let Some(d) = global_deadline_ms {
+@@ -211,7 +211,7 @@ pub async fn run(
+                 }
+             }
+             ctx.emit_log(&ctx.label, "ok", 0,
+-                format!("Watchdog [stream]: terminato — {} rilevazioni positive in {} check", rows_out, attempt), "panel");
++                format!("Watchdog [stream]: finished — {} positive detections in {} checks", rows_out, attempt), "panel");
+         }
+ 
+         // ── EDGE ──────────────────────────────────────────────────
+@@ -231,7 +231,7 @@ pub async fn run(
+                             let edge = if curr { "rising" } else { "falling" };
+                             let should = edge_trigger == "both" || edge_trigger == edge;
+                             ctx.emit_log(&ctx.label, "info", 0,
+-                                format!("Watchdog [edge]: transizione {} — {}: {} → {}", edge, header_name, p, curr), "panel");
++                                format!("Watchdog [edge]: transition {} — {}: {} → {}", edge, header_name, p, curr), "panel");
+                             if should {
+                                 let mut meta = build_meta(&res, attempt, &url, &header_name);
+                                 meta.push(("watchdog_edge".to_string(), Value::String(edge.to_string())));
+@@ -242,7 +242,7 @@ pub async fn run(
+                         }
+                         None => {
+                             ctx.emit_log(&ctx.label, "info", 0,
+-                                format!("Watchdog [edge]: stato iniziale — matched {}", curr), "panel");
++                                format!("Watchdog [edge]: initial state — matched {}", curr), "panel");
+                         }
+                         _ => {}
+                     }
+@@ -254,7 +254,7 @@ pub async fn run(
+                 }
+             }
+             ctx.emit_log(&ctx.label, "ok", 0,
+-                format!("Watchdog [edge]: terminato — {} transizioni in {} check", rows_out, attempt), "panel");
++                format!("Watchdog [edge]: finished — {} transitions in {} checks", rows_out, attempt), "panel");
+         }
+ 
+         other => {
+diff --git a/src-tauri/src/engine/nodes/webhook_receiver.rs b/src-tauri/src/engine/nodes/webhook_receiver.rs
+index bb299b9..ea416b4 100644
+--- a/src-tauri/src/engine/nodes/webhook_receiver.rs
++++ b/src-tauri/src/engine/nodes/webhook_receiver.rs
+@@ -78,7 +78,7 @@ pub async fn run(
+     if let Err(e) = webhook_server_start_impl(WebhookServerStartRequest {
+         resource_id: resource_id.clone(), port, ip_whitelist,
+     }).await {
+-        let msg = format!("webhook_receiver {}: avvio server — {}", ctx.node_id.0, e);
++        let msg = format!("webhook_receiver {}: starting server — {}", ctx.node_id.0, e);
+         ctx.emit_failed(msg.clone());
+         return Err(msg);
+     }
+@@ -98,7 +98,7 @@ pub async fn run(
+     }
+ 
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("Webhook Receiver: in ascolto su http://0.0.0.0:{}{}", port, path), "panel");
++        format!("Webhook Receiver: listening on http://0.0.0.0:{}{}", port, path), "panel");
+ 
+     let deadline_ms: Option<u64> = if listen_sec > 0 { Some(listen_sec * 1000) } else { None };
+     let mut rows_out      = 0u64;
+diff --git a/src-tauri/src/engine/nodes/webhook_responder.rs b/src-tauri/src/engine/nodes/webhook_responder.rs
+index 5e92bc3..405b2c0 100644
+--- a/src-tauri/src/engine/nodes/webhook_responder.rs
++++ b/src-tauri/src/engine/nodes/webhook_responder.rs
+@@ -115,12 +115,12 @@ pub async fn run(
+         node_id: ctx.node_id.0.clone(), port, path: path.clone(), methods, headers: HashMap::new(),
+         expose_body,
+     }).await {
+-        let msg = format!("webhook_responder {}: avvio — {}", ctx.node_id.0, e);
++        let msg = format!("webhook_responder {}: starting — {}", ctx.node_id.0, e);
+         ctx.emit_failed(msg.clone());
+         return Err(msg);
+     }
+     ctx.emit_log(&ctx.label, "info", 0,
+-        format!("Webhook Responder: attivo su porta {}{} — prova: http://localhost:{}{}", port, path, port, path), "panel");
++        format!("Webhook Responder: active on port {}{} — try: http://localhost:{}{}", port, path, port, path), "panel");
+ 
+     let mut rows_in  = 0u64;
+     let mut rows_out = 0u64;
+@@ -135,7 +135,7 @@ pub async fn run(
+         let headers = resolve_header_template(&tpl_raw, &values);
+         let _ = webhook_responder_update_headers_impl(ctx.node_id.0.clone(), headers).await;
+         ctx.emit_log(&ctx.label, "info", 0,
+-            "Webhook Responder [monitor]: header impostati dalle variabili di lane".to_string(), "panel");
++            "Webhook Responder [monitor]: headers set from lane variables".to_string(), "panel");
+         keep_alive(&ctx, &start, deadline_ms).await;
+     } else {
+         // flow: per ogni riga aggiorna gli header dai suoi campi e la passa a valle.
+diff --git a/src-tauri/src/engine/txregistry.rs b/src-tauri/src/engine/txregistry.rs
+index 39b052e..6891ddb 100644
+--- a/src-tauri/src/engine/txregistry.rs
++++ b/src-tauri/src/engine/txregistry.rs
+@@ -213,7 +213,7 @@ async fn finalize_xa(group_id: &str, g: &mut TxGroup, do_commit: bool) {
+             Ok(_)  => prepared.push((rid, gid, conn)),
+             Err(e) => {
+                 let hint = if e.to_string().contains("max_prepared_transactions") {
+-                    " — XA richiede 'max_prepared_transactions > 0' in postgresql.conf (poi riavvia il server)"
++                    " — XA requires 'max_prepared_transactions > 0' in postgresql.conf (then restart the server)"
+                 } else { "" };
+                 eprintln!("[xa] gruppo '{}': PREPARE FALLITO (risorsa '{}'): {}{}", group_id, rid, e, hint);
+                 phase1_ok = false;
+diff --git a/src-tauri/src/engine/watch_subs.rs b/src-tauri/src/engine/watch_subs.rs
+index 93d4c9d..4e7a26f 100644
+--- a/src-tauri/src/engine/watch_subs.rs
++++ b/src-tauri/src/engine/watch_subs.rs
+@@ -58,7 +58,7 @@ pub fn start_watch(
+             let _ = tx.send(ev);
+         }
+     })
+-    .map_err(|e| format!("watch_subs: creazione watcher: {}", e))?;
++    .map_err(|e| format!("watch_subs: creating watcher: {}", e))?;
+ 
+     watcher
+         .watch(
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 3591bd1..dc58e61 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -2673,7 +2673,7 @@ pub async fn shell_exec_impl(request: ShellExecRequest) -> Result<ShellResult, S
+             cmd.output(),
+         )
+         .await
+-        .map_err(|_| format!("Shell: timeout dopo {}s", timeout_secs))?
++        .map_err(|_| format!("Shell: timeout after {}s", timeout_secs))?
+         .map_err(|e| format!("Shell: start error — {}", e))?
+     } else {
+         cmd.output()
+@@ -2999,8 +2999,8 @@ pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTest
+         let remaining = resp.json::<serde_json::Value>().await.ok()
+             .and_then(|v| v.get("rate").and_then(|r| r.get("remaining")).and_then(|x| x.as_i64()));
+         let message = match remaining {
+-            Some(n) => format!("Connesso a GitHub — {} richieste/ora rimaste", n),
+-            None    => "Connesso a GitHub".to_string(),
++            Some(n) => format!("Connected to GitHub — {} requests/hour remaining", n),
++            None    => "Connected to GitHub".to_string(),
+         };
+         Ok(GithubTestResult { ok: true, message })
+     } else if status.as_u16() == 401 {

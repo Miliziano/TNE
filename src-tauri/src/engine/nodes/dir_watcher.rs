@@ -346,7 +346,7 @@ pub async fn run(
     ).map_err(|e| format!("dir_watcher {}: watch '{}': {}", ctx.node_id.0, directory, e))?;
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("DirWatcher watch: in ascolto su {} (eventi SO, tetto {}s)", directory, timeout_sec), "panel");
+        format!("DirWatcher watch: listening on {} (OS events, cap {}s)", directory, timeout_sec), "panel");
 
     // Drena i `notify::Event` GREZZI (attesa bloccante fuori dal runtime async):
     // primo evento entro il tetto, poi il burst ravvicinato entro il debounce.

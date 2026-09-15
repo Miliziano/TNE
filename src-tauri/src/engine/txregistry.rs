@@ -213,7 +213,7 @@ async fn finalize_xa(group_id: &str, g: &mut TxGroup, do_commit: bool) {
             Ok(_)  => prepared.push((rid, gid, conn)),
             Err(e) => {
                 let hint = if e.to_string().contains("max_prepared_transactions") {
-                    " — XA richiede 'max_prepared_transactions > 0' in postgresql.conf (poi riavvia il server)"
+                    " — XA requires 'max_prepared_transactions > 0' in postgresql.conf (then restart the server)"
                 } else { "" };
                 eprintln!("[xa] gruppo '{}': PREPARE FALLITO (risorsa '{}'): {}{}", group_id, rid, e, hint);
                 phase1_ok = false;

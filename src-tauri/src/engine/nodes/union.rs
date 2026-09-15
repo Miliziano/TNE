@@ -275,7 +275,7 @@ async fn run_zip(
             match cfg.zip_mismatch.as_str() {
                 "truncate" => break,                // ferma al più corto
                 "error"    => return Err(format!(
-                    "union {}: zip — i flussi hanno lunghezza diversa \
+                    "union {}: zip — flows have different lengths \
                      (zip_mismatch=error)", ctx.node_id.0)),
                 _ => { /* pad_null: prosegui, i mancanti danno null */ }
             }

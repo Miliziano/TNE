@@ -75,7 +75,7 @@ pub async fn run(
     let chart_title = {
         let t = spec.str_or("chartTitle", "");
         if !t.is_empty() { t }
-        else if !x_field.is_empty() && !y_field.is_empty() { format!("{} per {}", y_field, x_field) }
+        else if !x_field.is_empty() && !y_field.is_empty() { format!("{} by {}", y_field, x_field) }
         else { String::new() }
     };
 
@@ -377,7 +377,7 @@ fn build_summary(rows: &[Row], kpi_fields: &[String], header_col: &str, accent_c
              format!("Average: {} · N: {}", fmt_num(sum / nums.len() as f64, locale, false, false), nums.len()))
         } else {
             let uniq: std::collections::HashSet<String> = present.iter().map(|v| v.as_str_repr()).collect();
-            (uniq.len().to_string(), format!("Valori unici: {}", uniq.len()))
+            (uniq.len().to_string(), format!("Unique values: {}", uniq.len()))
         };
         format!(
             "<div style=\"flex:1;min-width:150px;padding:18px 20px;background:{h};border-radius:8px;border-left:4px solid {a};box-shadow:0 2px 8px rgba(0,0,0,.1)\"><div style=\"font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;font-weight:600\">{f}</div><div style=\"font-size:26px;font-weight:700;color:{a};margin-bottom:4px\">{d}</div><div style=\"font-size:11px;color:rgba(255,255,255,.5)\">{s}</div></div>",

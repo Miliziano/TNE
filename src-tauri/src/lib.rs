@@ -2673,7 +2673,7 @@ pub async fn shell_exec_impl(request: ShellExecRequest) -> Result<ShellResult, S
             cmd.output(),
         )
         .await
-        .map_err(|_| format!("Shell: timeout dopo {}s", timeout_secs))?
+        .map_err(|_| format!("Shell: timeout after {}s", timeout_secs))?
         .map_err(|e| format!("Shell: start error — {}", e))?
     } else {
         cmd.output()
@@ -2999,8 +2999,8 @@ pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTest
         let remaining = resp.json::<serde_json::Value>().await.ok()
             .and_then(|v| v.get("rate").and_then(|r| r.get("remaining")).and_then(|x| x.as_i64()));
         let message = match remaining {
-            Some(n) => format!("Connesso a GitHub — {} richieste/ora rimaste", n),
-            None    => "Connesso a GitHub".to_string(),
+            Some(n) => format!("Connected to GitHub — {} requests/hour remaining", n),
+            None    => "Connected to GitHub".to_string(),
         };
         Ok(GithubTestResult { ok: true, message })
     } else if status.as_u16() == 401 {

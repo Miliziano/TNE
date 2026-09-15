@@ -127,7 +127,7 @@ pub async fn run(
 
     let start = Instant::now();
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("FTP: connessione a {}:{} ({})", conn.host, conn.port, conn.protocol), "panel");
+        format!("FTP: connecting to {}:{} ({})", conn.host, conn.port, conn.protocol), "panel");
 
     // ── Lista file (con filtro glob lato lib.rs) ──────────────────
     let entries = match ftp_list_impl(conn.clone(), remote_path.clone(), pattern.clone(), Some(false)).await {

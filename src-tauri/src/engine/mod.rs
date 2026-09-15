@@ -50,7 +50,7 @@ use events::EngineEvent;
 pub async fn engine_ping(delay_ms: u64) -> Result<String, String> {
     let start = Instant::now();
     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-    Ok(format!("pong dopo {}ms (richiesti {}ms)", start.elapsed().as_millis(), delay_ms))
+    Ok(format!("pong after {}ms (requested {}ms)", start.elapsed().as_millis(), delay_ms))
 }
 
 #[cfg_attr(feature = "desktop", tauri::command)]
@@ -458,7 +458,7 @@ pub async fn engine_preview_node(
         run_id:  RunId("preview".to_string()),
         lane_id: LaneId("preview".to_string()),
         node_id: NodeId("preview".to_string()),
-        label:   "anteprima".to_string(),
+        label:   "preview".to_string(),
         config,
         spec,
         variables,

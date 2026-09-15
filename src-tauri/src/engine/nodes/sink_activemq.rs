@@ -84,7 +84,7 @@ pub async fn run(
                 errors += 1;
                 ctx.emit_log(&ctx.label, "error", 0, format!("ActiveMQ Producer: publish failed — {}", e), "panel");
                 if errors > 5 {
-                    let msg = format!("sink_activemq {}: troppi errori di pubblicazione ({})", ctx.node_id.0, errors);
+                    let msg = format!("sink_activemq {}: too many publish errors ({})", ctx.node_id.0, errors);
                     ctx.emit_failed(msg.clone());
                     return Err(msg);
                 }

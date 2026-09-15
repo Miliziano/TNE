@@ -219,7 +219,7 @@ pub async fn run(
     let bytes_written = content.len() as u64;
 
     ctx.emit_log(&ctx.label, "info", 0,
-        format!("FTP: scrivo {} ({} byte) su {}:{}", remote_path, bytes_written, conn.host, conn.port),
+        format!("FTP: writing {} ({} bytes) to {}:{}", remote_path, bytes_written, conn.host, conn.port),
         "panel");
 
     // ── Scrittura remota (fonte unica: ftp_write_impl) ────────────
