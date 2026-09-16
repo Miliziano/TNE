@@ -25,6 +25,7 @@ import { compileTransformFields, type TransformFieldSpec } from '../transforms/t
 import { parseUserFunctions } from '../ir/userFunctions'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
+import { planHash as canonicalPlanHash } from '../ir/canonicalPlan'
 
 let abortFlag = false
 
@@ -1328,16 +1329,14 @@ export function Toolbar() {
       } catch { planVersion = null }
     }
 
-    // INTEGRITA' (non autenticita'): sha-256 del piano. Dice "e' esattamente il piano
-    // esportato" e permette di correlare run dello stesso piano. NON prova CHI l'ha
-    // prodotto: chi modifica il piano puo' ricalcolare l'hash. Per l'autenticita'
-    // servirebbe una firma asimmetrica (fase separata).
-    const planJson = JSON.stringify(plan)
+    // INTEGRITA' (non autenticita'): sha-256 della FORMA CANONICA del piano — senza il
+    // run_id volatile e con chiavi ordinate, quindi STABILE fra export identici (a
+    // differenza del vecchio hash su JSON.stringify(plan), che includeva run_id e
+    // cambiava a ogni export). Ricalcolabile bit-per-bit dal runner per la verifica
+    // d'integrita' (HANDOFF-firma-artifact.md §4). NON prova ancora CHI l'ha prodotto:
+    // per l'autenticita' serve la firma asimmetrica (P316).
     let planHash: string | null = null
-    try {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(planJson))
-      planHash = 'sha256:' + Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
-    } catch { planHash = null }
+    try { planHash = await canonicalPlanHash(plan) } catch { planHash = null }
 
     const artifact = {
       formatVersion: 1,
