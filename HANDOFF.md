@@ -880,6 +880,77 @@ Quattro temi grandi, tutti verificati (tsc baseline **110**, suite FPEL 49/57/44
 
 ---
 
+## AGGIORNAMENTO — passata di traduzione in inglese (stato al P311, 15 settembre)
+
+La "passata inglese" annotata sopra (stato P259, "in corso, a blocchi") è
+proseguita fino a diventare la **fase corrente** del progetto. Il dettaglio
+completo — metodo, convenzioni, stato file-per-file, cosa NON tradurre e le
+lezioni operative — vive in un handoff **DEDICATO** che qui **non ricopio**:
+
+> → **`HANDOFF-traduzione-EN.md`** (nel repo, accanto a questo file). È la
+> fonte di verità per la traduzione; questo paragrafo è solo il puntatore.
+
+Sintesi minima (non duplicare — per tutto il resto leggi il doc dedicato):
+- **Frontend** tradotto: nodi/panel, i 7 modali, catalogo FPEL/functions,
+  script, log, Property/Monitor, canvas/dock/menu. Dizionario-seed
+  **`src/i18n/it-en.json`** mantenuto in modo additivo (~2357 voci; base per
+  l'i18n `t()` futuro — l'inglese oggi è **hardcoded**).
+- **Motore Rust** tradotto: `lib.rs`, orchestrazione, tutti i nodi, layer DB,
+  `datasets.rs`, binario monitor. ⚠ **`P303`** (orchestration) fu applicata e
+  **REVERTATA** (virgolette nude in una stringa Rust); le stringhe sono poi
+  rientrate via **`P305`**. Da qui la regola "check virgolette bilanciate"
+  prima di consegnare una patch motore (dettaglio nel doc dedicato).
+- Ultime consegne della fase: **P310** (residui motore — watchdog, webhook,
+  sink_db/kafka/ftp, error_handler, ecc.) e **P311** (catalogo trasformazioni
+  `src/transforms/catalog.ts` + `presets.ts` — i nomi "parlanti" e le
+  descrizioni delle funzioni della palette — e i messaggi del parser script
+  `src/ir/scriptParser.ts`, incluso "unrecognized instruction. Expected: …" e
+  il prefisso "line N:").
+- La **"coda lunga"** annotata al P259 (99 descrizioni nodi, `desc` funzioni
+  FPEL) è in gran parte **chiusa** da P310/P311.
+- **Residuo attuale** (da trattare come gruppi nuovi quando emergono testando
+  con `npm run tauri dev`): mezzi-tradotti e stringhe generate a runtime, più
+  alcune aree UI ancora IT viste nello sweep — titoli dei dialog save/open
+  (`schema/schemaFile.ts`, `components/EnvironmentsModal.tsx`,
+  `components/Toolbar.tsx`, `components/UserFunctionsModal.tsx`, `App.tsx`) e
+  descrizioni in alcuni Panel di nodi (aggregate/window/pivot/ssh_exec/
+  data_quality), oltre agli errori FPEL a livello di espressione
+  (`ExprParseError.pretty()`, file diverso da scriptParser).
+
+Il **metodo e le convenzioni** della passata NON sono qui: sono in
+`HANDOFF-traduzione-EN.md`.
+
+---
+
+## AGGIORNAMENTO — sicurezza per il rilascio pubblico (16 settembre)
+
+Iniziato il ragionamento su **affidabilità e sicurezza** in vista del rilascio al
+pubblico. Rivisto il codice reale delle tre parti (studio Tauri, monitor web, runtime
+Rust) e censite le debolezze principali: nello studio `csp: null` + capability
+`shell`/`fs` larghissime + 50 comandi → una XSS nella webview diventa RCE; monitor con
+viste di lettura aperte, bind `0.0.0.0`, HTTP in chiaro, ingest aperto se manca il
+token; **la runtime esegue qualunque `.ffart` le si passi** — `planHash` presente ma
+NON verificato (provenienza "fase A", dichiarata e non verificata); segreti non
+redatti nei log/eventi. Priorità P0/P1/P2 discusse in chat.
+
+Prima area portata a design: **la catena di fiducia dell'artifact** (autenticare e
+validare un `.ffart` prima di eseguirlo). Decisione presa: **solo FIRMA** in v1
+(autenticità + integrità + attribuzione), Ed25519, verifica **all'ammissione** (non a
+ogni esecuzione) → compatibile con lo scheduler near-real-time futuro; cifratura
+rimandata ma agganciabile senza rifare. È la "Fase B" dei campi di provenienza già
+presenti nell'`.ffart`.
+
+> Design completo, punti aperti e prossimi passi:
+> → **`HANDOFF-firma-artifact.md`** (nel repo, accanto a questo file).
+
+Ancora da portare a design (citati ma non ancora dettagliati): hardening studio
+(CSP + capability minime), messa in sicurezza del monitor (TLS/auth/bind locale),
+redaction segreti, sandbox/policy nodi pericolosi della runtime. L'**affidabilità**
+(ripresa/checkpoint, tetti di memoria, timeout uniformi, versionamento, passthrough
+dei nodi non implementati → errore duro) è stata esplicitamente messa da parte.
+
+---
+
 ## Oracle e Informix — pensata (DA RIPRENDERE)
 
 Richiesto come "fondamentale". **Non è un'aggiunta piccola: è una decisione architetturale del motore.**
