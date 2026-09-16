@@ -31,23 +31,23 @@ import type { FieldType } from '../types/fieldTypes'
 const UNIVERSAL_PRESETS: TransformTemplate[] = [
   {
     id: 'passthrough', label: 'Passthrough',
-    description: 'Valore invariato',
+    description: 'Value unchanged',
     expression: '$value',
   },
   {
-    id: 'null_if_empty', label: 'Null se vuoto',
-    description: 'null se stringa vuota o null',
+    id: 'null_if_empty', label: 'Null if empty',
+    description: 'null if empty string or null',
     expression: 'iif($value == "" or $value is null, null, $value)',
   },
   {
-    id: 'coalesce_empty', label: 'Stringa vuota se null',
-    description: 'Sostituisce null con la stringa vuota',
+    id: 'coalesce_empty', label: 'Empty string if null',
+    description: 'Replaces null with the empty string',
     outputType: 'string',
     expression: 'coalesce($value, "")',
   },
   {
-    id: 'expr', label: '{ } Espressione personalizzata…',
-    description: 'Scrivi un\'espressione FPEL (es. upper(trim($value)))',
+    id: 'expr', label: '{ } Custom expression…',
+    description: 'Write an FPEL expression (e.g. upper(trim($value)))',
     expression: '$value',   // segnaposto: compileField usa field.expression
   },
 ]
@@ -57,14 +57,14 @@ const UNIVERSAL_PRESETS: TransformTemplate[] = [
 
 const DATETIME_PRESETS: TransformTemplate[] = [
   {
-    id: 'dt_locale_it', label: '→ Formato italiano',
-    description: 'gg/mm/aaaa hh:mm:ss',
+    id: 'dt_locale_it', label: '→ Italian format',
+    description: 'dd/mm/yyyy hh:mm:ss',
     outputType: 'string',
     expression: 'date_format($value, "DD/MM/YYYY HH:mm:ss")',
   },
   {
-    id: 'dt_time_only', label: '→ Solo ora (HH:mm)',
-    description: 'Estrae solo ora e minuti',
+    id: 'dt_time_only', label: '→ Time only (HH:mm)',
+    description: 'Extracts hour and minutes only',
     outputType: 'string',
     expression: 'date_format($value, "HH:mm")',
   },

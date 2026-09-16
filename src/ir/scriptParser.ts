@@ -52,7 +52,7 @@ export class ScriptParseError extends Error {
     this.line = line
   }
   pretty(): string {
-    return `riga ${this.line}: ${this.message}`
+    return `line ${this.line}: ${this.message}`
   }
 }
 
@@ -218,12 +218,12 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     // ancora guardare se segue un `else`.
     if (RE_CHIUSA.test(text)) {
       if (!annidato) {
-        throw new ScriptParseError('"}" senza un "if" da chiudere', n)
+        throw new ScriptParseError('"}" without an "if" to close', n)
       }
       return out
     }
     if (RE_ELSE.test(text) || RE_ELSEIF.test(text)) {
-      throw new ScriptParseError('"else" senza un "if" a cui riferirsi', n)
+      throw new ScriptParseError('"else" without an "if" to refer to', n)
     }
 
     cur.i++
@@ -239,10 +239,10 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     // vale la pena riconoscerlo e dirlo, invece di lasciarlo cadere
     // nell'assegnazione e produrre un errore incomprensibile.
     if (/^if\b/.test(text)) {
-      throw new ScriptParseError('a un "if" deve seguire la condizione e "{" a fine riga', n)
+      throw new ScriptParseError('an "if" must be followed by the condition and "{" at end of line', n)
     }
     if (/^else\b/.test(text)) {
-      throw new ScriptParseError('a un "else" deve seguire "{" (o "if … {")', n)
+      throw new ScriptParseError('an "else" must be followed by "{" (or "if … {")', n)
     }
 
     // ── repeat <n> [as <nome>] { … } ────────────────────────────
@@ -254,7 +254,7 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
       const dentro = new Set(locali)
       if (mRep[2]) {
         if (locali.has(mRep[2])) {
-          throw new ScriptParseError(`"${mRep[2]}" è già dichiarato: scegli un altro nome`, n)
+          throw new ScriptParseError(`"${mRep[2]}" is already declared: choose another name`, n)
         }
         dentro.add(mRep[2])
       }
@@ -267,7 +267,7 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     const mFor = text.match(RE_FOR)
     if (mFor) {
       if (RISERVATE.has(mFor[1])) {
-        throw new ScriptParseError(`"${mFor[1]}" è una parola riservata e non può essere un nome`, n)
+        throw new ScriptParseError(`"${mFor[1]}" is a reserved word and cannot be a name`, n)
       }
       // La lista si compila PRIMA di dichiarare la variabile, come per `let`.
       const lista  = espr(mFor[2], n, locali)
@@ -279,10 +279,10 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     }
 
     if (/^repeat\b/.test(text)) {
-      throw new ScriptParseError('forma attesa: repeat <quante volte> [as <nome>] {', n)
+      throw new ScriptParseError('expected form: repeat <how many times> [as <name>] {', n)
     }
     if (/^for\b/.test(text)) {
-      throw new ScriptParseError('forma attesa: for <nome> in <espressione> {', n)
+      throw new ScriptParseError('expected form: for <name> in <expression> {', n)
     }
 
     // ── emit ────────────────────────────────────────────────────
@@ -318,10 +318,10 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     if (mLet) {
       const nome = mLet[1]
       if (RISERVATE.has(nome)) {
-        throw new ScriptParseError(`"${nome}" è una parola riservata e non può essere un nome`, n)
+        throw new ScriptParseError(`"${nome}" is a reserved word and cannot be a name`, n)
       }
       if (locali.has(nome)) {
-        throw new ScriptParseError(`"${nome}" è già dichiarato: scegli un altro nome`, n)
+        throw new ScriptParseError(`"${nome}" is already declared: choose another name`, n)
       }
       // L'espressione si risolve PRIMA di dichiarare il nome, così
       // `let x = x + 1` legge il campo `x` e non se stesso.
@@ -342,19 +342,19 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     const mAss = text.match(RE_ASSIGN)
     if (mAss) {
       if (RISERVATE.has(mAss[1])) {
-        throw new ScriptParseError(`"${mAss[1]}" è una parola riservata e non può essere un nome di campo`, n)
+        throw new ScriptParseError(`"${mAss[1]}" is a reserved word and cannot be a field name`, n)
       }
       out.push({ kind: 'Assign', field: mAss[1], expr: espr(mAss[2], n, locali) })
       continue
     }
 
     throw new ScriptParseError(
-      `istruzione non riconosciuta. Attese: assegnazione "campo = ...", "let", "if", ` +
+      `unrecognized instruction. Expected: an assignment "field = ...", "let", "if", ` +
       `"repeat", "for", "emit", "skip", "reject", "log", "error"`, n)
   }
 
   if (annidato) {
-    throw new ScriptParseError('manca la "}" che chiude un "if"', righe[righe.length - 1]?.n ?? 1)
+    throw new ScriptParseError('missing the "}" that closes an "if"', righe[righe.length - 1]?.n ?? 1)
   }
   return out
 }
@@ -366,7 +366,7 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
 function chiudiBlocco(righe: Riga[], cur: Cursore, locali: Set<string>, rigaApertura: number): ScriptStmt[] {
   const corpo = blocco(righe, cur, locali, true)
   if (cur.i >= righe.length || !RE_CHIUSA.test(righe[cur.i].text)) {
-    throw new ScriptParseError('manca la "}" che chiude questo blocco', rigaApertura)
+    throw new ScriptParseError('missing the "}" that closes this block', rigaApertura)
   }
   cur.i++
   return corpo
@@ -378,7 +378,7 @@ function leggiIf(righe: Riga[], cur: Cursore, locali: Set<string>,
   const rami = blocco(righe, cur, new Set(locali), true)
 
   if (cur.i >= righe.length || !RE_CHIUSA.test(righe[cur.i].text)) {
-    throw new ScriptParseError('manca la "}" che chiude questo "if"', rigaIf)
+    throw new ScriptParseError('missing the "}" that closes this "if"', rigaIf)
   }
   cur.i++   // consuma la `}`
 
@@ -398,7 +398,7 @@ function leggiIf(righe: Riga[], cur: Cursore, locali: Set<string>,
       cur.i++
       const altri = blocco(righe, cur, new Set(locali), true)
       if (cur.i >= righe.length || !RE_CHIUSA.test(righe[cur.i].text)) {
-        throw new ScriptParseError('manca la "}" che chiude l\'"else"', n)
+        throw new ScriptParseError('missing the "}" that closes the "else"', n)
       }
       cur.i++
       return { kind: 'If', cond, then: rami, else: altri }
@@ -419,7 +419,7 @@ export function parseScript(src: string): ScriptStmt[] {
   const cur: Cursore = { i: 0 }
   const stmts = blocco(righe, cur, new Set<string>(), false)
   if (cur.i < righe.length) {
-    throw new ScriptParseError('"}" senza un "if" da chiudere', righe[cur.i].n)
+    throw new ScriptParseError('"}" without an "if" to close', righe[cur.i].n)
   }
   return stmts
 }
