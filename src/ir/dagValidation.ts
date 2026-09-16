@@ -70,9 +70,9 @@ function checkCatchHandles(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(node.id),
         code:     'CATCH_NOT_CONNECTED',
-        message:  `Il nodo "${node._uiRef?.label ?? node.id}" cattura gli errori sul nodo ma l'handle catch non è collegato — le righe in errore andrebbero perse`,
+        message:  `Node "${node._uiRef?.label ?? node.id}" captures errors on the node but the catch handle is not connected — rows in error would be lost`,
         severity: 'warning',
-        hint:     'Collega l\'handle catch a valle, oppure scegli "Error handler" come modalità di gestione errori',
+        hint:     'Connect the catch handle downstream, or choose "Error handler" as the error-handling mode',
       })
     }
   })
@@ -93,9 +93,9 @@ function checkCycles(plan: LogicalPlan): ValidationIssue[] {
 
   const cycleNodes = findCycleNodes(plan)
   return [
-    { code: 'CYCLE_DETECTED', message: 'Il DAG contiene un ciclo — la pipeline non può essere eseguita', severity: 'error', hint: 'Rimuovi una delle connessioni che creano il ciclo' },
+    { code: 'CYCLE_DETECTED', message: 'The DAG contains a cycle — the pipeline cannot run', severity: 'error', hint: 'Remove one of the connections that create the cycle' },
     ...cycleNodes.map((nodeId): ValidationIssue => ({
-      nodeId, code: 'NODE_IN_CYCLE', message: 'Questo nodo fa parte di un ciclo', severity: 'error',
+      nodeId, code: 'NODE_IN_CYCLE', message: 'This node is part of a cycle', severity: 'error',
     })),
   ]
 }
@@ -139,9 +139,9 @@ function checkDisconnectedNodes(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(node.id),
         code:     'ISOLATED_NODE',
-        message:  `Il nodo "${node._uiRef?.label ?? node.id}" non è collegato a nessun altro nodo`,
+        message:  `Node "${node._uiRef?.label ?? node.id}" is not connected to any other node`,
         severity: 'warning',
-        hint:     'Collega il nodo alla pipeline o rimuovilo',
+        hint:     'Connect the node to the pipeline or remove it',
       })
     }
   })
@@ -160,8 +160,8 @@ function checkMissingSinks(plan: LogicalPlan): ValidationIssue[] {
 
   if (sinkIds.size === 0) {
     issues.push({
-      code: 'NO_SINK', message: 'La pipeline non ha nodi di destinazione (sink)',
-      severity: 'warning', hint: 'Aggiungi un nodo DB Sink, File Output o Kafka',
+      code: 'NO_SINK', message: 'The pipeline has no destination (sink) nodes',
+      severity: 'warning', hint: 'Add a DB Sink, File Output or Kafka node',
     })
     return issues
   }
@@ -186,9 +186,9 @@ function checkMissingSinks(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(src.id),
         code:     'SOURCE_NO_SINK',
-        message:  `Il nodo sorgente "${src._uiRef?.label ?? src.id}" non raggiunge nessun sink`,
+        message:  `Source node "${src._uiRef?.label ?? src.id}" does not reach any sink`,
         severity: 'warning',
-        hint:     'Connetti questo nodo a un nodo di destinazione',
+        hint:     'Connect this node to a destination node',
       })
     }
   })
@@ -209,8 +209,8 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
     if (!channelName) {
       issues.push({
         nodeId: canvasNodeId(outNode.id), code: 'BRIDGE_NO_CHANNEL',
-        message: 'BridgeOut senza nome canale configurato', severity: 'error',
-        hint: 'Configura il nome del canale nel pannello del nodo',
+        message: 'BridgeOut with no channel name configured', severity: 'error',
+        hint: 'Configure the channel name in the node panel',
       })
       return
     }
@@ -221,9 +221,9 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
     if (!hasCounterpart) {
       issues.push({
         nodeId: canvasNodeId(outNode.id), code: 'BRIDGE_MISSING_IN',
-        message: `BridgeOut "${channelName}" non ha un BridgeIn corrispondente in nessuna altra lane`,
+        message: `BridgeOut "${channelName}" has no matching BridgeIn in any other lane`,
         severity: 'error',
-        hint: `Aggiungi un nodo BridgeIn con canale "${channelName}" nella lane di destinazione`,
+        hint: `Add a BridgeIn node with channel "${channelName}" in the destination lane`,
       })
     }
   })
@@ -233,8 +233,8 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
     if (!channelName) {
       issues.push({
         nodeId: canvasNodeId(inNode.id), code: 'BRIDGE_NO_CHANNEL',
-        message: 'BridgeIn senza nome canale configurato', severity: 'error',
-        hint: 'Configura il nome del canale nel pannello del nodo',
+        message: 'BridgeIn with no channel name configured', severity: 'error',
+        hint: 'Configure the channel name in the node panel',
       })
       return
     }
@@ -245,9 +245,9 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
     if (!hasCounterpart) {
       issues.push({
         nodeId: canvasNodeId(inNode.id), code: 'BRIDGE_MISSING_OUT',
-        message: `BridgeIn "${channelName}" non ha un BridgeOut corrispondente in nessuna altra lane`,
+        message: `BridgeIn "${channelName}" has no matching BridgeOut in any other lane`,
         severity: 'error',
-        hint: `Aggiungi un nodo BridgeOut con canale "${channelName}" nella lane sorgente`,
+        hint: `Add a BridgeOut node with channel "${channelName}" in the source lane`,
       })
     }
   })
@@ -274,9 +274,9 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
     if (list.length < 2) return
     list.forEach((n) => issues.push({
       nodeId: canvasNodeId(n.id), code: 'BRIDGE_AMBIGUOUS_OUT',
-      message: `Il canale "${ch}" ha ${list.length} BridgeOut: il produttore è ambiguo`,
+      message: `Channel "${ch}" has ${list.length} BridgeOut: the producer is ambiguous`,
       severity: 'error',
-      hint: 'Ogni canale deve avere un solo BridgeOut — usa nomi di canale distinti',
+      hint: 'Each channel must have a single BridgeOut — use distinct channel names',
     }))
   })
 
@@ -284,9 +284,9 @@ function checkBridgePairs(plan: LogicalPlan): ValidationIssue[] {
     if (list.length < 2) return
     list.forEach((n) => issues.push({
       nodeId: canvasNodeId(n.id), code: 'BRIDGE_DUPLICATE_IN',
-      message: `Il canale "${ch}" ha ${list.length} BridgeIn: il motore ne supporta uno solo`,
+      message: `Channel "${ch}" has ${list.length} BridgeIn: the engine supports only one`,
       severity: 'error',
-      hint: 'Un canale alimenta un solo BridgeIn. Per più destinazioni servono canali distinti, uno per ogni coppia OUT/IN',
+      hint: 'A channel feeds a single BridgeIn. For multiple destinations you need distinct channels, one per OUT/IN pair',
     }))
   })
 
@@ -328,12 +328,12 @@ function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
       nodeId:   canvasNodeId(src.id),
       code:     'EDGE_FROM_UNDECLARED_PORT',
       message:  ports.length === 0
-        ? `"${label}" non ha porte di uscita, ma un arco lo collega a "${tgtLabel}"`
-        : `"${label}": l'arco verso "${tgtLabel}" parte dalla porta "${edge.sourcePort}", che il nodo non dichiara`,
+        ? `"${label}" has no output ports, but an edge connects it to "${tgtLabel}"`
+        : `"${label}": the edge to "${tgtLabel}" starts from port "${edge.sourcePort}", which the node does not declare`,
       severity: 'error',
       hint:     ports.length === 0
-        ? `${src._uiRef?.type ?? 'Il nodo'} consuma il flusso e non emette nulla verso la lane: a runtime "${tgtLabel}" non riceve righe. Scollega l'arco.`
-        : `Porte dichiarate: ${ports.join(', ')}. L'arco è rimasto attaccato a una porta che non esiste più.`,
+        ? `${src._uiRef?.type ?? 'The node'} consumes the flow and emits nothing to the lane: at runtime "${tgtLabel}" receives no rows. Disconnect the edge.`
+        : `Declared ports: ${ports.join(', ')}. The edge stayed attached to a port that no longer exists.`,
     })
   })
 
@@ -367,12 +367,12 @@ function checkOrphanEdges(plan: LogicalPlan): ValidationIssue[] {
       nodeId:   canvasNodeId(tgt.id),
       code:     'EDGE_TO_UNDECLARED_PORT',
       message:  ports.length === 0
-        ? `"${label}" non ha porte di ingresso, ma un arco lo collega da "${srcLabel}"`
-        : `"${label}": l'arco da "${srcLabel}" arriva sulla porta "${edge.targetPort}", che il nodo non dichiara`,
+        ? `"${label}" has no input ports, but an edge connects it from "${srcLabel}"`
+        : `"${label}": the edge from "${srcLabel}" arrives at port "${edge.targetPort}", which the node does not declare`,
       severity: 'error',
       hint:     ports.length === 0
-        ? `${tgt._uiRef?.type ?? 'Il nodo'} non riceve dati dalla lane: a runtime le righe di "${srcLabel}" non arrivano a nessuno. Scollega l'arco.`
-        : `Porte dichiarate: ${ports.join(', ')}. L'arco è rimasto attaccato a una porta che non esiste più.`,
+        ? `${tgt._uiRef?.type ?? 'The node'} does not receive data from the lane: at runtime the rows of "${srcLabel}" reach no one. Disconnect the edge.`
+        : `Declared ports: ${ports.join(', ')}. The edge stayed attached to a port that no longer exists.`,
     })
   })
 
@@ -425,9 +425,9 @@ function checkBridgeLaneCycles(plan: LogicalPlan): ValidationIssue[] {
           flagged.add(a.outId)
           issues.push({
             nodeId: canvasNodeId(a.outId), code: 'BRIDGE_LANE_CYCLE',
-            message: `Ciclo fra lane attraverso i canali ${names}`,
+            message: `Cycle between lanes through channels ${names}`,
             severity: 'error',
-            hint: 'Le lane collegate dai bridge non possono formare un anello: da una lane collaterale non si rientra in quella di partenza',
+            hint: 'Lanes connected by bridges cannot form a ring: from a side lane you cannot return to the starting one',
           })
         })
         continue
@@ -588,8 +588,8 @@ function checkBridgeJoinPattern(plan: LogicalPlan): ValidationIssue[] {
         nodeId:   canvasNodeId(joinNode.id),
         code:     'BRIDGE_JOIN_NO_BUFFER',
         severity: 'warning',
-        message:  `"${joinNode._uiRef?.label ?? joinNode.id}" riceve flusso secondario da BridgeIn(${bridgeInIds.join(', ')}) ma il flusso principale non è bufferizzato. La connessione sorgente rimane aperta mentre si attende BridgeIn.`,
-        hint:     'Inserisci un Materialize sul percorso principale prima del join, seguito da un Explode dopo. Il Materialize bufferizza il flusso principale e rilascia la connessione prima che BridgeIn completi.',
+        message:  `"${joinNode._uiRef?.label ?? joinNode.id}" receives secondary flow from BridgeIn(${bridgeInIds.join(', ')}) but the main flow is not buffered. The source connection stays open while waiting for BridgeIn.`,
+        hint:     'Insert a Materialize on the main path before the join, followed by an Explode after. The Materialize buffers the main flow and releases the connection before BridgeIn completes.',
       })
     }
   })
@@ -672,9 +672,9 @@ function checkSchemaDedotto(plan: LogicalPlan): ValidationIssue[] {
     issues.push({
       nodeId:   canvasNodeId(node.id),
       code:     'SCHEMA_TIPO_AMBIGUO',
-      message:  `"${label}": tipo dedotto da valori non omogenei — ${colonne.join(' · ')}`,
+      message:  `"${label}": type inferred from non-homogeneous values — ${colonne.join(' · ')}`,
       severity: 'warning',
-      hint:     'Controlla il tipo nel pannello di mapping. Se il tipo dichiarato non regge tutti i valori, al Run quelli non convertibili diventano NULL senza errore.',
+      hint:     'Check the type in the mapping panel. If the declared type does not hold all values, at Run the non-convertible ones become NULL without error.',
     })
   }
   return issues
@@ -717,7 +717,7 @@ function checkTipiIncompatibili(plan: LogicalPlan): ValidationIssue[] {
       if (!c?.name || !c?.type) continue
       const dedotto = dedotti[c.name]
       if (dedotto && perde(c.type, dedotto)) {
-        rotti.push(`${c.name}: dichiarato ${c.type}, nel file è ${dedotto}`)
+        rotti.push(`${c.name}: declared ${c.type}, in the file it is ${dedotto}`)
       }
     }
     if (rotti.length === 0) continue
@@ -725,9 +725,9 @@ function checkTipiIncompatibili(plan: LogicalPlan): ValidationIssue[] {
     issues.push({
       nodeId:   canvasNodeId(node.id),
       code:     'SCHEMA_TIPO_INCOMPATIBILE',
-      message:  `"${label}": il tipo dichiarato non regge i valori del file — ${rotti.join(' · ')}. Al Run quei campi diventano NULL, senza errore.`,
+      message:  `"${label}": the declared type does not hold the file values — ${rotti.join(' · ')}. At Run those fields become NULL, without error.`,
       severity: 'error',
-      hint:     'Correggi il tipo nel pannello di mapping (o ricarica il campione dal file: il tipo viene riallineato ai dati). Il motore converte in base al tipo dichiarato e, se la conversione fallisce, scrive NULL invece di fermarsi.',
+      hint:     'Fix the type in the mapping panel (or reload the sample from the file: the type is realigned to the data). The engine converts based on the declared type and, if the conversion fails, writes NULL instead of stopping.',
     })
   }
   return issues
@@ -751,9 +751,9 @@ function checkNodiDisabilitati(plan: LogicalPlan): ValidationIssue[] {
     issues.push({
       nodeId:   id,
       code:     'NODO_DISABILITATO_NON_ESCLUDIBILE',
-      message:  `"${label}" è segnato come disabilitato ma ha ${entranti} ingressi: resta ATTIVO ed elabora comunque.`,
+      message:  `"${label}" is marked as disabled but has ${entranti} inputs: it stays ACTIVE and processes anyway.`,
       severity: 'warning',
-      hint:     'Un nodo si esclude ricucendo chi sta a monte con chi sta a valle: con più ingressi la scelta sarebbe arbitraria. Scollega gli ingressi in eccesso, oppure elimina il nodo.',
+      hint:     'A node is excluded by stitching upstream to downstream: with multiple inputs the choice would be arbitrary. Disconnect the extra inputs, or delete the node.',
     })
   }
   return issues
@@ -777,9 +777,9 @@ function checkScriptGeneratoreConIngresso(plan: LogicalPlan): ValidationIssue[] 
     issues.push({
       nodeId:   id,
       code:     'SCRIPT_GENERATORE_CON_INGRESSO',
-      message:  `"${label}" è configurato come generatore, ma ha ancora un collegamento in ingresso: al Run si comporterà da trasformatore (una passata per riga), non da generatore.`,
+      message:  `"${label}" is configured as a generator, but still has an incoming connection: at Run it will behave as a transformer (one pass per row), not as a generator.`,
       severity: 'error',
-      hint:     'Togliere la modalità "genera" nasconde la porta ma NON cancella l\'arco già disegnato: scollegalo, oppure riporta il nodo in modalità "flusso".',
+      hint:     'Turning off "Generate" mode hides the port but does NOT delete the edge already drawn: disconnect it, or set the node back to "From the flow" mode.',
     })
   }
   return issues
@@ -808,9 +808,9 @@ function checkAutoJoin(plan: LogicalPlan): ValidationIssue[] {
     issues.push({
       nodeId:   canvasNodeId(node.id),
       code:     'AUTO_JOIN',
-      message:  `"${label}": "${sorgente}" alimenta ENTRAMBI gli ingressi (auto-join). Se non è voluto, uno dei due collegamenti è di troppo.`,
+      message:  `"${label}": "${sorgente}" feeds BOTH inputs (auto-join). If unintended, one of the two connections is superfluous.`,
       severity: 'warning',
-      hint:     'Unire un flusso con sé stesso è legittimo (es. mettere in relazione righe dello stesso insieme), ma se è un errore di collegamento non se ne accorge nessuno: il join riesce lo stesso e restituisce righe moltiplicate. Ricorda che il lato destro viene tenuto INTERAMENTE in memoria.',
+      hint:     'Joining a flow with itself is legitimate (e.g. relating rows of the same set), but if it is a connection mistake no one notices: the join succeeds anyway and returns multiplied rows. Remember that the right side is kept ENTIRELY in memory.',
     })
   }
   return issues
@@ -850,9 +850,9 @@ function checkFiltroSuCampoDiUscita(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(node.id),
         code:     'TMAP_FILTRO_SU_CAMPO_USCITA',
-        message:  `"${label}" — il filtro dell'uscita "${out.label ?? '?'}" usa ${colpevoli.map((c) => `"${c}"`).join(', ')}, che ${colpevoli.length > 1 ? 'sono campi' : 'è un campo'} di quella stessa uscita: al Run risulterà vuoto.`,
+        message:  `"${label}" — the output filter "${out.label ?? '?'}" usa ${colpevoli.map((c) => `"${c}"`).join(', ')}, which ${colpevoli.length > 1 ? 'are fields' : 'is a field'} of that same output: at Run it will be empty.`,
         severity: 'warning',
-        hint:     'Il filtro viene valutato prima che la riga d\'uscita sia costruita, quindi legge solo ingressi e trasformazioni. Sposta quel valore fra le trasformazioni (a sinistra): da lì è leggibile sia dal filtro sia dai campi d\'uscita.',
+        hint:     'The filter is evaluated before the output row is built, so it reads only inputs and transformations. Move that value among the transformations (on the left): from there it is readable both by the filter and by the output fields.',
       })
     }
   }
@@ -883,7 +883,7 @@ function checkOrdineTrasformazioni(plan: LogicalPlan): ValidationIssue[] {
         const nome = dopo.outputName
         if (!nome) return
         if (new RegExp(`(^|[^\\w."'])${nome}\\b(?!\\s*\\.)`).test(espr)) {
-          problemi.push(`"${tr.outputName}" usa "${nome}", che è definita dopo`)
+          problemi.push(`"${tr.outputName}" uses "${nome}", which is defined later`)
         }
       })
     })
@@ -892,9 +892,9 @@ function checkOrdineTrasformazioni(plan: LogicalPlan): ValidationIssue[] {
     issues.push({
       nodeId:   canvasNodeId(node.id),
       code:     'TMAP_ORDINE_TRASFORMAZIONI',
-      message:  `"${label}": ${problemi.join('; ')} — al Run quel valore risulterà vuoto.`,
+      message:  `"${label}": ${problemi.join('; ')} — at Run that value will be empty.`,
       severity: 'warning',
-      hint:     'Le trasformazioni si calcolano nell\'ordine in cui sono elencate: una può usare solo quelle che vengono PRIMA. Sposta più in alto quella citata.',
+      hint:     'Transformations are computed in the order they are listed: one can only use those that come BEFORE. Move the cited one higher up.',
     })
   }
   return issues
@@ -910,9 +910,9 @@ function checkNotImplemented(plan: LogicalPlan): ValidationIssue[] {
     issues.push({
       nodeId:   canvasNodeId(node.id),
       code:     'NODE_NOT_IMPLEMENTED',
-      message:  `"${label}" non è ancora implementato nel motore: al Run le righe lo attraversano intatte e il suo lavoro non viene fatto`,
+      message:  `"${label}" is not yet implemented in the engine: at Run the rows pass through it intact and its work is not done`,
       severity: 'warning',
-      hint:     'Il nodo è in palette ma il motore lo tratta come trasparente finché non viene portato: per una sorgente significa nessuna riga prodotta, per un sink nessuna scrittura.',
+      hint:     'The node is in the palette but the engine treats it as transparent until it is ported: for a source it means no rows produced, for a sink no writes.',
     })
   }
   return issues
@@ -958,9 +958,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     if (NEEDS_EDGE_INPUT.has(uiType) && !generatore && preds.length === 0) {
       issues.push({
         nodeId: canvasId, code: 'NODE_INPUT_NOT_CONNECTED',
-        message: `"${label}" (${uiType}) non ha niente in ingresso`,
+        message: `"${label}" (${uiType}) has nothing incoming`,
         severity: 'error',
-        hint: 'Il motore si ferma su questo nodo: senza un flusso collegato non ha righe su cui lavorare. Collega un ingresso o togli il nodo.',
+        hint: 'The engine stops on this node: without a connected flow it has no rows to work on. Connect an input or remove the node.',
       })
     }
 
@@ -976,11 +976,11 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
       if (!fromDataset && preds.length === 0) {
         issues.push({
           nodeId: canvasId, code: 'DATASET_OP_NO_INPUT',
-          message: `Il nodo "${label}" (${uiType}) richiede dati in ingresso`,
+          message: `Node "${label}" (${uiType}) requires input data`,
           severity: 'error',
           hint: DATASET_SOURCED.has(uiType)
-            ? 'Collega un flusso, oppure imposta la sorgente su "Materialize" nel pannello'
-            : 'Collega un flusso in ingresso',
+            ? 'Connect a flow, or set the source to "Materialize" in the panel'
+            : 'Connect an incoming flow',
         })
       }
 
@@ -990,9 +990,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
       if (fromDataset && !(node._uiRef?.props?.['materializeName'] ?? '').trim()) {
         issues.push({
           nodeId: canvasId, code: 'DATASET_OP_NO_SOURCE',
-          message: `Il nodo "${label}" legge da Materialize ma non ha scelto quale dataset`,
+          message: `Node "${label}" reads from Materialize but has not chosen which dataset`,
           severity: 'error',
-          hint: 'Seleziona il dataset nel pannello, alla voce Sorgente',
+          hint: 'Select the dataset in the panel, under Source',
         })
       }
     }
@@ -1022,9 +1022,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
         if (genera && !usate.has('Emit') && codice.trim() !== '') {
           issues.push({
             nodeId: canvasId, code: 'SCRIPT_GENERATOR_NO_EMIT',
-            message: `"${label}" genera righe ma non ha nessun "emit": non ne produrrà nessuna`,
+            message: `"${label}" generates rows but has no "emit": it will produce none`,
             severity: 'error',
-            hint: 'In modalità «Genera» la riga di lavoro non esce da sola: le righe escono solo dalle istruzioni "emit".',
+            hint: 'In "Generate" mode the working row does not come out on its own: rows come out only from "emit" instructions.',
           })
         }
 
@@ -1035,9 +1035,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
         if (usate.has('Reject') && String(node._uiRef?.props?.['hasReject'] ?? 'false') !== 'true') {
           issues.push({
             nodeId: canvasId, code: 'SCRIPT_REJECT_PORT_OFF',
-            message: `"${label}" usa "reject" ma la porta reject non è attiva: le righe scartate spariscono`,
+            message: `"${label}" uses "reject" but the reject port is not active: discarded rows disappear`,
             severity: 'warning',
-            hint: 'Attiva la porta reject nel pannello del nodo e collegala, oppure usa "skip" se le righe vanno semplicemente scartate.',
+            hint: 'Activate the reject port in the node panel and connect it, or use "skip" if the rows should simply be discarded.',
           })
         }
 
@@ -1056,9 +1056,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
             if (!dichiarate.has(nome) && !scritte.has(nome)) {
               issues.push({
                 nodeId: canvasId, code: 'SCRIPT_LANE_VAR_UNDECLARED',
-                message: `"${label}": var("${nome}") è letta ma non è dichiarata nella lane né assegnata prima — varrà sempre null`,
+                message: `"${label}": var("${nome}") is read but not declared in the lane nor assigned before — it will always be null`,
                 severity: 'warning',
-                hint: `Dichiara "${nome}" nelle variabili della lane, oppure scrivila con var("${nome}") = … prima di leggerla. Se è un errore di battitura, correggi il nome.`,
+                hint: `Declare "${nome}" in the lane variables, or write it with var("${nome}") = … before reading it. If it is a typo, fix the name.`,
               })
             }
           }
@@ -1069,7 +1069,7 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
           nodeId: canvasId, code: 'SCRIPT_PARSE_ERROR',
           message: `"${label}": ${dettaglio}`,
           severity: 'error',
-          hint: 'Il Run non parte finché il corpo non compila. Istruzioni: let, assegnazione, if/else, repeat, for, emit, skip, reject, log, error.',
+          hint: 'The Run does not start until the body compiles. Instructions: let, assignment, if/else, repeat, for, emit, skip, reject, log, error.',
         })
       }
     }
@@ -1094,20 +1094,20 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
         if (isLegacyRuleAction(azione)) {
           issues.push({
             nodeId: canvasId, code: 'ERROR_RULE_LEGACY_ACTION',
-            message: `"${label}": la regola #${i + 1} usa l'azione "${String(azione)}", non più eseguibile dall'handler`,
+            message: `"${label}": rule #${i + 1} uses action "${String(azione)}", no longer executable by the handler`,
             severity: 'warning',
             hint: String(azione) === 'retry'
-              ? 'Il retry si configura sul nodo (Avanzate → Errore: "Riprova"), perché vale solo prima che l\'operazione sia impegnata. Qui la regola si comporta come "Emetti".'
-              : 'Per far gestire l\'errore al nodo stesso, imposta sul nodo Avanzate → Errore: "Cattura sul nodo". Qui la regola si comporta come "Emetti".',
+              ? 'Retry is configured on the node (Advanced → Error: "Retry"), because it applies only before the operation is committed. Here the rule behaves like "Emit".'
+              : 'To let the node itself handle the error, set on the node Advanced → Error: "Catch on node". Here the rule behaves like "Emit".',
           })
         }
         const match = (r as { matchType?: unknown })?.matchType
         if (String(match ?? '') === 'error_code') {
           issues.push({
             nodeId: canvasId, code: 'ERROR_RULE_CODE_UNAVAILABLE',
-            message: `"${label}": la regola #${i + 1} filtra sul codice errore, che il motore non popola ancora`,
+            message: `"${label}": rule #${i + 1} filters on the error code, which the engine does not populate yet`,
             severity: 'warning',
-            hint: 'Gli errori di nodo arrivano come messaggio, non come codice: la regola non corrisponderà mai. Usa "Tipo nodo è" oppure "Sempre".',
+            hint: 'Node errors arrive as a message, not as a code: the rule will never match. Use "Node type is" or "Always".',
           })
         }
       })
@@ -1128,9 +1128,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
         String(adv?.['critical'] ?? '') === 'true') {
       issues.push({
         nodeId: canvasId, code: 'EXCLUDE_LOG_VS_CRITICAL',
-        message: `"${label}": è marcato sia «escludi dal log» sia «critico»`,
+        message: `"${label}": marked both as "exclude from log" and "Critical"`,
         severity: 'warning',
-        hint: 'Prevale la sicurezza: un errore qui interrompe comunque la lane e viene registrato nel pannello (non viene però inviato a error_out). Togli «critico» per silenziarlo davvero.',
+        hint: 'Safety wins: an error here interrupts the lane anyway and is logged in the panel (but it is not sent to error_out). Remove "Critical" to truly silence it.',
       })
     }
 
@@ -1146,9 +1146,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
       if (query.trim() && tabella) {
         issues.push({
           nodeId: canvasId, code: 'QUERY_OVERRIDES_TABLE',
-          message: `"${label}": la tabella "${tabella}" è ignorata, viene eseguita la query SQL personalizzata`,
+          message: `"${label}": table "${tabella}" is ignored, the custom SQL query runs`,
           severity: 'warning',
-          hint: 'Il motore esegue la query personalizzata e ignora schema, tabella, limite e ordinamento. Svuota la query per tornare a leggere dalla tabella.',
+          hint: 'The engine runs the custom query and ignores schema, table, limit and ordering. Clear the query to go back to reading from the table.',
         })
       }
 
@@ -1159,9 +1159,9 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
       for (const name of quotedParamNames(query)) {
         issues.push({
           nodeId: canvasId, code: 'QUERY_PARAM_QUOTED',
-          message: `"${label}": il parametro \`\${${name}}\` è fra apici`,
+          message: `"${label}": parameter \`\${${name}}\` is inside quotes`,
           severity: 'error',
-          hint: `Scrivi \`= \${${name}}\` senza apici: il valore viene legato, e gli apici li mette il driver. Con gli apici la query cercherebbe la stringa "?".`,
+          hint: `Write \`= \${${name}}\` without quotes: the value is bound, and the driver adds the quotes. With quotes the query would look for the string "?".`,
         })
       }
 
@@ -1180,12 +1180,12 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
           issues.push({
             nodeId: canvasId, code: 'QUERY_PARAM_UNKNOWN',
             message: preds.length === 0
-              ? `"${label}": la query usa il parametro \`\${${name}}\` ma al nodo non arriva nessun flusso`
-              : `"${label}": la query usa il parametro \`\${${name}}\`, che non è fra i campi in arrivo`,
+              ? `"${label}": the query uses parameter \`\${${name}}\` but no flow reaches the node`
+              : `"${label}": the query uses parameter \`\${${name}}\`, which is not among the incoming fields`,
             severity: 'error',
             hint: preds.length === 0
-              ? 'Collega a monte il nodo che calcola il parametro: la sua riga configura la query'
-              : `Campi in arrivo: ${[...known].join(', ') || '(nessuno)'}`,
+              ? 'Connect upstream the node that computes the parameter: its row configures the query'
+              : `Incoming fields: ${[...known].join(', ') || '(none)'}`,
           })
         }
       }
@@ -1194,8 +1194,8 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
     if (node.operation === 'join' && preds.length < 2) {
       issues.push({
         nodeId: canvasId, code: 'JOIN_MISSING_INPUT',
-        message: 'Il join richiede almeno 2 input — collegare la seconda sorgente',
-        severity: 'error', hint: "Connetti una seconda sorgente all'handle di lookup",
+        message: 'The join requires at least 2 inputs — connect the second source',
+        severity: 'error', hint: "Connect a second source to the lookup handle",
       })
     }
 
@@ -1204,8 +1204,8 @@ function checkExecutionSemantics(plan: LogicalPlan): ValidationIssue[] {
       if (hasStreamPred) {
         issues.push({
           nodeId: canvasId, code: 'DATASET_AFTER_STREAM',
-          message: `Un'operazione batch (${node.operation}) dopo un input streaming richiede materializzazione`,
-          severity: 'warning', hint: 'Il planner inserirà automaticamente un punto di materializzazione',
+          message: `A batch operation (${node.operation}) after a streaming input requires materialization`,
+          severity: 'warning', hint: 'The planner will automatically insert a materialization point',
         })
       }
     }
@@ -1233,8 +1233,8 @@ function checkUnresolvedHandles(plan: LogicalPlan): ValidationIssue[] {
         issues.push({
           nodeId: canvasNodeId(edge.source), edgeId: edge.id,
           code: 'UNRESOLVED_SOURCE_HANDLE',
-          message: `Handle di output "${edge.sourcePort}" non trovato su "${src._uiRef?.label ?? edge.source}"`,
-          severity: 'warning', hint: 'Il handle potrebbe essere stato rimosso — riconnetti il nodo',
+          message: `Output handle "${edge.sourcePort}" not found on "${src._uiRef?.label ?? edge.source}"`,
+          severity: 'warning', hint: 'The handle may have been removed — reconnect the node',
         })
       }
     }
@@ -1246,7 +1246,7 @@ function checkUnresolvedHandles(plan: LogicalPlan): ValidationIssue[] {
         issues.push({
           nodeId: canvasNodeId(edge.target), edgeId: edge.id,
           code: 'UNRESOLVED_TARGET_HANDLE',
-          message: `Handle di input "${edge.targetPort}" non trovato su "${tgt._uiRef?.label ?? edge.target}"`,
+          message: `Input handle "${edge.targetPort}" not found on "${tgt._uiRef?.label ?? edge.target}"`,
           severity: 'warning',
         })
       }
@@ -1273,23 +1273,23 @@ function checkDataContracts(plan: LogicalPlan): ValidationIssue[] {
       if (!schemaField) {
         issues.push({
           nodeId: canvasId, code: 'CONTRACT_FIELD_MISSING',
-          message: `Campo "${contractField.name}" richiesto dal contratto ma non presente nello schema output`,
+          message: `Field "${contractField.name}" required by the contract but not present in the output schema`,
           severity: 'error',
-          hint: `Aggiungi il campo "${contractField.name}" (tipo: ${contractField.type}) all'output del nodo`,
+          hint: `Add field "${contractField.name}" (type: ${contractField.type}) to the node output`,
         })
         return
       }
       if (schemaField.type !== contractField.type && contractField.type !== 'any') {
         issues.push({
           nodeId: canvasId, fieldId: schemaField.id, code: 'CONTRACT_TYPE_MISMATCH',
-          message: `Campo "${contractField.name}": tipo "${schemaField.type}" non compatibile con il contratto (atteso "${contractField.type}")`,
-          severity: 'warning', hint: 'Aggiungi una trasformazione di cast o aggiorna il contratto',
+          message: `Field "${contractField.name}": type "${schemaField.type}" not compatible with the contract (expected "${contractField.type}")`,
+          severity: 'warning', hint: 'Add a cast transformation or update the contract',
         })
       }
       if (!contractField.nullable && schemaField.nullable === true) {
         issues.push({
           nodeId: canvasId, fieldId: schemaField.id, code: 'CONTRACT_NULLABLE_VIOLATION',
-          message: `Campo "${contractField.name}" è nullable ma il contratto richiede NOT NULL`,
+          message: `Field "${contractField.name}" is nullable but the contract requires NOT NULL`,
           severity: 'warning',
         })
       }
@@ -1347,9 +1347,9 @@ function validateTransactionGroups(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         severity: 'warning',
         nodeId:   canvasNodeId(members[0].node.id),
-        message:  `Gruppo transazionale "${groupId}" ha un solo partecipante — la transazione non ha effetto`,
+        message:  `Transactional group "${groupId}" has only one participant — the transaction has no effect`,
         code:     'TX_SINGLE_PARTICIPANT',
-        hint:     'Aggiungi altri sink allo stesso gruppo o rimuovi la configurazione transazionale',
+        hint:     'Add more sinks to the same group or remove the transactional configuration',
       })
     }
 
@@ -1360,9 +1360,9 @@ function validateTransactionGroups(plan: LogicalPlan): ValidationIssue[] {
         issues.push({
           severity: 'error',
           nodeId:   canvasNodeId(node.id),
-          message:  `Nodo in gruppo transazionale "${groupId}" senza risorsa configurata`,
+          message:  `Node in transactional group "${groupId}" without a configured resource`,
           code:     'TX_NO_RESOURCE',
-          hint:     'Configura una risorsa nel tab Configurazione',
+          hint:     'Configure a resource in the Configuration tab',
         })
         return
       }
@@ -1374,9 +1374,9 @@ function validateTransactionGroups(plan: LogicalPlan): ValidationIssue[] {
           issues.push({
             severity: 'error',
             nodeId:   canvasNodeId(node.id),
-            message:  `Gruppo transazionale nativo "${groupId}": tutti i nodi devono usare la stessa risorsa. Cambia modalità in XA per risorse eterogenee.`,
+            message:  `Native transactional group "${groupId}": all nodes must use the same resource. Switch to XA mode for heterogeneous resources.`,
             code:     'TX_NATIVE_RESOURCE_MISMATCH',
-            hint:     'Imposta modalità XA nel TransactionGroupEditor',
+            hint:     'Set XA mode in the TransactionGroupEditor',
           })
         }
       }
@@ -1386,9 +1386,9 @@ function validateTransactionGroups(plan: LogicalPlan): ValidationIssue[] {
         issues.push({
           severity: 'warning',
           nodeId:   canvasNodeId(node.id),
-          message:  `Risorsa con dialetto "${resourceDialect}" potrebbe non supportare XA transactions`,
+          message:  `Resource with dialect "${resourceDialect}" may not support XA transactions`,
           code:     'TX_XA_UNSUPPORTED_DIALECT',
-          hint:     'Verifica che il driver JDBC della risorsa supporti il protocollo XA',
+          hint:     'Check that the resource JDBC driver supports the XA protocol',
         })
       }
     })
