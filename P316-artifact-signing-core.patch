@@ -1,0 +1,263 @@
+diff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml
+index 66049f7..cafbeb9 100644
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -37,6 +37,8 @@ lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder
+ rumqttc = { version = "0.24", features = ["use-rustls"] }
+ hmac            = "0.12"
+ sha2            = "0.10"
++ed25519-dalek   = { version = "2", features = ["rand_core"] }   # firma degli artifact (HANDOFF-firma-artifact.md)
++rand_core       = { version = "0.6", features = ["getrandom"] } # RNG per la generazione della chiave Ed25519
+ sha1            = "0.10"
+ md-5            = "0.10"
+ hex             = "0.4"
+diff --git a/src-tauri/src/signing/canonical.rs b/src-tauri/src/signing/canonical.rs
+index 5322862..4179c9a 100644
+--- a/src-tauri/src/signing/canonical.rs
++++ b/src-tauri/src/signing/canonical.rs
+@@ -16,18 +16,25 @@
+ use serde_json::Value;
+ use sha2::{Digest, Sha256};
+ 
++/// Serializzazione canonica di un qualsiasi valore JSON (chiavi ordinate,
++/// ordine degli array preservato, compatto). Usata sia per il piano (senza
++/// `run_id`) sia per il MANIFESTO firmato (che si canonicalizza tale e quale).
++pub fn canonical_value(v: &Value) -> String {
++    let mut s = String::new();
++    write_value(v, &mut s);
++    s
++}
++
+ /// Stringa canonica del piano, senza `run_id`.
+ pub fn canonical_plan_string(plan: &Value) -> String {
+-    let mut s = String::new();
+     match plan {
+         Value::Object(map) => {
+             let mut m = map.clone();
+             m.remove("run_id");
+-            write_value(&Value::Object(m), &mut s);
++            canonical_value(&Value::Object(m))
+         }
+-        other => write_value(other, &mut s),
++        other => canonical_value(other),
+     }
+-    s
+ }
+ 
+ fn write_value(v: &Value, out: &mut String) {
+diff --git a/src-tauri/src/signing/keys.rs b/src-tauri/src/signing/keys.rs
+new file mode 100644
+index 0000000..5538b63
+--- /dev/null
++++ b/src-tauri/src/signing/keys.rs
+@@ -0,0 +1,118 @@
++// ─── src-tauri/src/signing/keys.rs ────────────────────────────────
++// Gestione della chiave dello sviluppatore per la FIRMA degli artifact.
++// (HANDOFF-firma-artifact.md §6/§7)
++//
++// v1: chiave privata in un FILE protetto (0600) accanto a studio.json, in
++// ~/.flowpilot/signing-key.json. Semplice e air-gap (nessun collegamento
++// alla runtime). Upgrade possibile: keychain del SO (crate `keyring`, già
++// usato per i segreti) — hardening successivo.
++
++use base64::{engine::general_purpose::STANDARD, Engine};
++use ed25519_dalek::SigningKey;
++use sha2::{Digest, Sha256};
++use std::path::{Path, PathBuf};
++
++/// Percorso di default: ~/.flowpilot/signing-key.json (accanto a studio.json).
++pub fn default_key_path() -> PathBuf {
++    let home = std::env::var("HOME")
++        .or_else(|_| std::env::var("USERPROFILE"))
++        .unwrap_or_default();
++    PathBuf::from(home).join(".flowpilot").join("signing-key.json")
++}
++
++/// keyId = "ed25519:" + hex(sha256(chiave pubblica)). Fingerprint stabile,
++/// mostrato all'enrollment (trust store) e citato nel manifesto.
++pub fn key_id(public_key: &[u8]) -> String {
++    let mut h = Sha256::new();
++    h.update(public_key);
++    format!("ed25519:{:x}", h.finalize())
++}
++
++pub struct Keypair {
++    pub signing: SigningKey,
++    pub key_id: String,
++    pub public_b64: String,
++}
++
++fn from_signing(sk: SigningKey) -> Keypair {
++    let pk = sk.verifying_key().to_bytes();
++    Keypair { key_id: key_id(&pk), public_b64: STANDARD.encode(pk), signing: sk }
++}
++
++/// Carica la chiave da `path`; se non esiste la GENERA e la salva (0600).
++pub fn load_or_create_at(path: &Path) -> std::io::Result<Keypair> {
++    if path.exists() {
++        let raw = std::fs::read_to_string(path)?;
++        let v: serde_json::Value = serde_json::from_str(&raw)
++            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
++        let b64 = v.get("private").and_then(|x| x.as_str()).ok_or_else(|| {
++            std::io::Error::new(std::io::ErrorKind::InvalidData, "campo 'private' mancante")
++        })?;
++        let bytes = STANDARD
++            .decode(b64)
++            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
++        let arr: [u8; 32] = bytes.try_into().map_err(|_| {
++            std::io::Error::new(std::io::ErrorKind::InvalidData, "chiave privata di 32 byte attesa")
++        })?;
++        return Ok(from_signing(SigningKey::from_bytes(&arr)));
++    }
++    let sk = SigningKey::generate(&mut rand_core::OsRng);
++    save(path, &sk)?;
++    Ok(from_signing(sk))
++}
++
++/// Come sopra, sul percorso di default.
++pub fn load_or_create() -> std::io::Result<Keypair> {
++    load_or_create_at(&default_key_path())
++}
++
++fn save(path: &Path, sk: &SigningKey) -> std::io::Result<()> {
++    if let Some(dir) = path.parent() {
++        std::fs::create_dir_all(dir)?;
++    }
++    let pk = sk.verifying_key().to_bytes();
++    let doc = serde_json::json!({
++        "alg":     "ed25519",
++        "private": STANDARD.encode(sk.to_bytes()),
++        "public":  STANDARD.encode(pk),
++        "keyId":   key_id(&pk),
++    });
++    std::fs::write(path, serde_json::to_vec_pretty(&doc).unwrap())?;
++    restrict(path)
++}
++
++#[cfg(unix)]
++fn restrict(path: &Path) -> std::io::Result<()> {
++    use std::os::unix::fs::PermissionsExt;
++    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
++}
++#[cfg(not(unix))]
++fn restrict(_path: &Path) -> std::io::Result<()> {
++    Ok(())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn key_id_deterministico_da_seed() {
++        let sk = SigningKey::from_bytes(&[7u8; 32]);
++        assert_eq!(
++            key_id(&sk.verifying_key().to_bytes()),
++            "ed25519:fe812c12f3ab4ce6ac5db69ac352f906cb1b11ef43fb33e252ef7ff552263889"
++        );
++    }
++
++    #[test]
++    fn crea_e_ricarica_stessa_chiave() {
++        let dir = std::env::temp_dir().join(format!("flowpilot-keytest-{}", std::process::id()));
++        let path = dir.join("signing-key.json");
++        let _ = std::fs::remove_dir_all(&dir);
++        let a = load_or_create_at(&path).unwrap(); // genera
++        let b = load_or_create_at(&path).unwrap(); // ricarica
++        assert_eq!(a.key_id, b.key_id);
++        assert_eq!(a.public_b64, b.public_b64);
++        let _ = std::fs::remove_dir_all(&dir);
++    }
++}
+diff --git a/src-tauri/src/signing/mod.rs b/src-tauri/src/signing/mod.rs
+index f7b7044..1ad90a6 100644
+--- a/src-tauri/src/signing/mod.rs
++++ b/src-tauri/src/signing/mod.rs
+@@ -2,3 +2,5 @@
+ // Catena di fiducia degli artifact (firma). Vedi HANDOFF-firma-artifact.md.
+ // v1: sola FORMA CANONICA + planHash (§4/§5). Firma/verifica in arrivo.
+ pub mod canonical;
++pub mod keys; // gestione chiave Ed25519 dello sviluppatore (§6/§7)
++pub mod sign; // firma/verifica del manifesto (§5/§9)
+diff --git a/src-tauri/src/signing/sign.rs b/src-tauri/src/signing/sign.rs
+new file mode 100644
+index 0000000..3c629dd
+--- /dev/null
++++ b/src-tauri/src/signing/sign.rs
+@@ -0,0 +1,76 @@
++// ─── src-tauri/src/signing/sign.rs ────────────────────────────────
++// Firma e verifica del MANIFESTO dell'artifact, sui suoi BYTE CANONICI.
++// (HANDOFF-firma-artifact.md §5/§9)
++//
++// La firma copre `canonical_value(manifest)`; poiché il manifesto contiene
++// `planHash` (hash della forma canonica del piano), la firma copre
++// transitivamente piano + metadati. Firma e verifica usano lo STESSO
++// canonicalizzatore Rust, quindi non c'è rischio di divergenza.
++
++use super::canonical::canonical_value;
++use base64::{engine::general_purpose::STANDARD, Engine};
++use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
++use serde_json::Value;
++
++/// Firma il manifesto e restituisce la firma in base64.
++pub fn sign_manifest(manifest: &Value, signing: &SigningKey) -> String {
++    let sig = signing.sign(canonical_value(manifest).as_bytes());
++    STANDARD.encode(sig.to_bytes())
++}
++
++/// Verifica la firma del manifesto contro una chiave pubblica (base64).
++/// Fail-closed: qualunque anomalia (base64, lunghezze, decodifica) → false.
++pub fn verify_manifest(manifest: &Value, sig_b64: &str, public_b64: &str) -> bool {
++    let Ok(pk) = STANDARD.decode(public_b64) else { return false };
++    let Ok(pk): Result<[u8; 32], _> = pk.try_into() else { return false };
++    let Ok(vk) = VerifyingKey::from_bytes(&pk) else { return false };
++    let Ok(sig) = STANDARD.decode(sig_b64) else { return false };
++    let Ok(sig): Result<[u8; 64], _> = sig.try_into() else { return false };
++    vk.verify(canonical_value(manifest).as_bytes(), &Signature::from_bytes(&sig))
++        .is_ok()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use serde_json::json;
++
++    fn kp(seed: u8) -> (SigningKey, String) {
++        let sk = SigningKey::from_bytes(&[seed; 32]);
++        let pb = STANDARD.encode(sk.verifying_key().to_bytes());
++        (sk, pb)
++    }
++
++    #[test]
++    fn firma_e_verifica_roundtrip() {
++        let (sk, pb) = kp(3);
++        let m = json!({"planHash":"sha256:abc","keyId":"ed25519:x","hashAlg":"sha256","sigAlg":"ed25519"});
++        let sig = sign_manifest(&m, &sk);
++        assert!(verify_manifest(&m, &sig, &pb));
++    }
++
++    #[test]
++    fn manomissione_del_manifesto_rifiutata() {
++        let (sk, pb) = kp(3);
++        let m = json!({"planHash":"sha256:abc"});
++        let sig = sign_manifest(&m, &sk);
++        let mut t = m.clone();
++        t["planHash"] = json!("sha256:EVIL");
++        assert!(!verify_manifest(&t, &sig, &pb));
++    }
++
++    #[test]
++    fn chiave_sbagliata_rifiutata() {
++        let (sk, _) = kp(3);
++        let m = json!({"planHash":"sha256:abc"});
++        let sig = sign_manifest(&m, &sk);
++        let (_, other_pub) = kp(9);
++        assert!(!verify_manifest(&m, &sig, &other_pub));
++    }
++
++    #[test]
++    fn input_malformato_non_panica() {
++        let m = json!({"a": 1});
++        assert!(!verify_manifest(&m, "non-base64!!", "nope"));
++    }
++}

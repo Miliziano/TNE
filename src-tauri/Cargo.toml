@@ -37,6 +37,8 @@ lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder
 rumqttc = { version = "0.24", features = ["use-rustls"] }
 hmac            = "0.12"
 sha2            = "0.10"
+ed25519-dalek   = { version = "2", features = ["rand_core"] }   # firma degli artifact (HANDOFF-firma-artifact.md)
+rand_core       = { version = "0.6", features = ["getrandom"] } # RNG per la generazione della chiave Ed25519
 sha1            = "0.10"
 md-5            = "0.10"
 hex             = "0.4"

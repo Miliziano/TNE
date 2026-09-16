@@ -16,18 +16,25 @@
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+/// Serializzazione canonica di un qualsiasi valore JSON (chiavi ordinate,
+/// ordine degli array preservato, compatto). Usata sia per il piano (senza
+/// `run_id`) sia per il MANIFESTO firmato (che si canonicalizza tale e quale).
+pub fn canonical_value(v: &Value) -> String {
+    let mut s = String::new();
+    write_value(v, &mut s);
+    s
+}
+
 /// Stringa canonica del piano, senza `run_id`.
 pub fn canonical_plan_string(plan: &Value) -> String {
-    let mut s = String::new();
     match plan {
         Value::Object(map) => {
             let mut m = map.clone();
             m.remove("run_id");
-            write_value(&Value::Object(m), &mut s);
+            canonical_value(&Value::Object(m))
         }
-        other => write_value(other, &mut s),
+        other => canonical_value(other),
     }
-    s
 }
 
 fn write_value(v: &Value, out: &mut String) {
