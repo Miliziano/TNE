@@ -1,0 +1,57 @@
+{
+  "_comment": "Vettore condiviso TS(src/ir/canonicalPlan.ts) <-> Rust(src-tauri/src/signing/canonical.rs). 'canonical' e 'sha256' devono coincidere bit-per-bit tra le due implementazioni. 'plan' include run_id apposta: la canonicalizzazione lo DEVE togliere.",
+  "plan": {
+    "run_id": "export-1700000000000",
+    "lanes": [
+      {
+        "lane_id": "lane-a",
+        "label": "Lane A",
+        "nodes": [
+          {
+            "node_id": "n2",
+            "node_type": "script",
+            "label": "Script",
+            "config": {},
+            "spec": {
+              "version": 1,
+              "props": {
+                "code": "emit()",
+                "count": 3
+              },
+              "config": {},
+              "resource": null,
+              "resourceId": ""
+            }
+          },
+          {
+            "node_id": "n1",
+            "node_type": "source_file",
+            "label": "Src",
+            "config": {},
+            "spec": {
+              "version": 1,
+              "props": {},
+              "config": {},
+              "resource": null,
+              "resourceId": ""
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n1",
+            "sourcePort": "out",
+            "target": "n2",
+            "targetPort": "in"
+          }
+        ],
+        "variables": [],
+        "transactions": [],
+        "datasets": []
+      }
+    ],
+    "bridges": []
+  },
+  "canonical": "{\"bridges\":[],\"lanes\":[{\"datasets\":[],\"edges\":[{\"source\":\"n1\",\"sourcePort\":\"out\",\"target\":\"n2\",\"targetPort\":\"in\"}],\"label\":\"Lane A\",\"lane_id\":\"lane-a\",\"nodes\":[{\"config\":{},\"label\":\"Script\",\"node_id\":\"n2\",\"node_type\":\"script\",\"spec\":{\"config\":{},\"props\":{\"code\":\"emit()\",\"count\":3},\"resource\":null,\"resourceId\":\"\",\"version\":1}},{\"config\":{},\"label\":\"Src\",\"node_id\":\"n1\",\"node_type\":\"source_file\",\"spec\":{\"config\":{},\"props\":{},\"resource\":null,\"resourceId\":\"\",\"version\":1}}],\"transactions\":[],\"variables\":[]}]}",
+  "sha256": "sha256:c2a8255674af88e18bb1a41b69b839eaa8d703491809781a79e6c0fcb166540e"
+}

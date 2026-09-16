@@ -26,6 +26,7 @@ mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
 pub mod engine;   // esposto: usato anche dal binario runner headless (src/bin/flowpilot_runner.rs)
 mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
+pub mod signing;  // catena di fiducia degli artifact (firma): forma canonica + planHash (HANDOFF-firma-artifact.md)
 
 #[cfg(feature = "desktop")]
 #[tauri::command]
