@@ -164,6 +164,31 @@ fn main() {
             std::process::exit(2);
         }
     };
+
+    // ── VERIFICA FIRMA (P318) ─────────────────────────────────────────
+    // Modalità via env FLOWPILOT_SIGNATURE_MODE = off | warn | enforce (default: warn).
+    //   off     = nessuna verifica (solo sviluppo locale isolato)
+    //   warn    = verifica e AVVISA su fallimento, ma esegue comunque (migrazione)
+    //   enforce = RIFIUTA ed esce (default consigliato per il rilascio pubblico)
+    // Trust store: ~/.flowpilot/trust-store.json (chiavi pubbliche autorizzate).
+    // Vedi HANDOFF-firma-artifact.md §9/§10.
+    let sig_mode = std::env::var("FLOWPILOT_SIGNATURE_MODE").unwrap_or_else(|_| "warn".to_string());
+    if sig_mode != "off" {
+        let trust = app_lib::signing::trust::TrustStore::load();
+        match app_lib::signing::verify::verify_artifact(&root, env!("CARGO_PKG_VERSION"), &trust) {
+            Ok(v) => {
+                let owner = if v.owner.is_empty() { "?" } else { &v.owner };
+                eprintln!("firma OK: artifact firmato da {} ({})", owner, v.key_id);
+            }
+            Err(reason) => {
+                if sig_mode == "enforce" {
+                    eprintln!("FIRMA RIFIUTATA (enforce): {}", reason);
+                    std::process::exit(3);
+                }
+                eprintln!("ATTENZIONE — firma non verificata (warn): {}", reason);
+            }
+        }
+    }
     // Monitor dal MANIFESTO dell'artifact (prima di consumare root per il piano).
     let manifest_monitor = root.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
     // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per

@@ -1338,10 +1338,25 @@ export function Toolbar() {
     let planHash: string | null = null
     try { planHash = await canonicalPlanHash(plan) } catch { planHash = null }
 
+    // ── FIRMA (P317): sigilla il manifesto col nucleo Rust (chiave privata in
+    // ~/.flowpilot/signing-key.json, mai nella webview). Fail-closed: se la
+    // firma fallisce NON si esporta un artifact non firmato.
+    const exportedAt = new Date().toISOString()
+    let sealed: { manifest: unknown; sig: string; publicKey: string }
+    try {
+      sealed = await invoke<{ manifest: unknown; sig: string; publicKey: string }>(
+        'artifact_seal',
+        { plan, meta: { engineVersionRange: '*', createdAt: exportedAt } },
+      )
+    } catch (e) {
+      addLog('error', `Signing failed: ${(e as Error).message}`)
+      return
+    }
+
     const artifact = {
-      formatVersion: 1,
+      formatVersion: 2,
       kind:          'flowpilot-artifact',
-      exportedAt:    new Date().toISOString(),
+      exportedAt,
       planName,
       planVersion,
       studio,
@@ -1354,6 +1369,10 @@ export function Toolbar() {
       logLevel,
       monitor:       monitorUrl || null,
       requiredSecrets,
+      // ── firma dell'artifact (P317): busta manifest + sig + publicKey (§5) ──
+      manifest:      sealed.manifest,
+      sig:           sealed.sig,
+      publicKey:     sealed.publicKey,
       plan,
     }
     const path = await saveFileDialog({ title: 'Genera artifact', defaultPath: `artifact-${platform}.ffart`, filters: [{ name: 'Artifact FlowPilot', extensions: ['ffart', 'json'] }] })

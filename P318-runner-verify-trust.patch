@@ -1,0 +1,316 @@
+diff --git a/src-tauri/src/bin/flowpilot_runner.rs b/src-tauri/src/bin/flowpilot_runner.rs
+index 62559de..0db699a 100644
+--- a/src-tauri/src/bin/flowpilot_runner.rs
++++ b/src-tauri/src/bin/flowpilot_runner.rs
+@@ -164,6 +164,31 @@ fn main() {
+             std::process::exit(2);
+         }
+     };
++
++    // ── VERIFICA FIRMA (P318) ─────────────────────────────────────────
++    // Modalità via env FLOWPILOT_SIGNATURE_MODE = off | warn | enforce (default: warn).
++    //   off     = nessuna verifica (solo sviluppo locale isolato)
++    //   warn    = verifica e AVVISA su fallimento, ma esegue comunque (migrazione)
++    //   enforce = RIFIUTA ed esce (default consigliato per il rilascio pubblico)
++    // Trust store: ~/.flowpilot/trust-store.json (chiavi pubbliche autorizzate).
++    // Vedi HANDOFF-firma-artifact.md §9/§10.
++    let sig_mode = std::env::var("FLOWPILOT_SIGNATURE_MODE").unwrap_or_else(|_| "warn".to_string());
++    if sig_mode != "off" {
++        let trust = app_lib::signing::trust::TrustStore::load();
++        match app_lib::signing::verify::verify_artifact(&root, env!("CARGO_PKG_VERSION"), &trust) {
++            Ok(v) => {
++                let owner = if v.owner.is_empty() { "?" } else { &v.owner };
++                eprintln!("firma OK: artifact firmato da {} ({})", owner, v.key_id);
++            }
++            Err(reason) => {
++                if sig_mode == "enforce" {
++                    eprintln!("FIRMA RIFIUTATA (enforce): {}", reason);
++                    std::process::exit(3);
++                }
++                eprintln!("ATTENZIONE — firma non verificata (warn): {}", reason);
++            }
++        }
++    }
+     // Monitor dal MANIFESTO dell'artifact (prima di consumare root per il piano).
+     let manifest_monitor = root.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
+     // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per
+diff --git a/src-tauri/src/signing/mod.rs b/src-tauri/src/signing/mod.rs
+index 98f5b21..6534321 100644
+--- a/src-tauri/src/signing/mod.rs
++++ b/src-tauri/src/signing/mod.rs
+@@ -5,3 +5,5 @@ pub mod canonical;
+ pub mod keys; // gestione chiave Ed25519 dello sviluppatore (§6/§7)
+ pub mod sign; // firma/verifica del manifesto (§5/§9)
+ pub mod seal; // costruzione + firma del manifesto per l'export (§5)
++pub mod trust; // trust store della runtime: chiavi pubbliche autorizzate (§6)
++pub mod verify; // verifica fail-closed dell'artifact prima dell'esecuzione (§9)
+diff --git a/src-tauri/src/signing/trust.rs b/src-tauri/src/signing/trust.rs
+new file mode 100644
+index 0000000..f807886
+--- /dev/null
++++ b/src-tauri/src/signing/trust.rs
+@@ -0,0 +1,100 @@
++// ─── src-tauri/src/signing/trust.rs ───────────────────────────────
++// TRUST STORE della runtime: elenco delle chiavi PUBBLICHE autorizzate a
++// pubblicare artifact su questa runtime. (HANDOFF-firma-artifact.md §6)
++//
++// v1: file JSON ~/.flowpilot/trust-store.json
++//   { "keys": [ { "keyId": "ed25519:...", "publicKey": "<base64>",
++//                 "owner": "nome", "status": "active" }, ... ] }
++// Enrollment offline: l'admin aggiunge keyId+publicKey (li trova in
++// ~/.flowpilot/signing-key.json sullo studio dello sviluppatore). Revoca:
++// status != "active" (o riga rimossa). La runtime NON ha chiavi private.
++
++use serde_json::Value;
++use std::path::{Path, PathBuf};
++
++pub fn default_trust_path() -> PathBuf {
++    let home = std::env::var("HOME")
++        .or_else(|_| std::env::var("USERPROFILE"))
++        .unwrap_or_default();
++    PathBuf::from(home).join(".flowpilot").join("trust-store.json")
++}
++
++pub struct TrustStore {
++    entries: Vec<Value>,
++}
++
++impl TrustStore {
++    pub fn load() -> Self {
++        Self::load_at(&default_trust_path())
++    }
++
++    pub fn load_at(path: &Path) -> Self {
++        let entries = std::fs::read_to_string(path)
++            .ok()
++            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
++            .and_then(|v| v.get("keys").and_then(|k| k.as_array()).cloned())
++            .unwrap_or_default();
++        TrustStore { entries }
++    }
++
++    pub fn is_empty(&self) -> bool {
++        self.entries.is_empty()
++    }
++
++    fn entry(&self, key_id: &str) -> Option<&Value> {
++        self.entries
++            .iter()
++            .find(|e| e.get("keyId").and_then(|v| v.as_str()) == Some(key_id))
++    }
++
++    /// Chiave pubblica (base64) autorizzata per `key_id`, solo se presente e
++    /// con status "active".
++    pub fn authorized_key(&self, key_id: &str) -> Option<String> {
++        let e = self.entry(key_id)?;
++        let status = e.get("status").and_then(|v| v.as_str()).unwrap_or("active");
++        if status != "active" {
++            return None;
++        }
++        e.get("publicKey").and_then(|v| v.as_str()).map(|s| s.to_string())
++    }
++
++    pub fn owner(&self, key_id: &str) -> Option<String> {
++        self.entry(key_id)
++            .map(|e| e.get("owner").and_then(|v| v.as_str()).unwrap_or("").to_string())
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use serde_json::json;
++
++    fn write_store(keys: Value) -> PathBuf {
++        let dir = std::env::temp_dir().join(format!("flowpilot-trust-{}", std::process::id()));
++        std::fs::create_dir_all(&dir).unwrap();
++        let path = dir.join("trust-store.json");
++        std::fs::write(&path, serde_json::to_vec(&json!({ "keys": keys })).unwrap()).unwrap();
++        path
++    }
++
++    #[test]
++    fn attiva_autorizzata_revocata_no() {
++        let path = write_store(json!([
++            { "keyId": "ed25519:aaa", "publicKey": "PUBA", "owner": "marco", "status": "active" },
++            { "keyId": "ed25519:bbb", "publicKey": "PUBB", "owner": "eve",   "status": "revoked" }
++        ]));
++        let t = TrustStore::load_at(&path);
++        assert_eq!(t.authorized_key("ed25519:aaa").as_deref(), Some("PUBA"));
++        assert_eq!(t.owner("ed25519:aaa").as_deref(), Some("marco"));
++        assert_eq!(t.authorized_key("ed25519:bbb"), None); // revocata
++        assert_eq!(t.authorized_key("ed25519:zzz"), None); // sconosciuta
++        let _ = std::fs::remove_dir_all(path.parent().unwrap());
++    }
++
++    #[test]
++    fn store_assente_e_vuoto() {
++        let t = TrustStore::load_at(Path::new("/percorso/che/non/esiste.json"));
++        assert!(t.is_empty());
++        assert_eq!(t.authorized_key("ed25519:aaa"), None);
++    }
++}
+diff --git a/src-tauri/src/signing/verify.rs b/src-tauri/src/signing/verify.rs
+new file mode 100644
+index 0000000..f94269c
+--- /dev/null
++++ b/src-tauri/src/signing/verify.rs
+@@ -0,0 +1,158 @@
++// ─── src-tauri/src/signing/verify.rs ──────────────────────────────
++// Verifica FAIL-CLOSED dell'artifact prima dell'esecuzione. (§9)
++// Ogni fallimento (incluso "non firmato") è un Err(motivo); il chiamante
++// (runner) decide che farne secondo la modalità off/warn/enforce.
++
++use super::canonical::plan_hash;
++use super::sign::verify_manifest;
++use super::trust::TrustStore;
++use serde_json::Value;
++
++pub struct Verified {
++    pub key_id: String,
++    pub owner: String,
++}
++
++/// Esegue i controlli nell'ordine di §9. Non ha effetti collaterali.
++pub fn verify_artifact(
++    root: &Value,
++    engine_version: &str,
++    trust: &TrustStore,
++) -> Result<Verified, String> {
++    // 1) formato + presenza busta firmata
++    let fv = root.get("formatVersion").and_then(|v| v.as_u64()).unwrap_or(0);
++    let manifest = root.get("manifest");
++    let sig = root.get("sig").and_then(|v| v.as_str());
++    let (manifest, sig) = match (manifest, sig) {
++        (Some(m), Some(s)) if fv >= 2 => (m, s),
++        _ => return Err("artifact non firmato (manca manifest/sig o formatVersion < 2)".into()),
++    };
++
++    // 2) compatibilità del motore
++    let range = manifest.get("engineVersionRange").and_then(|v| v.as_str()).unwrap_or("*");
++    if !engine_compatible(range, engine_version) {
++        return Err(format!(
++            "motore incompatibile: artifact per '{range}', runner '{engine_version}'"
++        ));
++    }
++
++    // 3+4) keyId presente e ATTIVO nel trust store → chiave pubblica autorizzata
++    let key_id = manifest.get("keyId").and_then(|v| v.as_str()).unwrap_or("");
++    let pubkey = match trust.authorized_key(key_id) {
++        Some(pk) => pk,
++        None => {
++            return Err(format!(
++                "chiave non autorizzata: '{key_id}' assente o revocata nel trust store"
++            ))
++        }
++    };
++
++    // 5) firma valida — verificata con la chiave del TRUST STORE (non con la
++    //    publicKey eventualmente incorporata nell'artifact, che non è fidata)
++    if !verify_manifest(manifest, sig, &pubkey) {
++        return Err("firma del manifesto non valida".into());
++    }
++
++    // 6) integrità: planHash ricalcolato dal piano == quello firmato
++    let plan = root.get("plan").ok_or_else(|| "piano assente".to_string())?;
++    let recomputed = plan_hash(plan);
++    let declared = manifest.get("planHash").and_then(|v| v.as_str()).unwrap_or("");
++    if recomputed != declared {
++        return Err(format!(
++            "planHash non combacia (piano manomesso): firmato {declared}, calcolato {recomputed}"
++        ));
++    }
++
++    // 7) policy dei nodi pericolosi: non applicata in v1 (capitolo sandbox).
++    let owner = trust.owner(key_id).unwrap_or_default();
++    Ok(Verified { key_id: key_id.to_string(), owner })
++}
++
++/// v1: accetta solo "*" (qualsiasi motore). Il matching di versioni reali
++/// arriverà quando definiremo lo schema di versione del motore; fino ad allora
++/// un range diverso da "*" è considerato incompatibile (fail-closed).
++fn engine_compatible(range: &str, _version: &str) -> bool {
++    range == "*"
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use super::super::keys::{self, Keypair};
++    use super::super::seal::seal_with;
++    use base64::{engine::general_purpose::STANDARD, Engine};
++    use ed25519_dalek::SigningKey;
++    use serde_json::json;
++
++    fn kp(seed: u8) -> Keypair {
++        let sk = SigningKey::from_bytes(&[seed; 32]);
++        let pk = sk.verifying_key().to_bytes();
++        Keypair { key_id: keys::key_id(&pk), public_b64: STANDARD.encode(pk), signing: sk }
++    }
++
++    // Costruisce una busta .ffart firmata (come farebbe lo studio).
++    fn sealed_root(kp: &Keypair, plan: &Value) -> Value {
++        let sealed = seal_with(plan, &json!({ "engineVersionRange": "*", "createdAt": "t" }), kp);
++        json!({
++            "formatVersion": 2,
++            "manifest": sealed["manifest"],
++            "sig": sealed["sig"],
++            "publicKey": sealed["publicKey"],
++            "plan": plan
++        })
++    }
++
++    fn trust_with(kp: &Keypair, status: &str) -> TrustStore {
++        let dir = std::env::temp_dir().join(format!("flowpilot-verify-{}-{}", std::process::id(), status));
++        std::fs::create_dir_all(&dir).unwrap();
++        let path = dir.join("trust-store.json");
++        std::fs::write(&path, serde_json::to_vec(&json!({ "keys": [
++            { "keyId": kp.key_id, "publicKey": kp.public_b64, "owner": "marco", "status": status }
++        ] })).unwrap()).unwrap();
++        TrustStore::load_at(&path)
++    }
++
++    #[test]
++    fn artifact_valido_verifica() {
++        let k = kp(5);
++        let plan = json!({ "run_id": "export-1", "lanes": [], "bridges": [] });
++        let root = sealed_root(&k, &plan);
++        let v = verify_artifact(&root, "0.1.0", &trust_with(&k, "active")).unwrap();
++        assert_eq!(v.key_id, k.key_id);
++        assert_eq!(v.owner, "marco");
++    }
++
++    #[test]
++    fn chiave_non_nel_trust_store() {
++        let k = kp(5);
++        let plan = json!({ "run_id": "x", "lanes": [], "bridges": [] });
++        let root = sealed_root(&k, &plan);
++        let other = trust_with(&kp(9), "active"); // trust store con un'altra chiave
++        assert!(verify_artifact(&root, "0.1.0", &other).is_err());
++    }
++
++    #[test]
++    fn chiave_revocata() {
++        let k = kp(5);
++        let plan = json!({ "run_id": "x", "lanes": [], "bridges": [] });
++        let root = sealed_root(&k, &plan);
++        assert!(verify_artifact(&root, "0.1.0", &trust_with(&k, "revoked")).is_err());
++    }
++
++    #[test]
++    fn piano_manomesso_dopo_la_firma() {
++        let k = kp(5);
++        let plan = json!({ "run_id": "x", "lanes": [], "bridges": [] });
++        let mut root = sealed_root(&k, &plan);
++        // altero il piano: il planHash ricalcolato non combacerà più
++        root["plan"]["lanes"] = json!([{ "lane_id": "iniettata" }]);
++        assert!(verify_artifact(&root, "0.1.0", &trust_with(&k, "active")).is_err());
++    }
++
++    #[test]
++    fn artifact_non_firmato() {
++        let plan = json!({ "run_id": "x", "lanes": [], "bridges": [] });
++        let root = json!({ "formatVersion": 1, "plan": plan });
++        assert!(verify_artifact(&root, "0.1.0", &trust_with(&kp(5), "active")).is_err());
++    }
++}

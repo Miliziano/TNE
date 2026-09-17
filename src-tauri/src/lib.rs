@@ -96,6 +96,19 @@ fn studio_identity() -> Result<StudioIdentity, String> {
     Ok(load_or_create_studio_identity())
 }
 
+/// Sigilla un artifact: costruisce il manifesto (planHash ricalcolato dal piano,
+/// keyId, alg, engineVersionRange, createdAt), lo firma con la chiave dello
+/// sviluppatore (~/.flowpilot/signing-key.json) e restituisce { manifest, sig,
+/// publicKey }. Vedi HANDOFF-firma-artifact.md §5.
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn artifact_seal(
+    plan: serde_json::Value,
+    meta: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    crate::signing::seal::seal(&plan, &meta)
+}
+
 #[cfg(feature = "desktop")]
 #[tauri::command]
 fn studio_identity_set_label(label: String) -> Result<StudioIdentity, String> {
@@ -243,6 +256,7 @@ pub fn run() {
         secret_has,
         secret_delete,
         studio_identity,
+        artifact_seal,
         studio_identity_set_label,
         db_query,
         db_infer_schema,
