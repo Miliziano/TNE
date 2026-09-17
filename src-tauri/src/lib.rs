@@ -109,6 +109,16 @@ fn artifact_seal(
     crate::signing::seal::seal(&plan, &meta)
 }
 
+/// Identità di firma dello sviluppatore: keyId (fingerprint) + chiave pubblica
+/// (base64), generando la chiave al primo uso. Serve allo studio per mostrarla
+/// e per l'enrollment nel trust store della runtime. Vedi §7.
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn artifact_signing_identity() -> Result<serde_json::Value, String> {
+    let kp = crate::signing::keys::load_or_create().map_err(|e| format!("chiave di firma: {e}"))?;
+    Ok(serde_json::json!({ "keyId": kp.key_id, "publicKey": kp.public_b64 }))
+}
+
 #[cfg(feature = "desktop")]
 #[tauri::command]
 fn studio_identity_set_label(label: String) -> Result<StudioIdentity, String> {
@@ -257,6 +267,7 @@ pub fn run() {
         secret_delete,
         studio_identity,
         artifact_seal,
+        artifact_signing_identity,
         studio_identity_set_label,
         db_query,
         db_infer_schema,

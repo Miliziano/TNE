@@ -47,12 +47,21 @@ export function CompileModal({ open, onClose, onGenerate }: {
   const [studioLabel, setStudioLabel] = useState('')
   const [labelSaved, setLabelSaved]   = useState(false)
 
+  // Identita' di FIRMA (autenticita'): keyId + chiave pubblica dello sviluppatore
+  // (~/.flowpilot/signing-key.json). La privata NON lascia mai questa macchina.
+  const [signingKeyId, setSigningKeyId]         = useState('')
+  const [signingPublicKey, setSigningPublicKey] = useState('')
+  const [trustCopied, setTrustCopied]           = useState(false)
+
   useEffect(() => {
     if (!open) return
     let vivo = true
     invoke<{ id: string; label: string }>('studio_identity')
       .then((idn) => { if (vivo) { setStudioId(idn.id); setStudioLabel(idn.label); setLabelSaved(false) } })
       .catch(() => { if (vivo) { setStudioId(''); setStudioLabel('') } })
+    invoke<{ keyId: string; publicKey: string }>('artifact_signing_identity')
+      .then((k) => { if (vivo) { setSigningKeyId(k.keyId); setSigningPublicKey(k.publicKey) } })
+      .catch(() => { if (vivo) { setSigningKeyId(''); setSigningPublicKey('') } })
     return () => { vivo = false }
   }, [open])
 
@@ -65,6 +74,19 @@ export function CompileModal({ open, onClose, onGenerate }: {
   }
 
   if (!open) return null
+
+  // Voce pronta da incollare nel trust store della runtime per autorizzare
+  // questo studio (l'admin la mette nell'array `keys` di trust-store.json).
+  const trustEntry = JSON.stringify(
+    { keyId: signingKeyId, publicKey: signingPublicKey, owner: studioLabel || '', status: 'active' },
+    null, 2,
+  )
+  const copiaTrust = async () => {
+    try {
+      await navigator.clipboard.writeText(trustEntry)
+      setTrustCopied(true); setTimeout(() => setTrustCopied(false), 1800)
+    } catch { /* best-effort: il campo resta comunque selezionabile a mano */ }
+  }
 
   const profileNames = Object.keys(environments.profiles)
   const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
@@ -112,6 +134,24 @@ export function CompileModal({ open, onClose, onGenerate }: {
             </div>
           </div>
 
+          {/* Identita' di FIRMA (autenticita') */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={labelStyle}>Identità di firma — chiave di questo sviluppatore</div>
+            <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>
+              keyId: <span style={{ color: '#8aa4d0' }}>{signingKeyId || '—'}</span>
+            </div>
+            <textarea readOnly value={trustEntry} rows={6} style={{ ...inputStyle, resize: 'vertical', whiteSpace: 'pre' }} />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button
+                onClick={copiaTrust}
+                style={{ background: 'transparent', color: trustCopied ? '#4ade80' : '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >{trustCopied ? '✓ copiata' : 'Copia voce trust store'}</button>
+              <div style={{ fontSize: 10, color: '#5a6a8a' }}>
+                Da incollare nell'array <code style={{ color: '#8aa' }}>keys</code> del <code style={{ color: '#8aa' }}>trust-store.json</code> della runtime per autorizzare questo studio. La chiave <b>privata</b> resta su questo computer.
+              </div>
+            </div>
+          </div>
+
           {/* Endpoint monitor */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={labelStyle}>Monitor — where to push logs (optional)</div>
@@ -151,6 +191,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
             <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", background: '#141c2c', border: '1px solid #2a3349', borderRadius: 6, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div>frozen profile: <span style={{ color: '#8aa4d0' }}>{frozenProfile}</span></div>
               <div>compilato da: <span style={{ color: '#8aa4d0' }}>{studioLabel || '—'}</span></div>
+              <div>firmato con: <span style={{ color: '#8aa4d0' }}>{signingKeyId ? signingKeyId.slice(0, 22) + '…' : '—'}</span></div>
               <div>platform: <span style={{ color: '#8aa4d0' }}>{platform}</span></div>
               <div>dettaglio log: <span style={{ color: '#8aa4d0' }}>{logLevel}</span></div>
               <div>monitor: <span style={{ color: '#8aa4d0' }}>{monitorUrl.trim() || '— nessuno —'}</span></div>
