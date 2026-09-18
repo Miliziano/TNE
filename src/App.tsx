@@ -220,7 +220,7 @@ function SidePanel({
         )}
         <button
           onClick={onClose}
-          title="Chiudi"
+          title="Close"
           style={{
             background:   'none',
             border:       '0.5px solid var(--color-border-tertiary)',
@@ -340,7 +340,7 @@ function Layout() {
             <PropertyPanel />
             <button
               onClick={() => setPropsOpen(false)}
-              title="Chiudi pannello Proprietà"
+              title="Close Properties panel"
               style={{
                 position: 'absolute', top: 6, right: 6, zIndex: 5,
                 width: 20, height: 20, padding: 0,
@@ -419,7 +419,7 @@ function Layout() {
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => setMonitorMode('closed')}
-              title="Chiudi"
+              title="Close"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-tertiary)', display: 'flex', alignItems: 'center', padding: 2 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)' }}

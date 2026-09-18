@@ -202,7 +202,7 @@ function VariableEditor({
       )}
       {variables.length === 0 && materializeVars.length > 0 && (
         <div style={{ margin: '4px 12px', padding: '8px', fontSize: 10, color: '#2a3349', textAlign: 'center', fontStyle: 'italic' }}>
-          Nessuna variabile normale
+          No normal variables
         </div>
       )}
 
@@ -270,7 +270,7 @@ function VariableEditor({
             <input
               value={v.name}
               onChange={(e) => onUpdate(v.id, 'name', e.target.value)}
-              placeholder="nome"
+              placeholder="name"
               readOnly={running}
               style={{
                 ...inputStyle, flex: 1,
@@ -356,7 +356,7 @@ function VariableEditor({
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a2030' }}>
             <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
-            Aggiungi variabile
+            Add variable
           </button>
         </div>
       )}
