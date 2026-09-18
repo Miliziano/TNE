@@ -20,6 +20,7 @@ import { EnvironmentsModal } from './EnvironmentsModal'
 import { UserFunctionsModal } from './UserFunctionsModal'
 import { HelpModal } from './HelpModal'
 import { CompileModal } from './CompileModal'
+import { SigningKeyModal } from './SigningKeyModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { parseUserFunctions } from '../ir/userFunctions'
@@ -1255,6 +1256,7 @@ export function Toolbar() {
   const [funcOpen, setFuncOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [compileOpen, setCompileOpen] = useState(false)
+  const [signOpen, setSignOpen] = useState(false)
   const currentPath = useFlowStore((s) => s.currentPath)
 
   // Nome del progetto = nome del file .ffplan aperto (stessa regola usata per
@@ -1703,6 +1705,11 @@ export function Toolbar() {
         Compile
       </TbBtn>
 
+      <TbBtn onClick={() => setSignOpen(true)} title="Signing key (Ed25519): generate, unlock, export public key">
+        <i className="ti ti-key" style={{ fontSize: 13 }} aria-hidden="true" />
+        Signing
+      </TbBtn>
+
       <TbDivider />
 
       {/* Esecuzione */}
@@ -1781,6 +1788,7 @@ export function Toolbar() {
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <CompileModal open={compileOpen} onClose={() => setCompileOpen(false)} onGenerate={esportaArtifact} />
+      <SigningKeyModal open={signOpen} onClose={() => setSignOpen(false)} />
 
     </div>
     
