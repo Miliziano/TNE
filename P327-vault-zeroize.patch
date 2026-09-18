@@ -1,0 +1,93 @@
+diff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml
+index 842012e..d95e74f 100644
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -41,6 +41,7 @@ ed25519-dalek   = { version = "2", features = ["rand_core"] }   # firma degli ar
+ rand_core       = { version = "0.6", features = ["getrandom"] } # RNG per la generazione della chiave Ed25519
+ argon2           = "0.5"    # KDF (argon2id) per cifrare a riposo la chiave di firma
+ chacha20poly1305 = "0.10"   # AEAD (XChaCha20-Poly1305) per la chiave di firma cifrata
++zeroize          = "1"      # azzera il seme/chiavi in RAM al drop (lock/chiusura)
+ sha1            = "0.10"
+ md-5            = "0.10"
+ hex             = "0.4"
+diff --git a/src-tauri/src/signing/vault.rs b/src-tauri/src/signing/vault.rs
+index 201c9c2..b280802 100644
+--- a/src-tauri/src/signing/vault.rs
++++ b/src-tauri/src/signing/vault.rs
+@@ -23,6 +23,7 @@ use ed25519_dalek::SigningKey;
+ use rand_core::{OsRng, RngCore};
+ use std::path::{Path, PathBuf};
+ use std::sync::{Mutex, OnceLock};
++use zeroize::Zeroizing;
+ 
+ use argon2::Argon2;
+ use chacha20poly1305::{
+@@ -60,10 +61,10 @@ pub fn seed_from_b64(b64: &str) -> Result<[u8; 32], String> {
+     bytes.try_into().map_err(|_| "il seed deve essere di 32 byte".to_string())
+ }
+ 
+-fn derive_key(passphrase: &str, salt: &[u8]) -> Result<[u8; 32], String> {
+-    let mut key = [0u8; 32];
++fn derive_key(passphrase: &str, salt: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
++    let mut key = Zeroizing::new([0u8; 32]);
+     Argon2::default()
+-        .hash_password_into(passphrase.as_bytes(), salt, &mut key)
++        .hash_password_into(passphrase.as_bytes(), salt, &mut *key)
+         .map_err(|e| format!("derivazione chiave (argon2): {e}"))?;
+     Ok(key)
+ }
+@@ -78,7 +79,7 @@ pub fn save_encrypted(path: &Path, seed: &[u8; 32], passphrase: &str) -> Result<
+     let mut nonce = [0u8; 24];
+     OsRng.fill_bytes(&mut nonce);
+     let key = derive_key(passphrase, &salt)?;
+-    let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|e| format!("cipher: {e}"))?;
++    let cipher = XChaCha20Poly1305::new_from_slice(&key[..]).map_err(|e| format!("cipher: {e}"))?;
+     let ct = cipher
+         .encrypt(XNonce::from_slice(&nonce), seed.as_slice())
+         .map_err(|_| "cifratura fallita".to_string())?;
+@@ -129,16 +130,20 @@ pub fn decrypt_seed(path: &Path, passphrase: &str) -> Result<[u8; 32], String> {
+     let nonce = field("nonce")?;
+     let ct = field("ciphertext")?;
+     let key = derive_key(passphrase, &salt)?;
+-    let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|e| format!("cipher: {e}"))?;
+-    let pt = cipher
+-        .decrypt(XNonce::from_slice(&nonce), ct.as_slice())
+-        .map_err(|_| "passphrase errata o file danneggiato".to_string())?;
+-    pt.try_into().map_err(|_| "seed decifrato di lunghezza errata".to_string())
++    let cipher = XChaCha20Poly1305::new_from_slice(&key[..]).map_err(|e| format!("cipher: {e}"))?;
++    let pt = Zeroizing::new(
++        cipher
++            .decrypt(XNonce::from_slice(&nonce), ct.as_slice())
++            .map_err(|_| "passphrase errata o file danneggiato".to_string())?,
++    );
++    pt.as_slice().try_into().map_err(|_| "seed decifrato di lunghezza errata".to_string())
+ }
+ 
+ // ── stato SBLOCCATO in memoria (per la durata della sessione dello studio) ──
+-fn cell() -> &'static Mutex<Option<[u8; 32]>> {
+-    static C: OnceLock<Mutex<Option<[u8; 32]>>> = OnceLock::new();
++// Il seme è avvolto in Zeroizing: al lock() o alla chiusura viene AZZERATO dalla
++// RAM, non solo scartato (niente residuo recuperabile con un dump di memoria).
++fn cell() -> &'static Mutex<Option<Zeroizing<[u8; 32]>>> {
++    static C: OnceLock<Mutex<Option<Zeroizing<[u8; 32]>>>> = OnceLock::new();
+     C.get_or_init(|| Mutex::new(None))
+ }
+ 
+@@ -146,7 +151,7 @@ fn cell() -> &'static Mutex<Option<[u8; 32]>> {
+ pub fn unlock(path: &Path, passphrase: &str) -> Result<Identity, String> {
+     let seed = decrypt_seed(path, passphrase)?;
+     let id = identity_from_seed(&seed);
+-    *cell().lock().unwrap() = Some(seed);
++    *cell().lock().unwrap() = Some(Zeroizing::new(seed));
+     Ok(id)
+ }
+ 
+@@ -161,7 +166,7 @@ pub fn is_unlocked() -> bool {
+ 
+ /// Chiave di firma se sbloccata, altrimenti None (il chiamante chiede l'unlock).
+ pub fn unlocked_signing_key() -> Option<SigningKey> {
+-    cell().lock().unwrap().as_ref().map(SigningKey::from_bytes)
++    cell().lock().unwrap().as_ref().map(|z| SigningKey::from_bytes(z))
+ }
+ 
+ #[cfg(unix)]
