@@ -189,32 +189,33 @@ fn main() {
             }
         }
     }
-    // Monitor dal MANIFESTO dell'artifact (prima di consumare root per il piano).
-    let manifest_monitor = root.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
-    // Nome del piano dal manifesto (lo studio lo ricava dal file .ffplan). Serve per
-    // arricchire l'intestazione E l'evento RunStarted, cosi' il monitor mostra il nome.
-    let plan_name = root.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
-    // Id dell'ARTIFACT = il run_id inciso dallo studio all'export. Serve prima
-    // dell'intestazione, quindi si legge qui (dal piano, o dalla radice se il
-    // file è un piano nudo senza manifesto).
+    // Modo A: i metadati operativi vivono nel MANIFESTO firmato. Se manca (piano
+    // nudo, non firmato), si ripiega sulla radice.
+    let man = root.get("manifest").cloned().unwrap_or_else(|| root.clone());
+    // Monitor dal manifesto (prima di consumare root per il piano).
+    let manifest_monitor = man.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
+    // Nome del piano dal manifesto. Serve per arricchire l'intestazione E l'evento
+    // RunStarted, cosi' il monitor mostra il nome.
+    let plan_name = man.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
+    // Id dell'ARTIFACT = il run_id inciso dallo studio all'export (nel PIANO, non nel
+    // manifesto: identifica l'istanza). Dalla radice se e' un piano nudo.
     let artifact_id = root
         .get("plan").and_then(|p| p.get("run_id")).and_then(|v| v.as_str())
         .or_else(|| root.get("run_id").and_then(|v| v.as_str()))
         .unwrap_or("piano")
         .to_string();
     // Livello di dettaglio di cio' che il runner EMETTE (stdout + monitor).
-    // Default prudente: "normale" (niente dati di riga, niente memoria) anche per
-    // gli artifact vecchi che non portano il campo.
-    let log_level = root.get("logLevel").and_then(|v| v.as_str()).unwrap_or("normale").to_string();
-    // PROVENIENZA (fase A): chi ha compilato, con quale versione, quale piano.
-    // Il runner li RIPORTA e basta: sono dati DICHIARATI dall'artifact, non verificati.
-    let studio_id    = root.get("studio").and_then(|s| s.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string());
-    let studio_label = root.get("studio").and_then(|s| s.get("label")).and_then(|v| v.as_str()).map(|s| s.to_string());
-    let plan_hash    = root.get("planHash").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let plan_version = root.get("planVersion").and_then(|v| v.get("label")).and_then(|v| v.as_str())
+    // Default prudente: "normale" anche per artifact senza il campo.
+    let log_level = man.get("logLevel").and_then(|v| v.as_str()).unwrap_or("normale").to_string();
+    // PROVENIENZA dal manifesto FIRMATO: chi ha compilato, con quale versione, quale
+    // piano. In modalita' enforce sono VERIFICATI (firma valida); in warn/off no.
+    let studio_id    = man.get("studio").and_then(|s| s.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string());
+    let studio_label = man.get("studio").and_then(|s| s.get("label")).and_then(|v| v.as_str()).map(|s| s.to_string());
+    let plan_hash    = man.get("planHash").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let plan_version = man.get("planVersion").and_then(|v| v.get("label")).and_then(|v| v.as_str())
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
-        .or_else(|| root.get("planVersion").and_then(|v| v.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string()));
+        .or_else(|| man.get("planVersion").and_then(|v| v.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string()));
     // Host DICHIARATO da questa macchina (hostname del sistema). E' auto-dichiarato:
     // il dato affidabile sull'origine e' l'IP che il monitor OSSERVA sulla connessione.
     let runner_host = std::env::var("HOSTNAME").ok()
@@ -239,17 +240,17 @@ fn main() {
         },
         "artifact": {
             "formatVersion":   root.get("formatVersion"),
-            "planName":        root.get("planName"),
-            "planVersion":     root.get("planVersion"),
-            "studio":          root.get("studio"),
-            "studioVersion":   root.get("studioVersion"),
-            "planHash":        root.get("planHash"),
+            "planName":        man.get("planName"),
+            "planVersion":     man.get("planVersion"),
+            "studio":          man.get("studio"),
+            "studioVersion":   man.get("studioVersion"),
+            "planHash":        man.get("planHash"),
             "logLevel":        log_level.clone(),
             "artifactId":      artifact_id.clone(),
-            "profile":         root.get("profile"),
-            "platform":        root.get("platform"),
-            "exportedAt":      root.get("exportedAt"),
-            "requiredSecrets": root.get("requiredSecrets"),
+            "profile":         man.get("profile"),
+            "platform":        man.get("platform"),
+            "createdAt":       man.get("createdAt"),
+            "requiredSecrets": man.get("requiredSecrets"),
         },
     })
     .to_string();

@@ -26,7 +26,6 @@ import { compileTransformFields, type TransformFieldSpec } from '../transforms/t
 import { parseUserFunctions } from '../ir/userFunctions'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
-import { planHash as canonicalPlanHash } from '../ir/canonicalPlan'
 
 let abortFlag = false
 
@@ -1331,47 +1330,34 @@ export function Toolbar() {
       } catch { planVersion = null }
     }
 
-    // INTEGRITA' (non autenticita'): sha-256 della FORMA CANONICA del piano — senza il
-    // run_id volatile e con chiavi ordinate, quindi STABILE fra export identici (a
-    // differenza del vecchio hash su JSON.stringify(plan), che includeva run_id e
-    // cambiava a ogni export). Ricalcolabile bit-per-bit dal runner per la verifica
-    // d'integrita' (HANDOFF-firma-artifact.md §4). NON prova ancora CHI l'ha prodotto:
-    // per l'autenticita' serve la firma asimmetrica (P316).
-    let planHash: string | null = null
-    try { planHash = await canonicalPlanHash(plan) } catch { planHash = null }
-
-    // ── FIRMA (P317): sigilla il manifesto col nucleo Rust (chiave privata in
-    // ~/.flowpilot/signing-key.json, mai nella webview). Fail-closed: se la
-    // firma fallisce NON si esporta un artifact non firmato.
+    // ── FIRMA (Modo A): il MANIFESTO firmato è l'unica fonte di verità. Tutti i
+    // campi operativi (planName, monitor, logLevel, studio, requiredSecrets, …)
+    // entrano nel manifesto, così sono coperti dalla firma; il runner li legge
+    // da lì. planHash e keyId li calcola/impone il backend. La chiave privata sta
+    // in ~/.flowpilot/signing-key.json, mai nella webview. Fail-closed: se la
+    // firma fallisce NON si esporta nulla. (HANDOFF-firma-artifact.md §5)
     const exportedAt = new Date().toISOString()
+    const profile = environments.active || '(default)'
+    const meta = {
+      planName, planVersion, studio, studioVersion, profile, platform,
+      logLevel, monitor: monitorUrl || null, requiredSecrets,
+      engineVersionRange: '*', createdAt: exportedAt,
+    }
     let sealed: { manifest: unknown; sig: string; publicKey: string }
     try {
       sealed = await invoke<{ manifest: unknown; sig: string; publicKey: string }>(
-        'artifact_seal',
-        { plan, meta: { engineVersionRange: '*', createdAt: exportedAt } },
+        'artifact_seal', { plan, meta },
       )
     } catch (e) {
       addLog('error', `Signing failed: ${(e as Error).message}`)
       return
     }
 
+    // Busta minimale: solo l'involucro firmato + il piano. Nessun campo operativo
+    // duplicato fuori dal manifesto (là non sarebbe firmato).
     const artifact = {
       formatVersion: 2,
       kind:          'flowpilot-artifact',
-      exportedAt,
-      planName,
-      planVersion,
-      studio,
-      studioVersion,
-      planHash,
-      profile:       environments.active || '(default)',
-      platform,
-      // Quanto dettaglio il runner stampa/invia (essenziale|normale|diagnostico).
-      // Il log integrale resta comunque su disco locale (reporter).
-      logLevel,
-      monitor:       monitorUrl || null,
-      requiredSecrets,
-      // ── firma dell'artifact (P317): busta manifest + sig + publicKey (§5) ──
       manifest:      sealed.manifest,
       sig:           sealed.sig,
       publicKey:     sealed.publicKey,
@@ -1380,7 +1366,7 @@ export function Toolbar() {
     const path = await saveFileDialog({ title: 'Genera artifact', defaultPath: `artifact-${platform}.ffart`, filters: [{ name: 'Artifact FlowPilot', extensions: ['ffart', 'json'] }] })
     if (!path) return
     const ok = await writeFile(path, JSON.stringify(artifact, null, 2)).then(() => true).catch(() => false)
-    if (ok) { addLog('ok', `Artifact generated: ${path} (profile: ${artifact.profile}, ${platform})${requiredSecrets.length ? ` — requires the secrets: ${requiredSecrets.join(', ')}` : ''}`); setCompileOpen(false) }
+    if (ok) { addLog('ok', `Artifact generated: ${path} (profile: ${profile}, ${platform})${requiredSecrets.length ? ` — requires the secrets: ${requiredSecrets.join(', ')}` : ''}`); setCompileOpen(false) }
     else addLog('error', 'Could not write the artifact.')
   }
 

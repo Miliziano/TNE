@@ -15,14 +15,19 @@ use serde_json::{json, Value};
 
 /// Costruisce e firma il manifesto con una coppia di chiavi data (pura, no IO).
 pub fn seal_with(plan: &Value, meta: &Value, kp: &Keypair) -> Value {
-    let manifest = json!({
-        "planHash":           plan_hash(plan),
-        "hashAlg":            "sha256",
-        "sigAlg":             "ed25519",
-        "keyId":              kp.key_id,
-        "engineVersionRange": meta.get("engineVersionRange").cloned().unwrap_or(Value::from("*")),
-        "createdAt":          meta.get("createdAt").cloned().unwrap_or(Value::Null),
-    });
+    // Modo A: il manifesto assorbe TUTTI i campi operativi passati in `meta`
+    // (planName, monitor, logLevel, studio, requiredSecrets, …) ed è l'unica
+    // fonte FIRMATA. Vi si aggiungono i campi calcolati/autoritativi (planHash,
+    // keyId, alg): questi sovrascrivono eventuali omonimi passati dallo studio.
+    let mut manifest = meta.as_object().cloned().unwrap_or_default();
+    manifest.insert("planHash".to_string(), Value::from(plan_hash(plan)));
+    manifest.insert("hashAlg".to_string(), Value::from("sha256"));
+    manifest.insert("sigAlg".to_string(), Value::from("ed25519"));
+    manifest.insert("keyId".to_string(), Value::from(kp.key_id.clone()));
+    manifest
+        .entry("engineVersionRange".to_string())
+        .or_insert_with(|| Value::from("*"));
+    let manifest = Value::Object(manifest);
     let sig = sign_manifest(&manifest, &kp.signing);
     json!({ "manifest": manifest, "sig": sig, "publicKey": kp.public_b64 })
 }
