@@ -82,7 +82,7 @@ export function BridgeTab() {
       <div style={{ margin: '4px 8px 10px', padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5' }}>
         <div style={{ display: 'flex', gap: 5, marginBottom: 4 }}>
           <i className="ti ti-arrows-transfer-up" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
-          <span>I canali bridge collegano nodi <code style={{ color: ACCENT }}>BridgeOut</code> e <code style={{ color: ACCENT }}>BridgeIn</code> in lane diverse.</span>
+          <span>Bridge channels connect <code style={{ color: ACCENT }}>BridgeOut</code> and <code style={{ color: ACCENT }}>BridgeIn</code> nodes in different lanes.</span>
         </div>
         <div>Drag nodes from the palette and assign the same channel name to create the pair.</div>
       </div>

@@ -93,12 +93,12 @@ export function SigningKeyModal({ open, onClose }: { open: boolean; onClose: () 
             <>
               <div>keyId: <span style={{ ...mono, color: '#8aa4d0' }}>{status.keyId}</span></div>
               <div style={{ marginTop: 4 }}>
-                stato: {status.unlocked
-                  ? <span style={{ color: '#4ade80' }}>sbloccata (questa sessione)</span>
-                  : <span style={{ color: '#f0b74a' }}>bloccata — serve la passphrase</span>}
+                status: {status.unlocked
+                  ? <span style={{ color: '#4ade80' }}>unlocked (this session)</span>
+                  : <span style={{ color: '#f0b74a' }}>locked — passphrase required</span>}
               </div>
             </>
-          ) : <span style={{ color: '#f0b74a' }}>Nessuna chiave di firma su questo computer.</span>}
+          ) : <span style={{ color: '#f0b74a' }}>No signing key on this computer.</span>}
         </div>
 
         {err && <div style={{ marginBottom: 12, color: '#ff8a8a', fontSize: 12 }}>{err}</div>}
@@ -106,16 +106,16 @@ export function SigningKeyModal({ open, onClose }: { open: boolean; onClose: () 
         {/* Nessuna chiave → crea */}
         {status && !status.exists && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Crea la chiave di firma</div>
+            <div style={label}>Create the signing key</div>
             {passField}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={generate} disabled={busy || !passphrase} style={btn}>Genera dal sistema</button>
+              <button onClick={generate} disabled={busy || !passphrase} style={btn}>Generate from system</button>
             </div>
-            <div style={{ ...label, marginTop: 6 }}>oppure importa una chiave (seed Ed25519, base64 32 byte)</div>
+            <div style={{ ...label, marginTop: 6 }}>or import a key (Ed25519 seed, base64 32 bytes)</div>
             <textarea value={seed} placeholder="seed base64" onChange={(e) => setSeed(e.target.value)} rows={2} style={{ ...input, ...mono, resize: 'vertical' }} />
-            <div><button onClick={importSeed} disabled={busy || !passphrase || !seed} style={btn}>Importa e cifra</button></div>
+            <div><button onClick={importSeed} disabled={busy || !passphrase || !seed} style={btn}>Import and encrypt</button></div>
             <div style={{ fontSize: 10, color: '#5a6a8a' }}>
-              La passphrase cifra la chiave a riposo. <b>Se la dimentichi la chiave non è recuperabile</b>: dovrai generarne un'altra e ri-autorizzarla.
+              The passphrase encrypts the key at rest. <b>If you forget it the key is unrecoverable</b>: you will have to generate a new one and re-authorize it.
             </div>
           </div>
         )}
@@ -123,27 +123,27 @@ export function SigningKeyModal({ open, onClose }: { open: boolean; onClose: () 
         {/* Chiave presente ma bloccata → sblocca */}
         {status?.exists && !status.unlocked && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={label}>Sblocca per questa sessione</div>
+            <div style={label}>Unlock for this session</div>
             {passField}
-            <div><button onClick={unlock} disabled={busy || !passphrase} style={btn}>Sblocca</button></div>
+            <div><button onClick={unlock} disabled={busy || !passphrase} style={btn}>Unlock</button></div>
           </div>
         )}
 
         {/* Chiave sbloccata → blocca */}
         {status?.exists && status.unlocked && (
           <div style={{ marginBottom: 4 }}>
-            <button onClick={lock} disabled={busy} style={btnGhost}>Blocca ora</button>
+            <button onClick={lock} disabled={busy} style={btnGhost}>Lock now</button>
           </div>
         )}
 
         {/* Esporta pubblica (sempre disponibile se c'è una chiave) */}
         {status?.exists && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 16 }}>
-            <div style={label}>Esporta la chiave pubblica (per il trust store della runtime)</div>
+            <div style={label}>Export the public key (for the runtime trust store)</div>
             <textarea readOnly value={trustEntry} rows={6} style={{ ...input, ...mono, resize: 'vertical', whiteSpace: 'pre' }} />
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button onClick={copiaTrust} style={{ ...btnGhost, color: copied ? '#4ade80' : '#9aa4c0' }}>{copied ? '✓ copiata' : 'Copia voce trust store'}</button>
-              <span style={{ fontSize: 10, color: '#5a6a8a' }}>Da incollare nell'array <code>keys</code> del trust-store.json della runtime.</span>
+              <button onClick={copiaTrust} style={{ ...btnGhost, color: copied ? '#4ade80' : '#9aa4c0' }}>{copied ? '✓ copied' : 'Copy trust store entry'}</button>
+              <span style={{ fontSize: 10, color: '#5a6a8a' }}>Paste into the <code>keys</code> array of the runtime's trust-store.json.</span>
             </div>
           </div>
         )}
@@ -151,18 +151,18 @@ export function SigningKeyModal({ open, onClose }: { open: boolean; onClose: () 
         {/* Sostituisci chiave (avanzato) */}
         {status?.exists && (
           <div style={{ marginTop: 18, borderTop: '1px solid #26324c', paddingTop: 12 }}>
-            <button onClick={() => setShowReplace((v) => !v)} style={btnGhost}>{showReplace ? '▾' : '▸'} Sostituisci la chiave</button>
+            <button onClick={() => setShowReplace((v) => !v)} style={btnGhost}>{showReplace ? '▾' : '▸'} Replace the key</button>
             {showReplace && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                 <div style={{ fontSize: 10, color: '#f0b74a' }}>
-                  Attenzione: sovrascrive la chiave attuale con una <b>nuova identità</b> (keyId diverso). Le runtime dovranno ri-autorizzarla; revoca la vecchia se compromessa.
+                  Warning: overwrites the current key with a <b>new identity</b> (different keyId). Runtimes will have to re-authorize it; revoke the old one if compromised.
                 </div>
                 {passField}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={generate} disabled={busy || !passphrase} style={btn}>Genera nuova</button>
+                  <button onClick={generate} disabled={busy || !passphrase} style={btn}>Generate new</button>
                 </div>
-                <textarea value={seed} placeholder="seed base64 (per importare)" onChange={(e) => setSeed(e.target.value)} rows={2} style={{ ...input, ...mono, resize: 'vertical' }} />
-                <div><button onClick={importSeed} disabled={busy || !passphrase || !seed} style={btn}>Importa nuova</button></div>
+                <textarea value={seed} placeholder="seed base64 (to import)" onChange={(e) => setSeed(e.target.value)} rows={2} style={{ ...input, ...mono, resize: 'vertical' }} />
+                <div><button onClick={importSeed} disabled={busy || !passphrase || !seed} style={btn}>Import new</button></div>
               </div>
             )}
           </div>

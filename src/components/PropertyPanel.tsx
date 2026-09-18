@@ -48,7 +48,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'props',     label: 'Node',  icon: 'ti-settings' },
     { id: 'lane-vars', label: 'Lane',  icon: 'ti-variable' },
-    { id: 'transactions', label: 'Transazioni', icon: 'ti-arrows-exchange' },
+    { id: 'transactions', label: 'Transactions', icon: 'ti-arrows-exchange' },
     { id: 'bridge',    label: 'Bridge', icon: 'ti-arrows-transfer-up' },
   ]
   return (
