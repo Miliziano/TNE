@@ -51,7 +51,7 @@ export function Canvas() {
         }}
       >
         <i className="ti ti-plus" style={{ fontSize: 14 }} aria-hidden="true" />
-        Aggiungi lane
+        Add lane
       </button>
     </div>
   )
@@ -106,7 +106,7 @@ function PoolHeader() {
         color: 'var(--color-text-tertiary)',
         marginLeft: 4,
       }}>
-        {pool.lanes.length} lane · {pool.variables.length} variabili condivise
+        {pool.lanes.length} lane · {pool.variables.length} shared variables
       </span>
 
       {/* separatore + nome del progetto aperto */}

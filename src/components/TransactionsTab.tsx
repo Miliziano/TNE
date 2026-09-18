@@ -62,19 +62,19 @@ export function TransactionsTab() {
               </span>
               <button
                 onClick={() => addTransaction(lane.id, {
-                  name: `Transazione ${txs.length + 1}`,
+                  name: `Transaction ${txs.length + 1}`,
                   mode: 'native', timeout: 30, onError: 'rollback_all',
                 })}
                 style={{ fontSize: 10, color: NATIVE_COLOR, background: 'transparent',
                          border: `1px solid ${NATIVE_COLOR}40`, borderRadius: 4,
                          padding: '3px 8px', cursor: 'pointer' }}>
-                + Transazione
+                + Transaction
               </button>
             </div>
 
             {txs.length === 0 && (
               <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic', padding: '4px 0' }}>
-                Nessuna transazione in questa lane.
+                No transactions in this lane.
               </div>
             )}
 
@@ -99,12 +99,12 @@ export function TransactionsTab() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
                     <label style={{ fontSize: 9, color: '#9a9aaa' }}>
-                      Modalità
+                      Mode
                       <CustomSelect value={tx.mode}
                         onChange={(e) => updateTransaction(lane.id, tx.id, { mode: e.target.value as 'native' | 'xa' })}
                         style={inp}>
-                        <option value="native">Native (una risorsa)</option>
-                        <option value="xa">XA (più risorse)</option>
+                        <option value="native">Native (one resource)</option>
+                        <option value="xa">XA (multiple resources)</option>
                       </CustomSelect>
                     </label>
                     <label style={{ fontSize: 9, color: '#9a9aaa' }}>
@@ -116,12 +116,12 @@ export function TransactionsTab() {
                   </div>
 
                   <label style={{ fontSize: 9, color: '#9a9aaa', display: 'block', marginBottom: 8 }}>
-                    Su errore
+                    On error
                     <CustomSelect value={tx.onError}
                       onChange={(e) => updateTransaction(lane.id, tx.id, { onError: e.target.value as 'rollback_all' | 'rollback_self' })}
                       style={inp}>
-                      <option value="rollback_all">Rollback dell'intero gruppo</option>
-                      <option value="rollback_self">Rollback solo del nodo in errore</option>
+                      <option value="rollback_all">Rollback the whole group</option>
+                      <option value="rollback_self">Rollback only the failing node</option>
                     </CustomSelect>
                   </label>
 
@@ -130,7 +130,7 @@ export function TransactionsTab() {
                   </div>
                   {members.length === 0 ? (
                     <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
-                      Nessun nodo. Associa un DB sink a questa transazione dal suo pannello.
+                      No nodes. Attach a DB sink to this transaction from its panel.
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

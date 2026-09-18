@@ -84,14 +84,14 @@ export function BridgeTab() {
           <i className="ti ti-arrows-transfer-up" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
           <span>I canali bridge collegano nodi <code style={{ color: ACCENT }}>BridgeOut</code> e <code style={{ color: ACCENT }}>BridgeIn</code> in lane diverse.</span>
         </div>
-        <div>Trascina i nodi dalla palette e assegna lo stesso nome canale per creare la coppia.</div>
+        <div>Drag nodes from the palette and assign the same channel name to create the pair.</div>
       </div>
 
       {channels.length === 0 ? (
         <div style={{ margin: '8px 12px', padding: '24px 12px', fontSize: 11, color: '#2a3349', textAlign: 'center', background: '#1a2030', borderRadius: 6, border: '0.5px dashed #2a3349' }}>
           <i className="ti ti-arrows-transfer-up" style={{ fontSize: 32, display: 'block', marginBottom: 10, color: '#2a3349' }} />
-          Nessun canale bridge configurato.<br />
-          Aggiungi nodi <strong>BridgeOut</strong> e <strong>BridgeIn</strong> dalla palette.
+          No bridge channel configured.<br />
+          Add <strong>BridgeOut</strong> and <strong>BridgeIn</strong> nodes from the palette.
         </div>
       ) : (
         channels.map((ch) => (
@@ -167,8 +167,8 @@ export function BridgeTab() {
                 {!ch.outNode && !ch.inNode
                   ? 'Entrambi i nodi mancanti'
                   : !ch.outNode
-                  ? `Manca il nodo BridgeOut con canale "${ch.name}"`
-                  : `Manca il nodo BridgeIn con canale "${ch.name}"`}
+                  ? `Missing BridgeOut node with channel "${ch.name}"`
+                  : `Missing BridgeIn node with channel "${ch.name}"`}
               </div>
             )}
           </div>

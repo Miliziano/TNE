@@ -135,8 +135,8 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           </div>
           <div style={{ fontSize: 9, color: '#8593b5' }}>
             {isEnabled
-              ? `Gruppo "${txId}" · ${txMode === 'xa' ? 'XA two-phase commit' : 'transazione nativa'}`
-              : 'Il nodo scrive in modo indipendente — nessun coordinamento transazionale'}
+              ? `Group "${txId}" · ${txMode === 'xa' ? 'XA two-phase commit' : 'native transaction'}`
+              : 'The node writes independently — no transactional coordination'}
           </div>
         </div>
       </div>
@@ -146,8 +146,8 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           {/* Modalità */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[
-              { value: 'native' as const, label: '🔒 Nativa',  color: TX_NATIVE_COLOR, desc: 'Connessione condivisa — stessa risorsa obbligatoria',    detail: 'BEGIN / COMMIT / ROLLBACK su una singola connessione' },
-              { value: 'xa'     as const, label: '⚡ XA',       color: TX_XA_COLOR,     desc: 'Two-phase commit — risorse diverse supportate',          detail: 'XA PREPARE → XA COMMIT / XA ROLLBACK su tutti i partecipanti' },
+              { value: 'native' as const, label: '🔒 Native',  color: TX_NATIVE_COLOR, desc: 'Shared connection — same resource required',    detail: 'BEGIN / COMMIT / ROLLBACK on a single connection' },
+              { value: 'xa'     as const, label: '⚡ XA',       color: TX_XA_COLOR,     desc: 'Two-phase commit — different resources supported',          detail: 'XA PREPARE → XA COMMIT / XA ROLLBACK on all participants' },
             ].map((m) => (
               <button key={m.value} onClick={() => saveTx({ mode: m.value })}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: txMode === m.value ? `color-mix(in srgb, ${m.color} 12%, #1a2030)` : '#1a2030', border: txMode === m.value ? `1.5px solid ${m.color}` : '1px solid #2a3349' }}>
@@ -159,7 +159,7 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           </div>
 
           {/* Nome gruppo */}
-          <Field label="Nome gruppo transazionale" hint="Tutti i sink con lo stesso nome partecipano alla stessa transazione">
+          <Field label="Transactional group name" hint="All sinks with the same name join the same transaction">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <input style={{ ...inputStyle, color: txColor, fontWeight: 600 }}
                 value={txId} onChange={(e) => saveTx({ id: e.target.value })}
@@ -193,13 +193,13 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           {groupMembers.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ fontSize: 10, color: txColor, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                Partecipanti — {groupMembers.length + 1} nodi
+                Participants — {groupMembers.length + 1} nodes
               </div>
               <div style={{ border: `0.5px solid ${txColor}30`, borderRadius: 6, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: `color-mix(in srgb, ${txColor} 8%, #1a2030)` }}>
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: txColor, flexShrink: 0 }} />
                   <code style={{ fontFamily: 'monospace', fontSize: 10, color: txColor, flex: 1 }}>
-                    {node.data.config?.displayName || node.data.label} <span style={{ color: '#8593b5' }}>(questo nodo)</span>
+                    {node.data.config?.displayName || node.data.label} <span style={{ color: '#8593b5' }}>(this node)</span>
                   </code>
                   {resource && <span style={{ fontSize: 9, color: '#8593b5' }}>{resource.label}</span>}
                 </div>
@@ -226,11 +226,11 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           {txMode === 'native' && conflictingMembers.length > 0 && (
             <div style={{ padding: '8px 12px', background: '#1a0000', borderRadius: 6, border: '1px solid #ff5f5740', fontSize: 10, color: '#ff5f57', lineHeight: 1.5 }}>
               <i className="ti ti-alert-circle" style={{ fontSize: 11, marginRight: 6 }} />
-              <strong>Conflitto risorsa</strong> — in modalità nativa tutti i partecipanti devono usare la stessa risorsa.
+              <strong>Resource conflict</strong> — in native mode all participants must use the same resource.
               {conflictingMembers.length === 1
-                ? ` Il nodo "${conflictingMembers[0].data.config?.displayName || conflictingMembers[0].data.label}" usa una risorsa diversa.`
-                : ` ${conflictingMembers.length} nodi usano risorse diverse.`}
-              {' '}Cambia modalità in <strong>XA</strong> per supportare risorse eterogenee.
+                ? ` The node "${conflictingMembers[0].data.config?.displayName || conflictingMembers[0].data.label}" uses a different resource.`
+                : ` ${conflictingMembers.length} nodes use different resources.`}
+              {' '}Switch mode to <strong>XA</strong> to support heterogeneous resources.
             </div>
           )}
 
@@ -238,7 +238,7 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           {txMode === 'xa' && (
             <div style={{ padding: '8px 12px', background: '#1a1000', borderRadius: 6, border: `0.5px solid ${TX_XA_COLOR}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
               <div style={{ color: TX_XA_COLOR, fontWeight: 600, marginBottom: 4 }}>⚡ XA Two-Phase Commit</div>
-              Supporto XA per dialetto:
+              XA support for dialect:
               <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                 {[
                   { db: 'PostgreSQL', ok: true  },
@@ -258,15 +258,15 @@ export function TransactionGroupEditor({ nodeId }: Props) {
 
           {/* Opzioni */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <Field label="Timeout (secondi)" hint="Rollback automatico se la transazione supera questo tempo">
+            <Field label="Timeout (seconds)" hint="Automatic rollback if the transaction exceeds this time">
               <input type="number" style={inputStyle} value={txTimeout} min={1} max={3600}
                 onChange={(e) => saveTx({ timeout: parseInt(e.target.value) || 30 })} />
             </Field>
-            <Field label="In caso di errore">
+            <Field label="On error">
               <CustomSelect style={inputStyle} value={txOnError}
                 onChange={(e) => saveTx({ onError: e.target.value as 'rollback_all' | 'rollback_self' })}>
-                <option value="rollback_all">Rollback su tutti i partecipanti</option>
-                <option value="rollback_self">Rollback solo su questo nodo</option>
+                <option value="rollback_all">Rollback on all participants</option>
+                <option value="rollback_self">Rollback only on this node</option>
               </CustomSelect>
             </Field>
           </div>
@@ -275,15 +275,15 @@ export function TransactionGroupEditor({ nodeId }: Props) {
           <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${txColor}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
             {txMode === 'native' ? (
               <>
-                <span style={{ color: txColor }}>BEGIN</span> — tutti i sink del gruppo <code style={{ color: txColor }}>{txId || '?'}</code> aprono una transazione condivisa<br />
+                <span style={{ color: txColor }}>BEGIN</span> — all sinks of the group <code style={{ color: txColor }}>{txId || '?'}</code> open a shared transaction<br />
                 <span style={{ color: txColor }}>COMMIT</span> — se tutti completano con successo<br />
                 <span style={{ color: '#ff5f57' }}>ROLLBACK</span> — se uno fallisce → {txOnError === 'rollback_all' ? 'rollback su tutti' : 'rollback solo su questo'}
               </>
             ) : (
               <>
-                <span style={{ color: TX_XA_COLOR }}>XA START</span> '{txId || '?'}' — su tutte le risorse del gruppo<br />
-                <span style={{ color: TX_XA_COLOR }}>XA PREPARE</span> — fase 1: tutte le risorse confermano la disponibilità<br />
-                <span style={{ color: TX_XA_COLOR }}>XA COMMIT</span> / <span style={{ color: '#ff5f57' }}>XA ROLLBACK</span> — fase 2: commit o rollback coordinato
+                <span style={{ color: TX_XA_COLOR }}>XA START</span> '{txId || '?'}' — on all resources of the group<br />
+                <span style={{ color: TX_XA_COLOR }}>XA PREPARE</span> — phase 1: all resources confirm availability<br />
+                <span style={{ color: TX_XA_COLOR }}>XA COMMIT</span> / <span style={{ color: '#ff5f57' }}>XA ROLLBACK</span> — phase 2: coordinated commit or rollback
               </>
             )}
           </div>
