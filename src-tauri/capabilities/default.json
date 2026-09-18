@@ -1,36 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "FlowPilot Studio — permessi desktop",
+  "description": "FlowPilot Studio — permessi desktop MINIMI. Il frontend usa solo il plugin dialog (open/save); tutto il resto passa dai comandi custom registrati (che NON dipendono da queste capability). shell:* e fs:* sono stati RIMOSSI: nessun codice della webview li usa, e toglierli elimina la via 'XSS -> plugin shell/fs -> RCE / accesso ai file'. I nodi shell/ssh del MOTORE restano (girano in Rust nel backend, non via plugin JS).",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "fs:default",
-    "fs:allow-read-text-file",
-    "fs:allow-write-text-file",
-    "fs:allow-read-dir",
-    "fs:allow-mkdir",
-    "fs:allow-exists",
-    "fs:allow-remove",
-    "fs:allow-read-file",
-    "fs:allow-write-file",
-    "fs:allow-stat",
-    "fs:allow-rename",
-    "fs:scope-home-recursive",
-    "fs:scope-document-recursive",
-    "fs:scope-download-recursive",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
-    "shell:default",
-    "shell:allow-spawn",
-    "shell:allow-execute",
-    "shell:allow-kill",
     "log:default",
-    "log:allow-log",
-    "fs:allow-watch"
-   
+    "log:allow-log"
   ]
 }
