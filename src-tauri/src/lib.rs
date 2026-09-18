@@ -109,14 +109,74 @@ fn artifact_seal(
     crate::signing::seal::seal(&plan, &meta)
 }
 
-/// Identità di firma dello sviluppatore: keyId (fingerprint) + chiave pubblica
-/// (base64), generando la chiave al primo uso. Serve allo studio per mostrarla
-/// e per l'enrollment nel trust store della runtime. Vedi §7.
+/// Identità di firma dello sviluppatore: keyId + chiave pubblica, letti dal file
+/// cifrato SENZA passphrase. Vuoti se la chiave non esiste ancora (l'utente la
+/// crea dalla voce Firma). Vedi §7. Per lo stato completo usa `vault_status`.
 #[cfg(feature = "desktop")]
 #[tauri::command]
 fn artifact_signing_identity() -> Result<serde_json::Value, String> {
-    let kp = crate::signing::keys::load_or_create().map_err(|e| format!("chiave di firma: {e}"))?;
-    Ok(serde_json::json!({ "keyId": kp.key_id, "publicKey": kp.public_b64 }))
+    let path = crate::signing::keys::default_key_path();
+    match crate::signing::vault::load_identity(&path) {
+        Some(id) => Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 })),
+        None => Ok(serde_json::json!({ "keyId": "", "publicKey": "" })),
+    }
+}
+
+// ── VAULT della chiave di firma (cifrata a riposo) — comandi per la UI (§7) ──
+
+/// Stato del vault: se esiste una chiave, se è sbloccata in memoria, e la sua
+/// identità pubblica (keyId/publicKey), senza richiedere la passphrase.
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn vault_status() -> Result<serde_json::Value, String> {
+    let path = crate::signing::keys::default_key_path();
+    let id = crate::signing::vault::load_identity(&path);
+    Ok(serde_json::json!({
+        "exists":   crate::signing::vault::key_exists(&path),
+        "unlocked": crate::signing::vault::is_unlocked(),
+        "keyId":    id.as_ref().map(|i| i.key_id.clone()),
+        "publicKey":id.as_ref().map(|i| i.public_b64.clone()),
+    }))
+}
+
+/// Sblocca la chiave con la passphrase (la tiene in memoria per la sessione).
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn vault_unlock(passphrase: String) -> Result<serde_json::Value, String> {
+    let path = crate::signing::keys::default_key_path();
+    let id = crate::signing::vault::unlock(&path, &passphrase)?;
+    Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 }))
+}
+
+/// Ri-blocca la chiave (la dimentica dalla memoria).
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn vault_lock() {
+    crate::signing::vault::lock();
+}
+
+/// Genera una NUOVA chiave dal sistema, la salva cifrata con la passphrase e la
+/// sblocca. Sovrascrive l'eventuale chiave esistente (cambia identità).
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn vault_generate(passphrase: String) -> Result<serde_json::Value, String> {
+    let path = crate::signing::keys::default_key_path();
+    let seed = crate::signing::vault::generate_seed();
+    let id = crate::signing::vault::save_encrypted(&path, &seed, &passphrase)?;
+    crate::signing::vault::unlock(&path, &passphrase)?;
+    Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 }))
+}
+
+/// Importa una chiave fornita dall'utente (seed Ed25519 in base64, 32 byte), la
+/// salva cifrata con la passphrase e la sblocca. Sovrascrive l'esistente.
+#[cfg(feature = "desktop")]
+#[tauri::command]
+fn vault_import(seed: String, passphrase: String) -> Result<serde_json::Value, String> {
+    let path = crate::signing::keys::default_key_path();
+    let s = crate::signing::vault::seed_from_b64(&seed)?;
+    let id = crate::signing::vault::save_encrypted(&path, &s, &passphrase)?;
+    crate::signing::vault::unlock(&path, &passphrase)?;
+    Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 }))
 }
 
 #[cfg(feature = "desktop")]
@@ -268,6 +328,11 @@ pub fn run() {
         studio_identity,
         artifact_seal,
         artifact_signing_identity,
+        vault_status,
+        vault_unlock,
+        vault_lock,
+        vault_generate,
+        vault_import,
         studio_identity_set_label,
         db_query,
         db_infer_schema,

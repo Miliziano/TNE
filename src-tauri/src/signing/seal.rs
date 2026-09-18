@@ -10,6 +10,7 @@
 use super::canonical::plan_hash;
 use super::keys::{self, Keypair};
 use super::sign::sign_manifest;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 
 /// Costruisce e firma il manifesto con una coppia di chiavi data (pura, no IO).
@@ -26,10 +27,17 @@ pub fn seal_with(plan: &Value, meta: &Value, kp: &Keypair) -> Value {
     json!({ "manifest": manifest, "sig": sig, "publicKey": kp.public_b64 })
 }
 
-/// Carica/crea la chiave dello sviluppatore (~/.flowpilot/signing-key.json) e
-/// sigilla l'artifact.
+/// Firma con la chiave SBLOCCATA in memoria (vault). Se è bloccata, lo studio
+/// deve prima chiedere la passphrase all'utente.
 pub fn seal(plan: &Value, meta: &Value) -> Result<Value, String> {
-    let kp = keys::load_or_create().map_err(|e| format!("chiave di firma: {e}"))?;
+    let signing = super::vault::unlocked_signing_key()
+        .ok_or_else(|| "chiave di firma bloccata: inserisci la passphrase".to_string())?;
+    let pk = signing.verifying_key().to_bytes();
+    let kp = Keypair {
+        key_id: keys::key_id(&pk),
+        public_b64: STANDARD.encode(pk),
+        signing,
+    };
     Ok(seal_with(plan, meta, &kp))
 }
 

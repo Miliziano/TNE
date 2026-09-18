@@ -1,0 +1,238 @@
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 0a3fbd8..dbfa0db 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -109,14 +109,74 @@ fn artifact_seal(
+     crate::signing::seal::seal(&plan, &meta)
+ }
+ 
+-/// Identità di firma dello sviluppatore: keyId (fingerprint) + chiave pubblica
+-/// (base64), generando la chiave al primo uso. Serve allo studio per mostrarla
+-/// e per l'enrollment nel trust store della runtime. Vedi §7.
++/// Identità di firma dello sviluppatore: keyId + chiave pubblica, letti dal file
++/// cifrato SENZA passphrase. Vuoti se la chiave non esiste ancora (l'utente la
++/// crea dalla voce Firma). Vedi §7. Per lo stato completo usa `vault_status`.
+ #[cfg(feature = "desktop")]
+ #[tauri::command]
+ fn artifact_signing_identity() -> Result<serde_json::Value, String> {
+-    let kp = crate::signing::keys::load_or_create().map_err(|e| format!("chiave di firma: {e}"))?;
+-    Ok(serde_json::json!({ "keyId": kp.key_id, "publicKey": kp.public_b64 }))
++    let path = crate::signing::keys::default_key_path();
++    match crate::signing::vault::load_identity(&path) {
++        Some(id) => Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 })),
++        None => Ok(serde_json::json!({ "keyId": "", "publicKey": "" })),
++    }
++}
++
++// ── VAULT della chiave di firma (cifrata a riposo) — comandi per la UI (§7) ──
++
++/// Stato del vault: se esiste una chiave, se è sbloccata in memoria, e la sua
++/// identità pubblica (keyId/publicKey), senza richiedere la passphrase.
++#[cfg(feature = "desktop")]
++#[tauri::command]
++fn vault_status() -> Result<serde_json::Value, String> {
++    let path = crate::signing::keys::default_key_path();
++    let id = crate::signing::vault::load_identity(&path);
++    Ok(serde_json::json!({
++        "exists":   crate::signing::vault::key_exists(&path),
++        "unlocked": crate::signing::vault::is_unlocked(),
++        "keyId":    id.as_ref().map(|i| i.key_id.clone()),
++        "publicKey":id.as_ref().map(|i| i.public_b64.clone()),
++    }))
++}
++
++/// Sblocca la chiave con la passphrase (la tiene in memoria per la sessione).
++#[cfg(feature = "desktop")]
++#[tauri::command]
++fn vault_unlock(passphrase: String) -> Result<serde_json::Value, String> {
++    let path = crate::signing::keys::default_key_path();
++    let id = crate::signing::vault::unlock(&path, &passphrase)?;
++    Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 }))
++}
++
++/// Ri-blocca la chiave (la dimentica dalla memoria).
++#[cfg(feature = "desktop")]
++#[tauri::command]
++fn vault_lock() {
++    crate::signing::vault::lock();
++}
++
++/// Genera una NUOVA chiave dal sistema, la salva cifrata con la passphrase e la
++/// sblocca. Sovrascrive l'eventuale chiave esistente (cambia identità).
++#[cfg(feature = "desktop")]
++#[tauri::command]
++fn vault_generate(passphrase: String) -> Result<serde_json::Value, String> {
++    let path = crate::signing::keys::default_key_path();
++    let seed = crate::signing::vault::generate_seed();
++    let id = crate::signing::vault::save_encrypted(&path, &seed, &passphrase)?;
++    crate::signing::vault::unlock(&path, &passphrase)?;
++    Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 }))
++}
++
++/// Importa una chiave fornita dall'utente (seed Ed25519 in base64, 32 byte), la
++/// salva cifrata con la passphrase e la sblocca. Sovrascrive l'esistente.
++#[cfg(feature = "desktop")]
++#[tauri::command]
++fn vault_import(seed: String, passphrase: String) -> Result<serde_json::Value, String> {
++    let path = crate::signing::keys::default_key_path();
++    let s = crate::signing::vault::seed_from_b64(&seed)?;
++    let id = crate::signing::vault::save_encrypted(&path, &s, &passphrase)?;
++    crate::signing::vault::unlock(&path, &passphrase)?;
++    Ok(serde_json::json!({ "keyId": id.key_id, "publicKey": id.public_b64 }))
+ }
+ 
+ #[cfg(feature = "desktop")]
+@@ -268,6 +328,11 @@ pub fn run() {
+         studio_identity,
+         artifact_seal,
+         artifact_signing_identity,
++        vault_status,
++        vault_unlock,
++        vault_lock,
++        vault_generate,
++        vault_import,
+         studio_identity_set_label,
+         db_query,
+         db_infer_schema,
+diff --git a/src-tauri/src/signing/keys.rs b/src-tauri/src/signing/keys.rs
+index 5538b63..8a65e13 100644
+--- a/src-tauri/src/signing/keys.rs
++++ b/src-tauri/src/signing/keys.rs
+@@ -1,18 +1,13 @@
+ // ─── src-tauri/src/signing/keys.rs ────────────────────────────────
+-// Gestione della chiave dello sviluppatore per la FIRMA degli artifact.
+-// (HANDOFF-firma-artifact.md §6/§7)
+-//
+-// v1: chiave privata in un FILE protetto (0600) accanto a studio.json, in
+-// ~/.flowpilot/signing-key.json. Semplice e air-gap (nessun collegamento
+-// alla runtime). Upgrade possibile: keychain del SO (crate `keyring`, già
+-// usato per i segreti) — hardening successivo.
++// Helper condivisi per la chiave di firma: percorso del file, fingerprint
++// (keyId) e il tipo Keypair. Lo STORAGE della chiave (cifrato a riposo) e lo
++// sblocco in memoria stanno in `vault.rs`. (HANDOFF-firma-artifact.md §6/§7)
+ 
+-use base64::{engine::general_purpose::STANDARD, Engine};
+ use ed25519_dalek::SigningKey;
+ use sha2::{Digest, Sha256};
+-use std::path::{Path, PathBuf};
++use std::path::PathBuf;
+ 
+-/// Percorso di default: ~/.flowpilot/signing-key.json (accanto a studio.json).
++/// Percorso del file chiave: ~/.flowpilot/signing-key.json (accanto a studio.json).
+ pub fn default_key_path() -> PathBuf {
+     let home = std::env::var("HOME")
+         .or_else(|_| std::env::var("USERPROFILE"))
+@@ -34,63 +29,6 @@ pub struct Keypair {
+     pub public_b64: String,
+ }
+ 
+-fn from_signing(sk: SigningKey) -> Keypair {
+-    let pk = sk.verifying_key().to_bytes();
+-    Keypair { key_id: key_id(&pk), public_b64: STANDARD.encode(pk), signing: sk }
+-}
+-
+-/// Carica la chiave da `path`; se non esiste la GENERA e la salva (0600).
+-pub fn load_or_create_at(path: &Path) -> std::io::Result<Keypair> {
+-    if path.exists() {
+-        let raw = std::fs::read_to_string(path)?;
+-        let v: serde_json::Value = serde_json::from_str(&raw)
+-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+-        let b64 = v.get("private").and_then(|x| x.as_str()).ok_or_else(|| {
+-            std::io::Error::new(std::io::ErrorKind::InvalidData, "campo 'private' mancante")
+-        })?;
+-        let bytes = STANDARD
+-            .decode(b64)
+-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+-        let arr: [u8; 32] = bytes.try_into().map_err(|_| {
+-            std::io::Error::new(std::io::ErrorKind::InvalidData, "chiave privata di 32 byte attesa")
+-        })?;
+-        return Ok(from_signing(SigningKey::from_bytes(&arr)));
+-    }
+-    let sk = SigningKey::generate(&mut rand_core::OsRng);
+-    save(path, &sk)?;
+-    Ok(from_signing(sk))
+-}
+-
+-/// Come sopra, sul percorso di default.
+-pub fn load_or_create() -> std::io::Result<Keypair> {
+-    load_or_create_at(&default_key_path())
+-}
+-
+-fn save(path: &Path, sk: &SigningKey) -> std::io::Result<()> {
+-    if let Some(dir) = path.parent() {
+-        std::fs::create_dir_all(dir)?;
+-    }
+-    let pk = sk.verifying_key().to_bytes();
+-    let doc = serde_json::json!({
+-        "alg":     "ed25519",
+-        "private": STANDARD.encode(sk.to_bytes()),
+-        "public":  STANDARD.encode(pk),
+-        "keyId":   key_id(&pk),
+-    });
+-    std::fs::write(path, serde_json::to_vec_pretty(&doc).unwrap())?;
+-    restrict(path)
+-}
+-
+-#[cfg(unix)]
+-fn restrict(path: &Path) -> std::io::Result<()> {
+-    use std::os::unix::fs::PermissionsExt;
+-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+-}
+-#[cfg(not(unix))]
+-fn restrict(_path: &Path) -> std::io::Result<()> {
+-    Ok(())
+-}
+-
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+@@ -103,16 +41,4 @@ mod tests {
+             "ed25519:fe812c12f3ab4ce6ac5db69ac352f906cb1b11ef43fb33e252ef7ff552263889"
+         );
+     }
+-
+-    #[test]
+-    fn crea_e_ricarica_stessa_chiave() {
+-        let dir = std::env::temp_dir().join(format!("flowpilot-keytest-{}", std::process::id()));
+-        let path = dir.join("signing-key.json");
+-        let _ = std::fs::remove_dir_all(&dir);
+-        let a = load_or_create_at(&path).unwrap(); // genera
+-        let b = load_or_create_at(&path).unwrap(); // ricarica
+-        assert_eq!(a.key_id, b.key_id);
+-        assert_eq!(a.public_b64, b.public_b64);
+-        let _ = std::fs::remove_dir_all(&dir);
+-    }
+ }
+diff --git a/src-tauri/src/signing/seal.rs b/src-tauri/src/signing/seal.rs
+index 627c217..27fcc22 100644
+--- a/src-tauri/src/signing/seal.rs
++++ b/src-tauri/src/signing/seal.rs
+@@ -10,6 +10,7 @@
+ use super::canonical::plan_hash;
+ use super::keys::{self, Keypair};
+ use super::sign::sign_manifest;
++use base64::{engine::general_purpose::STANDARD, Engine};
+ use serde_json::{json, Value};
+ 
+ /// Costruisce e firma il manifesto con una coppia di chiavi data (pura, no IO).
+@@ -26,10 +27,17 @@ pub fn seal_with(plan: &Value, meta: &Value, kp: &Keypair) -> Value {
+     json!({ "manifest": manifest, "sig": sig, "publicKey": kp.public_b64 })
+ }
+ 
+-/// Carica/crea la chiave dello sviluppatore (~/.flowpilot/signing-key.json) e
+-/// sigilla l'artifact.
++/// Firma con la chiave SBLOCCATA in memoria (vault). Se è bloccata, lo studio
++/// deve prima chiedere la passphrase all'utente.
+ pub fn seal(plan: &Value, meta: &Value) -> Result<Value, String> {
+-    let kp = keys::load_or_create().map_err(|e| format!("chiave di firma: {e}"))?;
++    let signing = super::vault::unlocked_signing_key()
++        .ok_or_else(|| "chiave di firma bloccata: inserisci la passphrase".to_string())?;
++    let pk = signing.verifying_key().to_bytes();
++    let kp = Keypair {
++        key_id: keys::key_id(&pk),
++        public_b64: STANDARD.encode(pk),
++        signing,
++    };
+     Ok(seal_with(plan, meta, &kp))
+ }
+ 
