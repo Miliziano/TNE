@@ -951,6 +951,43 @@ dei nodi non implementati → errore duro) è stata esplicitamente messa da part
 
 ---
 
+## AGGIORNAMENTO — firma implementata + hardening studio (stato al P331, 18 settembre)
+
+La **catena di fiducia degli artifact è implementata e in albero**, e lo **studio è
+stato irrobustito**. Dettaglio completo (design + modello di minaccia) in
+**`HANDOFF-firma-artifact.md`**, che ha in cima un blocco "STATO DI IMPLEMENTAZIONE"
+aggiornato. Sintesi:
+
+**Firma (P314–P327).** Forma canonica del piano + `planHash` (TS⟷Rust, vettore condiviso);
+firma **Ed25519** del manifesto; export produce il `.ffart` **firmato**; **verifica lato
+runner** fail-closed + **trust store** (`~/.flowpilot/trust-store.json`) + modalità
+`FLOWPILOT_SIGNATURE_MODE = off|warn|enforce`. Chiave privata **cifrata a riposo**
+(argon2id + XChaCha20-Poly1305) in `~/.flowpilot/signing-key.json`, sbloccata **in memoria
+per la sessione** e **azzerata** (zeroize) al lock/chiusura; voce UI dedicata **Signing**.
+Due scelte chiave: **solo autenticità** (cifratura artifact rimandata) e **Modo A** — il
+**manifesto è l'unica fonte di verità** e assorbe tutti i campi operativi (monitor,
+logLevel, planName, studio, requiredSecrets…), così sono firmati e il runner li legge da
+lì. Firma **libera multi-sviluppatore** (trust store = allowlist a più voci).
+
+**Hardening studio (P328–P331).** Chiude il vettore XSS→RCE che avrebbe scavalcato firma e
+vault: **capability Tauri minime** (rimosse `shell:*` e `fs:*`, inutilizzate dal frontend),
+**CSP `default-src 'self'`** (blocca gli script iniettati; `script-src 'self'`, `devCsp`
+per l'HMR), **icone/font bundlati in locale** (via i CDN → CSP pura, studio offline), e
+**guardrail ESLint anti-XSS** (vieta `dangerouslySetInnerHTML`/`innerHTML`/`eval`/…). La
+sanificazione non serviva: lo studio è già sicuro per costruzione (React scappa il testo,
+`.ffplan` via `JSON.parse`, zero bypass) → il guardrail impedisce la regressione.
+
+**Rimasti in sospeso (non bloccanti):**
+- compile-time passphrase (prompt inline in CompileModal alla prima compilazione di sessione);
+- traduzione EN dei **pannelli dei singoli nodi** (`src/nodes/types/*/Panel.tsx`) e di
+  qualche modale — le aree già segnalate (proprietà, transizioni→transactions, bridge,
+  lane/variabili, SigningModal) sono chiuse (P323–P325);
+- prossimi capitoli sicurezza: **messa in sicurezza del monitor** (TLS/auth/bind locale),
+  **redaction segreti** nei log, **sandbox/policy nodi pericolosi** della runtime;
+  supply-chain (firma binari, `cargo/npm audit`).
+
+---
+
 ## Oracle e Informix — pensata (DA RIPRENDERE)
 
 Richiesto come "fondamentale". **Non è un'aggiunta piccola: è una decisione architetturale del motore.**
