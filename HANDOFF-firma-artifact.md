@@ -7,6 +7,71 @@
 
 ---
 
+## ✅ STATO DI IMPLEMENTAZIONE — aggiornamento (18 settembre)
+
+La catena è **implementata e in albero**: firma P314–P327, hardening dello studio
+P328–P331. Alcune scelte sono cambiate rispetto al design originale qui sotto:
+**dove differiscono, vale questo blocco.**
+
+### Mappa patch (firma)
+- **P314** forma canonica del piano + planHash — TS `src/ir/canonicalPlan.ts` ⟷ Rust
+  `src-tauri/src/signing/canonical.rs`, vettore condiviso `vectors/canonical_plan_v1.json`.
+- **P315** l'export usa il planHash canonico.
+- **P316** nucleo firma Rust: `keys.rs` + `sign.rs` (Ed25519, sign/verify del manifesto).
+- **P317** comando Tauri `artifact_seal` + l'export produce il `.ffart` **firmato**.
+- **P318** verifica lato runner (`verify.rs`, 7 passi fail-closed) + trust store
+  (`trust.rs`) + modalità `FLOWPILOT_SIGNATURE_MODE = off | warn | enforce`.
+- **P319** identità di firma in CompileModal + esportazione voce trust store.
+- **P320** **vault**: chiave privata **cifrata a riposo** (`vault.rs`).
+- **P321** seal/identity agganciati al vault; comandi `vault_*`; rimosso il salvataggio in chiaro.
+- **P322** voce UI dedicata **Signing** (`SigningKeyModal.tsx`).
+- **P326** **Modo A** (vedi sotto).
+- **P327** **zeroize** del seme/chiavi in RAM.
+
+### Delta di design rispetto al testo sotto
+1. **Hash = SHA-256** (non BLAKE3): riusa il prefisso `sha256:` e `sha2` già in albero. (§15.1)
+2. **Solo autenticità (firma)**; cifratura degli artifact rimandata. (§0/§14)
+3. **Busta = Modo A** (sostituisce §5): il **MANIFESTO è l'unica fonte di verità** e
+   **assorbe tutti i campi operativi** (planName, monitor, logLevel, studio, studioVersion,
+   profile, platform, requiredSecrets, planVersion, engineVersionRange, createdAt) più i
+   calcolati/autoritativi (planHash, keyId, hashAlg, sigAlg). La busta è minimale:
+   `{ formatVersion, kind, manifest, sig, publicKey, plan }` — nessun campo operativo
+   fuori dal manifesto (là non sarebbe firmato). Il runner li legge dal **manifesto
+   verificato** (`man`, fallback alla radice per piani nudi). → Chiude il buco per cui
+   cambiare `monitor`/`logLevel` in transito **non** rompeva la firma.
+4. **Chiave a riposo CIFRATA** (aggiorna §7): file `~/.flowpilot/signing-key.json` con
+   `keyId`/`public` in chiaro e `enc = { kdf:"argon2id", salt, nonce, ciphertext(seed) }`.
+   Flusso: passphrase → **argon2id** → chiave → **XChaCha20-Poly1305** sul seme. Sblocco
+   **in memoria per la sessione** (`vault.rs`) e **zeroize** al lock/chiusura (seme, chiave
+   derivata e buffer decifrato azzerati dalla RAM). UI: voce **Signing** (genera/importa/
+   sblocca/blocca/esporta pubblica). Firma **libera multi-sviluppatore**: il trust store è
+   un allowlist a più voci, nessun coordinamento tra sviluppatori.
+
+### Modello di minaccia (cosa protegge, e cosa NO)
+1. **Il vero gioiello è `trust-store.json` sulla runtime.** Chi può SCRIVERLO decide di
+   chi ci si fida → permessi del file e sicurezza dell'host sono portanti quanto la cripto.
+2. **Cifratura a riposo ≠ desktop compromesso.** Mentre è sbloccata, la chiave è in RAM;
+   un malware-come-utente può estrarla. Mitigato con zeroize *dopo* l'uso; cura vera = HSM.
+3. **La firma prova *chi*, non *cosa*.** Un firmatario autorizzato può produrre un artifact
+   ostile. Difesa complementare = policy nodi pericolosi + sandbox della runtime (DA FARE).
+4. **Copertura firma:** con Modo A copre piano + TUTTO il manifesto (chiuso il buco del §4
+   originale sui campi non firmati).
+5. **Forza della passphrase:** argon2id rallenta il brute-force offline sul file rubato, ma
+   una passphrase debole resta attaccabile.
+6. **Revoca:** il runner verifica a ogni avvio → la revoca (togliere/`revoked` nel trust
+   store) ha effetto al run successivo. Niente scadenza automatica (`notBefore/notAfter` non
+   ancora applicati); con lo scheduler "caldo" futuro la cache andrà invalidata al cambio.
+7. **Ci si fida del BINARIO del runner.** Firmiamo gli artifact, non gli eseguibili
+   (supply-chain = capitolo a sé: `cargo audit`/`npm audit`, firma dei binari).
+8. **`engineVersionRange` = `"*"`:** gancio, non ancora un vincolo reale.
+
+> Hardening dello studio (P328–P331) — protegge l'INTERA catena, perché una XSS→RCE nella
+> webview scavalcherebbe firma e vault: capability Tauri minime (via `shell:*`/`fs:*`), CSP
+> `default-src 'self'` (blocca gli script iniettati), icone/font bundlati in locale (niente
+> CDN), e guardrail ESLint anti-XSS. Dettaglio nel `HANDOFF.md` generale.
+
+---
+
 ## 0. Stato e decisioni già prese
 
 - **Solo firma** in v1 (autenticità + integrità + attribuzione). Niente cifratura ora.

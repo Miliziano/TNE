@@ -951,12 +951,12 @@ dei nodi non implementati → errore duro) è stata esplicitamente messa da part
 
 ---
 
-## AGGIORNAMENTO — firma implementata + hardening studio (stato al P331, 18 settembre)
+## AGGIORNAMENTO — firma + hardening + redaction (stato al P332, 18 settembre)
 
-La **catena di fiducia degli artifact è implementata e in albero**, e lo **studio è
-stato irrobustito**. Dettaglio completo (design + modello di minaccia) in
-**`HANDOFF-firma-artifact.md`**, che ha in cima un blocco "STATO DI IMPLEMENTAZIONE"
-aggiornato. Sintesi:
+La **catena di fiducia degli artifact è implementata**, lo **studio è irrobustito** e i
+**segreti sono redatti** nei log/eventi verso il monitor. Design + modello di minaccia
+completi in **`HANDOFF-firma-artifact.md`** (blocco "STATO DI IMPLEMENTAZIONE" in cima).
+Sintesi:
 
 **Firma (P314–P327).** Forma canonica del piano + `planHash` (TS⟷Rust, vettore condiviso);
 firma **Ed25519** del manifesto; export produce il `.ffart` **firmato**; **verifica lato
@@ -977,14 +977,61 @@ per l'HMR), **icone/font bundlati in locale** (via i CDN → CSP pura, studio of
 sanificazione non serviva: lo studio è già sicuro per costruzione (React scappa il testo,
 `.ffplan` via `JSON.parse`, zero bypass) → il guardrail impedisce la regressione.
 
-**Rimasti in sospeso (non bloccanti):**
-- compile-time passphrase (prompt inline in CompileModal alla prima compilazione di sessione);
-- traduzione EN dei **pannelli dei singoli nodi** (`src/nodes/types/*/Panel.tsx`) e di
-  qualche modale — le aree già segnalate (proprietà, transizioni→transactions, bridge,
-  lane/variabili, SigningModal) sono chiuse (P323–P325);
-- prossimi capitoli sicurezza: **messa in sicurezza del monitor** (TLS/auth/bind locale),
-  **redaction segreti** nei log, **sandbox/policy nodi pericolosi** della runtime;
-  supply-chain (firma binari, `cargo/npm audit`).
+**Redaction segreti (P332).** `secrets.rs` tiene un **registro** dei valori di segreto
+risolti (via `resolve_secret`/`set_secret`) e `redact()` li maschera con `***` **al confine
+di emissione**: `emit_log` (`NodeLog.message`) ed `emit_failed` (`NodeFailed.error`) in
+`executor.rs`. Così un comando ssh/shell o una connection-string con password non trapela
+nel monitor. Soglia ≥ 4 char (niente over-masking); maschera il valore **letterale** (limite
+noto: non le forme trasformate, es. URL-encoded). Le righe non sono campionate al monitor →
+non serve redigerle lì (i sink a valle sono l'output voluto dall'autore del piano).
+
+### Deliverable prodotti in questa sessione (oltre alle patch)
+- **`HANDOFF-firma-artifact.md`** — design firma + modello di minaccia (aggiornato a Modo A /
+  vault / zeroize).
+- **`MANUALE-build-esecuzione.md`** — manuale build+esecuzione Linux/Windows, con la sezione
+  dedicata ai segreti.
+- **`flowpilot-security-brochure.html`** — brochure tecnica di sicurezza per acquirenti
+  (HTML autoportante; anche pubblicata come artifact). ⚠️ **Da aggiornare** col nuovo stato
+  (redaction segreti; sezione "garantito oggi" allineata) — vedi PROMEMORIA.
+- Patch di sessione, da applicare **in ordine**: **P310–P313** (traduzioni),
+  **P314–P327** (firma), **P328–P331** (hardening studio), **P332** (redaction segreti).
+  Nota: ogni Pxxx è diffata sopra la precedente committata (concatenazione).
+
+### Prossimi passi / lavori vivi
+- **Sicurezza del monitor** (P0 di sicurezza rimasto): oggi HTTP in chiaro, viste di lettura
+  aperte, ingest aperto se manca il token → TLS (o reverse proxy), auth **anche in lettura**,
+  bind locale di default, limiti su dimensione/rate dell'ingest.
+- **Sandbox / least-privilege della runtime** + policy per disabilitare i nodi pericolosi
+  (shell/ssh) su una data runtime — è la difesa complementare a "la firma prova *chi*, non
+  *cosa*".
+- **Supply-chain**: firma dei binari (studio/runner), `cargo audit` / `npm audit` in CI.
+- **Rifiniture firma**: `engineVersionRange` reale (oggi `"*"`, un gancio), audit firmato
+  nel monitor (chi ha eseguito cosa).
+- **Affidabilità** (messa da parte, ma reale per un acquirente serio): join tenuto
+  INTERAMENTE in RAM (OOM su dataset grandi), ripresa/checkpoint dopo crash, timeout
+  uniformi su tutti i nodi, versionamento artifact↔motore.
+- **Distribuzione come prodotto**: code-signing + notarizzazione (Windows SmartScreen /
+  macOS Gatekeeper), Tauri updater firmato, LICENSE/EULA + attribuzioni dipendenze (crate +
+  font/icone Tabler/IBM Plex/JetBrains), doc end-user + progetti d'esempio.
+- **Chiusure leggere**: compile-time passphrase (prompt inline in CompileModal alla prima
+  compilazione di sessione); traduzione EN dei **pannelli dei singoli nodi**
+  (`src/nodes/types/*/Panel.tsx`) e di qualche modale import/export (le aree segnalate —
+  proprietà, transactions, bridge, lane/variabili, SigningModal — sono chiuse in P323–P325).
+
+### ⭐ PROMEMORIA ATTIVI (richiesti esplicitamente dall'utente)
+1. **Aggiornare la brochure** di sicurezza (`flowpilot-security-brochure.html`) col lavoro
+   nuovo: redaction dei segreti, e sezione "garantito oggi" allineata allo stato P332.
+2. **Supporto ODBC** per database — casi d'uso **Oracle** e **Informix**. È la realizzazione
+   del topic parcheggiato **"Oracle e Informix — pensata (DA RIPRENDERE)"** qui sotto: via
+   decisa = **ODBC per entrambi** (crate `odbc-api`); prerequisito d'ambiente sul runner =
+   librerie client del fornitore (Oracle Instant Client / IBM Informix CSDK) + driver
+   manager (unixODBC su Linux/mac). Lavoro a più patch: nuovo nodo/config nello studio +
+   implementazione source/sink ODBC nel motore.
+
+### Decisioni SCARTATE (non riproporre)
+- **Data di scadenza dello studio** — valutata e **scartata** dall'utente. (Su desktop
+  sarebbe stata comunque un cancello "morbido", non enforcement, e avrebbe stonato col
+  valore air-gap.)
 
 ---
 
