@@ -10,6 +10,8 @@
 // più i comandi per impostare/leggere un segreto — l'unico punto da estendere è
 // `resolve_secret` qui sotto.
 
+use std::sync::{Mutex, OnceLock};
+
 /// Nome del "service" nel keychain del SO (namespace dei segreti di FlowPilot).
 const SERVICE: &str = "flowpilot";
 
@@ -22,17 +24,23 @@ const SERVICE: &str = "flowpilot";
 pub fn resolve_secret(name: &str) -> Option<String> {
     if let Ok(v) = std::env::var(name) {
         if !v.is_empty() {
+            remember_secret(&v);
             return Some(v);
         }
     }
-    keyring::Entry::new(SERVICE, name)
+    let kc = keyring::Entry::new(SERVICE, name)
         .ok()
         .and_then(|e| e.get_password().ok())
-        .filter(|v| !v.is_empty())
+        .filter(|v| !v.is_empty());
+    if let Some(ref v) = kc {
+        remember_secret(v);
+    }
+    kc
 }
 
 /// Imposta un segreto nel keychain del SO (provisioning sulla macchina).
 pub fn set_secret(name: &str, value: &str) -> Result<(), String> {
+    remember_secret(value);
     keyring::Entry::new(SERVICE, name)
         .map_err(|e| e.to_string())?
         .set_password(value)
@@ -88,4 +96,69 @@ pub fn resolve_secret_refs(s: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+// ── REDACTION dei segreti nei log/eventi (verso il monitor e stdout) ──────────
+// I valori dei segreti risolti in questo processo vengono registrati qui, e
+// `redact()` li maschera nei testi emessi (NodeLog.message, NodeFailed.error).
+// Difesa al confine di EMISSIONE: cattura qualunque nodo, indipendentemente da
+// dove il valore sia finito (comando ssh/shell, connection-string, ecc.).
+// Limite noto: maschera il valore LETTERALE; una forma trasformata (es. URL-
+// encoded) non verrebbe colta. Soglia >= 4 char per non mascherare valori banali.
+
+fn secret_registry() -> &'static Mutex<Vec<String>> {
+    static R: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
+    R.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+/// Registra un valore di segreto risolto, per la successiva redaction.
+fn remember_secret(value: &str) {
+    if value.chars().count() < 4 {
+        return; // valori troppo brevi: mascherarli spezzerebbe testo innocuo
+    }
+    if let Ok(mut reg) = secret_registry().lock() {
+        if !reg.iter().any(|v| v == value) {
+            reg.push(value.to_string());
+            // i più lunghi prima: se un segreto è sottostringa di un altro,
+            // si maschera prima quello più lungo.
+            reg.sort_by(|a, b| b.len().cmp(&a.len()));
+        }
+    }
+}
+
+/// Maschera con `***` ogni valore di segreto risolto in questo processo.
+/// Da usare SOLO al confine di emissione (log/eventi). Nessun costo se non è
+/// stato risolto alcun segreto.
+pub fn redact(text: &str) -> String {
+    let reg = match secret_registry().lock() {
+        Ok(r) => r,
+        Err(_) => return text.to_string(),
+    };
+    if reg.is_empty() {
+        return text.to_string();
+    }
+    let mut out = text.to_string();
+    for v in reg.iter() {
+        if out.contains(v.as_str()) {
+            out = out.replace(v.as_str(), "***");
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod redaction_tests {
+    use super::*;
+
+    #[test]
+    fn maschera_i_segreti_registrati_non_i_valori_brevi() {
+        remember_secret("S3cr3t!Passw0rd");
+        remember_secret("abc123def456");
+        remember_secret("ok"); // < 4 → ignorato
+        let a = redact("ssh with password 'S3cr3t!Passw0rd' ok");
+        assert!(!a.contains("S3cr3t!Passw0rd"));
+        assert!(a.contains("***") && a.contains("ok")); // 'ok' resta, non spezza
+        let b = redact("postgres://u:S3cr3t!Passw0rd@h Bearer abc123def456");
+        assert!(!b.contains("S3cr3t!Passw0rd") && !b.contains("abc123def456"));
+    }
 }

@@ -115,7 +115,7 @@ impl NodeContext {
             node_label: node_label.to_string(),
             level:      level.to_string(),
             row_num,
-            message,
+            message:    crate::secrets::redact(&message),
             target:     target.to_string(),
         });
     }
@@ -123,7 +123,7 @@ impl NodeContext {
     pub fn emit_failed(&self, error: String) {
         push_event(EngineEvent::NodeFailed {
             run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
-            node_id: self.node_id.clone(), error,
+            node_id: self.node_id.clone(), error: crate::secrets::redact(&error),
         });
     }
     pub fn emit_output_stats(&self, counts: std::collections::HashMap<String, u64>) {
