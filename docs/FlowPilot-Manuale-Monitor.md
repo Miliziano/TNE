@@ -38,17 +38,25 @@ cargo build --bin flowpilot_monitor --no-default-features --features monitor --r
 ```
 → binario in `src-tauri/target/release/flowpilot_monitor`.
 
-Avvio:
+Avvio — servono **due token diversi** (§6), altrimenti il monitor **non parte**:
 ```bash
-./flowpilot_monitor            # porta 8787 (default)
+export MONITOR_TOKEN=$(openssl rand -hex 32)        # ingest: lo danno i runner
+export MONITOR_READ_TOKEN=$(openssl rand -hex 32)   # lettura: lo usi tu nel browser
+./flowpilot_monitor            # porta 8787 (default), solo su 127.0.0.1
 ./flowpilot_monitor 9000       # porta a scelta
+```
+Per una **prova veloce su questa macchina** si possono omettere i token, ma va detto
+esplicitamente (e funziona solo in ascolto su 127.0.0.1):
+```bash
+MONITOR_INSECURE_LOCAL=1 ./flowpilot_monitor
 ```
 
 All'avvio il monitor **dichiara come è configurato** — leggi quelle righe, dicono
 tutto:
-- l'indirizzo e la porta,
+- l'indirizzo e la porta (di default **127.0.0.1**: raggiungibile solo da qui),
 - **la cartella dati** e **quanti run ha ricaricato** da disco,
-- se l'ingest è **protetto da token** (🔒) o **aperto a chiunque** (⚠).
+- se ingest e lettura sono **protetti da token** (🔒) o aperti in modalità locale (⚠),
+- gli avvisi (token uguali, ascolto in rete in HTTP in chiaro).
 
 > ⚠️ **L'interfaccia web è compilata dentro il binario.** Se applichi una patch
 > che tocca la vista, non basta ricaricare la pagina: va **ricompilato e
@@ -60,7 +68,14 @@ tutto:
 | Variabile | Default | Effetto |
 |---|---|---|
 | `MONITOR_DATA_DIR` | `~/.flowpilot/monitor-data` | Cartella dei log persistiti (un file per run) |
-| `MONITOR_TOKEN` | *(vuoto)* | Se impostata, `/ingest` la esige (§6). Vuoto = ingest aperto |
+| `MONITOR_BIND` | `127.0.0.1` | Indirizzo d'ascolto. `0.0.0.0` (o un IP) per esporlo in rete — meglio dietro un reverse proxy TLS (§6) |
+| `MONITOR_TOKEN` | **obbligatoria** | Token di **ingest** (runner → `/ingest`), min 16 caratteri (§6) |
+| `MONITOR_READ_TOKEN` | **obbligatoria** | Token di **lettura** (vista + API), min 16 caratteri, **diverso** dal precedente (§6) |
+| `MONITOR_INSECURE_LOCAL` | *(spenta)* | `1` = token facoltativi, ammesso **solo** con bind su loopback (prove locali) |
+| `MONITOR_MAX_BODY_BYTES` | `8388608` (8 MiB) | Corpo massimo di un push; oltre → **413** |
+| `MONITOR_RATE_BYTES_PER_MIN` | `67108864` (64 MiB) | Volume di ingest per IP al minuto; oltre → **429**. `0` = nessun tetto |
+| `MONITOR_AUTH_FAIL_MAX` | `20` | Password di lettura errate per IP al minuto; oltre → **429** sulle letture. `0` = off |
+| `MONITOR_WORKERS` | `16` | Richieste servite in parallelo; coda piena → **503** |
 | `MONITOR_MAX_RUNS` | `200` | Quanti run tenere **in memoria**; oltre, escono i più vecchi (i **file restano**) |
 | `MONITOR_MAX_EVENTS` | `50000` | Tetto eventi **in memoria** per run; oltre, si tengono i più recenti (il file resta completo) |
 
@@ -89,8 +104,10 @@ gli eventi vengono appesi a `flowpilot-monitor-fallback.ndjson` nella cartella d
 cui hai lanciato il runner, così non si perdono: potrai reinviarli o aprirli a
 mano più tardi (i duplicati vengono riconosciuti, §5).
 
-**Token:** se il monitor lo richiede, il runner lo prende da `MONITOR_TOKEN`
-**dell'ambiente della macchina che esegue** — mai dall'artifact (§6).
+**Token:** il runner lo prende da `MONITOR_TOKEN` **dell'ambiente della macchina
+che esegue** — mai dall'artifact (§6). Se il monitor rifiuta il push (401 token,
+413 troppo grande, 429 troppo volume) il run **non** si ferma: gli eventi finiscono
+nel file di fallback.
 
 ```bash
 MONITOR_TOKEN='…' MONITOR_URL='http://mon:8787/ingest' ./flowpilot_runner piano.ffart
@@ -157,19 +174,57 @@ non è cancellare la storia. La pulizia del disco resta una tua decisione.
 
 ---
 
-## 6. Sicurezza dell'ingest (token)
+## 6. Sicurezza: chi scrive, chi legge, da dove
 
-Di default `/ingest` **accetta da chiunque raggiunga la porta**: comodo in locale,
-da non usare su una rete condivisa. Per proteggerlo:
+Il monitor è **chiuso per default** (P335): niente si apre per dimenticanza.
+
+**Due token, due ruoli** — entrambi obbligatori, min 16 caratteri, **diversi**:
+
+| Token | Chi lo usa | Dove |
+|---|---|---|
+| `MONITOR_TOKEN` (ingest) | i **runner** | `Authorization: Bearer <token>` su `POST /ingest` (anche `X-Flowpilot-Token`) |
+| `MONITOR_READ_TOKEN` (lettura) | **chi guarda** | il browser lo chiede come **password** (utente qualsiasi); le API accettano anche `Authorization: Bearer` |
+
+Il token di ingest **non** permette di leggere e viceversa: il token sta su ogni
+macchina della flotta, e chi ne ruba uno non deve poter leggere i log di tutti.
+Generali così: `openssl rand -hex 32`.
 
 ```bash
-MONITOR_TOKEN='un-segreto-lungo-e-casuale' ./flowpilot_monitor 8787
+MONITOR_TOKEN=… MONITOR_READ_TOKEN=… ./flowpilot_monitor 8787
+curl -u lettore:$MONITOR_READ_TOKEN http://127.0.0.1:8787/api/runs   # API a mano
 ```
 
-Da quel momento ogni push deve portare l'intestazione
-`Authorization: Bearer <segreto>` (è accettata anche `X-Flowpilot-Token`);
-senza, la risposta è **401**. I runner lo prendono da `MONITOR_TOKEN`
-sull'ambiente della loro macchina.
+**Dove ascolta.** Di default solo su **127.0.0.1**. Per riceverlo dalla rete:
+- **consigliato:** lascialo su 127.0.0.1 e mettilo dietro un **reverse proxy con TLS**
+  (nginx, Caddy, …), che inoltra a `http://127.0.0.1:8787`;
+- oppure `MONITOR_BIND=0.0.0.0` — ma il monitor parla **HTTP in chiaro**: token e
+  log viaggiano leggibili. All'avvio lo segnala.
+
+**Difese dell'ingest:** rifiuta le richieste fatte da un **browser** (header `Origin`
+→ 403: una pagina web non può far spedire eventi finti dal browser di chi la
+visita), accetta solo `Content-Type` NDJSON/JSON (**415**), corpo massimo
+(**413**), volume per IP al minuto (**429**). L'IP osservato (`_observed_ip`) lo
+scrive **solo** il monitor: se arriva nel payload viene scartato.
+
+**Difese della lettura:** password errate ripetute dallo stesso IP → **429** sulle
+letture per il resto del minuto (l'ingest dallo stesso IP continua). Dietro un
+reverse proxy tutti i client hanno l'IP del proxy: un estraneo che sbaglia apposta
+blocca le letture per un minuto a tutti — se è un problema, `MONITOR_AUTH_FAIL_MAX=0`.
+
+**La vista** gira con una **Content-Security-Policy** stretta (nessuna risorsa
+esterna, `fetch` solo verso il monitor) e tratta ogni campo degli eventi come testo
+non fidato (dal P334: prima un `run_id` o un nome di nodo costruiti apposta potevano
+eseguire codice nel browser di chi guardava).
+
+**Modalità locale insicura** (`MONITOR_INSECURE_LOCAL=1`): solo per prove su una
+macchina. Token facoltativi; ammessa solo con bind su loopback; senza token di
+lettura risponde solo a richieste con **Host locale** (`localhost`, `127.0.0.1`,
+`[::1]`), così una pagina web che rimappa il proprio nome su 127.0.0.1 (DNS
+rebinding) non legge i log.
+
+> Aggiornando da una versione precedente: un monitor avviato com'era prima (senza
+> token) ora **non parte** e lo dice. Imposta i due token (o, solo in locale,
+> `MONITOR_INSECURE_LOCAL=1`).
 
 **Perché il token non sta nell'artifact:** l'artifact è un file che si
 distribuisce, e un segreto dentro un file distribuibile è un segreto bruciato.
@@ -178,13 +233,13 @@ macchina fornisce *il valore*.
 
 ### Limiti dichiarati (onestà, non omissione)
 
-- Il token protegge la **scrittura**. **Vista e API di lettura restano aperte** a
-  chi raggiunge la porta: se il monitor sta su una rete non fidata, mettilo dietro
-  un reverse proxy con autenticazione, o su una rete privata.
-- L'**hash del piano** mostrato come *integrità* dice che è stato eseguito
-  esattamente il piano esportato; **non dice chi** l'ha prodotto — chi modifica un
-  piano può ricalcolare l'hash. Per l'autenticità servirebbe una firma
-  asimmetrica (non ancora implementata).
+- **Niente TLS integrato**: in rete, token e log viaggiano in chiaro se non metti un
+  reverse proxy TLS davanti (o una rete privata/VPN).
+- L'autenticazione è a **token condiviso** per ruolo, non per persona: non c'è
+  un'identità utente né un registro di chi ha guardato cosa.
+- L'**hash del piano** mostrato come *integrità* è quello del **manifesto firmato**:
+  il runner esegue solo artifact firmati e verificati (P318/P333). Il monitor però
+  **riporta** ciò che il runner gli manda: non riverifica la firma.
 - Nessun log prova **da solo** che un run sia avvenuto come raccontato: è il
   runner a narrarlo. L'unico dato non dichiarato dal runner è l'**IP osservato**,
   che il monitor legge dalla connessione.
@@ -270,8 +325,8 @@ attivi** (per esempio "solo errori" o un nodo selezionato).
 
 | Metodo | Percorso | Uso |
 |---|---|---|
-| POST | `/ingest` | I runner pushano qui (body NDJSON). Richiede il token se configurato |
-| GET | `/` | La vista web |
+| POST | `/ingest` | I runner pushano qui (body NDJSON, `Content-Type: application/x-ndjson`). Token di **ingest** |
+| GET | `/` | La vista web. Token di **lettura** (vale per tutti i GET) |
 | GET | `/api/runs` | Elenco run + la cartella dati |
 | GET | `/api/runs/<run_id>` | Eventi e provenienza di un run |
 | GET | `/api/runs/<run_id>/download` | Scarica il log del run in NDJSON |
@@ -299,7 +354,12 @@ che eseguiva, non quella in cui il monitor l'ha ricevuto.
 | Ho applicato una patch alla vista ma non cambia nulla | La vista è nel binario: **ricompila e riavvia**, poi Ctrl+Shift+R |
 | Manca il nome del piano o la provenienza | Artifact esportato **prima**: ri-esportalo dalla scheda "Compila" |
 | Il log non ha l'intestazione e gli eventi sono "nudi" | Stai eseguendo un **runner vecchio**: verifica con `strings <binario> \| grep -c flowpilot-log-header` (0 = vecchio) e ricontrolla in quale cartella scrive il tuo `cargo build` |
-| Il push risponde 401 | Token mancante o diverso: allinea `MONITOR_TOKEN` su monitor e runner |
+| Il monitor non parte: "token obbligatori mancanti" | Imposta `MONITOR_TOKEN` e `MONITOR_READ_TOKEN` (§6); solo per prove locali `MONITOR_INSECURE_LOCAL=1` |
+| Il push risponde 401 | Token mancante o diverso: allinea `MONITOR_TOKEN` su monitor e runner (il token di **lettura** non vale per l'ingest) |
+| Il push risponde 413 / 429 | Batch troppo grande o troppo volume dallo stesso IP: alza `MONITOR_MAX_BODY_BYTES` / `MONITOR_RATE_BYTES_PER_MIN`. Gli eventi sono nel file di fallback del runner |
+| Il browser chiede utente e password | È il token di **lettura**: utente qualsiasi, password = `MONITOR_READ_TOKEN` |
+| Dall'altra macchina non si raggiunge | Di default ascolta solo su 127.0.0.1: reverse proxy TLS, oppure `MONITOR_BIND=0.0.0.0` (§6) |
+| 403 "forbidden host" | Modalità locale senza token di lettura: apri `http://localhost:…` o `127.0.0.1`, non un altro nome |
 | Non arriva nulla al monitor | Controlla l'URL nel manifesto (o `MONITOR_URL`), e cerca `flowpilot-monitor-fallback.ndjson` accanto al runner |
 | Lo studio si riavvia da solo quando arrivano eventi | Il monitor scrive dentro un progetto aperto con `tauri dev`: sposta `MONITOR_DATA_DIR` fuori (§2) |
 | Vedo pochi eventi | Livello di log filtrato (§7) — il banner lo dichiara — oppure filtri attivi nella vista |

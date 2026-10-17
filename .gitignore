@@ -137,3 +137,12 @@ dist/
 examples/**/_out/
 examples/**/*.ffart
 examples/**/run*.ndjson
+
+# Runtime (P333): log di fallback del runner, dati del monitor, piani/CSV di prova
+# salvati nella cartella di lavoro durante `tauri dev`, patch di consegna.
+# Contengono host, id di studio e a volte DATI DI RIGA: mai nel repo.
+**/flowpilot-monitor-fallback.ndjson
+**/flowpilot-monitor-data/
+src-tauri/*.ffplan
+src-tauri/test_*.csv
+/P[0-9]*.patch

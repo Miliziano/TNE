@@ -14,9 +14,15 @@
 // (!) Con `app_lib` a default (feature desktop) questo linka Tauri; il build
 //     headless e': cargo build --bin flowpilot_runner --no-default-features --release
 //
-// Uso:    flowpilot_runner <artifact.ffart | piano.json>
+// Uso:    flowpilot_runner <artifact.ffart>
+//         flowpilot_runner trust list|show|add|revoke ...   (gestione trust store)
 // Env:    MONITOR_URL=https://host:porta/ingest   (opzionale)
-// Uscita: 0 = run completato, 1 = run fallito, 2 = errore d'uso/lettura.
+// Uscita: 0 = run completato, 1 = run fallito, 2 = errore d'uso/lettura,
+//         3 = artifact RIFIUTATO (firma/trust store: non eseguito nulla).
+//
+// FIRMA (P333): la verifica e' SEMPRE attiva (niente off/warn). Si eseguono solo
+// artifact firmati da una chiave autorizzata nel trust store
+// (~/.flowpilot/trust-store.json). Vedi HANDOFF-firma-artifact.md.
 
 use std::io::Write;
 use std::time::Duration;
@@ -140,11 +146,253 @@ fn evento_da_emettere(ev: &serde_json::Value, livello: &str) -> bool {
     }
 }
 
+/// Uscita per artifact rifiutato (firma o trust store): nulla e' stato eseguito.
+const EXIT_REJECTED: i32 = 3;
+
+const USAGE: &str = "\
+uso:
+  flowpilot_runner <artifact.ffart>                 esegue un artifact FIRMATO
+  flowpilot_runner trust list                       elenca le chiavi autorizzate
+  flowpilot_runner trust show <keyId>               mostra una voce
+  flowpilot_runner trust add <voce.json|-> [--owner NOME]
+  flowpilot_runner trust add --public-key <B64> --owner NOME
+                                                    autorizza una chiave pubblica
+  flowpilot_runner trust revoke <keyId>             revoca una chiave
+opzioni di trust:  --store <percorso>  (default: ~/.flowpilot/trust-store.json)
+La voce da autorizzare si copia dallo studio (Signing / Compile -> voce trust store).";
+
+/// Sottocomando `trust`: gestione del trust store (HANDOFF-firma-artifact.md §12).
+/// Uscita: 0 ok, 1 errore, 2 uso errato.
+fn trust_cmd(args: &[String]) -> i32 {
+    use app_lib::signing::trust::{default_trust_path, AddOutcome, TrustStore};
+    use std::io::Read;
+
+    let mut store_path = default_trust_path();
+    let mut owner: Option<String> = None;
+    let mut public_key: Option<String> = None;
+    let mut pos: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < args.len() {
+        let a = args[i].as_str();
+        match a {
+            "--store" | "--owner" | "--public-key" => {
+                let Some(v) = args.get(i + 1) else {
+                    eprintln!("trust: {a} richiede un valore");
+                    return 2;
+                };
+                match a {
+                    "--store" => store_path = std::path::PathBuf::from(v),
+                    "--owner" => owner = Some(v.clone()),
+                    _ => public_key = Some(v.clone()),
+                }
+                i += 2;
+            }
+            "-h" | "--help" => {
+                println!("{USAGE}");
+                return 0;
+            }
+            _ if a.starts_with("--") => {
+                eprintln!("trust: opzione sconosciuta {a}\n{USAGE}");
+                return 2;
+            }
+            _ => {
+                pos.push(a.to_string());
+                i += 1;
+            }
+        }
+    }
+
+    // Apertura per MODIFICA: un file presente ma non valido NON si sovrascrive, e
+    // nemmeno uno con voci scartate (save le cancellerebbe in silenzio).
+    let open_for_edit = |must_exist: bool| -> Result<TrustStore, String> {
+        if !store_path.exists() {
+            return if must_exist {
+                Err(format!("trust store assente ({})", store_path.display()))
+            } else {
+                Ok(TrustStore::empty())
+            };
+        }
+        let s = TrustStore::open(&store_path)?;
+        if s.ignored() > 0 {
+            for w in s.warnings() {
+                eprintln!("avviso: {w}");
+            }
+            return Err(format!(
+                "il trust store contiene {} voci non valide: correggile a mano prima di modificarlo (il file non viene toccato)",
+                s.ignored()
+            ));
+        }
+        Ok(s)
+    };
+
+    let sub = pos.first().map(|s| s.as_str()).unwrap_or("");
+    match sub {
+        "list" => {
+            let s = match TrustStore::open(&store_path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("trust list: {e}");
+                    return 1;
+                }
+            };
+            for w in s.warnings() {
+                eprintln!("avviso: {w}");
+            }
+            println!("trust store: {}", store_path.display());
+            if s.is_empty() {
+                println!("(nessuna chiave valida)");
+            }
+            for e in s.entries() {
+                let g = |k: &str| e.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let st = if g("status").is_empty() { "active".to_string() } else { g("status") };
+                println!("{:<8} {}  {}", st, g("keyId"), g("owner"));
+            }
+            0
+        }
+        "show" => {
+            let Some(id) = pos.get(1) else {
+                eprintln!("trust show: indica il keyId\n{USAGE}");
+                return 2;
+            };
+            let s = match TrustStore::open(&store_path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("trust show: {e}");
+                    return 1;
+                }
+            };
+            match s.entries().iter().find(|e| e.get("keyId").and_then(|v| v.as_str()) == Some(id.as_str())) {
+                Some(e) => {
+                    println!("{}", serde_json::to_string_pretty(e).unwrap_or_default());
+                    0
+                }
+                None => {
+                    eprintln!("trust show: chiave '{id}' non presente (o voce non valida)");
+                    1
+                }
+            }
+        }
+        "add" => {
+            // Sorgente: --public-key <B64>, oppure la VOCE JSON esportata dallo
+            // studio ({keyId, publicKey, owner, status}) da file o da stdin (-).
+            // Accettato anche il signing-key.json dello studio (campo `public`):
+            // contiene la privata solo CIFRATA, qui si legge la sola pubblica.
+            let (pk, declared, file_owner) = if let Some(pk) = public_key.clone() {
+                (pk, None, None)
+            } else {
+                let Some(src) = pos.get(1) else {
+                    eprintln!("trust add: indica il file della voce (o - per stdin) oppure --public-key\n{USAGE}");
+                    return 2;
+                };
+                let mut raw = String::new();
+                let letto = if src == "-" {
+                    std::io::stdin().read_to_string(&mut raw).map(|_| ())
+                } else {
+                    std::fs::read_to_string(src).map(|t| raw = t)
+                };
+                if let Err(e) = letto {
+                    eprintln!("trust add: lettura di {src}: {e}");
+                    return 1;
+                }
+                let v: serde_json::Value = match serde_json::from_str(&raw) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("trust add: {src} non e' JSON valido: {e}");
+                        return 1;
+                    }
+                };
+                let g = |k: &str| v.get(k).and_then(|x| x.as_str()).map(|x| x.to_string());
+                let Some(pk) = g("publicKey").or_else(|| g("public")) else {
+                    eprintln!("trust add: {src} non contiene una chiave pubblica (publicKey)");
+                    return 1;
+                };
+                (pk, g("keyId"), g("owner").filter(|o| !o.trim().is_empty()))
+            };
+            let owner = owner.or(file_owner).unwrap_or_default();
+            let mut s = match open_for_edit(false) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("trust add: {e}");
+                    return 1;
+                }
+            };
+            match s.add(&pk, declared.as_deref(), &owner) {
+                Ok((AddOutcome::AlreadyActive, id)) => {
+                    println!("gia' autorizzata: {id} (nessuna modifica)");
+                    0
+                }
+                Ok((AddOutcome::Added, id)) => {
+                    if let Err(e) = s.save(&store_path) {
+                        eprintln!("trust add: {e}");
+                        return 1;
+                    }
+                    println!("chiave autorizzata");
+                    println!("  keyId (fingerprint): {id}");
+                    println!("  owner:               {}", owner.trim());
+                    println!("  trust store:         {}", store_path.display());
+                    println!("Verifica il fingerprint con il proprietario della chiave su un canale fidato");
+                    println!("(di persona, telefono): e' l'unico passo che lega la chiave a una persona.");
+                    0
+                }
+                Err(e) => {
+                    eprintln!("trust add: {e}");
+                    1
+                }
+            }
+        }
+        "revoke" => {
+            let Some(id) = pos.get(1) else {
+                eprintln!("trust revoke: indica il keyId\n{USAGE}");
+                return 2;
+            };
+            let mut s = match open_for_edit(true) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("trust revoke: {e}");
+                    return 1;
+                }
+            };
+            match s.revoke(id) {
+                Ok(false) => {
+                    println!("gia' revocata: {id} (nessuna modifica)");
+                    0
+                }
+                Ok(true) => {
+                    if let Err(e) = s.save(&store_path) {
+                        eprintln!("trust revoke: {e}");
+                        return 1;
+                    }
+                    println!("chiave revocata: {id} (effetto dal prossimo run)");
+                    0
+                }
+                Err(e) => {
+                    eprintln!("trust revoke: {e}");
+                    1
+                }
+            }
+        }
+        _ => {
+            eprintln!("{USAGE}");
+            2
+        }
+    }
+}
+
 fn main() {
-    let path = match std::env::args().nth(1) {
-        Some(p) => p,
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let path = match args.first().map(|s| s.as_str()) {
+        Some("trust") => std::process::exit(trust_cmd(&args[1..])),
+        Some("-h") | Some("--help") => {
+            println!("{USAGE}");
+            std::process::exit(0);
+        }
+        Some("-V") | Some("--version") => {
+            println!("flowpilot_runner {}", env!("CARGO_PKG_VERSION"));
+            std::process::exit(0);
+        }
+        Some(p) => p.to_string(),
         None => {
-            eprintln!("uso: flowpilot_runner <artifact.ffart | piano.json>");
+            eprintln!("{USAGE}");
             std::process::exit(2);
         }
     };
@@ -165,50 +413,64 @@ fn main() {
         }
     };
 
-    // ── VERIFICA FIRMA (P318) ─────────────────────────────────────────
-    // Modalità via env FLOWPILOT_SIGNATURE_MODE = off | warn | enforce (default: warn).
-    //   off     = nessuna verifica (solo sviluppo locale isolato)
-    //   warn    = verifica e AVVISA su fallimento, ma esegue comunque (migrazione)
-    //   enforce = RIFIUTA ed esce (default consigliato per il rilascio pubblico)
-    // Trust store: ~/.flowpilot/trust-store.json (chiavi pubbliche autorizzate).
-    // Vedi HANDOFF-firma-artifact.md §9/§10.
-    let sig_mode = std::env::var("FLOWPILOT_SIGNATURE_MODE").unwrap_or_else(|_| "warn".to_string());
-    if sig_mode != "off" {
-        let trust = app_lib::signing::trust::TrustStore::load();
-        match app_lib::signing::verify::verify_artifact(&root, env!("CARGO_PKG_VERSION"), &trust) {
-            Ok(v) => {
-                let owner = if v.owner.is_empty() { "?" } else { &v.owner };
-                eprintln!("firma OK: artifact firmato da {} ({})", owner, v.key_id);
+    // ── VERIFICA FIRMA (P318; P333: SEMPRE attiva) ───────────────────────
+    // Si esegue SOLO un artifact firmato da una chiave autorizzata nel trust store
+    // (~/.flowpilot/trust-store.json). Non esistono modalita' per spegnere o
+    // ammorbidire la verifica: `off`/`warn` erano un rischio di CONFIGURAZIONE
+    // (un default dimenticato, un refuso nel valore, l'`off` dello sviluppo copiato
+    // in produzione = verifica saltata in silenzio). Qualunque fallimento, compreso
+    // un trust store assente/illeggibile/con permessi pericolosi → nessuna
+    // esecuzione, uscita 3. Vedi HANDOFF-firma-artifact.md §9/§10.
+    if let Ok(m) = std::env::var("FLOWPILOT_SIGNATURE_MODE") {
+        eprintln!("avviso: FLOWPILOT_SIGNATURE_MODE={m} e' IGNORATA: la verifica della firma e' sempre attiva");
+    }
+    let trust_path = app_lib::signing::trust::default_trust_path();
+    let trust = match app_lib::signing::trust::TrustStore::open(&trust_path) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("FIRMA RIFIUTATA: {e}");
+            if !trust_path.exists() {
+                eprintln!("  per autorizzare una chiave: flowpilot_runner trust add <voce.json> --owner <nome>");
             }
-            Err(reason) => {
-                if sig_mode == "enforce" {
-                    eprintln!("FIRMA RIFIUTATA (enforce): {}", reason);
-                    std::process::exit(3);
-                }
-                eprintln!("ATTENZIONE — firma non verificata (warn): {}", reason);
+            std::process::exit(EXIT_REJECTED);
+        }
+    };
+    for w in trust.warnings() {
+        eprintln!("avviso trust store: {w}");
+    }
+    match app_lib::signing::verify::verify_artifact(&root, env!("CARGO_PKG_VERSION"), &trust) {
+        Ok(v) => {
+            let owner = if v.owner.is_empty() { "?" } else { &v.owner };
+            eprintln!("firma OK: artifact firmato da {} ({})", owner, v.key_id);
+        }
+        Err(reason) => {
+            eprintln!("FIRMA RIFIUTATA: {}", reason);
+            if reason.starts_with("chiave non autorizzata") {
+                eprintln!("  se la chiave e' legittima: flowpilot_runner trust add <voce.json> --owner <nome>");
             }
+            std::process::exit(EXIT_REJECTED);
         }
     }
-    // Modo A: i metadati operativi vivono nel MANIFESTO firmato. Se manca (piano
-    // nudo, non firmato), si ripiega sulla radice.
-    let man = root.get("manifest").cloned().unwrap_or_else(|| root.clone());
+    // Da qui la busta e' VERIFICATA: manifesto e piano esistono e sono coperti
+    // dalla firma (Modo A: i metadati operativi vivono SOLO nel manifesto). Niente
+    // ripiego sulla radice: un piano nudo non arriva mai fin qui.
+    let man = root.get("manifest").cloned().unwrap_or(serde_json::Value::Null);
     // Monitor dal manifesto (prima di consumare root per il piano).
     let manifest_monitor = man.get("monitor").and_then(|v| v.as_str()).map(|s| s.to_string());
     // Nome del piano dal manifesto. Serve per arricchire l'intestazione E l'evento
     // RunStarted, cosi' il monitor mostra il nome.
     let plan_name = man.get("planName").and_then(|v| v.as_str()).map(|s| s.to_string());
     // Id dell'ARTIFACT = il run_id inciso dallo studio all'export (nel PIANO, non nel
-    // manifesto: identifica l'istanza). Dalla radice se e' un piano nudo.
+    // manifesto: identifica l'istanza).
     let artifact_id = root
         .get("plan").and_then(|p| p.get("run_id")).and_then(|v| v.as_str())
-        .or_else(|| root.get("run_id").and_then(|v| v.as_str()))
         .unwrap_or("piano")
         .to_string();
     // Livello di dettaglio di cio' che il runner EMETTE (stdout + monitor).
     // Default prudente: "normale" anche per artifact senza il campo.
     let log_level = man.get("logLevel").and_then(|v| v.as_str()).unwrap_or("normale").to_string();
     // PROVENIENZA dal manifesto FIRMATO: chi ha compilato, con quale versione, quale
-    // piano. In modalita' enforce sono VERIFICATI (firma valida); in warn/off no.
+    // piano. Sono VERIFICATI (firma valida da una chiave del trust store).
     let studio_id    = man.get("studio").and_then(|s| s.get("id")).and_then(|v| v.as_str()).map(|s| s.to_string());
     let studio_label = man.get("studio").and_then(|s| s.get("label")).and_then(|v| v.as_str()).map(|s| s.to_string());
     let plan_hash    = man.get("planHash").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -255,7 +517,11 @@ fn main() {
     })
     .to_string();
 
-    let mut plan = root.get("plan").cloned().unwrap_or(root);
+    // Il piano c'e' sempre (verify_artifact lo ha ricalcolato e confrontato col planHash).
+    let Some(mut plan) = root.get("plan").cloned() else {
+        eprintln!("FIRMA RIFIUTATA: piano assente");
+        std::process::exit(EXIT_REJECTED);
+    };
 
     // ─── UN run_id PER ESECUZIONE ────────────────────────────────
     // Nel piano il `run_id` viene inciso dallo STUDIO al momento dell'export

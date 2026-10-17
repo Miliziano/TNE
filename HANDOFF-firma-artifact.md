@@ -20,7 +20,9 @@ P328–P331. Alcune scelte sono cambiate rispetto al design originale qui sotto:
 - **P316** nucleo firma Rust: `keys.rs` + `sign.rs` (Ed25519, sign/verify del manifesto).
 - **P317** comando Tauri `artifact_seal` + l'export produce il `.ffart` **firmato**.
 - **P318** verifica lato runner (`verify.rs`, 7 passi fail-closed) + trust store
-  (`trust.rs`) + modalità `FLOWPILOT_SIGNATURE_MODE = off | warn | enforce`.
+  (`trust.rs`) + modalità `FLOWPILOT_SIGNATURE_MODE = off | warn | enforce`
+  (**superate dal P333**: verifica sempre attiva, vedi delta 5).
+- **P333** runner **enforce-only** + trust store rigoroso + CLI `flowpilot_runner trust …`.
 - **P319** identità di firma in CompileModal + esportazione voce trust store.
 - **P320** **vault**: chiave privata **cifrata a riposo** (`vault.rs`).
 - **P321** seal/identity agganciati al vault; comandi `vault_*`; rimosso il salvataggio in chiaro.
@@ -47,6 +49,16 @@ P328–P331. Alcune scelte sono cambiate rispetto al design originale qui sotto:
    sblocca/blocca/esporta pubblica). Firma **libera multi-sviluppatore**: il trust store è
    un allowlist a più voci, nessun coordinamento tra sviluppatori.
 
+5. **Verifica SEMPRE attiva (P333)**: rimosse le modalità `off`/`warn`
+   (`FLOWPILOT_SIGNATURE_MODE` è ignorata con avviso). Il runner esegue solo artifact
+   firmati e verificati; i ripieghi sul "piano nudo" sono stati tolti. Trust store
+   caricato in modo **rigoroso** (`TrustStore::open`): assente/illeggibile/JSON non
+   valido/**scrivibile da chiunque** (Unix) → rifiuto, uscita 3; scrivibile dal gruppo →
+   avviso; voci con `keyId` ≠ fingerprint della `publicKey` → ignorate. Nuovo
+   sottocomando **`flowpilot_runner trust list|show|add|revoke`** (§12): `add` verifica
+   la chiave e il fingerprint, esige `--owner`, scrive atomico con permessi 600/700; una
+   chiave revocata non si riattiva da CLI; `revoke` lascia la riga (audit).
+
 ### Modello di minaccia (cosa protegge, e cosa NO)
 1. **Il vero gioiello è `trust-store.json` sulla runtime.** Chi può SCRIVERLO decide di
    chi ci si fida → permessi del file e sicurezza dell'host sono portanti quanto la cripto.
@@ -58,9 +70,13 @@ P328–P331. Alcune scelte sono cambiate rispetto al design originale qui sotto:
    originale sui campi non firmati).
 5. **Forza della passphrase:** argon2id rallenta il brute-force offline sul file rubato, ma
    una passphrase debole resta attaccabile.
-6. **Revoca:** il runner verifica a ogni avvio → la revoca (togliere/`revoked` nel trust
-   store) ha effetto al run successivo. Niente scadenza automatica (`notBefore/notAfter` non
+6. **Revoca:** il runner verifica a ogni avvio → la revoca (`trust revoke`, o
+   togliere/`revoked` nel trust store) ha effetto al run successivo. Niente scadenza automatica (`notBefore/notAfter` non
    ancora applicati); con lo scheduler "caldo" futuro la cache andrà invalidata al cambio.
+6b. **Ambiente del runner:** il trust store si trova da `HOME`/`USERPROFILE`. Chi
+   controlla l'ambiente (o l'utente) del runner può puntarlo a un trust store suo: è lo
+   stesso confine del punto 1 (integrità dell'host), non qualcosa che la firma possa
+   chiudere. Togliere `off`/`warn` chiude l'errore di configurazione, non questo.
 7. **Ci si fida del BINARIO del runner.** Firmiamo gli artifact, non gli eseguibili
    (supply-chain = capitolo a sé: `cargo audit`/`npm audit`, firma dei binari).
 8. **`engineVersionRange` = `"*"`:** gancio, non ancora un vincolo reale.
@@ -290,6 +306,9 @@ esplicito** + audit):
 ---
 
 ## 10. Transizione e compatibilità
+
+> **Superato dal P333**: le modalità `off`/`warn` sono state rimosse; il runner è
+> enforce-only. Il testo sotto resta come storia della decisione.
 
 Esistono `.ffart` non firmati (formato attuale). Introduciamo una **modalità della
 runtime**:

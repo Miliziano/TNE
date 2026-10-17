@@ -1035,7 +1035,68 @@ non serve redigerle lì (i sink a valle sono l'output voluto dall'autore del pia
 
 ---
 
+## AGGIORNAMENTO — runner enforce-only + monitor chiuso per default (stato al P335, 17 ottobre)
+
+Tre patch, concatenate sopra `ad84811 pulizia repository`: **P333 → P334 → P335**.
+Rust compilato e testato anche nell'ambiente delle patch (cargo ora disponibile:
+`cargo check/test --no-default-features [--features monitor]`); collaudi end-to-end
+con runner e monitor veri.
+
+**P333 — runner enforce-only + `trust` CLI.** Tolte le modalità `off`/`warn`
+(`FLOWPILOT_SIGNATURE_MODE` ignorata con avviso) e i ripieghi sul piano nudo.
+`TrustStore::open` rigoroso: assente/illeggibile/JSON non valido/**scrivibile da
+chiunque** → rifiuto (uscita 3); voci con keyId ≠ fingerprint → ignorate.
+`flowpilot_runner trust list|show|add|revoke [--store P]`: `add` esige `--owner`,
+verifica chiave e fingerprint, scrive atomico 600/700; una revocata non si riattiva
+da CLI. Tolti dal repo i file di runtime rimasti (dati monitor, `pipeline.ffplan` con
+password, CSV, tre `flowpilot-monitor-fallback.ndjson` negli esempi, uno con dati di
+riga) + `.gitignore`. Dettaglio: `HANDOFF-firma-artifact.md` (delta 5, punto 6b).
+
+**P334 — vista del monitor.** 🐞 **La vista era ROTTA dal P309**: un apostrofo
+("the run's") dentro una stringa JS a virgolette singole → SyntaxError, nessuno
+script girava (lista run vuota). Corretto. 🐞 **XSS memorizzata**: `run_id` grezzo in
+un `onclick`, `esc()` che non sfuggiva le virgolette, numeri delle statistiche non
+controllati → chi scriveva un evento eseguiva codice nel browser di chi guardava.
+Ora `esc()` completo, `num()` per i numeri, id in `data-id`. Intestazioni di
+sicurezza su ogni risposta (CSP senza risorse esterne e `connect-src 'self'`,
+`frame-ancestors 'none'`, nosniff, no-referrer, no-store). Id del run decodificato
+dall'URL. Collaudo: harness jsdom con eventi ostili (base: 4 problemi; P334: 0).
+> Lezione: **dopo ogni modifica alla vista del monitor, `node --check` sullo script
+> estratto da `INDEX_HTML`** — la regola "virgolette bilanciate" vale anche per il JS
+> dentro le stringhe Rust.
+
+**P335 — monitor chiuso per default.** Bind **127.0.0.1** (`MONITOR_BIND`); **due token
+obbligatori e distinti** — `MONITOR_TOKEN` (ingest) e `MONITOR_READ_TOKEN` (lettura:
+Basic nel browser, utente qualsiasi; Bearer per le API) — min 16 caratteri, o il
+monitor **non parte**. `MONITOR_INSECURE_LOCAL=1` = token facoltativi solo su loopback,
+con controllo dell'Host (anti DNS-rebinding). Ingest: rifiuta `Origin` (CSRF da
+browser), solo Content-Type NDJSON/JSON, corpo max (`MONITOR_MAX_BODY_BYTES`, 8 MiB),
+volume per IP/minuto (`MONITOR_RATE_BYTES_PER_MIN`, 64 MiB), `_observed_ip` dal payload
+scartato (era falsificabile). Letture: blocco per IP dopo `MONITOR_AUTH_FAIL_MAX`
+password errate (solo letture: un runner con token vecchio non blocca l'host). Pool
+di `MONITOR_WORKERS` thread con coda → 503 (prima un thread per richiesta senza tetto).
+Manuali aggiornati (Monitor §6 riscritto, build-esecuzione, operativo). ⚠ I `.docx` dei
+manuali in `docs/` non sono rigenerati.
+
+**Resta del P0 monitor:** TLS (oggi: reverse proxy), identità per persona/audit di
+chi legge, riverifica della firma lato monitor.
+
+---
+
 ## Oracle e Informix — pensata (DA RIPRENDERE)
+
+> **Verifica del 17 ottobre (prima di partire con ODBC).**
+> - **Oracle: novità vera.** Oracle ha pubblicato un driver **Rust puro ufficiale**,
+>   crate **`oracledb`** (github.com/oracle/rust-oracledb, annunciato a settembre 2026):
+>   **nessun Instant Client** richiesto. Oggi è **beta** (26.0.0-beta.4, 23 set 2026),
+>   API sincrona, MSRV **1.89** (il nostro `rust-version` dichiara 1.77.2). Esiste anche
+>   `oracle-rs` (community, async/Tokio, 0.1.x, giovane). Il crate `oracle` (ODPI-C)
+>   resta a 0.6.3 (gen 2025) e richiede il client.
+> - **Informix: nulla di nuovo in Rust.** `informix_rust` 0.0.4 (2024) avvolge il CSDK ed
+>   è immaturo; esiste un driver SQLI puro solo in **Python**. → **ODBC resta l'unica via**.
+> - `odbc-api` è vivo: 29.2.0 (4 ott 2026).
+> - Effetto sulla decisione 1 qui sotto: l'ibrido non si giustifica più con prestazioni
+>   ma con **zero librerie client per Oracle** (air-gap). Il prezzo è adottare una beta.
 
 Richiesto come "fondamentale". **Non è un'aggiunta piccola: è una decisione architetturale del motore.**
 

@@ -131,11 +131,14 @@ cargo build --bin flowpilot_monitor --no-default-features --features monitor --r
 ```
 → binario in `src-tauri/target/release/flowpilot_monitor`.
 
-**Esecuzione:**
+**Esecuzione** (servono due token diversi, vedi `FlowPilot-Manuale-Monitor.md` §6):
 ```bash
-./target/release/flowpilot_monitor 8787
+MONITOR_TOKEN=$(openssl rand -hex 32) MONITOR_READ_TOKEN=$(openssl rand -hex 32) \
+  ./target/release/flowpilot_monitor 8787
+MONITOR_INSECURE_LOCAL=1 ./target/release/flowpilot_monitor     # solo prova locale
 ```
-(8787 è la porta di default; puoi passarne un'altra come argomento.)
+(8787 è la porta di default; puoi passarne un'altra come argomento. Ascolta solo su
+127.0.0.1 salvo `MONITOR_BIND`.)
 
 **Cosa espone:**
 
@@ -146,7 +149,8 @@ cargo build --bin flowpilot_monitor --no-default-features --features monitor --r
 | `GET /api/runs` | Elenco run (id, stato, numero eventi) |
 | `GET /api/runs/<run_id>` | Gli eventi di un run |
 
-Apri `http://<host>:8787/` nel browser per vederlo.
+Apri `http://localhost:8787/` nel browser (password = `MONITOR_READ_TOKEN`, utente
+qualsiasi). Da un'altra macchina: reverse proxy TLS o `MONITOR_BIND`.
 
 > Limiti del monitor attuale: lo storico è **in memoria** (riavvii il monitor →
 > perdi i run passati); niente autenticazione né retention. Sono i prossimi
@@ -197,7 +201,10 @@ Sulla macchina di destinazione, col runner compilato:
 - Se l'artifact ha un **monitor** nel manifesto, il runner **pusha là in
   automatico** (vedi §8) — non serve altro.
 - Codici d'uscita: **0** = completato, **1** = fallito, **2** = errore
-  d'uso/lettura del file.
+  d'uso/lettura del file, **3** = artifact rifiutato (firma).
+- Il runner esegue **solo artifact firmati** da una chiave autorizzata sulla macchina
+  (`flowpilot_runner trust add …`, una tantum): vedi `MANUALE-build-esecuzione.md`
+  §7.2 e §9.
 
 **Fornire i segreti al runner:** i loro valori non sono nell'artifact, vanno dati
 sulla macchina (§9). Il modo più rapido per un test è la variabile d'ambiente:
@@ -414,8 +421,9 @@ DB_PASSWORD='...' ./flowpilot_runner artifact.ffart            # segreto da env
 # --- MONITOR ---
 cargo build --bin flowpilot_monitor --no-default-features --features monitor --release
 #   -> target/release/flowpilot_monitor
-./target/release/flowpilot_monitor 8787                        # avvia (porta 8787)
-#   vista:  http://localhost:8787/
+MONITOR_TOKEN=… MONITOR_READ_TOKEN=… \
+  ./target/release/flowpilot_monitor 8787                      # avvia (porta 8787)
+#   vista:  http://localhost:8787/   (password = MONITOR_READ_TOKEN)
 
 # --- ARTIFACT ---
 #   Non da CLI: dallo studio, bottone "Compila" -> scegli profilo/monitor/piattaforma -> Genera

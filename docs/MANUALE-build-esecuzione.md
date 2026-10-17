@@ -142,35 +142,44 @@ cargo build --bin flowpilot_monitor --no-default-features --features monitor --r
 # → target/release/flowpilot_monitor
 ```
 
-Avvio (porta opzionale, default **8787**):
+Avvio (porta opzionale, default **8787**; ascolta solo su **127.0.0.1** salvo
+`MONITOR_BIND`). Servono **due token diversi**, o non parte:
 ```bash
 # Linux
-MONITOR_TOKEN=un-segreto-lungo ./target/release/flowpilot_monitor 8787
+MONITOR_TOKEN=$(openssl rand -hex 32) MONITOR_READ_TOKEN=$(openssl rand -hex 32) \
+  ./target/release/flowpilot_monitor 8787
 ```
 ```powershell
 # Windows
-$env:MONITOR_TOKEN="un-segreto-lungo"; .\target\release\flowpilot_monitor.exe 8787
+$env:MONITOR_TOKEN="<token-ingest>"; $env:MONITOR_READ_TOKEN="<token-lettura>"; .\target\release\flowpilot_monitor.exe 8787
 ```
-Poi apri `http://localhost:8787`. Endpoint: `POST /ingest` (NDJSON), `GET /api/runs`, `GET /api/runs/<id>`.
+Poi apri `http://localhost:8787` (il browser chiede la password: utente qualsiasi,
+password = `MONITOR_READ_TOKEN`). Endpoint: `POST /ingest` (NDJSON, token di ingest),
+`GET /api/runs`, `GET /api/runs/<id>` (token di lettura).
 
 Variabili d'ambiente del monitor:
 
 | Variabile | Default | Effetto |
 |---|---|---|
-| `MONITOR_TOKEN` | (nessuno) | se impostata, `/ingest` la **esige**; se assente, il monitor accetta push da chiunque raggiunga la porta |
+| `MONITOR_BIND` | `127.0.0.1` | indirizzo d'ascolto (`0.0.0.0` per la rete: meglio un reverse proxy TLS) |
+| `MONITOR_TOKEN` | **obbligatoria** | token di **ingest** (runner), min 16 caratteri |
+| `MONITOR_READ_TOKEN` | **obbligatoria** | token di **lettura** (vista/API), diverso dal precedente |
+| `MONITOR_INSECURE_LOCAL` | spenta | `1` = token facoltativi, solo su loopback (prove locali) |
+| `MONITOR_MAX_BODY_BYTES` / `MONITOR_RATE_BYTES_PER_MIN` | 8 MiB / 64 MiB | dimensione massima di un push / volume per IP al minuto |
+| `MONITOR_AUTH_FAIL_MAX` / `MONITOR_WORKERS` | 20 / 16 | password di lettura errate per IP al minuto / richieste in parallelo |
 | `MONITOR_DATA_DIR` | `~/.flowpilot/monitor-data` | dove persiste i dati |
 | `MONITOR_MAX_RUNS` | 200 | tetto run conservate |
 | `MONITOR_MAX_EVENTS` | 50000 | tetto eventi conservati |
 
-> Il monitor parla **HTTP in chiaro** (nessun TLS integrato). In produzione mettilo dietro
-> un reverse proxy con TLS e imposta sempre `MONITOR_TOKEN`.
+> Il monitor parla **HTTP in chiaro** (nessun TLS integrato). In produzione lascialo su
+> 127.0.0.1 dietro un reverse proxy con TLS. Dettagli: `FlowPilot-Manuale-Monitor.md` §6.
 
 ---
 
 ## 7. Flusso completo end-to-end (esempio)
 
 Scenario: una pipeline legge da Postgres e scrive un file; gira su un server Linux e
-spinge i log a un monitor. La firma è in `enforce`.
+spinge i log a un monitor. La firma è **sempre verificata** dal runner (§9).
 
 ### 7.1 Nello studio (macchina dello sviluppatore)
 1. Disegna la pipeline. Sulla risorsa Postgres, nei campi di connessione, usa i
@@ -184,22 +193,36 @@ spinge i log a un monitor. La firma è in `enforce`.
 5. **Genera** → salva `esempio.ffart`. L'artifact esce **firmato** (`formatVersion: 2`).
 
 ### 7.2 Enrollment della chiave sul server (una tantum)
-Sul server crea/edita `~/.flowpilot/trust-store.json` e incolla la voce copiata
-nell'array `keys`:
-```json
-{
-  "keys": [
-    {
-      "keyId": "ed25519:9f3c…",
-      "publicKey": "0KfE…base64…",
-      "owner": "mark-laptop",
-      "status": "active"
-    }
-  ]
-}
+Salva la voce copiata in un file (es. `voce.json`), portala sul server **out-of-band**
+(non serve nessun collegamento studio↔server) e autorizzala **come l'utente che
+eseguirà il runner** (il trust store è `~/.flowpilot/trust-store.json` di quell'utente):
+```bash
+./flowpilot_runner trust add voce.json --owner mark-laptop
+#   chiave autorizzata
+#     keyId (fingerprint): ed25519:9f3c…
 ```
-> Trasferisci la voce **out-of-band** (non serve nessun collegamento studio↔server).
-> Per **revocare**: metti `"status": "revoked"` o togli la riga.
+- `--owner` è **obbligatorio** (finisce nell'audit: "firmato da …"). La voce esportata
+  dalla voce *Signing* ha `owner` vuoto: lo decidi tu qui.
+- **Confronta il fingerprint** stampato con quello mostrato nello studio dello
+  sviluppatore, su un canale fidato (di persona, telefono): è l'unico passo che lega
+  la chiave a una persona.
+- Il runner controlla che il `keyId` sia davvero il fingerprint della chiave pubblica,
+  crea il file con permessi `600` (cartella `700`) e lo scrive in modo atomico.
+
+Altri comandi:
+```bash
+./flowpilot_runner trust list                 # chiavi presenti e stato
+./flowpilot_runner trust show ed25519:9f3c…   # una voce per intero
+./flowpilot_runner trust revoke ed25519:9f3c… # revoca (la riga resta, per l'audit)
+./flowpilot_runner trust add --public-key <B64> --owner NOME   # senza file
+# --store <percorso> su ogni comando trust: gestisce un file diverso dal default
+```
+> Una chiave **revocata** non si riattiva con `trust add` (la revoca di solito vuol
+> dire compromissione): se è davvero voluto, va modificato il file a mano.
+>
+> Il trust store resta un JSON leggibile (`{"keys":[{keyId, publicKey, owner, status}]}`),
+> ma il runner è **rigoroso**: file assente, JSON non valido o **scrivibile da chiunque**
+> → rifiuta di eseguire; voci incoerenti (keyId ≠ fingerprint) → ignorate con avviso.
 
 ### 7.3 Sul server: segreti, monitor, esecuzione
 Imposta i segreti come **variabili d'ambiente** (headless → via più affidabile):
@@ -208,7 +231,6 @@ Imposta i segreti come **variabili d'ambiente** (headless → via più affidabil
 export DB_PASSWORD='S3cr3t!'
 export MONITOR_URL='https://monitor.interno:8787/ingest'
 export MONITOR_TOKEN='un-segreto-lungo'          # per farsi accettare dal monitor
-export FLOWPILOT_SIGNATURE_MODE=enforce
 ./target/release/flowpilot_runner esempio.ffart
 ```
 ```powershell
@@ -216,7 +238,6 @@ export FLOWPILOT_SIGNATURE_MODE=enforce
 $env:DB_PASSWORD='S3cr3t!'
 $env:MONITOR_URL='https://monitor.interno:8787/ingest'
 $env:MONITOR_TOKEN='un-segreto-lungo'
-$env:FLOWPILOT_SIGNATURE_MODE='enforce'
 .\target\release\flowpilot_runner.exe esempio.ffart
 ```
 
@@ -225,8 +246,8 @@ Cosa vedrai (stderr):
 firma OK: artifact firmato da mark-laptop (ed25519:9f3c…)
 ```
 e gli eventi NDJSON su stdout (più il monitor, se raggiungibile). Se la firma non
-tornasse, in `enforce` il runner stampa `FIRMA RIFIUTATA (enforce): …` ed esce con
-codice **3**, senza eseguire nulla.
+tornasse, il runner stampa `FIRMA RIFIUTATA: …` ed esce con codice **3**, senza
+eseguire nulla.
 
 ---
 
@@ -308,20 +329,21 @@ setx DB_PASSWORD "S3cr3t!"
 
 ## 9. Verifica della firma — riepilogo operativo
 
-Modalità del runner via `FLOWPILOT_SIGNATURE_MODE`:
+La verifica è **sempre attiva** e non si può spegnere (dal P333 non esistono più le
+modalità `off`/`warn`: erano un rischio di configurazione — un default dimenticato o
+l'`off` dello sviluppo copiato in produzione = verifica saltata in silenzio). Se
+`FLOWPILOT_SIGNATURE_MODE` è ancora impostata, il runner la **ignora** e lo dice.
 
-| Valore | Comportamento |
-|---|---|
-| `off` | nessuna verifica (solo sviluppo locale isolato) |
-| `warn` (default) | verifica e **avvisa** su fallimento, ma **esegue** (utile per migrare gli `.ffart` non firmati) |
-| `enforce` | **rifiuta ed esce** (codice 3) su artifact non firmato / chiave non autorizzata / firma non valida / piano manomesso. **Consigliato in produzione** |
+Cosa controlla (fail-closed, uscita **3** e nulla eseguito al primo fallimento):
+trust store presente, leggibile, valido e **non scrivibile da chiunque** → busta
+firmata presente (`formatVersion ≥ 2`) → motore compatibile → `keyId` presente e
+**attivo** nel trust store → firma valida (con la chiave del trust store) →
+`planHash` ricalcolato dal piano == quello firmato.
 
-Cosa controlla (fail-closed): busta firmata presente (`formatVersion ≥ 2`) → motore
-compatibile → `keyId` presente e **attivo** nel trust store → firma valida (con la
-chiave del trust store) → `planHash` ricalcolato dal piano == quello firmato.
-
-> In `enforce` con trust store **vuoto**, nessun artifact passa: è corretto. Autorizza
-> prima almeno una chiave (§7.2).
+> Con trust store **assente o vuoto** nessun artifact passa: è corretto. Autorizza
+> prima almeno una chiave (§7.2). Vale anche in sviluppo: per provare il runner sulla
+> tua macchina, autorizza la tua stessa chiave una volta
+> (`trust add <voce copiata da Signing> --owner <te>`).
 
 ---
 
@@ -331,7 +353,6 @@ chiave del trust store) → `planHash` ricalcolato dal piano == quello firmato.
 
 | Variabile | Effetto |
 |---|---|
-| `FLOWPILOT_SIGNATURE_MODE` | `off` \| `warn` (default) \| `enforce` |
 | `MONITOR_URL` | override dell'endpoint monitor (`.../ingest`); altrimenti usa quello nel manifesto |
 | `MONITOR_TOKEN` | token per farsi accettare da `/ingest` del monitor |
 | `FLOWPILOT_RUN_ID` | impone l'id d'esecuzione (utile in CI o per rieseguire) |
@@ -359,16 +380,18 @@ cargo build --bin flowpilot_monitor --no-default-features --features monitor --r
 
 **Esecuzione (Linux)**
 ```bash
-MONITOR_TOKEN=… ./target/release/flowpilot_monitor 8787 &
+MONITOR_TOKEN=… MONITOR_READ_TOKEN=… ./target/release/flowpilot_monitor 8787 &
 export DB_PASSWORD=… MONITOR_URL=https://host:8787/ingest MONITOR_TOKEN=…
-FLOWPILOT_SIGNATURE_MODE=enforce ./target/release/flowpilot_runner esempio.ffart
+./target/release/flowpilot_runner trust add voce.json --owner mark-laptop   # una tantum
+./target/release/flowpilot_runner esempio.ffart
 ```
 
 **Esecuzione (Windows/PowerShell)**
 ```powershell
-$env:MONITOR_TOKEN="…"; Start-Process .\target\release\flowpilot_monitor.exe 8787
+$env:MONITOR_TOKEN="…"; $env:MONITOR_READ_TOKEN="…"; Start-Process .\target\release\flowpilot_monitor.exe 8787
 $env:DB_PASSWORD="…"; $env:MONITOR_URL="https://host:8787/ingest"; $env:MONITOR_TOKEN="…"
-$env:FLOWPILOT_SIGNATURE_MODE="enforce"; .\target\release\flowpilot_runner.exe esempio.ffart
+.\target\release\flowpilot_runner.exe trust add voce.json --owner mark-laptop   # una tantum
+.\target\release\flowpilot_runner.exe esempio.ffart
 ```
 
 ---
@@ -378,13 +401,19 @@ $env:FLOWPILOT_SIGNATURE_MODE="enforce"; .\target\release\flowpilot_runner.exe e
 - **`cannot find module or crate 'tauri'` compilando il runner** → hai compilato senza
   `--no-default-features`, oppure un comando dello studio non è dietro
   `#[cfg(feature = "desktop")]`. Il runner va **sempre** `--no-default-features`.
-- **`FIRMA RIFIUTATA (enforce): chiave non autorizzata`** → il `keyId` dell'artifact
+- **`FIRMA RIFIUTATA: trust store assente`** → su questa macchina (per questo utente)
+  non è autorizzata nessuna chiave: `flowpilot_runner trust add …` (§7.2).
+- **`FIRMA RIFIUTATA: trust store scrivibile da CHIUNQUE`** → `chmod 600` sul file (e la
+  cartella non deve essere scrivibile da altri).
+- **`FIRMA RIFIUTATA: chiave non autorizzata`** → il `keyId` dell'artifact
   non è nel `trust-store.json` del server (o è `revoked`). Fai l'enrollment (§7.2).
-- **`FIRMA RIFIUTATA (enforce): planHash non combacia`** → l'artifact è stato modificato
+- **`FIRMA RIFIUTATA: planHash non combacia`** → l'artifact è stato modificato
   dopo la firma; riesporta dallo studio.
 - **`${NOME}` compare nei log** → segreto non impostato sulla macchina che esegue; vedi §8.3.
 - **Il monitor risponde `401`/rifiuta l'ingest** → `MONITOR_TOKEN` sul runner non
-  combacia con quello del monitor.
+  combacia con quello del monitor (il token di **lettura** non vale per l'ingest).
+- **Il monitor non parte: "token obbligatori mancanti"** → imposta `MONITOR_TOKEN` e
+  `MONITOR_READ_TOKEN`; solo per prove locali `MONITOR_INSECURE_LOCAL=1`.
 - **Linux: errore di link su `-lssl`/`-ldbus`** → mancano `libssl-dev`/`libdbus-1-dev`
   (build) o le relative librerie a runtime.
 - **Il keychain non trattiene i segreti su un server Linux** → nessun Secret Service

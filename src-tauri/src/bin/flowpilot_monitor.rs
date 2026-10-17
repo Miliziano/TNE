@@ -16,10 +16,27 @@
 //         escono dalla memoria; i loro file NON vengono cancellati)
 //   Env:  MONITOR_MAX_EVENTS=<n>           (default 50000: tetto eventi in memoria
 //         per run — oltre, si tengono i piu' recenti; il file resta completo)
-//   Env:  MONITOR_TOKEN=<segreto>          (se impostato, /ingest LO ESIGE:
-//         i runner devono inviare `Authorization: Bearer <segreto>`; senza token
-//         configurato /ingest resta APERTO — comodo in locale, da NON usare in rete)
-//   - i runner pushano su:  POST http://<host>:<porta>/ingest   (body NDJSON)
+//
+// SICUREZZA (P335) — fail-closed, niente si apre per dimenticanza:
+//   Env:  MONITOR_BIND=<ip>                (default 127.0.0.1: solo questa macchina.
+//         0.0.0.0 / un IP di rete per esporlo — meglio dietro un reverse proxy TLS)
+//   Env:  MONITOR_TOKEN=<segreto>          token di INGEST (runner → /ingest)
+//   Env:  MONITOR_READ_TOKEN=<segreto>     token di LETTURA (vista + API). Il browser
+//         lo chiede come password (utente qualsiasi); le API accettano anche Bearer.
+//         I due token sono OBBLIGATORI (min 16 caratteri) e vanno tenuti DIVERSI:
+//         il token di un runner non deve permettere di leggere i log di tutti.
+//   Env:  MONITOR_INSECURE_LOCAL=1         solo prove in locale: i token possono
+//         mancare, ma SOLO con bind su loopback; la lettura senza token accetta solo
+//         Host locale (anti DNS-rebinding).
+//   Env:  MONITOR_MAX_BODY_BYTES=<n>       (default 8 MiB) corpo massimo di un push
+//   Env:  MONITOR_RATE_BYTES_PER_MIN=<n>   (default 64 MiB, 0 = nessun tetto) volume
+//         di ingest per IP al minuto; oltre → 429 (il runner ripiega sul file locale)
+//   Env:  MONITOR_AUTH_FAIL_MAX=<n>        (default 20, 0 = off) credenziali di LETTURA
+//         errate per IP al minuto; oltre → 429 sulle letture per il resto del minuto
+//   Env:  MONITOR_WORKERS=<n>              (default 16) richieste servite in parallelo;
+//         coda piena → 503
+//   - i runner pushano su:  POST http://<host>:<porta>/ingest   (body NDJSON,
+//                           Content-Type application/x-ndjson, Bearer MONITOR_TOKEN)
 //   - vista web:            GET  http://<host>:<porta>/
 //   - API:                  GET /api/runs   e   GET /api/runs/<run_id>
 
@@ -27,6 +44,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::io::{Cursor, Read, Write};
+use std::net::{IpAddr, SocketAddr};
+use std::sync::mpsc::{sync_channel, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -62,6 +81,271 @@ struct RunState {
 
 type Store = Arc<Mutex<HashMap<String, RunState>>>;
 type Resp = Response<Cursor<Vec<u8>>>;
+
+// ─── CONTROLLO D'ACCESSO E LIMITI (P335) ──────────────────────────────
+
+/// Lunghezza minima dei token: niente "test"/"admin" in produzione.
+const TOKEN_MIN: usize = 16;
+/// Finestra dei limiti per IP.
+const FINESTRA_MS: u64 = 60_000;
+
+struct Config {
+    ingest_token: String, // vuoto = ingest senza token (solo modalita' locale insicura)
+    read_token: String,   // vuoto = lettura senza token (solo modalita' locale insicura)
+    max_body: usize,
+}
+
+/// Contesto condiviso dai worker.
+struct Ctx {
+    store: Store,
+    data_dir: String,
+    cfg: Config,
+    limiti: Limiti,
+}
+
+/// Politica d'avvio, FAIL-CLOSED: senza MONITOR_INSECURE_LOCAL entrambi i token
+/// sono obbligatori; con MONITOR_INSECURE_LOCAL possono mancare, ma solo se il
+/// monitor ascolta su loopback. Ritorna gli avvisi da stampare all'avvio.
+fn politica(bind: IpAddr, ingest: &str, read: &str, insecure_local: bool) -> Result<Vec<String>, String> {
+    let mut avvisi = Vec::new();
+    for (nome, t) in [("MONITOR_TOKEN", ingest), ("MONITOR_READ_TOKEN", read)] {
+        if !t.is_empty() && t.chars().count() < TOKEN_MIN {
+            return Err(format!(
+                "{nome} troppo corto (minimo {TOKEN_MIN} caratteri): generane uno con `openssl rand -hex 32`"
+            ));
+        }
+    }
+    if insecure_local {
+        if !bind.is_loopback() {
+            return Err(format!(
+                "MONITOR_INSECURE_LOCAL e' ammesso solo con bind su loopback (127.0.0.1 / ::1), non su {bind}"
+            ));
+        }
+        if ingest.is_empty() {
+            avvisi.push("ingest SENZA token (modalita' locale insicura): accetta push da qualunque processo di questa macchina".to_string());
+        }
+        if read.is_empty() {
+            avvisi.push("viste di lettura SENZA token (modalita' locale insicura): servite solo a richieste con Host locale".to_string());
+        }
+    } else {
+        let mancanti: Vec<&str> = [("MONITOR_TOKEN", ingest), ("MONITOR_READ_TOKEN", read)]
+            .iter()
+            .filter(|(_, t)| t.is_empty())
+            .map(|(n, _)| *n)
+            .collect();
+        if !mancanti.is_empty() {
+            return Err(format!(
+                "token obbligatori mancanti: {}. Generali con `openssl rand -hex 32` (due valori DIVERSI); \
+                 solo per una prova su questa macchina: MONITOR_INSECURE_LOCAL=1",
+                mancanti.join(", ")
+            ));
+        }
+    }
+    if !ingest.is_empty() && ingest == read {
+        avvisi.push("MONITOR_TOKEN e MONITOR_READ_TOKEN coincidono: chi ha il token di un runner puo' anche LEGGERE tutti i log. Usane due diversi".to_string());
+    }
+    if !bind.is_loopback() {
+        avvisi.push(format!(
+            "in ascolto su {bind} in HTTP IN CHIARO: token e log viaggiano leggibili in rete. \
+             Consigliato: monitor su 127.0.0.1 dietro un reverse proxy TLS"
+        ));
+    }
+    Ok(avvisi)
+}
+
+/// Valore di un'intestazione (nome senza distinzione di maiuscole).
+fn header(req: &tiny_http::Request, nome: &str) -> Option<String> {
+    req.headers()
+        .iter()
+        .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case(nome))
+        .map(|h| h.value.as_str().to_string())
+}
+
+/// Credenziale presentata: `Authorization: Bearer <t>`, `Authorization: Basic
+/// base64(utente:<t>)` (il browser; l'utente e' ignorato) o `X-Flowpilot-Token: <t>`.
+fn credenziale(req: &tiny_http::Request) -> Option<String> {
+    if let Some(v) = header(req, "authorization") {
+        return credenziale_da_authorization(&v);
+    }
+    header(req, "x-flowpilot-token").map(|t| t.trim().to_string())
+}
+
+fn credenziale_da_authorization(v: &str) -> Option<String> {
+    let (schema, resto) = v.trim().split_once(' ')?;
+    let resto = resto.trim();
+    match schema.to_ascii_lowercase().as_str() {
+        "bearer" => Some(resto.to_string()),
+        "basic" => {
+            use base64::Engine;
+            let raw = base64::engine::general_purpose::STANDARD.decode(resto).ok()?;
+            let s = String::from_utf8(raw).ok()?;
+            s.split_once(':').map(|(_, pw)| pw.to_string())
+        }
+        _ => None,
+    }
+}
+
+/// Host locale? Difesa dal DNS rebinding quando la lettura e' SENZA token: una
+/// pagina web ostile che rimappa il proprio nome su 127.0.0.1 manda il SUO Host.
+fn host_locale(host: &str) -> bool {
+    let h = host.trim();
+    let nome = if let Some(rest) = h.strip_prefix('[') {
+        rest.split(']').next().unwrap_or("")
+    } else {
+        h.rsplit_once(':').map(|(a, _)| a).unwrap_or(h)
+    };
+    nome.eq_ignore_ascii_case("localhost") || nome == "127.0.0.1" || nome == "::1"
+}
+
+struct Finestra {
+    inizio: u64,
+    byte: u64,
+    fallimenti: u32,
+}
+
+/// Limiti per IP su finestra fissa di un minuto: volume di ingest e credenziali
+/// errate. In memoria; la mappa si sfoltisce da sola oltre 10k IP.
+struct Limiti {
+    per_ip: Mutex<HashMap<IpAddr, Finestra>>,
+    rate_bytes_min: u64, // 0 = nessun tetto di volume
+    fail_max: u32,       // 0 = nessun blocco
+}
+
+impl Limiti {
+    fn new(rate_bytes_min: u64, fail_max: u32) -> Self {
+        Limiti { per_ip: Mutex::new(HashMap::new()), rate_bytes_min, fail_max }
+    }
+
+    fn con<R>(&self, ip: IpAddr, now: u64, f: impl FnOnce(&mut Finestra) -> R) -> R {
+        let mut m = self.per_ip.lock().unwrap();
+        if m.len() > 10_000 {
+            m.retain(|_, w| now.saturating_sub(w.inizio) < FINESTRA_MS);
+        }
+        let w = m.entry(ip).or_insert(Finestra { inizio: now, byte: 0, fallimenti: 0 });
+        if now.saturating_sub(w.inizio) >= FINESTRA_MS {
+            *w = Finestra { inizio: now, byte: 0, fallimenti: 0 };
+        }
+        f(w)
+    }
+
+    fn bloccato(&self, ip: IpAddr, now: u64) -> bool {
+        self.fail_max > 0 && self.con(ip, now, |w| w.fallimenti >= self.fail_max)
+    }
+
+    fn fallimento(&self, ip: IpAddr, now: u64) {
+        self.con(ip, now, |w| w.fallimenti = w.fallimenti.saturating_add(1))
+    }
+
+    /// Registra `n` byte di ingest; false se si supera il tetto della finestra.
+    fn consuma(&self, ip: IpAddr, n: u64, now: u64) -> bool {
+        if self.rate_bytes_min == 0 {
+            return true;
+        }
+        let tetto = self.rate_bytes_min;
+        self.con(ip, now, |w| {
+            if w.byte.saturating_add(n) > tetto {
+                false
+            } else {
+                w.byte += n;
+                true
+            }
+        })
+    }
+}
+
+fn testo(code: u16, msg: &str) -> Resp {
+    Response::from_string(msg.to_string()).with_status_code(code)
+}
+
+fn troppe_richieste() -> Resp {
+    testo(429, "too many requests, retry later")
+        .with_header(Header::from_bytes(&b"Retry-After"[..], &b"60"[..]).unwrap())
+}
+
+/// Credenziale di LETTURA errata (presentata ma sbagliata) → conta per il blocco
+/// dell'IP sulle letture. Una richiesta SENZA credenziale non conta: e' il primo
+/// giro del browser, prima che chieda la password.
+fn registra_fallimento(ctx: &Ctx, peer: Option<IpAddr>) {
+    if let Some(ip) = peer {
+        ctx.limiti.fallimento(ip, now_ms());
+    }
+}
+
+/// Controllo d'accesso alle viste di LETTURA (pagina + API). None = consentito.
+fn nega_lettura(req: &tiny_http::Request, ctx: &Ctx, peer: Option<IpAddr>) -> Option<Resp> {
+    if ctx.cfg.read_token.is_empty() {
+        // Modalita' locale insicura: niente token, ma solo con Host locale.
+        let host = header(req, "host").unwrap_or_default();
+        return if host_locale(&host) { None } else { Some(testo(403, "forbidden host")) };
+    }
+    match credenziale(req) {
+        Some(t) if token_valido(&ctx.cfg.read_token, &t) => None,
+        presentata => {
+            if presentata.is_some() {
+                registra_fallimento(ctx, peer);
+            }
+            Some(
+                testo(401, "authentication required").with_header(
+                    Header::from_bytes(&b"WWW-Authenticate"[..], &br#"Basic realm="FlowPilot Monitor", charset="UTF-8""#[..])
+                        .unwrap(),
+                ),
+            )
+        }
+    }
+}
+
+/// POST /ingest, nell'ordine: niente browser → token → tipo → dimensione → volume.
+fn ingest_route(req: &mut tiny_http::Request, ctx: &Ctx, peer: Option<IpAddr>) -> Resp {
+    // 1) Niente richieste da BROWSER: una pagina qualunque potrebbe far POSTare il
+    //    browser di chi la visita verso il monitor (CSRF). I runner non mandano Origin.
+    if header(req, "origin").is_some() {
+        return testo(403, "browser requests are not accepted on /ingest");
+    }
+    // 2) Token di ingest (mai quello di lettura). Un token errato NON conta per il
+    //    blocco per IP: un runner con un token vecchio che pusha ogni 100 ms
+    //    bloccherebbe tutto il suo host (o, dietro un proxy, tutta la flotta). Contro
+    //    l'indovinare basta l'entropia del token (minimo 16 caratteri, consigliati
+    //    32 esadecimali = 128 bit).
+    if !ctx.cfg.ingest_token.is_empty() {
+        match credenziale(req) {
+            Some(t) if token_valido(&ctx.cfg.ingest_token, &t) => {}
+            _ => return testo(401, "missing or invalid token"),
+        }
+    }
+    // 3) Solo NDJSON/JSON: esclude anche i POST "semplici" (form, text/plain) che un
+    //    browser puo' fare cross-site senza preflight.
+    let ct = header(req, "content-type").unwrap_or_default().to_ascii_lowercase();
+    let ct = ct.split(';').next().unwrap_or("").trim().to_string();
+    if !matches!(ct.as_str(), "application/x-ndjson" | "application/ndjson" | "application/json") {
+        return testo(415, "content-type must be application/x-ndjson");
+    }
+    // 4) Dimensione: rifiuto prima di leggere se dichiarata, e comunque mai oltre.
+    if req.body_length().map(|n| n > ctx.cfg.max_body).unwrap_or(false) {
+        return testo(413, "body too large");
+    }
+    let mut buf = Vec::new();
+    if req.as_reader().take(ctx.cfg.max_body as u64 + 1).read_to_end(&mut buf).is_err() {
+        return testo(400, "unreadable body");
+    }
+    if buf.len() > ctx.cfg.max_body {
+        return testo(413, "body too large");
+    }
+    // 5) Volume per IP nella finestra.
+    if let Some(ip) = peer {
+        if !ctx.limiti.consuma(ip, buf.len() as u64, now_ms()) {
+            return troppe_richieste();
+        }
+    }
+    let Ok(body) = String::from_utf8(buf) else {
+        return testo(400, "body is not UTF-8");
+    };
+    // IP OSSERVATO: preso dalla connessione, non dal corpo del messaggio.
+    // Dietro un reverse proxy questo e' l'IP del proxy (X-Forwarded-For
+    // andrebbe considerato solo se il proxy e' tuo: qui non lo assumiamo).
+    let peer_ip = peer.map(|ip| ip.to_string());
+    ingest(&body, &ctx.store, &ctx.data_dir, peer_ip.as_deref());
+    json_resp(&serde_json::json!({ "ok": true }))
+}
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
@@ -294,6 +578,11 @@ fn ingest(body: &str, store: &Store, data_dir: &str, peer_ip: Option<&str>) {
         let mut s = store.lock().unwrap();
         for line in body.lines() {
             if let Some((run_id, ty, event_ts, mut ev)) = process_line(line) {
+                // `_observed_ip` lo scrive SOLO il monitor: se arriva dal runner e'
+                // un tentativo di falsificare l'unico dato non dichiarato → via.
+                if let Some(obj) = ev.as_object_mut() {
+                    obj.remove("_observed_ip");
+                }
                 // IP OSSERVATO sulla connessione: lo timbro sul RunStarted (una volta per
                 // run) con un nome che dice chi l'ha messo (`_observed_ip`, prefisso _ =
                 // aggiunto dal monitor, non dichiarato dal runner). Finisce anche nel file
@@ -334,43 +623,30 @@ fn token_valido(atteso: &str, dato: &str) -> bool {
     diff == 0
 }
 
-/// Estrae il token dalla richiesta: header `Authorization: Bearer <t>`
-/// (accettato anche `X-Flowpilot-Token: <t>` per client semplici).
-fn token_richiesta(req: &tiny_http::Request) -> String {
-    for h in req.headers() {
-        let nome = h.field.as_str().as_str().to_ascii_lowercase();
-        if nome == "authorization" {
-            let v = h.value.as_str();
-            return v.strip_prefix("Bearer ").unwrap_or(v).trim().to_string();
-        }
-        if nome == "x-flowpilot-token" {
-            return h.value.as_str().trim().to_string();
-        }
-    }
-    String::new()
-}
-
-fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str, token: &str) -> Resp {
+fn route(req: &mut tiny_http::Request, ctx: &Ctx) -> Resp {
     let method = req.method().clone();
     let url = req.url().to_string();
     let path = url.split('?').next().unwrap_or(&url).to_string();
+    let peer = req.remote_addr().map(|a| a.ip());
+    let store = &ctx.store;
+    let data_dir = ctx.data_dir.as_str();
+
+    // Ogni GET (pagina e API) e' una LETTURA dei log: serve il token di lettura.
+    // Troppe credenziali di lettura errate da questo IP nell'ultimo minuto → 429
+    // (solo sulle letture: l'ingest dei runner dallo stesso IP non ne risente).
+    if method == Method::Get {
+        if let Some(ip) = peer {
+            if ctx.limiti.bloccato(ip, now_ms()) {
+                return troppe_richieste();
+            }
+        }
+        if let Some(r) = nega_lettura(req, ctx, peer) {
+            return r;
+        }
+    }
 
     match (method, path.as_str()) {
-        (Method::Post, "/ingest") => {
-            // FASE B: se un token e' configurato, l'ingest lo ESIGE. Senza token
-            // configurato il comportamento resta quello di prima (aperto).
-            if !token.is_empty() && !token_valido(token, &token_richiesta(req)) {
-                return Response::from_string("missing or invalid token").with_status_code(401);
-            }
-            // IP OSSERVATO: preso dalla connessione, non dal corpo del messaggio.
-            // Dietro un reverse proxy questo e' l'IP del proxy (X-Forwarded-For
-            // andrebbe considerato solo se il proxy e' tuo: qui non lo assumiamo).
-            let peer_ip = req.remote_addr().map(|a| a.ip().to_string());
-            let mut body = String::new();
-            let _ = req.as_reader().read_to_string(&mut body);
-            ingest(&body, store, data_dir, peer_ip.as_deref());
-            json_resp(&serde_json::json!({ "ok": true }))
-        }
+        (Method::Post, "/ingest") => ingest_route(req, ctx, peer),
         (Method::Get, "/api/runs") => {
             let s = store.lock().unwrap();
             let mut runs: Vec<Value> = s
@@ -445,10 +721,42 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str, token: &st
 fn main() {
     let port: u16 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(8787);
     let data_dir = std::env::var("MONITOR_DATA_DIR").unwrap_or_else(|_| default_data_dir());
-    // Token di ingest (fase B). Vuoto = nessuna autenticazione (default storico).
-    let token = std::env::var("MONITOR_TOKEN").unwrap_or_default().trim().to_string();
-    let addr = format!("0.0.0.0:{}", port);
-    let server = match Server::http(&addr) {
+
+    // ── Configurazione di sicurezza (P335) ───────────────────────────
+    let bind_raw = std::env::var("MONITOR_BIND").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let bind: IpAddr = match bind_raw.trim().parse() {
+        Ok(ip) => ip,
+        Err(_) => {
+            eprintln!("MONITOR_BIND non valido: '{bind_raw}' (atteso un indirizzo IP, es. 127.0.0.1 o 0.0.0.0)");
+            std::process::exit(1);
+        }
+    };
+    let ingest_token = std::env::var("MONITOR_TOKEN").unwrap_or_default().trim().to_string();
+    let read_token = std::env::var("MONITOR_READ_TOKEN").unwrap_or_default().trim().to_string();
+    let insecure_local = matches!(
+        std::env::var("MONITOR_INSECURE_LOCAL").unwrap_or_default().trim(),
+        "1" | "true" | "yes"
+    );
+    let avvisi = match politica(bind, &ingest_token, &read_token, insecure_local) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("monitor NON avviato: {e}");
+            std::process::exit(1);
+        }
+    };
+    let cfg = Config {
+        ingest_token,
+        read_token,
+        max_body: limite_env("MONITOR_MAX_BODY_BYTES", 8 * 1024 * 1024),
+    };
+    let limiti = Limiti::new(
+        limite_env("MONITOR_RATE_BYTES_PER_MIN", 64 * 1024 * 1024) as u64,
+        limite_env("MONITOR_AUTH_FAIL_MAX", 20) as u32,
+    );
+    let workers = limite_env("MONITOR_WORKERS", 16).max(1);
+
+    let addr = SocketAddr::new(bind, port);
+    let server = match Server::http(addr) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("impossibile avviare il monitor su {}: {}", addr, e);
@@ -469,22 +777,127 @@ fn main() {
         "FlowPilot monitor su http://{}  (ingest: POST /ingest, vista: GET /; dati in '{}', run caricati: {})",
         addr, data_dir, loaded
     );
-    if token.is_empty() {
-        eprintln!("⚠  MONITOR_TOKEN non impostato: /ingest accetta da CHIUNQUE raggiunga questa porta.");
-    } else {
-        eprintln!("🔒 /ingest protetto da token (Authorization: Bearer …). Le viste di LETTURA restano aperte.");
+    eprintln!(
+        "{}",
+        if cfg.ingest_token.is_empty() { "⚠  /ingest SENZA token (locale insicuro)" } else { "🔒 /ingest protetto da MONITOR_TOKEN (Bearer)" }
+    );
+    eprintln!(
+        "{}",
+        if cfg.read_token.is_empty() {
+            "⚠  lettura SENZA token (locale insicuro, solo Host locale)"
+        } else {
+            "🔒 lettura protetta da MONITOR_READ_TOKEN (browser: utente qualsiasi, password = token)"
+        }
+    );
+    for a in &avvisi {
+        eprintln!("⚠  {a}");
     }
 
-    let data_dir = Arc::new(data_dir);
-    let token = Arc::new(token);
-    for mut req in server.incoming_requests() {
-        let store = store.clone();
-        let data_dir = data_dir.clone();
-        let token = token.clone();
-        std::thread::spawn(move || {
-            let resp = con_sicurezza(route(&mut req, &store, &data_dir, &token));
+    let ctx = Arc::new(Ctx { store, data_dir, cfg, limiti });
+
+    // POOL LIMITATO: al massimo `workers` richieste servite insieme, una coda
+    // corta davanti; oltre → 503 subito (prima: un thread per richiesta, senza
+    // tetto → bastava aprire molte richieste per esaurire la macchina).
+    let (tx, rx) = sync_channel::<tiny_http::Request>(workers * 4);
+    let rx = Arc::new(Mutex::new(rx));
+    for _ in 0..workers {
+        let rx = rx.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || loop {
+            let next = rx.lock().unwrap().recv();
+            let Ok(mut req) = next else { break };
+            let resp = con_sicurezza(route(&mut req, &ctx));
             let _ = req.respond(resp);
         });
+    }
+    for req in server.incoming_requests() {
+        match tx.try_send(req) {
+            Ok(()) => {}
+            Err(TrySendError::Full(req)) => {
+                let resp = testo(503, "busy, retry later")
+                    .with_header(Header::from_bytes(&b"Retry-After"[..], &b"1"[..]).unwrap());
+                let _ = req.respond(con_sicurezza(resp));
+            }
+            Err(TrySendError::Disconnected(_)) => break,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const T1: &str = "0123456789abcdef-ingest";
+    const T2: &str = "0123456789abcdef-lettura";
+
+    fn ip(s: &str) -> IpAddr {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn politica_fail_closed() {
+        // token obbligatori senza la modalita' locale
+        assert!(politica(ip("127.0.0.1"), "", "", false).is_err());
+        assert!(politica(ip("127.0.0.1"), T1, "", false).is_err());
+        assert!(politica(ip("127.0.0.1"), "", T2, false).is_err());
+        // token troppo corti
+        assert!(politica(ip("127.0.0.1"), "corto", T2, false).is_err());
+        // modalita' locale: solo su loopback
+        assert!(politica(ip("0.0.0.0"), "", "", true).is_err());
+        assert!(politica(ip("192.168.1.10"), "", "", true).is_err());
+        assert_eq!(politica(ip("127.0.0.1"), "", "", true).unwrap().len(), 2);
+        assert!(politica(ip("::1"), "", "", true).is_ok());
+        // configurazione buona: nessun avviso su loopback
+        assert!(politica(ip("127.0.0.1"), T1, T2, false).unwrap().is_empty());
+        // token uguali → avviso; rete in chiaro → avviso
+        assert_eq!(politica(ip("127.0.0.1"), T1, T1, false).unwrap().len(), 1);
+        assert_eq!(politica(ip("0.0.0.0"), T1, T2, false).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn credenziali() {
+        use base64::Engine;
+        let b = |s: &str| base64::engine::general_purpose::STANDARD.encode(s);
+        assert_eq!(credenziale_da_authorization("Bearer abc").as_deref(), Some("abc"));
+        assert_eq!(credenziale_da_authorization("bearer   abc ").as_deref(), Some("abc"));
+        assert_eq!(credenziale_da_authorization(&format!("Basic {}", b("chiunque:segreto:con:due"))).as_deref(), Some("segreto:con:due"));
+        assert_eq!(credenziale_da_authorization(&format!("Basic {}", b("senzaduepunti"))), None);
+        assert_eq!(credenziale_da_authorization("Basic !!!"), None);
+        assert_eq!(credenziale_da_authorization("abc"), None);
+        assert_eq!(credenziale_da_authorization("Digest x"), None);
+    }
+
+    #[test]
+    fn host_locale_anti_rebinding() {
+        for h in ["localhost", "LOCALHOST:8787", "127.0.0.1", "127.0.0.1:8787", "[::1]:8787", "[::1]"] {
+            assert!(host_locale(h), "{h}");
+        }
+        for h in ["", "evil.example", "evil.example:8787", "127.0.0.1.evil.example", "localhost.evil.example:80", "10.0.0.5:8787"] {
+            assert!(!host_locale(h), "{h}");
+        }
+    }
+
+    #[test]
+    fn limiti_volume_e_fallimenti() {
+        let l = Limiti::new(1000, 3);
+        let a = ip("10.0.0.1");
+        let b = ip("10.0.0.2");
+        assert!(l.consuma(a, 600, 0));
+        assert!(!l.consuma(a, 500, 1000)); // oltre il tetto nella finestra
+        assert!(l.consuma(b, 900, 1000)); // altro IP, altro conto
+        assert!(l.consuma(a, 500, FINESTRA_MS + 1)); // finestra nuova
+        let t = 3 * FINESTRA_MS; // tempi crescenti: finestra nuova per tutti
+        for _ in 0..3 {
+            assert!(!l.bloccato(a, t));
+            l.fallimento(a, t);
+        }
+        assert!(l.bloccato(a, t));
+        assert!(!l.bloccato(b, t));
+        assert!(!l.bloccato(a, t + FINESTRA_MS)); // passa col minuto
+        let senza = Limiti::new(0, 0);
+        assert!(senza.consuma(a, u64::MAX / 2, 0));
+        senza.fallimento(a, 0);
+        assert!(!senza.bloccato(a, 0));
     }
 }
 

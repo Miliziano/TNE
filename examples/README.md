@@ -32,6 +32,16 @@ leggere, mai un cancello.
 
 ## Come si esegue un esempio
 
+**Una tantum:** il runner esegue solo artifact **firmati** da una chiave autorizzata
+sulla macchina. Per provare gli esempi in locale autorizza la tua stessa chiave dello
+studio (voce *Signing* → copia la voce trust store in `voce.json`):
+
+```bash
+/percorso/al/flowpilot_runner trust add voce.json --owner <il-tuo-nome>
+```
+
+Poi, per ogni esempio:
+
 ```bash
 cd examples/01-file-to-file
 mkdir -p _out
