@@ -83,6 +83,31 @@ fn default_data_dir() -> String {
         .into_owned()
 }
 
+/// Intestazioni di sicurezza su OGNI risposta (P334).
+/// - CSP: la vista e' un'unica pagina con script/stili INLINE (servono
+///   'unsafe-inline'), ma nient'altro: nessuna risorsa esterna, `fetch` solo verso
+///   il monitor stesso, immagini solo locali/data:. Se un contenuto ostile
+///   riuscisse comunque a eseguire uno script, non potrebbe caricare codice
+///   esterno ne' spedire i log altrove via fetch/immagini.
+/// - niente framing (clickjacking), niente sniffing dei tipi, niente Referer,
+///   niente cache (le risposte contengono log).
+fn con_sicurezza(resp: Resp) -> Resp {
+    const CSP: &str = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; \
+connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    let h = |k: &str, v: &str| Header::from_bytes(k.as_bytes(), v.as_bytes()).unwrap();
+    resp.with_header(h("Content-Security-Policy", CSP))
+        .with_header(h("X-Content-Type-Options", "nosniff"))
+        .with_header(h("X-Frame-Options", "DENY"))
+        .with_header(h("Referrer-Policy", "no-referrer"))
+        .with_header(h("Cache-Control", "no-store"))
+}
+
+/// Id del run dal percorso URL: la vista lo manda con `encodeURIComponent`, qui va
+/// DECODIFICATO (prima un id con spazi o caratteri speciali dava "run not found").
+fn id_da_url(segmento: &str) -> String {
+    urlencoding::decode(segmento).map(|c| c.into_owned()).unwrap_or_else(|_| segmento.to_string())
+}
+
 fn json_resp(v: &Value) -> Resp {
     Response::from_string(v.to_string())
         .with_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap())
@@ -371,7 +396,8 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str, token: &st
         }
         // Scarica il log NDJSON di un run (per salvarlo e riaprirlo con "Apri log").
         (Method::Get, p) if p.starts_with("/api/runs/") && p.ends_with("/download") => {
-            let id = &p["/api/runs/".len()..p.len() - "/download".len()];
+            let id = id_da_url(&p["/api/runs/".len()..p.len() - "/download".len()]);
+            let id = id.as_str();
             let s = store.lock().unwrap();
             match s.get(id) {
                 Some(r) => {
@@ -395,7 +421,8 @@ fn route(req: &mut tiny_http::Request, store: &Store, data_dir: &str, token: &st
             }
         }
         (Method::Get, p) if p.starts_with("/api/runs/") => {
-            let id = &p["/api/runs/".len()..];
+            let id = id_da_url(&p["/api/runs/".len()..]);
+            let id = id.as_str();
             let s = store.lock().unwrap();
             match s.get(id) {
                 Some(r) => json_resp(&serde_json::json!({
@@ -455,7 +482,7 @@ fn main() {
         let data_dir = data_dir.clone();
         let token = token.clone();
         std::thread::spawn(move || {
-            let resp = route(&mut req, &store, &data_dir, &token);
+            let resp = con_sicurezza(route(&mut req, &store, &data_dir, &token));
             let _ = req.respond(resp);
         });
     }
@@ -523,7 +550,16 @@ let sel=null;        // id del run del server selezionato
 let opened=null;     // { name, header, run_id, status, events } aperto DA FILE (transiente)
 let active='none';   // 'run' | 'file' | 'none' — cosa mostra il pannello dettaglio
 
-function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+// ESCAPING (P334). Tutto cio' che arriva dagli eventi e' DATO NON FIDATO (lo
+// scrive chi pusha sull'ingest, o chi ha prodotto il file aperto con "Apri log"):
+//  - esc(): testo e valori di attributo tra virgolette → sfugge anche " e '
+//    (prima no: un id di nodo con `"` usciva dall'attributo value= → XSS);
+//  - num(): i numeri delle statistiche vengono dal payload, quindi possono essere
+//    stringhe qualsiasi: si mostrano SOLO se sono davvero numeri;
+//  - mai un dato dentro un handler inline: l'id del run viaggia in data-id ed e'
+//    letto con this.dataset.id (prima era concatenato in onclick="openRun('…')").
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(v){ return (typeof v==='number' && isFinite(v)) ? String(v) : '?'; }
 function fmtTs(ts){ if(typeof ts!=='number') return ''; const d=new Date(ts), p=(n,l)=>String(n).padStart(l,'0'); return p(d.getHours(),2)+':'+p(d.getMinutes(),2)+':'+p(d.getSeconds(),2)+'.'+p(d.getMilliseconds(),3); }
 // ── Stato della vista dettaglio: gli eventi correnti + i filtri scelti.
 // Tenuti fuori dal rendering cosi' i filtri sopravvivono al refresh automatico.
@@ -623,20 +659,20 @@ function riepilogo(events){
 
 function renderRiepilogo(r){
   if(r.esito==='running' && !r.nodi) return '';
-  const ms=(v)=>v==null?'—':(v<1000?(v+' ms'):((v/1000).toFixed(2)+' s'));
+  const ms=(v)=>(typeof v!=='number'||!isFinite(v))?'—':(v<1000?(v+' ms'):((v/1000).toFixed(2)+' s'));
   const bad=r.esito==='failed';
   let h='<div class="sum">';
   h+='<div class="'+(bad?'bad':'')+'">outcome<b>'+esc(r.esito)+'</b></div>';
   h+='<div>duration<b>'+ms(r.durata)+'</b></div>';
-  if(r.picco) h+='<div>rows (max per node)<b>'+r.picco+'</b></div>';
-  if(r.rrej)  h+='<div class="bad">dropped<b>'+r.rrej+'</b></div>';
+  if(r.picco) h+='<div>rows (max per node)<b>'+num(r.picco)+'</b></div>';
+  if(r.rrej)  h+='<div class="bad">dropped<b>'+num(r.rrej)+'</b></div>';
   // nodi: quanti sono partiti e come sono finiti (piu' utile del solo conteggio)
   let dettNodi=String(r.nAvviati||r.nodi);
   const coda=[];
   if(r.nInterrotti) coda.push(r.nInterrotti+' interrupted');
   if(r.nFalliti)    coda.push(r.nFalliti+' failed');
   h+='<div class="'+(r.nFalliti?'bad':'')+'">nodes<b>'+dettNodi+(coda.length?(' <span style="font-size:11px;font-weight:400">('+coda.join(', ')+')</span>'):'')+'</b></div>';
-  if(r.lanesOk!=null) h+='<div class="'+(r.lanesKo?'bad':'')+'">lanes ok / ko<b>'+r.lanesOk+' / '+(r.lanesKo||0)+'</b></div>';
+  if(r.lanesOk!=null) h+='<div class="'+(r.lanesKo?'bad':'')+'">lanes ok / ko<b>'+num(r.lanesOk)+' / '+num(r.lanesKo||0)+'</b></div>';
   h+='</div>';
   if(bad&&r.errore) h+='<div class="ev err" style="margin-bottom:8px">'+esc(r.errore)+'</div>';
 
@@ -645,15 +681,15 @@ function renderRiepilogo(r){
   // "60 in uscita"). Qui ogni nodo dice i suoi numeri: per un nodo terminale
   // `out` sono le righe consegnate a destinazione.
   if(r.righe && r.righe.length){
-    const cella=(x)=>x==null?'—':x;
+    const cella=(x)=>x==null?'—':num(x);
     h+='<div class="nodi">'+r.righe.map(n=>
       '<span class="nodo'+(n.stato?(' '+n.stato):'')+'">'+esc(n.nome)
       +' <b>'+cella(n.in)+' → '+cella(n.out)+'</b>'
-      +(n.rej?(' <i>'+n.rej+' dropped</i>'):'')
+      +(n.rej?(' <i>'+num(n.rej)+' dropped</i>'):'')
       +(n.stato==='err'?' ✖':(n.stato==='warn'?' ⏸':''))
       +'</span>').join('')+'</div>';
     if(r.daEventi) h+='<div class="muted" style="font-size:10px;margin:-4px 0 8px">'
-      +'numbers reconstructed from node events (the run's final summary did not contain them)</div>';
+      +'numbers reconstructed from node events (the final run summary did not contain them)</div>';
   }
   return h;
 }
@@ -790,15 +826,15 @@ async function loadRuns(){
       html+='<div class="run '+(active==='file'?'sel':'')+'" onclick="showOpened()" style="border-left:3px solid #c8a060">'
         +'<div class="rid">&#128194; '+esc(opened.name)+'</div>'
         +'<div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center">'
-        +'<span class="badge '+opened.status+'">'+opened.status+'</span>'
+        +'<span class="badge '+esc(opened.status)+'">'+esc(opened.status)+'</span>'
         +'<span class="muted">'+opened.events.length+' events &middot; from file</span></div></div>';
     }
-    html+=d.runs.map(x=>'<div class="run '+((active==='run'&&x.run_id===sel)?'sel':'')+'" onclick="openRun(\''+x.run_id+'\')">'
+    html+=d.runs.map(x=>'<div class="run '+((active==='run'&&x.run_id===sel)?'sel':'')+'" data-id="'+esc(x.run_id)+'" onclick="openRun(this.dataset.id)">'
       +(x.plan_name?('<div class="pname">'+esc(x.plan_name)+'</div>'):'')
       +'<div class="rid">'+esc(x.run_id)+'</div>'
       +'<div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center">'
-      +'<span class="badge '+x.status+'">'+x.status+'</span>'
-      +'<span class="muted">'+x.events+' events</span></div>'
+      +'<span class="badge '+esc(x.status)+'">'+esc(x.status)+'</span>'
+      +'<span class="muted">'+num(x.events)+' events</span></div>'
       +((x.studio_label||x.observed_ip)?('<div class="muted" style="margin-top:3px;font-size:10px">'
         +(x.studio_label?('&#128187; '+esc(x.studio_label)):'')
         +(x.studio_label&&x.observed_ip?' &middot; ':'')
@@ -830,7 +866,7 @@ async function openRun(id){
       +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
       +(d.plan_name?('<b>'+esc(d.plan_name)+'</b> '):'')
       +'<span class="rid">'+esc(d.run_id||id)+'</span> '
-      +(d.status?('<span class="badge '+d.status+'">'+d.status+'</span> '):'')
+      +(d.status?('<span class="badge '+esc(d.status)+'">'+esc(d.status)+'</span> '):'')
       +'<span class="muted">'+((d.events&&d.events.length)||0)+' events</span>'
       +'<a class="dl" href="/api/runs/'+encodeURIComponent(id)+'/download" download>&#128190; Save log</a></div>'
       +provLine+ipLine+'</div>';
@@ -853,7 +889,7 @@ function showOpened(){
     +'<b>&#128194; '+esc(opened.name)+'</b> '
     +(opened.plan_name?('<b>'+esc(opened.plan_name)+'</b> '):'')
     +'<span class="rid">'+esc(opened.run_id)+'</span> '
-    +'<span class="badge '+opened.status+'">'+opened.status+'</span> '
+    +'<span class="badge '+esc(opened.status)+'">'+esc(opened.status)+'</span> '
     +'<span class="muted">'+opened.events.length+' events</span>'
     +'<button onclick="closeOpened()" style="margin-left:auto">&#10005; chiudi</button></div>'+metaLine+'</div>';
   vistaBanner=banner; vistaEventi=opened.events||[];
