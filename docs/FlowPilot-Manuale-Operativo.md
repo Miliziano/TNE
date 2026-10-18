@@ -33,7 +33,8 @@ portabile: lo stesso runner esegue qualsiasi artifact. Cento flussi = un runner
 
 ## 2. Prerequisiti
 
-- **Rust** ≥ 1.77.2 (con `cargo`). Installazione: <https://rustup.rs>.
+- **Rust** via rustup (<https://rustup.rs>). La versione è fissata dal repo
+  (`src-tauri/rust-toolchain.toml`, oggi 1.99.1) e rustup la scarica da solo.
 - **Node.js** ≥ 18 e **npm** (per lo studio).
 - **Librerie di sistema** — dipendono da *cosa* compili:
 

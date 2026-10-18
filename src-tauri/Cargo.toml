@@ -7,7 +7,7 @@ authors = ["you"]
 license = ""
 repository = ""
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.99"   # P336: allineata a rust-toolchain.toml (1.99.1)
 
 [lib]
 name = "app_lib"
@@ -23,47 +23,66 @@ serde      = { version = "1.0", features = ["derive"] }
 log        = "0.4"
 tauri      = { version = "2.11.2", features = [], optional = true }
 tauri-plugin-log    = { version = "2", optional = true }
-tauri-plugin-fs     = { version = "2.5.1", features = ["watch"], optional = true }
 # keychain del SO per i segreti (macOS Keychain / Windows Credential Manager / Linux Secret Service).
 # ⚠️ VERIFICARE versione/feature per le proprie piattaforme di build; se il build fallisce,
 # il provider da variabili d'ambiente (secrets.rs) resta comunque funzionante.
-keyring             = "2"
+keyring             = "2"   # P341: NON aggiornato di proposito (v3/v4 cambiano i backend per piattaforma):
+                            # prima va verificato su Windows/macOS/Linux che i segreti GIA' salvati
+                            # nel portachiavi restino leggibili. Porta con se' zbus 3 (avvisi "unmaintained").
 tiny_http           = { version = "0.12", optional = true }   # solo per il binario monitor
 tauri-plugin-dialog = { version = "2.7.1", optional = true }
-tauri-plugin-shell  = { version = "2.3.5", optional = true }
-base64     = "0.22"
-rust_xlsxwriter = "0.96"
+base64     = "0.23"
+rust_xlsxwriter = "0.100"
+# P342: LETTURA Excel/ODS nel motore (source_file formato "excel") e quindi anche
+# nell'anteprima dello studio: sostituisce SheetJS (xlsx su npm, abbandonato e vulnerabile).
+calamine = { version = "0.36", features = ["dates"] }
+# Nota cargo audit: calamine porta `zip` 8.x, con 3 avvisi (RUSTSEC-2026-0367/0368/0369)
+# che riguardano SOLO l'estrazione su disco (`ZipArchive::extract`): calamine legge le
+# parti dell'archivio in memoria e non estrae mai file. Non sfruttabili da qui.
 lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder", "hostname",] }
-rumqttc = { version = "0.24", features = ["use-rustls"] }
-hmac            = "0.12"
-sha2            = "0.10"
-ed25519-dalek   = { version = "2", features = ["rand_core"] }   # firma degli artifact (HANDOFF-firma-artifact.md)
-rand_core       = { version = "0.6", features = ["getrandom"] } # RNG per la generazione della chiave Ed25519
-argon2           = "0.5"    # KDF (argon2id) per cifrare a riposo la chiave di firma
-chacha20poly1305 = "0.10"   # AEAD (XChaCha20-Poly1305) per la chiave di firma cifrata
+# P337: native-tls (come lettre/ldap3/suppaftp/sqlx) invece di rustls: il ramo rustls di
+# rumqttc 0.25 tira dentro rustls-webpki 0.102 (4 avvisi RUSTSEC). E `use_tls` ora vale davvero.
+rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
+hmac            = "0.13"
+sha2            = "0.11"
+ed25519-dalek   = "3"                                           # firma degli artifact (HANDOFF-firma-artifact.md)
+getrandom       = "0.4"                                         # casualita' del sistema (seme della chiave, sale/nonce del vault)
+argon2           = "0.6"    # KDF (argon2id) per cifrare a riposo la chiave di firma
+chacha20poly1305 = "0.11"   # AEAD (XChaCha20-Poly1305) per la chiave di firma cifrata
 zeroize          = "1"      # azzera il seme/chiavi in RAM al drop (lock/chiusura)
-sha1            = "0.10"
-md-5            = "0.10"
+sha1            = "0.11"
+md-5            = "0.11"
 hex             = "0.4"
-reqwest         = { version = "0.12", features = ["json"] }
-notify          = "6"
+# P341: reqwest 0.13 passa di default a rustls; si resta su native-tls (certificati di
+# sistema, come gli altri client) disattivando i default e rimettendo cio' che serviva.
+reqwest         = { version = "0.13", default-features = false, features = ["json", "native-tls", "charset", "http2", "system-proxy", "query", "form"] }
+notify          = "8"
 tokio-util      = { version = "0.7", features = ["rt"] }
 hyper           = { version = "1",    features = ["full"] }
 http-body-util  = "0.1"
 hyper-util      = { version = "0.1",  features = ["tokio"] }
 ssh2 = "0.9"
-ldap3 = "0.11"   # client LDAP async (native-tls, coerente con lettre/suppaftp); condiviso da ldap_test/ldap_source/ldap_auth
+ldap3 = "0.12"   # client LDAP async (native-tls, coerente con lettre/suppaftp); condiviso da ldap_test/ldap_source/ldap_auth
 futures = "0.3"
-sysinfo = "0.30"
+sysinfo = "0.39"
 regex = "1"
-quick-xml = "0.40"
+quick-xml = "0.42"
 
 # ── Database ───────────────────────────────────────────────────────
-sqlx = { version = "0.7", features = [
-  "runtime-tokio-native-tls",
+# P338: sqlx 0.9 (era 0.7: RUSTSEC-2024-0363). Niente feature di default (macro,
+# migrate, any: non usate). `mysql-rsa` serve all'autenticazione caching_sha2 di
+# MySQL 8 su connessione non TLS: il client CIFRA soltanto con la chiave pubblica
+# del server, quindi l'avviso RUSTSEC-2023-0071 su `rsa` (tempi della DECIFRATURA
+# con chiave privata) non si applica a questo uso. SQLite: libreria inclusa
+# (bundled), senza caricamento di estensioni.
+sqlx = { version = "0.9", default-features = false, features = [
+  "macros",          # porta con se' `describe()` (inferenza schema dello studio)
+  "runtime-tokio",
+  "tls-native-tls",
   "postgres",
   "mysql",
-  "sqlite",
+  "mysql-rsa",
+  "sqlite-bundled",
   "json",
   "chrono",
   "uuid",
@@ -76,7 +95,7 @@ urlencoding  = "2.1"
 tokio        = { version = "1",   features = ["full"] }
 # ── FTP / SFTP ─────────────────────────────────────────────────────
 
-suppaftp     = { version = "6", features = ["async", "async-native-tls"] }
+suppaftp     = { version = "12", features = ["tokio-async-native-tls"] }
 futures-util = { version = "0.3", features = ["io"] }
 
 
@@ -84,7 +103,10 @@ futures-util = { version = "0.3", features = ["io"] }
 # `desktop` (default) = lo STUDIO Tauri. Il runner headless si costruisce SENZA:
 #   cargo build --bin flowpilot_runner --no-default-features --release
 default = ["desktop"]
-desktop = ["dep:tauri", "dep:tauri-plugin-log", "dep:tauri-plugin-fs", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
+# P336: via tauri-plugin-fs e tauri-plugin-shell. Dal P328 le capability non li
+# concedono piu' e nessun codice li usa: tenerli inizializzati era solo superficie
+# d'attacco (e dipendenze da aggiornare). I file passano dai comandi custom.
+desktop = ["dep:tauri", "dep:tauri-plugin-log", "dep:tauri-plugin-dialog"]
 monitor = ["dep:tiny_http"]
 
 # Profilo per il RUNNER headless: ottimizzato per DIMENSIONE (non tocca il

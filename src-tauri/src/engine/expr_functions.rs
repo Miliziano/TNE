@@ -295,7 +295,7 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             use sha2::{Sha256, Digest};
             let mut h = Sha256::new();
             h.update(s(a0).as_bytes());
-            Value::String(format!("{:x}", h.finalize()))
+            Value::String(hex::encode(h.finalize()))
         }
 
 
@@ -329,13 +329,13 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             use sha1::{Sha1, Digest};
             let mut h = Sha1::new();
             h.update(s(a0).as_bytes());
-            Value::String(format!("{:x}", h.finalize()))
+            Value::String(hex::encode(h.finalize()))
         }
         "hash_sha512" => {
             use sha2::{Sha512, Digest};
             let mut h = Sha512::new();
             h.update(s(a0).as_bytes());
-            Value::String(format!("{:x}", h.finalize()))
+            Value::String(hex::encode(h.finalize()))
         }
 
         // ── Strutture (oggetti / array JSON) ─────────────────────

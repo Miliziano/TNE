@@ -31,5 +31,9 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **MQTT**.
+**TLS (P337).** Con **TLS** attivo nella risorsa il nodo si collega su TLS vero
+(native-tls) e verifica il certificato del broker con i certificati di sistema; di
+solito la porta è **8883**. Se il broker non parla TLS su quella porta, o il certificato
+non è fidato, la connessione **fallisce** (non ripiega in chiaro). Fino al P336 l'opzione
+veniva ignorata e la connessione era sempre in chiaro.
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

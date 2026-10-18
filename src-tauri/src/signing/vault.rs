@@ -20,7 +20,6 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::SigningKey;
-use rand_core::{OsRng, RngCore};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use zeroize::Zeroizing;
@@ -49,7 +48,7 @@ fn identity_from_seed(seed: &[u8; 32]) -> Identity {
 /// Nuovo seed casuale (chiave generata dal sistema).
 pub fn generate_seed() -> [u8; 32] {
     let mut s = [0u8; 32];
-    OsRng.fill_bytes(&mut s);
+    getrandom::fill(&mut s).expect("generatore casuale del sistema non disponibile");
     s
 }
 
@@ -63,7 +62,14 @@ pub fn seed_from_b64(b64: &str) -> Result<[u8; 32], String> {
 
 fn derive_key(passphrase: &str, salt: &[u8]) -> Result<Zeroizing<[u8; 32]>, String> {
     let mut key = Zeroizing::new([0u8; 32]);
-    Argon2::default()
+    // Parametri FISSATI (P340), uguali ai default di argon2 0.5 con cui sono state
+    // cifrate le chiavi esistenti: argon2id v0x13, 19 MiB, 2 passate, 1 corsia.
+    // Mai affidarsi al default della libreria: se cambiasse con un aggiornamento,
+    // le chiavi gia' salvate non si aprirebbero piu'. Per cambiarli servirebbe
+    // salvarli nel file (campo `params`) e migrare.
+    let params = argon2::Params::new(19 * 1024, 2, 1, Some(32))
+        .map_err(|e| format!("parametri argon2: {e}"))?;
+    Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params)
         .hash_password_into(passphrase.as_bytes(), salt, &mut *key)
         .map_err(|e| format!("derivazione chiave (argon2): {e}"))?;
     Ok(key)
@@ -75,13 +81,13 @@ pub fn save_encrypted(path: &Path, seed: &[u8; 32], passphrase: &str) -> Result<
         return Err("la passphrase non può essere vuota".into());
     }
     let mut salt = [0u8; 16];
-    OsRng.fill_bytes(&mut salt);
+    getrandom::fill(&mut salt).map_err(|e| format!("casualita' di sistema: {e}"))?;
     let mut nonce = [0u8; 24];
-    OsRng.fill_bytes(&mut nonce);
+    getrandom::fill(&mut nonce).map_err(|e| format!("casualita' di sistema: {e}"))?;
     let key = derive_key(passphrase, &salt)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&key[..]).map_err(|e| format!("cipher: {e}"))?;
     let ct = cipher
-        .encrypt(XNonce::from_slice(&nonce), seed.as_slice())
+        .encrypt(&XNonce::from(nonce), seed.as_slice())
         .map_err(|_| "cifratura fallita".to_string())?;
     let id = identity_from_seed(seed);
     let doc = serde_json::json!({
@@ -133,7 +139,10 @@ pub fn decrypt_seed(path: &Path, passphrase: &str) -> Result<[u8; 32], String> {
     let cipher = XChaCha20Poly1305::new_from_slice(&key[..]).map_err(|e| format!("cipher: {e}"))?;
     let pt = Zeroizing::new(
         cipher
-            .decrypt(XNonce::from_slice(&nonce), ct.as_slice())
+            .decrypt(
+                &XNonce::try_from(nonce.as_slice()).map_err(|_| "nonce di lunghezza errata".to_string())?,
+                ct.as_slice(),
+            )
             .map_err(|_| "passphrase errata o file danneggiato".to_string())?,
     );
     pt.as_slice().try_into().map_err(|_| "seed decifrato di lunghezza errata".to_string())

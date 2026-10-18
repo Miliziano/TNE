@@ -473,7 +473,7 @@ async fn write_all_tx(
         //    chiude nello stesso lock: stack sempre pulito all'uscita.
         let chunk_res: Result<u64, String> = {
             let mut guard = conn.lock().await;
-            match sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
+            match sqlx::query(crate::sqlsafe::composto(format!("SAVEPOINT {}", sp_name))).execute(&mut **guard).await {
                 Ok(_) => {}
                 Err(e) => { write_result = Err(format!("SAVEPOINT failed: {}", e)); break 'outer; }
             }
@@ -486,7 +486,7 @@ async fn write_all_tx(
             } else {
                 format!("ROLLBACK TO SAVEPOINT {}", sp_name)
             };
-            if let Err(e) = sqlx::query(&sp_sql).execute(&mut **guard).await {
+            if let Err(e) = sqlx::query(crate::sqlsafe::composto(sp_sql.as_str())).execute(&mut **guard).await {
                 eprintln!("[tx] {} fallito: {}", sp_sql, e);
             }
             r
@@ -583,7 +583,7 @@ async fn write_master_detail_tx(
         let mut enriched_batch: Vec<Row> = Vec::with_capacity(buf.len());
         let chunk_res: Result<(), String> = {
             let mut guard = conn.lock().await;
-            if let Err(e) = sqlx::query(&format!("SAVEPOINT {}", sp_name)).execute(&mut **guard).await {
+            if let Err(e) = sqlx::query(crate::sqlsafe::composto(format!("SAVEPOINT {}", sp_name))).execute(&mut **guard).await {
                 write_result = Err(format!("SAVEPOINT failed: {}", e));
                 break 'outer;
             }
@@ -612,7 +612,7 @@ async fn write_master_detail_tx(
             } else {
                 format!("ROLLBACK TO SAVEPOINT {}", sp_name)
             };
-            if let Err(e) = sqlx::query(&sp_sql).execute(&mut **guard).await {
+            if let Err(e) = sqlx::query(crate::sqlsafe::composto(sp_sql.as_str())).execute(&mut **guard).await {
                 eprintln!("[tx] {} fallito: {}", sp_sql, e);
             }
             res
@@ -672,19 +672,19 @@ async fn tx_ddl_and_presql(
     if config.drop_and_create {
         let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
         eprintln!("[tx][ddl] {}", drop);
-        sqlx::query(&drop).execute(&mut **guard).await
+        sqlx::query(crate::sqlsafe::autore(drop.as_str())).execute(&mut **guard).await
             .map_err(|e| format!("DROP TABLE failed: {}", e))?;
     }
     if needs_ddl {
         if let Some(ddl) = build_create_table(config) {
             eprintln!("[tx][ddl] CREATE TABLE {}", qualified_ddl_table(config));
-            sqlx::query(&ddl).execute(&mut **guard).await
+            sqlx::query(crate::sqlsafe::autore(ddl.as_str())).execute(&mut **guard).await
                 .map_err(|e| format!("CREATE TABLE failed: {}", e))?;
         }
     }
     if !config.pre_sql.trim().is_empty() {
         for stmt in config.pre_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-            sqlx::query(stmt).execute(&mut **guard).await
+            sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **guard).await
                 .map_err(|e| format!("Pre-SQL failed: {}", e))?;
         }
     }
@@ -699,7 +699,7 @@ async fn tx_postsql(
     if config.post_sql.trim().is_empty() { return Ok(()); }
     let mut guard = conn.lock().await;
     for stmt in config.post_sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-        sqlx::query(stmt).execute(&mut **guard).await
+        sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **guard).await
             .map_err(|e| format!("Post-SQL failed: {}", e))?;
     }
     Ok(())
@@ -1015,9 +1015,9 @@ async fn exec_pre_post(
     let stmts: Vec<&str> = sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
     for stmt in stmts {
         let res = match pool {
-            DbPool::Pg(p)     => sqlx::query(stmt).execute(p).await.map(|_| ()),
-            DbPool::My(p)     => sqlx::query(stmt).execute(p).await.map(|_| ()),
-            DbPool::Sqlite(p) => sqlx::query(stmt).execute(p).await.map(|_| ()),
+            DbPool::Pg(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
+            DbPool::My(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
+            DbPool::Sqlite(p) => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
         };
         res.map_err(|e| format!("{} failed: {}", label, e))?;
     }

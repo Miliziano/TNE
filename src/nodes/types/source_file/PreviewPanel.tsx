@@ -69,6 +69,8 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
         format,
         delimiter: p('delimiter', ','),
         hasHeader: p('hasHeader', 'true'),
+        sheetName: p('sheetName', ''),   // Excel/ODS (P342)
+        startRow:  p('startRow', '1'),
         pathSource: 'static',
       },
       config: {

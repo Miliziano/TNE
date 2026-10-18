@@ -38,7 +38,9 @@ File di configurazione per-utente (creati al bisogno):
 ## 2. Prerequisiti
 
 ### Comuni (tutte le macchine che compilano)
-- **Rust** ≥ 1.81 (`rustup`), con `cargo` nel PATH.
+- **Rust** via `rustup`, con `cargo` nel PATH. La versione è **fissata** dal repo
+  (`src-tauri/rust-toolchain.toml`, oggi **1.99.1**): al primo `cargo` dentro
+  `src-tauri/` rustup la scarica da solo. Non serve sceglierla a mano.
 - **Node.js** ≥ 18 e **npm** (solo per lo studio).
 - **Git**.
 

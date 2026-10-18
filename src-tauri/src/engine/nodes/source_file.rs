@@ -57,6 +57,9 @@ struct SourceFileConfig {
     delimiter:  char,
     has_header: bool,
     fields:     Vec<FieldType>,
+    /// Excel/ODS (P342): foglio ("" = il primo) e riga da cui partire (1 = prima).
+    sheet_name: String,
+    start_row:  u64,
 }
 
 fn config_from_spec(spec: &Spec) -> Result<SourceFileConfig, String> {
@@ -79,6 +82,8 @@ fn config_from_spec(spec: &Spec) -> Result<SourceFileConfig, String> {
         // Leggendo la chiave vera, l'impostazione dell'utente ora conta.
         has_header: spec.bool_or("hasHeader", true),
         fields,
+        sheet_name: spec.str_or("sheetName", ""),
+        start_row:  spec.u64_or("startRow", 1).max(1),
     })
 }
 
@@ -128,6 +133,48 @@ pub async fn run(
         Some(t) => t,
         None => return Ok(NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: 0, error: None }),
     };
+
+    // ── Excel / OpenDocument (P342) ─────────────────────────────────
+    // 🐞 Prima il formato "excel" (offerto dal pannello) non aveva un lettore nel
+    // motore: il file binario veniva letto come CSV e usciva spazzatura. Ora lo
+    // legge calamine (xlsx, xlsm, xlsb, xls, ods), la stessa via che usa
+    // l'anteprima dello studio.
+    if matches!(config.format.as_str(), "excel" | "xlsx" | "xlsm" | "xlsb" | "xls" | "ods") {
+        let start = std::time::Instant::now();
+        let rows = {
+            let (path, sheet, start_row, has_header) =
+                (path.clone(), config.sheet_name.clone(), config.start_row, has_header);
+            let types: std::collections::HashMap<String, String> = config.fields.iter()
+                .map(|f| (f.name.clone(), f.ty.clone())).collect();
+            tokio::task::spawn_blocking(move || read_excel(&path, &sheet, start_row, has_header, &types))
+                .await
+                .map_err(|e| format!("source_file {}: Excel reader crashed: {}", ctx.node_id.0, e))?
+        };
+        let rows = match rows {
+            Ok(r) => r,
+            Err(e) => {
+                let msg = format!("source_file {}: {}", ctx.node_id.0, e);
+                ctx.emit_completed(NodeStats {
+                    rows_in: 0, rows_out: 0, rows_rejected: 0,
+                    elapsed_ms: start.elapsed().as_millis() as u64,
+                    error: Some(msg.clone()),
+                });
+                return Err(msg);
+            }
+        };
+        let mut rows_out = 0u64;
+        for row in rows {
+            if tx.send(row).await.is_err() { break; }
+            rows_out += 1;
+        }
+        let stats = NodeStats {
+            rows_in: 0, rows_out, rows_rejected: 0,
+            elapsed_ms: start.elapsed().as_millis() as u64,
+            error: None,
+        };
+        ctx.emit_completed(stats.clone());
+        return Ok(stats);
+    }
 
     // ── Formati "documento intero" (xml, json) ──────────────────────
     // Vanno letti come UN unico contenuto in un campo `content` (una sola
@@ -307,6 +354,100 @@ pub(crate) fn parse_csv_line(line: &str, delimiter: u8) -> Vec<String> {
 /// Converte il testo di una cella CSV nel Value corrispondente al tipo
 /// dichiarato nel mapping. Un valore non convertibile diventa Null:
 /// meglio un null visibile che uno zero silenzioso.
+// ─── Excel / OpenDocument (P342) ──────────────────────────────────
+
+/// Testo di una cella, nella forma che avrebbe in un CSV esportato.
+fn excel_text(cell: &calamine::Data) -> String {
+    use calamine::Data;
+    match cell {
+        Data::Empty | Data::Error(_) => String::new(),
+        Data::String(s) | Data::DateTimeIso(s) | Data::DurationIso(s) => s.clone(),
+        Data::Int(i) => i.to_string(),
+        Data::Float(f) => format!("{}", f),
+        Data::Bool(b) => b.to_string(),
+        Data::DateTime(d) => match d.as_datetime() {
+            Some(dt) if dt.time() == chrono::NaiveTime::MIN => dt.date().to_string(),
+            Some(dt) => dt.to_string(),
+            None => d.as_f64().to_string(),
+        },
+    }
+}
+
+/// Valore di una cella. Con un tipo dichiarato nel mapping vale la stessa regola
+/// del CSV (`coerce` sul testo); senza, il tipo naturale della cella. Excel salva
+/// ogni numero come virgola mobile: un numero intero entro 2^53 torna intero.
+fn excel_value(cell: &calamine::Data, declared: Option<&str>) -> Value {
+    use calamine::Data;
+    if let Some(ty) = declared {
+        return coerce(&excel_text(cell), ty);
+    }
+    match cell {
+        Data::Empty | Data::Error(_) => Value::Null,
+        Data::Int(i) => Value::Int(*i),
+        Data::Float(f) if f.fract() == 0.0 && f.abs() < 9_007_199_254_740_992.0 => Value::Int(*f as i64),
+        Data::Float(f) => Value::Float(*f),
+        Data::Bool(b) => Value::Bool(*b),
+        Data::DateTime(d) => match d.as_datetime() {
+            Some(dt) if dt.time() == chrono::NaiveTime::MIN => Value::Date(dt.date().to_string()),
+            Some(dt) => Value::DateTime(dt.to_string()),
+            None => Value::Float(d.as_f64()),
+        },
+        Data::DateTimeIso(s) => Value::DateTime(s.clone()),
+        Data::String(s) | Data::DurationIso(s) => Value::String(s.clone()),
+    }
+}
+
+/// Legge un foglio (il primo se `sheet` e' vuoto) a partire da `start_row`
+/// (1 = prima riga); con intestazione, la prima riga letta da' i nomi.
+fn read_excel(
+    path: &str,
+    sheet: &str,
+    start_row: u64,
+    has_header: bool,
+    types: &std::collections::HashMap<String, String>,
+) -> Result<Vec<Row>, String> {
+    use calamine::Reader;
+    let mut wb = calamine::open_workbook_auto(path)
+        .map_err(|e| format!("cannot open Excel file '{}': {}", path, e))?;
+    let names = wb.sheet_names();
+    let range = if sheet.trim().is_empty() {
+        wb.worksheet_range_at(0)
+            .ok_or_else(|| format!("'{}' contains no sheets", path))?
+            .map_err(|e| format!("cannot read the first sheet: {}", e))?
+    } else {
+        if !names.iter().any(|n| n == sheet) {
+            return Err(format!("sheet '{}' not found. Available: {}", sheet, names.join(", ")));
+        }
+        wb.worksheet_range(sheet).map_err(|e| format!("cannot read sheet '{}': {}", sheet, e))?
+    };
+
+    let mut it = range.rows().skip((start_row - 1) as usize);
+    let header: Vec<String> = if has_header {
+        match it.next() {
+            Some(r) => r.iter().enumerate().map(|(i, c)| {
+                let t = excel_text(c).trim().to_string();
+                if t.is_empty() { format!("col_{}", i) } else { t }
+            }).collect(),
+            None => return Ok(Vec::new()),
+        }
+    } else {
+        Vec::new()
+    };
+
+    let mut out = Vec::new();
+    for r in it {
+        if r.iter().all(|c| matches!(c, calamine::Data::Empty)) { continue; } // riga vuota
+        let mut row = Row::new();
+        for (i, c) in r.iter().enumerate() {
+            let name = header.get(i).cloned().unwrap_or_else(|| format!("col_{}", i));
+            let v = excel_value(c, types.get(&name).map(|s| s.as_str()));
+            row.set(name, v);
+        }
+        out.push(row);
+    }
+    Ok(out)
+}
+
 fn coerce(raw: &str, ty: &str) -> Value {
     let t = raw.trim();
     if t.is_empty() { return Value::Null }
@@ -324,5 +465,75 @@ fn coerce(raw: &str, ty: &str) -> Value {
         "object" => serde_json::from_str::<serde_json::Value>(t)
             .map(Value::Object).unwrap_or(Value::String(t.to_string())),
         _ => Value::String(t.to_string()),   // string, any, sconosciuto
+    }
+}
+#[cfg(test)]
+mod tests_excel {
+    use super::*;
+
+    // Andata e ritorno (P342): scrive un .xlsx con rust_xlsxwriter (il writer del
+    // report_generator) e lo rilegge col lettore del motore.
+    fn crea_xlsx(path: &std::path::Path) {
+        use rust_xlsxwriter::{ExcelDateTime, Format, Workbook};
+        let mut wb = Workbook::new();
+        let ws = wb.add_worksheet();
+        ws.set_name("Clienti").unwrap();
+        for (c, h) in ["id", "nome", "importo", "attivo", "data", ""].iter().enumerate() {
+            ws.write_string(0, c as u16, *h).unwrap();
+        }
+        let df = Format::new().set_num_format("yyyy-mm-dd");
+        ws.write_number(1, 0, 1.0).unwrap();
+        ws.write_string(1, 1, "Alfa & Beta").unwrap();
+        ws.write_number(1, 2, 1200.5).unwrap();
+        ws.write_boolean(1, 3, true).unwrap();
+        ws.write_datetime_with_format(1, 4, &ExcelDateTime::from_ymd(2026, 1, 2).unwrap(), &df).unwrap();
+        ws.write_string(1, 5, "senza intestazione").unwrap();
+        // riga 3 vuota: deve essere saltata
+        ws.write_number(3, 0, 2.0).unwrap();
+        ws.write_string(3, 1, "Gamma").unwrap();
+        let ws2 = wb.add_worksheet();
+        ws2.set_name("Altro").unwrap();
+        ws2.write_string(0, 0, "x").unwrap();
+        ws2.write_string(1, 0, "dal secondo foglio").unwrap();
+        wb.save(path).unwrap();
+    }
+
+    #[test]
+    fn excel_andata_e_ritorno() {
+        let dir = std::env::temp_dir().join(format!("fp-xlsx-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("t.xlsx");
+        crea_xlsx(&p);
+        let ps = p.to_str().unwrap();
+        let none = std::collections::HashMap::new();
+
+        let rows = read_excel(ps, "", 1, true, &none).unwrap();
+        assert_eq!(rows.len(), 2, "la riga vuota va saltata");
+        let r = &rows[0];
+        assert_eq!(r.get("id"), Some(&Value::Int(1)));
+        assert_eq!(r.get("nome"), Some(&Value::String("Alfa & Beta".into())));
+        assert_eq!(r.get("importo"), Some(&Value::Float(1200.5)));
+        assert_eq!(r.get("attivo"), Some(&Value::Bool(true)));
+        assert_eq!(r.get("data"), Some(&Value::Date("2026-01-02".into())));
+        assert_eq!(r.get("col_5"), Some(&Value::String("senza intestazione".into())));
+        assert_eq!(rows[1].get("importo"), Some(&Value::Null));
+
+        // tipi dichiarati nel mapping: stessa regola del CSV
+        let mut tipi = std::collections::HashMap::new();
+        tipi.insert("importo".to_string(), "decimal".to_string());
+        tipi.insert("id".to_string(), "string".to_string());
+        let rows = read_excel(ps, "Clienti", 1, true, &tipi).unwrap();
+        assert_eq!(rows[0].get("importo"), Some(&Value::Decimal("1200.5".parse().unwrap())));
+        assert_eq!(rows[0].get("id"), Some(&Value::String("1".into())));
+
+        // foglio per nome, senza intestazione, da una riga successiva
+        let rows = read_excel(ps, "Altro", 2, false, &none).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].get("col_0"), Some(&Value::String("dal secondo foglio".into())));
+
+        // errori parlanti
+        assert!(read_excel(ps, "Manca", 1, true, &none).unwrap_err().contains("Available: Clienti, Altro"));
+        assert!(read_excel("/non/esiste.xlsx", "", 1, true, &none).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -393,6 +393,8 @@ pub(crate) fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value 
     }
     if ["float4","float8"].contains(&type_name.as_str()) {
         if let Ok(v) = row.try_get::<f64, _>(idx) { return Value::Float(v) }
+        // P339: `real` (float4) non si decodifica come f64 → era sempre NULL.
+        if let Ok(v) = row.try_get::<f32, _>(idx) { return Value::Float(f32_to_f64(v)) }
     }
     // NUMERIC/DECIMAL: esatto via Decimal (mai f64). Regge Oracle NUMBER,
     // Informix DECIMAL in futuro.
@@ -410,6 +412,20 @@ pub(crate) fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value 
         if let Ok(v) = row.try_get::<chrono::NaiveDateTime, _>(idx) {
             return Value::DateTime(v.to_string())
         }
+        // P339: `timestamptz` era sempre NULL. Istante in UTC, ISO 8601 con offset.
+        if let Ok(v) = row.try_get::<chrono::DateTime<chrono::Utc>, _>(idx) {
+            return Value::DateTime(v.to_rfc3339())
+        }
+    }
+    // P339: `time`, `uuid`, `bytea` erano sempre NULL.
+    if type_name == "time" {
+        if let Ok(v) = row.try_get::<chrono::NaiveTime, _>(idx) { return Value::String(v.to_string()) }
+    }
+    if type_name == "uuid" {
+        if let Ok(v) = row.try_get::<uuid::Uuid, _>(idx) { return Value::String(v.to_string()) }
+    }
+    if type_name == "bytea" {
+        if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) { return bytes_to_value(&v) }
     }
     if type_name == "date" {
         if let Ok(v) = row.try_get::<chrono::NaiveDate, _>(idx) {
@@ -462,6 +478,112 @@ pub(crate) fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value 
     Value::Null
 }
 
+// ─── Helper di conversione condivisi ──────────────────────────────
+
+/// f32 → f64 passando dalla sua rappresentazione decimale piu' corta:
+/// `0.1f32` diventa 0.1 e non 0.10000000149011612.
+fn f32_to_f64(v: f32) -> f64 {
+    format!("{}", v).parse::<f64>().unwrap_or(v as f64)
+}
+
+/// Binario: se e' testo UTF-8 senza NUL lo si restituisce com'e' (testo salvato
+/// in un BLOB), altrimenti in esadecimale nella forma di PostgreSQL (`\x…`).
+fn bytes_to_value(b: &[u8]) -> Value {
+    match std::str::from_utf8(b) {
+        Ok(s) if !s.contains('\u{0}') => Value::String(s.to_string()),
+        _ => {
+            let mut out = String::with_capacity(2 + b.len() * 2);
+            out.push_str("\\x");
+            for byte in b { out.push_str(&format!("{:02x}", byte)); }
+            Value::String(out)
+        }
+    }
+}
+
+// ─── MySQL / MariaDB: colonna → Value ─────────────────────────────
+
+/// Conversione di una colonna MySQL/MariaDB per TIPO (P339). Unica fonte per il
+/// nodo source_db e per l'anteprima dello studio (`mysql_query`, streaming).
+///
+/// 🐞 Prima ogni colonna veniva decodificata come JSON e, se non lo era, diventava
+/// NULL SENZA ERRORE: da MySQL/MariaDB arrivavano solo le colonne JSON, tutto il
+/// resto era NULL (e sink_db a valle falliva su "id cannot be null").
+pub(crate) fn my_col_to_value(row: &sqlx::mysql::MySqlRow, idx: usize) -> Value {
+    use sqlx::Row as SqlxRow;
+    use sqlx::ValueRef;
+    if let Ok(raw) = row.try_get_raw(idx) {
+        if raw.is_null() { return Value::Null }
+    }
+    let col = &row.columns()[idx];
+    let t = col.type_info().name().to_uppercase();
+    let t = t.as_str();
+
+    // Interi senza segno: BIGINT UNSIGNED puo' superare i64 → decimale esatto.
+    if t.ends_with("UNSIGNED") {
+        if let Ok(v) = row.try_get::<u64, _>(idx) {
+            return match i64::try_from(v) {
+                Ok(i) => Value::Int(i),
+                Err(_) => Value::Decimal(rust_decimal::Decimal::from(v)),
+            };
+        }
+        if let Ok(v) = row.try_get::<u32, _>(idx) { return Value::Int(v as i64) }
+        if let Ok(v) = row.try_get::<u16, _>(idx) { return Value::Int(v as i64) }
+        if let Ok(v) = row.try_get::<u8, _>(idx)  { return Value::Int(v as i64) }
+    }
+    match t {
+        "TINYINT" | "SMALLINT" | "MEDIUMINT" | "INT" | "INTEGER" | "BIGINT" => {
+            if let Ok(v) = row.try_get::<i64, _>(idx) { return Value::Int(v) }
+            if let Ok(v) = row.try_get::<i32, _>(idx) { return Value::Int(v as i64) }
+            if let Ok(v) = row.try_get::<i16, _>(idx) { return Value::Int(v as i64) }
+            if let Ok(v) = row.try_get::<i8, _>(idx)  { return Value::Int(v as i64) }
+        }
+        "YEAR" => {
+            if let Ok(v) = row.try_get::<u16, _>(idx) { return Value::Int(v as i64) }
+            if let Ok(v) = row.try_get::<i64, _>(idx) { return Value::Int(v) }
+        }
+        "BOOLEAN" | "BOOL" => {
+            if let Ok(v) = row.try_get::<bool, _>(idx) { return Value::Bool(v) }
+            if let Ok(v) = row.try_get::<i8, _>(idx)   { return Value::Bool(v != 0) }
+        }
+        "DECIMAL" | "NUMERIC" => {
+            if let Ok(v) = row.try_get::<rust_decimal::Decimal, _>(idx) { return Value::Decimal(v) }
+        }
+        "FLOAT" => {
+            if let Ok(v) = row.try_get::<f32, _>(idx) { return Value::Float(f32_to_f64(v)) }
+            if let Ok(v) = row.try_get::<f64, _>(idx) { return Value::Float(v) }
+        }
+        "DOUBLE" | "REAL" => {
+            if let Ok(v) = row.try_get::<f64, _>(idx) { return Value::Float(v) }
+        }
+        "DATE" => {
+            if let Ok(v) = row.try_get::<chrono::NaiveDate, _>(idx) { return Value::Date(v.to_string()) }
+        }
+        "DATETIME" | "TIMESTAMP" => {
+            if let Ok(v) = row.try_get::<chrono::NaiveDateTime, _>(idx) { return Value::DateTime(v.to_string()) }
+            // TIMESTAMP arriva come istante (sqlx usa la sessione in UTC): lo si
+            // rende nella stessa forma di DATETIME, in UTC, cosi' si riscrive tale e quale.
+            if let Ok(v) = row.try_get::<chrono::DateTime<chrono::Utc>, _>(idx) { return Value::DateTime(v.naive_utc().to_string()) }
+        }
+        "TIME" => {
+            if let Ok(v) = row.try_get::<chrono::NaiveTime, _>(idx) { return Value::String(v.to_string()) }
+        }
+        "JSON" => {
+            if let Ok(v) = row.try_get::<serde_json::Value, _>(idx) { return Value::Object(v) }
+        }
+        "BINARY" | "VARBINARY" | "TINYBLOB" | "BLOB" | "MEDIUMBLOB" | "LONGBLOB" | "BIT" | "GEOMETRY" => {
+            if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) { return bytes_to_value(&v) }
+        }
+        _ => {}
+    }
+    // MariaDB dichiara JSON come LONGTEXT: sqlx lo riconosce comunque come JSON
+    // (e rifiuta la decodifica JSON per il testo normale), quindi si prova prima.
+    if let Ok(v) = row.try_get::<serde_json::Value, _>(idx) { return Value::Object(v) }
+    // Testo (CHAR, VARCHAR, *TEXT, ENUM, SET) e qualunque altro tipo leggibile come testo.
+    if let Ok(v) = row.try_get::<String, _>(idx) { return Value::String(v) }
+    if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) { return bytes_to_value(&v) }
+    Value::Null
+}
+
 // ─── PostgreSQL ───────────────────────────────────────────────────
 
 async fn run_pg(
@@ -477,7 +599,7 @@ async fn run_pg(
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
-    let mut stream = bind_values!(sqlx::query(query), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
+    let mut stream = bind_values!(sqlx::query(crate::sqlsafe::autore(query)), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
@@ -516,17 +638,15 @@ async fn run_mysql(
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
-    let mut stream = bind_values!(sqlx::query(query), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
+    let mut stream = bind_values!(sqlx::query(crate::sqlsafe::autore(query)), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
 
     while let Some(row_result) = stream.next().await {
         let row = row_result
             .map_err(|e| format!("MySQL row error {}: {}", *rows_out + 1, e))?;
 
         let mut engine_row = Row::new();
-        for col in row.columns() {
-            let val: serde_json::Value = row.try_get(col.name())
-                .unwrap_or(serde_json::Value::Null);
-            engine_row.set(col.name().to_string(), Value::from_json(val));
+        for (i, col) in row.columns().iter().enumerate() {
+            engine_row.set(col.name().to_string(), my_col_to_value(&row, i));
         }
 
         *rows_out += 1;
@@ -557,7 +677,7 @@ async fn run_sqlite(
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
-    let mut stream = bind_values!(sqlx::query(query), binds, |d: &rust_decimal::Decimal| d.to_string()).fetch(pool);
+    let mut stream = bind_values!(sqlx::query(crate::sqlsafe::autore(query)), binds, |d: &rust_decimal::Decimal| d.to_string()).fetch(pool);
 
     while let Some(row_result) = stream.next().await {
         let row = row_result

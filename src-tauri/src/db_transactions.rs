@@ -162,7 +162,7 @@ pub async fn db_tx_rollback(request: DbTxFinishRequest) -> Result<(), String> {
 
 /// Idempotente: se txId non esiste (già chiusa, o mai iniziata perché
 /// un membro precedente ha fallito durante db_tx_begin), non è un errore.
-async fn finish_tx(tx_id: String, sql: &str) -> Result<(), String> {
+async fn finish_tx(tx_id: String, sql: &'static str) -> Result<(), String> {
   let entry = { tx_registry().lock().unwrap().remove(&tx_id) };
   let Some(entry) = entry else { return Ok(()) };
 
@@ -210,6 +210,7 @@ pub(crate) async fn pg_tx_write(
     use sqlx::Row as SqlxRow;
 
     let tbl = crate::qualified_table(req);
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -220,13 +221,13 @@ pub(crate) async fn pg_tx_write(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&mut **conn).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **conn).await
                     .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("TRUNCATE TABLE {}", tbl)).execute(&mut **conn).await
+        sqlx::query(crate::sqlsafe::composto(format!("TRUNCATE TABLE {}", tbl))).execute(&mut **conn).await
             .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
 
@@ -234,6 +235,7 @@ pub(crate) async fn pg_tx_write(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let default_keys = vec!["id".to_string()];
@@ -302,7 +304,7 @@ pub(crate) async fn pg_tx_write(
             }
 
             if use_returning && needs_plan {
-                let mut q = sqlx::query(&sql);
+                let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
                 for v in &bind_list { q = bind_pg_value(q, v); }
                 match q.fetch_one(&mut **conn).await {
                     Ok(row) => {
@@ -317,7 +319,7 @@ pub(crate) async fn pg_tx_write(
                     }
                 }
             } else {
-                let mut q = sqlx::query(&sql);
+                let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
                 for v in &bind_list { q = bind_pg_value(q, v); }
                 match q.execute(&mut **conn).await {
                     Ok(_) => { written += 1; }
@@ -334,7 +336,7 @@ pub(crate) async fn pg_tx_write(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&mut **conn).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **conn).await
                     .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
@@ -369,6 +371,7 @@ pub(crate) async fn mysql_tx_write(
     use sqlx::Row as SqlxRow;
 
     let tbl = req.table.clone();
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -380,13 +383,13 @@ pub(crate) async fn mysql_tx_write(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&mut **conn).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **conn).await
                     .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("TRUNCATE TABLE `{}`", tbl)).execute(&mut **conn).await
+        sqlx::query(crate::sqlsafe::composto(format!("TRUNCATE TABLE `{}`", tbl))).execute(&mut **conn).await
             .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
 
@@ -394,6 +397,7 @@ pub(crate) async fn mysql_tx_write(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
@@ -438,7 +442,7 @@ pub(crate) async fn mysql_tx_write(
                     .collect();
             }
 
-            let mut q = sqlx::query(&sql);
+            let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
@@ -475,7 +479,7 @@ pub(crate) async fn mysql_tx_write(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&mut **conn).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **conn).await
                     .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
@@ -500,6 +504,7 @@ pub(crate) async fn sqlite_tx_write(
     start: std::time::Instant,
 ) -> Result<DbWriteResult, String> {
     let tbl = req.table.clone();
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -511,13 +516,13 @@ pub(crate) async fn sqlite_tx_write(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&mut **conn).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **conn).await
                     .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("DELETE FROM {}", tbl)).execute(&mut **conn).await
+        sqlx::query(crate::sqlsafe::composto(format!("DELETE FROM {}", tbl))).execute(&mut **conn).await
             .map_err(|e| format!("DELETE failed: {}", e))?;
     }
 
@@ -525,6 +530,7 @@ pub(crate) async fn sqlite_tx_write(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
@@ -564,7 +570,7 @@ pub(crate) async fn sqlite_tx_write(
                     .collect();
             }
 
-            let mut q = sqlx::query(&sql);
+            let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
@@ -601,7 +607,7 @@ pub(crate) async fn sqlite_tx_write(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(&mut **conn).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **conn).await
                     .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
@@ -677,7 +683,7 @@ async fn pg_xa_prepare(conn_str: &str, xid: &str, req: &DbWriteRequest, start: s
 
   match pg_tx_write(&mut conn, req, start).await {
     Ok(result) => {
-      sqlx::query(&format!("PREPARE TRANSACTION '{}'", xid)).execute(&mut *conn).await
+      sqlx::query(crate::sqlsafe::composto(format!("PREPARE TRANSACTION '{}'", xid))).execute(&mut *conn).await
         .map_err(|e| format!("PREPARE TRANSACTION failed: {}", e))?;
       // conn chiusa qui (drop) — la transazione preparata persiste nel DB
       Ok(result)
@@ -700,22 +706,22 @@ async fn mysql_xa_prepare(conn_str: &str, xid: &str, req: &DbWriteRequest, start
     .map_err(|e| format!("MySQL connection failed: {}", e))?;
   let mut conn = pool.acquire().await.map_err(|e| format!("MySQL acquire failed: {}", e))?;
 
-  sqlx::query(&format!("XA START '{}'", xid)).execute(&mut *conn).await
+  sqlx::query(crate::sqlsafe::composto(format!("XA START '{}'", xid))).execute(&mut *conn).await
     .map_err(|e| format!("XA START failed: {}", e))?;
 
   match mysql_tx_write(&mut conn, req, start).await {
     Ok(result) => {
-      sqlx::query(&format!("XA END '{}'", xid)).execute(&mut *conn).await
+      sqlx::query(crate::sqlsafe::composto(format!("XA END '{}'", xid))).execute(&mut *conn).await
         .map_err(|e| format!("XA END failed: {}", e))?;
-      sqlx::query(&format!("XA PREPARE '{}'", xid)).execute(&mut *conn).await
+      sqlx::query(crate::sqlsafe::composto(format!("XA PREPARE '{}'", xid))).execute(&mut *conn).await
         .map_err(|e| format!("XA PREPARE failed: {}", e))?;
       Ok(result)
     }
     Err(e) => {
       // best-effort: chiude il branch XA prima di restituire l'errore,
       // altrimenti resta una transazione XA "ACTIVE" pendente sul server.
-      let _ = sqlx::query(&format!("XA END '{}'", xid)).execute(&mut *conn).await;
-      let _ = sqlx::query(&format!("XA ROLLBACK '{}'", xid)).execute(&mut *conn).await;
+      let _ = sqlx::query(crate::sqlsafe::composto(format!("XA END '{}'", xid))).execute(&mut *conn).await;
+      let _ = sqlx::query(crate::sqlsafe::composto(format!("XA ROLLBACK '{}'", xid))).execute(&mut *conn).await;
       Err(e)
     }
   }
@@ -760,7 +766,7 @@ pub async fn db_tx_xa_finish(request: DbTxXaFinishRequest) -> Result<(), String>
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
         .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
-      sqlx::query(&sql).execute(&pool).await
+      sqlx::query(crate::sqlsafe::composto(sql.as_str())).execute(&pool).await
         .map_err(|e| format!("{} failed: {}", sql, e))?;
       pool.close().await;
     }
@@ -770,7 +776,7 @@ pub async fn db_tx_xa_finish(request: DbTxXaFinishRequest) -> Result<(), String>
         .acquire_timeout(std::time::Duration::from_secs(30))
         .connect(&conn_str).await
         .map_err(|e| format!("MySQL connection failed: {}", e))?;
-      sqlx::query(&sql).execute(&pool).await
+      sqlx::query(crate::sqlsafe::composto(sql.as_str())).execute(&pool).await
         .map_err(|e| format!("{} failed: {}", sql, e))?;
       pool.close().await;
     }

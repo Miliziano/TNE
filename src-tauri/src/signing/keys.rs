@@ -20,7 +20,7 @@ pub fn default_key_path() -> PathBuf {
 pub fn key_id(public_key: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(public_key);
-    format!("ed25519:{:x}", h.finalize())
+    format!("ed25519:{}", hex::encode(h.finalize()))
 }
 
 pub struct Keypair {

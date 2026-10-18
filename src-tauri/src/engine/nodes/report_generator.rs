@@ -695,3 +695,34 @@ fn build_excel(rows: &[Row], columns: &[ColumnConfig], dq_field: &str) -> Result
     let buf = wb.save_to_buffer().map_err(|e| format!("xlsx save: {}", e))?;
     Ok(base64::engine::general_purpose::STANDARD.encode(&buf))
 }
+
+#[cfg(test)]
+mod tests_excel {
+    use super::*;
+    use base64::Engine;
+
+    // Regressione per gli aggiornamenti di rust_xlsxwriter (P337): il report Excel
+    // deve restare un .xlsx valido con intestazione, numeri e testo. Se la variabile
+    // FLOWPILOT_TEST_XLSX_OUT e' impostata, il file viene anche scritto li' (per
+    // aprirlo con un lettore esterno).
+    #[test]
+    fn build_excel_produce_un_xlsx_valido() {
+        let mut r1 = Row::new();
+        r1.set("nome".into(), Value::String("Alfa & Beta".into()));
+        r1.set("importo".into(), Value::Float(1200.5));
+        let mut r2 = Row::new();
+        r2.set("nome".into(), Value::String("Gamma".into()));
+        r2.set("importo".into(), Value::Null);
+        let cols = vec![
+            ColumnConfig { field: "nome".into(), label: "Nome".into(), col_type: "text".into(), total: None, rules: vec![] },
+            ColumnConfig { field: "importo".into(), label: String::new(), col_type: "currency".into(), total: None, rules: vec![] },
+        ];
+        let b64 = build_excel(&[r1, r2], &cols, "").expect("xlsx");
+        let bytes = base64::engine::general_purpose::STANDARD.decode(b64).unwrap();
+        assert!(bytes.starts_with(b"PK\x03\x04"), "non e' uno zip/xlsx");
+        assert!(bytes.len() > 2000);
+        if let Ok(p) = std::env::var("FLOWPILOT_TEST_XLSX_OUT") {
+            std::fs::write(p, &bytes).unwrap();
+        }
+    }
+}

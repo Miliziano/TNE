@@ -1,0 +1,8 @@
+# Toolchain Rust FISSATA (P336): studio, runner, monitor e CI compilano con la
+# stessa versione. rustup la scarica da solo al primo `cargo` in questa cartella.
+# Per aggiornarla: cambiare `channel` qui E in .github/workflows/*.yml, poi
+# ricompilare tutto (studio, runner, monitor) e rilanciare i test.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

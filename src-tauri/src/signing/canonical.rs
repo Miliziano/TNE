@@ -77,7 +77,7 @@ fn write_value(v: &Value, out: &mut String) {
 pub fn plan_hash(plan: &Value) -> String {
     let mut h = Sha256::new();
     h.update(canonical_plan_string(plan).as_bytes());
-    format!("sha256:{:x}", h.finalize())
+    format!("sha256:{}", hex::encode(h.finalize()))
 }
 
 #[cfg(test)]

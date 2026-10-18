@@ -5,7 +5,32 @@ import { FIXED_SCHEMA, isFixedFormat, FIXED_FORMAT_HINT } from '../../fileSchema
 import { readFile } from '../../../lib/tauri'
 import { readFileContent } from '../../../io/readers'
 import { CustomSelect } from '../../../components/CustomSelect'
-import { readBinaryFile } from '../../../lib/tauri'
+import { invoke } from '@tauri-apps/api/core'
+
+const EXCEL_EXT = ['xlsx', 'xlsm', 'xlsb', 'xls', 'ods']
+
+/** Excel/ODS (P342): le prime righe le legge il MOTORE (source_file vero via
+ *  engine_preview_node), lo stesso lettore del run. Prima lo faceva SheetJS nel
+ *  browser: un secondo lettore, abbandonato su npm e con vulnerabilità note
+ *  proprio nel parsing dei file. */
+async function readExcelViaEngine(path: string, props: Record<string, unknown>, limit: number): Promise<Record<string, unknown>[]> {
+  const spec = {
+    props: {
+      path,
+      format:    'excel',
+      sheetName: String(props['sheetName'] ?? ''),
+      startRow:  String(props['startRow'] ?? '1'),
+      hasHeader: String(props['hasHeader'] ?? 'true'),
+      pathSource: 'static',
+    },
+    config: { fields: [] },
+  }
+  const res = await invoke<string>('engine_preview_node', {
+    nodeType: 'source_file', specJson: JSON.stringify(spec), rowsJson: '[]', variablesJson: null, limit,
+  })
+  const parsed = JSON.parse(res)
+  return Array.isArray(parsed) ? parsed : []
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -241,20 +266,15 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       const sheetName = node.data.props['sheetName'] ?? undefined
       const rootPath  = node.data.props['xmlRootPath'] ?? undefined
 
-      let content: string | ArrayBuffer
-
-      if (ext === 'xlsx' || ext === 'xls') {
-        content = await readBinaryFile(path)
-      } else {
-        content = await readFile(path)
-      }
-
       // Leggi le prime 50 righe per inferire lo schema
-      const allRows = await readFileContent(content, filename, {
-        delimiter: delimiter || ',',
-        sheetName: sheetName || undefined,
-        rootPath:  rootPath  || undefined,
-      })
+      const isExcel = node.data.props['format'] === 'excel' || EXCEL_EXT.includes(ext)
+      const allRows = isExcel
+        ? await readExcelViaEngine(path, node.data.props, 50)
+        : await readFileContent(await readFile(path), filename, {
+            delimiter: delimiter || ',',
+            sheetName: sheetName || undefined,
+            rootPath:  rootPath  || undefined,
+          })
 
       const sample = allRows.slice(0, 50)
       if (sample.length === 0) {

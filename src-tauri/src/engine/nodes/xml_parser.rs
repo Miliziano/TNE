@@ -110,27 +110,49 @@ impl XmlDom {
 // ─── Parsing XML → mini-DOM ────────────────────────────────────────
 
 fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
+    // quick-xml 0.42 (P337): nomi e testo arrivano gia' come &str.
+    //
+    // 🐞 Corretto (P337): dal quick-xml 0.38 i riferimenti `&amp;` `&lt;` `&#65;`
+    // arrivano come eventi `GeneralRef` SEPARATI dal testo, e il ciclo li scartava
+    // (`_ => {}`). In piu' il trim del reader tagliava ogni frammento fra due
+    // riferimenti: "A &amp; B" diventava "AB". Ora i frammenti contigui (testo +
+    // riferimenti) formano un'unica "corsa" di testo, i riferimenti sono risolti, e
+    // il trim si applica alla corsa intera — come faceva il vecchio trim per pezzo
+    // quando non c'erano entita'. Il CDATA resta letterale e non viene tagliato.
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(trim_text);
 
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut stack: Vec<usize> = Vec::new();
     let mut root: Option<usize> = None;
+    let mut run = String::new(); // corsa di testo in corso (testo + riferimenti)
 
-    let split_name = |raw: &[u8]| -> (String, String) {
-        let full = String::from_utf8_lossy(raw).to_string();
+    let split_name = |raw: &str| -> (String, String) {
+        let full = raw.to_string();
         let local = full.rsplit(':').next().unwrap_or(&full).to_string();
         (full, local)
     };
 
-    // Estrae attributi da un tag start/empty.
+    // Chiude la corsa di testo corrente sul nodo in cima allo stack.
+    macro_rules! flush_run {
+        () => {{
+            if !run.is_empty() {
+                if let Some(&cur) = stack.last() {
+                    let t = if trim_text { run.trim() } else { run.as_str() };
+                    nodes[cur].text.push_str(t);
+                }
+                run.clear();
+            }
+        }};
+    }
+
+    // Estrae attributi da un tag start/empty (entita' predefinite risolte).
     macro_rules! read_attrs {
         ($e:expr) => {{
             let mut attrs = HashMap::new();
             for a in $e.attributes().flatten() {
-                let key_full = String::from_utf8_lossy(a.key.as_ref()).to_string();
-                let key = key_full.rsplit(':').next().unwrap_or(&key_full).to_string();
-                let val = a.decode_and_unescape_value(reader.decoder())
+                let key_full: &str = a.key.as_ref();
+                let key = key_full.rsplit(':').next().unwrap_or(key_full).to_string();
+                let val = a.normalized_value(quick_xml::XmlVersion::Implicit1_0)
                     .map(|c| c.into_owned()).unwrap_or_default();
                 attrs.insert(key, val);
             }
@@ -141,6 +163,7 @@ fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) => {
+                flush_run!();
                 let (tag_name, local_name) = split_name(e.name().as_ref());
                 let attrs = read_attrs!(e);
                 let idx = nodes.len();
@@ -152,6 +175,7 @@ fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
                 stack.push(idx);
             }
             Ok(Event::Empty(e)) => {
+                flush_run!();
                 let (tag_name, local_name) = split_name(e.name().as_ref());
                 let attrs = read_attrs!(e);
                 let idx = nodes.len();
@@ -162,19 +186,31 @@ fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
                 if root.is_none() { root = Some(idx); }
             }
             Ok(Event::Text(e)) => {
-                if let Some(&cur) = stack.last() {
-                    let t = e.decode().map(|c| c.into_owned()).unwrap_or_default();
-                    nodes[cur].text.push_str(&t);
+                if !stack.is_empty() { run.push_str(&e); }
+            }
+            Ok(Event::GeneralRef(e)) => {
+                if !stack.is_empty() {
+                    match e.resolve_char_ref() {
+                        Ok(Some(c)) => run.push(c),
+                        _ => {
+                            let name: &str = &e;
+                            match quick_xml::escape::resolve_predefined_entity(name) {
+                                Some(v) => run.push_str(v),
+                                // entita' non predefinita (DTD): resta com'e' scritta
+                                None => { run.push('&'); run.push_str(name); run.push(';'); }
+                            }
+                        }
+                    }
                 }
             }
             Ok(Event::CData(e)) => {
+                flush_run!();
                 if let Some(&cur) = stack.last() {
-                    let t = String::from_utf8_lossy(e.as_ref()).to_string();
-                    nodes[cur].text.push_str(&t);
+                    nodes[cur].text.push_str(&e);
                 }
             }
-            Ok(Event::End(_)) => { stack.pop(); }
-            Ok(Event::Eof) => break,
+            Ok(Event::End(_)) => { flush_run!(); stack.pop(); }
+            Ok(Event::Eof) => { flush_run!(); break; }
             Err(e) => return Err(format!("Invalid XML: {}", e)),
             _ => {}
         }
@@ -182,6 +218,47 @@ fn parse_xml(xml: &str, trim_text: bool) -> Result<XmlDom, String> {
 
     if root.is_none() { return Err("Empty XML or without root".into()); }
     Ok(XmlDom { nodes, root })
+}
+
+#[cfg(test)]
+mod tests_parse_xml {
+    use super::*;
+
+    fn testo(xml: &str, trim: bool) -> String {
+        let dom = parse_xml(xml, trim).unwrap();
+        let mut out = String::new();
+        dom.collect_text(dom.root.unwrap(), &mut out);
+        out
+    }
+
+    #[test]
+    fn entita_e_riferimenti_risolti() {
+        assert_eq!(testo("<t>A &amp; B &#x41;&#66; &lt;ok&gt; fine</t>", true), "A & B AB <ok> fine");
+        assert_eq!(testo("<t>  spazi &quot;x&quot;  </t>", true), "spazi \"x\"");
+        assert_eq!(testo("<t>  spazi  </t>", false), "  spazi  ");
+        assert_eq!(testo("<t>&custom;</t>", true), "&custom;");
+    }
+
+    #[test]
+    fn struttura_cdata_attributi() {
+        let dom = parse_xml("<r xmlns:p=\"u\"><p:a k=\"x &amp; y\" p:j=\"1\"/>\n  <b> uno </b><c><![CDATA[ <raw> ]]></c></r>", true).unwrap();
+        let r = dom.root.unwrap();
+        assert_eq!(dom.nodes[r].children.len(), 3);
+        let a = dom.nodes[r].children[0];
+        assert_eq!(dom.nodes[a].tag_name, "p:a");
+        assert_eq!(dom.nodes[a].local_name, "a");
+        assert_eq!(dom.nodes[a].attrs.get("k").map(|s| s.as_str()), Some("x & y"));
+        assert_eq!(dom.nodes[a].attrs.get("j").map(|s| s.as_str()), Some("1"));
+        assert_eq!(dom.nodes[dom.nodes[r].children[1]].text, "uno");
+        assert_eq!(dom.nodes[dom.nodes[r].children[2]].text, " <raw> "); // CDATA non tagliato
+        assert_eq!(dom.nodes[r].text, ""); // spazi di indentazione fra i figli: via col trim
+    }
+
+    #[test]
+    fn xml_non_valido_e_vuoto() {
+        assert!(parse_xml("<a><b></a>", true).is_err());
+        assert!(parse_xml("   ", true).is_err());
+    }
 }
 
 // ─── Navigazione per nome (replica navigatePath / navigatePathAll) ─

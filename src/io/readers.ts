@@ -94,15 +94,8 @@ function findFirstArray(obj: unknown): Row[] {
 }
 
 // ─── XLSX ─────────────────────────────────────────────────────────
-export async function readXlsx(buffer: ArrayBuffer, sheetName?: string): Promise<Row[]> {
-  const XLSX     = await import('xlsx')
-  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
-  const sheet    = sheetName
-    ? workbook.Sheets[sheetName]
-    : workbook.Sheets[workbook.SheetNames[0]]
-  if (!sheet) throw new Error(`Sheet '${sheetName}' non trovato. Disponibili: ${workbook.SheetNames.join(', ')}`)
-  return XLSX.utils.sheet_to_json(sheet, { defval: null, raw: false }) as Row[]
-}
+// P342: Excel/ODS NON si legge più nel browser (SheetJS rimosso): lo legge il
+// motore Rust (source_file, calamine) — vedi readExcelViaEngine nel MappingPanel.
 
 // ─── TXT ─────────────────────────────────────────────────────────
 export function readTxt(content: string, options?: {
@@ -239,7 +232,7 @@ export async function readFileContent(
     case 'xlsx':
     case 'xls':
     case 'excel':
-      return readXlsx(content as ArrayBuffer, options?.sheetName)
+      throw new Error('Excel files are read by the engine (source_file preview), not in the browser')
 
     case 'txt':
     case 'text':

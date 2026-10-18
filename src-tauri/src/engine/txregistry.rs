@@ -207,7 +207,7 @@ async fn finalize_xa(group_id: &str, g: &mut TxGroup, do_commit: bool) {
 
         let res = {
             let mut guard = conn.lock().await;
-            sqlx::query(&format!("PREPARE TRANSACTION '{}'", gid)).execute(&mut **guard).await
+            sqlx::query(crate::sqlsafe::composto(format!("PREPARE TRANSACTION '{}'", gid))).execute(&mut **guard).await
         };
         match res {
             Ok(_)  => prepared.push((rid, gid, conn)),
@@ -226,7 +226,7 @@ async fn finalize_xa(group_id: &str, g: &mut TxGroup, do_commit: bool) {
     if phase1_ok {
         for (rid, gid, conn) in prepared {
             let mut guard = conn.lock().await;
-            match sqlx::query(&format!("COMMIT PREPARED '{}'", gid)).execute(&mut **guard).await {
+            match sqlx::query(crate::sqlsafe::composto(format!("COMMIT PREPARED '{}'", gid))).execute(&mut **guard).await {
                 Ok(_)  => eprintln!("[xa] gruppo '{}': COMMIT PREPARED '{}' (risorsa '{}')", group_id, gid, rid),
                 Err(e) => eprintln!("[xa] gruppo '{}': COMMIT PREPARED '{}' FALLITO: {} — \
                                      transazione IN DOUBT, risolvere a mano", group_id, gid, e),
@@ -236,7 +236,7 @@ async fn finalize_xa(group_id: &str, g: &mut TxGroup, do_commit: bool) {
         // Fase 1 fallita: rollback delle preparate + delle non preparate.
         for (rid, gid, conn) in prepared {
             let mut guard = conn.lock().await;
-            match sqlx::query(&format!("ROLLBACK PREPARED '{}'", gid)).execute(&mut **guard).await {
+            match sqlx::query(crate::sqlsafe::composto(format!("ROLLBACK PREPARED '{}'", gid))).execute(&mut **guard).await {
                 Ok(_)  => eprintln!("[xa] gruppo '{}': ROLLBACK PREPARED '{}' (risorsa '{}')", group_id, gid, rid),
                 Err(e) => eprintln!("[xa] gruppo '{}': ROLLBACK PREPARED '{}' FALLITO: {} — \
                                      transazione IN DOUBT, risolvere a mano", group_id, gid, e),

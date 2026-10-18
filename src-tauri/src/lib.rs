@@ -25,6 +25,7 @@ mod db_transactions;
 mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
 pub mod engine;   // esposto: usato anche dal binario runner headless (src/bin/flowpilot_runner.rs)
+mod sqlsafe;      // P338: SQL dinamico sotto sqlx 0.9 (identificatori validati, AssertSqlSafe motivato)
 mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
 pub mod signing;  // catena di fiducia degli artifact (firma): forma canonica + planHash (HANDOFF-firma-artifact.md)
 
@@ -302,9 +303,7 @@ fn get_webkit_rss(_our_pid: u32) -> u64 {
 #[cfg(feature = "desktop")]
 pub fn run() {
   tauri::Builder::default()
-    .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_shell::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -588,7 +587,7 @@ async fn sqlite_list_constraints(conn_str: &str, table: &str) -> Result<Vec<DbCo
   let mut result = Vec::new();
 
   // PRIMARY KEY — da table_info, colonne con pk > 0, ordinate per pk
-  let pk_rows = sqlx::query(&format!("PRAGMA table_info('{}')", table.replace('\'', "''")))
+  let pk_rows = sqlx::query(crate::sqlsafe::composto(format!("PRAGMA table_info({})", crate::sqlsafe::literal(table))))
     .fetch_all(&pool).await
     .map_err(|e| format!("SQLite table_info failed: {}", e))?;
 
@@ -610,7 +609,7 @@ async fn sqlite_list_constraints(conn_str: &str, table: &str) -> Result<Vec<DbCo
   }
 
   // UNIQUE — da index_list con origin='u' o 'pk', poi index_info per le colonne
-  let idx_rows = sqlx::query(&format!("PRAGMA index_list('{}')", table.replace('\'', "''")))
+  let idx_rows = sqlx::query(crate::sqlsafe::composto(format!("PRAGMA index_list({})", crate::sqlsafe::literal(table))))
     .fetch_all(&pool).await
     .map_err(|e| format!("SQLite index_list failed: {}", e))?;
 
@@ -620,7 +619,7 @@ async fn sqlite_list_constraints(conn_str: &str, table: &str) -> Result<Vec<DbCo
     if is_unique == 0 || origin == "pk" { continue }  // pk già gestita sopra
 
     let idx_name: String = idx_row.try_get("name").unwrap_or_default();
-    let col_rows = sqlx::query(&format!("PRAGMA index_info('{}')", idx_name.replace('\'', "''")))
+    let col_rows = sqlx::query(crate::sqlsafe::composto(format!("PRAGMA index_info({})", crate::sqlsafe::literal(&idx_name))))
       .fetch_all(&pool).await
       .map_err(|e| format!("SQLite index_info failed: {}", e))?;
 
@@ -834,7 +833,7 @@ pub(crate)  fn extract_row_data(
 async fn exec_sql_block<'a, E>(executor: E, sql: &str) -> Result<(), String>
 where E: sqlx::Executor<'a, Database = sqlx::Postgres> + Copy {
   for stmt in sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-    sqlx::query(stmt).execute(executor).await.map_err(|e| format!("SQL failed: {}", e))?;
+    sqlx::query(crate::sqlsafe::autore(stmt)).execute(executor).await.map_err(|e| format!("SQL failed: {}", e))?;
   }
   Ok(())
 }
@@ -880,6 +879,7 @@ pub async fn pg_write_pool(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
 
 
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -893,14 +893,14 @@ pub async fn pg_write_pool(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(pool).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(pool).await
                     .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
 
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("TRUNCATE TABLE {}", tbl)).execute(pool).await
+        sqlx::query(crate::sqlsafe::composto(format!("TRUNCATE TABLE {}", tbl))).execute(pool).await
             .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
 
@@ -908,6 +908,7 @@ pub async fn pg_write_pool(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let default_keys = vec![];
@@ -981,7 +982,7 @@ pub async fn pg_write_pool(
 
             if use_returning && needs_plan {
                 // fetch_one per catturare la chiave generata
-                let mut q = sqlx::query(&sql);
+                let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
                 for v in &bind_list { q = bind_pg_value(q, v); }
                 match q.fetch_one(pool).await {
                     Ok(row) => {
@@ -998,7 +999,7 @@ pub async fn pg_write_pool(
                 }
             } else {
                 // execute standard (nessun RETURNING)
-                let mut q = sqlx::query(&sql);
+                let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
                 for v in &bind_list { q = bind_pg_value(q, v); }
                 match q.execute(pool).await {
                     Ok(_) => { written += 1; }
@@ -1015,7 +1016,7 @@ pub async fn pg_write_pool(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(pool).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(pool).await
                     .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
@@ -1044,6 +1045,7 @@ pub async fn pg_write_conn(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -1059,6 +1061,7 @@ pub async fn pg_write_conn(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let default_keys = vec![];
@@ -1110,7 +1113,7 @@ pub async fn pg_write_conn(
             }
 
             if use_returning && needs_plan {
-                let mut q = sqlx::query(&sql);
+                let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
                 for v in &bind_list { q = bind_pg_value(q, v); }
                 match q.fetch_one(&mut *conn).await {
                     Ok(row) => { written += 1; generated_keys.push(pg_row_to_json_value(&row, 0)); }
@@ -1121,7 +1124,7 @@ pub async fn pg_write_conn(
                     }
                 }
             } else {
-                let mut q = sqlx::query(&sql);
+                let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
                 for v in &bind_list { q = bind_pg_value(q, v); }
                 match q.execute(&mut *conn).await {
                     Ok(_) => { written += 1; }
@@ -1211,6 +1214,7 @@ pub async fn mysql_write_pool(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
 
 
    
@@ -1226,13 +1230,13 @@ pub async fn mysql_write_pool(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(pool).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(pool).await
                     .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("TRUNCATE TABLE `{}`", tbl)).execute(pool).await
+        sqlx::query(crate::sqlsafe::composto(format!("TRUNCATE TABLE `{}`", tbl))).execute(pool).await
             .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
 
@@ -1240,6 +1244,7 @@ pub async fn mysql_write_pool(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
@@ -1287,7 +1292,7 @@ pub async fn mysql_write_pool(
                     .collect();
             }
 
-            let mut q = sqlx::query(&sql);
+            let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
@@ -1347,7 +1352,7 @@ pub async fn mysql_write_pool(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(pool).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(pool).await
                     .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
@@ -1396,6 +1401,7 @@ pub async fn sqlite_write_pool(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
+    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
 
 
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -1410,13 +1416,13 @@ pub async fn sqlite_write_pool(
     if let Some(pre) = &req.pre_sql {
         if !pre.trim().is_empty() {
             for stmt in pre.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(pool).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(pool).await
                     .map_err(|e| format!("Pre-SQL failed: {}", e))?;
             }
         }
     }
     if req.mode == "truncate_insert" {
-        sqlx::query(&format!("DELETE FROM {}", tbl)).execute(pool).await
+        sqlx::query(crate::sqlsafe::composto(format!("DELETE FROM {}", tbl))).execute(pool).await
             .map_err(|e| format!("DELETE failed: {}", e))?;
     }
 
@@ -1424,6 +1430,7 @@ pub async fn sqlite_write_pool(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
+            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
             if fields.is_empty() { skipped += 1; continue; }
 
             let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
@@ -1466,7 +1473,7 @@ pub async fn sqlite_write_pool(
                     .collect();
             }
 
-            let mut q = sqlx::query(&sql);
+            let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
@@ -1504,7 +1511,7 @@ pub async fn sqlite_write_pool(
     if let Some(post) = &req.post_sql {
         if !post.trim().is_empty() {
             for stmt in post.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                sqlx::query(stmt).execute(pool).await
+                sqlx::query(crate::sqlsafe::autore(stmt)).execute(pool).await
                     .map_err(|e| format!("Post-SQL failed: {}", e))?;
             }
         }
@@ -1526,7 +1533,7 @@ async fn pg_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Result<V
   let pool = PgPoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(timeout.unwrap_or(30)))
     .connect(conn_str).await.map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
-  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("PostgreSQL query failed: {}", e))?;
+  let rows = sqlx::query(crate::sqlsafe::autore(query)).fetch_all(&pool).await.map_err(|e| format!("PostgreSQL query failed: {}", e))?;
   let result = rows.iter().map(|row| {
     let mut obj = serde_json::Map::new();
     // Un solo lettore: la preview (db_query) decodifica le celle con LO STESSO
@@ -1549,7 +1556,7 @@ async fn pg_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>, Stri
   let pool = PgPoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(10))
     .connect(conn_str).await.map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
-  let described = pool.describe(probe).await.map_err(|e| format!("PostgreSQL describe failed: {}", e))?;
+  let described = pool.describe(sqlx::SqlSafeStr::into_sql_str(crate::sqlsafe::autore(probe))).await.map_err(|e| format!("PostgreSQL describe failed: {}", e))?;
   pool.close().await;
   Ok(described.columns().iter().enumerate().map(|(i, col)| DbColumnInfo {
     name: col.name().to_string(), db_type: col.type_info().name().to_string(),
@@ -1587,12 +1594,12 @@ async fn mysql_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Resul
   let pool = MySqlPoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(timeout.unwrap_or(30)))
     .connect(conn_str).await.map_err(|e| format!("MySQL connection failed: {}", e))?;
-  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("MySQL query failed: {}", e))?;
+  let rows = sqlx::query(crate::sqlsafe::autore(query)).fetch_all(&pool).await.map_err(|e| format!("MySQL query failed: {}", e))?;
+  // P339: stesso lettore del nodo source_db (prima: tutto NULL tranne JSON).
   let result = rows.iter().map(|row| {
     let mut obj = serde_json::Map::new();
-    for col in row.columns() {
-      let val: serde_json::Value = row.try_get(col.name()).unwrap_or(serde_json::Value::Null);
-      obj.insert(col.name().to_string(), val);
+    for (i, col) in row.columns().iter().enumerate() {
+      obj.insert(col.name().to_string(), crate::engine::nodes::source_db::my_col_to_value(row, i).to_json());
     }
     serde_json::Value::Object(obj)
   }).collect();
@@ -1606,7 +1613,7 @@ async fn mysql_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>, S
   let pool = MySqlPoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(10))
     .connect(conn_str).await.map_err(|e| format!("MySQL connection failed: {}", e))?;
-  let described = pool.describe(probe).await.map_err(|e| format!("MySQL describe failed: {}", e))?;
+  let described = pool.describe(sqlx::SqlSafeStr::into_sql_str(crate::sqlsafe::autore(probe))).await.map_err(|e| format!("MySQL describe failed: {}", e))?;
   pool.close().await;
   Ok(described.columns().iter().enumerate().map(|(i, col)| DbColumnInfo {
     name: col.name().to_string(), db_type: col.type_info().name().to_string(),
@@ -1619,7 +1626,7 @@ async fn sqlite_query(conn_str: &str, query: &str, timeout: Option<u64>) -> Resu
   let pool = SqlitePoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(timeout.unwrap_or(30)))
     .connect(conn_str).await.map_err(|e| format!("SQLite connection failed: {}", e))?;
-  let rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("SQLite query failed: {}", e))?;
+  let rows = sqlx::query(crate::sqlsafe::autore(query)).fetch_all(&pool).await.map_err(|e| format!("SQLite query failed: {}", e))?;
   let result = rows.iter().map(|row| {
     let mut obj = serde_json::Map::new();
     for col in row.columns() {
@@ -1644,7 +1651,7 @@ async fn sqlite_infer(conn_str: &str, probe: &str) -> Result<Vec<DbColumnInfo>, 
   let pool = SqlitePoolOptions::new().max_connections(1)
     .acquire_timeout(std::time::Duration::from_secs(10))
     .connect(conn_str).await.map_err(|e| format!("SQLite connection failed: {}", e))?;
-  let described = pool.describe(probe).await.map_err(|e| format!("SQLite describe failed: {}", e))?;
+  let described = pool.describe(sqlx::SqlSafeStr::into_sql_str(crate::sqlsafe::autore(probe))).await.map_err(|e| format!("SQLite describe failed: {}", e))?;
   pool.close().await;
   Ok(described.columns().iter().enumerate().map(|(i, col)| DbColumnInfo {
     name: col.name().to_string(), db_type: col.type_info().name().to_string(),
@@ -1937,22 +1944,61 @@ fn sftp_mkdir_p(sftp: &ssh2::Sftp, path: &std::path::Path) -> Result<(), String>
   sftp.mkdir(path, 0o755).map_err(|e| format!("SFTP mkdir: {}", e))
 }
 
-async fn ftp_plain_connect(conn: &FtpConnectionParams) -> Result<suppaftp::AsyncFtpStream, String> {
+// suppaftp 12 (P337): backend tokio (prima async-std). Chiude RUSTSEC-2026-0271
+// (CRLF injection nel canale di controllo).
+//
+// 🐞 Corretto (P337): il protocollo "ftps" si collegava in FTP IN CHIARO (stessa
+// funzione di "ftp"): password e file viaggiavano leggibili mentre la UI diceva
+// FTPS. Ora "ftps" = FTPS ESPLICITO (AUTH TLS) fatto PRIMA del login, con PROT P
+// sul canale dati e verifica del certificato del server (native-tls). L'FTPS
+// implicito (porta 990) non e' supportato: se il server lo esige, la connessione
+// fallisce invece di ripiegare in chiaro.
+enum FtpConn {
+  Plain(suppaftp::tokio::AsyncFtpStream),
+  Tls(suppaftp::tokio::AsyncNativeTlsFtpStream),
+}
+
+/// Esegue lo stesso corpo su entrambe le varianti (in chiaro / TLS).
+macro_rules! with_ftp {
+  ($conn:expr, $ftp:ident => $body:expr) => {
+    match $conn {
+      FtpConn::Plain(mut $ftp) => $body,
+      FtpConn::Tls(mut $ftp) => $body,
+    }
+  };
+}
+
+async fn ftp_plain_connect(conn: &FtpConnectionParams) -> Result<FtpConn, String> {
   let addr     = format!("{}:{}", conn.host, conn.port);
   let user     = conn.user.clone();
   let password = conn.password.clone().unwrap_or_default();
-  let mut ftp  = suppaftp::AsyncFtpStream::connect(&addr).await.map_err(|e| format!("FTP connection to {}: {}", addr, e))?;
-  ftp.login(&user, &password).await.map_err(|e| format!("FTP login: {}", e))?;
-  Ok(ftp)
+  // suppaftp 12 parte in ASCII e in upload converte LF→CRLF: i file dei nodi FTP
+  // devono viaggiare byte per byte com'erano (CSV/JSON/XML), quindi BINARIO.
+  let binary = suppaftp::types::FileType::Binary;
+  if conn.protocol == "ftps" {
+    // Lo stream nasce gia' "tipizzato TLS" (connessione TCP in chiaro), poi AUTH TLS.
+    let ftp = suppaftp::tokio::AsyncNativeTlsFtpStream::connect(&addr).await.map_err(|e| format!("FTP connection to {}: {}", addr, e))?;
+    let tls = suppaftp::tokio::AsyncNativeTlsConnector::from(suppaftp::async_native_tls::TlsConnector::new());
+    let mut ftp = ftp.into_secure(tls, &conn.host).await.map_err(|e| format!("FTPS (AUTH TLS) with {}: {}", addr, e))?;
+    ftp.login(&user, &password).await.map_err(|e| format!("FTPS login: {}", e))?;
+    ftp.transfer_type(binary).await.map_err(|e| format!("FTPS TYPE I: {}", e))?;
+    Ok(FtpConn::Tls(ftp))
+  } else {
+    let mut ftp = suppaftp::tokio::AsyncFtpStream::connect(&addr).await.map_err(|e| format!("FTP connection to {}: {}", addr, e))?;
+    ftp.login(&user, &password).await.map_err(|e| format!("FTP login: {}", e))?;
+    ftp.transfer_type(binary).await.map_err(|e| format!("FTP TYPE I: {}", e))?;
+    Ok(FtpConn::Plain(ftp))
+  }
 }
 
 async fn ftp_plain_test(conn: &FtpConnectionParams, start: std::time::Instant) -> Result<FtpTestResult, String> {
   let addr    = format!("{}:{}", conn.host, conn.port);
   let user    = conn.user.clone();
+  let label   = if conn.protocol == "ftps" { "FTPS (TLS)" } else { "FTP" };
   let timeout = std::time::Duration::from_secs(conn.connect_timeout.unwrap_or(10));
   let result  = tokio::time::timeout(timeout, ftp_plain_connect(conn)).await;
   match result {
-    Ok(Ok(mut ftp)) => { let _ = ftp.quit().await; Ok(FtpTestResult { ok: true, message: format!("FTP connesso a {} come {}", addr, user), elapsed_ms: start.elapsed().as_millis() }) }
+    Ok(Ok(c)) => { with_ftp!(c, ftp => { let _ = ftp.quit().await; }); Ok(FtpTestResult { ok: true, message: format!("{} connesso a {} come {}", label, addr, user), elapsed_ms: start.elapsed().as_millis() }) }
     Ok(Err(e)) => Ok(FtpTestResult { ok: false, message: e, elapsed_ms: start.elapsed().as_millis() }),
     Err(_) => Ok(FtpTestResult { ok: false, message: format!("Timeout: no response from {} within {}s", addr, conn.connect_timeout.unwrap_or(10)), elapsed_ms: start.elapsed().as_millis() }),
   }
@@ -1960,9 +2006,12 @@ async fn ftp_plain_test(conn: &FtpConnectionParams, start: std::time::Instant) -
 
 async fn ftp_plain_list(conn: &FtpConnectionParams, remote_path: &str, pattern: Option<&str>) -> Result<Vec<FtpFileEntry>, String> {
   let path = remote_path.to_string(); let pat = pattern.map(|s| s.to_string());
-  let mut ftp = ftp_plain_connect(conn).await?;
-  let list = ftp.nlst(Some(&path)).await.map_err(|e| format!("FTP list '{}': {}", path, e))?;
-  let _ = ftp.quit().await;
+  let c = ftp_plain_connect(conn).await?;
+  let list = with_ftp!(c, ftp => {
+    let list = ftp.nlst(Some(&path)).await.map_err(|e| format!("FTP list '{}': {}", path, e))?;
+    let _ = ftp.quit().await;
+    list
+  });
   Ok(list.into_iter().filter_map(|entry| {
     let name = std::path::Path::new(&entry).file_name()?.to_string_lossy().to_string();
     if let Some(ref pat) = pat { if !glob_match(pat, &name) { return None; } }
@@ -1971,22 +2020,29 @@ async fn ftp_plain_list(conn: &FtpConnectionParams, remote_path: &str, pattern: 
 }
 
 async fn ftp_plain_read(conn: &FtpConnectionParams, remote_path: &str) -> Result<String, String> {
-  use futures_util::io::AsyncReadExt;
-  let path = remote_path.to_string(); let mut ftp = ftp_plain_connect(conn).await?;
-  let mut stream = ftp.retr_as_stream(&path).await.map_err(|e| format!("FTP retr '{}': {}", path, e))?;
-  let mut content = Vec::new();
-  stream.read_to_end(&mut content).await.map_err(|e| format!("FTP read: {}", e))?;
-  ftp.finalize_retr_stream(stream).await.map_err(|e| format!("FTP finalize: {}", e))?;
-  let _ = ftp.quit().await;
+  use tokio::io::AsyncReadExt;
+  let path = remote_path.to_string();
+  let c = ftp_plain_connect(conn).await?;
+  let content = with_ftp!(c, ftp => {
+    let mut stream = ftp.retr_as_stream(&path).await.map_err(|e| format!("FTP retr '{}': {}", path, e))?;
+    let mut content = Vec::new();
+    stream.read_to_end(&mut content).await.map_err(|e| format!("FTP read: {}", e))?;
+    stream.finish().await.map_err(|e| format!("FTP finalize: {}", e))?;
+    let _ = ftp.quit().await;
+    content
+  });
   String::from_utf8(content).map_err(|e| format!("FTP UTF-8: {}", e))
 }
 
 async fn ftp_plain_write(conn: &FtpConnectionParams, remote_path: &str, content: &str) -> Result<u64, String> {
-  use futures_util::io::Cursor;
+  use std::io::Cursor;
   let path = remote_path.to_string(); let data = content.as_bytes().to_vec(); let len = data.len() as u64;
-  let mut ftp = ftp_plain_connect(conn).await?; let mut cursor = Cursor::new(data);
-  ftp.put_file(&path, &mut cursor).await.map_err(|e| format!("FTP put '{}': {}", path, e))?;
-  let _ = ftp.quit().await; Ok(len)
+  let c = ftp_plain_connect(conn).await?; let mut cursor = Cursor::new(data);
+  with_ftp!(c, ftp => {
+    ftp.put_file(&path, &mut cursor).await.map_err(|e| format!("FTP put '{}': {}", path, e))?;
+    let _ = ftp.quit().await;
+  });
+  Ok(len)
 }
 
 fn glob_match(pattern: &str, name: &str) -> bool {
@@ -2095,6 +2151,12 @@ fn build_mqtt_options(conn: &MqttConnectionParams) -> rumqttc::MqttOptions {
     opts.set_keep_alive(std::time::Duration::from_secs(conn.keep_alive));
     opts.set_clean_session(conn.clean_session);
     if let (Some(user), Some(pass)) = (&conn.username, &conn.password) { opts.set_credentials(user, pass); }
+    // 🐞 Corretto (P337): `use_tls` era letto dalla config e poi IGNORATO — il nodo si
+    // collegava in chiaro (credenziali comprese). Ora TLS vero (native-tls, verifica
+    // del certificato del broker con i certificati di sistema).
+    if conn.use_tls {
+        opts.set_transport(rumqttc::Transport::tls_with_config(rumqttc::TlsConfiguration::Native));
+    }
     opts
 }
 
@@ -2296,7 +2358,7 @@ fn parse_stomp_message(frame: &str, destination: &str) -> Option<StompMessage> {
 // WEBHOOK — server HTTP condiviso, Responder (flow + monitor), Watchdog
 // ═══════════════════════════════════════════════════════════════════
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use sha1::Sha1;
 

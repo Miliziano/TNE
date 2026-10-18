@@ -107,7 +107,7 @@ async fn stream_pg(
         .connect(conn_str).await
         .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
 
-    let mut stream = sqlx::query(query).fetch(&pool);
+    let mut stream = sqlx::query(crate::sqlsafe::autore(query)).fetch(&pool);
     let mut rows_read: u64 = 0;
 
     while let Some(row_result) = stream.next().await {
@@ -159,18 +159,17 @@ async fn stream_mysql(
         .connect(conn_str).await
         .map_err(|e| format!("MySQL connection failed: {}", e))?;
 
-    let mut stream = sqlx::query(query).fetch(&pool);
+    let mut stream = sqlx::query(crate::sqlsafe::autore(query)).fetch(&pool);
     let mut rows_read: u64 = 0;
 
     while let Some(row_result) = stream.next().await {
         match row_result {
             Ok(row) => {
+                // P339: stesso lettore del nodo source_db (prima: tutto NULL tranne JSON).
                 let mut obj = serde_json::Map::new();
-                for col in row.columns() {
-                    let val: serde_json::Value = row
-                        .try_get(col.name())
-                        .unwrap_or(serde_json::Value::Null);
-                    obj.insert(col.name().to_string(), val);
+                for (i, col) in row.columns().iter().enumerate() {
+                    obj.insert(col.name().to_string(),
+                        crate::engine::nodes::source_db::my_col_to_value(&row, i).to_json());
                 }
                 let payload = serde_json::Value::Object(obj);
                 let _ = app.emit(&format!("db_stream_row_{}", stream_id), payload);
@@ -211,7 +210,7 @@ async fn stream_sqlite(
         .connect(conn_str).await
         .map_err(|e| format!("SQLite connection failed: {}", e))?;
 
-    let mut stream = sqlx::query(query).fetch(&pool);
+    let mut stream = sqlx::query(crate::sqlsafe::autore(query)).fetch(&pool);
     let mut rows_read: u64 = 0;
 
     while let Some(row_result) = stream.next().await {

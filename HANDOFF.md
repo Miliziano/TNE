@@ -89,9 +89,13 @@ Contratto: `src-tauri/docs/monitoring-schema.md`.
   tagliata sull'**ultimo commit pushato**: se l'albero locale ha lavoro
   non committato sugli stessi file, `git apply` fallisce — è già successo
   (v. §8). Consegnare sempre `git apply --check` come primo passo.
-- **Non si può compilare Rust nel sandbox**: l'utente compila con
-  `npm run tauri dev` (fase `Compiling`) PRIMA di committare. Dichiarare
-  sempre i punti a rischio compilazione e farsi riportare l'errore cargo.
+- **Rust nel sandbox (aggiornato al P336):** `cargo` c'è e, installando le librerie
+  webkit (`libwebkit2gtk-4.1-dev` & co. via apt), si compila anche lo STUDIO (feature
+  `desktop`), oltre a runner e monitor; si lanciano i test. La toolchain del repo è
+  fissata (`src-tauri/rust-toolchain.toml`) ma il sandbox non scarica toolchain da
+  static.rust-lang.org: lì si usa `RUSTUP_TOOLCHAIN=stable cargo … --ignore-rust-version`.
+  L'utente ricompila comunque prima di committare (`npm run tauri dev`, runner, monitor):
+  resta il cancello finale, e collaudi con servizi veri (DB, FTP, MQTT, LDAP) sono suoi.
 - **Ragionare ai confini di fase**: design/scoping prima di
   implementazioni grosse. Le decisioni di design/prodotto si SOTTOPONGONO
   all'utente (opzioni A/B con raccomandazione), non si prendono a mano.
@@ -463,13 +467,11 @@ export sono consumati solo dal runner); **tenere** `src/io/readers.ts`
 - **Move in `for` + `async move`:** un valore non-Copy (es. `CancellationToken`)
   usato in `tokio::spawn(async move …)` dentro un ciclo va clonato
   PER-ITERAZIONE prima dello spawn (come `run_id`), altrimenti E0382.
-- **Rust non si compila in sandbox:** ogni patch Rust lo compila l'UTENTE — è
-  quello il cancello. Il typecheck TS (baseline 134) è l'unica verifica
-  automatica di Claude.
-- **La baseline typecheck è 134** (`npx tsc --noEmit -p tsconfig.app.json
-  2>&1 | grep -c "error TS"`). Sono errori preesistenti (TS6133/6196
-  inutilizzati + un TS2307 penzolante). **Ogni consegna deve chiudere a
-  134**: se sale, è colpa tua. Meglio ancora: confrontare l'ELENCO prima/
+- **Verifiche di Claude (dal P333):** Rust compilato e testato nel sandbox (vedi §2),
+  più il typecheck TS.
+- **La baseline typecheck è 111** (era 134; scesa con le pulizie fino al P311 —
+  `npx tsc --noEmit -p tsconfig.app.json 2>&1 | grep -c "error TS"`). Sono errori
+  preesistenti. **Ogni consegna deve chiudere a 111**: se sale, è colpa tua. Meglio ancora: confrontare l'ELENCO prima/
   dopo (`git stash` + diff dei due output), non solo il numero.
 - 🔴 **`npx tsc --noEmit` NUDO dà un falso verde**: il `tsconfig.json` di
   radice è solution-style (`files: []` + references), quindi controlla
@@ -1037,7 +1039,8 @@ non serve redigerle lì (i sink a valle sono l'output voluto dall'autore del pia
 
 ## AGGIORNAMENTO — runner enforce-only + monitor chiuso per default (stato al P335, 17 ottobre)
 
-Tre patch, concatenate sopra `ad84811 pulizia repository`: **P333 → P334 → P335**.
+Tre patch: **P333 → P334 → P335** (nella storia: P334 in `Aggiornamento`, P333+P335
+nel commit `P333,P334,P335`).
 Rust compilato e testato anche nell'ambiente delle patch (cargo ora disponibile:
 `cargo check/test --no-default-features [--features monitor]`); collaudi end-to-end
 con runner e monitor veri.
