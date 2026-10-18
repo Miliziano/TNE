@@ -1086,13 +1086,84 @@ chi legge, riverifica della firma lato monitor.
 
 ---
 
+## AGGIORNAMENTO — aggiornamento tecnologico (stato al P343, 18 ottobre)
+
+Toolchain e dipendenze portate all'ultima versione, con i bug emersi lungo la strada.
+Patch **P336 → P342** (nella storia: un unico commit `da P336 a P342`) + **P343**.
+Verificato nel sandbox: studio (`desktop`), runner e monitor compilano, test di libreria
+e monitor verdi, typecheck invariato (111), `npm audit` 0.
+
+**Toolchain (P336).** Rust **fissato a 1.99.1** in `src-tauri/rust-toolchain.toml` e in CI
+(`rust-version = "1.99"`). Per aggiornarlo: cambiarlo in entrambi i posti, ricompilare tutto.
+
+**🐞 Bug trovati aggiornando (corretti):**
+- **FTPS in chiaro** (P337): il protocollo "ftps" si collegava in FTP normale, password
+  compresa. Ora TLS esplicito (AUTH TLS) **prima** del login, con PROT P.
+- **MQTT senza TLS** (P337): `use_tls` letto e poi ignorato.
+- **XML** (P337): dal quick-xml 0.38 le entità (`&amp;`, `&#65;`…) non venivano decodificate.
+- **SQL injection in `sink_db`** (P338): senza mapping, i nomi di colonna presi dalle
+  intestazioni finivano nell'SQL con backtick senza escape. Ora ogni nome di
+  tabella/colonna/chiave passa da `sqlsafe.rs` (`check_*`).
+- **Lettore MySQL** (P339): anteprima e streaming davano tutto NULL tranne le colonne JSON;
+  ora usano lo stesso lettore del nodo `source_db`.
+- **Excel** (P342): il formato offerto dal pannello non aveva un lettore nel motore. Ora
+  `calamine` nel motore (run + anteprima); **SheetJS (`xlsx` su npm) eliminato**
+  (abbandonato e vulnerabile). Scheda: `docs/nodes/source_file.md`.
+
+**Crate principali.** sqlx 0.9 (P338, chiude RUSTSEC-2024-0363), suppaftp 12 su tokio
+(chiude RUSTSEC-2026-0271, CRLF injection), rumqttc 0.25 con native-tls, quick-xml 0.42,
+rust_xlsxwriter 0.100, reqwest 0.13, notify 8, ldap3 0.12, sysinfo 0.39.
+**Crittografia (P340):** ed25519-dalek 3, argon2 0.6, chacha20poly1305 0.11, sha2/hmac
+nuovi, `getrandom` diretto. **Parametri argon2 FISSATI** a quelli di argon2 0.5 (19 MiB,
+2 passate, 1 corsia): mai dipendere dal default della libreria, o le chiavi cifrate a
+riposo non si riaprono. `signing/compat.rs` = **vettori di compatibilità** (chiave
+cifrata, firma e manifesto prodotti con le versioni vecchie): se falliscono dopo un
+aggiornamento si corregge il codice, **non** i vettori.
+
+**P343.**
+- **keyring 2 → 4** (feature `v1`: stessa API; unico cambio `delete_password` →
+  `delete_credential`). Store: Keychain (macOS), Credential Manager (Windows), Secret
+  Service via zbus 5 (Linux). Provato nel sandbox contro **gnome-keyring reale**
+  (scrivi/leggi/sostituisci in connection string/cancella) e **senza D-Bus** (server
+  headless): degrada in ~1 ms a "non trovato" e vincono le variabili d'ambiente.
+- **TypeScript 7** (compilatore nativo, ~7× più veloce: 3 s contro 20 s) **affiancato
+  a TS 6**, come raccomanda Microsoft: TS 7 non ha ancora l'API JavaScript che usa
+  `typescript-eslint` (e quindi il guardrail anti-XSS). In `package.json`:
+  `"typescript": "npm:@typescript/typescript6@^6.0.2"` (lo importa ESLint; comando
+  `tsc6`) e `"@typescript/native": "npm:typescript@^7.0.2"` (comando **`tsc`**).
+  Stesso elenco di 111 errori con l'uno e con l'altro. Quando `typescript-eslint`
+  supporterà TS 7 (API nuova attesa in 7.1) si toglie l'alias.
+- `@types/node` 26.
+
+**Residui di `cargo audit` (non risolvibili da noi, valutati):**
+- `rsa` (RUSTSEC-2023-0071) via sqlx-mysql: nessuna correzione esiste; riguarda la
+  decifratura, il client MySQL cifra soltanto.
+- `zip` 8 (RUSTSEC-2026-0367/0368/0369) via calamine: tutti in `extract()` (estrazione
+  su disco), che calamine non usa. Si chiude quando calamine passa a zip 9.
+- "unmaintained": `zvariant`/`zbus_names` (zbus 5, store Linux di keyring — zbus 6 è
+  uscito il 16 ottobre, lo store non lo usa ancora), `glib` 0.18 e `proc-macro-error`
+  (GTK3 di Tauri su Linux).
+
+**⚠ Preesistente, da affrontare:** `npm run build` (e quindi `tauri build`, che lo usa
+come `beforeBuildCommand`) esegue `tsc -b` e **fallisce** per i 111 errori di typecheck
+— era così anche prima di questi aggiornamenti. `tauri dev` non ne risente. Sono quasi
+tutti variabili/import inutilizzati (TS6133/TS6196) più due errori veri
+(`src/ir/canonicalPlan.ts` Uint8Array→BufferSource, `src/store/flowStore.ts` campo
+`parallel` non in `NodeAdvanced`). Serve prima di distribuire lo studio.
+
+**Schede dei nodi:** `npm run docs:nodes` oggi riscriverebbe le descrizioni di tutte le
+48 schede in **inglese** (residuo della passata EN: il registry è tradotto, le schede
+no). Decidere se rigenerarle (schede in inglese) prima di lanciarlo.
+
+---
+
 ## Oracle e Informix — pensata (DA RIPRENDERE)
 
 > **Verifica del 17 ottobre (prima di partire con ODBC).**
 > - **Oracle: novità vera.** Oracle ha pubblicato un driver **Rust puro ufficiale**,
 >   crate **`oracledb`** (github.com/oracle/rust-oracledb, annunciato a settembre 2026):
 >   **nessun Instant Client** richiesto. Oggi è **beta** (26.0.0-beta.4, 23 set 2026),
->   API sincrona, MSRV **1.89** (il nostro `rust-version` dichiara 1.77.2). Esiste anche
+>   API sincrona, MSRV **1.89** (il nostro `rust-version` è 1.99 dal P336). Esiste anche
 >   `oracle-rs` (community, async/Tokio, 0.1.x, giovane). Il crate `oracle` (ODPI-C)
 >   resta a 0.6.3 (gen 2025) e richiede il client.
 > - **Informix: nulla di nuovo in Rust.** `informix_rust` 0.0.4 (2024) avvolge il CSDK ed

@@ -26,9 +26,10 @@ tauri-plugin-log    = { version = "2", optional = true }
 # keychain del SO per i segreti (macOS Keychain / Windows Credential Manager / Linux Secret Service).
 # ⚠️ VERIFICARE versione/feature per le proprie piattaforme di build; se il build fallisce,
 # il provider da variabili d'ambiente (secrets.rs) resta comunque funzionante.
-keyring             = "2"   # P341: NON aggiornato di proposito (v3/v4 cambiano i backend per piattaforma):
-                            # prima va verificato su Windows/macOS/Linux che i segreti GIA' salvati
-                            # nel portachiavi restino leggibili. Porta con se' zbus 3 (avvisi "unmaintained").
+keyring             = "4"   # P343: feature `v1` (default) = stessa API di sempre; store per piattaforma
+                            # scelto dal crate: Keychain (macOS), Credential Manager (Windows),
+                            # Secret Service via zbus 5 (Linux). Senza D-Bus (server headless) degrada:
+                            # Entry::new da' errore e resolve_secret ripiega sulle variabili d'ambiente.
 tiny_http           = { version = "0.12", optional = true }   # solo per il binario monitor
 tauri-plugin-dialog = { version = "2.7.1", optional = true }
 base64     = "0.23"

@@ -56,7 +56,7 @@ pub fn has_secret(name: &str) -> bool {
 pub fn delete_secret(name: &str) -> Result<(), String> {
     keyring::Entry::new(SERVICE, name)
         .map_err(|e| e.to_string())?
-        .delete_password()
+        .delete_credential()
         .map_err(|e| e.to_string())
 }
 
