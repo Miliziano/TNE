@@ -386,22 +386,11 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
 
       {/* ── Performance ── */}
       <SectionTitle label="Performance" color={color} />
-      <Row2>
-        <Field label="Batch size">
-          <input type="number" style={iStyle} value={p('batchSize', '1000')} onChange={u('batchSize')} min="1" />
-        </Field>
-        <Field label="Commit every N batches">
-          <input type="number" style={iStyle} value={p('commitInterval', '0')} onChange={u('commitInterval')} min="0" />
-        </Field>
-      </Row2>
-      <Row2>
-        <Field label="Parallel connections">
-          <input type="number" style={iStyle} value={p('parallelConnections', '1')} onChange={u('parallelConnections')} min="1" max="20" />
-        </Field>
-        <Field label="Transaction timeout (s)">
-          <input type="number" style={iStyle} value={p('txTimeout', '60')} onChange={u('txTimeout')} min="1" />
-        </Field>
-      </Row2>
+      {/* P348: tolti "Commit every N batches", "Parallel connections" e
+          "Transaction timeout": il motore non li ha mai letti. */}
+      <Field label="Batch size">
+        <input type="number" style={iStyle} value={p('batchSize', '1000')} onChange={u('batchSize')} min="1" />
+      </Field>
 
       {/* ── Gestione errori ── */}
       <SectionTitle label="Error handling" color={color} />
@@ -409,13 +398,13 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         <CustomSelect style={iStyle} value={p('onConstraintError', 'stop')} onChange={u('onConstraintError')}>
           <option value="stop">Stop — abort</option>
           <option value="skip">Skip — skip the row</option>
-          <option value="log">Log — record and continue</option>
-          <option value="update">Update — update instead</option>
         </CustomSelect>
       </Field>
-      <Field label="Dead letter table" hint="Table to write the failed rows to">
-        <input style={iStyle} value={p('deadLetterTable', '')} onChange={u('deadLetterTable')} placeholder="errors.failed_rows" />
-      </Field>
+      {/* P348: tolti "Log", "Update" e la "Dead letter table": non esistevano nel
+          motore (le righe finivano contate come errori e il run riusciva). */}
+      {!['stop', 'skip'].includes(p('onConstraintError', 'stop')) && (
+        <Warning text={`"${p('onConstraintError')}" is no longer available: choose Stop or Skip (the run stops with an error until you do).`} />
+      )}
 
      {/* ── Partecipazione a una transazione (oggetto di lane) ── */}
       {(() => {
@@ -472,10 +461,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
                                 fontSize: 10, color: TX_COLOR, display: 'flex', gap: 5, alignItems: 'center' }}>
                     <i className="ti ti-info-circle" style={{ fontSize: 10 }} />
                     <span>
-                      {activeTx!.onError === 'rollback_all'
-                        ? 'On error: rollback of the entire group.'
-                        : 'On error: rollback of this node only.'}
-                      {' '}Timeout {activeTx!.timeout}s. Configure in the Transactions tab.
+                      If any member fails, the whole group is rolled back. Configure in the Transactions tab.
                     </span>
                   </div>
                 )}

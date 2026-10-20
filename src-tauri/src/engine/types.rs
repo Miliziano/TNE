@@ -274,7 +274,7 @@ pub struct TransactionPlan {
     #[serde(default = "default_tx_timeout")]
     pub timeout:  u64,
     #[serde(rename = "on_error", default)]
-    pub on_error: String,   // "rollback_all" | "rollback_self"
+    pub on_error: String,   // P348: ignorato (sempre tutto-o-niente); resta per leggere i piani vecchi
 }
 
 /// Un dataset materializzato, dichiarato dall'utente nella lane.

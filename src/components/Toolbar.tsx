@@ -583,8 +583,6 @@ function buildRustPlan(
       id:       tx.id,
       name:     tx.name,
       mode:     tx.mode,
-      timeout:  tx.timeout,
-      on_error: tx.onError,
     }))
 
     // Nodi della lane — skip lane_start, lane_end (soli marcatori UI).

@@ -277,8 +277,9 @@ export function getNodeSubtitle(data: NodeData): string {
       const schema = p('schema', 'public')
       const table  = p('table')
       const mode   = p('mode', 'insert')
-      const tx     = (() => { try { return JSON.parse(p('transactionGroup')) } catch { return null } })()
-      const txBadge = tx ? ` · ${tx.mode === 'xa' ? '⚡' : '🔒'}${tx.id}` : ''
+      // P348: la transazione e' un oggetto di lane; il nodo ne porta l'id
+      const txId    = p('transactionId')
+      const txBadge = txId ? ` · 🔒${txId}` : ''
       if (table) return withCatch(`${mode} → ${schema}.${table}${txBadge}`, data)
       return withCatch(`${mode}${txBadge}`, data)
     }
@@ -294,9 +295,7 @@ export function getNodeSubtitle(data: NodeData): string {
     case 'sink_kafka': {
       const topic = p('topic')
       const fmt   = p('valueFormat', 'json')
-      const tx    = (() => { try { return JSON.parse(p('transactionGroup')) } catch { return null } })()
-      const txBadge = tx ? ` · ${tx.mode === 'xa' ? '⚡' : '🔒'}${tx.id}` : ''
-      return withCatch(topic ? `${fmt} → ${truncate(topic, 22)}${txBadge}` : `${fmt}${txBadge}`, data)
+      return withCatch(topic ? `${fmt} → ${truncate(topic, 22)}` : fmt, data)
     }
 
     case 'sink_ftp': {

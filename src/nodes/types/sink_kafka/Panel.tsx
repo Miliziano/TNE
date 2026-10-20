@@ -1,5 +1,4 @@
 import { useFlowStore } from '../../../store/flowStore'
-import { TransactionGroupEditor } from '../../../components/TransactionGroupEditor'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 const inputStyle: React.CSSProperties = {
@@ -330,9 +329,6 @@ export function SinkKafkaPanel({ nodeId }: { nodeId: string }) {
           />
         </Field>
       </Row>
-      {/*Transazione*/}
-      <SectionTitle label="Transaction" />
-        <TransactionGroupEditor nodeId={nodeId} nodeType="sink_kafka" />
     </div>
   )
 }

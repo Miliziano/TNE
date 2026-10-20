@@ -1372,10 +1372,8 @@ di unixODBC, Oracle Instant Client ODBC (`odbc_update_ini.sh`, `odbc_install.exe
 DMG) e Informix CSDK (`INFORMIXDIR`, `iclit09b.so`, `odbcinst.ini`, nome del driver su
 Windows), verifica con `isql -k`, variabili nei servizi systemd.
 
-**🐞 Aperto (segnalato):** lo studio offre per un gruppo transazionale l'opzione "On
-error: rollback of this node only" (`on_error = rollback_self`), ma il motore la ignora:
-il registro applica **sempre** il tutto-o-niente (`TxGroup.on_error` non è letto).
-Decidere se implementarla (savepoint per membro, solo Postgres) o toglierla dallo studio.
+**~~Aperto~~ → chiuso nel P348:** l'opzione "rollback of this node only" è stata tolta
+(sezione sotto).
 
 ---
 
@@ -1419,3 +1417,46 @@ Richiesto come "fondamentale". **Non è un'aggiunta piccola: è una decisione ar
 1. **ODBC unico** vs **ibrido** (Oracle nativo + Informix ODBC).
 2. Disponibilità di **istanze di prova** Oracle e/o Informix — **indispensabili** per buildare e testare.
 3. Prima fetta proposta: `DbPool::Odbc` + `run_odbc` in **lettura** (`source_db`) contro il DB per cui esiste un'istanza; poi scrittura (`sink_db`); poi l'altro DB.
+
+## AGGIORNAMENTO — via le opzioni che il motore non applica (stato al P348, 20 ottobre)
+
+Decisione con l'utente: **togliere dallo studio ciò che non è chiaro o non si comporta
+in modo uniforme**, invece di lasciare opzioni che il motore ignora.
+
+**Transazioni di lane.** Restano solo nome e **mode** (`native` | `xa`). Tolti
+`onError` (`rollback_all`/`rollback_self`) e `timeout`: il registro (`txregistry.rs`) fa
+**sempre** tutto-o-niente e non ha mai avuto un timeout. Il tipo `LaneTransaction` non li ha
+più; l'export del piano non li manda; il motore li accetta ancora nei piani vecchi
+(`TransactionPlan`, serde default) e li ignora. La scheda Transazioni lo dice in chiaro.
+
+**Sink DB.** Tolti dal pannello: *Commit every N batches*, *Parallel connections*,
+*Transaction timeout* (mai letti dal motore), *On constraint error* = *Log* e *Update* e la
+*Dead letter table* (non implementati: le righe in errore finivano contate e il run
+risultava riuscito). Restano **Stop** e **Skip**; un valore vecchio diverso → avviso nel
+pannello e **errore esplicito al run** (`prepare` in `sink_db.rs`).
+
+**Sink Kafka.** Tolto l'editor "Transaction" (`TransactionGroupEditor.tsx`, cancellato):
+scriveva la prop `transactionGroup`, un modello vecchio che il motore non legge (nessuna
+transazione Kafka è implementata). Il sottotitolo del nodo non mostra più il badge.
+
+**Validazione (CHECK 8, `dagValidation.ts`) riscritta sul modello vero.** Prima leggeva
+`transactionGroup` → non scattava mai per i sink_db. Ora: membri = sink_db con
+`props.transactionId`, gruppi = `pool.lanes[].transactions`. Errori, uguali a quelli del
+motore: transazione non dichiarata nella lane, nodo senza risorsa, dialetto senza
+transazioni (MySQL/SQLite), XA con risorse non PostgreSQL, native con risorse diverse.
+Tolto l'avviso "un solo partecipante = nessun effetto" (falso: un membro solo ha comunque
+tutte le sue scritture atomiche).
+
+**🐞 Corretto: errore prima di entrare nel gruppo non segnalato.** Un sink_db membro che
+falliva in configurazione, controlli o apertura del pool usciva senza
+`report_member_end(false)` → gli altri membri committavano. Ora `run` separa `prepare` e,
+su errore, segnala il fallimento al gruppo del nodo. Collaudato (Postgres e ODBC): membro
+con `onConstraintError=log` → run fallito, **nessuna riga** confermata dall'altro membro;
+piano con `timeout`/`on_error` vecchi letto senza errori.
+
+`src-tauri/docs/node-spec.md` aggiornato (props tolte, DDL su tutti i dialetti).
+
+**Restano nello studio ma NON nel motore (da decidere):** tab *Query* del sink_db —
+`customQueryMode`/`customSql` (SQL personalizzato) e `storedProcMode` (stored procedure);
+`ddlPrimaryKey`; *Identity map* (`identityMapPersist`, `identityMapVarName`,
+`identityMapTxGroup`). Sono funzioni vere, non manopole: implementarle o toglierle.

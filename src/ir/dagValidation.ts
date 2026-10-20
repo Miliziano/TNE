@@ -14,9 +14,6 @@ import { queryParamNames, quotedParamNames } from './queryParams'
 import { getNodeSemantics } from './nodeSemantics'
 import { propagateSchema } from './schemaPropagation'
 
-const XA_COMPATIBLE_DIALECTS = new Set([
-  'postgresql', 'mysql', 'oracle', 'sqlserver', 'kafka',
-])
 
 export function validateDAG(plan: LogicalPlan): ValidationResult {
   const issues: ValidationIssue[] = []
@@ -1300,95 +1297,87 @@ function checkDataContracts(plan: LogicalPlan): ValidationIssue[] {
 }
 
 // ─── CHECK 8 — GRUPPI TRANSAZIONALI ──────────────────────────────
+//
+// P348: riscritto sul modello VERO (design-transazioni-v2): la transazione è
+// un oggetto della lane (pool.lanes[].transactions), il sink_db ne porta l'id
+// in props.transactionId. Il controllo di prima leggeva la vecchia prop
+// `transactionGroup`, che nessun pannello del sink_db scrive più: non
+// scattava mai. Le regole sono quelle che il motore applica al run
+// (sink_db.rs, txregistry.rs), così l'errore si vede prima di eseguire.
+
+const TX_DIALECTS_NATIVE = new Set(['postgresql', 'oracle', 'informix', 'odbc'])
 
 function validateTransactionGroups(plan: LogicalPlan): ValidationIssue[] {
   const issues: ValidationIssue[] = []
+  const lanes = plan.pool?.lanes ?? []
 
-  // Raggruppa per laneId::groupId
-  const groupMap = new Map<string, Array<{
-    node:            LogicalNode
-    txConfig:        { id: string; mode: string; timeout: number; onError: string }
-    resourceId:      string
-    resourceDialect: string
-  }>>()
+  // membri per lane::transazione
+  const groups = new Map<string, Array<{ node: LogicalNode; resourceId: string; dialect: string }>>()
 
   plan.nodes.forEach((node) => {
-    const uiType = node._uiRef?.type ?? ''
-    if (!['sink_db', 'sink_kafka'].includes(uiType)) return
+    if ((node._uiRef?.type ?? '') !== 'sink_db') return
+    const txId = (node._uiRef?.props?.['transactionId'] ?? '') as string
+    if (!txId) return
+    const laneId     = node._uiRef?.laneId ?? ''
+    const lane       = lanes.find((l) => l.id === laneId)
+    const resourceId = ((node._uiRef?.config as Record<string, unknown> | undefined)?.resourceId ?? '') as string
+    const res        = lane?.resources?.find((r) => r.id === resourceId)
+    const dialect    = ((res?.config as Record<string, string> | undefined)?.dialect ?? '') as string
 
-    try {
-      // props è ora disponibile in _uiRef
-      const props = node._uiRef?.props
-      const raw   = props?.['transactionGroup']
-      if (!raw) return
-      const tx = JSON.parse(raw)
-      if (!tx?.id) return
-
-      const laneId     = node._uiRef?.laneId ?? ''
-      const config     = node._uiRef?.config as Record<string, unknown> | undefined
-      const resourceId = (config?.resourceId ?? '') as string
-
-      // Risorsa dal pool (disponibile in plan.pool dopo la patch al lowering)
-      const lane = plan.pool?.lanes?.find((l) => l.id === laneId)
-      const res  = lane?.resources?.find((r) => r.id === resourceId)
-      const resourceDialect: string = (res?.config as any)?.dialect ?? res?.kind ?? ''
-
-      const key = `${laneId}::${tx.id}`
-      if (!groupMap.has(key)) groupMap.set(key, [])
-      groupMap.get(key)!.push({ node, txConfig: tx, resourceId, resourceDialect })
-    } catch {}
+    if (!(lane?.transactions ?? []).some((t) => t.id === txId)) {
+      issues.push({
+        severity: 'error',
+        nodeId:   canvasNodeId(node.id),
+        message:  `The transaction of this node does not exist in its lane`,
+        code:     'TX_UNDECLARED',
+        hint:     'Choose a transaction of the lane in the node panel, or none',
+      })
+      return
+    }
+    const key = `${laneId}::${txId}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push({ node, resourceId, dialect })
   })
 
-  groupMap.forEach((members, key) => {
-    const groupId = key.split('::')[1]
+  groups.forEach((members, key) => {
+    const [laneId, txId] = key.split('::')
+    const tx   = lanes.find((l) => l.id === laneId)?.transactions?.find((t) => t.id === txId)
+    const mode = tx?.mode ?? 'native'
+    const name = tx?.name ?? txId
 
-    // Regola: gruppo con un solo partecipante
-    if (members.length < 2) {
-      issues.push({
-        severity: 'warning',
-        nodeId:   canvasNodeId(members[0].node.id),
-        message:  `Transactional group "${groupId}" has only one participant — the transaction has no effect`,
-        code:     'TX_SINGLE_PARTICIPANT',
-        hint:     'Add more sinks to the same group or remove the transactional configuration',
-      })
-    }
-
-    members.forEach(({ node, txConfig, resourceId, resourceDialect }) => {
-
-      // Regola: nodo senza risorsa
+    members.forEach(({ node, resourceId, dialect }) => {
       if (!resourceId) {
         issues.push({
-          severity: 'error',
-          nodeId:   canvasNodeId(node.id),
-          message:  `Node in transactional group "${groupId}" without a configured resource`,
+          severity: 'error', nodeId: canvasNodeId(node.id),
+          message:  `Node in transaction "${name}" without a configured resource`,
           code:     'TX_NO_RESOURCE',
           hint:     'Configure a resource in the Configuration tab',
         })
         return
       }
-
-      // Regola native: stessa risorsa per tutti
-      if (txConfig.mode === 'native') {
-        const firstResourceId = members[0].resourceId
-        if (node.id !== members[0].node.id && resourceId !== firstResourceId) {
-          issues.push({
-            severity: 'error',
-            nodeId:   canvasNodeId(node.id),
-            message:  `Native transactional group "${groupId}": all nodes must use the same resource. Switch to XA mode for heterogeneous resources.`,
-            code:     'TX_NATIVE_RESOURCE_MISMATCH',
-            hint:     'Set XA mode in the TransactionGroupEditor',
-          })
-        }
-      }
-
-      // Regola xa: dialetto XA-compatibile
-      if (txConfig.mode === 'xa' && resourceDialect && !XA_COMPATIBLE_DIALECTS.has(resourceDialect)) {
+      if (dialect && !TX_DIALECTS_NATIVE.has(dialect)) {
         issues.push({
-          severity: 'warning',
-          nodeId:   canvasNodeId(node.id),
-          message:  `Resource with dialect "${resourceDialect}" may not support XA transactions`,
+          severity: 'error', nodeId: canvasNodeId(node.id),
+          message:  `Transactions are not available on ${dialect}: the run would stop with an error`,
+          code:     'TX_UNSUPPORTED_DIALECT',
+          hint:     'Remove the node from the transaction',
+        })
+        return
+      }
+      if (mode === 'xa' && dialect && dialect !== 'postgresql') {
+        issues.push({
+          severity: 'error', nodeId: canvasNodeId(node.id),
+          message:  `XA transaction "${name}": only PostgreSQL resources can take part (two-phase commit is not available on ${dialect})`,
           code:     'TX_XA_UNSUPPORTED_DIALECT',
-          hint:     'Check that the resource JDBC driver supports the XA protocol',
+          hint:     'Use a native transaction with a single resource',
+        })
+      }
+      if (mode === 'native' && resourceId !== members[0].resourceId) {
+        issues.push({
+          severity: 'error', nodeId: canvasNodeId(node.id),
+          message:  `Native transaction "${name}": all members must use the same resource`,
+          code:     'TX_NATIVE_RESOURCE_MISMATCH',
+          hint:     'Use the same resource, or an XA transaction (PostgreSQL only)',
         })
       }
     })

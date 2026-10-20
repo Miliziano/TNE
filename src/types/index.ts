@@ -308,12 +308,13 @@ export interface LaneResource {
   actions: ResourceAction[]
 }
 // ─── Transactions ─────────────────────────────────────────────────────
+// P348: niente piu' `timeout` e `onError`. Il motore non li ha mai usati: un
+// gruppo fa SEMPRE rollback di tutti i membri se uno fallisce, e non ha un
+// timeout. Nei progetti salvati prima possono esserci ancora: si ignorano.
 export interface LaneTransaction {
   id:      string
   name:    string
   mode:    'native' | 'xa'
-  timeout: number   // secondi
-  onError: 'rollback_all' | 'rollback_self'
 }
 // ─── Lane ────────────────────────────────────────────────────────
 export interface Lane {

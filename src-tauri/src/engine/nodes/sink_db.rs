@@ -239,12 +239,12 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
 const PROGRESS_EVERY_ROWS: u64 = 1000;
 const PROGRESS_EVERY_MS:   u64 = 500;
 
-pub async fn run(
-    ctx:    NodeContext,
-    rx:     RowReceiver,
-    tx:     Option<RowSender>,
-    ) -> Result<NodeStats, String> {
-
+/// Configurazione + controlli + pool (P348: separati da `run` perche' un errore
+/// qui deve essere segnalato al gruppo transazionale del nodo).
+async fn prepare(
+    ctx: &NodeContext,
+    tx:  &Option<RowSender>,
+) -> Result<(SinkDbConfig, crate::engine::pool::DbPool), String> {
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
     let config = config_from_spec(&spec)
@@ -252,6 +252,15 @@ pub async fn run(
 
     spec.log_unconsumed("sink_db", &ctx.node_id.0);
 
+    // P348: solo stop e skip esistono davvero. "log" e "update" (e la dead
+    // letter table) c'erano nello studio ma non nel motore: le righe in errore
+    // finivano contate e il run risultava riuscito.
+    if !matches!(config.on_constraint_error.as_str(), "stop" | "skip") {
+        return Err(format!(
+            "sink_db {}: on constraint error '{}' is not available: choose stop or skip",
+            ctx.node_id.0, config.on_constraint_error
+        ));
+    }
     // Master-detail richiede insert/upsert (serve una chiave generata).
     if config.passthrough_md && !matches!(config.mode.as_str(), "insert" | "upsert" | "truncate_insert") {
         return Err(format!(
@@ -286,9 +295,36 @@ pub async fn run(
     }
         .map_err(|e| format!("sink_db {}: {}", ctx.node_id.0, e))?;
 
-    ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
+    Ok((config, pool))
+}
 
-    let start = Instant::now();
+pub async fn run(
+    ctx:    NodeContext,
+    rx:     RowReceiver,
+    tx:     Option<RowSender>,
+    ) -> Result<NodeStats, String> {
+
+    // P348: un membro di transazione che fallisce PRIMA di arrivare al gruppo
+    // (spec, configurazione, connessione) va comunque segnalato al gruppo:
+    // altrimenti gli altri membri committano come se fosse andato tutto bene.
+    let tx_of_node = ctx.spec.get("props")
+        .and_then(|p| p.get("transactionId"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let prepared = prepare(&ctx, &tx).await;
+    let (config, pool) = match prepared {
+        Ok(x) => x,
+        Err(e) => {
+            if !tx_of_node.is_empty() {
+                ctx.lane_txns.report_member_end(&tx_of_node, false).await;
+            }
+            return Err(e);
+        }
+    };
+    let resource_id = config.resource_id.clone();
+
+    ctx.emit_connection_opened(&resource_id, &format!("db_{}", config.dialect));
 
     // Biforcazione: master-detail (riga-per-riga, inoltra) vs batch (default).
     let start = Instant::now();

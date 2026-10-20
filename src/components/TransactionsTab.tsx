@@ -3,7 +3,7 @@
  *
  * Tab "Transazioni" nel PropertyPanel — la transazione è un oggetto di
  * lane (design-transazioni-v2). Mostra le transazioni di ogni lane, con
- * configurazione centralizzata (mode/timeout/onError) e i nodi membri
+ * configurazione centralizzata (mode) e i nodi membri
  * DERIVATI (i sink con props.transactionId = quella transazione).
  * Sostituisce il tab "Pool".
  */
@@ -63,7 +63,7 @@ export function TransactionsTab() {
               <button
                 onClick={() => addTransaction(lane.id, {
                   name: `Transaction ${txs.length + 1}`,
-                  mode: 'native', timeout: 30, onError: 'rollback_all',
+                  mode: 'native',
                 })}
                 style={{ fontSize: 10, color: NATIVE_COLOR, background: 'transparent',
                          border: `1px solid ${NATIVE_COLOR}40`, borderRadius: 4,
@@ -97,33 +97,19 @@ export function TransactionsTab() {
                     </button>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
-                    <label style={{ fontSize: 9, color: '#9a9aaa' }}>
-                      Mode
-                      <CustomSelect value={tx.mode}
-                        onChange={(e) => updateTransaction(lane.id, tx.id, { mode: e.target.value as 'native' | 'xa' })}
-                        style={inp}>
-                        <option value="native">Native (one resource)</option>
-                        <option value="xa">XA (multiple resources)</option>
-                      </CustomSelect>
-                    </label>
-                    <label style={{ fontSize: 9, color: '#9a9aaa' }}>
-                      Timeout (s)
-                      <input type="number" value={tx.timeout} min={1}
-                        onChange={(e) => updateTransaction(lane.id, tx.id, { timeout: parseInt(e.target.value) || 30 })}
-                        style={inp} />
-                    </label>
-                  </div>
-
-                  <label style={{ fontSize: 9, color: '#9a9aaa', display: 'block', marginBottom: 8 }}>
-                    On error
-                    <CustomSelect value={tx.onError}
-                      onChange={(e) => updateTransaction(lane.id, tx.id, { onError: e.target.value as 'rollback_all' | 'rollback_self' })}
+                  <label style={{ fontSize: 9, color: '#9a9aaa', display: 'block', marginBottom: 6 }}>
+                    Mode
+                    <CustomSelect value={tx.mode}
+                      onChange={(e) => updateTransaction(lane.id, tx.id, { mode: e.target.value as 'native' | 'xa' })}
                       style={inp}>
-                      <option value="rollback_all">Rollback the whole group</option>
-                      <option value="rollback_self">Rollback only the failing node</option>
+                      <option value="native">Native (one resource)</option>
+                      <option value="xa">XA (multiple resources, PostgreSQL only)</option>
                     </CustomSelect>
                   </label>
+
+                  <div style={{ fontSize: 10, color: '#9a9aaa', lineHeight: 1.5, marginBottom: 8 }}>
+                    All or nothing: the members commit together at the end of the lane; if one of them fails, every member is rolled back.
+                  </div>
 
                   <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 4 }}>
                     Nodi membri ({members.length})

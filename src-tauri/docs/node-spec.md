@@ -199,8 +199,7 @@ Risorsa: **required**.
 | `mode`                    | enum   | `"insert"` | `insert` \| `upsert` \| `update` \| `delete` \| `truncate_insert` \| `merge` | ✅ insert · 🕐 altri |
 | `mergeCondition`          | string | `""`       | Condizione ON del MERGE (es. `target.id = source.id`)         | 🕐   |
 | `passthroughMasterDetail` | bool   | `false`    | Emette le righe scritte con chiave generata (solo insert/upsert) | 🕐 |
-| `onConstraintError`       | enum   | `"stop"`   | `stop` \| `skip` \| `reject` — violazioni di vincolo          | ✅   |
-| `deadLetterTable`         | string | `""`       | Tabella per righe rifiutate (con `reject`)                    | 🕐   |
+| `onConstraintError`       | enum   | `"stop"`   | `stop` \| `skip` — violazioni di vincolo (P348: altri valori → errore al run) | ✅   |
 
 Nota di contratto (§5.6 handoff): con `skip`, un run che scrive 0 righe
 su N ricevute deve emettere almeno un warning — il fallimento totale non
@@ -210,8 +209,8 @@ può essere indistinguibile dal successo.
 
 | Chiave              | Tipo   | Default | Semantica                                    | Live |
 |---------------------|--------|---------|-----------------------------------------------|------|
-| `createIfNotExists` | bool   | `false` | `CREATE TABLE IF NOT EXISTS` da `sinkColumns` | ✅ (solo PostgreSQL) |
-| `dropAndCreate`     | bool   | `false` | `DROP TABLE … CASCADE` + `CREATE`             | ✅ (solo PostgreSQL) |
+| `createIfNotExists` | bool   | `false` | `CREATE TABLE IF NOT EXISTS` da `sinkColumns` | ✅ (PostgreSQL, MySQL, SQLite dal P346; ODBC dal P345) |
+| `dropAndCreate`     | bool   | `false` | `DROP TABLE` (+ `CASCADE` su PostgreSQL) + `CREATE` | ✅ (come sopra) |
 | `ddlPrimaryKey`     | string | `""`    | PK esplicita per la DDL                       | 🕐   |
 
 Convenzione quoting (bug Fase 11): DDL e DML devono usare la **stessa**
@@ -221,10 +220,12 @@ politica di quoting degli identificatori. Oggi: nessun quoting.
 
 | Chiave                | Tipo    | Default | Semantica                              | Live |
 |-----------------------|---------|---------|-----------------------------------------|------|
-| `batchSize`           | int     | `1000`  | Righe per batch                         | 🔩 (struct pronta; oggi non alimentata → fallback 500 nel motore, **da allineare a 1000**) |
-| `commitInterval`      | int     | `0`     | Commit ogni N batch (`0` = a fine run)  | 🕐   |
-| `parallelConnections` | int     | `1`     | Connessioni in parallelo (1–20)         | 🕐   |
-| `txTimeout`           | int (s) | `60`    | Timeout transazione                     | 🕐   |
+| `batchSize`           | int     | `1000`  | Righe per batch                         | ✅   |
+| `transactionId`       | string  | `""`    | Id della transazione della lane (vuoto = autocommit) | ✅ |
+
+P348: tolti dallo studio `commitInterval`, `parallelConnections`, `txTimeout` e
+`deadLetterTable` (mai letti dal motore). La transazione di lane ha solo `mode`
+(`native` \| `xa`): un gruppo è sempre tutto-o-niente e non ha timeout.
 
 ### Props — SQL custom (tab Query)
 
