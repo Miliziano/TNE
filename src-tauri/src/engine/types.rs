@@ -36,6 +36,9 @@ use serde::{Deserialize, Serialize};
 // Value rappresenta i tipi che FlowPilot già conosce (vedi FieldType
 // in src/types.ts) — portiamo esattamente gli stessi tipi in Rust.
 
+/// P346: chiave del marcatore di un Decimal nelle righe JSON di scrittura.
+pub const DECIMAL_MARKER: &str = "$fp_decimal";
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]  // in JSON non appare il tag del tipo, solo il valore
 pub enum Value {
@@ -107,6 +110,21 @@ impl Value {
             Value::Object(v)     => v.clone(),
         }
     }
+    /// P346: come `to_json`, ma per la SCRITTURA su database. Il `Decimal`
+    /// non diventa un numero JSON (passerebbe da f64: cifre perse oltre ~15,
+    /// scala persa, 12.50 → 12.5) ma il marcatore `{"$fp_decimal": "12.50"}`,
+    /// che i binding (`crate::json_decimal`) legano come NUMERIC esatto.
+    /// Il marcatore vive solo dentro le righe di scrittura del sink_db.
+    pub fn to_write_json(&self) -> serde_json::Value {
+        match self {
+            Value::Decimal(d) => {
+                let mut m = serde_json::Map::new();
+                m.insert(DECIMAL_MARKER.to_string(), serde_json::Value::String(d.to_string()));
+                serde_json::Value::Object(m)
+            }
+            other => other.to_json(),
+        }
+    }
     /// Valore numerico come f64 quando serve un calcolo che non è
     /// ancora decimal-aware. Lossy sul Decimal — da sostituire con
     /// aritmetica esatta nei nodi di calcolo (Fase B).
@@ -156,6 +174,14 @@ impl Row {
     pub fn to_json_object(&self) -> serde_json::Value {
         let map: serde_json::Map<String, serde_json::Value> = self.0.iter()
             .map(|(k, v)| (k.clone(), v.to_json()))
+            .collect();
+        serde_json::Value::Object(map)
+    }
+    /// Come to_json_object, per la scrittura su database (Decimal esatti,
+    /// vedi `Value::to_write_json`).
+    pub fn to_write_json_object(&self) -> serde_json::Value {
+        let map: serde_json::Map<String, serde_json::Value> = self.0.iter()
+            .map(|(k, v)| (k.clone(), v.to_write_json()))
             .collect();
         serde_json::Value::Object(map)
     }

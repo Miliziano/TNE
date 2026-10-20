@@ -777,9 +777,28 @@ pub async fn describe_json(conn_str: String, dialect: String, query: String) -> 
 /// Valore JSON (riga da scrivere) → parametro ODBC tipizzato. Date e timestamp
 /// in forma ISO si legano come DATE/TIMESTAMP veri: niente conversione
 /// testo→data affidata al formato di sessione del server.
+/// Precisione e scala di un decimale scritto in testo ("-0012.340" → 5, 3).
+fn decimal_precision_scale(d: &str) -> (usize, i16) {
+    let t = d.trim().trim_start_matches(['-', '+']);
+    let (int, frac) = t.split_once('.').unwrap_or((t, ""));
+    let int = int.trim_start_matches('0');
+    let scale = frac.len();
+    ((int.len() + scale).max(1), scale as i16)
+}
+
 fn json_param(v: &serde_json::Value) -> Box<dyn InputParameter> {
     use chrono::{Datelike, Timelike};
     use serde_json::Value as J;
+    // P346: Decimal esatto come testo con tipo SQL DECIMAL(p,s): il driver
+    // lo converte senza passare da f64 (Oracle: NLS_NUMERIC_CHARACTERS='.,'
+    // impostato in session_init).
+    if let Some(d) = crate::json_decimal(v) {
+        let (p, s) = decimal_precision_scale(d);
+        return Box::new(WithDataType {
+            value: d.to_string().into_parameter(),
+            data_type: DataType::Decimal { precision: p, scale: s },
+        });
+    }
     match v {
         J::Null => Box::new(VarCharBox::null()),
         J::Bool(b) => Box::new(Bit::from_bool(*b)),
@@ -1110,6 +1129,25 @@ pub async fn primary_key(conn_str: String, dialect: String, schema: Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decimale_marcato_esatto() {
+        use crate::engine::types::Value;
+        let d: rust_decimal::Decimal = "123456789012345678.1234567891".parse().unwrap();
+        let j = Value::Decimal(d).to_write_json();
+        assert_eq!(crate::json_decimal(&j), Some("123456789012345678.1234567891"));
+        let s: rust_decimal::Decimal = "12.50".parse().unwrap();
+        assert_eq!(crate::json_decimal(&Value::Decimal(s).to_write_json()), Some("12.50"));
+        // per il frontend resta un numero JSON
+        assert!(Value::Decimal(s).to_json().is_number());
+        // un oggetto qualunque non è un decimale
+        assert_eq!(crate::json_decimal(&serde_json::json!({"$fp_decimal": "1", "x": 2})), None);
+        assert_eq!(crate::json_decimal(&serde_json::json!("12.50")), None);
+        assert_eq!(decimal_precision_scale("-0012.340"), (5, 3));
+        assert_eq!(decimal_precision_scale("0.00000001"), (8, 8));
+        assert_eq!(decimal_precision_scale("0"), (1, 0));
+        assert_eq!(decimal_precision_scale("123456789012345678.1234567891"), (28, 10));
+    }
 
     fn t(dialect: &str) -> OdbcTarget {
         OdbcTarget { dialect: dialect.into(), user: "scott".into(), password: "ti;ger}".into(), ..Default::default() }

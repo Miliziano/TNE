@@ -948,7 +948,11 @@ fn pg_merge_sql(
   let set = cols.iter().filter(|c| !keys.iter().any(|k| k == *c))
     .map(|c| format!("{} = {}", c, expr(c))).collect::<Vec<_>>().join(", ");
   let matched = if set.is_empty() { String::new() } else { format!(" WHEN MATCHED THEN UPDATE SET {}", set) };
-  let row: serde_json::Map<String, serde_json::Value> = fields.iter().cloned().collect();
+  // P346: un Decimal marcato entra nel jsonb come stringa: jsonb_populate_record
+  // la converte col tipo della colonna (numeric esatto), senza passare da f64.
+  let row: serde_json::Map<String, serde_json::Value> = fields.iter()
+    .map(|(k, v)| (k.clone(), json_decimal(v).map(|d| serde_json::Value::String(d.to_string())).unwrap_or_else(|| v.clone())))
+    .collect();
   Ok((format!(
     "MERGE INTO {t} AS target USING (SELECT * FROM jsonb_populate_record(NULL::{t}, $1)) AS source ON ({on}){matched} WHEN NOT MATCHED THEN INSERT ({cols}) VALUES ({vals})",
     t = tbl, on = on, matched = matched, cols = cols.join(", "),
@@ -1331,10 +1335,22 @@ impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PgUntypedNull {
     }
 }
 
+/// P346: il testo esatto di un Decimal marcato da `Value::to_write_json`
+/// (`{"$fp_decimal": "12.50"}`), se `v` è quel marcatore.
+pub(crate) fn json_decimal(v: &serde_json::Value) -> Option<&str> {
+    let o = v.as_object()?;
+    if o.len() != 1 { return None }
+    o.get(crate::engine::types::DECIMAL_MARKER)?.as_str()
+}
+
 pub(crate) fn bind_pg_value<'q>(
     q: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
     v: &'q serde_json::Value,
     ) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {  
+    // P346: Decimal esatto come NUMERIC (prima f64)
+    if let Some(d) = json_decimal(v) {
+        return match d.parse::<rust_decimal::Decimal>() { Ok(x) => q.bind(x), Err(_) => q.bind(d) };
+    }
     match v {
         serde_json::Value::Null      => q.bind(PgUntypedNull),
         serde_json::Value::Bool(b)   => q.bind(*b),
@@ -1479,6 +1495,11 @@ pub async fn mysql_write_pool(
 
             let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
+                // P346: Decimal esatto (DECIMAL di MySQL), non f64
+                if let Some(d) = json_decimal(v) {
+                    q = match d.parse::<rust_decimal::Decimal>() { Ok(x) => q.bind(x), Err(_) => q.bind(d) };
+                    continue;
+                }
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
                     serde_json::Value::Bool(b)   => q.bind(*b),
@@ -1661,6 +1682,9 @@ pub async fn sqlite_write_pool(
 
             let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
+                // P346: SQLite non ha un tipo decimale esatto: il Decimal va
+                // come testo (la colonna applica la sua affinità).
+                if let Some(d) = json_decimal(v) { q = q.bind(d); continue; }
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
                     serde_json::Value::Bool(b)   => q.bind(*b),

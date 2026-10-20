@@ -1276,15 +1276,47 @@ sintassi generata è verificata dal log, l'esecuzione va **collaudata su Oracle 
 NUMERIC a 34 cifre letto nativo e scritto via ODBC: esatto.
 
 **🐞 Aperti (preesistenti, segnalati, non corretti):**
-- **Decimali in scrittura passano da f64**: `Value::to_json` serializza `Decimal` come
-  numero JSON (feature `serde-float`) e i percorsi di scrittura (nativo e ODBC) legano
-  f64 → oltre ~15 cifre significative si perde precisione e la scala sparisce (12.50 →
-  12.5). Correzione proposta: binding da `Value` (o Decimal come stringa + cast) — P346.
-  Collegato: un NUMERIC enorme letto come stringa non si riscrive in una colonna numeric
-  col driver nativo (parametro TEXT).
+- ~~Decimali in scrittura passano da f64~~ → **corretto nel P346** (sezione sotto).
 - `onConstraintError` = `log`/`update` e la tabella dead-letter non sono implementati
   (righe contate come errori).
 - pre/post SQL spezzati su `;`: un blocco PL/SQL (`BEGIN … END;`) si rompe.
+
+## AGGIORNAMENTO — decimali esatti in scrittura + DDL MySQL/SQLite (stato al P346, 20 ottobre)
+
+**🐞 Corretto: i Decimal in scrittura passavano da f64 (tutti i database).** Le righe del
+`sink_db` diventavano JSON con `Value::to_json`, che serializza `Decimal` come numero
+(feature `serde-float` di rust_decimal), e i binding legavano f64. Misurato prima della
+correzione: `222222222222222222.2222222222` in `numeric(38,10)` → `222222222222222200.0000000000`
+su Postgres e su MySQL; oltre ~15 cifre significative i decimali sparivano, in silenzio.
+
+**Come.** `Value::to_write_json` / `Row::to_write_json_object` (in `engine/types.rs`)
+trasformano il `Decimal` nel marcatore `{"$fp_decimal": "12.50"}` (testo esatto, scala
+compresa); `to_json` resta com'era (numero JSON per frontend ed eventi). Il `sink_db` usa
+le varianti di scrittura in tutti i percorsi (lotti, transazione, master-detail, mapping
+colonne). `crate::json_decimal(v)` riconosce il marcatore (oggetto con **una sola** chiave
+`$fp_decimal` e valore stringa) e i binding lo legano:
+- Postgres: `rust_decimal::Decimal` → NUMERIC binario esatto (cast implicito di
+  assegnazione verso int/float/varchar della colonna);
+- MySQL: `Decimal` → DECIMAL;
+- SQLite: testo (SQLite non ha decimali esatti: la colonna NUMERIC applica la sua
+  affinità e può arrotondare — limite di SQLite, non nostro);
+- ODBC: testo con tipo SQL `DECIMAL(p,s)` calcolati dal valore (`decimal_precision_scale`);
+- MERGE Postgres: nel jsonb il marcatore diventa stringa, `jsonb_populate_record` la
+  converte col tipo della colonna.
+
+**🐞 Corretto: DDL saltata su MySQL e SQLite.** "Crea tabella" / "Drop e ricrea" su questi
+due dialetti facevano solo un `eprintln` e poi il nodo falliva con "no such table". Ora
+`DROP TABLE IF EXISTS` (con `CASCADE` solo su Postgres) e `CREATE TABLE [IF NOT EXISTS]`.
+
+**Collaudo.** Stessa sequenza (insert con drop+create, update, merge o upsert, insert) su
+Postgres nativo, ODBC generico, "oracle" via ODBC, SQLite e **MySQL (MariaDB 10.11 nel
+sandbox)**: Postgres nativo, ODBC e MySQL esatti cifra per cifra (tabelle identiche);
+"oracle" via Postgres: come al P345, il MERGE resta da collaudare su Oracle vero. Ripetuti
+i collaudi del P345 (scrittura su tre bersagli, TRUNCATE+INSERT): invariati.
+
+**Resta (noto):** un NUMERIC oltre le 28 cifre letto da Postgres diventa `Value::String`
+(P345) e quindi si lega come testo: in una colonna numeric col driver Postgres nativo
+fallisce ("expression is of type text"); via ODBC va.
 
 ---
 

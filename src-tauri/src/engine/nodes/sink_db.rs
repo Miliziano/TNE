@@ -358,7 +358,7 @@ async fn write_all(
     while let Some(row) = rx.recv().await {
         rows_in += 1;
         let json_row = if config.columns_ddl.is_empty() {
-            row.to_json_object()
+            row.to_write_json_object()
         } else {
             map_row(&row, &config.columns_ddl)
         };
@@ -459,7 +459,7 @@ async fn write_all_tx(
                 Some(row) => {
                     rows_in += 1;
                     buf.push(if config.columns_ddl.is_empty() {
-                        row.to_json_object()
+                        row.to_write_json_object()
                     } else {
                         map_row(&row, &config.columns_ddl)
                     });
@@ -567,7 +567,7 @@ async fn write_master_detail_tx(
                 Some(row) => {
                     rows_in += 1;
                     let json_row = if config.columns_ddl.is_empty() {
-                        row.to_json_object()
+                        row.to_write_json_object()
                     } else {
                         map_row(&row, &config.columns_ddl)
                     };
@@ -793,7 +793,7 @@ async fn write_master_detail(
         rows_in += 1;
 
         let json_row = if config.columns_ddl.is_empty() {
-            row.to_json_object()
+            row.to_write_json_object()
         } else {
             map_row(&row, &config.columns_ddl)
         };
@@ -935,7 +935,7 @@ fn map_row(row: &Row, cols: &[ColumnDdl]) -> serde_json::Value {
     let mut obj = serde_json::Map::new();
     for c in cols {
         let src = if c.source.is_empty() { c.name.as_str() } else { c.source.as_str() };
-        let val = row.get(src).map(|v| v.to_json()).unwrap_or(serde_json::Value::Null);
+        let val = row.get(src).map(|v| v.to_write_json()).unwrap_or(serde_json::Value::Null);
         //if c.name == "id" {
         //    eprintln!("[diag] col='id' src='{}' val={:?}", src, val);
         //}
@@ -1019,9 +1019,12 @@ async fn run_ddl(pool: &crate::engine::pool::DbPool, config: &SinkDbConfig) -> R
     if !(config.drop_and_create || config.create_if_not_exists) {
         return Ok(());
     }
-    if config.dialect == "postgresql" {
+    // P346: MySQL e SQLite prima saltavano la DDL (solo un eprintln) e il
+    // nodo falliva poi con "no such table". Entrambi hanno IF [NOT] EXISTS.
+    if matches!(config.dialect.as_str(), "postgresql" | "mysql" | "sqlite") {
         if config.drop_and_create {
-            let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
+            let cascade = if config.dialect == "postgresql" { " CASCADE" } else { "" };
+            let drop = format!("DROP TABLE IF EXISTS {}{}", qualified_ddl_table(config), cascade);
             exec_pre_post(pool, &drop, "DROP TABLE").await?;
         }
         if let Some(ddl) = build_create_table(config, true) {
