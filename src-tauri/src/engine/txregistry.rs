@@ -17,7 +17,9 @@
 // Regola TUTTO-O-NIENTE: se un membro fallisce, il gruppo fa rollback
 // totale. Un nodo FUORI dal gruppo che fallisce non lo tocca.
 //
-// Scope: PostgreSQL. MySQL/SQLite: TODO.
+// Scope: PostgreSQL (native e XA); database ODBC — Oracle, Informix, ODBC
+// generico — solo native (P347): autocommit spento sulla connessione del
+// gruppo, COMMIT/ROLLBACK a fine lane. MySQL/SQLite: TODO.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,6 +43,8 @@ pub struct TxGroup {
     pub conns:         HashMap<String, SharedConn>,
     /// XA: gid (global id) assegnato alla transazione di ogni risorsa.
     pub gids:          HashMap<String, String>,
+    /// P347: connessione transazionale delle risorse ODBC (solo native).
+    pub odbc_conns:    HashMap<String, crate::odbc::TxConn>,
 }
 
 impl TxGroup {
@@ -71,6 +75,7 @@ impl LaneTransactions {
                 finalized:     false,
                 conns:         HashMap::new(),
                 gids:          HashMap::new(),
+                odbc_conns:    HashMap::new(),
             });
         }
         Arc::new(LaneTransactions { groups: Mutex::new(map), run_id })
@@ -93,7 +98,7 @@ impl LaneTransactions {
             .ok_or_else(|| format!("transaction '{}' not declared in the lane", group_id))?;
 
         // Native: vietato coinvolgere più risorse (servirebbe XA).
-        if !g.is_xa() && !g.conns.is_empty() && !g.conns.contains_key(resource_id) {
+        if !g.is_xa() && (!g.odbc_conns.is_empty() || (!g.conns.is_empty() && !g.conns.contains_key(resource_id))) {
             return Err(format!(
                 "transaction '{}' is native but involves multiple resources: use the same resource for all members, or switch to XA",
                 group_id
@@ -122,6 +127,39 @@ impl LaneTransactions {
         Ok(shared)
     }
 
+    /// P347: come get_pg_conn, per una risorsa ODBC. Solo transazioni native:
+    /// il two-phase commit su ODBC passerebbe dalle API XA del singolo driver.
+    pub async fn get_odbc_conn(
+        &self,
+        group_id:    &str,
+        resource_id: &str,
+        pool:        &crate::odbc::OdbcPool,
+    ) -> Result<crate::odbc::TxConn, String> {
+        let mut groups = self.groups.lock().await;
+        let g = groups.get_mut(group_id)
+            .ok_or_else(|| format!("transaction '{}' not declared in the lane", group_id))?;
+        if g.is_xa() {
+            return Err(format!(
+                "transaction '{}': XA (two-phase commit) is not available on ODBC databases (Oracle, Informix, generic ODBC): use a native transaction with a single resource",
+                group_id
+            ));
+        }
+        if !g.conns.is_empty() || (!g.odbc_conns.is_empty() && !g.odbc_conns.contains_key(resource_id)) {
+            return Err(format!(
+                "transaction '{}' is native but involves multiple resources: use the same resource for all members",
+                group_id
+            ));
+        }
+        if let Some(c) = g.odbc_conns.get(resource_id) {
+            return Ok(c.clone());
+        }
+        let conn = crate::odbc::tx_begin(pool).await
+            .map_err(|e| format!("tx '{}': {} ({})", group_id, e, resource_id))?;
+        g.odbc_conns.insert(resource_id.to_string(), conn.clone());
+        eprintln!("[tx] gruppo '{}': BEGIN (native ODBC, risorsa '{}')", group_id, resource_id);
+        Ok(conn)
+    }
+
     /// Un membro ha concluso. La decisione commit/rollback è rimandata a
     /// fine lane (finalize_with_outcome): elimina la race del commit
     /// prematuro. Se il membro è fallito, il gruppo va in abort.
@@ -143,6 +181,15 @@ impl LaneTransactions {
             if g.finalized { continue; }
             g.finalized = true;
             let do_commit = !g.aborted;
+
+            // P347: risorse ODBC (solo native: get_odbc_conn rifiuta XA).
+            for (rid, conn) in g.odbc_conns.drain() {
+                let sql = if do_commit { "COMMIT" } else { "ROLLBACK" };
+                match crate::odbc::tx_end(conn, do_commit).await {
+                    Ok(())  => eprintln!("[tx] gruppo '{}': {} (aborted={}, risorsa ODBC '{}')", id, sql, g.aborted, rid),
+                    Err(e)  => eprintln!("[tx] gruppo '{}': {} FALLITO (risorsa ODBC '{}'): {}", id, sql, rid, e),
+                }
+            }
 
             if g.is_xa() {
                 finalize_xa(id, g, do_commit).await;

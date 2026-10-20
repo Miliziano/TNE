@@ -1318,6 +1318,65 @@ i collaudi del P345 (scrittura su tre bersagli, TRUNCATE+INSERT): invariati.
 (P345) e quindi si lega come testo: in una colonna numeric col driver Postgres nativo
 fallisce ("expression is of type text"); via ODBC va.
 
+## AGGIORNAMENTO — ODBC fetta 3: transazioni e master-detail (stato al P347, 20 ottobre)
+
+**Transazioni native su ODBC.** `txregistry.rs`: `TxGroup.odbc_conns` + `get_odbc_conn`
+(XA rifiutato con messaggio; native con più risorse rifiutato anche se mischia Postgres e
+ODBC); `finalize_with_outcome` chiude prima le connessioni ODBC con `odbc::tx_end`.
+`odbc.rs`: `TxConn` (= `Arc<tokio::Mutex<PooledConn>>`), `tx_begin` (autocommit off),
+`tx_end` (COMMIT/ROLLBACK + autocommit on; se non riesce la connessione non torna nel
+pool — `PooledConn.in_tx`: mai rimettere nel pool una connessione con transazione
+aperta), `tx_exec`, `tx_write`; `OdbcPool::sibling()` = pool separato di una connessione.
+`sink_db`: `write_all_tx_odbc`, `write_master_detail_tx_odbc` (stesso modello Postgres:
+lotti, lock, inoltro del detail fuori dal lock). Scelte:
+- **DDL fuori dalla transazione** (`odbc_ddl_outside_tx`, su `sibling()`, PRIMA di unirsi
+  al gruppo): Oracle fa COMMIT implicito della DDL e confermerebbe le righe degli altri
+  membri; su `sibling` per non attendere una connessione del pool tenuta dal gruppo.
+  Conseguenza documentata: il ROLLBACK non toglie la tabella creata.
+- **truncate_insert in transazione = `DELETE FROM`** (TRUNCATE è DDL su Oracle).
+- **Niente savepoint per lotto**: Oracle/Informix annullano la sola istruzione fallita e
+  un membro fallito fa comunque annullare il gruppo.
+
+**Chiavi generate (master-detail) su ODBC.** `WriteJob.returning` (insert, truncate_insert,
+upsert, come `use_returning` di Postgres); `DbWriteResult.generated_keys` riempito.
+Se la riga porta già il valore della colonna chiave → quello (tutti i dialetti).
+Altrimenti: **Oracle** blocco `BEGIN INSERT … RETURNING col INTO ?; END;` con parametro
+di **uscita** (testo, `InputsAndOut`: `ParameterCollectionRef` scritto a mano perché le
+tuple di odbc-api hanno arità fissa); **Informix** `DBINFO('sqlca.sqlerrd1')`, se 0
+`DBINFO('bigserial')`; **generico** → errore parlante. Upsert che aggiorna → `SELECT col
+FROM t WHERE <chiavi>`.
+
+**🐞 Corretto: membro Postgres senza connessione di gruppo non segnalato.** Se
+`get_pg_conn` falliva (gruppo native con due risorse, BEGIN fallito) o il dialetto non era
+supportato, il membro usciva con errore **senza** `report_member_end(false)` → il gruppo
+non andava in abort e **gli altri membri committavano**. Verificato prima/dopo (gruppo
+native con due risorse Postgres: prima 3 righe confermate nella tabella dell'altro membro,
+ora nessuna).
+
+**Collaudo (sandbox, PG 16 + psqlODBC, `examples/p347_tx.rs` usa-e-getta):** commit di
+due membri ODBC con drop+create; rollback tutto-o-niente (membro con duplicato e stop);
+truncate_insert annullato (righe vecchie intatte) e confermato; master-detail ODBC fuori e
+dentro transazione (chiave nella riga), con rollback quando fallisce il detail; chiave
+generata su ODBC generico → errore; XA su ODBC → errore; Postgres nativo in transazione
+invariato. Parametro di uscita collaudato con psqlODBC (`{call f(?, ?, ?)}`). Percorso
+Informix collaudato **emulando** `DBINFO` e `systables` in Postgres. **Non collaudato:**
+il blocco PL/SQL di Oracle.
+
+**Collaudi pronti per DB veri** (`odbc.rs`, `tests_live`, `#[ignore]`):
+`FP_ORACLE_TEST` / `FP_INFORMIX_TEST` / `FP_ODBC_TEST` con la connection string →
+`cargo test --lib tests_live -- --ignored`: tabella `FP_COLLAUDO_K`, chiavi generate,
+MERGE, rollback. Da lanciare appena c'è un'istanza.
+
+**Manuale.** §8.5b aggiornato (transazioni, master-detail); nuovo **§8.5c installazione**
+di unixODBC, Oracle Instant Client ODBC (`odbc_update_ini.sh`, `odbc_install.exe`, macOS
+DMG) e Informix CSDK (`INFORMIXDIR`, `iclit09b.so`, `odbcinst.ini`, nome del driver su
+Windows), verifica con `isql -k`, variabili nei servizi systemd.
+
+**🐞 Aperto (segnalato):** lo studio offre per un gruppo transazionale l'opzione "On
+error: rollback of this node only" (`on_error = rollback_self`), ma il motore la ignora:
+il registro applica **sempre** il tutto-o-niente (`TxGroup.on_error` non è letto).
+Decidere se implementarla (savepoint per membro, solo Postgres) o toglierla dallo studio.
+
 ---
 
 ## Oracle e Informix — pensata (DA RIPRENDERE)

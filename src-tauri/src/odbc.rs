@@ -1,7 +1,8 @@
 // ─── src-tauri/src/odbc.rs ────────────────────────────────────────
 //
 // ODBC: Oracle, Informix e ODBC generico. P344 = lettura; P345 = scrittura
-// (insert/update/delete/upsert/merge, DDL, pre/post SQL, chiave primaria).
+// (insert/update/delete/upsert/merge, DDL, pre/post SQL, chiave primaria);
+// P347 = chiavi generate (master-detail) e gruppi transazionali nativi.
 //
 // PERCHE' ODBC. `sqlx` non parla ne' Oracle ne' Informix; Informix non ha un
 // driver Rust utilizzabile, quindi ODBC e' l'unica via, e per avere un solo
@@ -39,11 +40,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use odbc_api::buffers::{ColumnarBuffer, TextColumn};
-use odbc_api::handles::StatementImpl;
-use odbc_api::parameter::{InputParameter, VarCharBox, WithDataType};
+use odbc_api::handles::{Statement, StatementImpl};
+use odbc_api::parameter::{InputParameter, VarCharArray, VarCharBox, WithDataType};
 use odbc_api::{
     Bit, Connection, ConnectionOptions, Cursor, DataType, Environment, IntoParameter,
-    Nullability, Prepared, ResultSetMetadata,
+    Nullability, ParameterCollectionRef, Prepared, ResultSetMetadata,
 };
 
 use crate::engine::types::{Row, Value};
@@ -283,6 +284,10 @@ pub struct PooledConn {
     inner: Arc<Inner>,
     _permit: tokio::sync::OwnedSemaphorePermit,
     broken: bool,
+    /// P347: autocommit spento da `tx_begin` e non ancora chiuso da `tx_end`.
+    /// Una connessione cosi' non torna MAI nel pool (porterebbe con se' una
+    /// transazione aperta): al drop si chiude, e il driver fa rollback.
+    in_tx: bool,
 }
 
 impl PooledConn {
@@ -299,7 +304,7 @@ impl PooledConn {
 impl Drop for PooledConn {
     fn drop(&mut self) {
         if let Some(c) = self.conn.take() {
-            if !self.broken && !self.inner.closed.load(Ordering::SeqCst) {
+            if !self.broken && !self.in_tx && !self.inner.closed.load(Ordering::SeqCst) {
                 if let Ok(mut idle) = self.inner.idle.lock() {
                     idle.push(c);
                     return;
@@ -388,7 +393,15 @@ impl OdbcPool {
         })
         .await
         .map_err(|e| format!("ODBC connection task failed: {e}"))??;
-        Ok(PooledConn { conn: Some(conn), inner: self.inner.clone(), _permit: permit, broken: false })
+        Ok(PooledConn { conn: Some(conn), inner: self.inner.clone(), _permit: permit, broken: false, in_tx: false })
+    }
+
+    /// P347: un pool separato di UNA connessione verso lo stesso database, fuori
+    /// dal semaforo di questo. Serve alla DDL di un membro transazionale: va
+    /// eseguita fuori dalla transazione (Oracle fa COMMIT implicito sulla DDL) e
+    /// non deve attendere una connessione libera che il gruppo potrebbe tenere.
+    pub async fn sibling(&self) -> Result<OdbcPool, String> {
+        OdbcPool::connect(self.inner.conn_str.clone(), 1, self.inner.login_timeout as u64, &self.inner.dialect).await
     }
 
     /// Chiude le connessioni libere; quelle in uso si chiudono al rilascio.
@@ -843,6 +856,40 @@ fn json_param(v: &serde_json::Value) -> Box<dyn InputParameter> {
     }
 }
 
+/// Lunghezza massima del testo di una chiave generata letta da un parametro di uscita.
+const OUT_KEY_LEN: usize = 128;
+
+/// Parametri d'ingresso in numero variabile + UN parametro di uscita in coda.
+/// Le tuple di odbc-api (che reggono `Out`) hanno arita' fissa: qui servono N
+/// ingressi, quanti sono le colonne della riga.
+struct InputsAndOut<'a> {
+    inputs: &'a [Box<dyn InputParameter>],
+    out: &'a mut VarCharArray<OUT_KEY_LEN>,
+}
+
+unsafe impl ParameterCollectionRef for InputsAndOut<'_> {
+    fn parameter_set_size(&self) -> usize {
+        1
+    }
+
+    unsafe fn bind_parameters_to(&mut self, stmt: &mut impl Statement) -> Result<(), odbc_api::Error> {
+        for (i, p) in self.inputs.iter().enumerate() {
+            p.assert_completness();
+            unsafe { stmt.bind_input_parameter(i as u16 + 1, p) }.into_result(stmt)?;
+        }
+        let n = self.inputs.len() as u16 + 1;
+        unsafe { stmt.bind_parameter(n, odbc_api::sys::ParamType::Output, self.out) }.into_result(stmt)
+    }
+}
+
+/// Valore di chiave come JSON: intero se lo e', altrimenti testo.
+fn key_json(t: &str) -> serde_json::Value {
+    match t.parse::<i64>() {
+        Ok(i) => serde_json::json!(i),
+        Err(_) => serde_json::json!(t),
+    }
+}
+
 /// Istruzioni preparate riusate per tutta la scrittura (una per forma SQL).
 struct Exec<'c> {
     conn: &'c Connection<'static>,
@@ -872,6 +919,37 @@ impl<'c> Exec<'c> {
         st.row_count().map_err(|e| e.to_string())
     }
 
+    /// Esegue con un parametro di USCITA in coda (testo): Oracle
+    /// `BEGIN INSERT … RETURNING col INTO ?; END;`.
+    fn run_with_out(&mut self, sql: &str, binds: &[&serde_json::Value]) -> Result<Option<String>, String> {
+        let params: Vec<Box<dyn InputParameter>> = binds.iter().map(|v| json_param(v)).collect();
+        let mut out = VarCharArray::<OUT_KEY_LEN>::NULL;
+        let st = self.prepared(sql)?;
+        {
+            let _cursor = st
+                .execute(InputsAndOut { inputs: params.as_slice(), out: &mut out })
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(out.as_bytes().map(|b| String::from_utf8_lossy(b).trim().to_string()))
+    }
+
+    /// Prima colonna della prima riga, come testo (None se nessuna riga o NULL).
+    fn scalar_text(&mut self, sql: &str, binds: &[&serde_json::Value]) -> Result<Option<String>, String> {
+        let params: Vec<Box<dyn InputParameter>> = binds.iter().map(|v| json_param(v)).collect();
+        let st = self.prepared(sql)?;
+        match st.execute(params.as_slice()).map_err(|e| e.to_string())? {
+            Some(mut cur) => match cur.next_row().map_err(|e| e.to_string())? {
+                Some(mut row) => {
+                    let mut buf = Vec::new();
+                    let present = row.get_text(1, &mut buf).map_err(|e| e.to_string())?;
+                    Ok(if present { Some(String::from_utf8_lossy(&buf).trim().to_string()) } else { None })
+                }
+                None => Ok(None),
+            },
+            None => Ok(None),
+        }
+    }
+
     /// Vero se la SELECT restituisce almeno una riga.
     fn exists(&mut self, sql: &str, binds: &[&serde_json::Value]) -> Result<bool, String> {
         let params: Vec<Box<dyn InputParameter>> = binds.iter().map(|v| json_param(v)).collect();
@@ -898,6 +976,17 @@ struct WriteJob {
     post_sql: Option<String>,
     batch_size: usize,
     on_error: String,
+    /// P347: colonna della chiave da restituire per ogni riga scritta (master-detail).
+    returning: Option<String>,
+}
+
+/// Esito di un `WriteJob::run`.
+struct WriteOutcome {
+    written: usize,
+    skipped: usize,
+    errors: usize,
+    batches: usize,
+    keys: Vec<serde_json::Value>,
 }
 
 fn dialect_label(d: &str) -> &'static str {
@@ -943,8 +1032,72 @@ impl WriteJob {
         ex.run(&format!("UPDATE {} SET {} WHERE {}", self.tbl, sets, self.where_keys()), &binds)
     }
 
+    /// Valore della colonna chiave gia' presente (non NULL) nella riga.
+    fn key_in_row(&self, fields: &[(String, serde_json::Value)]) -> Option<serde_json::Value> {
+        let ret = self.returning.as_deref()?;
+        let v = fields.iter().find(|(k, _)| k == ret).map(|(_, v)| v)?;
+        if v.is_null() {
+            return None;
+        }
+        Some(match crate::json_decimal(v) {
+            Some(d) => key_json(d),
+            None => v.clone(),
+        })
+    }
+
+    /// INSERT che restituisce la chiave (P347). Se la riga porta gia' il valore
+    /// della colonna chiave lo si usa; altrimenti lo genera il DB e lo si legge
+    /// nel modo del dialetto: Oracle `RETURNING … INTO` in un blocco PL/SQL con
+    /// parametro di uscita; Informix `DBINFO('sqlca.sqlerrd1')` (SERIAL) o
+    /// `DBINFO('bigserial')`; ODBC generico: non esiste un modo portabile.
+    fn insert_returning(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<serde_json::Value, String> {
+        let ret = self.returning.as_deref().unwrap_or_default();
+        if let Some(k) = self.key_in_row(fields) {
+            self.insert(ex, fields)?;
+            return Ok(k);
+        }
+        match self.dialect.as_str() {
+            "oracle" => {
+                let plan = crate::build_column_plan(fields, &self.column_functions, crate::PlaceholderStyle::Question, 1);
+                let cols = plan.iter().map(|p| p.column_sql.as_str()).collect::<Vec<_>>().join(", ");
+                let vals = plan.iter().map(|p| p.value_sql.as_str()).collect::<Vec<_>>().join(", ");
+                let binds: Vec<&serde_json::Value> = plan.iter().filter_map(|p| p.bind_value).collect();
+                let sql = format!("BEGIN INSERT INTO {} ({}) VALUES ({}) RETURNING {} INTO ?; END;", self.tbl, cols, vals, ret);
+                Ok(ex.run_with_out(&sql, &binds)?.map(|t| key_json(&t)).unwrap_or(serde_json::Value::Null))
+            }
+            "informix" => {
+                self.insert(ex, fields)?;
+                let serial = ex.scalar_text("SELECT DBINFO('sqlca.sqlerrd1') FROM systables WHERE tabid = 1", &[])?;
+                let key = match serial.as_deref() {
+                    Some(s) if s != "0" => Some(s.to_string()),
+                    _ => ex.scalar_text("SELECT DBINFO('bigserial') FROM systables WHERE tabid = 1", &[])?,
+                };
+                Ok(key.filter(|s| s != "0").map(|t| key_json(&t)).unwrap_or(serde_json::Value::Null))
+            }
+            _ => Err(format!(
+                "generated keys: generic ODBC has no portable way to read a key generated by the database. \
+                 Put the value of '{}' in the row (e.g. from a sequence), or use the Oracle or Informix dialect",
+                ret
+            )),
+        }
+    }
+
+    /// Chiave di una riga esistente, letta sulle colonne chiave (upsert che ha aggiornato).
+    fn key_by_keys(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<serde_json::Value, String> {
+        if let Some(k) = self.key_in_row(fields) {
+            return Ok(k);
+        }
+        let ret = self.returning.as_deref().unwrap_or_default();
+        let kv = self.values_of(fields, &self.keys)?;
+        Ok(ex
+            .scalar_text(&format!("SELECT {} FROM {} WHERE {}", ret, self.tbl, self.where_keys()), &kv)?
+            .map(|t| key_json(&t))
+            .unwrap_or(serde_json::Value::Null))
+    }
+
     /// UPSERT portabile: UPDATE sulle chiavi, INSERT se non ha toccato righe.
-    fn upsert(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<(), String> {
+    /// Con `returning` restituisce la chiave della riga (aggiornata o inserita).
+    fn upsert(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<Option<serde_json::Value>, String> {
         if self.keys.is_empty() {
             return Err("UPSERT needs at least one key column".to_string());
         }
@@ -961,7 +1114,12 @@ impl WriteJob {
                 }
             }
         };
-        if found { Ok(()) } else { self.insert(ex, fields) }
+        match (found, self.returning.is_some()) {
+            (true, false) => Ok(None),
+            (true, true) => self.key_by_keys(ex, fields).map(Some),
+            (false, false) => self.insert(ex, fields).map(|_| None),
+            (false, true) => self.insert_returning(ex, fields).map(Some),
+        }
     }
 
     fn oracle_merge(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<(), String> {
@@ -974,26 +1132,27 @@ impl WriteJob {
         ex.run(&sql, &m.binds).map(|_| ())
     }
 
-    fn write_row(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<(), String> {
+    /// Scrive una riga; con `returning` (insert/upsert) restituisce la sua chiave.
+    fn write_row(&self, ex: &mut Exec, fields: &[(String, serde_json::Value)]) -> Result<Option<serde_json::Value>, String> {
         match self.mode.as_str() {
-            "insert" | "truncate_insert" => self.insert(ex, fields),
+            "insert" | "truncate_insert" if self.returning.is_some() => self.insert_returning(ex, fields).map(Some),
+            "insert" | "truncate_insert" => self.insert(ex, fields).map(|_| None),
             "update" => {
                 let set: Vec<(String, serde_json::Value)> = fields.iter().filter(|(k, _)| !self.keys.contains(k)).cloned().collect();
-                self.update(ex, fields, &set).map(|_| ())
+                self.update(ex, fields, &set).map(|_| None)
             }
             "delete" => {
                 let kv = self.values_of(fields, &self.keys)?;
-                ex.run(&format!("DELETE FROM {} WHERE {}", self.tbl, self.where_keys()), &kv).map(|_| ())
+                ex.run(&format!("DELETE FROM {} WHERE {}", self.tbl, self.where_keys()), &kv).map(|_| None)
             }
             "upsert" => self.upsert(ex, fields),
-            "merge" if self.dialect == "oracle" => self.oracle_merge(ex, fields),
-            "merge" => self.upsert(ex, fields),
+            "merge" if self.dialect == "oracle" => self.oracle_merge(ex, fields).map(|_| None),
+            "merge" => self.upsert(ex, fields).map(|_| None),
             m => Err(format!("unknown write mode '{}'", m)),
         }
     }
 
-    /// (scritte, saltate, errori, lotti)
-    fn run(&self, conn: &Connection<'static>) -> Result<(usize, usize, usize, usize), String> {
+    fn run(&self, conn: &Connection<'static>) -> Result<WriteOutcome, String> {
         if let Some(pre) = self.pre_sql.as_deref().filter(|s| !s.trim().is_empty()) {
             exec_block(conn, pre, "Pre-SQL")?;
         }
@@ -1002,6 +1161,7 @@ impl WriteJob {
         }
         let mut ex = Exec::new(conn);
         let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
+        let mut keys: Vec<serde_json::Value> = Vec::new();
         for chunk in self.rows.chunks(self.batch_size.max(1)) {
             batches += 1;
             for row in chunk {
@@ -1012,7 +1172,10 @@ impl WriteJob {
                     continue;
                 }
                 match self.write_row(&mut ex, &fields) {
-                    Ok(()) => written += 1,
+                    Ok(key) => {
+                        written += 1;
+                        if let Some(k) = key { keys.push(k); }
+                    }
                     Err(e) => match self.on_error.as_str() {
                         "skip" => skipped += 1,
                         "stop" => return Err(format!("SinkDB row error: {}", e)),
@@ -1025,21 +1188,20 @@ impl WriteJob {
         if let Some(post) = self.post_sql.as_deref().filter(|s| !s.trim().is_empty()) {
             exec_block(conn, post, "Post-SQL")?;
         }
-        Ok((written, skipped, errors, batches))
+        Ok(WriteOutcome { written, skipped, errors, batches, keys })
     }
 }
 
-/// Scrittura di un lotto di righe via ODBC (sink_db e comando db_write).
-pub async fn write(pool: &OdbcPool, req: &crate::DbWriteRequest, start: std::time::Instant) -> Result<crate::DbWriteResult, String> {
+/// Controlla la richiesta e la trasforma nel lavoro da eseguire sul thread bloccante.
+fn job_from_req(req: &crate::DbWriteRequest) -> Result<WriteJob, String> {
     let dialect = req.connection.dialect.clone();
     let tbl = crate::qualified_table(req);
     let keys = req.key_fields.clone().unwrap_or_default();
     crate::sqlsafe::check_names(&tbl, &keys, req.columns.as_deref(), req.returning_column.as_deref(), &dialect)?;
     crate::check_write_mode(&req.mode, &dialect)?;
-    if req.returning_column.is_some() && matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert") {
-        return Err(format!(
-            "generated keys (master-detail pass-through) are not available yet on {}", dialect_label(&dialect)));
-    }
+    // come Postgres (use_returning): la chiave si restituisce solo per insert/upsert
+    let returning = req.returning_column.clone()
+        .filter(|_| matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert"));
     let custom_merge = req.mode == "merge"
         && req.merge_condition.as_deref().map(|c| !c.trim().is_empty()).unwrap_or(false);
     if custom_merge && dialect != "oracle" {
@@ -1047,7 +1209,7 @@ pub async fn write(pool: &OdbcPool, req: &crate::DbWriteRequest, start: std::tim
             "a custom MERGE ON condition is supported on Oracle and PostgreSQL; on {} MERGE works on the key columns (leave the condition empty)",
             dialect_label(&dialect)));
     }
-    let job = WriteJob {
+    Ok(WriteJob {
         tbl, dialect, mode: req.mode.clone(), keys,
         rows: req.rows.clone(),
         columns: req.columns.clone(),
@@ -1058,17 +1220,101 @@ pub async fn write(pool: &OdbcPool, req: &crate::DbWriteRequest, start: std::tim
         post_sql: req.post_sql.clone(),
         batch_size: req.batch_size,
         on_error: req.on_constraint_error.clone(),
-    };
+        returning,
+    })
+}
+
+fn write_result(o: WriteOutcome, start: std::time::Instant) -> crate::DbWriteResult {
+    crate::DbWriteResult {
+        rows_written: o.written,
+        rows_skipped: o.skipped,
+        rows_errors: o.errors,
+        batches: o.batches,
+        elapsed_ms: start.elapsed().as_millis(),
+        generated_keys: o.keys,
+    }
+}
+
+/// Scrittura di un lotto di righe via ODBC (sink_db e comando db_write).
+pub async fn write(pool: &OdbcPool, req: &crate::DbWriteRequest, start: std::time::Instant) -> Result<crate::DbWriteResult, String> {
+    let job = job_from_req(req)?;
     let conn = pool.acquire().await?;
     let res = tokio::task::spawn_blocking(move || job.run(conn.conn()))
         .await
         .map_err(|e| format!("ODBC write task failed: {e}"))?;
-    let (rows_written, rows_skipped, rows_errors, batches) = res?;
-    Ok(crate::DbWriteResult {
-        rows_written, rows_skipped, rows_errors, batches,
-        elapsed_ms: start.elapsed().as_millis(),
-        generated_keys: Vec::new(),
+    Ok(write_result(res?, start))
+}
+
+// ─── Transazioni (P347) ───────────────────────────────────────────
+//
+// Gruppo transazionale NATIVO su una risorsa ODBC: una connessione presa dal
+// pool con autocommit spento, condivisa dai membri (lock), chiusa a fine lane
+// da engine/txregistry.rs con COMMIT o ROLLBACK (regola tutto-o-niente). XA
+// (two-phase commit) su ODBC non c'e': lo rifiuta il registro.
+// Niente savepoint per lotto (Postgres li usa perche' un errore avvelena la
+// transazione): Oracle e Informix annullano la sola istruzione fallita, e un
+// membro fallito fa comunque annullare tutto il gruppo.
+
+/// Connessione transazionale condivisa dai membri di un gruppo.
+pub type TxConn = Arc<tokio::sync::Mutex<PooledConn>>;
+
+/// Prende una connessione e spegne l'autocommit: da qui si e' in transazione.
+pub async fn tx_begin(pool: &OdbcPool) -> Result<TxConn, String> {
+    let conn = pool.acquire().await?;
+    let conn = tokio::task::spawn_blocking(move || -> Result<PooledConn, String> {
+        let mut conn = conn;
+        if let Err(e) = conn.conn().set_autocommit(false) {
+            conn.mark_broken();
+            return Err(format!("BEGIN (autocommit off) failed: {e}"));
+        }
+        conn.in_tx = true;
+        Ok(conn)
     })
+    .await
+    .map_err(|e| format!("ODBC task failed: {e}"))??;
+    Ok(Arc::new(tokio::sync::Mutex::new(conn)))
+}
+
+/// COMMIT o ROLLBACK, poi autocommit di nuovo acceso: solo cosi' la
+/// connessione torna nel pool (altrimenti si chiude).
+pub async fn tx_end(conn: TxConn, commit: bool) -> Result<(), String> {
+    let mut guard = conn.lock_owned().await;
+    tokio::task::spawn_blocking(move || {
+        let r = {
+            let c = guard.conn();
+            if commit { c.commit() } else { c.rollback() }
+        };
+        match r {
+            Ok(()) => {
+                if guard.conn().set_autocommit(true).is_ok() {
+                    guard.in_tx = false;
+                }
+                Ok(())
+            }
+            Err(e) => Err(format!("{} failed: {}", if commit { "COMMIT" } else { "ROLLBACK" }, e)),
+        }
+    })
+    .await
+    .map_err(|e| format!("ODBC task failed: {e}"))?
+}
+
+/// SQL dell'autore (pre/post SQL) dentro la transazione.
+pub async fn tx_exec(conn: &TxConn, sql: String, label: String) -> Result<(), String> {
+    let guard = conn.clone().lock_owned().await;
+    tokio::task::spawn_blocking(move || exec_block(guard.conn(), &sql, &label))
+        .await
+        .map_err(|e| format!("ODBC task failed: {e}"))?
+}
+
+/// Scrittura dentro la transazione (la richiesta non porta pre/post SQL: li
+/// esegue il chiamante una volta sola).
+pub async fn tx_write(conn: &TxConn, req: &crate::DbWriteRequest, start: std::time::Instant) -> Result<crate::DbWriteResult, String> {
+    let job = job_from_req(req)?;
+    let guard = conn.clone().lock_owned().await;
+    let res = tokio::task::spawn_blocking(move || job.run(guard.conn()))
+        .await
+        .map_err(|e| format!("ODBC write task failed: {e}"))?;
+    Ok(write_result(res?, start))
 }
 
 /// Esegue SQL scritto dall'autore (pre/post SQL, DDL) su una connessione del pool.
@@ -1209,5 +1455,83 @@ mod tests {
         assert_eq!(cell_value(&DataType::Double, "0,5"), Value::Float(0.5));
         // ma mai interpretare i separatori delle migliaia
         assert_eq!(cell_value(&DataType::Double, "1,234.5"), Value::String("1,234.5".into()));
+    }
+}
+
+#[cfg(test)]
+mod tests_live {
+    // Collaudi su database VERI, saltati di default (P347). Si lanciano con la
+    // connection string nell'ambiente:
+    //   FP_ODBC_TEST="…"     cargo test --lib tests_live -- --ignored   (qualunque DB: parametro di uscita, Postgres)
+    //   FP_ORACLE_TEST="…"   cargo test --lib tests_live -- --ignored   (Oracle: chiave generata, MERGE, transazione)
+    //   FP_INFORMIX_TEST="…" cargo test --lib tests_live -- --ignored   (Informix: chiave SERIAL, transazione)
+    // Usano la tabella di prova FP_COLLAUDO_K (creata e cancellata dal test).
+    use super::*;
+
+    fn job(dialect: &str, mode: &str, rows: Vec<serde_json::Value>, returning: Option<&str>) -> WriteJob {
+        WriteJob {
+            tbl: "fp_collaudo_k".into(), dialect: dialect.into(), mode: mode.into(),
+            keys: vec!["id".into()], rows,
+            columns: None, exclude: None, column_functions: None, merge_condition: None,
+            pre_sql: None, post_sql: None, batch_size: 100, on_error: "stop".into(),
+            returning: returning.map(String::from),
+        }
+    }
+
+    /// Chiavi generate, MERGE e rollback di una transazione sul dialetto dato.
+    fn collaudo(cs: &str, dialect: &str, create: &str) {
+        let conn = open(cs, 10, dialect).unwrap();
+        let _ = conn.execute("DROP TABLE fp_collaudo_k", (), None);
+        conn.execute(create, (), None).unwrap();
+        let rows = vec![serde_json::json!({"nome": "a"}), serde_json::json!({"nome": "b"})];
+        let out = job(dialect, "insert", rows, Some("id")).run(&conn).unwrap();
+        assert_eq!(out.written, 2);
+        let k: Vec<i64> = out.keys.iter().map(|v| v.as_i64().expect("chiave intera")).collect();
+        assert!(k.len() == 2 && k[0] > 0 && k[1] > k[0], "chiavi {:?}", k);
+        // MERGE (Oracle: nativo; Informix: = upsert) sulla prima riga + una nuova con chiave esplicita
+        let m = vec![serde_json::json!({"id": k[0], "nome": "z"}), serde_json::json!({"id": 1000, "nome": "n"})];
+        job(dialect, "merge", m, None).run(&conn).unwrap();
+        let mut ex = Exec::new(&conn);
+        let first = serde_json::json!(k[0]);
+        assert_eq!(ex.scalar_text("SELECT nome FROM fp_collaudo_k WHERE id = ?", &[&first]).unwrap().as_deref(), Some("z"));
+        assert_eq!(ex.scalar_text("SELECT COUNT(*) FROM fp_collaudo_k", &[]).unwrap().as_deref(), Some("3"));
+        drop(ex);
+        // transazione annullata: la riga non resta
+        conn.set_autocommit(false).unwrap();
+        job(dialect, "insert", vec![serde_json::json!({"id": 2000, "nome": "tx"})], None).run(&conn).unwrap();
+        conn.rollback().unwrap();
+        conn.set_autocommit(true).unwrap();
+        let mut ex = Exec::new(&conn);
+        assert_eq!(ex.scalar_text("SELECT COUNT(*) FROM fp_collaudo_k", &[]).unwrap().as_deref(), Some("3"));
+        drop(ex);
+        conn.execute("DROP TABLE fp_collaudo_k", (), None).unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn oracle_vero() {
+        let Ok(cs) = std::env::var("FP_ORACLE_TEST") else { return };
+        collaudo(&cs, "oracle", "CREATE TABLE fp_collaudo_k (id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, nome VARCHAR2(30))");
+    }
+
+    #[test]
+    #[ignore]
+    fn informix_vero() {
+        let Ok(cs) = std::env::var("FP_INFORMIX_TEST") else { return };
+        collaudo(&cs, "informix", "CREATE TABLE fp_collaudo_k (id SERIAL PRIMARY KEY, nome VARCHAR(30))");
+    }
+
+    #[test]
+    #[ignore]
+    fn parametro_di_uscita() {
+        let Ok(cs) = std::env::var("FP_ODBC_TEST") else { return };
+        let conn = open(&cs, 5, "odbc").unwrap();
+        let mut ex = Exec::new(&conn);
+        let a = serde_json::json!(7);
+        let b = serde_json::json!("x");
+        let out = ex.run_with_out("{call fp_out(?, ?, ?)}", &[&a, &b]).unwrap();
+        assert_eq!(out.as_deref(), Some("70-x"));
+        let s = ex.scalar_text("SELECT 40 + ?", &[&a]).unwrap();
+        assert_eq!(s.as_deref(), Some("47"));
     }
 }

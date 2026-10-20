@@ -299,10 +299,19 @@ pub async fn run(
     let tx_group = config.transaction_id.clone();
 
    let outcome = if !tx_group.is_empty() {
-        if config.dialect != "postgresql" {
-            return Err(format!("sink_db {}: transactions supported only on PostgreSQL (for now)", ctx.node_id.0));
-        }
-        if config.passthrough_md {
+        if let crate::engine::pool::DbPool::Odbc(p) = &pool {
+            // P347: gruppi transazionali nativi su Oracle / Informix / ODBC generico.
+            if config.passthrough_md {
+                write_master_detail_tx_odbc(&ctx, p, &config, rx, tx, &tx_group, &start).await
+            } else {
+                write_all_tx_odbc(&ctx, p, &config, rx, &tx_group, &start).await
+            }
+        } else if config.dialect != "postgresql" {
+            // P347: il membro fallito va segnalato al gruppo, altrimenti gli
+            // altri membri committerebbero (prima usciva senza dirlo).
+            ctx.lane_txns.report_member_end(&tx_group, false).await;
+            return Err(format!("sink_db {}: transactions are supported on PostgreSQL and ODBC databases (Oracle, Informix), not on {} (for now)", ctx.node_id.0, config.dialect));
+        } else if config.passthrough_md {
             // Master-detail DENTRO transazione: riga-per-riga con RETURNING,
             // chunked, lock rilasciato prima di inoltrare (no deadlock col detail).
             write_master_detail_tx(&ctx, &pool, &config, rx, tx, &tx_group, &start).await
@@ -429,9 +438,15 @@ async fn write_all_tx(
 
     let pg_pool = match pool {
         DbPool::Pg(p) => p,
-        _ => return Err("transactions supported only on PostgreSQL (for now)".to_string()),
+        _ => { ctx.lane_txns.report_member_end(group_id, false).await; return Err("transactions: unsupported database for this path".to_string()) }
     };
-    let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
+    // P347: se la connessione del gruppo non si ottiene (gruppo native con due
+    // risorse, BEGIN fallito…) il membro e' fallito: va detto al gruppo,
+    // altrimenti gli altri membri committerebbero.
+    let conn = match ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await {
+        Ok(c) => c,
+        Err(e) => { ctx.lane_txns.report_member_end(group_id, false).await; return Err(e); }
+    };
 
     let batch_size = config.batch_size.max(1);
     let sp_name    = savepoint_name(&ctx.node_id.0);
@@ -538,9 +553,15 @@ async fn write_master_detail_tx(
 
     let pg_pool = match pool {
         DbPool::Pg(p) => p,
-        _ => return Err("master-detail transactional: PostgreSQL only (for now)".to_string()),
+        _ => { ctx.lane_txns.report_member_end(group_id, false).await; return Err("transactions: unsupported database for this path".to_string()) }
     };
-    let conn = ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await?;
+    // P347: se la connessione del gruppo non si ottiene (gruppo native con due
+    // risorse, BEGIN fallito…) il membro e' fallito: va detto al gruppo,
+    // altrimenti gli altri membri committerebbero.
+    let conn = match ctx.lane_txns.get_pg_conn(group_id, &config.resource_id, pg_pool).await {
+        Ok(c) => c,
+        Err(e) => { ctx.lane_txns.report_member_end(group_id, false).await; return Err(e); }
+    };
 
     let batch_size = config.batch_size.max(1);
     let sp_name    = savepoint_name(&ctx.node_id.0);
@@ -643,6 +664,190 @@ async fn write_master_detail_tx(
         if let Err(e) = tx_postsql(&conn, config).await {
             write_result = Err(e);
         }
+    }
+    ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
+    write_result?;
+    Ok((rows_in, written, query_count))
+}
+
+// ═══ P347: gruppi transazionali su ODBC (Oracle, Informix, generico) ═══
+//
+// Stesso modello del percorso Postgres (lotti, lock della connessione
+// condivisa, inoltro del master-detail fuori dal lock, esito al registro) con
+// tre differenze:
+// - DDL FUORI dalla transazione, su una connessione a parte e prima di unirsi
+//   al gruppo: Oracle fa COMMIT implicito sulla DDL, che dentro il gruppo
+//   confermerebbe anche le righe degli altri membri. Una tabella creata qui
+//   NON sparisce con il ROLLBACK del gruppo.
+// - truncate_insert svuota con DELETE dentro la transazione (TRUNCATE e' DDL
+//   su Oracle → commit implicito; DELETE si annulla col gruppo).
+// - niente savepoint: vedi odbc.rs, "Transazioni".
+
+async fn odbc_ddl_outside_tx(p: &crate::odbc::OdbcPool, config: &SinkDbConfig) -> Result<(), String> {
+    if !(config.drop_and_create || config.create_if_not_exists) {
+        return Ok(());
+    }
+    let side = p.sibling().await?;
+    let r = run_ddl(&crate::engine::pool::DbPool::Odbc(side.clone()), config).await;
+    side.close().await;
+    r
+}
+
+async fn odbc_tx_presql(conn: &crate::odbc::TxConn, config: &SinkDbConfig) -> Result<(), String> {
+    if !config.pre_sql.trim().is_empty() {
+        crate::odbc::tx_exec(conn, config.pre_sql.clone(), "Pre-SQL".to_string()).await?;
+    }
+    if config.mode == "truncate_insert" {
+        crate::odbc::tx_exec(conn, format!("DELETE FROM {}", qualified_ddl_table(config)), "DELETE (truncate_insert)".to_string()).await?;
+    }
+    Ok(())
+}
+
+async fn odbc_tx_postsql(conn: &crate::odbc::TxConn, config: &SinkDbConfig) -> Result<(), String> {
+    if config.post_sql.trim().is_empty() { return Ok(()); }
+    crate::odbc::tx_exec(conn, config.post_sql.clone(), "Post-SQL".to_string()).await
+}
+
+/// Apertura comune ai due percorsi: DDL fuori, connessione del gruppo, pre-SQL.
+/// Su errore il membro e' segnalato fallito al gruppo.
+async fn odbc_tx_open(
+    ctx:      &NodeContext,
+    p:        &crate::odbc::OdbcPool,
+    config:   &SinkDbConfig,
+    group_id: &str,
+) -> Result<crate::odbc::TxConn, String> {
+    let opened = async {
+        odbc_ddl_outside_tx(p, config).await?;
+        let conn = ctx.lane_txns.get_odbc_conn(group_id, &config.resource_id, p).await?;
+        odbc_tx_presql(&conn, config).await?;
+        Ok::<_, String>(conn)
+    }.await;
+    if opened.is_err() {
+        ctx.lane_txns.report_member_end(group_id, false).await;
+    }
+    opened
+}
+
+async fn write_all_tx_odbc(
+    ctx:      &NodeContext,
+    p:        &crate::odbc::OdbcPool,
+    config:   &SinkDbConfig,
+    mut rx:   RowReceiver,
+    group_id: &str,
+    start:    &Instant,
+) -> Result<(u64, u64, u32), String> {
+    let conn = odbc_tx_open(ctx, p, config, group_id).await?;
+    let batch_size = config.batch_size.max(1);
+    let (mut rows_in, mut written, mut query_count) = (0u64, 0u64, 0u32);
+    let mut last_prog = Instant::now();
+    let mut buf: Vec<serde_json::Value> = Vec::with_capacity(batch_size);
+    let mut write_result: Result<(), String> = Ok(());
+
+    loop {
+        buf.clear();
+        while buf.len() < batch_size {
+            match rx.recv().await {
+                Some(row) => {
+                    rows_in += 1;
+                    buf.push(if config.columns_ddl.is_empty() { row.to_write_json_object() } else { map_row(&row, &config.columns_ddl) });
+                }
+                None => break,
+            }
+        }
+        if buf.is_empty() { break; }
+        match crate::odbc::tx_write(&conn, &build_tx_req(config, &buf), Instant::now()).await {
+            Ok(r) => { written += r.rows_written as u64; query_count += 1; }
+            Err(e) => {
+                eprintln!("[tx] membro {} fallito (ODBC)", ctx.node_id.0);
+                write_result = Err(e);
+                break;
+            }
+        }
+        let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
+            || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
+        if should_prog {
+            let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+            ctx.emit_progress(rows_in, written, 0, rps);
+            last_prog = Instant::now();
+        }
+    }
+    if write_result.is_ok() {
+        if let Err(e) = odbc_tx_postsql(&conn, config).await { write_result = Err(e); }
+    }
+    ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
+    write_result?;
+    Ok((rows_in, written, query_count))
+}
+
+async fn write_master_detail_tx_odbc(
+    ctx:      &NodeContext,
+    p:        &crate::odbc::OdbcPool,
+    config:   &SinkDbConfig,
+    mut rx:   RowReceiver,
+    tx:       Option<RowSender>,
+    group_id: &str,
+    start:    &Instant,
+) -> Result<(u64, u64, u32), String> {
+    let conn = odbc_tx_open(ctx, p, config, group_id).await?;
+    let batch_size = config.batch_size.max(1);
+    let (mut rows_in, mut written, mut query_count) = (0u64, 0u64, 0u32);
+    let mut last_prog = Instant::now();
+    let mut buf: Vec<(Row, serde_json::Value)> = Vec::with_capacity(batch_size);
+    let mut write_result: Result<(), String> = Ok(());
+
+    'outer: loop {
+        buf.clear();
+        while buf.len() < batch_size {
+            match rx.recv().await {
+                Some(row) => {
+                    rows_in += 1;
+                    let json_row = if config.columns_ddl.is_empty() { row.to_write_json_object() } else { map_row(&row, &config.columns_ddl) };
+                    buf.push((row, json_row));
+                }
+                None => break,
+            }
+        }
+        if buf.is_empty() { break; }
+
+        // Riga per riga (serve la corrispondenza 1:1 riga↔chiave); le righe
+        // arricchite si inoltrano dopo il lotto: il detail, se e' membro dello
+        // stesso gruppo, scrive sulla stessa connessione e vede i master.
+        let mut enriched_batch: Vec<Row> = Vec::with_capacity(buf.len());
+        for (orig_row, json_row) in &buf {
+            let mut req = build_tx_req(config, std::slice::from_ref(json_row));
+            req.batch_size       = 1;
+            req.returning_column = Some(config.md_source_column.clone());
+            match crate::odbc::tx_write(&conn, &req, Instant::now()).await {
+                Ok(r) => {
+                    written += r.rows_written as u64;
+                    query_count += 1;
+                    let key = r.generated_keys.into_iter().next().map(Value::from_json);
+                    let mut enriched = orig_row.clone();
+                    enriched.set(config.md_output_field.clone(), key.unwrap_or(Value::Null));
+                    enriched_batch.push(enriched);
+                }
+                Err(e) => {
+                    eprintln!("[tx] master-detail {} fallito (ODBC)", ctx.node_id.0);
+                    write_result = Err(e);
+                    break 'outer;
+                }
+            }
+        }
+        if let Some(ref tx) = tx {
+            for enriched in enriched_batch {
+                if tx.send(enriched).await.is_err() { break 'outer; }
+            }
+        }
+        let should_prog = rows_in % PROGRESS_EVERY_ROWS == 0
+            || last_prog.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS;
+        if should_prog {
+            let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
+            ctx.emit_progress(rows_in, written, 0, rps);
+            last_prog = Instant::now();
+        }
+    }
+    if write_result.is_ok() {
+        if let Err(e) = odbc_tx_postsql(&conn, config).await { write_result = Err(e); }
     }
     ctx.lane_txns.report_member_end(group_id, write_result.is_ok()).await;
     write_result?;

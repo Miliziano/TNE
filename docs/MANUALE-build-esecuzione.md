@@ -349,7 +349,7 @@ Nella risorsa DB dello studio:
   oppure con il **percorso** della libreria (es. `/opt/oracle/instantclient_23_5/libsqora.so.23.1`).
 - `${SEGRETO}` funziona in tutti i campi, come per gli altri database.
 
-Stato (P345): **lettura** — nodo `source_db`, anteprima, "Rileva schema", test di
+Stato (P347): **lettura** — nodo `source_db`, anteprima, "Rileva schema", test di
 connessione — e **scrittura** — nodo `sink_db` con insert, truncate+insert, upsert,
 update, delete, merge; creazione/ricreazione della tabella; SQL pre/post; "Load
 constraints" legge la chiave primaria dal catalogo del database.
@@ -363,13 +363,96 @@ Come si comportano UPSERT e MERGE:
 | Informix, ODBC generico | come Oracle | uguale a UPSERT sulle chiavi (condizione libera rifiutata) |
 | MySQL, SQLite | nativo | **non disponibile**: usa UPSERT |
 
-Non ancora disponibili su ODBC (il nodo si ferma con un messaggio esplicito): gruppi
-transazionali, master-detail transazionale e chiavi generate per il pass-through.
+**Transazioni (dal P347).** Un gruppo transazionale **native** funziona anche su
+Oracle, Informix e ODBC generico: i membri scrivono sulla stessa connessione con
+autocommit spento e a fine lane il gruppo fa COMMIT, oppure ROLLBACK se anche un solo
+membro è fallito. Differenze rispetto a PostgreSQL:
+- **XA non disponibile** su ODBC: il nodo si ferma con un messaggio; usa un gruppo
+  native con una sola risorsa;
+- la **creazione/ricreazione della tabella** avviene *prima e fuori* dalla transazione
+  (Oracle conferma da solo ogni DDL, e dentro il gruppo confermerebbe anche le righe
+  degli altri membri): un ROLLBACK non elimina la tabella creata;
+- **TRUNCATE+INSERT** in transazione svuota con `DELETE` (annullabile), non con `TRUNCATE`.
+
+**Master-detail (pass-through, dal P347).** La chiave del master passa al detail:
+- se la riga porta già il valore della colonna chiave (per esempio da una sequenza),
+  si usa quello — su qualunque database;
+- se lo genera il database: **Oracle** con `RETURNING … INTO` (colonna IDENTITY o
+  trigger con sequenza), **Informix** con il valore SERIAL/BIGSERIAL appena assegnato;
+  su **ODBC generico** non esiste un modo portabile e il nodo si ferma spiegandolo.
+
+Collaudo su un database vero (dalla macchina con il driver installato, nella cartella
+`src-tauri`): `FP_ORACLE_TEST="<connection string>" cargo test --lib tests_live -- --ignored`
+(o `FP_INFORMIX_TEST`). Crea e cancella la tabella `FP_COLLAUDO_K` e verifica chiavi
+generate, MERGE e rollback.
 
 Limiti noti: una cella di testo di dimensione non dichiarata (CLOB, TEXT, LVARCHAR
 lunghi) può essere al massimo di 64 Ki caratteri, oltre il nodo si ferma con un errore
 di troncamento (mai un valore tagliato in silenzio). In modalità *tabella* su **ODBC
 generico** limit/offset non hanno una sintassi portabile: scrivili nella query.
+
+### 8.5c Installare ODBC e i driver (Oracle, Informix)
+
+Tre pezzi, tutti sulla macchina che esegue e **mai nell'artifact**: il gestore ODBC, la
+libreria client del fornitore e il suo driver ODBC. Architettura a **64 bit** in tutti e
+tre.
+
+**1. Gestore ODBC.**
+- Linux: `sudo apt install unixodbc` (Debian/Ubuntu) oppure `sudo dnf install unixODBC`
+  (RHEL/Fedora). Oracle consiglia unixODBC 2.3.11 con Instant Client 23ai.
+- macOS: `brew install unixodbc`.
+- Windows: già presente (Amministrazione origine dati ODBC, `odbcad32.exe` a 64 bit).
+
+**2a. Oracle — Instant Client + ODBC.**
+- Linux: scarica *Basic* (o *Basic Light*) e *ODBC* della stessa versione da Oracle
+  (Instant Client Downloads), scompattali nella **stessa** cartella, per esempio
+  `/opt/oracle/instantclient_23_26`, poi:
+  ```bash
+  cd /opt/oracle/instantclient_23_26
+  sudo ./odbc_update_ini.sh / /opt/oracle/instantclient_23_26
+  echo /opt/oracle/instantclient_23_26 | sudo tee /etc/ld.so.conf.d/oracle-ic.conf && sudo ldconfig
+  odbcinst -q -d          # deve comparire il driver Oracle (nome tipo "Oracle 23ai ODBC driver")
+  ```
+  Il primo argomento di `odbc_update_ini.sh` è la cartella di unixODBC (`/` se installato
+  dai pacchetti, con `odbcinst.ini` in `/etc`). In alternativa al nome registrato, nel
+  campo *Driver ODBC* della risorsa puoi mettere il percorso della libreria
+  `…/libsqora.so.23.1`.
+- Windows: scompatta *Basic* e *ODBC* nella stessa cartella, esegui `odbc_install.exe`
+  da lì (registra il driver) e aggiungi la cartella al `PATH`.
+- macOS: Oracle pubblica il pacchetto *ODBC* per Apple Silicon (DMG accanto a *Basic*);
+  installali con `install_ic.sh` come da pagina di download e registra la libreria in
+  `odbcinst.ini` di Homebrew (`odbcinst -j` mostra dove sta).
+
+**2b. Informix — Client SDK (CSDK).**
+- Installa l'Informix **Client SDK** (HCL/IBM, 64 bit): contiene il driver ODBC.
+- Linux/macOS: imposta l'ambiente del processo che esegue (servizio del runner o
+  shell dello studio):
+  ```bash
+  export INFORMIXDIR=/opt/informix
+  export LD_LIBRARY_PATH=$INFORMIXDIR/lib:$INFORMIXDIR/lib/cli:$INFORMIXDIR/lib/esql:$LD_LIBRARY_PATH
+  ```
+  e registra il driver in `/etc/odbcinst.ini`:
+  ```ini
+  [IBM INFORMIX ODBC DRIVER]
+  Description = Informix ODBC (CSDK)
+  Driver      = /opt/informix/lib/cli/iclit09b.so
+  ```
+  Il nome tra parentesi quadre è quello che FlowPilot usa se il campo *Driver ODBC* è
+  vuoto. Errori tipici: `libifgls.so` non trovata → manca `lib/esql` nel percorso
+  librerie; `sqlhosts` non trovato o server sconosciuto → la risorsa deve avere *Server
+  (DBSERVERNAME)* uguale al nome del server Informix (se il driver lo pretende comunque,
+  aggiungi la voce in `$INFORMIXDIR/etc/sqlhosts`).
+- Windows: il CSDK registra il driver da solo (`iclit09b.dll`). Controlla in
+  `odbcad32.exe` (scheda *Driver*) il nome esatto: se compare con un suffisso, ad
+  esempio "(64-bit)", scrivilo così nel campo *Driver ODBC*.
+- Caratteri accentati: nei *Parametri aggiuntivi* della risorsa
+  `CLIENT_LOCALE=en_US.utf8;` (e `DB_LOCALE` uguale a quello del database).
+
+**3. Verifica.** Dallo studio, *Test connessione* sulla risorsa. Dal terminale, con
+unixODBC: `isql -v -k "Driver={Oracle 23ai ODBC driver};DBQ=host:1521/servizio;UID=…;PWD=…"`.
+Per i servizi systemd del runner le variabili d'ambiente (`INFORMIXDIR`,
+`LD_LIBRARY_PATH`, `TNS_ADMIN`, `NLS_LANG`) vanno nel file del servizio
+(`Environment=`), non nel profilo dell'utente.
 
 ### 8.6 Regole di sicurezza
 - Non committare mai valori di segreti; il repo e l'artifact contengono **solo nomi**.

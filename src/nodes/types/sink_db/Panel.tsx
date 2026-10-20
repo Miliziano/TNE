@@ -94,6 +94,16 @@ function mergeConditionConfig(mode: string): { show: boolean } {
   return { show: mode === 'merge' }
 }
 
+// P347: cosa fa il motore con una transazione su questo dialetto
+// (sink_db write_all_tx / write_all_tx_odbc, txregistry).
+function txDialectNote(dialect: string, txMode: string, hasDdl: boolean): string | null {
+  const odbc = ['oracle', 'informix', 'odbc'].includes(dialect)
+  if (dialect === 'mysql' || dialect === 'sqlite') return 'Transactions are not available on this database yet: the run stops with an error.'
+  if (odbc && txMode === 'xa') return 'XA (two-phase commit) is not available on Oracle, Informix and ODBC: use a native transaction with a single resource.'
+  if (odbc && hasDdl) return 'On Oracle, Informix and ODBC the table is created before and outside the transaction: a rollback does not remove it.'
+  return null
+}
+
 // ─── Componente principale ────────────────────────────────────────
 
 export function SinkDbPanel({ nodeId }: { nodeId: string }) {
@@ -467,6 +477,13 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
                         : 'On error: rollback of this node only.'}
                       {' '}Timeout {activeTx!.timeout}s. Configure in the Transactions tab.
                     </span>
+                  </div>
+                )}
+
+                {isActive && txDialectNote(dialect, activeTx!.mode, dropAndCreate || createIfNotExists) && (
+                  <div style={{ marginTop: 8, fontSize: 10, color: '#ffb347', display: 'flex', gap: 5, alignItems: 'flex-start', lineHeight: 1.4 }}>
+                    <i className="ti ti-alert-triangle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
+                    <span>{txDialectNote(dialect, activeTx!.mode, dropAndCreate || createIfNotExists)}</span>
                   </div>
                 )}
 
