@@ -472,6 +472,12 @@ async fn db_list_constraints(request: DbListConstraintsRequest) -> Result<Vec<Db
     "postgresql" => pg_list_constraints(&conn_str, request.schema.as_deref().unwrap_or("public"), &request.table).await,
     "mysql"      => mysql_list_constraints(&conn_str, &request.connection.database.clone().unwrap_or_default(), &request.table).await,
     "sqlite"     => sqlite_list_constraints(&conn_str, &request.table).await,
+    // P345: chiave primaria dal catalogo ODBC (i vincoli UNIQUE non sono esposti
+    // in modo portabile dai cataloghi ODBC).
+    d if crate::odbc::is_odbc_dialect(d) => {
+      let pk = crate::odbc::primary_key(conn_str, d.to_string(), request.schema.clone(), request.table.clone()).await?;
+      Ok(pk.into_iter().map(|(name, columns)| DbConstraintInfo { name, constraint_type: "primary_key".into(), columns }).collect())
+    }
     d            => Err(format!("Dialect '{}' not supported for constraint list", d)),
   }
 }
@@ -521,7 +527,7 @@ async fn db_query(request: DbQueryRequest) -> Result<Vec<serde_json::Value>, Str
     "mysql"      => mysql_query(&conn_str, &request.query, request.timeout).await,
     "sqlite"     => sqlite_query(&conn_str, &request.query, request.timeout).await,
     d if crate::odbc::is_odbc_dialect(d) =>
-      crate::odbc::query_json(conn_str, request.query.clone(), request.max_rows, request.timeout).await,
+      crate::odbc::query_json(conn_str, d.to_string(), request.query.clone(), request.max_rows, request.timeout).await,
     d            => Err(format!("Dialect '{}' not supported", d)),
   }
 }
@@ -534,7 +540,7 @@ async fn db_infer_schema(request: DbQueryRequest) -> Result<Vec<DbColumnInfo>, S
   // P344 — ODBC: si PREPARA la query e se ne leggono le colonne senza
   // eseguirla (niente LIMIT/ROWNUM/FIRST da indovinare per dialetto).
   if crate::odbc::is_odbc_dialect(&request.connection.dialect) {
-    let cols = crate::odbc::describe_json(conn_str, base.to_string()).await?;
+    let cols = crate::odbc::describe_json(conn_str, request.connection.dialect.clone(), base.to_string()).await?;
     return Ok(cols.into_iter().enumerate().map(|(i, (name, db_type, nullable))| DbColumnInfo {
       name, db_type, nullable, position: i,
     }).collect());
@@ -611,6 +617,12 @@ async fn db_write(request: DbWriteRequest) -> Result<DbWriteResult, String> {
     "postgresql" => pg_write(&conn_str, &request, start).await,
     "mysql"      => mysql_write(&conn_str, &request, start).await,
     "sqlite"     => sqlite_write(&conn_str, &request, start).await,
+    d if crate::odbc::is_odbc_dialect(d) => {
+      let pool = crate::odbc::OdbcPool::connect(conn_str, 1, request.connection.connect_timeout.unwrap_or(30), d).await?;
+      let res = crate::odbc::write(&pool, &request, start).await;
+      pool.close().await;
+      res
+    }
     d            => Err(format!("Dialect '{}' not supported for writing", d)),
   }
 }
@@ -852,6 +864,98 @@ pub(crate) fn build_column_plan<'a>(
   plan
 }
 
+/// Modalita' di scrittura note (P345). Prima ogni modalita' non riconosciuta
+/// finiva nel ramo DELETE: 🐞 con `merge` (offerta dal pannello) il motore
+/// CANCELLAVA le righe corrispondenti alle chiavi e riportava successo.
+pub(crate) fn check_write_mode(mode: &str, dialect: &str) -> Result<(), String> {
+  match mode {
+    "insert" | "truncate_insert" | "upsert" | "update" | "delete" => Ok(()),
+    "merge" if matches!(dialect, "mysql" | "sqlite") => Err(format!(
+      "MERGE is not available on {}: use UPSERT (insert or update on the key)",
+      if dialect == "mysql" { "MySQL" } else { "SQLite" })),
+    "merge" => Ok(()),
+    m => Err(format!("unknown write mode '{}' (expected insert, upsert, update, delete, truncate_insert, merge)", m)),
+  }
+}
+
+/// Pezzi di un MERGE (P345), con gli alias del pannello: `target` (la tabella)
+/// e `source` (la riga). Condizione: quella scritta dall'utente oppure
+/// l'uguaglianza delle colonne chiave. Ritorna (lista SELECT della sorgente,
+/// condizione ON, SET per WHEN MATCHED — vuoto se non ci sono colonne da
+/// aggiornare —, colonne e valori dell'INSERT, valori da legare in ordine).
+pub(crate) struct MergeParts<'a> {
+  pub source_select: String,
+  pub on:            String,
+  pub update_set:    String,
+  pub insert_cols:   String,
+  pub insert_vals:   String,
+  pub binds:         Vec<&'a serde_json::Value>,
+}
+
+pub(crate) fn merge_parts<'a>(
+  fields:           &'a [(String, serde_json::Value)],
+  keys:             &[String],
+  column_functions: &Option<Vec<DbColumnFunction>>,
+  merge_condition:  &Option<String>,
+  style:            PlaceholderStyle,
+) -> Result<MergeParts<'a>, String> {
+  let plan = build_column_plan(fields, column_functions, style, 1);
+  let on = match merge_condition.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+    Some(c) => c.to_string(),
+    None if !keys.is_empty() => keys.iter()
+      .map(|k| format!("target.{} = source.{}", k, k)).collect::<Vec<_>>().join(" AND "),
+    None => return Err("MERGE needs a condition or at least one key column".to_string()),
+  };
+  Ok(MergeParts {
+    source_select: plan.iter().map(|p| format!("{} AS {}", p.value_sql, p.column_sql)).collect::<Vec<_>>().join(", "),
+    on,
+    update_set: plan.iter().filter(|p| !keys.contains(&p.column_sql))
+      .map(|p| format!("{} = source.{}", p.column_sql, p.column_sql)).collect::<Vec<_>>().join(", "),
+    insert_cols: plan.iter().map(|p| p.column_sql.clone()).collect::<Vec<_>>().join(", "),
+    insert_vals: plan.iter().map(|p| format!("source.{}", p.column_sql)).collect::<Vec<_>>().join(", "),
+    binds: plan.iter().filter_map(|p| p.bind_value).collect(),
+  })
+}
+
+/// MERGE in sintassi PostgreSQL (15+). La riga sorgente nasce con i TIPI DELLA
+/// TABELLA: `jsonb_populate_record(NULL::tabella, $1)` con un solo parametro
+/// JSON. Con `SELECT $1 AS col` Postgres non sa il tipo del parametro e lo
+/// tratta come testo: date, numeri e NULL fallirebbero ("column is of type
+/// timestamp but expression is of type text"). Le funzioni di colonna valgono
+/// come negli altri modi (`$VALUE` → il valore della sorgente).
+fn pg_merge_sql(
+  tbl: &str,
+  fields: &[(String, serde_json::Value)],
+  keys: &[String],
+  column_functions: &Option<Vec<DbColumnFunction>>,
+  merge_condition: &Option<String>,
+) -> Result<(String, serde_json::Value), String> {
+  let on = match merge_condition.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+    Some(c) => c.to_string(),
+    None if !keys.is_empty() => keys.iter()
+      .map(|k| format!("target.{} = source.{}", k, k)).collect::<Vec<_>>().join(" AND "),
+    None => return Err("MERGE needs a condition or at least one key column".to_string()),
+  };
+  let fn_map: std::collections::HashMap<&str, &str> = column_functions.as_ref()
+    .map(|v| v.iter().map(|cf| (cf.column.as_str(), cf.expr.as_str())).collect())
+    .unwrap_or_default();
+  let expr = |c: &str| match fn_map.get(c) {
+    Some(e) if e.contains("$VALUE") => e.replace("$VALUE", &format!("source.{}", c)),
+    Some(e) => e.to_string(),
+    None => format!("source.{}", c),
+  };
+  let cols: Vec<&str> = fields.iter().map(|(c, _)| c.as_str()).collect();
+  let set = cols.iter().filter(|c| !keys.iter().any(|k| k == *c))
+    .map(|c| format!("{} = {}", c, expr(c))).collect::<Vec<_>>().join(", ");
+  let matched = if set.is_empty() { String::new() } else { format!(" WHEN MATCHED THEN UPDATE SET {}", set) };
+  let row: serde_json::Map<String, serde_json::Value> = fields.iter().cloned().collect();
+  Ok((format!(
+    "MERGE INTO {t} AS target USING (SELECT * FROM jsonb_populate_record(NULL::{t}, $1)) AS source ON ({on}){matched} WHEN NOT MATCHED THEN INSERT ({cols}) VALUES ({vals})",
+    t = tbl, on = on, matched = matched, cols = cols.join(", "),
+    vals = cols.iter().map(|c| expr(c)).collect::<Vec<_>>().join(", ")),
+    serde_json::Value::Object(row)))
+}
+
 /// Quanti placeholder posizionali ($N) sono stati consumati da un plan
 /// — per Dollar style: 1 per ogni colonna con bind_value=Some. Per
 /// Question style non è rilevante (sempre "?"), ma usiamo comunque
@@ -927,6 +1031,7 @@ pub async fn pg_write_pool(
 
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    check_write_mode(&req.mode, &req.connection.dialect)?;
 
 
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -967,6 +1072,7 @@ pub async fn pg_write_pool(
                 .cloned()
                 .collect();
 
+            let merge_row: serde_json::Value; // riga sorgente del MERGE (P345), vive fino all'esecuzione
             let sql: String;
             let mut bind_list: Vec<&serde_json::Value>;
 
@@ -1016,8 +1122,13 @@ pub async fn pg_write_pool(
                         bind_list.push(v);
                     }
                 }
+            } else if req.mode == "merge" {
+                let (q, row) = pg_merge_sql(&tbl, &fields, keys, &req.column_functions, &req.merge_condition)?;
+                merge_row = row;
+                sql = q;
+                bind_list = vec![&merge_row];
             } else {
-                // delete
+                // delete (check_write_mode garantisce che non ci siano altre modalita')
                 let where_c = keys.iter().enumerate()
                     .map(|(i, k)| format!("{} = ${}", k, i + 1))
                     .collect::<Vec<_>>().join(" AND ");
@@ -1093,6 +1204,7 @@ pub async fn pg_write_conn(
 
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    check_write_mode(&req.mode, &req.connection.dialect)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -1118,6 +1230,7 @@ pub async fn pg_write_conn(
             let set_fields: Vec<(String, serde_json::Value)> = fields.iter()
                 .filter(|(k, _)| !keys.contains(k)).cloned().collect();
 
+            let merge_row: serde_json::Value; // riga sorgente del MERGE (P345), vive fino all'esecuzione
             let sql: String;
             let mut bind_list: Vec<&serde_json::Value>;
 
@@ -1153,7 +1266,13 @@ pub async fn pg_write_conn(
                 for k in keys {
                     if let Some((_, v)) = fields.iter().find(|(fk, _)| fk == k) { bind_list.push(v); }
                 }
+            } else if req.mode == "merge" {
+                let (q, row) = pg_merge_sql(&tbl, &fields, keys, &req.column_functions, &req.merge_condition)?;
+                merge_row = row;
+                sql = q;
+                bind_list = vec![&merge_row];
             } else {
+                // delete (check_write_mode garantisce che non ci siano altre modalita')
                 let where_c = keys.iter().enumerate().map(|(i, k)| format!("{} = ${}", k, i + 1)).collect::<Vec<_>>().join(" AND ");
                 sql = format!("DELETE FROM {} WHERE {}", tbl, where_c);
                 bind_list = keys.iter().filter_map(|k| fields.iter().find(|(fk, _)| fk == k).map(|(_, v)| v)).collect();
@@ -1194,12 +1313,30 @@ pub async fn pg_write_conn(
         generated_keys,
     })
 }
+/// NULL SENZA TIPO per PostgreSQL (P345). 🐞 Prima un NULL si legava come
+/// `None::<String>`, cioe' un NULL di tipo TEXT: Postgres lo rifiuta in qualunque
+/// colonna non testuale ("column is of type date but expression is of type
+/// text") — ogni riga con un valore mancante in una colonna data, timestamp,
+/// numerica o booleana faceva fallire la scrittura. Con il tipo non specificato
+/// (OID 0) e' il server a dedurlo dalla colonna, come per un NULL letterale.
+struct PgUntypedNull;
+impl sqlx::Type<sqlx::Postgres> for PgUntypedNull {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_oid(sqlx::postgres::types::Oid(0))
+    }
+}
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PgUntypedNull {
+    fn encode_by_ref(&self, _buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+        Ok(sqlx::encode::IsNull::Yes)
+    }
+}
+
 pub(crate) fn bind_pg_value<'q>(
     q: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
     v: &'q serde_json::Value,
     ) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {  
     match v {
-        serde_json::Value::Null      => q.bind(None::<String>),
+        serde_json::Value::Null      => q.bind(PgUntypedNull),
         serde_json::Value::Bool(b)   => q.bind(*b),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() { q.bind(i) }
@@ -1262,6 +1399,7 @@ pub async fn mysql_write_pool(
 
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    check_write_mode(&req.mode, &req.connection.dialect)?;
 
 
    
@@ -1449,6 +1587,7 @@ pub async fn sqlite_write_pool(
 
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    check_write_mode(&req.mode, &req.connection.dialect)?;
 
 
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -1622,6 +1761,8 @@ pub(crate) fn pg_value_to_json(row: &sqlx::postgres::PgRow, idx: usize) -> serde
   if ["float4","float8","numeric","decimal","money"].contains(&type_name.as_str()) {
     if let Ok(v) = row.try_get::<f64, _>(idx) { return serde_json::json!(v) }
     if let Ok(v) = row.try_get::<rust_decimal::Decimal, _>(idx) { return serde_json::json!(v.to_string()) }
+    // P345: NUMERIC oltre le 28 cifre (o NaN/Infinity) → testo esatto, non NULL
+    if let Some(t) = crate::engine::nodes::source_db::pg_numeric_text(row, idx) { return serde_json::json!(t) }
   }
   if type_name == "bool" { if let Ok(v) = row.try_get::<bool, _>(idx) { return serde_json::json!(v) } }
   if ["json","jsonb"].contains(&type_name.as_str()) { if let Ok(v) = row.try_get::<serde_json::Value, _>(idx) { return v } }

@@ -1204,11 +1204,93 @@ DDL per dialetto, pre/post SQL, `db_list_constraints` via cataloghi ODBC. (3) gr
 transazionali nativi su ODBC (autocommit off), documentazione d'installazione per
 piattaforma, eventuale CLOB/LOB in streaming.
 
+## AGGIORNAMENTO — ODBC fetta 2: scrittura + correzione MERGE (stato al P345, 20 ottobre)
+
+**🐞 Grave, corretto: MERGE cancellava le righe.** In `pg_write_pool`/`pg_write_conn` (e
+nei rami MySQL/SQLite) il ramo finale `else` era il DELETE: la modalità **MERGE** dello
+studio, mai gestita dal motore, finiva lì → **cancellava le righe corrispondenti** e il run
+risultava riuscito (verificato: riga id=1 sparita). Ora `check_write_mode(mode, dialect)`
+in `lib.rs` (chiamato in config_from_spec di `sink_db` e nei 4 percorsi di scrittura)
+accetta solo insert/truncate_insert/upsert/update/delete/merge, rifiuta MERGE su
+MySQL/SQLite ("use UPSERT") e qualunque modalità sconosciuta; il ramo DELETE non è più un
+`else` cieco.
+
+**MERGE per dialetto.**
+- *PostgreSQL nativo (15+)*: `MERGE INTO t AS target USING (SELECT * FROM
+  jsonb_populate_record(NULL::t, $1)) AS source ON (…)` — la riga arriva come **un solo
+  parametro jsonb** e prende i tipi dalla tabella (con `SELECT $1 AS col` Postgres tipizza
+  text e fallisce su date/numeric/NULL). `mergeCondition` personalizzata ammessa; funzioni
+  di colonna con `$VALUE` → `source.col`. Senza condizione servono colonne chiave.
+- *Oracle (via ODBC)*: `MERGE INTO t target USING (SELECT ? AS c, … FROM DUAL) source ON
+  (…) WHEN MATCHED THEN UPDATE … WHEN NOT MATCHED THEN INSERT …` (`merge_parts` condiviso).
+  Condizione personalizzata ammessa.
+- *Informix e ODBC generico*: MERGE = UPSERT sulle chiavi; condizione personalizzata
+  rifiutata con errore parlante.
+
+**🐞 Grave, corretto: TRUNCATE+INSERT teneva solo l'ultimo lotto.** La modalità arrivava a
+ogni lotto e ogni lotto rifaceva TRUNCATE: 2500 righe con lotti da 1000 → 500 in tabella,
+run riuscito e "2500 scritte" (tutti i dialetti; nel master-detail restava una riga sola;
+in transazione invece **non svuotava affatto**). Ora `sink_db` svuota **una volta** dopo
+DDL e pre-SQL (`truncate_once`: lotto vuoto con la modalità truncate_insert, così la
+sintassi per dialetto resta quella di lib.rs/odbc.rs e la tabella si svuota anche con zero
+righe in ingresso), poi i lotti viaggiano come INSERT (`row_mode`); in transazione
+`TRUNCATE` dentro `tx_ddl_and_presql` (annullato dal ROLLBACK del gruppo). Collaudato:
+nativo, ODBC, transazione, zero righe.
+
+**🐞 Corretto: NULL in colonne date/timestamp (Postgres nativo).** Il NULL veniva legato
+come TEXT → "column is of type date but expression is of type text". Ora `PgUntypedNull`
+(OID 0, Postgres deduce il tipo dal contesto).
+
+**🐞 Corretto: NUMERIC oltre le 28 cifre (lettore Postgres nativo).** `pg_col_to_value`
+ricadeva su f64 (cifre perse); ora, quando non entra in `Decimal`, passa come **testo
+esatto** (anche `NaN`/`Infinity`) decodificando il formato binario di NUMERIC
+(`numeric_bin_to_text`, testata con vettori di `numeric_send`). Stesso per l'anteprima
+(`pg_value_to_json`, prima dava NULL).
+
+**Scrittura ODBC — `odbc.rs`.** `write()` / `WriteJob`: insert, update, delete, upsert
+(UPDATE sulle chiavi, INSERT se nessuna riga; se non ci sono colonne da aggiornare →
+SELECT di esistenza), merge (sopra), truncate_insert. Istruzioni preparate in cache per
+lotto; parametri tipizzati (`json_param`: NULL, bit, i64, f64, timestamp/date ISO →
+tipi ODBC, il resto testo). `exec_sql` per pre/post SQL, `table_exists` + DROP/CREATE per
+la DDL (`run_ddl` in `sink_db`), `primary_key` dai cataloghi ODBC (`SQLPrimaryKeys`, nome
+tal quale/maiuscolo/minuscolo) → `db_list_constraints` ("Load constraints" dello studio).
+Oracle: `session_init` imposta `NLS_NUMERIC_CHARACTERS='.,'` e i formati data (non fatale).
+`db_write` (studio) passa da ODBC.
+
+**Non ancora su ODBC (errore esplicito, mai silenzio):** gruppi transazionali e
+master-detail transazionale ("PostgreSQL only (for now)"), chiavi generate per il
+pass-through master-detail. Fetta 3.
+
+**Studio.** Pannello `sink_db`: note per dialetto sulle modalità (UPSERT/MERGE via ODBC,
+PG 15+), MERGE nascosto su MySQL/SQLite (resta visibile solo se già selezionato, così si
+vede l'errore), avviso sotto la condizione MERGE dove non è ammessa.
+
+**Collaudo (sandbox, PG 16 + psqlODBC).** Stessa sequenza su tre bersagli — nativo,
+ODBC generico, "oracle" via ODBC verso Postgres: DDL drop+create con pre/post SQL, insert,
+upsert, update, merge sulle chiavi, delete, duplicato con skip, duplicato con stop
+(errore atteso), merge con condizione. Nativo e ODBC generico: tutto ok, tabelle finali
+identiche. "Oracle":
+tutto ok tranne il MERGE, che **Postgres** rifiuta (`integer = text`: psqlODBC incolla i
+parametri come letterali tra apici e Postgres non li converte dentro la SELECT): la
+sintassi generata è verificata dal log, l'esecuzione va **collaudata su Oracle vero**.
+NUMERIC a 34 cifre letto nativo e scritto via ODBC: esatto.
+
+**🐞 Aperti (preesistenti, segnalati, non corretti):**
+- **Decimali in scrittura passano da f64**: `Value::to_json` serializza `Decimal` come
+  numero JSON (feature `serde-float`) e i percorsi di scrittura (nativo e ODBC) legano
+  f64 → oltre ~15 cifre significative si perde precisione e la scala sparisce (12.50 →
+  12.5). Correzione proposta: binding da `Value` (o Decimal come stringa + cast) — P346.
+  Collegato: un NUMERIC enorme letto come stringa non si riscrive in una colonna numeric
+  col driver nativo (parametro TEXT).
+- `onConstraintError` = `log`/`update` e la tabella dead-letter non sono implementati
+  (righe contate come errori).
+- pre/post SQL spezzati su `;`: un blocco PL/SQL (`BEGIN … END;`) si rompe.
+
 ---
 
 ## Oracle e Informix — pensata (DA RIPRENDERE)
 
-> **Stato al P344:** la via ODBC è decisa e la **lettura è implementata** (sezione sopra).
+> **Stato al P345:** la via ODBC è decisa; **lettura (P344) e scrittura (P345) implementate** (sezioni sopra).
 > Il testo qui sotto resta come storia della decisione.
 
 > **Verifica del 17 ottobre (prima di partire con ODBC).**

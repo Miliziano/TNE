@@ -201,7 +201,7 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
             Ok(DbPool::Sqlite(pool))
         }
         d if crate::odbc::is_odbc_dialect(d) => {
-            let pool = crate::odbc::OdbcPool::connect(params.conn_str.clone(), max, to.as_secs()).await
+            let pool = crate::odbc::OdbcPool::connect(params.conn_str.clone(), max, to.as_secs(), d).await
                 .map_err(|e| format!("{}: {}", d, e))?;
             Ok(DbPool::Odbc(pool))
         }

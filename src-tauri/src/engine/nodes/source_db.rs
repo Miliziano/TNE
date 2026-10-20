@@ -149,20 +149,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         )?
     };
 
-    let odbc = crate::odbc::OdbcTarget {
-        dialect:           dialect.clone(),
-        host:              spec.res_str_or("host", ""),
-        port:              Some(port),
-        database:          spec.res_str_or("database", ""),
-        user:              user.clone(),
-        password:          spec.res_str_or("password", ""),
-        service_name:      spec.res_str_or("serviceName", ""),
-        db_server_name:    spec.res_str_or("dbServerName", ""),
-        driver:            spec.res_str_or("odbcDriver", ""),
-        dsn:               spec.res_str_or("dsn", ""),
-        connection_string: spec.res_str_or("connectionString", ""),
-        extra:             spec.res_str_or("odbcParams", ""),
-    };
+    let odbc = crate::odbc::target_from_spec(spec, &dialect, port, &user);
 
     Ok(SourceDbConfig {
         host:            spec.res_str_or("host", "localhost"),
@@ -450,7 +437,11 @@ pub(crate) fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value 
     // Informix DECIMAL in futuro.
     if ["numeric","decimal"].contains(&type_name.as_str()) {
         if let Ok(v) = row.try_get::<rust_decimal::Decimal, _>(idx) { return Value::Decimal(v) }
-        if let Ok(v) = row.try_get::<f64, _>(idx) { return Value::Float(v) }
+        // P345: oltre le 28 cifre di Decimal (o NaN/Infinity) il valore
+        // arrivava NULL (f64 non è compatibile con NUMERIC in sqlx): ora
+        // passa come testo esatto, senza perdere cifre.
+        if let Some(t) = pg_numeric_text(row, idx) { return Value::String(t) }
+        return Value::Null;
     }
     if type_name == "bool" {
         if let Ok(v) = row.try_get::<bool, _>(idx) { return Value::Bool(v) }
@@ -529,6 +520,60 @@ pub(crate) fn pg_col_to_value(row: &sqlx::postgres::PgRow, idx: usize) -> Value 
 }
 
 // ─── Helper di conversione condivisi ──────────────────────────────
+
+/// NUMERIC Postgres come testo esatto, qualunque sia la precisione
+/// (P345). `None` se il valore è NULL o illeggibile.
+pub(crate) fn pg_numeric_text(row: &sqlx::postgres::PgRow, idx: usize) -> Option<String> {
+    use sqlx::{Row as _, ValueRef};
+    let raw = row.try_get_raw(idx).ok()?;
+    if raw.is_null() { return None }
+    match raw.format() {
+        sqlx::postgres::PgValueFormat::Text => raw.as_str().ok().map(str::to_string),
+        sqlx::postgres::PgValueFormat::Binary => numeric_bin_to_text(raw.as_bytes().ok()?),
+    }
+}
+
+/// Decodifica il formato binario di NUMERIC: ndigits, weight, sign, dscale
+/// (i16/u16 big-endian) seguiti da ndigits cifre in base 10000.
+pub(crate) fn numeric_bin_to_text(b: &[u8]) -> Option<String> {
+    let rd = |i: usize| -> Option<u16> { Some(u16::from_be_bytes([*b.get(i)?, *b.get(i + 1)?])) };
+    let ndigits = rd(0)? as i16;
+    let weight  = rd(2)? as i16 as i32;
+    let sign    = rd(4)?;
+    let dscale  = rd(6)? as usize;
+    match sign {
+        0xC000 => return Some("NaN".into()),
+        0xD000 => return Some("Infinity".into()),
+        0xF000 => return Some("-Infinity".into()),
+        0x0000 | 0x4000 => {}
+        _ => return None,
+    }
+    if ndigits < 0 { return None }
+    let n = ndigits as i32;
+    let mut digits = Vec::with_capacity(n as usize);
+    for k in 0..n as usize { let d = rd(8 + 2 * k)?; if d > 9999 { return None } digits.push(d) }
+    let at = |k: i32| -> u16 { if k >= 0 && k < n { digits[k as usize] } else { 0 } };
+    // parte intera: posizioni (base 10000) da weight a 0
+    let mut out = String::new();
+    if weight < 0 {
+        out.push('0');
+    } else {
+        for p in (0..=weight).rev() {
+            let d = at(weight - p);
+            if out.is_empty() { out.push_str(&d.to_string()) } else { out.push_str(&format!("{d:04}")) }
+        }
+    }
+    if dscale > 0 {
+        let mut frac = String::new();
+        let mut j = 1;
+        while frac.len() < dscale { frac.push_str(&format!("{:04}", at(weight + j))); j += 1; }
+        frac.truncate(dscale);
+        out.push('.');
+        out.push_str(&frac);
+    }
+    if sign == 0x4000 && out.chars().any(|c| c.is_ascii_digit() && c != '0') { out.insert(0, '-') }
+    Some(out)
+}
 
 /// f32 → f64 passando dalla sua rappresentazione decimale piu' corta:
 /// `0.1f32` diventa 0.1 e non 0.10000000149011612.
@@ -817,5 +862,29 @@ fn maybe_emit_progress(
         let rps = rows_out as f64 / start.elapsed().as_secs_f64().max(0.001);
         ctx.emit_progress(rows_out, rows_out, 0, rps);
         *last_prog = Instant::now();
+    }
+}
+#[cfg(test)]
+mod numeric_tests {
+    use super::numeric_bin_to_text;
+    fn hex(s: &str) -> Vec<u8> { (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect() }
+
+    // vettori prodotti da Postgres 16 con numeric_send()
+    #[test]
+    fn numeric_binario_esatto() {
+        for (h, atteso) in [
+            ("000a000800000004000c0d801ed204d2162e23340d801ed204d2162e", "1234567890123456789012345678901234.5678"),
+            ("0001fffe4000000604b0", "-0.000012"),
+            ("0000000000000000", "0"),
+            ("00080007400000000009223d10e103db198f083d223d10e1", "-98765432109876543210987654321"),
+            ("00000000c0000000", "NaN"),
+            ("00000000d0000020", "Infinity"),
+            ("0002000000000002000c1388", "12.50"),
+            ("00010001000000000001", "10000"),
+            ("0001ffff0000000103e8", "0.1"),
+        ] {
+            assert_eq!(numeric_bin_to_text(&hex(h)).as_deref(), Some(atteso), "{h}");
+        }
+        assert_eq!(numeric_bin_to_text(&hex("0001")), None);
     }
 }

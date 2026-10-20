@@ -349,9 +349,22 @@ Nella risorsa DB dello studio:
   oppure con il **percorso** della libreria (es. `/opt/oracle/instantclient_23_5/libsqora.so.23.1`).
 - `${SEGRETO}` funziona in tutti i campi, come per gli altri database.
 
-Stato (P344): **lettura** — nodo `source_db`, anteprima, "Rileva schema", test di
-connessione. La **scrittura** (`sink_db`) arriva con la fetta successiva; oggi
-fallisce con un messaggio esplicito.
+Stato (P345): **lettura** — nodo `source_db`, anteprima, "Rileva schema", test di
+connessione — e **scrittura** — nodo `sink_db` con insert, truncate+insert, upsert,
+update, delete, merge; creazione/ricreazione della tabella; SQL pre/post; "Load
+constraints" legge la chiave primaria dal catalogo del database.
+
+Come si comportano UPSERT e MERGE:
+
+| Database | UPSERT | MERGE |
+|---|---|---|
+| PostgreSQL | `INSERT … ON CONFLICT` | `MERGE` nativo (PostgreSQL 15+), condizione libera ammessa |
+| Oracle | UPDATE sulle chiavi, INSERT se nessuna riga | `MERGE` nativo, condizione libera ammessa |
+| Informix, ODBC generico | come Oracle | uguale a UPSERT sulle chiavi (condizione libera rifiutata) |
+| MySQL, SQLite | nativo | **non disponibile**: usa UPSERT |
+
+Non ancora disponibili su ODBC (il nodo si ferma con un messaggio esplicito): gruppi
+transazionali, master-detail transazionale e chiavi generate per il pass-through.
 
 Limiti noti: una cella di testo di dimensione non dichiarata (CLOB, TEXT, LVARCHAR
 lunghi) può essere al massimo di 64 Ki caratteri, oltre il nodo si ferma con un errore

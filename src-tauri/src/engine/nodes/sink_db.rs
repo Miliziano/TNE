@@ -95,12 +95,16 @@ struct SinkDbConfig {
     md_output_field:      String,   // nome sotto cui iniettare la chiave nella riga
     md_source_column:     String,   // colonna DB del RETURNING (es. "id")
     transaction_id:       String,
+    /// P345: parametri di connessione per i dialetti ODBC.
+    odbc:                 crate::odbc::OdbcTarget,
 }
 
 fn default_port(dialect: &str) -> u16 {
     match dialect {
-        "mysql" => 3306,
-        _       => 5432,
+        "mysql"    => 3306,
+        "oracle"   => 1521,
+        "informix" => 9088,
+        _          => 5432,
     }
 }
 
@@ -158,6 +162,13 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
             mode
         ));
     }
+    // MERGE (P345): serve una condizione oppure almeno una chiave, altrimenti
+    // non c'e' modo di sapere quale riga aggiornare.
+    if mode == "merge" && key_fields.is_none() && spec.str_or("mergeCondition", "").trim().is_empty() {
+        return Err("mode 'merge' requires a MERGE ON condition or at least one key column in the mapping".to_string());
+    }
+    // Modalita' sconosciuta: errore SUBITO (prima finiva nel ramo DELETE).
+    crate::check_write_mode(&mode, &spec.res_str_or("dialect", "postgresql"))?;
     let exclude_columns = {
         let v = spec.str_list("excludeColumns");
         if v.is_empty() { None } else { Some(v) }
@@ -209,6 +220,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         drop_and_create:      spec.bool_or("dropAndCreate", false),
         resource_id:          spec.resource_id(),
         transaction_id:       spec.str_or("transactionId", ""),
+        odbc:                 crate::odbc::target_from_spec(spec, &dialect, port, &user),
         dialect,
         port,
         user,
@@ -336,24 +348,12 @@ async fn write_all(
     let mut query_count = 0u32;
     let mut batch: Vec<serde_json::Value> = Vec::with_capacity(batch_size);
 
-    // DDL
-    if config.drop_and_create || config.create_if_not_exists {
-        if config.dialect == "postgresql" {
-            if config.drop_and_create {
-                let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
-                exec_pre_post(pool, &drop, "DROP TABLE").await?;
-            }
-            if let Some(ddl) = build_create_table(config) {
-                exec_pre_post(pool, &ddl, "CREATE TABLE").await?;
-            }
-        } else {
-            eprintln!("[sink_db] DDL saltata: dialetto '{}' non ancora supportato", config.dialect);
-        }
-    }
+    run_ddl(pool, config).await?;
 
     if !config.pre_sql.trim().is_empty() {
         exec_pre_post(pool, &config.pre_sql, "Pre-SQL").await?;
     }
+    truncate_once(pool, config).await?;
 
     while let Some(row) = rx.recv().await {
         rows_in += 1;
@@ -365,7 +365,7 @@ async fn write_all(
         batch.push(json_row);
 
         if batch.len() >= batch_size {
-            let (w, _e) = flush_batch(pool, config, &batch).await?;
+            let (w, _e) = flush_batch(pool, config, &batch, &row_mode(config)).await?;
             written += w;
             query_count += 1;
             batch.clear();
@@ -381,7 +381,7 @@ async fn write_all(
     }
 
     if !batch.is_empty() {
-        let (w, _e) = flush_batch(pool, config, &batch).await?;
+        let (w, _e) = flush_batch(pool, config, &batch, &row_mode(config)).await?;
         written += w;
         query_count += 1;
     }
@@ -664,7 +664,8 @@ async fn tx_ddl_and_presql(
     config: &SinkDbConfig,
     ) -> Result<(), String> {
     let needs_ddl = config.drop_and_create || config.create_if_not_exists;
-    if !needs_ddl && config.pre_sql.trim().is_empty() {
+    let truncate = config.mode == "truncate_insert";
+    if !needs_ddl && config.pre_sql.trim().is_empty() && !truncate {
         return Ok(());
     }
     let mut guard = conn.lock().await;
@@ -676,7 +677,7 @@ async fn tx_ddl_and_presql(
             .map_err(|e| format!("DROP TABLE failed: {}", e))?;
     }
     if needs_ddl {
-        if let Some(ddl) = build_create_table(config) {
+        if let Some(ddl) = build_create_table(config, true) {
             eprintln!("[tx][ddl] CREATE TABLE {}", qualified_ddl_table(config));
             sqlx::query(crate::sqlsafe::autore(ddl.as_str())).execute(&mut **guard).await
                 .map_err(|e| format!("CREATE TABLE failed: {}", e))?;
@@ -687,6 +688,13 @@ async fn tx_ddl_and_presql(
             sqlx::query(crate::sqlsafe::autore(stmt)).execute(&mut **guard).await
                 .map_err(|e| format!("Pre-SQL failed: {}", e))?;
         }
+    }
+    // P345: prima truncate_insert in transazione NON svuotava la tabella.
+    // TRUNCATE in Postgres è transazionale: un ROLLBACK del gruppo la annulla.
+    if truncate {
+        let t = format!("TRUNCATE TABLE {}", qualified_ddl_table(config));
+        sqlx::query(crate::sqlsafe::autore(t.as_str())).execute(&mut **guard).await
+            .map_err(|e| format!("TRUNCATE failed: {}", e))?;
     }
     Ok(())
 }
@@ -711,7 +719,7 @@ fn build_tx_req(config: &SinkDbConfig, batch: &[serde_json::Value]) -> crate::Db
         connection:          build_db_connection_params(config),
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
-        mode:                config.mode.clone(),
+        mode:                row_mode(config),
         rows:                batch.to_vec(),
         key_fields:          config.key_fields.clone(),
         columns:             None,
@@ -738,7 +746,7 @@ async fn flush_batch_tx(
         connection:          build_db_connection_params(config),
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
-        mode:                config.mode.clone(),
+        mode:                row_mode(config),
         rows:                batch.to_vec(),
         key_fields:          config.key_fields.clone(),
         columns:             None,
@@ -775,20 +783,11 @@ async fn write_master_detail(
     let mut last_prog = Instant::now();
 
     // DDL + pre-SQL come nel percorso batch.
-    if config.drop_and_create || config.create_if_not_exists {
-        if config.dialect == "postgresql" {
-            if config.drop_and_create {
-                let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
-                exec_pre_post(pool, &drop, "DROP TABLE").await?;
-            }
-            if let Some(ddl) = build_create_table(config) {
-                exec_pre_post(pool, &ddl, "CREATE TABLE").await?;
-            }
-        }
-    }
+    run_ddl(pool, config).await?;
     if !config.pre_sql.trim().is_empty() {
         exec_pre_post(pool, &config.pre_sql, "Pre-SQL").await?;
     }
+    truncate_once(pool, config).await?;
 
     while let Some(row) = rx.recv().await {
         rows_in += 1;
@@ -840,7 +839,7 @@ async fn flush_one_returning(
         connection:          build_db_connection_params(config),
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
-        mode:                config.mode.clone(),
+        mode:                row_mode(config),
         rows:                vec![row.clone()],
         key_fields:          config.key_fields.clone(),
         columns:             None,
@@ -861,19 +860,38 @@ async fn flush_one_returning(
         DbPool::Pg(p)     => crate::pg_write_pool(p, &req, start).await?,
         DbPool::My(p)     => crate::mysql_write_pool(p, &req, start).await?,
         DbPool::Sqlite(p) => crate::sqlite_write_pool(p, &req, start).await?,
-        DbPool::Odbc(_)   => return Err(ODBC_WRITE_TODO.to_string()),
+        DbPool::Odbc(p)   => crate::odbc::write(p, &req, start).await?,
     };
     // generated_keys[0] è la chiave di questa riga (batch=1).
     let key = result.generated_keys.into_iter().next()
         .map(Value::from_json);
     Ok(key)
 }
+// ─── truncate_insert: svuota UNA volta, poi solo INSERT ──────────
+//
+// P345 🐞: la modalità arrivava tale e quale a ogni lotto, e ogni lotto
+// rifaceva TRUNCATE → restava solo l'ultimo lotto (2500 righe con lotti
+// da 1000 → 500 in tabella, run "riuscito"); nel master-detail una riga
+// sola. Ora il TRUNCATE (DELETE su SQLite) si fa qui, una volta, con un
+// lotto vuoto — così la sintassi per dialetto resta quella di lib.rs/odbc.rs
+// e la tabella si svuota anche senza righe in ingresso — e i lotti
+// viaggiano come INSERT.
+fn row_mode(config: &SinkDbConfig) -> String {
+    if config.mode == "truncate_insert" { "insert".to_string() } else { config.mode.clone() }
+}
+
+async fn truncate_once(pool: &crate::engine::pool::DbPool, config: &SinkDbConfig) -> Result<(), String> {
+    if config.mode != "truncate_insert" { return Ok(()) }
+    flush_batch(pool, config, &[], "truncate_insert").await.map(|_| ())
+}
+
 // ─── Flush un batch di righe usando le funzioni esistenti di lib.rs ──
 
 async fn flush_batch(
     pool:   &crate::engine::pool::DbPool,
     config:   &SinkDbConfig,
     batch:    &[serde_json::Value],
+    mode:     &str,
 ) -> Result<(u64, u64), String> {
 
     // Costruisce DbWriteRequest — il formato che pg_write si aspetta
@@ -881,7 +899,7 @@ async fn flush_batch(
         connection:          build_db_connection_params(config),
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
-        mode:                config.mode.clone(),
+        mode:                mode.to_string(),
         rows:                batch.to_vec(),
         key_fields:          config.key_fields.clone(),
         columns:             None,
@@ -902,7 +920,7 @@ async fn flush_batch(
         DbPool::Pg(p)     => crate::pg_write_pool(p, &req, start).await?,
         DbPool::My(p)     => crate::mysql_write_pool(p, &req, start).await?,
         DbPool::Sqlite(p) => crate::sqlite_write_pool(p, &req, start).await?,
-        DbPool::Odbc(_)   => return Err(ODBC_WRITE_TODO.to_string()),
+        DbPool::Odbc(p)   => crate::odbc::write(p, &req, start).await?,
     };
 
     Ok((result.rows_written as u64, result.rows_errors as u64))
@@ -940,7 +958,7 @@ fn qualified_ddl_table(config: &SinkDbConfig) -> String {
 /// colonne (in quel caso non si crea niente). Usa `IF NOT EXISTS` solo
 /// in modalità create-if-not-exists pura (dopo un DROP la tabella è
 /// sicuramente assente, quindi non serve).
-fn build_create_table(config: &SinkDbConfig) -> Option<String> {
+fn build_create_table(config: &SinkDbConfig, allow_if_not_exists: bool) -> Option<String> {
     if config.columns_ddl.is_empty() {
         return None;
     }
@@ -959,7 +977,7 @@ fn build_create_table(config: &SinkDbConfig) -> Option<String> {
         body.push_str(&format!(",\n  PRIMARY KEY ({})", pk.join(", ")));
     }
 
-    let if_not_exists = if config.create_if_not_exists && !config.drop_and_create {
+    let if_not_exists = if allow_if_not_exists && config.create_if_not_exists && !config.drop_and_create {
         "IF NOT EXISTS "
     } else {
         ""
@@ -987,15 +1005,44 @@ fn build_conn_str(config: &SinkDbConfig) -> Result<String, String> {
             urlencoding::encode(&config.user), urlencoding::encode(&config.password),
             config.host, config.port, config.database)),
         "sqlite" => Ok(format!("sqlite:{}", config.database)),
-        d if crate::odbc::is_odbc_dialect(d) => Err(ODBC_WRITE_TODO.to_string()),
+        d if crate::odbc::is_odbc_dialect(d) => crate::odbc::connection_string(&config.odbc),
         d => Err(format!("Dialect '{}' not supported", d)),
     }
 }
 
-/// P344: la LETTURA via ODBC (Oracle, Informix, ODBC generico) c'e'; la scrittura
-/// arriva con la fetta 2 (insert/upsert/MERGE per dialetto, DDL, pre/post SQL).
-const ODBC_WRITE_TODO: &str =
-    "writing to Oracle / Informix / ODBC sources is not available yet (reading is): it comes with the next ODBC slice";
+/// DDL dal mapping (creazione / ricreazione della tabella), prima di scrivere.
+/// PostgreSQL: `DROP … IF EXISTS … CASCADE` e `CREATE TABLE IF NOT EXISTS`.
+/// ODBC (P345): niente IF [NOT] EXISTS portabile → si verifica l'esistenza con
+/// una SELECT che non legge righe, poi DROP / CREATE semplici. I tipi delle
+/// colonne sono quelli del mapping (nella lingua del database di destinazione).
+async fn run_ddl(pool: &crate::engine::pool::DbPool, config: &SinkDbConfig) -> Result<(), String> {
+    if !(config.drop_and_create || config.create_if_not_exists) {
+        return Ok(());
+    }
+    if config.dialect == "postgresql" {
+        if config.drop_and_create {
+            let drop = format!("DROP TABLE IF EXISTS {} CASCADE", qualified_ddl_table(config));
+            exec_pre_post(pool, &drop, "DROP TABLE").await?;
+        }
+        if let Some(ddl) = build_create_table(config, true) {
+            exec_pre_post(pool, &ddl, "CREATE TABLE").await?;
+        }
+    } else if let crate::engine::pool::DbPool::Odbc(p) = pool {
+        let tbl = qualified_ddl_table(config);
+        let exists = crate::odbc::table_exists(p, tbl.clone()).await?;
+        if config.drop_and_create && exists {
+            exec_pre_post(pool, &format!("DROP TABLE {}", tbl), "DROP TABLE").await?;
+        }
+        if config.drop_and_create || !exists {
+            if let Some(ddl) = build_create_table(config, false) {
+                exec_pre_post(pool, &ddl, "CREATE TABLE").await?;
+            }
+        }
+    } else {
+        eprintln!("[sink_db] DDL saltata: dialetto '{}' non ancora supportato", config.dialect);
+    }
+    Ok(())
+}
 
 fn build_db_connection_params(config: &SinkDbConfig) -> crate::DbConnectionParams {
     crate::DbConnectionParams {
@@ -1027,10 +1074,10 @@ async fn exec_pre_post(
     let stmts: Vec<&str> = sql.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
     for stmt in stmts {
         let res = match pool {
-            DbPool::Pg(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
-            DbPool::My(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
-            DbPool::Sqlite(p) => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
-            DbPool::Odbc(_)   => return Err(ODBC_WRITE_TODO.to_string()),
+            DbPool::Pg(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+            DbPool::My(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+            DbPool::Sqlite(p) => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+            DbPool::Odbc(p)   => crate::odbc::exec_sql(p, stmt.to_string(), String::new()).await,
         };
         res.map_err(|e| format!("{} failed: {}", label, e))?;
     }

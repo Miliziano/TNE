@@ -68,12 +68,27 @@ const PT_COLOR = '#a855f7'
 
 const WRITE_MODES_ALL = [
   { value: 'insert',          label: 'INSERT',    icon: 'ti-row-insert-bottom', desc: 'Inserts new rows',          disclaimer: null,                                           passthroughOk: true  },
-  { value: 'upsert',          label: 'UPSERT',    icon: 'ti-arrows-exchange',   desc: 'Insert or update on conflict',   disclaimer: 'Not available on Oracle and SQL Server',       passthroughOk: true  },
+  { value: 'upsert',          label: 'UPSERT',    icon: 'ti-arrows-exchange',   desc: 'Insert or update on conflict',   disclaimer: null,                                           passthroughOk: true  },
   { value: 'update',          label: 'UPDATE',    icon: 'ti-edit',              desc: 'Updates existing rows',       disclaimer: null,                                           passthroughOk: false },
   { value: 'delete',          label: 'DELETE',    icon: 'ti-trash',             desc: 'Deletes rows',                  disclaimer: null,                                           passthroughOk: false },
   { value: 'truncate_insert', label: 'TRUNC+INS', icon: 'ti-refresh',           desc: 'Empties and reinserts',           disclaimer: null,                                           passthroughOk: false },
-  { value: 'merge',           label: 'MERGE',     icon: 'ti-git-merge',         desc: 'Standard SQL — requires PG 15+', disclaimer: 'Recommended for Oracle and SQL Server',          passthroughOk: false },
+  { value: 'merge',           label: 'MERGE',     icon: 'ti-git-merge',         desc: 'Standard SQL MERGE',             disclaimer: null,                                           passthroughOk: false },
 ]
+
+// P345: cosa fa davvero ogni modalità sul dialetto scelto (motore: check_write_mode,
+// odbc::WriteJob). MERGE non esiste su MySQL e SQLite: lì si usa UPSERT.
+const NO_MERGE_DIALECTS = ['mysql', 'sqlite']
+function modeNote(mode: string, dialect: string): string | null {
+  const odbc = ['oracle', 'informix', 'odbc'].includes(dialect)
+  if (mode === 'upsert' && odbc) return 'Via ODBC: UPDATE on the key columns, INSERT when no row matches'
+  if (mode === 'merge') {
+    if (dialect === 'postgresql') return 'Requires PostgreSQL 15+'
+    if (dialect === 'oracle') return 'Native Oracle MERGE (via ODBC)'
+    if (odbc) return 'Via ODBC: same as UPSERT on the key columns'
+    if (NO_MERGE_DIALECTS.includes(dialect)) return 'Not available on this database: use UPSERT'
+  }
+  return null
+}
 
 function mergeConditionConfig(mode: string): { show: boolean } {
   return { show: mode === 'merge' }
@@ -100,11 +115,6 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
   const dropAndCreate       = p('dropAndCreate', 'false') === 'true'
   const passthroughActive   = p('passthroughMasterDetail', 'false') === 'true'
 
-  // In modalità pass-through filtra solo i modi compatibili
-  const WRITE_MODES = passthroughActive
-    ? WRITE_MODES_ALL.filter(m => m.passthroughOk)
-    : WRITE_MODES_ALL
-
   const dbRes = useMemo(
     () => pool.lanes.find(l => l.id === laneId)?.resources.filter(r => r.kind === 'db') ?? [],
     [pool, laneId]
@@ -122,6 +132,13 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
   const color    = DB_DIALECT_COLORS[dialect] ?? '#3ddc84'
   const dbLabel  = DB_DIALECT_LABELS[dialect] ?? 'DB'
   const isSqlite = dialect === 'sqlite'
+
+  // In modalità pass-through filtra solo i modi compatibili; MERGE solo dove esiste
+  const WRITE_MODES = WRITE_MODES_ALL
+    .filter(m => !passthroughActive || m.passthroughOk)
+    .filter(m => m.value !== 'merge' || !NO_MERGE_DIALECTS.includes(dialect) || writeMode === 'merge')
+    .map(m => ({ ...m, disclaimer: modeNote(m.value, dialect) }))
+  const mergeConditionAllowed = dialect === 'postgresql' || dialect === 'oracle'
 
   const handleResourceChange = (newResId: string) => {
     updateConfig(nodeId, { resourceId: newResId })
@@ -314,6 +331,11 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
       {mergeCfg.show && (
         <Field label="MERGE ON condition">
           <textarea style={{ ...iStyle, resize: 'vertical', minHeight: 48 }} value={p('mergeCondition', '')} onChange={u('mergeCondition')} placeholder="target.id = source.id" spellCheck={false} />
+          {!mergeConditionAllowed && (
+            <div style={{ fontSize: 10, color: '#ffb347', marginTop: 4 }}>
+              A custom condition is supported on PostgreSQL and Oracle only: here MERGE matches on the key columns, leave it empty.
+            </div>
+          )}
         </Field>
       )}
 
