@@ -178,6 +178,16 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
 
   const missingKeys     = needsKeys && mappingKeyCount === 0
   const needsDdlPk      = createIfNotExists || dropAndCreate
+  // P349: la PRIMARY KEY della tabella creata viene dai badge PK del mapping
+  // (l'unica fonte che il motore usa); il vecchio campo ddlPrimaryKey non c'e' piu'.
+  const mappingPkCols = useMemo(() => {
+    try {
+      const raw = node.data.props?.['sinkColumns']
+      if (!raw) return [] as string[]
+      const cols = JSON.parse(raw as string) as Array<{ enabled: boolean; isPk?: boolean; dbColumn: string }>
+      return cols.filter(c => c.enabled && c.isPk).map(c => c.dbColumn)
+    } catch { return [] as string[] }
+  }, [node.data.props?.['sinkColumns']])
   const customQueryMode = p('customQueryMode', 'none')
   const sqlCustomActive = customQueryMode !== 'none'
 
@@ -254,8 +264,16 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
           </label>
           {needsDdlPk && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4, borderTop: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600 }}>PRIMARY KEY column</div>
-              <input style={iStyle} value={p('ddlPrimaryKey', '')} onChange={u('ddlPrimaryKey')} placeholder="e.g. id" />
+              <div style={{ fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600 }}>PRIMARY KEY</div>
+              {mappingPkCols.length > 0 ? (
+                <div style={{ fontSize: 11, color: '#ffb347', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {mappingPkCols.join(', ')} <span style={{ color: '#8593b5', fontFamily: 'inherit', fontSize: 10 }}>— from the PK badges in the Mapping tab</span>
+                </div>
+              ) : (
+                <div style={{ fontSize: 10, color: '#ff9f57' }}>
+                  No PK column: the table is created without a primary key. Mark the PK columns in the Mapping tab.
+                </div>
+              )}
             </div>
           )}
         </div>

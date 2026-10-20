@@ -211,7 +211,9 @@ può essere indistinguibile dal successo.
 |---------------------|--------|---------|-----------------------------------------------|------|
 | `createIfNotExists` | bool   | `false` | `CREATE TABLE IF NOT EXISTS` da `sinkColumns` | ✅ (PostgreSQL, MySQL, SQLite dal P346; ODBC dal P345) |
 | `dropAndCreate`     | bool   | `false` | `DROP TABLE` (+ `CASCADE` su PostgreSQL) + `CREATE` | ✅ (come sopra) |
-| `ddlPrimaryKey`     | string | `""`    | PK esplicita per la DDL                       | 🕐   |
+
+P349: la PRIMARY KEY della tabella creata viene dai badge **PK** del mapping
+(`sinkColumns[].isPk`); il vecchio campo `ddlPrimaryKey` non esiste più.
 
 Convenzione quoting (bug Fase 11): DDL e DML devono usare la **stessa**
 politica di quoting degli identificatori. Oggi: nessun quoting.
@@ -259,10 +261,23 @@ Elemento di `sinkColumns`:
   "isPk":     false,
   "enabled":  true,             // false = colonna esclusa dalla scrittura
   "sourceField": "campo_riga",  // campo della riga in ingresso
-  "dbFunction":  "",            // funzione SQL applicata al valore (es. NOW())
+  "dbFunction":  "",            // funzione SQL della colonna: {v} = valore della riga (es. UPPER({v})); senza {v} è SQL letterale (es. NOW())
   "isKey": false, "keyOperator": "=", "keyLogic": "AND"  // per update/delete
 }
 ```
+
+P349 — semantica eseguita dal motore (prima ignorata):
+- `dbFunction` vale in INSERT, SET e WHERE; `{v}` al massimo una volta
+  (`$VALUE` resta accettato).
+- `keyOperator`: `=` `!=` `>` `<` `>=` `<=` `LIKE` `IS NULL` `IS NOT NULL`
+  (`IS [NOT] NULL` non usa il valore). `keyLogic` lega la condizione alla
+  **precedente** (la prima lo ignora); precedenze normali dell'SQL (AND prima
+  di OR), come l'anteprima dello studio. Valgono per UPDATE e DELETE su tutti i
+  database; UPSERT e MERGE accettano solo `=` e AND (altrimenti errore).
+- `generatedKeyConfig.dbFunction` (es. `nextval('seq')`, `seq.NEXTVAL`) è la
+  funzione della colonna chiave del master-detail: la colonna entra
+  nell'INSERT anche se il mapping non la porta e la chiave torna con
+  RETURNING; sull'UPSERT la chiave restituita non viene mai riscritta.
 
 Semantica di scrittura (Fase 11, confermata): la riga scritta è
 `riga[sourceField] → dbColumn` per le sole colonne `enabled`; l'esecutore

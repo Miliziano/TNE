@@ -32,8 +32,8 @@ use crate::engine::spec::Spec;
 fn default_true() -> bool { true }
 
 /// Elemento della prop `sinkColumns` (JSON del MappingPanel).
-/// I campi UI non elencati (dbFunction, isKey, keyOperator, …)
-/// vengono ignorati da serde.
+/// P349: letti anche dbFunction, keyOperator e keyLogic (prima ignorati:
+/// il motore usava sempre `=`/AND e nessuna funzione).
 #[derive(serde::Deserialize)]
 struct SinkColumn {
     #[serde(rename = "dbColumn")]
@@ -50,6 +50,21 @@ struct SinkColumn {
     enabled:      bool,
     #[serde(rename = "sourceField", default)]
     source_field: String,
+    #[serde(rename = "dbFunction", default)]
+    db_function:  String,
+    #[serde(rename = "keyOperator", default)]
+    key_operator: Option<String>,
+    #[serde(rename = "keyLogic", default)]
+    key_logic:    Option<String>,
+}
+
+/// P349: funzione SQL di una colonna come la scrive lo studio. Il valore
+/// della riga e' `{v}` (`$VALUE` resta accettato); senza segnaposto la
+/// funzione e' SQL letterale (es. `NOW()`) e il valore della riga non si usa.
+fn column_function(column: &str, expr: &str) -> Option<crate::DbColumnFunction> {
+    let e = expr.trim();
+    if e.is_empty() { return None }
+    Some(crate::DbColumnFunction { column: column.to_string(), expr: e.replace("{v}", "$VALUE") })
 }
 
 /// Definizione di una colonna per DDL e scrittura (interna al nodo).
@@ -84,6 +99,12 @@ struct SinkDbConfig {
     post_sql:             String,
     merge_condition:      Option<String>,
     dead_letter_table:    Option<String>,
+    /// P349: funzioni SQL per colonna (mapping `dbFunction`, sequenza della chiave generata).
+    column_functions:     Option<Vec<crate::DbColumnFunction>>,
+    /// P349: operatori e AND/OR delle chiavi (mapping `keyOperator`/`keyLogic`).
+    key_conditions:       Option<Vec<crate::DbKeyCondition>>,
+    /// P349: la chiave del master-detail la genera una funzione (sequenza).
+    md_key_function:      bool,
     // Monitoraggio: id della risorsa connessione (per eventi Connection*)
     resource_id:          String,
     // DDL (Fase 11): creazione/ricreazione tabella dal mapping
@@ -174,6 +195,29 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         if v.is_empty() { None } else { Some(v) }
     };
 
+    // P349: operatori/AND-OR delle chiavi e funzioni di colonna dal mapping.
+    let key_conditions: Option<Vec<crate::DbKeyCondition>> = {
+        let v: Vec<crate::DbKeyCondition> = sink_cols.iter()
+            .filter(|c| c.is_key && c.enabled)
+            .map(|c| crate::DbKeyCondition {
+                column: c.db_column.clone(),
+                op:     c.key_operator.clone().filter(|o| !o.trim().is_empty()).unwrap_or_else(|| "=".to_string()),
+                logic:  c.key_logic.clone().filter(|l| !l.trim().is_empty()).unwrap_or_else(|| "AND".to_string()),
+            })
+            .collect();
+        if v.is_empty() { None } else { Some(v) }
+    };
+    crate::check_key_conditions(&mode, &key_conditions)?;
+    let mut column_functions: Vec<crate::DbColumnFunction> = sink_cols.iter()
+        .filter(|c| c.enabled)
+        .filter_map(|c| column_function(&c.db_column, &c.db_function))
+        .collect();
+    // Un solo {v} per funzione: con i segnaposto `?` (MySQL, SQLite, ODBC)
+    // ogni occorrenza vorrebbe un suo valore legato.
+    if let Some(f) = column_functions.iter().find(|f| f.expr.matches("$VALUE").count() > 1) {
+        return Err(format!("the DB function of column '{}' uses the row value more than once: use {{v}} only once", f.column));
+    }
+
     // Mapping colonne dal MappingPanel — filtrate alle sole enabled,
     // con sourceField preservato (prima veniva scartato dal builder TS).
    
@@ -195,11 +239,21 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         output_field_name: String,
         #[serde(rename = "sourceDbColumn", default)]
         source_db_column:  String,
+        #[serde(rename = "dbFunction", default)]
+        db_function:       String,
     }
     let passthrough_md = spec.bool_or("passthroughMasterDetail", false);
     let gk: GenKeyCfg = spec.json_or("generatedKeyConfig", GenKeyCfg::default());
     let md_output_field  = if gk.output_field_name.is_empty() { "__generated_id".to_string() } else { gk.output_field_name };
     let md_source_column = if gk.source_db_column.is_empty()  { "id".to_string() } else { gk.source_db_column };
+    // P349: "Sequence (opt.)" della chiave generata (es. nextval('seq'),
+    // seq.NEXTVAL): diventa la funzione della colonna chiave, e la chiave
+    // torna indietro con RETURNING (Postgres) / RETURNING INTO (Oracle).
+    let md_key_function = passthrough_md && !gk.db_function.trim().is_empty();
+    if md_key_function {
+        column_functions.retain(|f| f.column != md_source_column);
+        column_functions.extend(column_function(&md_source_column, &gk.db_function));
+    }
 
     Ok(SinkDbConfig {
         host:                 spec.res_str_or("host", "localhost"),
@@ -216,6 +270,9 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         post_sql:             spec.str_or("postSql", ""),
         merge_condition:      opt_nonempty(spec.str_or("mergeCondition", "")),
         dead_letter_table:    opt_nonempty(spec.str_or("deadLetterTable", "")),
+        column_functions:     if column_functions.is_empty() { None } else { Some(column_functions) },
+        key_conditions,
+        md_key_function,
         create_if_not_exists: spec.bool_or("createIfNotExists", false),
         drop_and_create:      spec.bool_or("dropAndCreate", false),
         resource_id:          spec.resource_id(),
@@ -647,7 +704,8 @@ async fn write_master_detail_tx(
 
             let mut res: Result<(), String> = Ok(());
             for (orig_row, json_row) in &buf {
-                let mut req = build_tx_req(config, std::slice::from_ref(json_row));
+                let md_row  = with_md_key(config, json_row);
+            let mut req = build_tx_req(config, std::slice::from_ref(&md_row));
                 req.batch_size       = 1;
                 req.returning_column = Some(config.md_source_column.clone());
 
@@ -850,7 +908,8 @@ async fn write_master_detail_tx_odbc(
         // stesso gruppo, scrive sulla stessa connessione e vede i master.
         let mut enriched_batch: Vec<Row> = Vec::with_capacity(buf.len());
         for (orig_row, json_row) in &buf {
-            let mut req = build_tx_req(config, std::slice::from_ref(json_row));
+            let md_row  = with_md_key(config, json_row);
+            let mut req = build_tx_req(config, std::slice::from_ref(&md_row));
             req.batch_size       = 1;
             req.returning_column = Some(config.md_source_column.clone());
             match crate::odbc::tx_write(&conn, &req, Instant::now()).await {
@@ -965,7 +1024,8 @@ fn build_tx_req(config: &SinkDbConfig, batch: &[serde_json::Value]) -> crate::Db
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
-        column_functions:    None,
+        column_functions:    config.column_functions.clone(),
+        key_conditions:      config.key_conditions.clone(),
         merge_condition:     config.merge_condition.clone(),
         pre_sql:             None,
         post_sql:            None,
@@ -992,7 +1052,8 @@ async fn flush_batch_tx(
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
-        column_functions:    None,
+        column_functions:    config.column_functions.clone(),
+        key_conditions:      config.key_conditions.clone(),
         merge_condition:     config.merge_condition.clone(),
         pre_sql:             None,
         post_sql:            None,
@@ -1069,6 +1130,18 @@ async fn write_master_detail(
     Ok((rows_in, written, written as u32))
 }
 
+/// P349: con la chiave generata da una sequenza la colonna chiave deve
+/// comparire nell'INSERT anche se il mapping non la porta: vale la funzione.
+fn with_md_key(config: &SinkDbConfig, row: &serde_json::Value) -> serde_json::Value {
+    let mut r = row.clone();
+    if config.md_key_function {
+        if let Some(o) = r.as_object_mut() {
+            o.entry(config.md_source_column.clone()).or_insert(serde_json::Value::Null);
+        }
+    }
+    r
+}
+
 // Scrive una riga con RETURNING e restituisce la chiave generata.
 async fn flush_one_returning(
     pool:    &crate::engine::pool::DbPool,
@@ -1081,11 +1154,12 @@ async fn flush_one_returning(
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
         mode:                row_mode(config),
-        rows:                vec![row.clone()],
+        rows:                vec![with_md_key(config, row)],
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
-        column_functions:    None,
+        column_functions:    config.column_functions.clone(),
+        key_conditions:      config.key_conditions.clone(),
         merge_condition:     config.merge_condition.clone(),
         pre_sql:             None,
         post_sql:            None,
@@ -1145,7 +1219,8 @@ async fn flush_batch(
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
-        column_functions:    None,
+        column_functions:    config.column_functions.clone(),
+        key_conditions:      config.key_conditions.clone(),
         merge_condition:     config.merge_condition.clone(),
         pre_sql:             None,   // già eseguito una volta sopra
         post_sql:            None,

@@ -564,6 +564,112 @@ pub struct DbColumnFunction {
   pub column: String,
   pub expr:   String,
 }
+
+/// P349: condizione su una colonna chiave per UPDATE e DELETE, come nel
+/// mapping dello studio: operatore (`=`, `!=`, `>`, `<`, `>=`, `<=`, `LIKE`,
+/// `IS NULL`, `IS NOT NULL`) e legame con la condizione precedente
+/// (`AND`/`OR`, precedenze normali dell'SQL — come l'anteprima dello studio).
+/// Prima il motore usava sempre `=` e `AND`: un DELETE con `>` cancellava
+/// righe diverse da quelle configurate.
+#[derive(Debug, Deserialize, Clone)]
+pub struct DbKeyCondition {
+  pub column: String,
+  #[serde(default = "key_op_default")]
+  pub op:     String,
+  #[serde(default = "key_logic_default")]
+  pub logic:  String,
+}
+fn key_op_default() -> String { "=".to_string() }
+fn key_logic_default() -> String { "AND".to_string() }
+
+/// Operatore SQL ammesso e se lega un valore.
+fn key_sql_op(op: &str) -> Result<(&'static str, bool), String> {
+  Ok(match op.trim().to_uppercase().as_str() {
+    "=" => ("=", true),
+    "!=" | "<>" => ("<>", true),
+    ">" => (">", true),
+    "<" => ("<", true),
+    ">=" => (">=", true),
+    "<=" => ("<=", true),
+    "LIKE" => ("LIKE", true),
+    "IS NULL" => ("IS NULL", false),
+    "IS NOT NULL" => ("IS NOT NULL", false),
+    other => return Err(format!("key operator '{}' is not supported", other)),
+  })
+}
+
+/// Upsert e merge usano le chiavi come identita' della riga: solo `=` e `AND`.
+pub(crate) fn check_key_conditions(mode: &str, conds: &Option<Vec<DbKeyCondition>>) -> Result<(), String> {
+  for c in conds.iter().flatten() {
+    key_sql_op(&c.op)?;
+    let logic = c.logic.trim().to_uppercase();
+    if logic != "AND" && logic != "OR" {
+      return Err(format!("key logic '{}' is not supported (AND or OR)", c.logic));
+    }
+    if matches!(mode, "upsert" | "merge") && (key_sql_op(&c.op)?.0 != "=" || logic == "OR") {
+      return Err(format!(
+        "{} matches rows on the key columns with '=' and AND: operator '{}' / '{}' on '{}' is only for UPDATE and DELETE",
+        mode.to_uppercase(), c.op, c.logic, c.column));
+    }
+  }
+  Ok(())
+}
+
+/// WHERE di UPDATE/DELETE sulle colonne chiave (P349). Rispetta operatori,
+/// AND/OR e le funzioni di colonna (`UPPER($VALUE)`, `NOW()`), come
+/// l'anteprima dello studio. Restituisce l'SQL e i valori da legare, in ordine.
+pub(crate) fn where_plan<'a>(
+  keys: &[String],
+  conds: &Option<Vec<DbKeyCondition>>,
+  fields: &'a [(String, serde_json::Value)],
+  column_functions: &Option<Vec<DbColumnFunction>>,
+  style: PlaceholderStyle,
+  start_index: usize,
+  quote: &dyn Fn(&str) -> String,
+) -> Result<(String, Vec<&'a serde_json::Value>), String> {
+  let fn_map: std::collections::HashMap<&str, &str> = column_functions.as_ref()
+    .map(|v| v.iter().map(|cf| (cf.column.as_str(), cf.expr.as_str())).collect())
+    .unwrap_or_default();
+  let mut next = start_index;
+  let mut sql = String::new();
+  let mut binds = Vec::new();
+  for (i, k) in keys.iter().enumerate() {
+    let cond = conds.as_ref().and_then(|v| v.iter().find(|c| &c.column == k));
+    let (op, needs_value) = key_sql_op(cond.map(|c| c.op.as_str()).unwrap_or("="))?;
+    if i > 0 {
+      let logic = cond.map(|c| c.logic.trim().to_uppercase()).unwrap_or_else(|| "AND".to_string());
+      sql.push_str(if logic == "OR" { " OR " } else { " AND " });
+    }
+    if !needs_value {
+      sql.push_str(&format!("{} {}", quote(k), op));
+      continue;
+    }
+    let mut placeholder = || match style {
+      PlaceholderStyle::Dollar => { let p = format!("${}", next); next += 1; p }
+      PlaceholderStyle::Question => "?".to_string(),
+    };
+    let value_sql = match fn_map.get(k.as_str()) {
+      Some(expr) if expr.contains("$VALUE") => {
+        let v = fields.iter().find(|(f, _)| f == k).map(|(_, v)| v)
+          .ok_or_else(|| format!("key field '{}' is missing in the row", k))?;
+        binds.push(v);
+        expr.replace("$VALUE", &placeholder())
+      }
+      Some(expr) => expr.to_string(),
+      None => {
+        let v = fields.iter().find(|(f, _)| f == k).map(|(_, v)| v)
+          .ok_or_else(|| format!("key field '{}' is missing in the row", k))?;
+        binds.push(v);
+        placeholder()
+      }
+    };
+    sql.push_str(&format!("{} {} {}", quote(k), op, value_sql));
+  }
+  if sql.is_empty() {
+    return Err("UPDATE/DELETE need at least one key column (WHERE)".to_string());
+  }
+  Ok((sql, binds))
+}
 #[derive(Debug, Deserialize)]
 pub struct DbWriteRequest {
   connection:            DbConnectionParams,
@@ -573,6 +679,9 @@ pub struct DbWriteRequest {
   rows:                  Vec<serde_json::Value>,
   #[serde(rename = "keyFields")]
   key_fields:            Option<Vec<String>>,
+  /// P349: operatori e AND/OR delle chiavi (UPDATE/DELETE). Assente = `=` e AND.
+  #[serde(rename = "keyConditions", default)]
+  pub(crate) key_conditions: Option<Vec<DbKeyCondition>>,
   columns:               Option<Vec<String>>,
   #[serde(rename = "excludeColumns")]
   exclude_columns:       Option<Vec<String>>,
@@ -1036,6 +1145,7 @@ pub async fn pg_write_pool(
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     check_write_mode(&req.mode, &req.connection.dialect)?;
+    check_key_conditions(&req.mode, &req.key_conditions)?;
 
 
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -1090,10 +1200,18 @@ pub async fn pg_write_pool(
                     "upsert" => {
                         let updates = plan.iter()
                             .filter(|p| !keys.contains(&p.column_sql))
+                            // P349: la chiave restituita (master-detail) non si riscrive
+                            // sull'upsert: con una sequenza cambierebbe a ogni run
+                            .filter(|p| Some(p.column_sql.as_str()) != ret_col)
                             .map(|p| format!("{} = EXCLUDED.{}", p.column_sql, p.column_sql))
                             .collect::<Vec<_>>().join(", ");
                         let conflict = keys.join(", ");
-                        if updates.is_empty() {
+                        if updates.is_empty() && use_returning && !keys.is_empty() {
+                            // P349: con DO NOTHING il RETURNING non restituisce la riga
+                            // esistente; un aggiornamento neutro sulla chiave si'.
+                            format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {} = EXCLUDED.{}",
+                                tbl, cols, vals, conflict, keys[0], keys[0])
+                        } else if updates.is_empty() {
                             format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING",
                                 tbl, cols, vals, conflict)
                         } else {
@@ -1116,16 +1234,11 @@ pub async fn pg_write_pool(
                     .map(|p| format!("{} = {}", p.column_sql, p.value_sql))
                     .collect::<Vec<_>>().join(", ");
                 let where_start = count_consumed_placeholders(&set_plan) + 1;
-                let where_c = keys.iter().enumerate()
-                    .map(|(i, k)| format!("{} = ${}", k, where_start + i))
-                    .collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Dollar, where_start, &|k: &str| k.to_string())?;
                 sql = format!("UPDATE {} SET {} WHERE {}", tbl, sets, where_c);
                 bind_list = set_plan.iter().filter_map(|p| p.bind_value).collect();
-                for k in keys {
-                    if let Some((_, v)) = fields.iter().find(|(fk, _)| fk == k) {
-                        bind_list.push(v);
-                    }
-                }
+                bind_list.extend(where_binds);
             } else if req.mode == "merge" {
                 let (q, row) = pg_merge_sql(&tbl, &fields, keys, &req.column_functions, &req.merge_condition)?;
                 merge_row = row;
@@ -1133,13 +1246,10 @@ pub async fn pg_write_pool(
                 bind_list = vec![&merge_row];
             } else {
                 // delete (check_write_mode garantisce che non ci siano altre modalita')
-                let where_c = keys.iter().enumerate()
-                    .map(|(i, k)| format!("{} = ${}", k, i + 1))
-                    .collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Dollar, 1, &|k: &str| k.to_string())?;
                 sql = format!("DELETE FROM {} WHERE {}", tbl, where_c);
-                bind_list = keys.iter()
-                    .filter_map(|k| fields.iter().find(|(fk, _)| fk == k).map(|(_, v)| v))
-                    .collect();
+                bind_list = where_binds;
             }
 
             if use_returning && needs_plan {
@@ -1209,6 +1319,7 @@ pub async fn pg_write_conn(
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     check_write_mode(&req.mode, &req.connection.dialect)?;
+    check_key_conditions(&req.mode, &req.key_conditions)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
     let mut generated_keys: Vec<serde_json::Value> = Vec::new();
 
@@ -1248,10 +1359,16 @@ pub async fn pg_write_conn(
                     "upsert" => {
                         let updates = plan.iter()
                             .filter(|p| !keys.contains(&p.column_sql))
+                            // P349: la chiave restituita (master-detail) non si riscrive
+                            // sull'upsert: con una sequenza cambierebbe a ogni run
+                            .filter(|p| Some(p.column_sql.as_str()) != ret_col)
                             .map(|p| format!("{} = EXCLUDED.{}", p.column_sql, p.column_sql))
                             .collect::<Vec<_>>().join(", ");
                         let conflict = keys.join(", ");
-                        if updates.is_empty() {
+                        if updates.is_empty() && use_returning && !keys.is_empty() {
+                            // P349: vedi pg_write_pool (RETURNING anche sulla riga esistente)
+                            format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {} = EXCLUDED.{}", tbl, cols, vals, conflict, keys[0], keys[0])
+                        } else if updates.is_empty() {
                             format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO NOTHING", tbl, cols, vals, conflict)
                         } else {
                             format!("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {}", tbl, cols, vals, conflict, updates)
@@ -1264,12 +1381,11 @@ pub async fn pg_write_conn(
                 let set_plan = build_column_plan(&set_fields, &req.column_functions, PlaceholderStyle::Dollar, 1);
                 let sets = set_plan.iter().map(|p| format!("{} = {}", p.column_sql, p.value_sql)).collect::<Vec<_>>().join(", ");
                 let where_start = count_consumed_placeholders(&set_plan) + 1;
-                let where_c = keys.iter().enumerate().map(|(i, k)| format!("{} = ${}", k, where_start + i)).collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Dollar, where_start, &|k: &str| k.to_string())?;
                 sql = format!("UPDATE {} SET {} WHERE {}", tbl, sets, where_c);
                 bind_list = set_plan.iter().filter_map(|p| p.bind_value).collect();
-                for k in keys {
-                    if let Some((_, v)) = fields.iter().find(|(fk, _)| fk == k) { bind_list.push(v); }
-                }
+                bind_list.extend(where_binds);
             } else if req.mode == "merge" {
                 let (q, row) = pg_merge_sql(&tbl, &fields, keys, &req.column_functions, &req.merge_condition)?;
                 merge_row = row;
@@ -1277,9 +1393,10 @@ pub async fn pg_write_conn(
                 bind_list = vec![&merge_row];
             } else {
                 // delete (check_write_mode garantisce che non ci siano altre modalita')
-                let where_c = keys.iter().enumerate().map(|(i, k)| format!("{} = ${}", k, i + 1)).collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Dollar, 1, &|k: &str| k.to_string())?;
                 sql = format!("DELETE FROM {} WHERE {}", tbl, where_c);
-                bind_list = keys.iter().filter_map(|k| fields.iter().find(|(fk, _)| fk == k).map(|(_, v)| v)).collect();
+                bind_list = where_binds;
             }
 
             if use_returning && needs_plan {
@@ -1416,6 +1533,7 @@ pub async fn mysql_write_pool(
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     check_write_mode(&req.mode, &req.connection.dialect)?;
+    check_key_conditions(&req.mode, &req.key_conditions)?;
 
 
    
@@ -1466,6 +1584,7 @@ pub async fn mysql_write_pool(
                 sql = match req.mode.as_str() {
                     "upsert" => {
                         let updates = plan.iter()
+                            .filter(|p| Some(p.column_sql.as_str()) != req.returning_column.as_deref())
                             .map(|p| format!("`{}` = VALUES(`{}`)", p.column_sql, p.column_sql))
                             .collect::<Vec<_>>().join(", ");
                         format!("INSERT INTO `{}` ({}) VALUES ({}) ON DUPLICATE KEY UPDATE {}", tbl, cols, vals, updates)
@@ -1477,20 +1596,16 @@ pub async fn mysql_write_pool(
                 let sets = set_plan.iter()
                     .map(|p| format!("`{}` = {}", p.column_sql, p.value_sql))
                     .collect::<Vec<_>>().join(", ");
-                let where_c = keys.iter().map(|k| format!("`{}` = ?", k)).collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Question, 1, &|k: &str| format!("`{}`", k))?;
                 sql = format!("UPDATE `{}` SET {} WHERE {}", tbl, sets, where_c);
                 bind_list = set_plan.iter().filter_map(|p| p.bind_value).collect();
-                for k in keys {
-                    if let Some((_, v)) = fields.iter().find(|(fk, _)| fk == k) {
-                        bind_list.push(v);
-                    }
-                }
+                bind_list.extend(where_binds);
             } else {
-                let where_c = keys.iter().map(|k| format!("`{}` = ?", k)).collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Question, 1, &|k: &str| format!("`{}`", k))?;
                 sql = format!("DELETE FROM `{}` WHERE {}", tbl, where_c);
-                bind_list = keys.iter()
-                    .filter_map(|k| fields.iter().find(|(fk, _)| fk == k).map(|(_, v)| v))
-                    .collect();
+                bind_list = where_binds;
             }
 
             let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
@@ -1609,6 +1724,7 @@ pub async fn sqlite_write_pool(
     let tbl = qualified_table(req);
     crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
     check_write_mode(&req.mode, &req.connection.dialect)?;
+    check_key_conditions(&req.mode, &req.key_conditions)?;
 
 
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -1664,20 +1780,16 @@ pub async fn sqlite_write_pool(
                 let sets = set_plan.iter()
                     .map(|p| format!("{} = {}", p.column_sql, p.value_sql))
                     .collect::<Vec<_>>().join(", ");
-                let where_c = keys.iter().map(|k| format!("{} = ?", k)).collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Question, 1, &|k: &str| k.to_string())?;
                 sql = format!("UPDATE {} SET {} WHERE {}", tbl, sets, where_c);
                 bind_list = set_plan.iter().filter_map(|p| p.bind_value).collect();
-                for k in keys {
-                    if let Some((_, v)) = fields.iter().find(|(fk, _)| fk == k) {
-                        bind_list.push(v);
-                    }
-                }
+                bind_list.extend(where_binds);
             } else {
-                let where_c = keys.iter().map(|k| format!("{} = ?", k)).collect::<Vec<_>>().join(" AND ");
+                let (where_c, where_binds) = where_plan(keys, &req.key_conditions, &fields, &req.column_functions,
+                    PlaceholderStyle::Question, 1, &|k: &str| k.to_string())?;
                 sql = format!("DELETE FROM {} WHERE {}", tbl, where_c);
-                bind_list = keys.iter()
-                    .filter_map(|k| fields.iter().find(|(fk, _)| fk == k).map(|(_, v)| v))
-                    .collect();
+                bind_list = where_binds;
             }
 
             let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
@@ -3379,4 +3491,43 @@ pub async fn github_test_impl(connection: GithubConnection) -> Result<GithubTest
 #[tauri::command]
 async fn github_test(connection: GithubConnection) -> Result<GithubTestResult, String> {
     github_test_impl(connection).await
+}
+#[cfg(test)]
+mod where_tests {
+  use super::*;
+  fn cond(c: &str, op: &str, logic: &str) -> DbKeyCondition {
+    DbKeyCondition { column: c.into(), op: op.into(), logic: logic.into() }
+  }
+
+  #[test]
+  fn where_con_operatori_logica_e_funzioni() {
+    let fields = vec![
+      ("id".to_string(), serde_json::json!(3)),
+      ("nome".to_string(), serde_json::json!("w%")),
+      ("agg".to_string(), serde_json::Value::Null),
+    ];
+    let keys = vec!["id".to_string(), "nome".to_string(), "agg".to_string()];
+    let conds = Some(vec![cond("id", ">", "AND"), cond("nome", "LIKE", "OR"), cond("agg", "IS NULL", "AND")]);
+    let (sql, binds) = where_plan(&keys, &conds, &fields, &None, PlaceholderStyle::Dollar, 4, &|k: &str| k.to_string()).unwrap();
+    assert_eq!(sql, "id > $4 OR nome LIKE $5 AND agg IS NULL");
+    assert_eq!(binds.len(), 2);
+    // funzioni: con {v} → $VALUE legato; senza → letterale; '!=' → '<>'
+    let f = Some(vec![
+      DbColumnFunction { column: "nome".into(), expr: "UPPER($VALUE)".into() },
+      DbColumnFunction { column: "id".into(), expr: "0".into() },
+    ]);
+    let conds = Some(vec![cond("id", "!=", "AND"), cond("nome", "=", "AND")]);
+    let (sql, binds) = where_plan(&keys[..2], &conds, &fields, &f, PlaceholderStyle::Question, 1, &|k: &str| format!("`{}`", k)).unwrap();
+    assert_eq!(sql, "`id` <> 0 AND `nome` = UPPER(?)");
+    assert_eq!(binds, vec![&serde_json::json!("w%")]);
+    // senza condizioni: = e AND come prima
+    let (sql, _) = where_plan(&keys[..2], &None, &fields, &None, PlaceholderStyle::Dollar, 1, &|k: &str| k.to_string()).unwrap();
+    assert_eq!(sql, "id = $1 AND nome = $2");
+    // chiave assente dalla riga, operatore sconosciuto, upsert con '>'
+    assert!(where_plan(&["zz".to_string()], &None, &fields, &None, PlaceholderStyle::Dollar, 1, &|k: &str| k.to_string()).is_err());
+    assert!(check_key_conditions("delete", &Some(vec![cond("id", "BETWEEN", "AND")])).is_err());
+    assert!(check_key_conditions("upsert", &Some(vec![cond("id", ">", "AND")])).is_err());
+    assert!(check_key_conditions("merge", &Some(vec![cond("id", "=", "OR")])).is_err());
+    assert!(check_key_conditions("update", &Some(vec![cond("id", ">=", "OR")])).is_ok());
+  }
 }

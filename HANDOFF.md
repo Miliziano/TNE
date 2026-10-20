@@ -1460,3 +1460,46 @@ piano con `timeout`/`on_error` vecchi letto senza errori.
 `customQueryMode`/`customSql` (SQL personalizzato) e `storedProcMode` (stored procedure);
 `ddlPrimaryKey`; *Identity map* (`identityMapPersist`, `identityMapVarName`,
 `identityMapTxGroup`). Sono funzioni vere, non manopole: implementarle o toglierle.
+
+## AGGIORNAMENTO — il mapping del sink_db eseguito davvero (stato al P349, 20 ottobre)
+
+Analisi con l'utente (P348 → "il motore dovrebbe eseguirle"). Provato dal vivo prima
+della correzione: **DELETE con chiave `id >` 3 cancellava id = 3** (la riga da tenere) e
+lasciava 4 e 5; **SQL personalizzato ignorato** (riga inserita nella tabella del tab
+Configurazione, run riuscito); **funzione DB per colonna ignorata** (colonna NULL).
+
+**P349 (questa patch) — mapping.** `lib.rs`: `DbKeyCondition` + `DbWriteRequest.key_conditions`
+(serde `keyConditions`, assente = `=`/AND), `where_plan` (WHERE condiviso da Postgres
+pool/conn, MySQL, SQLite e ODBC: operatori, AND/OR con precedenze SQL come l'anteprima
+dello studio, funzioni di colonna anche in WHERE, chiave mancante nella riga → errore),
+`check_key_conditions` (UPSERT/MERGE solo `=`/AND). `sink_db`: legge `dbFunction`,
+`keyOperator`, `keyLogic` del mapping e `generatedKeyConfig.dbFunction` ("Sequence");
+`{v}` → `$VALUE`, una sola occorrenza; `with_md_key` mette la colonna chiave nell'INSERT
+quando la genera una sequenza. Upsert con chiave restituita: la chiave non si riscrive
+mai (Postgres `DO UPDATE` la esclude; senza altre colonne `DO UPDATE SET k = EXCLUDED.k`,
+perché con `DO NOTHING` il RETURNING non restituisce la riga esistente; MySQL e ODBC
+idem). ODBC: `WriteJob.key_conditions`, la chiave calcolata da una funzione si legge
+dal DB (Oracle/Informix), su ODBC generico errore che nomina la funzione.
+Studio: al posto di `ddlPrimaryKey` il pannello mostra la PK ricavata dai badge PK del
+mapping (unica fonte, già usata dal motore). `node-spec.md` aggiornato.
+
+**Collaudo:** DELETE `>`, DELETE `LIKE … OR =`, UPDATE con `UPPER({v})` e chiave
+`IS NULL`, UPDATE con funzione letterale e chiave `!=`, UPSERT con `>` → errore — tutto
+giusto su **Postgres, ODBC (psqlODBC), MySQL (MariaDB) e SQLite**. Master-detail con
+`nextval('seq')` (Postgres): chiavi 100/101/102 nei detail; upsert ripetuto → id
+invariati. Regressioni P345/P346 invariate. Test unitario `where_tests`.
+
+**Prossime (decise con l'utente):**
+- **P350 — SQL personalizzato e stored procedure** (tab Query): `{campo}` → parametro
+  legato (mai testo incollato), errore su campo inesistente o dentro apici; transazioni,
+  Stop/Skip, conteggi; stored procedure nella sintassi del dialetto (Postgres/MySQL
+  `CALL`, Oracle blocco PL/SQL, Informix `EXECUTE PROCEDURE`; SQLite no); master-detail
+  con SQL personalizzato → errore esplicito; correggere il testo falso "pre e post nella
+  stessa transazione" e i template (virgolette per dialetto, `{campo}` dentro apici).
+  Decisioni (lasciate a Claude dall'utente): **"SQL bulk" tolto** (doppione del
+  post-SQL; un progetto che lo usa riceve un errore che indica il post-SQL); **stored
+  procedure "una volta" = una chiamata per lotto** (Batch size righe in un array JSON),
+  non tutte le righe in una chiamata.
+- **P351 — identity map**: mappa "valori Hash → chiave" nel run; tra un run e l'altro
+  **ricerca del master nel database** sulle colonne Hash (decisione utente), niente
+  variabile di lane né "reset su rollback"; avviso nello studio sul vincolo UNIQUE.
