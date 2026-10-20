@@ -231,11 +231,18 @@ P348: tolti dallo studio `commitInterval`, `parallelConnections`, `txTimeout` e
 
 ### Props — SQL custom (tab Query)
 
+P350 — con l'SQL personalizzato la modalità di scrittura e la scheda Mapping
+non si usano: un'istruzione per riga (o per lotto) con i campi della riga.
+Valgono transazioni di lane, Stop/Skip, pre/post SQL. Errori espliciti: testo
+vuoto, `{campo}` fra apici, campo assente nella riga, stored procedure su
+SQLite, master-detail con SQL personalizzato, per lotto con campi diversi da
+`{rows}`. Il `;` finale si toglie, tranne nei blocchi `BEGIN … END;`.
+
 | Chiave            | Tipo   | Default     | Semantica                                            | Live |
 |-------------------|--------|-------------|-------------------------------------------------------|------|
-| `customQueryMode` | enum   | `"none"`    | `none` \| custom attivo (statement utente)            | 🕐   |
-| `customSql`       | string | `""`        | Statement **verbatim** con placeholder; l'esecutore fa il bind | 🕐 |
-| `storedProcMode`  | enum   | `"per_row"` | Invocazione stored procedure                          | 🕐   |
+| `customQueryMode` | enum   | `"none"`    | `none` \| `custom_sql` \| `stored_proc` (P350; `bulk_sql` tolto → errore che indica il post-SQL) | ✅ |
+| `customSql`       | string | `""`        | Statement dell'autore; ogni `{campo}` (fuori da apici/commenti) è un **parametro legato** col campo della riga in ingresso | ✅ |
+| `storedProcMode`  | enum   | `"per_row"` | `per_row` \| `per_batch` (`once` = alias): per lotto una chiamata ogni Batch size righe, `{rows}` = array JSON delle righe (Decimal esatti; jsonb su PostgreSQL, testo altrove) | ✅ |
 | `keyFields`       | string | `"id"`      | Campi chiave (CSV) per update/upsert/delete           | 🔩   |
 | `preSql`          | string | `""`        | Statement eseguito prima della scrittura              | 🔩   |
 | `postSql`         | string | `""`        | Statement eseguito dopo la scrittura                  | 🔩   |

@@ -2,7 +2,8 @@
  * src/nodes/types/sink_db/QueryPanel.tsx
  *
  * Montato nel tab "Query" della NodeEditorModal via NODE_QUERY_PANELS.
- * Copre: modalità query custom (SQL parametrizzato / stored proc / bulk),
+ * Copre: modalità query custom (SQL parametrizzato / stored procedure per riga
+ *        o per lotto — P350: "SQL bulk" tolto, era un doppione del post-SQL),
  *        template rapidi con CustomSelectBox, campi flusso cliccabili,
  *        SQL pre/post scrittura con snippet per dialetto,
  *        preview SQL generata dalla configurazione corrente.
@@ -70,81 +71,88 @@ const PRE_POST_SNIPPETS: Record<string, Array<{ label: string; code: string; tar
 }
 
 // ─── Template SQL ─────────────────────────────────────────────────
+//
+// P350: identificatori senza virgolette (la stessa politica del motore, v.
+// node-spec.md §4), sintassi per dialetto; niente `{campo}` dentro stringhe SQL
+// (il motore lo rifiuta: il valore viaggia come parametro).
 
 interface SqlTemplate {
   label: string
   description: string
+  dialects?: string[]   // assente = tutti
   build: (schema: string, table: string, cols: string[], keys: string[], dialect: string) => string
+}
+
+function qualify(schema: string, table: string, dialect: string): string {
+  return dialect === 'sqlite' || !schema || schema === 'public' ? table : `${schema}.${table}`
+}
+
+const PROC_CALL: Record<string, (name: string, args: string) => string> = {
+  postgresql: (n, a) => `CALL ${n}(${a})`,
+  mysql:      (n, a) => `CALL ${n}(${a})`,
+  oracle:     (n, a) => `BEGIN ${n}(${a}); END;`,
+  informix:   (n, a) => `EXECUTE PROCEDURE ${n}(${a})`,
+  odbc:       (n, a) => `{call ${n}(${a})}`,
 }
 
 const SQL_TEMPLATES: SqlTemplate[] = [
   {
     label: 'Basic INSERT',
     description: 'INSERT INTO my_table (col1, col2) VALUES ({col1}, {col2})',
-    build: (schema, table, cols, _keys, dialect) => {
-      const t = dialect === 'sqlite' ? `"${table}"` : `"${schema}"."${table}"`
-      return `INSERT INTO ${t}\n  (${cols.map(c => `"${c}"`).join(', ')})\nVALUES\n  (${cols.map(c => `{${c}}`).join(', ')});`
-    },
+    build: (schema, table, cols, _keys, dialect) =>
+      `INSERT INTO ${qualify(schema, table, dialect)}\n  (${cols.join(', ')})\nVALUES\n  (${cols.map(c => `{${c}}`).join(', ')})`,
   },
   {
     label: 'INSERT ON CONFLICT (upsert)',
     description: 'INSERT ... ON CONFLICT (key) DO UPDATE SET ...',
+    dialects: ['postgresql', 'sqlite'],
     build: (schema, table, cols, keys, dialect) => {
-      const t = dialect === 'sqlite' ? `"${table}"` : `"${schema}"."${table}"`
       const updateCols = cols.filter(c => !keys.includes(c))
-      return `INSERT INTO ${t}\n  (${cols.map(c => `"${c}"`).join(', ')})\nVALUES\n  (${cols.map(c => `{${c}}`).join(', ')})\nON CONFLICT (${keys.map(k => `"${k}"`).join(', ')}) DO UPDATE SET\n  ${updateCols.map(c => `"${c}" = EXCLUDED."${c}"`).join(',\n  ')};`
+      return `INSERT INTO ${qualify(schema, table, dialect)}\n  (${cols.join(', ')})\nVALUES\n  (${cols.map(c => `{${c}}`).join(', ')})\nON CONFLICT (${keys.join(', ')}) DO UPDATE SET\n  ${updateCols.map(c => `${c} = EXCLUDED.${c}`).join(',\n  ')}`
+    },
+  },
+  {
+    label: 'INSERT ON DUPLICATE KEY (upsert)',
+    description: 'INSERT ... ON DUPLICATE KEY UPDATE ...',
+    dialects: ['mysql'],
+    build: (schema, table, cols, keys, dialect) => {
+      const updateCols = cols.filter(c => !keys.includes(c))
+      return `INSERT INTO ${qualify(schema, table, dialect)}\n  (${cols.join(', ')})\nVALUES\n  (${cols.map(c => `{${c}}`).join(', ')})\nON DUPLICATE KEY UPDATE\n  ${updateCols.map(c => `${c} = VALUES(${c})`).join(',\n  ')}`
     },
   },
   {
     label: 'UPDATE WHERE key',
     description: 'UPDATE my_table SET col = {val} WHERE key = {key}',
     build: (schema, table, cols, keys, dialect) => {
-      const t = dialect === 'sqlite' ? `"${table}"` : `"${schema}"."${table}"`
       const updateCols = cols.filter(c => !keys.includes(c))
-      return `UPDATE ${t}\nSET\n  ${updateCols.map(c => `"${c}" = {${c}}`).join(',\n  ')}\nWHERE ${keys.map(k => `"${k}" = {${k}}`).join(' AND ')};`
+      return `UPDATE ${qualify(schema, table, dialect)}\nSET\n  ${updateCols.map(c => `${c} = {${c}}`).join(',\n  ')}\nWHERE ${keys.map(k => `${k} = {${k}}`).join(' AND ')}`
     },
   },
   {
     label: 'DELETE WHERE key',
     description: 'DELETE FROM my_table WHERE key = {key}',
-    build: (schema, table, _cols, keys, dialect) => {
-      const t = dialect === 'sqlite' ? `"${table}"` : `"${schema}"."${table}"`
-      return `DELETE FROM ${t}\nWHERE ${keys.map(k => `"${k}" = {${k}}`).join(' AND ')};`
-    },
+    build: (schema, table, _cols, keys, dialect) =>
+      `DELETE FROM ${qualify(schema, table, dialect)}\nWHERE ${keys.map(k => `${k} = {${k}}`).join(' AND ')}`,
   },
   {
     label: 'Soft delete',
-    description: 'UPDATE my_table SET deleted_at = NOW() WHERE key = {key}',
-    build: (schema, table, _cols, keys, dialect) => {
-      const t = dialect === 'sqlite' ? `"${table}"` : `"${schema}"."${table}"`
-      return `UPDATE ${t}\nSET deleted_at = NOW()\nWHERE ${keys.map(k => `"${k}" = {${k}}`).join(' AND ')};`
-    },
+    description: 'UPDATE my_table SET deleted_at = CURRENT_TIMESTAMP WHERE key = {key}',
+    build: (schema, table, _cols, keys, dialect) =>
+      `UPDATE ${qualify(schema, table, dialect)}\nSET deleted_at = CURRENT_TIMESTAMP\nWHERE ${keys.map(k => `${k} = {${k}}`).join(' AND ')}`,
   },
   {
     label: 'Audit log insert',
-    description: 'INSERT INTO audit_log (entity, action, payload, ts)',
-    build: (schema, table, _cols, keys, dialect) => {
-      const auditT = dialect === 'sqlite' ? '"audit_log"' : `"${schema}"."audit_log"`
-      const keyVals = keys.map(k => `"${k}": "{${k}}"`).join(', ')
-      return `INSERT INTO ${auditT}\n  (entity, action, payload, created_at)\nVALUES\n  ('${table}', 'upsert', '{ ${keyVals} }'::jsonb, NOW());`
-    },
+    description: 'INSERT INTO audit_log (entity, action, entity_key, created_at)',
+    build: (schema, table, _cols, keys, dialect) =>
+      `INSERT INTO ${qualify(schema, 'audit_log', dialect)}\n  (entity, action, entity_key, created_at)\nVALUES\n  ('${table}', 'write', {${keys[0] ?? 'id'}}, CURRENT_TIMESTAMP)`,
   },
   {
     label: 'CALL stored procedure',
-    description: 'CALL my_proc({id}::uuid, {amount}::numeric)',
-    build: (_schema, table, cols, _keys, _dialect) => {
+    description: 'Call a procedure for each row',
+    dialects: ['postgresql', 'mysql', 'oracle', 'informix', 'odbc'],
+    build: (_schema, table, cols, _keys, dialect) => {
       const args = cols.slice(0, 3).map(c => `{${c}}`).join(', ')
-      return `CALL ${table}_proc(${args});`
-    },
-  },
-  {
-    label: 'MERGE (SQL standard)',
-    description: 'MERGE INTO target USING source ON ...',
-    build: (schema, table, cols, keys, dialect) => {
-      const t = dialect === 'sqlite' ? `"${table}"` : `"${schema}"."${table}"`
-      const onClause = keys.map(k => `target."${k}" = source."${k}"`).join(' AND ')
-      const updateCols = cols.filter(c => !keys.includes(c))
-      return `MERGE INTO ${t} AS target\nUSING (VALUES (${cols.map(c => `{${c}}`).join(', ')})) AS source (${cols.map(c => `"${c}"`).join(', ')})\nON ${onClause}\nWHEN MATCHED THEN\n  UPDATE SET\n    ${updateCols.map(c => `target."${c}" = source."${c}"`).join(',\n    ')}\nWHEN NOT MATCHED THEN\n  INSERT (${cols.map(c => `"${c}"`).join(', ')})\n  VALUES (${cols.map(c => `{${c}}`).join(', ')});`
+      return (PROC_CALL[dialect] ?? PROC_CALL.postgresql)(`${table}_proc`, args)
     },
   },
 ]
@@ -337,12 +345,24 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
     } catch { return incomingFields }
   }, [node.data.props?.['sinkColumns'], incomingFields])
 
+  // P350: "SQL bulk" tolto (era il post-SQL con un altro nome); un progetto
+  // vecchio che lo usa lo vede segnalato qui sotto e dal motore.
   const QUERY_MODES = [
-    { value: 'custom_sql',  label: 'Parametrized SQL',  desc: 'One query per row — use {field}',             icon: 'ti-code'    },
-    { value: 'stored_proc', label: 'Stored procedure',    desc: 'CALL proc({id}, {val}) for each row',              icon: 'ti-package' },
-    { value: 'bulk_sql',    label: 'SQL bulk',            desc: 'A single execution — DDL, view refresh',          icon: 'ti-bolt'    },
-    { value: 'none',        label: 'Disabled',        desc: 'Uses the write mode from the Configuration tab',  icon: 'ti-ban'     },
+    { value: 'custom_sql',  label: 'Parametrized SQL',  desc: 'One statement per row — use {field}',             icon: 'ti-code'    },
+    { value: 'stored_proc', label: 'Stored procedure',  desc: 'A call per row, or once per batch with the rows as JSON', icon: 'ti-package' },
+    { value: 'none',        label: 'Disabled',          desc: 'Uses the write mode from the Configuration tab',  icon: 'ti-ban'     },
   ]
+  const procPerBatch = queryMode === 'stored_proc' && ['once', 'per_batch'].includes(p('storedProcMode', 'per_row'))
+  const PROC_HINT: Record<string, { row: string; batch: string }> = {
+    postgresql: { row: 'CALL my_proc({id}::int, {amount}::numeric) — PostgreSQL picks the procedure by parameter types: cast when needed',
+                  batch: 'CALL load_rows({rows}) — the procedure takes a jsonb parameter' },
+    mysql:      { row: 'CALL my_proc({id}, {amount})', batch: 'CALL load_rows({rows}) — the procedure takes a JSON parameter' },
+    oracle:     { row: 'BEGIN my_proc({id}, {amount}); END;', batch: 'BEGIN load_rows({rows}); END; — the procedure takes a CLOB with the JSON' },
+    informix:   { row: 'EXECUTE PROCEDURE my_proc({id}, {amount})', batch: 'EXECUTE PROCEDURE load_rows({rows}) — the procedure takes an LVARCHAR/CLOB with the JSON' },
+    odbc:       { row: '{call my_proc({id}, {amount})}', batch: '{call load_rows({rows})}' },
+    sqlite:     { row: 'SQLite has no stored procedures: use Parametrized SQL', batch: 'SQLite has no stored procedures: use Parametrized SQL' },
+  }
+  const procHint = PROC_HINT[dialect] ?? PROC_HINT.postgresql
 
   const handleQueryModeChange = (value: string) => {
     updateProp(nodeId, 'customQueryMode', value)
@@ -365,12 +385,19 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <SectionTitle label="Query mode" color={color} />
 
+        {/* P350: modalità tolta in un progetto vecchio */}
+        {queryMode === 'bulk_sql' && (
+          <div style={{ padding: '7px 10px', background: '#2a1010', borderRadius: 6, border: '1px solid #ff5f5760', fontSize: 10, color: '#ff8a80', lineHeight: 1.5 }}>
+            "SQL bulk" is no longer available: move the statement to the post-write SQL below (it runs once, after the rows) and set the mode to Disabled.
+          </div>
+        )}
+
         {/* Warning SQL custom attivo */}
         {queryMode !== 'none' && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '7px 10px', background: '#1a1a0a', borderRadius: 6, border: '1px solid #ffb34760' }}>
             <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#ffb347', flexShrink: 0, marginTop: 1 }} />
             <span style={{ fontSize: 10, color: '#ffb347', lineHeight: 1.5 }}>
-              Custom SQL active — the write mode in the Configuration tab is disabled and reset to INSERT.
+              Custom SQL active — the write mode in the Configuration tab and the Mapping tab are not used.
               Disable this mode to return to automatic writing.
             </span>
           </div>
@@ -392,10 +419,15 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
         {queryMode === 'stored_proc' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
             <div style={{ fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 600 }}>Execution</div>
-            <CustomSelect style={iStyle} value={p('storedProcMode', 'per_row')} onChange={e => updateProp(nodeId, 'storedProcMode', e.target.value)}>
+            <CustomSelect style={iStyle} value={procPerBatch ? 'per_batch' : 'per_row'} onChange={e => updateProp(nodeId, 'storedProcMode', e.target.value)}>
               <option value="per_row">For each row</option>
-              <option value="once">Once (JSON array)</option>
+              <option value="per_batch">Once per batch (rows as JSON)</option>
             </CustomSelect>
+            <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>
+              {procPerBatch
+                ? `One call for every ${p('batchSize', '1000')} rows (Batch size): {rows} is a JSON array with the fields of the rows.`
+                : 'One call for each incoming row.'}
+            </div>
           </div>
         )}
 
@@ -433,7 +465,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
           <div>
             <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4 }}>Quick templates — apply at the cursor:</div>
             <TemplateSelectBox
-              templates={SQL_TEMPLATES}
+              templates={SQL_TEMPLATES.filter(t => !t.dialects || t.dialects.includes(dialect))}
               onApply={sql => updateProp(nodeId, 'customSql', sql)}
               color={color}
               fields={mappingCols}
@@ -449,9 +481,9 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
         {queryMode !== 'none' && (
           <>
             <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>
-              {queryMode === 'custom_sql'  && 'Use {field} for the row values — e.g. INSERT INTO my_table VALUES ({id}, {name})'}
-              {queryMode === 'stored_proc' && 'E.g. PostgreSQL: CALL my_proc({id}::uuid, {amount}::numeric)'}
-              {queryMode === 'bulk_sql'    && 'Executed once — no row parameter.'}
+              {queryMode === 'custom_sql'  && 'Use {field} for the fields of the incoming row — e.g. INSERT INTO my_table (id, name) VALUES ({id}, {name}). Each {field} is passed as a parameter: do not put it inside quotes.'}
+              {queryMode === 'stored_proc' && !procPerBatch && `E.g. ${procHint.row}`}
+              {queryMode === 'stored_proc' && procPerBatch && `E.g. ${procHint.batch}. Use only {rows}.`}
             </div>
             <ScriptEditor value={p('customSql', '')} onChange={v => updateProp(nodeId, 'customSql', v)} language="sql" height={130} />
           </>
@@ -495,7 +527,7 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
 
         <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
-          Pre and post run in the same connection and transaction. If one fails → ROLLBACK.
+          Pre and post run once per execution of the node. Inside a transaction group they are part of the transaction (rolled back with it); otherwise each statement is committed on its own.
         </div>
 
         {/* Preview SQL */}

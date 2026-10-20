@@ -1503,3 +1503,46 @@ invariati. Regressioni P345/P346 invariate. Test unitario `where_tests`.
 - **P351 — identity map**: mappa "valori Hash → chiave" nel run; tra un run e l'altro
   **ricerca del master nel database** sulle colonne Hash (decisione utente), niente
   variabile di lane né "reset su rollback"; avviso nello studio sul vincolo UNIQUE.
+
+## AGGIORNAMENTO — SQL personalizzato e stored procedure (stato al P350, 20 ottobre)
+
+Regola ribadita dall'utente: **tutte le scritte dello studio in inglese** (chat in italiano).
+
+**Motore.** `lib.rs`: `CustomSql` + `parse_custom_sql` (segnaposto `{campo}` fuori da
+apici, virgolette e commenti → `$n` su Postgres, un numero per campo distinto; `?` per
+occorrenza altrove; `{campo}` dentro una stringa SQL → errore; `;` finale tolto tranne
+`BEGIN/DECLARE`); `DbWriteRequest.custom_sql` (`#[serde(skip)]`, lo costruisce il
+motore). I quattro scrittori sqlx e `odbc::WriteJob` hanno il ramo "un'istruzione per
+riga con i campi della riga" prima di quelli di modalità (stesso Stop/Skip, stesse
+transazioni). Stored procedure **per lotto** (decisione: una chiamata ogni Batch size
+righe, non tutte insieme): `sink_db::request_rows` fa del lotto UNA riga con il campo
+`rows` = marcatore `{"$fp_json": testo}`; `json_text_exact` scrive il JSON con i Decimal
+esatti; Postgres lega `jsonb` (`sqlx::types::Json<RawValue>`, feature serde_json
+`raw_value`), gli altri testo; `batch_written` conta tutte le righe del lotto.
+`sink_db`: `customQueryMode`/`customSql`/`storedProcMode` letti; `bulk_sql` → errore
+(decisione: era il post-SQL con un altro nome); tabella facoltativa con SQL
+personalizzato; `write_json_row` (con SQL personalizzato i campi della riga, non il
+mapping); master-detail + SQL personalizzato → errore; stored procedure su SQLite →
+errore.
+
+**Studio.** Scheda Query: tolto "SQL bulk" (avviso rosso se un progetto lo ha ancora);
+stored procedure "For each row" / "Once per batch (rows as JSON)" con esempi per
+dialetto (PostgreSQL `CALL` con cast — sceglie la procedura dai tipi, gli interi del
+flusso sono bigint —, MySQL `CALL`, Oracle `BEGIN … END;`, Informix `EXECUTE PROCEDURE`,
+ODBC `{call …}`); template senza virgolette e per dialetto (via il MERGE e l'audit con
+`{campo}` dentro una stringa); corretto il testo falso "pre e post nella stessa
+transazione". Validazione (CHECK 9 `checkSinkDbCustomSql`, `customSqlPlaceholders`):
+bulk tolto, testo vuoto, segnaposto fra apici, SQLite + procedura, master-detail, per
+lotto senza solo `{rows}`.
+
+**Collaudo (Postgres, ODBC/psqlODBC, MySQL/MariaDB, SQLite):** INSERT personalizzato con
+campo ripetuto e decimali → righe giuste nella tabella giusta (prima finivano nella
+tabella del tab Configurazione); errori fra apici / campo mancante / bulk; procedura per
+riga (Postgres con `::int`, ODBC, MySQL); **procedura per lotto con 2500 righe in lotti
+da 1000 e decimali a 28 cifre esatti** (Postgres jsonb, ODBC, MySQL `JSON_TABLE`);
+per lotto con altri campi → errore; SQLite + procedura → errore; **transazione**: SQL
+personalizzato annullato dal rollback del gruppo (Postgres e ODBC). Test unitari
+`custom_sql_tests`. Non collaudati su istanze vere: Oracle (PL/SQL, CLOB per il lotto) e
+Informix.
+
+**Prossima: P351 — identity map** (decisione utente: ricerca del master nel database).

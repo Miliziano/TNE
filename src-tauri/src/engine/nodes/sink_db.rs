@@ -105,6 +105,10 @@ struct SinkDbConfig {
     key_conditions:       Option<Vec<crate::DbKeyCondition>>,
     /// P349: la chiave del master-detail la genera una funzione (sequenza).
     md_key_function:      bool,
+    /// P350: SQL personalizzato o stored procedure (scheda Query).
+    custom_sql:           Option<crate::CustomSql>,
+    /// P350: stored procedure "una chiamata per lotto" (righe in `{rows}`, JSON).
+    proc_per_batch:       bool,
     // Monitoraggio: id della risorsa connessione (per eventi Connection*)
     resource_id:          String,
     // DDL (Fase 11): creazione/ricreazione tabella dal mapping
@@ -145,8 +149,31 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         if u.is_empty() { spec.res_str_or("username", "") } else { u }
     };
 
-    let table = spec.str_req("table")
-        .map_err(|e| e.to_string())?;
+    // P350: scheda Query. "SQL bulk" (una volta, senza parametri) era un doppione
+    // del post-SQL: tolto. Stored procedure "una volta" = una chiamata per LOTTO.
+    let query_mode = spec.str_or("customQueryMode", "none");
+    let (custom_sql, proc_per_batch) = match query_mode.as_str() {
+        "none" | "" => (None, false),
+        "bulk_sql" => return Err("'SQL bulk' is no longer available: put the statement in the post-write SQL (it runs once, after the rows)".to_string()),
+        "custom_sql" | "stored_proc" => {
+            let per_batch = query_mode == "stored_proc"
+                && matches!(spec.str_or("storedProcMode", "per_row").as_str(), "once" | "per_batch");
+            if query_mode == "stored_proc" && dialect == "sqlite" {
+                return Err("SQLite has no stored procedures: use parametrized SQL".to_string());
+            }
+            let cs = crate::parse_custom_sql(&spec.str_or("customSql", ""))?;
+            if per_batch && (cs.fields().is_empty() || cs.fields().iter().any(|f| f != "rows")) {
+                return Err("stored procedure once per batch: the call takes the rows of the batch as JSON in {rows} (e.g. CALL load_orders({rows})); no other {field} is allowed".to_string());
+            }
+            (Some(cs), per_batch)
+        }
+        other => return Err(format!("unknown query mode '{}'", other)),
+    };
+    let table = if custom_sql.is_some() {
+        spec.str_or("table", "")
+    } else {
+        spec.str_req("table").map_err(|e| e.to_string())?
+    };
 
     // 'public' equivale a nessun prefisso: mantiene l'SQL identico
     // al comportamento pre-migrazione (e alla Preview).
@@ -273,6 +300,8 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         column_functions:     if column_functions.is_empty() { None } else { Some(column_functions) },
         key_conditions,
         md_key_function,
+        custom_sql,
+        proc_per_batch,
         create_if_not_exists: spec.bool_or("createIfNotExists", false),
         drop_and_create:      spec.bool_or("dropAndCreate", false),
         resource_id:          spec.resource_id(),
@@ -319,6 +348,12 @@ async fn prepare(
         ));
     }
     // Master-detail richiede insert/upsert (serve una chiave generata).
+    if config.passthrough_md && config.custom_sql.is_some() {
+        return Err(format!(
+            "sink_db {}: master-detail pass-through needs the generated key of an INSERT: it is not available with custom SQL",
+            ctx.node_id.0
+        ));
+    }
     if config.passthrough_md && !matches!(config.mode.as_str(), "insert" | "upsert" | "truncate_insert") {
         return Err(format!(
             "sink_db {}: master-detail requires insert/upsert mode (not '{}')",
@@ -459,11 +494,7 @@ async fn write_all(
 
     while let Some(row) = rx.recv().await {
         rows_in += 1;
-        let json_row = if config.columns_ddl.is_empty() {
-            row.to_write_json_object()
-        } else {
-            map_row(&row, &config.columns_ddl)
-        };
+        let json_row = write_json_row(config, &row);
         batch.push(json_row);
 
         if batch.len() >= batch_size {
@@ -566,11 +597,7 @@ async fn write_all_tx(
             match rx.recv().await {
                 Some(row) => {
                     rows_in += 1;
-                    buf.push(if config.columns_ddl.is_empty() {
-                        row.to_write_json_object()
-                    } else {
-                        map_row(&row, &config.columns_ddl)
-                    });
+                    buf.push(write_json_row(config, &row));
                 }
                 None => break, // canale chiuso
             }
@@ -587,7 +614,7 @@ async fn write_all_tx(
             }
             let req = build_tx_req(config, &buf);
             let r = crate::pg_write_conn(&mut **guard, &req, Instant::now()).await
-                .map(|res| res.rows_written as u64);
+                .map(|res| batch_written(config, buf.len(), res.rows_written));
 
             let sp_sql = if r.is_ok() {
                 format!("RELEASE SAVEPOINT {}", sp_name)
@@ -680,11 +707,7 @@ async fn write_master_detail_tx(
             match rx.recv().await {
                 Some(row) => {
                     rows_in += 1;
-                    let json_row = if config.columns_ddl.is_empty() {
-                        row.to_write_json_object()
-                    } else {
-                        map_row(&row, &config.columns_ddl)
-                    };
+                    let json_row = write_json_row(config, &row);
                     buf.push((row, json_row));
                 }
                 None => break,
@@ -843,14 +866,14 @@ async fn write_all_tx_odbc(
             match rx.recv().await {
                 Some(row) => {
                     rows_in += 1;
-                    buf.push(if config.columns_ddl.is_empty() { row.to_write_json_object() } else { map_row(&row, &config.columns_ddl) });
+                    buf.push(write_json_row(config, &row));
                 }
                 None => break,
             }
         }
         if buf.is_empty() { break; }
         match crate::odbc::tx_write(&conn, &build_tx_req(config, &buf), Instant::now()).await {
-            Ok(r) => { written += r.rows_written as u64; query_count += 1; }
+            Ok(r) => { written += batch_written(config, buf.len(), r.rows_written); query_count += 1; }
             Err(e) => {
                 eprintln!("[tx] membro {} fallito (ODBC)", ctx.node_id.0);
                 write_result = Err(e);
@@ -895,7 +918,7 @@ async fn write_master_detail_tx_odbc(
             match rx.recv().await {
                 Some(row) => {
                     rows_in += 1;
-                    let json_row = if config.columns_ddl.is_empty() { row.to_write_json_object() } else { map_row(&row, &config.columns_ddl) };
+                    let json_row = write_json_row(config, &row);
                     buf.push((row, json_row));
                 }
                 None => break,
@@ -1020,7 +1043,7 @@ fn build_tx_req(config: &SinkDbConfig, batch: &[serde_json::Value]) -> crate::Db
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
         mode:                row_mode(config),
-        rows:                batch.to_vec(),
+        rows:                request_rows(config, batch),
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
@@ -1033,6 +1056,7 @@ fn build_tx_req(config: &SinkDbConfig, batch: &[serde_json::Value]) -> crate::Db
         on_constraint_error: config.on_constraint_error.clone(),
         dead_letter_table:   config.dead_letter_table.clone(),
         returning_column:    None,
+        custom_sql:          config.custom_sql.clone(),
     }
 }
 
@@ -1048,7 +1072,7 @@ async fn flush_batch_tx(
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
         mode:                row_mode(config),
-        rows:                batch.to_vec(),
+        rows:                request_rows(config, batch),
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
@@ -1061,6 +1085,7 @@ async fn flush_batch_tx(
         on_constraint_error: config.on_constraint_error.clone(),
         dead_letter_table:   config.dead_letter_table.clone(),
         returning_column:    None,
+        custom_sql:          config.custom_sql.clone(),
     };
     let start = Instant::now();
     let mut guard = conn.lock().await;
@@ -1094,11 +1119,7 @@ async fn write_master_detail(
     while let Some(row) = rx.recv().await {
         rows_in += 1;
 
-        let json_row = if config.columns_ddl.is_empty() {
-            row.to_write_json_object()
-        } else {
-            map_row(&row, &config.columns_ddl)
-        };
+        let json_row = write_json_row(config, &row);
 
         // Scrive questa singola riga con RETURNING della colonna chiave.
         let key = flush_one_returning(pool, config, &json_row, &config.md_source_column).await?;
@@ -1128,6 +1149,37 @@ async fn write_master_detail(
     }
 
     Ok((rows_in, written, written as u32))
+}
+
+/// P350: riga da scrivere. Con l'SQL personalizzato `{campo}` legge i campi
+/// della riga in ingresso (la scheda Mapping non si usa); altrimenti il mapping.
+fn write_json_row(config: &SinkDbConfig, row: &Row) -> serde_json::Value {
+    if config.custom_sql.is_some() || config.columns_ddl.is_empty() {
+        row.to_write_json_object()
+    } else {
+        map_row(row, &config.columns_ddl)
+    }
+}
+
+/// P350: righe della richiesta. Stored procedure "per lotto": UNA riga col solo
+/// campo `rows` = il lotto in JSON (Decimal esatti), legato come JSON.
+fn request_rows(config: &SinkDbConfig, batch: &[serde_json::Value]) -> Vec<serde_json::Value> {
+    if !config.proc_per_batch || batch.is_empty() {
+        return batch.to_vec();
+    }
+    let mut text = String::new();
+    crate::json_text_exact(&serde_json::Value::Array(batch.to_vec()), &mut text);
+    let mut marker = serde_json::Map::new();
+    marker.insert(crate::JSON_MARKER.to_string(), serde_json::Value::String(text));
+    let mut row = serde_json::Map::new();
+    row.insert("rows".to_string(), serde_json::Value::Object(marker));
+    vec![serde_json::Value::Object(row)]
+}
+
+/// Righe in ingresso scritte da un lotto: per la stored procedure per lotto la
+/// chiamata riuscita vale tutte le righe del lotto.
+fn batch_written(config: &SinkDbConfig, batch_len: usize, rows_written: usize) -> u64 {
+    if config.proc_per_batch { if rows_written > 0 { batch_len as u64 } else { 0 } } else { rows_written as u64 }
 }
 
 /// P349: con la chiave generata da una sequenza la colonna chiave deve
@@ -1167,6 +1219,7 @@ async fn flush_one_returning(
         on_constraint_error: config.on_constraint_error.clone(),
         dead_letter_table:   config.dead_letter_table.clone(),
         returning_column:    Some(ret_col.to_string()),
+        custom_sql:          None,
     };
 
     let start = Instant::now();
@@ -1215,7 +1268,7 @@ async fn flush_batch(
         table:               config.table.clone(),
         schema:              config.schema_name.clone(),
         mode:                mode.to_string(),
-        rows:                batch.to_vec(),
+        rows:                request_rows(config, batch),
         key_fields:          config.key_fields.clone(),
         columns:             None,
         exclude_columns:     config.exclude_columns.clone(),
@@ -1228,6 +1281,7 @@ async fn flush_batch(
         on_constraint_error: config.on_constraint_error.clone(),
         dead_letter_table:   config.dead_letter_table.clone(),
         returning_column:    None,
+        custom_sql:          config.custom_sql.clone(),
     };
 
     let start = Instant::now();
@@ -1239,7 +1293,7 @@ async fn flush_batch(
         DbPool::Odbc(p)   => crate::odbc::write(p, &req, start).await?,
     };
 
-    Ok((result.rows_written as u64, result.rows_errors as u64))
+    Ok((batch_written(config, batch.len(), result.rows_written), result.rows_errors as u64))
 }
 
 // ─── Scrittura: applica il mapping sorgente → colonna ─────────────

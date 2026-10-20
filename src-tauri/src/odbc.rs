@@ -812,6 +812,10 @@ fn json_param(v: &serde_json::Value) -> Box<dyn InputParameter> {
             data_type: DataType::Decimal { precision: p, scale: s },
         });
     }
+    // P350: lotto JSON della stored procedure → testo
+    if let Some(t) = crate::json_raw(v) {
+        return Box::new(t.to_string().into_parameter());
+    }
     match v {
         J::Null => Box::new(VarCharBox::null()),
         J::Bool(b) => Box::new(Bit::from_bool(*b)),
@@ -980,6 +984,8 @@ struct WriteJob {
     returning: Option<String>,
     /// P349: operatori e AND/OR delle chiavi (solo UPDATE e DELETE).
     key_conditions: Option<Vec<crate::DbKeyCondition>>,
+    /// P350: SQL personalizzato / stored procedure (un'istruzione per riga).
+    custom: Option<crate::CustomSql>,
 }
 
 /// Esito di un `WriteJob::run`.
@@ -1192,6 +1198,19 @@ impl WriteJob {
         for chunk in self.rows.chunks(self.batch_size.max(1)) {
             batches += 1;
             for row in chunk {
+                // P350: SQL personalizzato: `{campo}` legati dai campi della riga
+                if let Some(cs) = &self.custom {
+                    let binds = cs.binds(row, crate::PlaceholderStyle::Question)?;
+                    match ex.run(cs.text(crate::PlaceholderStyle::Question), &binds) {
+                        Ok(_) => written += 1,
+                        Err(e) => match self.on_error.as_str() {
+                            "skip" => skipped += 1,
+                            "stop" => return Err(format!("SinkDB row error: {}", e)),
+                            _ => errors += 1,
+                        },
+                    }
+                    continue;
+                }
                 let fields = crate::extract_row_data(row, &self.columns, &self.exclude);
                 crate::sqlsafe::check_fields(&fields, &self.dialect)?;
                 if fields.is_empty() {
@@ -1224,7 +1243,9 @@ fn job_from_req(req: &crate::DbWriteRequest) -> Result<WriteJob, String> {
     let dialect = req.connection.dialect.clone();
     let tbl = crate::qualified_table(req);
     let keys = req.key_fields.clone().unwrap_or_default();
-    crate::sqlsafe::check_names(&tbl, &keys, req.columns.as_deref(), req.returning_column.as_deref(), &dialect)?;
+    if req.custom_sql.is_none() {
+        crate::sqlsafe::check_names(&tbl, &keys, req.columns.as_deref(), req.returning_column.as_deref(), &dialect)?;
+    }
     crate::check_write_mode(&req.mode, &dialect)?;
     crate::check_key_conditions(&req.mode, &req.key_conditions)?;
     // come Postgres (use_returning): la chiave si restituisce solo per insert/upsert
@@ -1250,6 +1271,7 @@ fn job_from_req(req: &crate::DbWriteRequest) -> Result<WriteJob, String> {
         on_error: req.on_constraint_error.clone(),
         returning,
         key_conditions: req.key_conditions.clone(),
+        custom: req.custom_sql.clone(),
     })
 }
 
@@ -1503,7 +1525,7 @@ mod tests_live {
             keys: vec!["id".into()], rows,
             columns: None, exclude: None, column_functions: None, merge_condition: None,
             pre_sql: None, post_sql: None, batch_size: 100, on_error: "stop".into(),
-            returning: returning.map(String::from), key_conditions: None,
+            returning: returning.map(String::from), key_conditions: None, custom: None,
         }
     }
 

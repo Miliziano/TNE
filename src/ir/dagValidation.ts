@@ -45,6 +45,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkUnresolvedHandles(plan))
   issues.push(...checkDataContracts(plan))
   issues.push(...validateTransactionGroups(plan))
+  issues.push(...checkSinkDbCustomSql(plan))
   issues.push(...checkCatchHandles(plan))
 
   return buildResult(issues)
@@ -1293,6 +1294,70 @@ function checkDataContracts(plan: LogicalPlan): ValidationIssue[] {
     })
   })
 
+  return issues
+}
+
+// ─── CHECK 9 — SINK DB: SQL PERSONALIZZATO (P350) ─────────────────
+//
+// Le stesse regole del motore (sink_db.rs config_from_spec, lib.rs
+// parse_custom_sql), così l'errore si vede prima di eseguire.
+
+/** Segnaposto {campo} fuori da stringhe, identificatori tra virgolette e commenti;
+ *  e i segnaposto finiti DENTRO una stringa SQL (errore). */
+export function customSqlPlaceholders(sql: string): { fields: string[]; quoted: string[] } {
+  const fields: string[] = []
+  const quoted: string[] = []
+  const re = /'(?:[^']|'')*'?|"[^"]*"?|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|\{([A-Za-z_][A-Za-z0-9_]*)\}/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(sql)) !== null) {
+    if (m[1]) { if (!fields.includes(m[1])) fields.push(m[1]); continue }
+    if (m[0].startsWith("'")) {
+      const inner = /\{([A-Za-z_][A-Za-z0-9_]*)\}/.exec(m[0])
+      if (inner) quoted.push(inner[1])
+    }
+  }
+  return { fields, quoted }
+}
+
+function checkSinkDbCustomSql(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const lanes = plan.pool?.lanes ?? []
+  plan.nodes.forEach((node) => {
+    if ((node._uiRef?.type ?? '') !== 'sink_db') return
+    const props = (node._uiRef?.props ?? {}) as Record<string, unknown>
+    const mode  = String(props['customQueryMode'] ?? 'none')
+    if (mode === 'none' || mode === '') return
+    const id = canvasNodeId(node.id)
+    const push = (code: string, message: string, hint: string) =>
+      issues.push({ severity: 'error', nodeId: id, code, message, hint })
+
+    if (mode === 'bulk_sql') {
+      push('SINKDB_BULK_REMOVED', '"SQL bulk" is no longer available', 'Move the statement to the post-write SQL (Query tab) and set the query mode to Disabled')
+      return
+    }
+    const sql = String(props['customSql'] ?? '').trim()
+    if (!sql) {
+      push('SINKDB_CUSTOM_EMPTY', 'Custom SQL is active but the statement is empty', 'Write the statement in the Query tab, or set the query mode to Disabled')
+      return
+    }
+    const lane     = lanes.find((l) => l.id === (node._uiRef?.laneId ?? ''))
+    const resId    = ((node._uiRef?.config as Record<string, unknown> | undefined)?.resourceId ?? '') as string
+    const dialect  = ((lane?.resources?.find((r) => r.id === resId)?.config as Record<string, string> | undefined)?.dialect ?? '') as string
+    if (mode === 'stored_proc' && dialect === 'sqlite') {
+      push('SINKDB_PROC_SQLITE', 'SQLite has no stored procedures', 'Use Parametrized SQL')
+    }
+    if (String(props['passthroughMasterDetail'] ?? 'false') === 'true') {
+      push('SINKDB_CUSTOM_MASTER_DETAIL', 'Master-detail pass-through is not available with custom SQL', 'It needs the generated key of an INSERT: disable custom SQL or the pass-through')
+    }
+    const { fields, quoted } = customSqlPlaceholders(sql)
+    if (quoted.length > 0) {
+      push('SINKDB_CUSTOM_QUOTED', `{${quoted[0]}} is inside quotes in the custom SQL`, `Write {${quoted[0]}} without quotes: the value is passed as a parameter`)
+    }
+    const perBatch = mode === 'stored_proc' && ['once', 'per_batch'].includes(String(props['storedProcMode'] ?? 'per_row'))
+    if (perBatch && (fields.length === 0 || fields.some((f) => f !== 'rows'))) {
+      push('SINKDB_PROC_BATCH_ROWS', 'Stored procedure once per batch: use only {rows}', 'The call receives the rows of the batch as JSON in {rows}, e.g. CALL load_rows({rows})')
+    }
+  })
   return issues
 }
 

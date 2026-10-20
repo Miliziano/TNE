@@ -701,6 +701,163 @@ pub struct DbWriteRequest {
   dead_letter_table:     Option<String>,
   #[serde(rename = "returningColumn")]
   pub returning_column: Option<String>,
+  /// P350: SQL personalizzato / stored procedure del sink_db (scheda Query).
+  /// Lo costruisce il motore, non arriva dal frontend.
+  #[serde(skip)]
+  pub(crate) custom_sql: Option<CustomSql>,
+}
+
+// ─── SQL personalizzato (P350) ────────────────────────────────────
+//
+// Il testo dell'autore con segnaposto `{campo}`: ogni segnaposto diventa un
+// PARAMETRO legato col valore del campo della riga (mai testo incollato
+// nell'SQL: niente iniezioni, decimali esatti, date tipizzate). I segnaposto
+// dentro apici, virgolette o commenti non sono segnaposto; uno `{campo}` dentro
+// una stringa SQL e' un errore (il valore non si potrebbe legare li').
+
+#[derive(Debug, Clone)]
+pub(crate) struct CustomSql {
+  /// Postgres: `$1…$n`, un numero per ogni campo distinto (ripetuto = stesso numero).
+  dollar:         String,
+  dollar_names:   Vec<String>,
+  /// MySQL, SQLite, ODBC: un `?` per ogni occorrenza.
+  question:       String,
+  question_names: Vec<String>,
+}
+
+impl CustomSql {
+  pub(crate) fn text(&self, style: PlaceholderStyle) -> &str {
+    match style { PlaceholderStyle::Dollar => &self.dollar, PlaceholderStyle::Question => &self.question }
+  }
+  /// Nomi dei campi usati (distinti, in ordine di apparizione).
+  pub(crate) fn fields(&self) -> &[String] { &self.dollar_names }
+  /// Valori da legare, presi dai campi della riga in ingresso.
+  pub(crate) fn binds<'a>(&self, row: &'a serde_json::Value, style: PlaceholderStyle) -> Result<Vec<&'a serde_json::Value>, String> {
+    let names = match style { PlaceholderStyle::Dollar => &self.dollar_names, PlaceholderStyle::Question => &self.question_names };
+    names.iter().map(|n| row.get(n.as_str())
+      .ok_or_else(|| format!("custom SQL: the field '{}' is not in the incoming row", n))).collect()
+  }
+}
+
+/// Analizza il testo dell'autore. Toglie il `;` finale (tranne nei blocchi
+/// `BEGIN … END;` / `DECLARE …`, dove fa parte della sintassi PL/SQL).
+pub(crate) fn parse_custom_sql(src: &str) -> Result<CustomSql, String> {
+  let mut text = src.trim().to_string();
+  if text.is_empty() {
+    return Err("custom SQL is empty: write the statement in the Query tab".to_string());
+  }
+  let head = text.to_uppercase();
+  if !(head.starts_with("BEGIN") || head.starts_with("DECLARE")) {
+    while text.ends_with(';') { text.pop(); text = text.trim_end().to_string(); }
+  }
+  let is_ident = |s: &str| {
+    let mut ch = s.chars();
+    matches!(ch.next(), Some(c) if c.is_ascii_alphabetic() || c == '_') && ch.all(|c| c.is_ascii_alphanumeric() || c == '_')
+  };
+  let chars: Vec<char> = text.chars().collect();
+  let (mut dollar, mut question) = (String::new(), String::new());
+  let (mut dollar_names, mut question_names): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
+  let mut i = 0;
+  while i < chars.len() {
+    let c = chars[i];
+    // stringhe, identificatori tra virgolette, commenti: copiati tali e quali
+    let (close, until_newline) = match c {
+      '\'' => (Some("'"), false),
+      '"'  => (Some("\""), false),
+      '-' if chars.get(i + 1) == Some(&'-') => (None, true),
+      '/' if chars.get(i + 1) == Some(&'*') => (Some("*/"), false),
+      _ => (None, false),
+    };
+    if close.is_some() || until_newline {
+      let start = i;
+      i += if c == '/' { 2 } else { 1 };
+      loop {
+        if i >= chars.len() { break }
+        if until_newline && chars[i] == '\n' { break }
+        if let Some(cl) = close {
+          let cl: Vec<char> = cl.chars().collect();
+          if chars[i..].starts_with(&cl) {
+            // '' dentro una stringa = apice
+            if cl == ['\''] && chars.get(i + 1) == Some(&'\'') { i += 2; continue }
+            i += cl.len();
+            break;
+          }
+        }
+        i += 1;
+      }
+      let chunk: String = chars[start..i.min(chars.len())].iter().collect();
+      if c == '\'' {
+        if let Some(pos) = chunk.find('{') {
+          if let Some(end) = chunk[pos..].find('}') {
+            let name = &chunk[pos + 1..pos + end];
+            if is_ident(name) {
+              return Err(format!("custom SQL: {{{}}} is inside quotes: write {{{}}} without quotes (the value is passed as a parameter)", name, name));
+            }
+          }
+        }
+      }
+      dollar.push_str(&chunk);
+      question.push_str(&chunk);
+      continue;
+    }
+    if c == '{' {
+      if let Some(end) = chars[i + 1..].iter().position(|&x| x == '}') {
+        let name: String = chars[i + 1..i + 1 + end].iter().collect();
+        if is_ident(&name) {
+          let n = match dollar_names.iter().position(|x| x == &name) {
+            Some(p) => p + 1,
+            None => { dollar_names.push(name.clone()); dollar_names.len() }
+          };
+          dollar.push_str(&format!("${}", n));
+          question.push('?');
+          question_names.push(name);
+          i += end + 2;
+          continue;
+        }
+      }
+    }
+    dollar.push(c);
+    question.push(c);
+    i += 1;
+  }
+  Ok(CustomSql { dollar, dollar_names, question, question_names })
+}
+
+/// P350: valore JSON gia' serializzato (il lotto per la stored procedure),
+/// legato come JSON e non come testo qualunque.
+pub(crate) const JSON_MARKER: &str = "$fp_json";
+
+pub(crate) fn json_raw(v: &serde_json::Value) -> Option<&str> {
+  let o = v.as_object()?;
+  if o.len() != 1 { return None }
+  o.get(JSON_MARKER)?.as_str()
+}
+
+/// JSON di righe di scrittura con i Decimal ESATTI (numero JSON col testo del
+/// decimale, non passato da f64).
+pub(crate) fn json_text_exact(v: &serde_json::Value, out: &mut String) {
+  if let Some(d) = json_decimal(v) {
+    out.push_str(d);
+    return;
+  }
+  match v {
+    serde_json::Value::Array(a) => {
+      out.push('[');
+      for (i, x) in a.iter().enumerate() { if i > 0 { out.push(',') } json_text_exact(x, out) }
+      out.push(']');
+    }
+    serde_json::Value::Object(o) => {
+      out.push('{');
+      for (i, (k, x)) in o.iter().enumerate() {
+        if i > 0 { out.push(',') }
+        out.push_str(&serde_json::to_string(k).unwrap_or_default());
+        out.push(':');
+        json_text_exact(x, out);
+      }
+      out.push('}');
+    }
+    other => out.push_str(&other.to_string()),
+  }
 }
 
 #[derive(Debug, Serialize)]
@@ -1143,7 +1300,9 @@ pub async fn pg_write_pool(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
-    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    if req.custom_sql.is_none() {
+        crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    }
     check_write_mode(&req.mode, &req.connection.dialect)?;
     check_key_conditions(&req.mode, &req.key_conditions)?;
 
@@ -1174,12 +1333,13 @@ pub async fn pg_write_pool(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
-            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
+            // P350: con l'SQL personalizzato i nomi dei campi non diventano identificatori SQL
+            if req.custom_sql.is_none() { crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?; }
             if fields.is_empty() { skipped += 1; continue; }
 
             let default_keys = vec![];
             let keys = req.key_fields.as_deref().unwrap_or(default_keys.as_slice());
-            let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
+            let needs_plan = req.custom_sql.is_none() && matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
 
             let set_fields: Vec<(String, serde_json::Value)> = fields.iter()
                 .filter(|(k, _)| !keys.contains(k))
@@ -1190,7 +1350,11 @@ pub async fn pg_write_pool(
             let sql: String;
             let mut bind_list: Vec<&serde_json::Value>;
 
-            if needs_plan {
+            if let Some(cs) = &req.custom_sql {
+                // P350: SQL personalizzato / stored procedure: un'istruzione per riga
+                sql = cs.text(PlaceholderStyle::Dollar).to_string();
+                bind_list = cs.binds(row, PlaceholderStyle::Dollar)?;
+            } else if needs_plan {
                 let plan = build_column_plan(&fields, &req.column_functions, PlaceholderStyle::Dollar, 1);
                 let cols = plan.iter().map(|p| p.column_sql.as_str()).collect::<Vec<_>>().join(", ");
                 let vals = plan.iter().map(|p| p.value_sql.as_str()).collect::<Vec<_>>().join(", ");
@@ -1317,7 +1481,9 @@ pub async fn pg_write_conn(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
-    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    if req.custom_sql.is_none() {
+        crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    }
     check_write_mode(&req.mode, &req.connection.dialect)?;
     check_key_conditions(&req.mode, &req.key_conditions)?;
     let (mut written, mut skipped, mut errors, mut batches) = (0usize, 0usize, 0usize, 0usize);
@@ -1335,12 +1501,13 @@ pub async fn pg_write_conn(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
-            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
+            // P350: con l'SQL personalizzato i nomi dei campi non diventano identificatori SQL
+            if req.custom_sql.is_none() { crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?; }
             if fields.is_empty() { skipped += 1; continue; }
 
             let default_keys = vec![];
             let keys = req.key_fields.as_deref().unwrap_or(default_keys.as_slice());
-            let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
+            let needs_plan = req.custom_sql.is_none() && matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
 
             let set_fields: Vec<(String, serde_json::Value)> = fields.iter()
                 .filter(|(k, _)| !keys.contains(k)).cloned().collect();
@@ -1349,7 +1516,11 @@ pub async fn pg_write_conn(
             let sql: String;
             let mut bind_list: Vec<&serde_json::Value>;
 
-            if needs_plan {
+            if let Some(cs) = &req.custom_sql {
+                // P350: SQL personalizzato / stored procedure: un'istruzione per riga
+                sql = cs.text(PlaceholderStyle::Dollar).to_string();
+                bind_list = cs.binds(row, PlaceholderStyle::Dollar)?;
+            } else if needs_plan {
                 let plan = build_column_plan(&fields, &req.column_functions, PlaceholderStyle::Dollar, 1);
                 let cols = plan.iter().map(|p| p.column_sql.as_str()).collect::<Vec<_>>().join(", ");
                 let vals = plan.iter().map(|p| p.value_sql.as_str()).collect::<Vec<_>>().join(", ");
@@ -1468,6 +1639,13 @@ pub(crate) fn bind_pg_value<'q>(
     if let Some(d) = json_decimal(v) {
         return match d.parse::<rust_decimal::Decimal>() { Ok(x) => q.bind(x), Err(_) => q.bind(d) };
     }
+    // P350: lotto JSON della stored procedure → jsonb, testo esatto
+    if let Some(t) = json_raw(v) {
+        return match serde_json::value::RawValue::from_string(t.to_string()) {
+            Ok(raw) => q.bind(sqlx::types::Json(raw)),
+            Err(_)  => q.bind(t),
+        };
+    }
     match v {
         serde_json::Value::Null      => q.bind(PgUntypedNull),
         serde_json::Value::Bool(b)   => q.bind(*b),
@@ -1531,7 +1709,9 @@ pub async fn mysql_write_pool(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
-    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    if req.custom_sql.is_none() {
+        crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    }
     check_write_mode(&req.mode, &req.connection.dialect)?;
     check_key_conditions(&req.mode, &req.key_conditions)?;
 
@@ -1563,10 +1743,11 @@ pub async fn mysql_write_pool(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
-            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
+            // P350: con l'SQL personalizzato i nomi dei campi non diventano identificatori SQL
+            if req.custom_sql.is_none() { crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?; }
             if fields.is_empty() { skipped += 1; continue; }
 
-            let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
+            let needs_plan = req.custom_sql.is_none() && matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
             let sql: String;
             let mut bind_list: Vec<&serde_json::Value>;
 
@@ -1575,7 +1756,11 @@ pub async fn mysql_write_pool(
                 .cloned()
                 .collect();
 
-            if needs_plan {
+            if let Some(cs) = &req.custom_sql {
+                // P350: SQL personalizzato / stored procedure: un'istruzione per riga
+                sql = cs.text(PlaceholderStyle::Question).to_string();
+                bind_list = cs.binds(row, PlaceholderStyle::Question)?;
+            } else if needs_plan {
                 let plan = build_column_plan(&fields, &req.column_functions, PlaceholderStyle::Question, 1);
                 let cols = plan.iter().map(|p| format!("`{}`", p.column_sql)).collect::<Vec<_>>().join(", ");
                 let vals = plan.iter().map(|p| p.value_sql.as_str()).collect::<Vec<_>>().join(", ");
@@ -1610,6 +1795,8 @@ pub async fn mysql_write_pool(
 
             let mut q = sqlx::query(crate::sqlsafe::composto(sql.as_str()));
             for v in &bind_list {
+                // P350: lotto JSON della stored procedure, come testo
+                if let Some(t) = json_raw(v) { q = q.bind(t); continue; }
                 // P346: Decimal esatto (DECIMAL di MySQL), non f64
                 if let Some(d) = json_decimal(v) {
                     q = match d.parse::<rust_decimal::Decimal>() { Ok(x) => q.bind(x), Err(_) => q.bind(d) };
@@ -1722,7 +1909,9 @@ pub async fn sqlite_write_pool(
     use sqlx::Row as SqlxRow;
 
     let tbl = qualified_table(req);
-    crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    if req.custom_sql.is_none() {
+        crate::sqlsafe::check_names(&tbl, req.key_fields.as_deref().unwrap_or(&[]), req.columns.as_deref(), req.returning_column.as_deref(), &req.connection.dialect)?;
+    }
     check_write_mode(&req.mode, &req.connection.dialect)?;
     check_key_conditions(&req.mode, &req.key_conditions)?;
 
@@ -1753,10 +1942,11 @@ pub async fn sqlite_write_pool(
         batches += 1;
         for row in chunk {
             let fields = extract_row_data(row, &req.columns, &req.exclude_columns);
-            crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?;
+            // P350: con l'SQL personalizzato i nomi dei campi non diventano identificatori SQL
+            if req.custom_sql.is_none() { crate::sqlsafe::check_fields(&fields, &req.connection.dialect)?; }
             if fields.is_empty() { skipped += 1; continue; }
 
-            let needs_plan = matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
+            let needs_plan = req.custom_sql.is_none() && matches!(req.mode.as_str(), "insert" | "truncate_insert" | "upsert");
             let sql: String;
             let mut bind_list: Vec<&serde_json::Value>;
 
@@ -1765,7 +1955,11 @@ pub async fn sqlite_write_pool(
                 .cloned()
                 .collect();
 
-            if needs_plan {
+            if let Some(cs) = &req.custom_sql {
+                // P350: SQL personalizzato / stored procedure: un'istruzione per riga
+                sql = cs.text(PlaceholderStyle::Question).to_string();
+                bind_list = cs.binds(row, PlaceholderStyle::Question)?;
+            } else if needs_plan {
                 let plan = build_column_plan(&fields, &req.column_functions, PlaceholderStyle::Question, 1);
                 let cols = plan.iter().map(|p| p.column_sql.as_str()).collect::<Vec<_>>().join(", ");
                 let vals = plan.iter().map(|p| p.value_sql.as_str()).collect::<Vec<_>>().join(", ");
@@ -1797,6 +1991,7 @@ pub async fn sqlite_write_pool(
                 // P346: SQLite non ha un tipo decimale esatto: il Decimal va
                 // come testo (la colonna applica la sua affinità).
                 if let Some(d) = json_decimal(v) { q = q.bind(d); continue; }
+                if let Some(t) = json_raw(v) { q = q.bind(t); continue; }
                 q = match v {
                     serde_json::Value::Null      => q.bind(None::<String>),
                     serde_json::Value::Bool(b)   => q.bind(*b),
@@ -3529,5 +3724,43 @@ mod where_tests {
     assert!(check_key_conditions("upsert", &Some(vec![cond("id", ">", "AND")])).is_err());
     assert!(check_key_conditions("merge", &Some(vec![cond("id", "=", "OR")])).is_err());
     assert!(check_key_conditions("update", &Some(vec![cond("id", ">=", "OR")])).is_ok());
+  }
+}
+
+#[cfg(test)]
+mod custom_sql_tests {
+  use super::*;
+
+  #[test]
+  fn segnaposto_legati_e_testo_intatto() {
+    let cs = parse_custom_sql("INSERT INTO t (a, b, c) VALUES ({id}, {nome}, {id}) -- {non_un_campo}\n;").unwrap();
+    assert_eq!(cs.text(PlaceholderStyle::Dollar), "INSERT INTO t (a, b, c) VALUES ($1, $2, $1) -- {non_un_campo}");
+    assert_eq!(cs.text(PlaceholderStyle::Question), "INSERT INTO t (a, b, c) VALUES (?, ?, ?) -- {non_un_campo}");
+    assert_eq!(cs.fields(), &["id".to_string(), "nome".to_string()]);
+    let row = serde_json::json!({"id": 7, "nome": "x"});
+    assert_eq!(cs.binds(&row, PlaceholderStyle::Question).unwrap().len(), 3);
+    assert_eq!(cs.binds(&row, PlaceholderStyle::Dollar).unwrap().len(), 2);
+    assert!(cs.binds(&serde_json::json!({"id": 1}), PlaceholderStyle::Dollar).is_err());
+    // JSON letterale e identificatori tra virgolette non sono segnaposto
+    let cs = parse_custom_sql(r#"UPDATE "t{x}" SET meta = '{"a": 1}' WHERE id = {id}"#).unwrap();
+    assert_eq!(cs.text(PlaceholderStyle::Dollar), r#"UPDATE "t{x}" SET meta = '{"a": 1}' WHERE id = $1"#);
+    // apice raddoppiato dentro la stringa
+    let cs = parse_custom_sql("SELECT 'it''s {ok' , {a}").unwrap();
+    assert_eq!(cs.text(PlaceholderStyle::Question), "SELECT 'it''s {ok' , ?");
+    // PL/SQL: il ; finale resta
+    let cs = parse_custom_sql("BEGIN p({a}); END;").unwrap();
+    assert_eq!(cs.text(PlaceholderStyle::Question), "BEGIN p(?); END;");
+    // errori: vuoto, segnaposto fra apici
+    assert!(parse_custom_sql("  ").is_err());
+    assert!(parse_custom_sql("INSERT INTO t VALUES ('{nome}')").is_err());
+  }
+
+  #[test]
+  fn json_esatto_dei_lotti() {
+    let d = serde_json::json!({"$fp_decimal": "12.50"});
+    let rows = serde_json::json!([{"id": 1, "imp": d, "n": "a\"b"}]);
+    let mut out = String::new();
+    json_text_exact(&rows, &mut out);
+    assert_eq!(out, r#"[{"id":1,"imp":12.50,"n":"a\"b"}]"#);
   }
 }

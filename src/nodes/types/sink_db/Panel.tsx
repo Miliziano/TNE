@@ -199,7 +199,7 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '8px 10px', background: '#1a1a0a', borderRadius: 6, border: '1px solid #ffb34760' }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#ffb347', flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: 10, color: '#ffb347', lineHeight: 1.5, flex: 1 }}>
-            <strong>Custom SQL active</strong> in the Query tab — the write mode below is ignored during execution.
+            <strong>Custom SQL active</strong> in the Query tab — the write mode below and the Mapping tab are not used: the statement runs with the fields of the incoming row.
             <button onClick={() => updateProp(nodeId, 'customQueryMode', 'none')}
               style={{ marginLeft: 8, padding: '1px 8px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: '#ffb34720', border: '1px solid #ffb34760', color: '#ffb347', fontWeight: 600 }}>
               Disable custom SQL
