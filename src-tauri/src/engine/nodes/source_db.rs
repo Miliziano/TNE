@@ -1,7 +1,8 @@
 // ─── src-tauri/src/engine/nodes/source_db.rs ───────────────────────
 //
-// Legge righe da un DB (PostgreSQL, MySQL, SQLite) in streaming
-// e le invia nel canale della pipeline.
+// Legge righe da un DB (PostgreSQL, MySQL, SQLite; dal P344 anche Oracle,
+// Informix e ODBC generico via `crate::odbc`) in streaming e le invia nel
+// canale della pipeline.
 //
 // MIGRATO ALLA SPEC (fondazione §6.0 — contratto docs/node-spec.md §3):
 // - la connessione arriva da spec.resource (risorsa di lane risolta
@@ -44,6 +45,8 @@ struct SourceDbConfig {
     resource_id:     String,
     /// R8 — la query compilata dallo studio, se cita parametri.
     query_compiled:  Option<CompiledQuery>,
+    /// P344 — parametri di connessione per i dialetti ODBC.
+    odbc:            crate::odbc::OdbcTarget,
 }
 
 /// Query con i `${campo}` già risolti in placeholder.
@@ -75,7 +78,40 @@ struct SourceDbConfigStruct {
 }
 
 fn default_port(dialect: &str) -> u16 {
-    match dialect { "mysql" => 3306, _ => 5432 }
+    match dialect { "mysql" => 3306, "oracle" => 1521, "informix" => 9088, _ => 5432 }
+}
+
+/// Paginazione nella sintassi del dialetto (P344). Postgres/MySQL/SQLite:
+/// `LIMIT … OFFSET …`; Oracle (12c+): `OFFSET … ROWS FETCH NEXT … ROWS ONLY`;
+/// Informix: `SELECT SKIP … FIRST … *`. ODBC generico: non c'e' una sintassi
+/// portabile → si chiede di scriverla nella query personalizzata.
+fn build_table_query(dialect: &str, qualified: &str, order_by: &str, limit: u64, offset: u64)
+    -> Result<String, String>
+{
+    let order = if order_by.is_empty() { String::new() } else { format!(" ORDER BY {}", order_by) };
+    match dialect {
+        "oracle" => {
+            let mut q = format!("SELECT * FROM {}{}", qualified, order);
+            if offset > 0 { q.push_str(&format!(" OFFSET {} ROWS", offset)); }
+            if limit > 0 { q.push_str(&format!(" FETCH NEXT {} ROWS ONLY", limit)); }
+            Ok(q)
+        }
+        "informix" => {
+            let mut head = String::from("SELECT");
+            if offset > 0 { head.push_str(&format!(" SKIP {}", offset)); }
+            if limit > 0 { head.push_str(&format!(" FIRST {}", limit)); }
+            Ok(format!("{} * FROM {}{}", head, qualified, order))
+        }
+        "odbc" if limit > 0 || offset > 0 => Err(
+            "generic ODBC: limit/offset have no portable syntax — write them in a custom SQL query".to_string()
+        ),
+        _ => {
+            let mut q = format!("SELECT * FROM {}{}", qualified, order);
+            if limit > 0 { q.push_str(&format!(" LIMIT {}", limit)); }
+            if offset > 0 { q.push_str(&format!(" OFFSET {}", offset)); }
+            Ok(q)
+        }
+    }
 }
 
 fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
@@ -107,14 +143,25 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         } else {
             table
         };
-        let mut q = format!("SELECT * FROM {}", qualified);
-        let order_by = spec.str_or("orderBy", "");
-        if !order_by.is_empty() { q.push_str(&format!(" ORDER BY {}", order_by)); }
-        let limit = spec.u64_or("limit", 0);
-        if limit > 0 { q.push_str(&format!(" LIMIT {}", limit)); }
-        let offset = spec.u64_or("offset", 0);
-        if offset > 0 { q.push_str(&format!(" OFFSET {}", offset)); }
-        q
+        build_table_query(
+            &dialect, &qualified, &spec.str_or("orderBy", ""),
+            spec.u64_or("limit", 0), spec.u64_or("offset", 0),
+        )?
+    };
+
+    let odbc = crate::odbc::OdbcTarget {
+        dialect:           dialect.clone(),
+        host:              spec.res_str_or("host", ""),
+        port:              Some(port),
+        database:          spec.res_str_or("database", ""),
+        user:              user.clone(),
+        password:          spec.res_str_or("password", ""),
+        service_name:      spec.res_str_or("serviceName", ""),
+        db_server_name:    spec.res_str_or("dbServerName", ""),
+        driver:            spec.res_str_or("odbcDriver", ""),
+        dsn:               spec.res_str_or("dsn", ""),
+        connection_string: spec.res_str_or("connectionString", ""),
+        extra:             spec.res_str_or("odbcParams", ""),
     };
 
     Ok(SourceDbConfig {
@@ -129,6 +176,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         user,
         query,
         query_compiled:  st.query_compiled,
+        odbc,
     })
 }
 
@@ -266,6 +314,7 @@ fn connection_string(c: &SourceDbConfig) -> Result<String, String> {
             c.host, c.port, c.database
         )),
         "sqlite" => Ok(format!("sqlite:{}", c.database)),
+        d if crate::odbc::is_odbc_dialect(d) => crate::odbc::connection_string(&c.odbc),
         d => Err(format!("Dialect '{}' not supported", d)),
     }
 }
@@ -361,6 +410,7 @@ pub async fn run(
         DbPool::Pg(p)     => run_pg(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
         DbPool::My(p)     => run_mysql(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
         DbPool::Sqlite(p) => run_sqlite(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
+        DbPool::Odbc(p)   => run_odbc(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start).await,
     };
 
     // NB: nessun pool.close() — il pool è della lane (close_all()).
@@ -697,6 +747,53 @@ async fn run_sqlite(
         if tx.send(engine_row).await.is_err() { break; }
         maybe_emit_progress(&ctx, *rows_out, start, last_prog);
     }
+
+    let stats = NodeStats {
+        rows_in: 0, rows_out: *rows_out, rows_rejected: 0,
+        elapsed_ms: start.elapsed().as_millis() as u64, error: None,
+    };
+    ctx.emit_completed(stats);
+    Ok(())
+}
+
+// ─── ODBC: Oracle / Informix / generico (P344) ────────────────────
+
+/// Lettura via ODBC. `odbc-api` e' bloccante: l'intera lettura gira in un
+/// thread dedicato (`spawn_blocking`) e consegna le righe al canale con
+/// `blocking_send`. Si ferma se la valle chiude il canale o il run viene
+/// annullato. La conversione delle celle e' `crate::odbc::cell_value` — la
+/// stessa usata dall'anteprima dello studio.
+async fn run_odbc(
+    ctx:       NodeContext,
+    tx:        RowSender,
+    pool:      &crate::odbc::OdbcPool,
+    query:     &str,
+    binds:     &[Value],
+    rows_out:  &mut u64,
+    start:     &Instant,
+) -> Result<(), String> {
+    let mut conn = pool.acquire().await?;
+    let (ctx2, query, binds, start2) = (ctx.clone(), query.to_string(), binds.to_vec(), *start);
+    let (res, conn, n) = tokio::task::spawn_blocking(move || {
+        let mut n = 0u64;
+        let mut last_prog = Instant::now();
+        let res = crate::odbc::read_rows(conn.conn(), &query, &binds, None, |_, rows| {
+            for row in rows {
+                if ctx2.cancel.is_cancelled() { return false; }
+                if tx.blocking_send(row).is_err() { return false; }
+                n += 1;
+                maybe_emit_progress(&ctx2, n, &start2, &mut last_prog);
+            }
+            true
+        });
+        if res.is_err() { conn.mark_broken(); }
+        (res, conn, n)
+    })
+    .await
+    .map_err(|e| format!("ODBC read task failed: {}", e))?;
+    drop(conn); // torna al pool (o si chiude, se guasta)
+    *rows_out = n;
+    res.map_err(|e| format!("{} (row {})", e, n + 1))?;
 
     let stats = NodeStats {
         rows_in: 0, rows_out: *rows_out, rows_rejected: 0,

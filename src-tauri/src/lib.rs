@@ -25,6 +25,7 @@ mod db_transactions;
 mod db_stream;
 mod memory_monitor;  // aggiungere vicino agli altri mod
 pub mod engine;   // esposto: usato anche dal binario runner headless (src/bin/flowpilot_runner.rs)
+pub(crate) mod odbc; // P344: Oracle / Informix / ODBC generico (lettura)
 mod sqlsafe;      // P338: SQL dinamico sotto sqlx 0.9 (identificatori validati, AssertSqlSafe motivato)
 mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
 pub mod signing;  // catena di fiducia degli artifact (firma): forma canonica + planHash (HANDOFF-firma-artifact.md)
@@ -396,6 +397,37 @@ pub struct DbConnectionParams {
   ssl:             Option<String>,
   #[serde(rename = "connectTimeout")]
   connect_timeout: Option<u64>,
+  // P344 — ODBC (oracle / informix / odbc): driver per nome o percorso, DSN,
+  // connection string completa, parametri aggiuntivi.
+  #[serde(rename = "odbcDriver")]
+  driver:          Option<String>,
+  dsn:             Option<String>,
+  #[serde(rename = "connectionString")]
+  connection_string: Option<String>,
+  #[serde(rename = "odbcParams")]
+  odbc_params:     Option<String>,
+}
+
+impl DbConnectionParams {
+  /// Parametri ODBC dalla richiesta dello studio (P344).
+  #[cfg_attr(not(feature = "desktop"), allow(dead_code))]
+  pub(crate) fn odbc_target(&self) -> crate::odbc::OdbcTarget {
+    let s = |o: &Option<String>| o.clone().unwrap_or_default().trim().to_string();
+    crate::odbc::OdbcTarget {
+      dialect:           self.dialect.clone(),
+      host:              s(&self.host),
+      port:              self.port,
+      database:          s(&self.database),
+      user:              s(&self.user),
+      password:          self.password.clone().unwrap_or_default(),
+      service_name:      s(&self.service_name),
+      db_server_name:    s(&self.db_server_name),
+      driver:            s(&self.driver),
+      dsn:               s(&self.dsn),
+      connection_string: s(&self.connection_string),
+      extra:             s(&self.odbc_params),
+    }
+  }
 }
 
 #[derive(Debug, Deserialize)]
@@ -405,6 +437,10 @@ struct DbQueryRequest {
   #[serde(rename = "fetchSize")]
   fetch_size: Option<u32>,
   timeout:    Option<u64>,
+  /// P344: massimo di righe da restituire (anteprima). Serve ai dialetti ODBC,
+  /// dove non si puo' avvolgere la query con un LIMIT portabile.
+  #[serde(rename = "maxRows")]
+  max_rows:   Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -471,6 +507,7 @@ pub(crate) fn build_connection_string(conn: &DbConnectionParams) -> Result<Strin
         host, port, database, charset))
     }
     "sqlite" => Ok(format!("sqlite:{}", database)),
+    d if crate::odbc::is_odbc_dialect(d) => crate::odbc::connection_string(&conn.odbc_target()),
     d => Err(format!("Dialect '{}' not supported.", d)),
   }
 }
@@ -483,6 +520,8 @@ async fn db_query(request: DbQueryRequest) -> Result<Vec<serde_json::Value>, Str
     "postgresql" => pg_query(&conn_str, &request.query, request.timeout).await,
     "mysql"      => mysql_query(&conn_str, &request.query, request.timeout).await,
     "sqlite"     => sqlite_query(&conn_str, &request.query, request.timeout).await,
+    d if crate::odbc::is_odbc_dialect(d) =>
+      crate::odbc::query_json(conn_str, request.query.clone(), request.max_rows, request.timeout).await,
     d            => Err(format!("Dialect '{}' not supported", d)),
   }
 }
@@ -492,6 +531,14 @@ async fn db_query(request: DbQueryRequest) -> Result<Vec<serde_json::Value>, Str
 async fn db_infer_schema(request: DbQueryRequest) -> Result<Vec<DbColumnInfo>, String> {
   let conn_str = build_connection_string(&request.connection)?;
   let base     = request.query.trim().trim_end_matches(';');
+  // P344 — ODBC: si PREPARA la query e se ne leggono le colonne senza
+  // eseguirla (niente LIMIT/ROWNUM/FIRST da indovinare per dialetto).
+  if crate::odbc::is_odbc_dialect(&request.connection.dialect) {
+    let cols = crate::odbc::describe_json(conn_str, base.to_string()).await?;
+    return Ok(cols.into_iter().enumerate().map(|(i, (name, db_type, nullable))| DbColumnInfo {
+      name, db_type, nullable, position: i,
+    }).collect());
+  }
   let probe = match request.connection.dialect.as_str() {
     "postgresql" | "mysql" | "sqlite" => format!("SELECT * FROM ({}) AS __probe__ LIMIT 0", base),
     "oracle"   => format!("SELECT * FROM ({}) WHERE ROWNUM = 0", base),

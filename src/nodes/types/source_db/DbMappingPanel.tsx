@@ -4,7 +4,7 @@ import { useFlowStore } from '../../../store/flowStore'
 import { propagateSchema } from '../../../utils/schemaUtils'
 import { downloadSchema } from '../../../schema/schemaFile'
 import type { SchemaField } from '../../../utils/schemaUtils'
-import { DB_DIALECT_LABELS, DB_DIALECT_COLORS, type DbDialect } from '../../../nodes/resourceDefaults'
+import { DB_DIALECT_LABELS, DB_DIALECT_COLORS, type DbDialect, dbConnectionParams, isOdbcDialect } from '../../../nodes/resourceDefaults'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 const inputStyle: React.CSSProperties = {
@@ -150,20 +150,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
       const resCfg = (selectedResource?.config ?? {}) as Record<string, string>
 
       // Costruisce i parametri di connessione dalla risorsa
-      const connection = {
-        dialect:        resCfg.dialect     ?? dialect,
-        host:           resCfg.host        ?? 'localhost',
-        port:           parseInt(resCfg.port ?? '5432', 10),
-        database:       resCfg.database    ?? '',
-        user:           resCfg.user        ?? '',
-        password:       resCfg.password    ?? '',
-        schema:         resCfg.schema,
-        serviceName:    resCfg.serviceName,
-        dbServerName:   resCfg.dbServerName,
-        charset:        resCfg.charset,
-        ssl:            resCfg.ssl         ?? 'false',
-        connectTimeout: parseInt(resCfg.connectTimeout ?? '10', 10),
-      }
+      const connection = dbConnectionParams(resCfg, dialect)
 
       // Usa la query personalizzata se presente, altrimenti SELECT * FROM tabella
       const customQuery = p('query').trim()
@@ -174,7 +161,9 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
       if (customQuery) {
         query = customQuery.replace(/;\s*$/, '')
       } else if (table) {
-        query = dialect === 'sqlite'
+        // Come il motore (source_db): 'public' = nessuna qualificazione; Oracle
+        // e Informix non hanno uno schema 'public'.
+        query = dialect === 'sqlite' || (isOdbcDialect(dialect) && (!schema || schema === 'public'))
           ? `SELECT * FROM ${table}`
           : `SELECT * FROM ${schema}.${table}`
       } else {

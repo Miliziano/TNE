@@ -1,6 +1,6 @@
 import { useFlowStore } from '../store/flowStore'
 import type { LaneResource, ResourceStatus, ResourceAction } from '../types'
-import { HTTP_DEFAULTS } from '../nodes/resourceDefaults.ts'
+import { HTTP_DEFAULTS, DB_DIALECT_PORTS, isOdbcDialect, type DbDialect } from '../nodes/resourceDefaults.ts'
 import { CustomSelect } from '../components/CustomSelect'
 import { actionsForKind } from '../nodes/resourceActions'
 
@@ -180,19 +180,39 @@ function DbConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
   const c = res.config
   const f = (k: string) => c[k] ?? ''
   const p = { laneId, resourceId: res.id }
+  const dialect = f('dialect') || f('driver') || 'postgresql'
+  const odbc    = isOdbcDialect(dialect)
+  const generic = dialect === 'odbc'
 
   return (
     <>
       <Section label="Connessione">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Dialetto" fieldKey="dialect" value={f('dialect') || f('driver') || 'postgresql'}
-            type="select" options={['postgresql','mysql','sqlite','oracle','informix']} {...p} />
-          <Field label="Porta" fieldKey="port" value={f('port') || '5432'} type="number" {...p} />
+          <Field label="Dialetto" fieldKey="dialect" value={dialect}
+            type="select" options={['postgresql','mysql','sqlite','oracle','informix','odbc']} {...p} />
+          {!generic && <Field label="Porta" fieldKey="port" value={f('port') || DB_DIALECT_PORTS[dialect as DbDialect] || '5432'} type="number" {...p} />}
         </div>
-        <Field label="Host" fieldKey="host" value={f('host') || 'localhost'} {...p} />
-        <Field label="Database" fieldKey="database" value={f('database') || ''} {...p} />
-        <Field label="Schema" fieldKey="schema" value={f('schema') || 'public'} {...p} />
+        {!generic && <Field label="Host" fieldKey="host" value={f('host') || 'localhost'} {...p} />}
+        {!generic && <Field label="Database" fieldKey="database" value={f('database') || ''} {...p} />}
+        {dialect === 'oracle' && <Field label="Service name (vuoto = Database)" fieldKey="serviceName" value={f('serviceName')} {...p} />}
+        {dialect === 'informix' && <Field label="Server (DBSERVERNAME)" fieldKey="dbServerName" value={f('dbServerName')} {...p} />}
+        <Field label="Schema" fieldKey="schema" value={f('schema') || (odbc ? '' : 'public')} {...p} />
       </Section>
+
+      {odbc && (
+        <Section label="ODBC">
+          <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 6, lineHeight: 1.45 }}>
+            Sulla macchina che esegue servono il gestore ODBC (unixODBC su Linux/macOS) e il driver del
+            fornitore{dialect === 'oracle' ? ' (Oracle Instant Client + ODBC)' : dialect === 'informix' ? ' (IBM Informix Client SDK)' : ''}.
+            Il driver si indica per nome (come in odbcinst.ini) o con il percorso della libreria.
+            {generic ? ' Per l\'ODBC generico serve un DSN o una connection string.' : ' DSN o connection string, se indicati, sostituiscono host e porta.'}
+          </div>
+          <Field label="Driver ODBC" fieldKey="odbcDriver" value={f('odbcDriver')} {...p} />
+          <Field label="DSN" fieldKey="dsn" value={f('dsn')} {...p} />
+          <Field label="Connection string" fieldKey="connectionString" value={f('connectionString')} type="textarea" {...p} />
+          <Field label="Parametri aggiuntivi (CHIAVE=valore;…)" fieldKey="odbcParams" value={f('odbcParams')} {...p} />
+        </Section>
+      )}
 
       <Section label="Autenticazione">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>

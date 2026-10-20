@@ -105,7 +105,7 @@ function logicalToDbType(logicalType: string, dialect: string): string {
 import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
-import { DB_DIALECT_COLORS, type DbDialect } from '../../../nodes/resourceDefaults'
+import { DB_DIALECT_COLORS, type DbDialect, dbConnectionParams } from '../../../nodes/resourceDefaults'
 
 interface DbColumnInfo {
   name: string; db_type: string; nullable: boolean; position: number; is_pk?: boolean
@@ -334,13 +334,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
     try {
       const resCfg = (selectedResource?.config ?? {}) as Record<string, string>
       const dial   = resCfg.dialect ?? resCfg.driver ?? 'postgresql'
-      const connection = {
-        dialect: dial, host: resCfg.host ?? 'localhost',
-        port: parseInt(resCfg.port ?? '5432', 10), database: resCfg.database ?? '',
-        user: resCfg.user ?? '', password: resCfg.password ?? '',
-        schema: resCfg.schema, ssl: resCfg.ssl ?? 'false',
-        connectTimeout: parseInt(resCfg.connectTimeout ?? '10', 10),
-      }
+      const connection = dbConnectionParams(resCfg, dial)
       const schema = p('querySchema', resCfg.schema ?? 'public')
       const table  = p('table')
       if (!table) { setConstraintsError('Configure the table in the Configuration tab.'); setLoadingConstraints(false); return }
@@ -369,13 +363,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
     try {
       const resCfg = (selectedResource?.config ?? {}) as Record<string, string>
       const dial   = resCfg.dialect ?? resCfg.driver ?? 'postgresql'
-      const connection = {
-        dialect: dial, host: resCfg.host ?? 'localhost',
-        port: parseInt(resCfg.port ?? '5432', 10), database: resCfg.database ?? '',
-        user: resCfg.user ?? '', password: resCfg.password ?? '',
-        schema: resCfg.schema, ssl: resCfg.ssl ?? 'false',
-        connectTimeout: parseInt(resCfg.connectTimeout ?? '10', 10),
-      }
+      const connection = dbConnectionParams(resCfg, dial)
       const schema = p('querySchema', resCfg.schema ?? 'public')
       const table  = p('table')
       if (!table) { setInferError('Configure the table in the Configuration tab.'); setInferring(false); return }

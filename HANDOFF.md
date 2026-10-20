@@ -1157,7 +1157,59 @@ no). Decidere se rigenerarle (schede in inglese) prima di lanciarlo.
 
 ---
 
+## AGGIORNAMENTO — ODBC fetta 1: lettura da Oracle / Informix / ODBC generico (stato al P344, 18 ottobre)
+
+Decisioni prese con l'utente: **ODBC anche per Oracle** (il driver nativo `oracledb` si
+rivaluta quando esce dalla beta); gestore ODBC collegato **dinamicamente** (unixODBC è
+LGPL: niente `vendored-unix-odbc`, che lo incorporerebbe staticamente) → **unixODBC è un
+prerequisito di runner e studio su Linux/macOS**, anche dove non si usano questi DB.
+Nessuna istanza Oracle/Informix di prova per ora: **collaudo nel sandbox contro
+PostgreSQL attraverso il suo driver ODBC (psqlODBC)**; la parte specifica dei due DB
+(SQL, tipi, driver) resta da collaudare su istanze vere.
+
+**Motore — `src-tauri/src/odbc.rs`.** `odbc-api` 29 (bloccante → tutto in
+`spawn_blocking`). `OdbcPool`: pool per (lane, risorsa) come i pool sqlx, prima
+connessione aperta alla creazione (così il retry "prima operazione" la ritenta),
+`is_dead` prima del riuso, connessioni guaste scartate. `DbPool::Odbc` in `pool.rs`.
+Connection string da: connection string completa → DSN → driver + campi del dialetto
+(Oracle EZConnect `DBQ=host:porta/servizio`; Informix `Host/Service/Server/Database/
+Protocol=onsoctcp`, driver di default `IBM INFORMIX ODBC DRIVER`); valori con `;{}=`
+tra graffe. Lettura a lotti in buffer di **testo** (UTF-8; UTF-16 su Windows) convertito
+dal tipo dichiarato: NUMERIC/DECIMAL → **Decimal esatto**, scala 0 e precisione ≤ 18 →
+Int, oltre le 28 cifre di Decimal → **Stringa esatta**; date/timestamp normalizzati come
+il lettore Postgres; binari (esadecimale) come il lettore Postgres. Testo di dimensione
+non dichiarata: tetto 64 Ki caratteri, oltre → errore esplicito di troncamento.
+`source_db`: `run_odbc` (blocking_send sul canale, si ferma su annullamento o valle
+chiusa), parametri R8 legati tipizzati (`?`), paginazione per dialetto (Oracle `OFFSET …
+ROWS FETCH NEXT …`, Informix `SELECT SKIP … FIRST …`, ODBC generico → errore parlante).
+Studio: `db_query` (con `maxRows`, il tetto lo applica il backend), `db_infer_schema`
+(PREPARA senza eseguire e legge le colonne), test di connessione. `sink_db` su ODBC →
+errore esplicito "arriva con la prossima fetta".
+
+**Studio.** Dialetto **`odbc`** nuovo; nella risorsa: *Service name* (Oracle), *Server
+DBSERVERNAME* (Informix), sezione **ODBC** (Driver ODBC, DSN, Connection string, Parametri
+aggiuntivi). Campo **`odbcDriver`** (non `driver`: nelle risorse vecchie `driver` è un
+alias del dialetto). **`dbConnectionParams()`** in `resourceDefaults.ts` = UNICA fonte dei
+parametri di connessione per i comandi DB (prima 5 copie divergenti in flowStore,
+anteprima, mapping source e sink).
+
+**Collaudo (sandbox, psqlODBC).** Stessa tabella letta nativa e via ODBC: identiche cella
+per cella tranne un `numeric(38,10)` a 30 cifre, **esatto via ODBC e arrotondato a f64
+dal lettore Postgres nativo** (🐞 preesistente in `pg_col_to_value`: oltre la portata di
+Decimal ricade su f64 — da correggere). 200.000 righe in ~5 s (debug). Errori parlanti per
+driver mancante e limit su ODBC generico. Anteprima con tetto, schema, parametri legati.
+
+**Prossime fette.** (2) scrittura: `sink_db` insert/upsert (`MERGE` per Oracle e Informix),
+DDL per dialetto, pre/post SQL, `db_list_constraints` via cataloghi ODBC. (3) gruppi
+transazionali nativi su ODBC (autocommit off), documentazione d'installazione per
+piattaforma, eventuale CLOB/LOB in streaming.
+
+---
+
 ## Oracle e Informix — pensata (DA RIPRENDERE)
+
+> **Stato al P344:** la via ODBC è decisa e la **lettura è implementata** (sezione sopra).
+> Il testo qui sotto resta come storia della decisione.
 
 > **Verifica del 17 ottobre (prima di partire con ODBC).**
 > - **Oracle: novità vera.** Oracle ha pubblicato un driver **Rust puro ufficiale**,

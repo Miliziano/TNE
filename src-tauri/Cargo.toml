@@ -68,6 +68,11 @@ futures = "0.3"
 sysinfo = "0.39"
 regex = "1"
 quick-xml = "0.42"
+# P344: ODBC per Oracle, Informix e sorgenti ODBC generiche. Collegato DINAMICAMENTE
+# al gestore ODBC (LGPL): su Linux/macOS serve unixODBC installato (build: unixodbc-dev /
+# brew unixodbc; esecuzione: libodbc2), su Windows c'e' gia'. Non usare la feature
+# `vendored-unix-odbc`: incorporerebbe unixODBC staticamente (obblighi LGPL sul binario).
+odbc-api = "29"
 
 # ── Database ───────────────────────────────────────────────────────
 # P338: sqlx 0.9 (era 0.7: RUSTSEC-2024-0363). Niente feature di default (macro,

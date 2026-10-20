@@ -1715,26 +1715,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
                        : dialect === 'informix' ? 'SELECT 1 FROM systables WHERE tabid=1'
                        : 'SELECT 1'
 
-      // Porta default per dialetto
-      const defaultPort: Record<string, string> = {
-        postgresql: '5432', mysql: '3306', sqlite: '0',
-        oracle: '1521', informix: '9088',
-      }
-
-      const connection = {
-        dialect:        dialect,
-        host:           cfg.host           ?? 'localhost',
-        port:           parseInt(cfg.port  ?? defaultPort[dialect] ?? '5432', 10),
-        database:       cfg.database       ?? '',
-        user:           cfg.user ?? cfg.username ?? '',
-        password:       cfg.password       ?? '',
-        schema:         cfg.schema,
-        serviceName:    cfg.serviceName,
-        dbServerName:   cfg.dbServerName,
-        charset:        cfg.charset,
-        ssl:            cfg.ssl            ?? 'false',
-        connectTimeout: parseInt(cfg.connectTimeout ?? cfg.timeoutSec ?? '10', 10),
-      }
+      const { dbConnectionParams } = await import('../nodes/resourceDefaults')
+      const connection = dbConnectionParams(cfg, dialect)
 
       await invoke('db_query', {
         request: { connection, query: probeQuery, timeout: 10 },

@@ -24,13 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Su Linux servono OpenSSL (native-tls di lettre/ldap3/sqlx/reqwest/ssh2/suppaftp)
-      # e libdbus per il keyring (Secret Service). Su Windows: nulla (TLS+keychain nativi).
+      # Su Linux servono OpenSSL (native-tls di lettre/ldap3/sqlx/reqwest/ssh2/suppaftp),
+      # libdbus per il keyring (Secret Service) e gli header di unixODBC (P344: odbc-api,
+      # collegato dinamicamente a libodbc). Su Windows: nulla (TLS, keychain e ODBC nativi).
       - name: Dipendenze di sistema (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev libdbus-1-dev
+          sudo apt-get install -y pkg-config libssl-dev libdbus-1-dev unixodbc-dev
 
       # Stessa versione di src-tauri/rust-toolchain.toml (P336): aggiornarle insieme.
       - name: Toolchain Rust

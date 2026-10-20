@@ -51,16 +51,21 @@ Per **studio** (webview Tauri v2):
 sudo apt update
 sudo apt install -y build-essential curl wget file pkg-config \
   libwebkit2gtk-4.1-dev librsvg2-dev libssl-dev \
-  libayatana-appindicator3-dev libxdo-dev
+  libayatana-appindicator3-dev libxdo-dev unixodbc-dev
 ```
 > Su distro non-Debian usa gli equivalenti; vedi i prerequisiti ufficiali di Tauri v2.
 
 Per **runner** e **monitor** (headless, niente webview) basta molto meno:
 ```bash
-sudo apt install -y pkg-config libssl-dev libdbus-1-dev
+sudo apt install -y pkg-config libssl-dev libdbus-1-dev unixodbc-dev
 ```
 - `libssl-dev` → il runner usa HTTPS per spingere al monitor (`reqwest`).
 - `libdbus-1-dev` → supporto keychain (`keyring`, Secret Service) per i segreti.
+- `unixodbc-dev` → ODBC per Oracle, Informix e sorgenti ODBC generiche (P344). Il
+  gestore ODBC è collegato **dinamicamente**: dove si **esegue** studio o runner serve
+  il pacchetto di runtime (`sudo apt install unixodbc`; su macOS `brew install unixodbc`),
+  anche se non si usano Oracle/Informix — senza, il binario non parte. Su Windows il
+  gestore ODBC fa parte del sistema.
 
 ### Windows — strumenti
 - **Visual Studio Build Tools** con il workload *"Sviluppo di applicazioni desktop con C++"* (MSVC + Windows SDK).
@@ -320,6 +325,39 @@ setx DB_PASSWORD "S3cr3t!"
 - `requiredSecrets` nell'anteprima del manifesto elenca i **nomi** che l'artifact si
   aspetta di trovare a destinazione.
 
+### 8.5b Oracle, Informix e ODBC generico (dal P344)
+
+Il motore li raggiunge via **ODBC**. Sulla macchina che esegue (runner, o studio per
+anteprima e schema) servono:
+
+| Database | Driver del fornitore | Nome tipico del driver |
+|---|---|---|
+| Oracle | Oracle Instant Client **Basic** + pacchetto **ODBC** (`odbc_update_ini.sh` lo registra) | `Oracle 23 ODBC driver` (dipende dalla versione) |
+| Informix | IBM Informix **Client SDK** (CSDK), che include il driver ODBC | `IBM INFORMIX ODBC DRIVER` (predefinito se il campo è vuoto) |
+| Altri | il driver ODBC del prodotto (SQL Server, DB2, …) | come registrato |
+
+Nella risorsa DB dello studio:
+- **Oracle**: host, porta (1521), *Service name* (vuoto = campo Database), utente,
+  password e **Driver ODBC** (obbligatorio, oppure un DSN). La connessione usa
+  EZConnect (`host:porta/servizio`), senza `tnsnames.ora`.
+- **Informix**: host, porta (9088), *Server (DBSERVERNAME)*, database, utente, password.
+  Driver facoltativo (default `IBM INFORMIX ODBC DRIVER`). Per l'UTF-8 aggiungi nei
+  *Parametri aggiuntivi* `CLIENT_LOCALE=en_US.utf8;` (e `DB_LOCALE` se il DB lo richiede).
+- **ODBC generico**: un **DSN** configurato sulla macchina oppure una **connection
+  string** completa.
+- Il driver si indica per **nome** (come in `odbcinst.ini`: `odbcinst -q -d` li elenca)
+  oppure con il **percorso** della libreria (es. `/opt/oracle/instantclient_23_5/libsqora.so.23.1`).
+- `${SEGRETO}` funziona in tutti i campi, come per gli altri database.
+
+Stato (P344): **lettura** — nodo `source_db`, anteprima, "Rileva schema", test di
+connessione. La **scrittura** (`sink_db`) arriva con la fetta successiva; oggi
+fallisce con un messaggio esplicito.
+
+Limiti noti: una cella di testo di dimensione non dichiarata (CLOB, TEXT, LVARCHAR
+lunghi) può essere al massimo di 64 Ki caratteri, oltre il nodo si ferma con un errore
+di troncamento (mai un valore tagliato in silenzio). In modalità *tabella* su **ODBC
+generico** limit/offset non hanno una sintassi portabile: scrivili nella query.
+
 ### 8.6 Regole di sicurezza
 - Non committare mai valori di segreti; il repo e l'artifact contengono **solo nomi**.
 - Il token del monitor (`MONITOR_TOKEN`) vive **nell'ambiente della macchina che
@@ -399,6 +437,14 @@ $env:DB_PASSWORD="…"; $env:MONITOR_URL="https://host:8787/ingest"; $env:MONITO
 ---
 
 ## 12. Troubleshooting
+
+- **Il runner o lo studio non partono: `libodbc.so.2: cannot open shared object file`**
+  → manca il gestore ODBC: `sudo apt install unixodbc` (macOS: `brew install unixodbc`).
+- **`Can't open lib '…'`** (ODBC) → il driver del fornitore non è installato, oppure
+  `odbcinst.ini` indica la libreria senza percorso assoluto: indica il percorso completo
+  nel campo *Driver ODBC*, o correggi `odbcinst.ini`.
+- **`Data source name not found`** → nome del driver o del DSN sbagliato: `odbcinst -q -d`
+  elenca i driver registrati, `odbcinst -q -s` i DSN.
 
 - **`cannot find module or crate 'tauri'` compilando il runner** → hai compilato senza
   `--no-default-features`, oppure un comando dello studio non è dietro

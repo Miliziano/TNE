@@ -861,6 +861,7 @@ async fn flush_one_returning(
         DbPool::Pg(p)     => crate::pg_write_pool(p, &req, start).await?,
         DbPool::My(p)     => crate::mysql_write_pool(p, &req, start).await?,
         DbPool::Sqlite(p) => crate::sqlite_write_pool(p, &req, start).await?,
+        DbPool::Odbc(_)   => return Err(ODBC_WRITE_TODO.to_string()),
     };
     // generated_keys[0] è la chiave di questa riga (batch=1).
     let key = result.generated_keys.into_iter().next()
@@ -901,6 +902,7 @@ async fn flush_batch(
         DbPool::Pg(p)     => crate::pg_write_pool(p, &req, start).await?,
         DbPool::My(p)     => crate::mysql_write_pool(p, &req, start).await?,
         DbPool::Sqlite(p) => crate::sqlite_write_pool(p, &req, start).await?,
+        DbPool::Odbc(_)   => return Err(ODBC_WRITE_TODO.to_string()),
     };
 
     Ok((result.rows_written as u64, result.rows_errors as u64))
@@ -985,9 +987,15 @@ fn build_conn_str(config: &SinkDbConfig) -> Result<String, String> {
             urlencoding::encode(&config.user), urlencoding::encode(&config.password),
             config.host, config.port, config.database)),
         "sqlite" => Ok(format!("sqlite:{}", config.database)),
+        d if crate::odbc::is_odbc_dialect(d) => Err(ODBC_WRITE_TODO.to_string()),
         d => Err(format!("Dialect '{}' not supported", d)),
     }
 }
+
+/// P344: la LETTURA via ODBC (Oracle, Informix, ODBC generico) c'e'; la scrittura
+/// arriva con la fetta 2 (insert/upsert/MERGE per dialetto, DDL, pre/post SQL).
+const ODBC_WRITE_TODO: &str =
+    "writing to Oracle / Informix / ODBC sources is not available yet (reading is): it comes with the next ODBC slice";
 
 fn build_db_connection_params(config: &SinkDbConfig) -> crate::DbConnectionParams {
     crate::DbConnectionParams {
@@ -1003,6 +1011,10 @@ fn build_db_connection_params(config: &SinkDbConfig) -> crate::DbConnectionParam
         charset:         None,
         ssl:             Some(config.ssl.clone()),
         connect_timeout: Some(config.connect_timeout),
+        driver:            None,
+        dsn:               None,
+        connection_string: None,
+        odbc_params:       None,
     }
 }
 
@@ -1018,6 +1030,7 @@ async fn exec_pre_post(
             DbPool::Pg(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
             DbPool::My(p)     => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
             DbPool::Sqlite(p) => sqlx::query(crate::sqlsafe::autore(stmt.to_string())).execute(p).await.map(|_| ()),
+            DbPool::Odbc(_)   => return Err(ODBC_WRITE_TODO.to_string()),
         };
         res.map_err(|e| format!("{} failed: {}", label, e))?;
     }

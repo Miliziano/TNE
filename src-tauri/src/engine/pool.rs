@@ -35,6 +35,8 @@ pub enum DbPool {
     Pg(PgPool),
     My(MySqlPool),
     Sqlite(SqlitePool),
+    /// P344: Oracle, Informix e ODBC generico (pool di connessioni bloccanti).
+    Odbc(crate::odbc::OdbcPool),
 }
 
 /// Parametri per creare un pool. Derivati dalla risorsa (spec.resource)
@@ -163,6 +165,7 @@ impl LaneResources {
                 DbPool::Pg(pool)     => pool.close().await,
                 DbPool::My(pool)     => pool.close().await,
                 DbPool::Sqlite(pool) => pool.close().await,
+                DbPool::Odbc(pool)   => pool.close().await,
             }
             eprintln!("[pool] lane: chiusa risorsa '{}'", rid);
         }
@@ -196,6 +199,11 @@ async fn build_pool(params: &PoolParams) -> Result<DbPool, String> {
                 .connect(&params.conn_str).await
                 .map_err(|e| format!("SQLite connection failed: {}", e))?;
             Ok(DbPool::Sqlite(pool))
+        }
+        d if crate::odbc::is_odbc_dialect(d) => {
+            let pool = crate::odbc::OdbcPool::connect(params.conn_str.clone(), max, to.as_secs()).await
+                .map_err(|e| format!("{}: {}", d, e))?;
+            Ok(DbPool::Odbc(pool))
         }
         d => Err(format!("Dialect '{}' not supported", d)),
     }

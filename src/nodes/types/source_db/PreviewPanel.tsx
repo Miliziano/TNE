@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../../../store/flowStore'
+import { dbConnectionParams, isOdbcDialect } from '../../resourceDefaults'
 
 const ACCENT = '#4a9eff'
 
@@ -37,10 +38,7 @@ function fmt(v: unknown): string {
   return String(v)
 }
 
-const DEFAULT_PORT: Record<string, string> = {
-  postgresql: '5432', mysql: '3306', sqlite: '0', oracle: '1521', informix: '9088',
-}
-const DIALETTI_SUPPORTATI = ['postgresql', 'mysql', 'sqlite']
+const DIALETTI_SUPPORTATI = ['postgresql', 'mysql', 'sqlite', 'oracle', 'informix', 'odbc']
 
 export function SourceDbPreviewPanel({ nodeId }: { nodeId: string }) {
   const node = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
@@ -72,32 +70,21 @@ export function SourceDbPreviewPanel({ nodeId }: { nodeId: string }) {
       return
     }
 
-    const cfg = resource.config ?? {}
-    const connection = {
-      dialect,
-      host:           cfg.host ?? 'localhost',
-      port:           parseInt(cfg.port ?? DEFAULT_PORT[dialect] ?? '5432', 10),
-      database:       cfg.database ?? '',
-      user:           cfg.user ?? cfg.username ?? '',
-      password:       cfg.password ?? '',
-      schema:         cfg.schema,
-      serviceName:    cfg.serviceName,
-      dbServerName:   cfg.dbServerName,
-      charset:        cfg.charset,
-      ssl:            cfg.ssl ?? 'false',
-      connectTimeout: parseInt(cfg.connectTimeout ?? cfg.timeoutSec ?? '10', 10),
-    }
+    const connection = dbConnectionParams(resource.config ?? {}, dialect)
 
-    // Avvolgo la query per cappare le righe, come fa db_infer_schema.
+    // Righe al massimo n. SQL standard: si avvolge la query con LIMIT. ODBC
+    // (Oracle/Informix/generico): non c'e' una sintassi portabile, quindi la
+    // query va com'e' e il TETTO lo applica il backend (maxRows).
     const base    = query.replace(/;\s*$/, '')
     const n        = Math.max(1, Math.min(500, limite))
-    const wrapped  = `SELECT * FROM (${base}) AS __preview__ LIMIT ${n}`
+    const odbc     = isOdbcDialect(dialect)
+    const wrapped  = odbc ? base : `SELECT * FROM (${base}) AS __preview__ LIMIT ${n}`
     const timeout  = parseInt(p('queryTimeout', '30'), 10) || 30
 
     setInCorso(true)
     try {
       const rows = await invoke<Array<Record<string, unknown>>>('db_query', {
-        request: { connection, query: wrapped, timeout },
+        request: { connection, query: wrapped, timeout, ...(odbc ? { maxRows: n } : {}) },
       })
       setOutput(Array.isArray(rows) ? rows : [])
     } catch (e) {
