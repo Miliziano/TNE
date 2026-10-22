@@ -23,7 +23,8 @@ import { CompileModal } from './CompileModal'
 import { SigningKeyModal } from './SigningKeyModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
-import { parseUserFunctions } from '../ir/userFunctions'
+import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
+import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
 
@@ -738,11 +739,27 @@ function buildRustPlan(
 
         case 'filter': {
           // Le conditions (visual/template/code) sono una struttura
-          // elaborata dal builder → spec.config (node-spec §16). Filter
-          // non compila FPEL: sono clausole strutturate o template.
-          const f = (node.data.config as any)?.filter ?? {}
-          specConfig.conditions    = f.conditions ?? []
-          specConfig.null_behavior = f.nullBehavior ?? 'exclude'
+          // elaborata dal builder → spec.config (node-spec §16). Quelle in
+          // modalità code sono FPEL: si compilano qui in IR (`expr`), come
+          // il transform — un errore blocca il Run invece di diventare una
+          // condizione sempre falsa nel motore.
+          const f = (node.data.config as { filter?: Partial<FilterConfig> } | undefined)?.filter
+          const conditions = (f?.conditions ?? []).map((c) => {
+            if (c.mode !== 'code') return c
+            const src = (c.code ?? '').trim()
+            const where = `Filter "${node.data.label}", condition "${c.label}"`
+            if (!src) throw new Error(`${where}: the FPEL expression is empty`)
+            try {
+              return { ...c, expr: compileFpel(src, { userFunctions: userFns }) }
+            } catch (e) {
+              const detail = e instanceof ExprParseError ? e.pretty() : String(e)
+              throw new Error(`${where}: not a valid FPEL expression (the old JavaScript code mode is no longer supported)\n${detail}`)
+            }
+          })
+          specConfig.conditions     = conditions
+          specConfig.null_behavior  = f?.nullBehavior ?? 'exclude'
+          specConfig.case_sensitive = isCaseSensitive(f)
+          specConfig.exec_mode      = effectiveExecMode(f)
           break
         }
 

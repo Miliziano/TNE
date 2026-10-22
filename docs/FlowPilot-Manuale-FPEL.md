@@ -105,6 +105,16 @@ Dalla precedenza più bassa alla più alta:
 | 5 | `+` `-` | somma/sottrazione — **`+` concatena** se un operando è stringa |
 | 6 | `*` `/` `%` | prodotto, divisione, modulo |
 
+**Confronti** (dal P354):
+- un confronto `<` `<=` `>` `>=` con un **null** è **falso** (semantica SQL):
+  `importo < 100` non passa per un importo mancante; per includerli lo si
+  dice: `importo is null || importo < 100`;
+- se un lato è un numero (anche **decimal** esatto) l'altro si confronta come
+  **numero**, anche quando è un testo numerico (`"10" > 9` è vero, tipico dei
+  CSV); un testo non numerico contro un numero non è confrontabile → falso;
+- fra due testi il confronto è testuale e **sensibile alle maiuscole**: per
+  ignorarle `lower(nome) == "mario"`.
+
 Unari: `!` (negazione logica), `-` (segno). Le parentesi `(...)` raggruppano
 come di consueto. Le parole `and`/`or` sono equivalenti a `&&`/`||`.
 
@@ -224,7 +234,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `ends_with(s, p)` | boolean | `endswith` | Vero se finisce con |
 | `pad_left(s, n [, car])` | string | `lpad`, `padleft` | Riempie a sinistra fino a n |
 | `pad_right(s, n [, car])` | string | `rpad`, `padright` | Riempie a destra fino a n |
-| `regex_match(s, pattern)` | boolean | `matches` | Vero se il pattern combacia |
+| `regex_match(s, pattern)` | boolean | `matches` | Vero se il pattern combacia in un punto qualsiasi (sintassi Rust; `(?i)` davanti ignora le maiuscole). Pattern non valido → null |
 | `capitalize(s)` | string | — | Prima lettera maiuscola |
 | `title_case(s)` | string | `titlecase` | Ogni Parola Maiuscola |
 | `remove_accents(s)` | string | `removeaccents` | Rimuove gli accenti |

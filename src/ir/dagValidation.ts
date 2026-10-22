@@ -13,6 +13,9 @@ import { topologicalSort, canvasNodeId } from './lowering'
 import { queryParamNames, quotedParamNames } from './queryParams'
 import { getNodeSemantics } from './nodeSemantics'
 import { propagateSchema } from './schemaPropagation'
+import { compileFpel } from './userFunctions'
+import { ExprParseError } from './exprParser'
+import { effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
 
 
 export function validateDAG(plan: LogicalPlan): ValidationResult {
@@ -47,8 +50,83 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...validateTransactionGroups(plan))
   issues.push(...checkSinkDbCustomSql(plan))
   issues.push(...checkCatchHandles(plan))
+  issues.push(...checkFilterConditions(plan))
 
   return buildResult(issues)
+}
+
+/**
+ * Filter (P354): le condizioni in modalità code sono FPEL e si compilano
+ * qui come al Run (errore → il Run si bloccherebbe); un template non
+ * scelto fa fallire il motore all'avvio; in modalità "ordered with wait"
+ * un nodo a valle raggiunto da più rami (o da reject) non si può
+ * aspettare — il motore lo esclude dall'attesa, e lo si dice prima.
+ */
+function checkFilterConditions(plan: LogicalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const downstream = (from: string, port: string): Set<string> => {
+    const seen = new Set<string>()
+    const queue: string[] = []
+    for (const e of plan.edges) {
+      if (e.source === from && e.sourcePort === port && !seen.has(e.target)) { seen.add(e.target); queue.push(e.target) }
+    }
+    while (queue.length) {
+      const n = queue.shift()!
+      for (const e of plan.edges) {
+        if (e.source === n && !seen.has(e.target)) { seen.add(e.target); queue.push(e.target) }
+      }
+    }
+    seen.delete(from)
+    return seen
+  }
+
+  plan.nodes.forEach((node) => {
+    if ((node._uiRef?.type ?? '') !== 'filter') return
+    const cfg = (node._uiRef?.config as { filter?: Partial<FilterConfig> } | undefined)?.filter
+    const conds = cfg?.conditions ?? []
+    const nodeId = canvasNodeId(node.id)
+    const label  = node._uiRef?.label ?? node.id
+
+    conds.forEach((c) => {
+      if (c.mode === 'code') {
+        const src = (c.code ?? '').trim()
+        let problem: string | null = null
+        if (!src) problem = 'the FPEL expression is empty'
+        else {
+          try { compileFpel(src) }
+          catch (e) { problem = e instanceof ExprParseError ? e.message : String(e) }
+        }
+        if (problem) issues.push({
+          nodeId, severity: 'error', code: 'FILTER_CODE_INVALID',
+          message: `Filter "${label}", condition "${c.label}": ${problem}`,
+          hint: 'Code mode takes a boolean FPEL expression, e.g. amount > 100 && lower(country) == "it"',
+        })
+      } else if (c.mode === 'template' && !c.templateId) {
+        issues.push({
+          nodeId, severity: 'error', code: 'FILTER_NO_TEMPLATE',
+          message: `Filter "${label}", condition "${c.label}": no template selected`,
+          hint: 'Choose a template, or switch the condition to the visual builder',
+        })
+      }
+    })
+
+    if (effectiveExecMode(cfg) !== 'ordered_wait' || conds.length < 2) return
+    const reach  = conds.map((c) => downstream(node.id, c.id))
+    const reject = downstream(node.id, 'reject')
+    for (let k = 0; k < conds.length - 1; k++) {
+      const later = new Set<string>(reject)
+      for (const r of reach.slice(k + 1)) r.forEach((n) => later.add(n))
+      const shared = [...reach[k]].filter((n) => later.has(n))
+      if (shared.length === 0) continue
+      const names = shared.map((id) => plan.nodes.find((n) => n.id === id)?._uiRef?.label ?? id)
+      issues.push({
+        nodeId, severity: 'warning', code: 'FILTER_ORDER_SHARED',
+        message: `Filter "${label}": branch "${conds[k].label}" reaches ${names.map((n) => `"${n}"`).join(', ')}, also reached by a later branch or by reject — the ordered mode cannot wait for ${shared.length === 1 ? 'it' : 'them'}`,
+        hint: 'Give each branch its own downstream nodes, or use the parallel mode',
+      })
+    }
+  })
+  return issues
 }
 function checkCatchHandles(plan: LogicalPlan): ValidationIssue[] {
   const issues: ValidationIssue[] = []

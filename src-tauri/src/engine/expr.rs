@@ -361,10 +361,10 @@ fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
         // Confronto
         BinaryOperator::Eq  => Value::Bool(values_equal(&l, &r)),
         BinaryOperator::Ne  => Value::Bool(!values_equal(&l, &r)),
-        BinaryOperator::Lt  => Value::Bool(compare_values(&l, &r) == Some(std::cmp::Ordering::Less)),
-        BinaryOperator::Lte => Value::Bool(matches!(compare_values(&l, &r), Some(std::cmp::Ordering::Less) | Some(std::cmp::Ordering::Equal))),
-        BinaryOperator::Gt  => Value::Bool(compare_values(&l, &r) == Some(std::cmp::Ordering::Greater)),
-        BinaryOperator::Gte => Value::Bool(matches!(compare_values(&l, &r), Some(std::cmp::Ordering::Greater) | Some(std::cmp::Ordering::Equal))),
+        BinaryOperator::Lt  => ordering_op(&l, &r, |o| o.is_lt()),
+        BinaryOperator::Lte => ordering_op(&l, &r, |o| o.is_le()),
+        BinaryOperator::Gt  => ordering_op(&l, &r, |o| o.is_gt()),
+        BinaryOperator::Gte => ordering_op(&l, &r, |o| o.is_ge()),
 
         // Logici (short-circuit già fatto a livello di BinaryOp eval)
         BinaryOperator::And => Value::Bool(is_truthy(&l) && is_truthy(&r)),
@@ -476,10 +476,15 @@ fn eval_function(name: &str, args: Vec<Value>) -> Value {
             Value::String(format!("{}{}", s, padding))
         }
         "regex_match" => {
-            // Senza la crate regex per ora — verifica contains come fallback
+            // Regex vera (crate `regex`, sintassi Rust: `(?i)` davanti per
+            // ignorare maiuscole/minuscole). P354: prima era un "contiene"
+            // travestito. Pattern non valido → null, come replace_regex.
             let s       = to_string(args.first().unwrap_or(&Value::Null));
             let pattern = to_string(args.get(1).unwrap_or(&Value::Null));
-            Value::Bool(s.contains(&pattern))  // TODO: usare crate regex in Fase 6b
+            match crate::engine::expr_functions::cached_regex(&pattern) {
+                Some(re) => Value::Bool(re.is_match(&s)),
+                None     => Value::Null,
+            }
         }
 
         // ── Numeriche ────────────────────────────────────────────
@@ -649,10 +654,58 @@ fn values_equal(a: &Value, b: &Value) -> bool {
         (Value::Int(x), Value::Float(y))   => (*x as f64 - y).abs() < f64::EPSILON,
         (Value::Float(x), Value::Int(y))   => (x - *y as f64).abs() < f64::EPSILON,
         (Value::String(x), Value::String(y)) => x == y,
+        // Un numero contro un Decimal o contro un testo numerico ("10.0" ==
+        // 10): confronto NUMERICO. P354: prima passava dalla stringa, e
+        // Decimal(100.50) == 100.5 era falso.
+        _ if is_number(a) || is_number(b) => match numeric_cmp(a, b) {
+            Some(o) => o == std::cmp::Ordering::Equal,
+            None    => a.as_str_repr() == b.as_str_repr(),
+        },
         _ => a.as_str_repr() == b.as_str_repr(),
     }
 }
 
+fn is_number(v: &Value) -> bool {
+    matches!(v, Value::Int(_) | Value::Float(_) | Value::Decimal(_))
+}
+
+/// Vista decimale esatta di un valore numerico o di un testo numerico.
+fn as_decimal(v: &Value) -> Option<rust_decimal::Decimal> {
+    use rust_decimal::prelude::FromPrimitive;
+    use std::str::FromStr;
+    match v {
+        Value::Int(i)     => Some(rust_decimal::Decimal::from(*i)),
+        Value::Decimal(d) => Some(*d),
+        Value::Float(f)   => rust_decimal::Decimal::from_f64(*f),
+        Value::String(s)  => {
+            let t = s.trim();
+            rust_decimal::Decimal::from_str(t).ok()
+                .or_else(|| rust_decimal::Decimal::from_scientific(t).ok())
+        }
+        _ => None,
+    }
+}
+
+/// Confronto numerico quando almeno un lato è un numero: Decimal esatto
+/// se possibile, altrimenti f64. None se l'altro lato non è numerico.
+fn numeric_cmp(a: &Value, b: &Value) -> Option<std::cmp::Ordering> {
+    if let (Some(x), Some(y)) = (as_decimal(a), as_decimal(b)) {
+        return Some(x.cmp(&y));
+    }
+    let f = |v: &Value| -> Option<f64> {
+        match v {
+            Value::Int(i)    => Some(*i as f64),
+            Value::Float(f)  => Some(*f),
+            Value::Decimal(d) => { use rust_decimal::prelude::ToPrimitive; d.to_f64() }
+            Value::String(s) => s.trim().parse::<f64>().ok(),
+            _ => None,
+        }
+    };
+    f(a)?.partial_cmp(&f(b)?)
+}
+
+/// Ordinamento (min/max): null in testa. Per gli operatori di confronto
+/// v. `ordering_op`, che con un null risponde falso.
 fn compare_values(a: &Value, b: &Value) -> Option<std::cmp::Ordering> {
     match (a, b) {
         (Value::Null, Value::Null) => Some(std::cmp::Ordering::Equal),
@@ -663,8 +716,20 @@ fn compare_values(a: &Value, b: &Value) -> Option<std::cmp::Ordering> {
         (Value::Int(x),   Value::Float(y)) => (*x as f64).partial_cmp(y),
         (Value::Float(x), Value::Int(y))   => x.partial_cmp(&(*y as f64)),
         (Value::String(x), Value::String(y)) => Some(x.cmp(y)),
+        // Decimal e testo numerico contro numero: confronto numerico (prima
+        // era lessicografico: "10" < 9, Decimal(100.5) < 99). Un testo NON
+        // numerico contro un numero non è confrontabile.
+        _ if is_number(a) || is_number(b) => numeric_cmp(a, b),
         _ => Some(a.as_str_repr().cmp(&b.as_str_repr())),
     }
+}
+
+/// Operatori < <= > >=: semantica SQL sui null — un confronto con null
+/// (o fra valori non confrontabili) è FALSO. P354: prima null era "il
+/// più piccolo", e `importo < 100` passava per ogni importo mancante.
+fn ordering_op(l: &Value, r: &Value, ok: impl Fn(std::cmp::Ordering) -> bool) -> Value {
+    if matches!(l, Value::Null) || matches!(r, Value::Null) { return Value::Bool(false); }
+    Value::Bool(compare_values(l, r).map_or(false, ok))
 }
 
 fn numeric_op(
@@ -696,3 +761,42 @@ fn numeric_op(
 
 // Helper per Add stringa — evita borrow checker issues
 fn l_str(v: &Value) -> String { v.as_str_repr() }
+
+#[cfg(test)]
+mod tests_confronti {
+    use super::*;
+    use std::str::FromStr;
+
+    fn b(op: BinaryOperator, l: Value, r: Value) -> bool { is_truthy(&eval_binary(&op, l, r)) }
+    fn dec(s: &str) -> Value { Value::Decimal(rust_decimal::Decimal::from_str(s).unwrap()) }
+
+    #[test]
+    fn confronto_con_null_e_falso() {
+        assert!(!b(BinaryOperator::Lt,  Value::Null, Value::Int(100)));
+        assert!(!b(BinaryOperator::Lte, Value::Null, Value::Int(100)));
+        assert!(!b(BinaryOperator::Gt,  Value::Int(1), Value::Null));
+        assert!(!b(BinaryOperator::Gte, Value::Null, Value::Null));
+        // l'ordinamento (min/max) tiene il null in testa
+        assert_eq!(compare_values(&Value::Null, &Value::Int(1)), Some(std::cmp::Ordering::Less));
+    }
+
+    #[test]
+    fn decimal_e_testo_numerico_confrontati_come_numeri() {
+        assert!(b(BinaryOperator::Gt, dec("100.50"), Value::Int(99)));
+        assert!(b(BinaryOperator::Eq, dec("100.50"), Value::Float(100.5)));
+        assert!(b(BinaryOperator::Gt, Value::String("10".into()), Value::Int(9)));
+        assert!(b(BinaryOperator::Eq, Value::String("10.0".into()), Value::Int(10)));
+        assert!(!b(BinaryOperator::Gt, Value::String("abc".into()), Value::Int(5)));
+        // fra stringhe resta il confronto testuale
+        assert!(b(BinaryOperator::Lt, Value::String("10".into()), Value::String("9".into())));
+    }
+
+    #[test]
+    fn regex_match_e_una_regex_vera() {
+        let f = |s: &str, p: &str| eval_function("regex_match", vec![Value::String(s.into()), Value::String(p.into())]);
+        assert_eq!(f("+39123", "^\\+39\\d+$"), Value::Bool(true));
+        assert_eq!(f("x+39123", "^\\+39\\d+$"), Value::Bool(false));
+        assert_eq!(f("MARIO", "(?i)^mario$"), Value::Bool(true));
+        assert_eq!(f("a", "("), Value::Null);
+    }
+}

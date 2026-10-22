@@ -61,6 +61,11 @@ pub struct NodeContext {
     /// dall'utente. `None` senza EH → lo stop fa comunque fallback (ferma
     /// la lane senza effetti ricchi).
     pub err_collector:  Option<RowSender>,
+    /// Registro di completamento dei nodi della lane + topologia (v.
+    /// completion.rs): serve a chi deve aspettare che una parte della
+    /// pipeline a valle abbia finito (Filter, modalità "ordered with
+    /// wait"). Vuoto nell'anteprima di un nodo isolato.
+    pub lane_done:      std::sync::Arc<super::completion::LaneCompletion>,
 }
 
 impl NodeContext {
@@ -409,6 +414,15 @@ pub async fn execute_lane(
     // (v. abort.rs). Vive anche senza EH — resta semplicemente vuoto.
     let lane_abort = super::abort::LaneAbort::new();
 
+    // Registro di completamento: un segnale per nodo + gli archi del
+    // piano, per sapere cosa sta a valle di un'uscita.
+    let lane_done = super::completion::LaneCompletion::new(
+        plan_edges.iter()
+            .map(|e| (e.source_node.0.clone(), e.source_handle.clone(), e.target_node.0.clone()))
+            .collect(),
+        &nodes.iter().map(|n| n.node_id.0.clone()).collect::<Vec<_>>(),
+    );
+
     let (collector_tx, mut collector_rx) = if eh_id.is_some() {
         let (tx, rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
         (Some(tx), Some(rx))
@@ -445,6 +459,7 @@ pub async fn execute_lane(
             lane_abort:     lane_abort.clone(),
             cancel:         cancel.clone(),
             err_collector:  collector_for_node.clone(),
+            lane_done:      lane_done.clone(),
         };
 
         let mut inputs = input_rx.remove(&node_id_str).unwrap_or_default();
@@ -491,8 +506,15 @@ pub async fn execute_lane(
         let err_node_type = node_type.clone();
         let err_lane_id   = lane_id.0.clone();   // LaneId è una newtype: serve la String
 
+        let done_guard_reg = lane_done.clone();
         let handle = tokio::spawn(async move {
+            // Marca il nodo terminato in OGNI caso (ok, errore, panic,
+            // abort): la guardia vive dentro la future del task.
+            let mut done_guard = super::completion::DoneGuard {
+                registry: done_guard_reg, node_id: err_node_id.clone(), ok: false,
+            };
             let res = run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await;
+            done_guard.ok = res.is_ok();
             // Canale CONTROLLO in streaming: il fallimento parte verso
             // l'EH ORA, appena il nodo conclude in errore — non a fine
             // lane. Il sender si droppa quando questo task termina: è la

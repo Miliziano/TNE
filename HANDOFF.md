@@ -1634,3 +1634,66 @@ motore non fa):** "Case sensitive" ignorato (confronti sempre case-insensitive);
 "Branch execution mode" (parallel/sequential/ordered with wait) ignorato; modalità
 "code" (TypeScript/JS/Python) non eseguibile nel motore → la condizione è falsa con un
 warning. Da decidere: implementare o togliere.
+
+## AGGIORNAMENTO — Filter: code FPEL, case sensitive, rami ordinati (stato al P354, 22 ottobre)
+
+Chiude i tre 🐞 del Filter segnalati al P353 (decisione utente: implementare tutti e tre).
+
+**Modalità code = solo FPEL.** Tolta la scelta TypeScript/Python/Java. Il pannello ha un
+editor FPEL (grammatica `flowpilot`) con validazione dal vivo (`compileFpel`, funzioni utente
+incluse) e riconosce le condizioni scritte nella vecchia modalità JS (`=>`, `->`, `def`,
+`lambda`) chiedendo di riscriverle. Il builder (`Toolbar`, `case 'filter'`) compila ogni
+condizione code in IR (`expr`); un errore blocca il Run. Il motore valuta
+`is_truthy(eval(expr))`; condizione code senza `expr` → il nodo fallisce all'avvio (prima:
+sempre falsa con un warning). Visual e template mostrano il loro **FPEL equivalente**
+(`conditionToFpel` in `filterTypes.ts`, che sostituisce il JS di `toCode`), usato come
+punto di partenza passando a code. **Collaudo di equivalenza** (throwaway): 368 condizioni
+(tutti gli operatori × campi presenti/assenti/con spazi, combinazioni AND/OR, 17 template ×
+2, case sensitive sì/no, null exclude/include) × 4 righe → 0 differenze fra valutazione
+nativa e FPEL generato. `FilterModal.tsx` era codice morto (mai importato): rimosso.
+
+**Case sensitive applicato** a visual (==, !=, contains, starts, ends, in, not in, regex) e
+ai template di testo; default sì (era il default mostrato). ⚠ Cambio di comportamento: i
+Filter salvati con "Yes" (il default) prima confrontavano senza maiuscole.
+
+**Regex vere.** Operatore `regex` e template `str_regex`: crate `regex`, compilata all'avvio
+(pattern non valido → il nodo fallisce col motivo); prima era un "contiene"
+case-insensitive. Anche la funzione FPEL `regex_match` era un `contains` travestito (TODO
+"Fase 6b"): ora regex vera, con cache per thread condivisa con `replace_regex`. Effetto: il
+template Script "validazione email" ora funziona davvero.
+
+**Branch execution mode.** `ordered_wait` implementato: ramo #1 in streaming, rami #2..#N
+trattenuti in memoria e rilasciati quando tutti i nodi a valle del ramo precedente hanno
+finito; se uno fallisce i rami successivi non partono e il filtro fallisce. Infrastruttura
+nuova: `engine/completion.rs` (`LaneCompletion`: archi della lane + un `watch` per nodo;
+`DoneGuard` nel wrapper di spawn dell'executor marca la fine anche su errore/panic/abort),
+nel `NodeContext` come `lane_done`. I nodi raggiunti anche da un ramo successivo o da reject
+sono esclusi dall'attesa (deadlock) → warning nel log e a design-time (`FILTER_ORDER_SHARED`).
+`sequential` tolto dal pannello: in streaming non ha differenze osservabili da parallel (il
+motore lo tratta come parallel). Collaudo su Postgres (tabelle con FK, dettagli prima dei
+master nello stream, 3000+3000 righe): parallel → violazione FK; ordered_wait → tutto
+scritto; master che fallisce → dettagli non emessi, filtro fallito col motivo; rami
+convergenti sullo stesso nodo → warning, nessun deadlock.
+
+**FPEL, semantica dei confronti (trovata col collaudo di equivalenza).**
+- `<` `<=` `>` `>=` con un null erano veri quando il null stava "a sinistra" (null = il più
+  piccolo): `importo < 100` passava per ogni importo mancante. Ora falsi (SQL). L'ordinamento
+  di `min`/`max` resta invariato.
+- Decimal (P346) contro Int/Float e testo numerico contro numero si confrontavano come
+  stringhe (`"10" > 9` falso, `Decimal(100.50) == 100.5` falso). Ora numerico (Decimal esatto
+  quando possibile). Testo non numerico contro numero → falso.
+- `is_before`/`is_after`/`diff_days` & co. non leggevano le date RFC 3339 con fuso, cioè il
+  valore di `now()`: `is_before(x, now())` era null. Ora lette.
+
+**Validazione a design-time** (`checkFilterConditions` in `dagValidation`): condizione code
+vuota o non compilabile (`FILTER_CODE_INVALID`), template non scelto (`FILTER_NO_TEMPLATE`),
+rami ordinati con nodi a valle condivisi (`FILTER_ORDER_SHARED`).
+
+**Altro.** Messaggi d'errore del parser FPEL (`exprParser.ts`) tradotti in inglese (ora si
+vedono anche nel pannello Filter). Sottotitolo del nodo Filter: leggeva `props.rules`
+(inesistente, diceva sempre "no rules"), ora conta le condizioni. Etichette residue in
+italiano del pannello Filter tradotte. Doc: node-spec §16, manuale FPEL (§3.4 confronti,
+`regex_match`), `docs/nodes/filter.md` (approfondimento).
+
+**Non toccato:** il generatore di codice TypeScript (`codegen/.../generators.ts`, filter) usa
+ancora la stringa della condizione e un solo ramo — era già fuori allineamento col motore.

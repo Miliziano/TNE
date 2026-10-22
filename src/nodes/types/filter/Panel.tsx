@@ -1,6 +1,8 @@
 /**
  * src/nodes/types/filter/Panel.tsx
  * Fix: cambio modalità (visual/template/code) preserva il campo selezionato.
+ * P354: la modalità code è un'espressione FPEL (prima JS/TS/Python, mai
+ * eseguita dal motore); case sensitive e modalità dei rami sono applicati.
  */
 import { useCallback, useMemo, useState } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
@@ -12,7 +14,25 @@ import type {
   FilterConfig, FilterCondition, VisualClause,
   ConditionMode, ConditionOperator,
 } from './filterTypes'
-import { FILTER_TEMPLATES, getTemplatesByCategory, conditionToCode } from './filterTypes'
+import {
+  FILTER_TEMPLATES, getTemplatesByCategory, conditionToFpel, fpelField,
+  isCaseSensitive, effectiveExecMode,
+} from './filterTypes'
+import { compileFpel } from '../../../ir/userFunctions'
+import { ExprParseError } from '../../../ir/exprParser'
+
+/** Sorgente della vecchia modalità code (JS/TS/Python, ≤ P353). */
+function isLegacyCode(code: string | undefined): boolean {
+  // => (JS/TS), -> (Java), def/lambda (Python): FPEL non ha nessuno dei tre
+  return /=>|->|\bdef\s+\w+\s*\(|\blambda\b/.test(code ?? '')
+}
+
+/** Esito della compilazione FPEL di una condizione code (null = ok). */
+function fpelError(code: string): string | null {
+  if (!code.trim()) return 'The expression is empty'
+  try { compileFpel(code); return null }
+  catch (e) { return e instanceof ExprParseError ? e.pretty() : String(e) }
+}
 
 const ACCENT = '#ffb347'
 
@@ -51,9 +71,11 @@ function extractPrimaryField(cond: FilterCondition): string {
       return cond.templateParams?.['field'] ?? ''
     }
     case 'code': {
-      // Estrai il primo row.campo dal codice con regex
-      const match = (cond.code ?? '').match(/row\.([a-zA-Z_][a-zA-Z0-9_]*)/)
-      return match?.[1] ?? ''
+      // Primo campo referenziato dall'espressione FPEL (se compila)
+      try {
+        const ir = JSON.stringify(compileFpel(cond.code ?? ''))
+        return ir.match(/"kind":"DirectFieldRef","field":"((?:[^"\\]|\\.)*)"/)?.[1] ?? ''
+      } catch { return '' }
     }
     default: return ''
   }
@@ -63,6 +85,8 @@ function extractPrimaryField(cond: FilterCondition): string {
 function buildModePatch(
   cond:     FilterCondition,
   newMode:  ConditionMode,
+  caseSensitive: boolean,
+  nullBehavior:  FilterConfig['nullBehavior'],
 ): Partial<FilterCondition> {
   const field = extractPrimaryField(cond)
 
@@ -94,37 +118,22 @@ function buildModePatch(
     }
 
     case 'code': {
-      // Genera codice di partenza con il campo estratto
-      let code = cond.code ?? ''
-
-      if (!code || code === '(row) => {\n  return true\n}') {
-        // Genera dal contesto corrente
-        if (cond.mode === 'visual' && cond.clauses?.length) {
-          // Converti le clausole visive in codice reale
-          code = `(row) => {\n  return ${conditionToCode(cond)}\n}`
+      // Punto di partenza: l'FPEL equivalente della modalità corrente;
+      // un'espressione già scritta (FPEL valido) si tiene.
+      const existing = (cond.code ?? '').trim()
+      let code = existing
+      if (!existing || existing === 'true' || isLegacyCode(existing)) {
+        if (cond.mode === 'visual' && cond.clauses?.some((c) => c.field)) {
+          code = conditionToFpel(cond, caseSensitive, nullBehavior)
         } else if (cond.mode === 'template' && cond.templateId) {
-          // Converti il template in codice
-          const tmpl = FILTER_TEMPLATES.find((t) => t.id === cond.templateId)
-          if (tmpl) {
-            try {
-              const params = Object.fromEntries(
-                tmpl.params.map((p) => [p.key, cond.templateParams?.[p.key] ?? p.placeholder ?? ''])
-              )
-              code = `(row) => {\n  return ${tmpl.toCode(params)}\n}`
-            } catch {
-              code = field
-                ? `(row) => {\n  return row.${field} !== null\n}`
-                : `(row) => {\n  return true\n}`
-            }
-          }
+          code = conditionToFpel(cond, caseSensitive, nullBehavior)
         } else if (field) {
-          code = `(row) => {\n  return row.${field} !== null\n}`
+          code = `${fpelField(field)} is not null`
         } else {
-          code = `(row) => {\n  return true\n}`
+          code = 'true'
         }
       }
-
-      return { mode: 'code', code, lang: cond.lang ?? 'typescript' }
+      return { mode: 'code', code, lang: undefined }
     }
 
     default:
@@ -262,12 +271,6 @@ function TemplateBuilder({ templateId, params, onChange }: {
                 placeholder={param.placeholder} />
             </Field>
           ))}
-          <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-            <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Codice generato</div>
-            <code style={{ fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-              {(() => { try { return selected.toCode(Object.fromEntries(selected.params.map((p) => [p.key, params[p.key] ?? p.placeholder ?? '']))) } catch { return '/* compila i parametri */' } })()}
-            </code>
-          </div>
         </div>
       )}
     </div>
@@ -275,8 +278,9 @@ function TemplateBuilder({ templateId, params, onChange }: {
 }
 
 // ─── ConditionEditor ──────────────────────────────────────────────
-function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelete, onMoveUp, onMoveDown }: {
-  cond: FilterCondition; index: number; total: number
+function ConditionEditor({ cond, index, total, caseSensitive, nullBehavior, incomingFields, onUpdate, onDelete, onMoveUp, onMoveDown }: {
+  cond: FilterCondition; index: number; total: number; caseSensitive: boolean
+  nullBehavior: FilterConfig['nullBehavior']
   incomingFields: Array<{ name: string; type: string }>
   onUpdate: (patch: Partial<FilterCondition>) => void
   onDelete: () => void; onMoveUp: () => void; onMoveDown: () => void
@@ -289,9 +293,12 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
 
   const handleModeChange = useCallback((newMode: ConditionMode) => {
     if (newMode === cond.mode) return
-    const patch = buildModePatch(cond, newMode)
+    const patch = buildModePatch(cond, newMode, caseSensitive, nullBehavior)
     onUpdate(patch)
-  }, [cond, onUpdate])
+  }, [cond, onUpdate, caseSensitive, nullBehavior])
+
+  const codeError = cond.mode === 'code' ? fpelError(cond.code ?? '') : null
+  const legacy    = cond.mode === 'code' && isLegacyCode(cond.code)
 
   return (
     <div style={{ border: `1px solid ${cond.color}40`, borderRadius: 8, overflow: 'hidden' }}>
@@ -325,7 +332,7 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
           {([
             { value: 'visual',   label: '⊞', title: 'Visual builder'  },
             { value: 'template', label: '⚡', title: 'Template'         },
-            { value: 'code',     label: 'λ',  title: 'TypeScript code' },
+            { value: 'code',     label: 'λ',  title: 'FPEL expression' },
           ] as Array<{ value: ConditionMode; label: string; title: string }>).map((m) => {
             const isActive = cond.mode === m.value
             const tip = isActive
@@ -379,28 +386,35 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
               onChange={(tid, p) => onUpdate({ templateId: tid, templateParams: p })} />
           )}
           {cond.mode === 'code' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {(['typescript', 'python', 'java'] as const).map((lang) => (
-                  <button key={lang} onClick={() => onUpdate({ lang })}
-                    style={{ padding: '3px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
-                      background: cond.lang === lang ? '#1a3a6a' : '#1e2535',
-                      color: cond.lang === lang ? '#4a9eff' : '#8593b5',
-                      border: cond.lang === lang ? '1px solid #2a5a9a' : '1px solid #2a3349',
-                      fontWeight: cond.lang === lang ? 600 : 400 }}>
-                    {lang}
-                  </button>
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
+                A boolean <strong style={{ color: '#c8d4f0' }}>FPEL</strong> expression on the row's fields — e.g.{' '}
+                <code style={{ color: '#a78bfa' }}>{'amount > 100 && lower(country) == "it"'}</code>.
+                The row matches when the result is true. Case sensitive does not apply here: use lower() / upper().
               </div>
-              <ScriptEditor value={cond.code ?? `(row) => {\n  return true\n}`}
+              <ScriptEditor value={cond.code ?? ''}
                 onChange={(code) => onUpdate({ code })}
-                language={cond.lang ?? 'typescript'} schema={schema} height={180} />
+                language="flowpilot" schema={schema} height={110} />
+              {legacy ? (
+                <div style={{ padding: '6px 10px', background: '#2a1a0a', borderRadius: 4, border: '0.5px solid #6a4a1a', fontSize: 10, color: '#ffb347' }}>
+                  <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />
+                  This condition was written for the old JavaScript code mode, which never ran in the engine. Rewrite it as an FPEL expression.
+                </div>
+              ) : codeError ? (
+                <pre style={{ margin: 0, padding: '6px 10px', background: '#2a0a0a', borderRadius: 4, border: '0.5px solid #5a1a1a', fontSize: 10, color: '#ff8a80', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                  {codeError}
+                </pre>
+              ) : (
+                <div style={{ fontSize: 10, color: '#3ddc84' }}>
+                  <i className="ti ti-check" style={{ fontSize: 11, marginRight: 4 }} />Valid FPEL expression
+                </div>
+              )}
             </div>
           )}
           {cond.mode !== 'code' && (
             <div style={{ marginTop: 8, padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Codice generato</div>
-              <code style={{ fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all' }}>{conditionToCode(cond)}</code>
+              <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Equivalent FPEL</div>
+              <code style={{ fontSize: 10, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all' }}>{conditionToFpel(cond, caseSensitive, nullBehavior) || '(select a template)'}</code>
             </div>
           )}
         </div>
@@ -441,7 +455,6 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
         id: `cond_${Date.now()}`, label: `output_${idx + 1}`,
         color: colors[idx % colors.length], mode: 'visual',
         clauses: [{ id: `c_${Date.now()}`, field: '', operator: '==' as ConditionOperator, value: '', logic: 'AND' }],
-        lang: 'typescript', code: `(row) => {\n  return true\n}`,
       }],
     })
   }, [config, saveConfig])
@@ -464,7 +477,9 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
     saveConfig({ ...config, conditions: arr })
   }, [config, saveConfig])
 
-  const execMode = (config as any).execMode ?? 'parallel'
+  // 'sequential' (legacy) si mostra come parallel: è ciò che il motore fa.
+  const execMode      = effectiveExecMode(config)
+  const caseSensitive = isCaseSensitive(config)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -484,13 +499,13 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', flex: 1 }}>
-          Condizioni — {config.conditions.length}
+          Conditions — {config.conditions.length}
         </span>
         <button onClick={addCondition}
           style={{ padding: '3px 12px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
             background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT,
             border: `1px solid ${ACCENT}60`, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <i className="ti ti-plus" style={{ fontSize: 11 }} /> Condizione
+          <i className="ti ti-plus" style={{ fontSize: 11 }} /> Condition
         </button>
       </div>
 
@@ -503,6 +518,7 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
         ) : (
           config.conditions.map((cond, idx) => (
             <ConditionEditor key={cond.id} cond={cond} index={idx} total={config.conditions.length}
+              caseSensitive={caseSensitive} nullBehavior={config.nullBehavior ?? 'exclude'}
               incomingFields={incomingFields}
               onUpdate={(patch) => updateCondition(cond.id, patch)}
               onDelete={() => deleteCondition(cond.id)}
@@ -527,7 +543,7 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
       <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 600, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.08em' }}>Global options</span>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Comportamento su null">
+          <Field label="Null behavior" hint="Visual clauses only">
             <CustomSelect style={inputStyle} value={config.nullBehavior}
               onChange={(e) => saveConfig({ ...config, nullBehavior: e.target.value as FilterConfig['nullBehavior'] })}>
               <option value="exclude">Exclude (→ reject)</option>
@@ -535,8 +551,8 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
               <option value="error">Error on null</option>
             </CustomSelect>
           </Field>
-          <Field label="Case sensitive">
-            <CustomSelect style={inputStyle} value={config.caseSensitive ? 'true' : 'false'}
+          <Field label="Case sensitive" hint="Visual and template text comparisons">
+            <CustomSelect style={inputStyle} value={caseSensitive ? 'true' : 'false'}
               onChange={(e) => saveConfig({ ...config, caseSensitive: e.target.value === 'true' })}>
               <option value="true">Yes</option>
               <option value="false">No</option>
@@ -550,9 +566,8 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {[
-              { value: 'parallel',     icon: '⇉', label: 'All in parallel',          desc: 'The branches start together.',                                                    color: '#4a9eff' },
-              { value: 'sequential',   icon: '→', label: 'Sequential',              desc: 'Branches start in priority order without waiting for completion.',          color: '#ffb347' },
-              { value: 'ordered_wait', icon: '⏱', label: 'Ordered with wait',      desc: 'Branch #N starts only when branch #N-1 has completed the entire sub-pipeline.', color: '#3ddc84' },
+              { value: 'parallel',     icon: '⇉', label: 'All in parallel',     desc: 'Rows flow to every branch as soon as they are routed.', color: '#4a9eff' },
+              { value: 'ordered_wait', icon: '⏱', label: 'Ordered with wait', desc: 'Branch #1 flows immediately; branch #N is held in memory and released only when everything downstream of branch #N-1 has finished (e.g. master rows before detail rows). If that part fails, the later branches are not emitted. Nodes reached by more than one branch cannot be waited for.', color: '#3ddc84' },
             ].map((m) => (
               <button key={m.value} onClick={() => saveConfig({ ...config, execMode: m.value })}
                 style={{ padding: '8px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',

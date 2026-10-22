@@ -90,9 +90,9 @@ function tokenize(src: string): Token[] {
       i++
       let name = ''
       while (i < src.length && src[i] !== '`') { name += src[i]; i++ }
-      if (i >= src.length) throw new ExprParseError('identificatore non chiuso: manca `', start, src)
+      if (i >= src.length) throw new ExprParseError('unterminated identifier: missing `', start, src)
       i++
-      if (!name) throw new ExprParseError('identificatore vuoto: ``', start, src)
+      if (!name) throw new ExprParseError('empty identifier: ``', start, src)
       toks.push({ kind: 'ident', text: name, pos: start, quoted: true })
       continue
     }
@@ -112,7 +112,7 @@ function tokenize(src: string): Token[] {
           out += src[i]; i++
         }
       }
-      if (i >= src.length) throw new ExprParseError('stringa non chiusa', start, src)
+      if (i >= src.length) throw new ExprParseError('unterminated string', start, src)
       i++ // chiude
       toks.push({ kind: 'str', text: src.slice(start, i), pos: start, str: out })
       continue
@@ -124,7 +124,7 @@ function tokenize(src: string): Token[] {
       while (i < src.length && /[0-9._]/.test(src[i])) i++
       const raw = src.slice(start, i).replace(/_/g, '')
       const n = Number(raw)
-      if (isNaN(n)) throw new ExprParseError(`numero non valido: "${raw}"`, start, src)
+      if (isNaN(n)) throw new ExprParseError(`invalid number: "${raw}"`, start, src)
       toks.push({ kind: 'num', text: raw, pos: start, num: n })
       continue
     }
@@ -145,7 +145,7 @@ function tokenize(src: string): Token[] {
     const op = OPERATORS.find(o => src.startsWith(o, i))
     if (op) { toks.push({ kind: 'op', text: op, pos: i }); i += op.length; continue }
 
-    throw new ExprParseError(`carattere non riconosciuto: "${c}"`, i, src)
+    throw new ExprParseError(`unrecognized character: "${c}"`, i, src)
   }
 
   toks.push({ kind: 'eof', text: '', pos: src.length })
@@ -208,7 +208,7 @@ export function riferimentoInput(label: string): string {
 export function parseExpression(src: string, opts: ParseOptions = {}): ExprNode {
   const p = new Parser(src, opts)
   const node = p.parseExpr(0)
-  p.expect('eof', 'espressione incompleta')
+  p.expect('eof', 'incomplete expression')
   return node
 }
 
@@ -236,7 +236,7 @@ class Parser {
   }
   expect(kind: TokKind, msg: string): Token {
     if (this.peek().kind !== kind) {
-      throw new ExprParseError(`${msg} (trovato "${this.peek().text || 'fine'}")`, this.peek().pos, this.src)
+      throw new ExprParseError(`${msg} (found "${this.peek().text || 'end'}")`, this.peek().pos, this.src)
     }
     return this.next()
   }
@@ -254,7 +254,7 @@ class Parser {
         this.next()
         const negated = this.atKeyword('not')
         if (negated) this.next()
-        if (!this.atKeyword('null')) this.err('atteso "null" dopo "is"')
+        if (!this.atKeyword('null')) this.err('expected "null" after "is"')
         this.next()
         left = negated ? { kind: 'IsNotNull', expr: left } : { kind: 'IsNull', expr: left }
         continue
@@ -264,7 +264,7 @@ class Parser {
       if (this.at('op', '?') && minPrec === 0) {
         this.next()
         const thenE = this.parseExpr(0)
-        if (!this.at('op', ':')) this.err('atteso ":" nel ternario')
+        if (!this.at('op', ':')) this.err('expected ":" in the ternary')
         this.next()
         const elseE = this.parseExpr(0)
         left = { kind: 'FunctionCall', name: 'iif', args: [left, thenE, elseE] }
@@ -281,7 +281,7 @@ class Parser {
       this.next()
       const right = this.parseExpr(prec + 1)  // left-assoc
       const irOp = OP_TO_IR[opText]
-      if (!irOp) this.err(`operatore non supportato: "${opText}"`)
+      if (!irOp) this.err(`unsupported operator: "${opText}"`)
       left = { kind: 'BinaryOp', op: irOp, left, right }
     }
 
@@ -304,7 +304,7 @@ class Parser {
     if (t.kind === 'lparen') {
       this.next()
       const e = this.parseExpr(0)
-      this.expect('rparen', 'atteso ")"')
+      this.expect('rparen', 'expected ")"')
       return e
     }
 
@@ -314,7 +314,7 @@ class Parser {
         this.next()
         if (this.at('dot')) {
           this.next()
-          const f = this.expect('ident', 'atteso nome campo dopo "."')
+          const f = this.expect('ident', 'expected a field name after "."')
           return this.qualifiedField(t.text, f.text, t.pos)
         }
         return { kind: 'DirectFieldRef', field: t.text }
@@ -338,7 +338,7 @@ class Parser {
           args.push(this.parseExpr(0))
           while (this.at('comma')) { this.next(); args.push(this.parseExpr(0)) }
         }
-        this.expect('rparen', `atteso ")" alla fine di ${t.text}(...)`)
+        this.expect('rparen', `expected ")" at the end of ${t.text}(...)`)
 
         // Validazione a design-time: nome esistente e arità corretta.
         // Il motore tollera argomenti mancanti (li tratta come null), quindi
@@ -349,7 +349,7 @@ class Parser {
         if (userArity !== undefined) {
           if (args.length !== userArity) {
             throw new ExprParseError(
-              `${lower} richiede ${userArity} argoment${userArity === 1 ? 'o' : 'i'} (ricevuti ${args.length})`,
+              `${lower} requires ${userArity} argument${userArity === 1 ? '' : 's'} (received ${args.length})`,
               t.pos, this.src,
             )
           }
@@ -368,22 +368,22 @@ class Parser {
       // Riferimento a campo, eventualmente qualificato: Input.campo
       if (this.at('dot')) {
         this.next()
-        const f = this.expect('ident', 'atteso nome campo dopo "."')
+        const f = this.expect('ident', 'expected a field name after "."')
         return this.qualifiedField(t.text, f.text, t.pos)
       }
 
-      if (KEYWORDS.has(lower)) this.err(`parola chiave inattesa: "${t.text}"`)
+      if (KEYWORDS.has(lower)) this.err(`unexpected keyword: "${t.text}"`)
       return { kind: 'DirectFieldRef', field: t.text }
     }
 
-    this.err(`espressione attesa, trovato "${t.text || 'fine'}"`)
+    this.err(`expected an expression, found "${t.text || 'end'}"`)
   }
 
   /** "Nome Con Spazi".campo  →  FieldRef ; altrimenti è un letterale stringa. */
   private maybeQualifiedField(strValue: string, pos: number): ExprNode {
     if (this.at('dot')) {
       this.next()
-      const f = this.expect('ident', 'atteso nome campo dopo "."')
+      const f = this.expect('ident', 'expected a field name after "."')
       return this.qualifiedField(strValue, f.text, pos)
     }
     return { kind: 'Literal', value: strValue }
@@ -394,10 +394,10 @@ class Parser {
     if (map) {
       const inputId = map.get(label)
       if (inputId) return { kind: 'FieldRef', input: inputId, field }
-      throw new ExprParseError(`input sconosciuto: "${label}"`, pos, this.src)
+      throw new ExprParseError(`unknown input: "${label}"`, pos, this.src)
     }
     // Nessuna mappa (nodo a input singolo): il qualificatore non ha senso.
-    throw new ExprParseError(`riferimento qualificato "${label}.${field}" non ammesso qui`, pos, this.src)
+    throw new ExprParseError(`qualified reference "${label}.${field}" not allowed here`, pos, this.src)
   }
 
   /** case when c1 then v1 [when c2 then v2 …] [else d] end */
@@ -409,15 +409,15 @@ class Parser {
     while (this.atKeyword('when')) {
       this.next()
       const condition = this.parseExpr(0)
-      if (!this.atKeyword('then')) this.err('atteso "then"')
+      if (!this.atKeyword('then')) this.err('expected "then"')
       this.next()
       const value = this.parseExpr(0)
       branches.push({ condition, value })
     }
-    if (branches.length === 0) this.err('"case" richiede almeno un "when"')
+    if (branches.length === 0) this.err('"case" needs at least one "when"')
 
     if (this.atKeyword('else')) { this.next(); def = this.parseExpr(0) }
-    if (!this.atKeyword('end')) this.err('atteso "end" per chiudere "case"')
+    if (!this.atKeyword('end')) this.err('expected "end" to close "case"')
     this.next()
 
     return { kind: 'CaseWhen', branches, default: def }
@@ -426,14 +426,14 @@ class Parser {
   /** cast(expr as tipo) */
   private parseCast(): ExprNode {
     this.next() // 'cast'
-    this.expect('lparen', 'atteso "(" dopo cast')
+    this.expect('lparen', 'expected "(" after cast')
     const expr = this.parseExpr(0)
-    if (!this.atKeyword('as')) this.err('atteso "as" in cast(x as tipo)')
+    if (!this.atKeyword('as')) this.err('expected "as" in cast(x as type)')
     this.next()
-    const t = this.expect('ident', 'atteso tipo dopo "as"')
+    const t = this.expect('ident', 'expected a type after "as"')
     const target = CAST_TYPES[t.text.toLowerCase()]
-    if (!target) this.err(`tipo di cast sconosciuto: "${t.text}"`)
-    this.expect('rparen', 'atteso ")" alla fine di cast')
+    if (!target) this.err(`unknown cast type: "${t.text}"`)
+    this.expect('rparen', 'expected ")" at the end of cast')
     return { kind: 'Cast', expr, target_type: target }
   }
 }

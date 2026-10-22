@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../useIncomingSchema'
 import type { FilterConfig } from './filterTypes'
-import { conditionToCode } from './filterTypes'
+import { conditionToFpel, isCaseSensitive, effectiveExecMode } from './filterTypes'
 
 const ACCENT = '#ffb347'
 
@@ -91,13 +91,13 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
                 </span>
               </div>
 
-              {/* Codice condizione */}
+              {/* Condizione in FPEL */}
               <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
                 <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
                   condition
                 </div>
                 <code style={{ fontSize: 9, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.6 }}>
-                  {conditionToCode(cond) || '/* no condition */' }
+                  {conditionToFpel(cond, isCaseSensitive(config), config.nullBehavior) || '(no condition)'}
                 </code>
               </div>
 
@@ -132,7 +132,9 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
         <span>
           Null behavior: <strong style={{ color: '#9a9aaa' }}>{config.nullBehavior}</strong>
           {' · '}
-          Case sensitive: <strong style={{ color: '#9a9aaa' }}>{config.caseSensitive ? 'yes' : 'no'}</strong>
+          Case sensitive: <strong style={{ color: '#9a9aaa' }}>{isCaseSensitive(config) ? 'yes' : 'no'}</strong>
+          {' · '}
+          Branches: <strong style={{ color: '#9a9aaa' }}>{effectiveExecMode(config) === 'ordered_wait' ? 'ordered with wait' : 'parallel'}</strong>
           {' · '}
           Edit in the Configuration tab.
         </span>

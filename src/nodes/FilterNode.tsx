@@ -8,7 +8,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NodeRuntimeBadges, HandleCount } from './RuntimeBadges'
 import type { NodeData } from '../types'
 import { useFlowStore } from '../store/flowStore'
-import type { FilterConfig } from './types/filter/filterTypes'
+import { effectiveExecMode, type FilterConfig } from './types/filter/filterTypes'
 
 const ACCENT = '#ffb347'
 
@@ -43,7 +43,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
 
   const config     = nodeData.config?.filter as FilterConfig | undefined
   const conditions = config?.conditions ?? []
-  const execMode   = (config as any)?.execMode ?? 'parallel'
+  const execMode   = effectiveExecMode(config)
 
   const handleClick       = useCallback(() => selectNode(id), [id, selectNode])
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -61,8 +61,8 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
   const getPct     = (idx: number) => total <= 1 ? 35 : 12 + (idx / (total - 1)) * 72
 
   // Icona modalità esecuzione
-  const execIcon = execMode === 'ordered_wait' ? '⏱' : execMode === 'sequential' ? '→' : '⇉'
-  const execTitle = execMode === 'ordered_wait' ? 'Ordered with wait' : execMode === 'sequential' ? 'Sequential' : 'Parallel'
+  const execIcon  = execMode === 'ordered_wait' ? '⏱' : '⇉'
+  const execTitle = execMode === 'ordered_wait' ? 'Branches: ordered with wait' : 'Branches: parallel'
 
   return (
     <div

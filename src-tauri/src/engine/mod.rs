@@ -31,6 +31,7 @@ pub mod monitor;
 pub mod reporter;
 pub mod errors;
 pub mod abort;
+pub mod completion;
 pub mod spec;
 pub mod pool;
 pub mod txregistry;
@@ -468,6 +469,7 @@ pub async fn engine_preview_node(
         lane_abort:     crate::engine::abort::LaneAbort::new(),
         cancel:         tokio_util::sync::CancellationToken::new(),
         err_collector:  None,
+        lane_done:      crate::engine::completion::LaneCompletion::empty(),
     };
 
     // 5) due canali; il nodo è eseguito dal MOTORE VERO

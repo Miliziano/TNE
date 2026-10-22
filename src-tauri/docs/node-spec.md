@@ -851,29 +851,53 @@ specConfig; executor JS (`mapExecutor`, inline in executors.ts) rimosso.
 
 ## 16. `filter` — filtra le righe
 
-Lascia passare o scarta le righe secondo una o più condizioni. Streaming.
-**Non usa FPEL**: le condizioni sono clausole strutturate o template
-predefiniti, non espressioni compilate.
+Smista ogni riga sul PRIMO ramo (handle = `cond.id`) la cui condizione
+passa, nell'ordine di priorità; nessuna → `reject`. Senza condizioni
+tutte le righe vanno a `reject`. Streaming (salvo `ordered_wait`).
 
 ### `spec.config`
 
-| Chiave          | Tipo   | Default     | Semantica                                       |
-|-----------------|--------|-------------|-------------------------------------------------|
-| `conditions`    | array  | `[]`        | Condizioni (v. sotto)                            |
-| `null_behavior` | enum   | `"exclude"` | Come trattare i null: `exclude` \| `include`     |
+| Chiave           | Tipo   | Default      | Semantica                                              |
+|------------------|--------|--------------|--------------------------------------------------------|
+| `conditions`     | array  | `[]`         | Condizioni in ordine di priorità (v. sotto)             |
+| `null_behavior`  | enum   | `"exclude"`  | Clausole visual su campo null: `exclude` \| `include` \| `error` |
+| `case_sensitive` | bool   | `true`       | Confronti di testo di visual e template (P354)          |
+| `exec_mode`      | enum   | `"parallel"` | `parallel` \| `ordered_wait` (P354; `sequential` = parallel) |
 
 Elemento di `conditions` — tre modi (`mode`):
 - `visual` — clausole `[{field, operator, value, logic}]` (logic AND/OR
-  connette con la clausola precedente);
-- `template` — template predefinito (`template_id` + `template_params`),
-  es. `date_is_today`, `date_is_past`;
-- `code` — testo JS/Python **non eseguibile nel motore** (la condizione
-  ritorna false, con warning all'avvio). Predisposizione, non attivo.
+  connette con la clausola precedente; valutazione da sinistra a destra);
+  operatore `regex` = crate `regex` (sintassi Rust), case-insensitive se
+  `case_sensitive` è falso;
+- `template` — template predefinito (`templateId` + `templateParams`),
+  es. `date_is_today`, `str_regex`; template mancante o sconosciuto →
+  il nodo fallisce all'avvio;
+- `code` — espressione **FPEL** booleana: lo studio la compila
+  (`compileFpel`, con le funzioni utente) e scrive l'IR in `expr` accanto a
+  `code`; il motore valuta `is_truthy(eval(expr))`. Senza `expr` il nodo
+  fallisce all'avvio (prima del P354 era JS/TS/Python e valeva sempre
+  falso). `case_sensitive` e `null_behavior` non si applicano (regole FPEL:
+  confronti con null falsi, `lower()`/`upper()` per ignorare le maiuscole).
+
+### `exec_mode = ordered_wait`
+
+Il ramo #1 va in streaming; i rami #2..#N sono trattenuti in memoria e il
+ramo #N è rilasciato solo quando hanno finito tutti i nodi a valle del ramo
+#N-1 (registro `engine/completion.rs`: archi della lane + segnale di fine
+di ogni task, dato da una guardia nel wrapper di spawn — vale anche per
+errore e abort). Se uno di quei nodi fallisce, i rami successivi non sono
+emessi e il filtro fallisce. `reject` resta in streaming. I nodi raggiunti
+anche da un ramo successivo o da `reject` non si possono aspettare
+(deadlock: i loro ingressi restano aperti finché il filtro non chiude) e
+sono esclusi dall'attesa — warning nel log e a design-time
+(`FILTER_ORDER_SHARED`). Con sink in transazione: "finito" = scritto, non
+committato (il commit è a fine lane).
 
 ### Migrazione (Fase 12)
 
-Caso "struttura senza FPEL": tutto il FilterPlan (`conditions` +
-`null_behavior`) in spec.config. Il `case 'filter'` scrive in specConfig;
+Tutto il FilterPlan (`conditions` + `null_behavior`, dal P354 anche
+`case_sensitive`, `exec_mode` e l'IR `expr` delle condizioni code) in
+spec.config. Il `case 'filter'` scrive in specConfig;
 executor JS (`filterExecutor`, inline) rimosso.
 
 ## 17. `union` — impila flussi (merge di schema per nome+tipo)

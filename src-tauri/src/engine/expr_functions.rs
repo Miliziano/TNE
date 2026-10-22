@@ -58,6 +58,9 @@ pub fn parse_datetime(txt: &str) -> Option<NaiveDateTime> {
     for fmt in DT {
         if let Ok(d) = NaiveDateTime::parse_from_str(t, fmt) { return Some(d) }
     }
+    // Con fuso (RFC 3339, es. il valore di now()): l'ora "da orologio" nel
+    // suo fuso. P354: prima non si leggeva, e is_before(x, now()) era null.
+    if let Ok(d) = chrono::DateTime::parse_from_rfc3339(t) { return Some(d.naive_local()) }
     const D: &[&str] = &["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"];
     for fmt in D {
         if let Ok(d) = NaiveDate::parse_from_str(t, fmt) {
@@ -75,6 +78,28 @@ fn date_arg(v: Option<&Value>) -> Option<NaiveDateTime> {
 }
 
 fn date_out(d: NaiveDateTime) -> Value { Value::Date(d.date().to_string()) }
+
+// ─── Cache delle regex ─────────────────────────────────────────────
+//
+// regex_match / replace_regex sono valutate riga per riga, quasi sempre
+// con un pattern letterale: compilarlo ogni volta costa più del match.
+// Cache per thread, limitata (svuotata oltre CAP pattern distinti, caso
+// raro di pattern costruiti dai dati). Pattern non valido → None.
+const REGEX_CACHE_CAP: usize = 256;
+thread_local! {
+    static REGEX_CACHE: std::cell::RefCell<std::collections::HashMap<String, Option<regex::Regex>>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+pub(crate) fn cached_regex(pattern: &str) -> Option<regex::Regex> {
+    REGEX_CACHE.with(|c| {
+        let mut c = c.borrow_mut();
+        if let Some(r) = c.get(pattern) { return r.clone(); }
+        if c.len() >= REGEX_CACHE_CAP { c.clear(); }
+        let r = regex::Regex::new(pattern).ok();
+        c.insert(pattern.to_string(), r.clone());
+        r
+    })
+}
 
 // ─── Dispatch ──────────────────────────────────────────────────────
 //
@@ -252,9 +277,9 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             let txt = s(a0);
             let pat = s(a1);
             let rep = s(a2);
-            match regex::Regex::new(&pat) {
-                Ok(re) => Value::String(re.replace_all(&txt, rep.as_str()).into_owned()),
-                Err(_)  => Value::Null,
+            match cached_regex(&pat) {
+                Some(re) => Value::String(re.replace_all(&txt, rep.as_str()).into_owned()),
+                None     => Value::Null,
             }
         }
         "mask_email" => {

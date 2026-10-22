@@ -107,11 +107,12 @@ export function getNodeSubtitle(data: NodeData): string {
 
     // ── Transform ────────────────────────────────────────────────
     case 'filter': {
-      const rules = (() => {
-        try { return JSON.parse(p('rules', '[]')) } catch { return [] }
-      })()
-      const n = Array.isArray(rules) ? rules.length : 0
-      return withCatch(n > 0 ? `${n} rule${n === 1 ? '' : 's'}` : 'no rules', data)
+      // La config vive in data.config.filter (non nelle props: la vecchia
+      // lettura di props.rules diceva sempre "no rules").
+      const f = (data.config as { filter?: { conditions?: unknown[]; execMode?: string } } | undefined)?.filter
+      const n = Array.isArray(f?.conditions) ? f.conditions.length : 0
+      const ordered = f?.execMode === 'ordered_wait' ? ' · ordered' : ''
+      return withCatch(n > 0 ? `${n} condition${n === 1 ? '' : 's'}${ordered}` : 'no conditions', data)
     }
 
     case 'data_quality': {
