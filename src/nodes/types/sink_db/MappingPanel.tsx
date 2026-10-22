@@ -62,7 +62,7 @@
  *   Vedi note in fondo al file su come aggiornare schemaRegistry.ts.
  */
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { SchemaDriftBanner } from '../../../components/SchemaDriftBanner'
 import { detectSchemaDrift, type SchemaField } from '../../../utils/schemaUtils'
 import { downloadSchema } from '../../../schema/schemaFile'
@@ -149,41 +149,8 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore(s => s.updateNodeProp)
   const pool       = useFlowStore(s => s.pool)
 
-  const prevVarNameRef = useRef<string>('')
-
-  useEffect(() => {
-    const { pool: currentPool, addVariable: add, updateVariable: upd, deleteVariable: del } =
-      useFlowStore.getState()
-    const freshNode = useFlowStore.getState().nodes.find(n => n.id === nodeId)
-    if (!freshNode) return
-    const laneId  = freshNode.data.laneId
-    const lane    = currentPool.lanes.find(l => l.id === laneId)
-    if (!lane) return
-    const persistMode = String(freshNode.data.props?.['identityMapPersist'] ?? 'none')
-    const varName     = String(freshNode.data.props?.['identityMapVarName'] ?? '').trim()
-    const prevName    = prevVarNameRef.current
-    if (persistMode === 'none') {
-      const nameToRemove = prevName || varName
-      if (nameToRemove) {
-        const existing = lane.variables.find(v => v.name === nameToRemove && v.type === 'object')
-        if (existing) { del('lane', laneId, existing.id); prevVarNameRef.current = '' }
-      }
-      return
-    }
-    if (!varName) return
-    if (prevName && prevName !== varName) {
-      const prevVar = lane.variables.find(v => v.name === prevName && v.type === 'object')
-      if (prevVar) { upd('lane', laneId, prevVar.id, { name: varName }); prevVarNameRef.current = varName; return }
-    }
-    const existing = lane.variables.find(v => v.name === varName && v.type === 'object')
-    if (!existing) add('lane', laneId, { name: varName, type: 'object', value: '{}' })
-    prevVarNameRef.current = varName
-  }, [
-    node?.data.props?.['identityMapPersist'],
-    node?.data.props?.['identityMapVarName'],
-    node?.data.laneId,
-    nodeId,
-  ])
+  // P351: niente piu' variabile di lane per l'identity map: tra un run e
+  // l'altro il master si cerca nel database (decisione utente).
 
   const [inferring,          setInferring]          = useState(false)
   const [inferError,         setInferError]          = useState<string | null>(null)
@@ -445,9 +412,6 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
   const writeMode    = p('mode', 'insert')
   const isUpsert     = writeMode === 'upsert'
 
-  const identityMapPersist = p('identityMapPersist', 'none')
-  const identityMapVarName = p('identityMapVarName', '')
-  const identityMapTxGroup = p('identityMapTxGroup', '')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -647,6 +611,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
                 {passthroughActive && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span onClick={() => updateCol(idx, 'isHashKey', !col.isHashKey)}
+                      title="Identity column of the master: rows with the same values share one master"
                       style={{ fontSize: 9, padding: '1px 4px', borderRadius: 3, cursor: 'pointer', background: col.isHashKey ? `${HASH_COLOR}20` : '#1a2030', color: col.isHashKey ? HASH_COLOR : '#2a3349', border: `0.5px solid ${col.isHashKey ? `${HASH_COLOR}50` : '#2a3349'}`, display: 'flex', alignItems: 'center', gap: 2, fontWeight: col.isHashKey ? 700 : 400 }}>
                       <i className="ti ti-hash" style={{ fontSize: 9 }} />
                     </span>
@@ -683,7 +648,7 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
               </div>
             ))}
 
-            {passthroughActive && hasHashKeys && (
+            {passthroughActive && (
               <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) minmax(0,1fr) minmax(0,120px) 56px auto', gap: 4, alignItems: 'center', padding: '6px 8px', background: `color-mix(in srgb, ${HASH_COLOR} 8%, #0f1117)`, borderTop: `1px solid ${HASH_COLOR}40` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-bolt" style={{ fontSize: 12, color: HASH_COLOR }} />
@@ -708,42 +673,28 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
             )}
           </div>
 
-          {passthroughActive && hasHashKeys && (
+          {passthroughActive && (
             <div style={{ background: '#0f1117', borderRadius: 6, border: `1px solid ${HASH_COLOR}30`, overflow: 'hidden' }}>
               <div style={{ padding: '7px 12px', background: `color-mix(in srgb, ${HASH_COLOR} 8%, #1a2030)`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <i className="ti ti-database-export" style={{ fontSize: 12, color: HASH_COLOR }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: HASH_COLOR }}>Identity map persistence</span>
+                <i className="ti ti-hash" style={{ fontSize: 12, color: HASH_COLOR }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: HASH_COLOR }}>Identity map</span>
               </div>
-              <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { value: 'none',             label: 'Anonymous',                                 desc: 'The map lives only during this run.' },
-                  { value: 'lane_var',          label: 'Lane variable',                       desc: 'Persists across subsequent runs. Useful for incremental ETL.' },
-                  { value: 'lane_var_tx_reset', label: 'Lane variable + reset on TX rollback', desc: 'As above, but if the transaction rolls back the map is restored.' },
-                ].map(opt => (
-                  <label key={opt.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
-                    <input type="radio" name={`idmap-persist-${nodeId}`}
-                      checked={identityMapPersist === opt.value}
-                      onChange={() => updateProp(nodeId, 'identityMapPersist', opt.value)}
-                      style={{ marginTop: 2, accentColor: HASH_COLOR }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 11, color: '#c8d4f0', fontWeight: 600 }}>{opt.label}</div>
-                      <div style={{ fontSize: 10, color: '#8593b5', marginTop: 2 }}>{opt.desc}</div>
-                      {identityMapPersist === opt.value && opt.value !== 'none' && (
-                        <div style={{ marginTop: 6 }}>
-                          <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 3 }}>Variable name</div>
-                          <input value={identityMapVarName} onChange={e => updateProp(nodeId, 'identityMapVarName', e.target.value)}
-                            style={{ ...iStyle, borderColor: `${HASH_COLOR}50`, color: HASH_COLOR }} placeholder={`__${p('table', 'table')}_identity_map`} />
-                          {opt.value === 'lane_var_tx_reset' && (
-                            <div style={{ marginTop: 6 }}>
-                              <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 3 }}>Transaction group</div>
-                              <input value={identityMapTxGroup} onChange={e => updateProp(nodeId, 'identityMapTxGroup', e.target.value)} style={iStyle} placeholder="tx_group_name" />
-                            </div>
-                          )}
-                        </div>
-                      )}
+              <div style={{ padding: '9px 12px', fontSize: 10, color: '#9a9aaa', lineHeight: 1.55 }}>
+                {hasHashKeys ? (
+                  <>
+                    Rows with the same values in the <strong style={{ color: HASH_COLOR }}>#</strong> columns
+                    ({mapping.filter(c => c.isHashKey && c.enabled).map(c => c.dbColumn).join(', ')}) share one master: it is written once
+                    and every row goes downstream with its key.
+                    {p('mode', 'insert') === 'insert'
+                      ? ' Before inserting a new master, it is looked up in the table by these columns, so a master written by a previous run is reused.'
+                      : ' With UPSERT each master is written once per run and matched through the UNIQUE constraint: a master whose # values are empty (NULL) never matches an existing row, so it is written again on every run (use INSERT to reuse it).'}
+                    <div style={{ marginTop: 6, color: '#ffb347' }}>
+                      Give these columns a UNIQUE constraint in the database: without it two runs in parallel can insert the same master.
                     </div>
-                  </label>
-                ))}
+                  </>
+                ) : (
+                  <>Every incoming row writes a master. If the rows repeat the master data (one row per order line, say), mark with <strong style={{ color: HASH_COLOR }}>#</strong> the columns that identify the master.</>
+                )}
               </div>
             </div>
           )}

@@ -1546,3 +1546,38 @@ personalizzato annullato dal rollback del gruppo (Postgres e ODBC). Test unitari
 Informix.
 
 **Prossima: P351 — identity map** (decisione utente: ricerca del master nel database).
+
+## AGGIORNAMENTO — identity map del master-detail (stato al P351, 22 ottobre)
+
+**Prima:** il motore non leggeva le colonne Hash: con una sorgente "piatta" (una riga per
+riga d'ordine) inseriva il master a ogni riga → duplicati o violazione di chiave. Le opzioni
+di persistenza ("variabile di lane", "reset su rollback") non avevano un archivio dietro (le
+variabili di lane il motore le legge soltanto) e il pannello creava/cancellava da solo una
+variabile di lane `object`.
+
+**Ora (decisione utente: verità nel database).** `sink_db`: `SinkColumn.is_hash_key`,
+`SinkDbConfig.hash_cols`, `IdentityMap` (valori Hash → chiave, per run). Nei tre percorsi
+master-detail (fuori transazione, transazione Postgres, transazione ODBC): master già visto
+nel run → chiave riusata senza scrivere; in **INSERT** un master nuovo per il run si cerca
+prima nella tabella (`idmap_lookup_sql`: `SELECT chiave … WHERE` colonne Hash, `IS NULL`
+sui nulli, stesse funzioni di colonna — via `where_plan`) sulla stessa connessione della
+transazione se c'è (`idmap_lookup_pg` generico sull'executor, `odbc::lookup_key` /
+`tx_lookup_key`, MySQL e SQLite sul pool) e si inserisce solo se manca; in **UPSERT** il
+master si scrive una volta per run (l'upsert aggiorna o inserisce; un valore Hash NULL non
+fa mai conflitto nel vincolo UNIQUE → master nuovo a ogni run: lo studio lo dice, in
+INSERT invece si riusa). `rows_out` del master = master scritti davvero.
+
+**Studio.** Tolte la sezione di persistenza e la gestione automatica della variabile di
+lane (`identityMap*` non più scritte; le variabili create prima restano e si possono
+cancellare a mano). Al loro posto il riquadro "Identity map" spiega cosa succede, con
+l'avviso sul vincolo UNIQUE. **Corretto:** la riga di configurazione della chiave generata
+(campo d'uscita, colonna PK, sequenza) compariva solo con almeno una colonna Hash; ora
+compare con il pass-through attivo (prima, senza Hash, non si poteva cambiare). Badge Hash
+con spiegazione al passaggio del mouse.
+
+**Collaudo** (sorgente di 6 righe, 3 clienti di cui uno NULL, ordine mescolato; due run):
+Postgres insert, Postgres insert in transazione, Postgres upsert, ODBC insert e ODBC insert
+in transazione (chiave nella riga), MySQL e SQLite insert → run 1: 3 master, 6 detail sui
+master giusti; run 2: **0 master scritti**, detail sui master del run 1. Upsert con cliente
+NULL: nuovo master al run 2 (comportamento del vincolo UNIQUE, documentato). Regressioni
+P345/P349/P350 invariate.

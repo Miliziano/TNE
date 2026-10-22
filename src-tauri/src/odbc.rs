@@ -1376,6 +1376,31 @@ pub async fn exec_sql(pool: &OdbcPool, sql: String, label: String) -> Result<(),
         .map_err(|e| format!("ODBC task failed: {e}"))?
 }
 
+/// P351: chiave di un master gia' presente (identity map del master-detail):
+/// prima colonna della prima riga della SELECT, come JSON (intero se lo e').
+pub async fn lookup_key(pool: &OdbcPool, sql: String, binds: Vec<serde_json::Value>) -> Result<Option<serde_json::Value>, String> {
+    let conn = pool.acquire().await?;
+    tokio::task::spawn_blocking(move || scalar_key(conn.conn(), &sql, &binds))
+        .await
+        .map_err(|e| format!("ODBC task failed: {e}"))?
+}
+
+/// Come `lookup_key`, sulla connessione della transazione (vede i master scritti nel gruppo).
+pub async fn tx_lookup_key(conn: &TxConn, sql: String, binds: Vec<serde_json::Value>) -> Result<Option<serde_json::Value>, String> {
+    let guard = conn.clone().lock_owned().await;
+    tokio::task::spawn_blocking(move || scalar_key(guard.conn(), &sql, &binds))
+        .await
+        .map_err(|e| format!("ODBC task failed: {e}"))?
+}
+
+fn scalar_key(conn: &Connection<'static>, sql: &str, binds: &[serde_json::Value]) -> Result<Option<serde_json::Value>, String> {
+    let refs: Vec<&serde_json::Value> = binds.iter().collect();
+    let mut ex = Exec::new(conn);
+    ex.scalar_text(sql, &refs)
+        .map(|o| o.map(|t| key_json(&t)))
+        .map_err(|e| format!("identity map lookup failed: {}", e))
+}
+
 /// Vero se la tabella esiste: una SELECT che non legge righe va a buon fine
 /// (portabile su qualunque DB, a differenza di IF [NOT] EXISTS).
 pub async fn table_exists(pool: &OdbcPool, tbl: String) -> Result<bool, String> {

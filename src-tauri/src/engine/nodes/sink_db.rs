@@ -46,6 +46,9 @@ struct SinkColumn {
     is_pk:        bool,
     #[serde(rename = "isKey", default)]
     is_key:       bool,
+    /// P351: colonna dell'identita' del master (identity map del master-detail).
+    #[serde(rename = "isHashKey", default)]
+    is_hash_key:  bool,
     #[serde(default = "default_true")]
     enabled:      bool,
     #[serde(rename = "sourceField", default)]
@@ -109,6 +112,8 @@ struct SinkDbConfig {
     custom_sql:           Option<crate::CustomSql>,
     /// P350: stored procedure "una chiamata per lotto" (righe in `{rows}`, JSON).
     proc_per_batch:       bool,
+    /// P351: colonne Hash del mapping = identita' del master (identity map).
+    hash_cols:            Vec<String>,
     // Monitoraggio: id della risorsa connessione (per eventi Connection*)
     resource_id:          String,
     // DDL (Fase 11): creazione/ricreazione tabella dal mapping
@@ -235,6 +240,10 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         if v.is_empty() { None } else { Some(v) }
     };
     crate::check_key_conditions(&mode, &key_conditions)?;
+    let hash_cols: Vec<String> = sink_cols.iter()
+        .filter(|c| c.enabled && c.is_hash_key)
+        .map(|c| c.db_column.clone())
+        .collect();
     let mut column_functions: Vec<crate::DbColumnFunction> = sink_cols.iter()
         .filter(|c| c.enabled)
         .filter_map(|c| column_function(&c.db_column, &c.db_function))
@@ -302,6 +311,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         md_key_function,
         custom_sql,
         proc_per_batch,
+        hash_cols,
         create_if_not_exists: spec.bool_or("createIfNotExists", false),
         drop_and_create:      spec.bool_or("dropAndCreate", false),
         resource_id:          spec.resource_id(),
@@ -701,6 +711,7 @@ async fn write_master_detail_tx(
     let mut buf: Vec<(Row, serde_json::Value)> = Vec::with_capacity(batch_size);
     let mut write_result: Result<(), String> = Ok(());
 
+    let mut idmap = IdentityMap::new(config);   // P351
     'outer: loop {
         buf.clear();
         while buf.len() < batch_size {
@@ -727,6 +738,25 @@ async fn write_master_detail_tx(
 
             let mut res: Result<(), String> = Ok(());
             for (orig_row, json_row) in &buf {
+                // P351: identity map (vedi IdentityMap): run, poi database
+                let hk = idmap.as_ref().map(|im| im.hash_of(json_row));
+                if let (Some(im), Some(h)) = (idmap.as_ref(), hk.as_ref()) {
+                    let mut found = im.map.get(h).cloned();
+                    if found.is_none() && idmap_lookup_needed(config) {
+                        let looked = match idmap_lookup_sql(config, json_row) {
+                            Ok((sql, binds)) => idmap_lookup_pg(&mut **guard, &sql, &binds).await,
+                            Err(e) => Err(e),
+                        };
+                        match looked { Ok(k) => found = k, Err(e) => { res = Err(e); break; } }
+                    }
+                    if let Some(k) = found {
+                        if let Some(im) = idmap.as_mut() { im.map.entry(h.clone()).or_insert_with(|| k.clone()); }
+                        let mut enriched = orig_row.clone();
+                        enriched.set(config.md_output_field.clone(), k);
+                        enriched_batch.push(enriched);
+                        continue;
+                    }
+                }
                 let md_row  = with_md_key(config, json_row);
             let mut req = build_tx_req(config, std::slice::from_ref(&md_row));
                 req.batch_size       = 1;
@@ -737,6 +767,9 @@ async fn write_master_detail_tx(
                         written += r.rows_written as u64;
                         query_count += 1;
                         let key = r.generated_keys.into_iter().next().map(Value::from_json);
+                        if let (Some(im), Some(h), Some(k)) = (idmap.as_mut(), hk, key.as_ref()) {
+                            im.map.entry(h).or_insert_with(|| k.clone());
+                        }
                         let mut enriched = orig_row.clone();
                         enriched.set(config.md_output_field.clone(), key.unwrap_or(Value::Null));
                         enriched_batch.push(enriched);
@@ -912,6 +945,7 @@ async fn write_master_detail_tx_odbc(
     let mut buf: Vec<(Row, serde_json::Value)> = Vec::with_capacity(batch_size);
     let mut write_result: Result<(), String> = Ok(());
 
+    let mut idmap = IdentityMap::new(config);   // P351
     'outer: loop {
         buf.clear();
         while buf.len() < batch_size {
@@ -931,6 +965,25 @@ async fn write_master_detail_tx_odbc(
         // stesso gruppo, scrive sulla stessa connessione e vede i master.
         let mut enriched_batch: Vec<Row> = Vec::with_capacity(buf.len());
         for (orig_row, json_row) in &buf {
+            // P351: identity map (vedi IdentityMap): run, poi database (stessa connessione)
+            let hk = idmap.as_ref().map(|im| im.hash_of(json_row));
+            if let (Some(im), Some(h)) = (idmap.as_ref(), hk.as_ref()) {
+                let mut found = im.map.get(h).cloned();
+                if found.is_none() && idmap_lookup_needed(config) {
+                    let looked = match idmap_lookup_sql(config, json_row) {
+                        Ok((sql, binds)) => crate::odbc::tx_lookup_key(&conn, sql, binds).await.map(|o| o.map(Value::from_json)),
+                        Err(e) => Err(e),
+                    };
+                    match looked { Ok(k) => found = k, Err(e) => { write_result = Err(e); break 'outer; } }
+                }
+                if let Some(k) = found {
+                    if let Some(im) = idmap.as_mut() { im.map.entry(h.clone()).or_insert_with(|| k.clone()); }
+                    let mut enriched = orig_row.clone();
+                    enriched.set(config.md_output_field.clone(), k);
+                    enriched_batch.push(enriched);
+                    continue;
+                }
+            }
             let md_row  = with_md_key(config, json_row);
             let mut req = build_tx_req(config, std::slice::from_ref(&md_row));
             req.batch_size       = 1;
@@ -940,6 +993,9 @@ async fn write_master_detail_tx_odbc(
                     written += r.rows_written as u64;
                     query_count += 1;
                     let key = r.generated_keys.into_iter().next().map(Value::from_json);
+                    if let (Some(im), Some(h), Some(k)) = (idmap.as_mut(), hk, key.as_ref()) {
+                        im.map.entry(h).or_insert_with(|| k.clone());
+                    }
                     let mut enriched = orig_row.clone();
                     enriched.set(config.md_output_field.clone(), key.unwrap_or(Value::Null));
                     enriched_batch.push(enriched);
@@ -1116,15 +1172,32 @@ async fn write_master_detail(
     }
     truncate_once(pool, config).await?;
 
+    let mut idmap = IdentityMap::new(config);
     while let Some(row) = rx.recv().await {
         rows_in += 1;
 
         let json_row = write_json_row(config, &row);
 
-        // Scrive questa singola riga con RETURNING della colonna chiave.
-        let key = flush_one_returning(pool, config, &json_row, &config.md_source_column).await?;
-        // eprintln!("[md] chiave catturata: {:?}", key);
-        written += 1;
+        // P351: master gia' visto nel run, o gia' presente nel database → si
+        // riusa la sua chiave senza riscriverlo.
+        let hk = idmap.as_ref().map(|im| im.hash_of(&json_row));
+        let mut key: Option<Value> = None;
+        let mut known = false;
+        if let (Some(im), Some(h)) = (idmap.as_ref(), hk.as_ref()) {
+            if let Some(k) = im.map.get(h) { key = Some(k.clone()); known = true; }
+            else if idmap_lookup_needed(config) {
+                let (sql, binds) = idmap_lookup_sql(config, &json_row)?;
+                if let Some(k) = idmap_lookup(pool, &sql, &binds).await? { key = Some(k); known = true; }
+            }
+        }
+        if !known {
+            // Scrive questa singola riga con RETURNING della colonna chiave.
+            key = flush_one_returning(pool, config, &json_row, &config.md_source_column).await?;
+            written += 1;
+        }
+        if let (Some(im), Some(h), Some(k)) = (idmap.as_mut(), hk, key.as_ref()) {
+            im.map.entry(h).or_insert_with(|| k.clone());
+        }
 
         // Inietta la chiave nella riga originale e inoltra.
         if let Some(ref tx) = tx {
@@ -1180,6 +1253,111 @@ fn request_rows(config: &SinkDbConfig, batch: &[serde_json::Value]) -> Vec<serde
 /// chiamata riuscita vale tutte le righe del lotto.
 fn batch_written(config: &SinkDbConfig, batch_len: usize, rows_written: usize) -> u64 {
     if config.proc_per_batch { if rows_written > 0 { batch_len as u64 } else { 0 } } else { rows_written as u64 }
+}
+
+// ─── Identity map del master-detail (P351) ────────────────────────
+//
+// Sorgente "piatta" (una riga per riga d'ordine, dati del cliente ripetuti):
+// le colonne Hash del mapping identificano il master. Il primo master con
+// quei valori si scrive, gli altri riusano la sua chiave e ogni detail esce
+// con la chiave giusta. Tra un run e l'altro (decisione utente) la verita' e'
+// il DATABASE: in modalita' INSERT un master nuovo per il run si cerca prima
+// nella tabella sulle colonne Hash e si inserisce solo se non c'e' (niente
+// stato salvato, niente "reset su rollback": in transazione la stessa
+// connessione vede i master appena scritti, e il rollback non lascia nulla).
+// In UPSERT il master si scrive una volta per run (l'upsert gia' aggiorna o
+// inserisce). Serve un vincolo UNIQUE sulle colonne Hash, altrimenti due run
+// in parallelo possono inserire lo stesso master.
+
+struct IdentityMap {
+    cols: Vec<String>,
+    map:  std::collections::HashMap<String, Value>,
+}
+
+impl IdentityMap {
+    fn new(config: &SinkDbConfig) -> Option<IdentityMap> {
+        if !config.passthrough_md || config.hash_cols.is_empty() { return None }
+        Some(IdentityMap { cols: config.hash_cols.clone(), map: std::collections::HashMap::new() })
+    }
+    fn hash_of(&self, json_row: &serde_json::Value) -> String {
+        let vals: Vec<&serde_json::Value> = self.cols.iter()
+            .map(|c| json_row.get(c.as_str()).unwrap_or(&serde_json::Value::Null))
+            .collect();
+        serde_json::to_string(&vals).unwrap_or_default()
+    }
+}
+
+/// Il master va cercato nel database prima di scriverlo? (solo INSERT)
+fn idmap_lookup_needed(config: &SinkDbConfig) -> bool {
+    config.mode == "insert"
+}
+
+/// SELECT della chiave del master sulle colonne Hash (`IS NULL` per i valori
+/// nulli), con le stesse funzioni di colonna della scrittura.
+fn idmap_lookup_sql(config: &SinkDbConfig, json_row: &serde_json::Value) -> Result<(String, Vec<serde_json::Value>), String> {
+    let fields: Vec<(String, serde_json::Value)> = config.hash_cols.iter()
+        .map(|c| (c.clone(), json_row.get(c.as_str()).cloned().unwrap_or(serde_json::Value::Null)))
+        .collect();
+    let conds = Some(fields.iter().map(|(c, v)| crate::DbKeyCondition {
+        column: c.clone(),
+        op:     if v.is_null() { "IS NULL".to_string() } else { "=".to_string() },
+        logic:  "AND".to_string(),
+    }).collect::<Vec<_>>());
+    let style = if config.dialect == "postgresql" { crate::PlaceholderStyle::Dollar } else { crate::PlaceholderStyle::Question };
+    let mysql = config.dialect == "mysql";
+    let quote = move |k: &str| if mysql { format!("`{}`", k) } else { k.to_string() };
+    let (w, binds) = crate::where_plan(&config.hash_cols, &conds, &fields, &config.column_functions, style, 1, &quote)?;
+    let binds: Vec<serde_json::Value> = binds.into_iter().cloned().collect();
+    Ok((format!("SELECT {} FROM {} WHERE {}", quote(&config.md_source_column), qualified_ddl_table(config), w), binds))
+}
+
+async fn idmap_lookup_pg<'e, E>(ex: E, sql: &str, binds: &[serde_json::Value]) -> Result<Option<Value>, String>
+where E: sqlx::Executor<'e, Database = sqlx::Postgres> {
+    let mut q = sqlx::query(crate::sqlsafe::composto(sql.to_string()));
+    for v in binds { q = crate::bind_pg_value(q, v); }
+    let row = q.fetch_optional(ex).await.map_err(|e| format!("identity map lookup failed: {}", e))?;
+    Ok(row.map(|r| Value::from_json(crate::pg_row_to_json_value(&r, 0))))
+}
+
+/// Ricerca del master fuori transazione, sul pool della risorsa.
+async fn idmap_lookup(pool: &crate::engine::pool::DbPool, sql: &str, binds: &[serde_json::Value]) -> Result<Option<Value>, String> {
+    use crate::engine::pool::DbPool;
+    use sqlx::Row as _;
+    // valori semplici delle colonne Hash: testo, numeri, booleani, decimali, NULL
+    fn plain(v: &serde_json::Value) -> Option<String> {
+        match v {
+            serde_json::Value::Null => None,
+            serde_json::Value::String(s) => Some(s.clone()),
+            other => Some(crate::json_decimal(other).map(String::from).unwrap_or_else(|| other.to_string())),
+        }
+    }
+    match pool {
+        DbPool::Pg(p) => idmap_lookup_pg(p, sql, binds).await,
+        DbPool::My(p) => {
+            let mut q = sqlx::query(crate::sqlsafe::composto(sql.to_string()));
+            for v in binds { q = q.bind(plain(v)); }
+            let row = q.fetch_optional(p).await.map_err(|e| format!("identity map lookup failed: {}", e))?;
+            Ok(row.map(|r| r.try_get::<i64, _>(0).map(Value::Int)
+                .or_else(|_| r.try_get::<u64, _>(0).map(|u| Value::Int(u as i64)))
+                .or_else(|_| r.try_get::<String, _>(0).map(Value::String))
+                .unwrap_or(Value::Null)))
+        }
+        DbPool::Sqlite(p) => {
+            let mut q = sqlx::query(crate::sqlsafe::composto(sql.to_string()));
+            for v in binds {
+                q = match v {
+                    serde_json::Value::Number(n) if n.is_i64() => q.bind(n.as_i64()),
+                    other => q.bind(plain(other)),
+                };
+            }
+            let row = q.fetch_optional(p).await.map_err(|e| format!("identity map lookup failed: {}", e))?;
+            Ok(row.map(|r| r.try_get::<i64, _>(0).map(Value::Int)
+                .or_else(|_| r.try_get::<String, _>(0).map(Value::String))
+                .unwrap_or(Value::Null)))
+        }
+        DbPool::Odbc(p) => crate::odbc::lookup_key(p, sql.to_string(), binds.to_vec()).await
+            .map(|o| o.map(Value::from_json)),
+    }
 }
 
 /// P349: con la chiave generata da una sequenza la colonna chiave deve

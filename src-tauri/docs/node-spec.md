@@ -256,7 +256,7 @@ SQLite, master-detail con SQL personalizzato, per lotto con campi diversi da
 | props `sinkColumnsSnapshot` | JSON-string | Snapshot per il diff del pannello (UI-only)               | —    |
 | props `selectedConstraintName` | string | Vincolo scelto per upsert (`ON CONFLICT ON CONSTRAINT`)    | 🕐   |
 | props `generatedKeyConfig` | JSON-string | Recupero chiave generata (pass-through master-detail)      | 🕐   |
-| props `identityMapVarName` / `identityMapTxGroup` / `identityMapPersist` | string | Identity map per gruppi transazionali | 🕐 |
+| `sinkColumns[].isHashKey` | bool | P351: colonne che identificano il master (identity map del master-detail) | ✅ |
 
 Elemento di `sinkColumns`:
 
@@ -285,6 +285,13 @@ P349 — semantica eseguita dal motore (prima ignorata):
   funzione della colonna chiave del master-detail: la colonna entra
   nell'INSERT anche se il mapping non la porta e la chiave torna con
   RETURNING; sull'UPSERT la chiave restituita non viene mai riscritta.
+
+Identity map (P351, solo master-detail): righe con gli stessi valori nelle
+colonne `isHashKey` condividono un master, scritto una volta; in INSERT un
+master nuovo per il run si cerca prima nella tabella su quelle colonne (`IS
+NULL` per i valori nulli) e si riusa; in UPSERT si scrive una volta per run.
+Le vecchie props `identityMapPersist`/`identityMapVarName`/`identityMapTxGroup`
+non esistono più (nessuno stato tra un run e l'altro: la verità è il DB).
 
 Semantica di scrittura (Fase 11, confermata): la riga scritta è
 `riga[sourceField] → dbColumn` per le sole colonne `enabled`; l'esecutore

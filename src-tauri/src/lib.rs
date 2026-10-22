@@ -1261,7 +1261,7 @@ where E: sqlx::Executor<'a, Database = sqlx::Postgres> + Copy {
 
 
 // ─── Helper: legge il valore della prima colonna di una PgRow ─────
-fn pg_row_to_json_value(row: &sqlx::postgres::PgRow, idx: usize) -> serde_json::Value {
+pub(crate) fn pg_row_to_json_value(row: &sqlx::postgres::PgRow, idx: usize) -> serde_json::Value {
     use sqlx::Row as SqlxRow;
     // Prova i tipi numerici più comuni per le PK
     if let Ok(v) = row.try_get::<i64, _>(idx) { return serde_json::json!(v) }
