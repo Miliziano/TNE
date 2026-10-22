@@ -319,7 +319,7 @@ function ConditionEditor({ cond, incomingFields, onUpdate, onDelete, onMoveUp, o
                 Scrivi una funzione che riceve <code style={{ color: cond.color }}>row</code> e restituisce <code style={{ color: '#3ddc84' }}>boolean</code>
               </div>
               <ScriptEditor
-                value={cond.code ?? `(row) => {\n  // scrivi qui la condizione\n  return true\n}`}
+                value={cond.code ?? `(row) => {\n  // write the condition here\n  return true\n}`}
                 onChange={(code) => onUpdate({ code })}
                 language={cond.lang ?? 'typescript'}
                 schema={schema}

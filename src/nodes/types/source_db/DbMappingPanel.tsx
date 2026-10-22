@@ -19,7 +19,7 @@ import { FIELD_TYPES, TYPE_META } from '../../../types/fieldTypes'
 import type { FieldType } from '../../../types/fieldTypes'
 
 const TYPE_HINTS: Record<string, string> = {
-  object: 'Usato anche per JSON / JSONB',
+  object: 'Also used for JSON / JSONB',
 }
 
 interface OutputField {

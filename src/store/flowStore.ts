@@ -155,33 +155,20 @@ export const updateNode = (
   fn: (n: FlowNode<NodeData>) => FlowNode<NodeData>
 ) => nodes.map((n) => n.id === id ? fn(n) : n)
 
-// ─── nodi Start/End ───────────────────────────────────────────────
-const makeStartEnd = (laneId: string, startId: string, endId: string): FlowNode<NodeData>[] => [
-  {
-    id: startId,
-    type: 'startNode',
-    position: { x: 40, y: 60 },
-    data: {
-      type: 'lane_start', label: 'Start',
-      props: { label: 'Start' },
-      config: defaultConfig(),
-      status: 'idle', laneId,
-    },
-    deletable: false,
-  },
-  {
-    id: endId,
-    type: 'endNode',
-    position: { x: 500, y: 60 },
-    data: {
-      type: 'lane_end', label: 'End',
-      props: { label: 'End' },
-      config: defaultConfig(),
-      status: 'idle', laneId,
-    },
-    deletable: false,
-  },
-]
+// ─── nodi Start/End (P353) ────────────────────────────────────────
+// Non si creano piu' da soli: suggerivano un ordine di esecuzione che non
+// c'e' (tutti i nodi di una lane partono insieme, li collegano solo gli
+// archi di dati). Restano nella palette (sezione Flow) come segnaposto
+// grafici facoltativi e si possono cancellare; il motore li ignora.
+
+/** Normalizza i nodi di un progetto caricato: Start/End salvati come non
+ *  cancellabili (prima erano obbligatori) diventano cancellabili. */
+export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
+  return nodes.map((n) =>
+    (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
+      ? { ...n, deletable: true }
+      : n)
+}
 
 // ─── lane e pool di default ───────────────────────────────────────
 const DEFAULT_LANE_A: Lane = {
@@ -222,10 +209,8 @@ const makeErrorHandler = (laneId: string, errorHandlerId: string): FlowNode<Node
 })
 
 const DEFAULT_NODES: FlowNode<NodeData>[] = [
-  ...makeStartEnd('lane_a', 'start_lane_a', 'end_lane_a'),
-  makeErrorHandler('lane_a', 'error_handler_lane_a'),     // ← aggiungere
-  ...makeStartEnd('lane_b', 'start_lane_b', 'end_lane_b'),
-  makeErrorHandler('lane_b', 'error_handler_lane_b'),     // ← aggiungere
+  makeErrorHandler('lane_a', 'error_handler_lane_a'),
+  makeErrorHandler('lane_b', 'error_handler_lane_b'),
 ]
 
 // ─── interfaccia store ────────────────────────────────────────────
@@ -361,7 +346,6 @@ interface FlowState {
   resetNodeStats: () => void
 
   // Interno
-  _addLaneStartEnd: (laneId: string) => void 
 
   _addLaneErrorHandler: (laneId: string) => void
   
@@ -624,7 +608,9 @@ export const useFlowStore = create<FlowState>((set, get) => ({
                     type === 'json_serializer'  ? 'jsonSerializerNode'  :
                     type === 'xml_serializer' ? 'xmlSerializerNode' :
                    
-                    type === 'error_handler'    ? 'errorHandlerNode'     :  // ← aggiungere
+                    type === 'error_handler'    ? 'errorHandlerNode'     :
+                    type === 'lane_start'       ? 'startNode'            :
+                    type === 'lane_end'         ? 'endNode'              :
                'flowNode'
 
     const baseConfig = { ...defaultConfig(), displayName: def.label }
@@ -1464,8 +1450,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     }
     set((s) => ({ pool: { ...s.pool, lanes: [...s.pool.lanes, newLane] } }))
     setTimeout(() => {
-      get()._addLaneStartEnd(laneId)
-      get()._addLaneErrorHandler(laneId)          // ← aggiungere
+      get()._addLaneErrorHandler(laneId)
       get().addLog('info', `Lane "${newLane.label}" added.`)
     }, 0)
   },
@@ -1861,10 +1846,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   },
 
   // ── Interno ──
-  _addLaneStartEnd: (laneId) => {
-    const newNodes = makeStartEnd(laneId, uid(), uid())
-    set((s) => ({ nodes: [...s.nodes, ...newNodes] }))
-  },
  _addLaneErrorHandler: (laneId) => {
     const errorHandlerId = `error_handler_${laneId}`
     set((s) => ({ nodes: [...s.nodes, makeErrorHandler(laneId, errorHandlerId)] }))

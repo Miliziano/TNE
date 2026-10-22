@@ -1604,3 +1604,33 @@ P345/P349/P350 invariate.
   ha 4 FAIL (ridefinire `upper`, ricorsione indiretta, variabile non parametro nel corpo,
   definizione malformata non vengono rifiutate) — la validazione delle funzioni utente FPEL
   non copre questi casi.
+
+## AGGIORNAMENTO — Start/End facoltativi + traduzione pannello risorse (stato al P353, 22 ottobre)
+
+**Start/End delle lane (decisione utente).** Non si creano più da soli (né nel progetto
+nuovo, né con "Clear canvas", né aggiungendo una lane): suggerivano un ordine di
+esecuzione che non c'è (tutti i nodi di una lane partono insieme; li ordinano solo gli
+archi di dati) e il motore li salta già (Toolbar `SKIP_TYPES`, lowering `lane_boundary`).
+Restano nella palette, sezione **Flow**, come segnaposto grafici facoltativi
+(`addNode` li crea come `startNode`/`endNode`) e si possono cancellare: il blocco in
+`LaneCanvas.onNodesChange` ora protegge solo l'Error Handler; `normalizeLoadedNodes`
+(flowStore) rende cancellabili quelli dei progetti salvati prima (`deletable:false`),
+all'apertura e al ripristino di una versione. Descrizioni nella palette aggiornate.
+
+**Traduzione (regola: tutto lo studio in inglese).** Pannello delle risorse completo
+(DB/ODBC, LDAP, GitHub, HTTP, Kafka, MQTT, FTP, Webhook: sezioni, campi, stato, pulsanti,
+conferma di cancellazione), azioni "Add to canvas" (le canoniche ora hanno la precedenza
+sulle etichette salvate nella risorsa, così i progetti vecchi mostrano quelle attuali),
+modelli di risorsa, Filter (operatori, clausole, modalità, uscite, nodo sul canvas),
+scheda Transactions, finestre di dialogo file (`lib/tauri.ts`).
+
+**Restano in italiano:** ~560 occorrenze candidate in ~97 file (stima per eccesso dello
+scanner: contiene anche codice generato e messaggi d'errore). I più grandi: `ssh_exec`
+Panel, `data_quality` (tipi delle regole), `pivot`, `EnvironmentsModal`, messaggi di
+`exprParser`/`connectionResolver`/`aggFunctions`, `CompileModal`, `join`, `json_serializer`.
+
+**🐞 Trovati nel Filter, non corretti (stessa famiglia del P348: lo studio promette, il
+motore non fa):** "Case sensitive" ignorato (confronti sempre case-insensitive);
+"Branch execution mode" (parallel/sequential/ordered with wait) ignorato; modalità
+"code" (TypeScript/JS/Python) non eseguibile nel motore → la condizione è falsa con un
+warning. Da decidere: implementare o togliere.

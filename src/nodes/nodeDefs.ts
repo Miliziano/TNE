@@ -298,7 +298,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'input',
     icon: '▶',
     color: '#3ddc84',
-    description: 'Lane start point. Has only an output handle.',
+    description: 'Optional visual marker of where the lane begins. It has no effect on execution: all the nodes of a lane start together and only data connections order them.',
     fields: [
       { key: 'label', label: 'Label', type: 'text', default: 'Start' },
     ],
@@ -309,7 +309,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'output',
     icon: '⏹',
     color: '#ff5f57',
-    description: 'Lane end point. Has only an input handle.',
+    description: 'Optional visual marker of where the lane ends. It has no effect on execution.',
     fields: [
       { key: 'label', label: 'Label', type: 'text', default: 'End' },
     ],
@@ -526,6 +526,6 @@ export const PALETTE_SECTIONS = [
   { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','github_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
   { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot','ldap_auth'] },
   { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
-  { label: 'Flow', types: ['stop'] },
+  { label: 'Flow', types: ['stop', 'lane_start', 'lane_end'] },
   { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
 ]

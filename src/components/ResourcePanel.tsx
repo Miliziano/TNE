@@ -106,10 +106,10 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 // ─── StatusBadge ──────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ResourceStatus }) {
   const map: Record<ResourceStatus, { color: string; bg: string; border: string; icon: string; label: string }> = {
-    untested: { color: '#8593b5', bg: '#1e2535', border: '#2a3349', icon: 'ti-circle-dashed', label: 'non testato' },
-    testing:  { color: '#ffb347', bg: '#3d2a0a', border: '#854f0b', icon: 'ti-loader',        label: 'test in corso…' },
-    ok:       { color: '#3ddc84', bg: '#0d3d20', border: '#1d6d40', icon: 'ti-circle-check',  label: 'connesso' },
-    error:    { color: '#ff5f57', bg: '#3d1010', border: '#6d2020', icon: 'ti-circle-x',      label: 'errore' },
+    untested: { color: '#8593b5', bg: '#1e2535', border: '#2a3349', icon: 'ti-circle-dashed', label: 'not tested' },
+    testing:  { color: '#ffb347', bg: '#3d2a0a', border: '#854f0b', icon: 'ti-loader',        label: 'testing…' },
+    ok:       { color: '#3ddc84', bg: '#0d3d20', border: '#1d6d40', icon: 'ti-circle-check',  label: 'connected' },
+    error:    { color: '#ff5f57', bg: '#3d1010', border: '#6d2020', icon: 'ti-circle-x',      label: 'error' },
   }
   const s = map[status]
   return (
@@ -131,12 +131,12 @@ function GithubConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
   const p = { laneId, resourceId: res.id }
   return (
     <>
-      <Section label="Autenticazione">
+      <Section label="Authentication">
         <Field label="Token (PAT)" fieldKey="token" value={f('token')} type="password" {...p} />
       </Section>
       <Section label="Server">
         <Field label="Base URL" fieldKey="baseUrl" value={f('baseUrl') || 'https://api.github.com'} {...p} />
-        <Field label="Elementi per pagina" fieldKey="perPage" value={f('perPage') || '100'} type="number" {...p} />
+        <Field label="Items per page" fieldKey="perPage" value={f('perPage') || '100'} type="number" {...p} />
       </Section>
     </>
   )
@@ -149,27 +149,27 @@ function LdapConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
 
   return (
     <>
-      <Section label="Connessione">
+      <Section label="Connection">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Modalità TLS" fieldKey="tlsMode" value={f('tlsMode') || 'ldaps'}
+          <Field label="TLS mode" fieldKey="tlsMode" value={f('tlsMode') || 'ldaps'}
             type="select" options={['ldaps', 'starttls', 'plain']} {...p} />
-          <Field label="Porta" fieldKey="port" value={f('port') || '636'} type="number" {...p} />
+          <Field label="Port" fieldKey="port" value={f('port') || '636'} type="number" {...p} />
         </div>
         <Field label="Host" fieldKey="host" value={f('host')} {...p} />
         <Field label="Base DN" fieldKey="baseDN" value={f('baseDN')} {...p} />
-        <Field label="Verifica certificato" fieldKey="verifyCert" value={f('verifyCert') || 'true'}
+        <Field label="Verify certificate" fieldKey="verifyCert" value={f('verifyCert') || 'true'}
           type="select" options={['true', 'false']} {...p} />
       </Section>
 
-      <Section label="Autenticazione (account di servizio)">
+      <Section label="Authentication (service account)">
         <Field label="Bind DN" fieldKey="bindDN" value={f('bindDN')} {...p} />
         <Field label="Password" fieldKey="password" value={f('password')} type="password" {...p} />
       </Section>
 
-      <Section label="Opzioni">
+      <Section label="Options">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Timeout conn. (s)" fieldKey="connectTimeout" value={f('connectTimeout') || '10'} type="number" {...p} />
-          <Field label="Dimensione pagina" fieldKey="pageSize" value={f('pageSize') || '500'} type="number" {...p} />
+          <Field label="Connect timeout (s)" fieldKey="connectTimeout" value={f('connectTimeout') || '10'} type="number" {...p} />
+          <Field label="Page size" fieldKey="pageSize" value={f('pageSize') || '500'} type="number" {...p} />
         </div>
       </Section>
     </>
@@ -186,15 +186,15 @@ function DbConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
 
   return (
     <>
-      <Section label="Connessione">
+      <Section label="Connection">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Dialetto" fieldKey="dialect" value={dialect}
+          <Field label="Dialect" fieldKey="dialect" value={dialect}
             type="select" options={['postgresql','mysql','sqlite','oracle','informix','odbc']} {...p} />
-          {!generic && <Field label="Porta" fieldKey="port" value={f('port') || DB_DIALECT_PORTS[dialect as DbDialect] || '5432'} type="number" {...p} />}
+          {!generic && <Field label="Port" fieldKey="port" value={f('port') || DB_DIALECT_PORTS[dialect as DbDialect] || '5432'} type="number" {...p} />}
         </div>
         {!generic && <Field label="Host" fieldKey="host" value={f('host') || 'localhost'} {...p} />}
         {!generic && <Field label="Database" fieldKey="database" value={f('database') || ''} {...p} />}
-        {dialect === 'oracle' && <Field label="Service name (vuoto = Database)" fieldKey="serviceName" value={f('serviceName')} {...p} />}
+        {dialect === 'oracle' && <Field label="Service name (empty = Database)" fieldKey="serviceName" value={f('serviceName')} {...p} />}
         {dialect === 'informix' && <Field label="Server (DBSERVERNAME)" fieldKey="dbServerName" value={f('dbServerName')} {...p} />}
         <Field label="Schema" fieldKey="schema" value={f('schema') || (odbc ? '' : 'public')} {...p} />
       </Section>
@@ -202,30 +202,30 @@ function DbConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
       {odbc && (
         <Section label="ODBC">
           <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 6, lineHeight: 1.45 }}>
-            Sulla macchina che esegue servono il gestore ODBC (unixODBC su Linux/macOS) e il driver del
-            fornitore{dialect === 'oracle' ? ' (Oracle Instant Client + ODBC)' : dialect === 'informix' ? ' (IBM Informix Client SDK)' : ''}.
-            Il driver si indica per nome (come in odbcinst.ini) o con il percorso della libreria.
-            {generic ? ' Per l\'ODBC generico serve un DSN o una connection string.' : ' DSN o connection string, se indicati, sostituiscono host e porta.'}
+            The machine that runs the flow needs the ODBC driver manager (unixODBC on Linux/macOS) and the vendor
+            driver{dialect === 'oracle' ? ' (Oracle Instant Client + ODBC)' : dialect === 'informix' ? ' (IBM Informix Client SDK)' : ''}.
+            Give the driver by name (as in odbcinst.ini) or by the path of its library.
+            {generic ? ' Generic ODBC needs a DSN or a connection string.' : ' A DSN or a connection string, when given, replaces host and port.'}
           </div>
-          <Field label="Driver ODBC" fieldKey="odbcDriver" value={f('odbcDriver')} {...p} />
+          <Field label="ODBC driver" fieldKey="odbcDriver" value={f('odbcDriver')} {...p} />
           <Field label="DSN" fieldKey="dsn" value={f('dsn')} {...p} />
           <Field label="Connection string" fieldKey="connectionString" value={f('connectionString')} type="textarea" {...p} />
-          <Field label="Parametri aggiuntivi (CHIAVE=valore;…)" fieldKey="odbcParams" value={f('odbcParams')} {...p} />
+          <Field label="Additional parameters (KEY=value;…)" fieldKey="odbcParams" value={f('odbcParams')} {...p} />
         </Section>
       )}
 
-      <Section label="Autenticazione">
+      <Section label="Authentication">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Utente" fieldKey="user" value={f('user') || f('username') || ''} {...p} />
+          <Field label="User" fieldKey="user" value={f('user') || f('username') || ''} {...p} />
           <Field label="Password" fieldKey="password" value={f('password')} type="password" {...p} />
         </div>
         <Field label="SSL" fieldKey="ssl" value={f('ssl') || 'false'}
           type="select" options={['false','true','require','verify-ca','verify-full']} {...p} />
       </Section>
 
-      <Section label="Opzioni">
+      <Section label="Options">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Timeout conn. (s)" fieldKey="connectTimeout" value={f('connectTimeout') || '10'} type="number" {...p} />
+          <Field label="Connect timeout (s)" fieldKey="connectTimeout" value={f('connectTimeout') || '10'} type="number" {...p} />
           <Field label="Timeout query (s)" fieldKey="timeoutSec"     value={f('timeoutSec')     || '30'} type="number" {...p} />
         </div>
       </Section>
@@ -244,14 +244,14 @@ function HttpConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
       <Section label="Endpoint">
         <Field label="Base URL" fieldKey="baseUrl" value={f('baseUrl') || HTTP_DEFAULTS.url} {...p} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Metodo default" fieldKey="method" value={f('method') || 'GET'}
+          <Field label="Default method" fieldKey="method" value={f('method') || 'GET'}
             type="select" options={['GET','POST','PUT','PATCH','DELETE']} {...p} />
           <Field label="Timeout s" fieldKey="timeoutSec" value={f('timeoutSec') || '30'} type="number" {...p} />
         </div>
       </Section>
 
-      <Section label="Autenticazione">
-        <Field label="Tipo" fieldKey="authType" value={f('authType') || 'none'}
+      <Section label="Authentication">
+        <Field label="Type" fieldKey="authType" value={f('authType') || 'none'}
           type="select" options={['none','basic','bearer','oauth2']} {...p} />
         {f('authType') === 'basic' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -264,8 +264,8 @@ function HttpConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
         )}
       </Section>
 
-      <Section label="Headers aggiuntivi">
-        <div style={labelStyle}>JSON (es: {'{"X-Api-Key": "..."}'})</div>
+      <Section label="Additional headers">
+        <div style={labelStyle}>JSON (e.g. {'{"X-Api-Key": "..."}'})</div>
         <textarea
           value={f('headers') || '{}'}
           onChange={(e) => useFlowStore.getState().updateResourceConfig(laneId, res.id, 'headers', e.target.value)}
@@ -290,8 +290,8 @@ function KafkaConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
         <Field label="Client ID" fieldKey="clientId" value={f('clientId') || 'flowpilot-client'} {...p} />
         <Field label="Group ID" fieldKey="groupId"   value={f('groupId')   || 'flowpilot-group'}  {...p} />
       </Section>
-      <Section label="Autenticazione">
-        <Field label="Tipo" fieldKey="authType" value={f('authType') || 'none'}
+      <Section label="Authentication">
+        <Field label="Type" fieldKey="authType" value={f('authType') || 'none'}
           type="select" options={['none','sasl_plain','sasl_ssl']} {...p} />
         {f('authType') !== 'none' && f('authType') !== '' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -315,7 +315,7 @@ function MqttConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
       <Section label="Broker">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <Field label="Host" fieldKey="broker" value={f('broker') || 'localhost'} {...p} />
-          <Field label="Porta" fieldKey="port"  value={f('port')   || '1883'} type="number" {...p} />
+          <Field label="Port" fieldKey="port"  value={f('port')   || '1883'} type="number" {...p} />
         </div>
         <Field label="Client ID" fieldKey="clientId" value={f('clientId') || 'flowpilot'} {...p} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -325,7 +325,7 @@ function MqttConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
             type="select" options={['false','true']} {...p} />
         </div>
       </Section>
-      <Section label="Autenticazione">
+      <Section label="Authentication">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <Field label="Username" fieldKey="username" value={f('username')} {...p} />
           <Field label="Password" fieldKey="password" value={f('password')} type="password" {...p} />
@@ -343,23 +343,23 @@ function FtpConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
 
   return (
     <>
-      <Section label="Connessione">
+      <Section label="Connection">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Protocollo" fieldKey="protocol" value={f('protocol') || 'sftp'}
+          <Field label="Protocol" fieldKey="protocol" value={f('protocol') || 'sftp'}
             type="select" options={['ftp','sftp']} {...p} />
-          <Field label="Porta" fieldKey="port" value={f('port') || '22'} type="number" {...p} />
+          <Field label="Port" fieldKey="port" value={f('port') || '22'} type="number" {...p} />
         </div>
         <Field label="Host" fieldKey="host" value={f('host') || ''} {...p} />
       </Section>
-      <Section label="Autenticazione">
-        <Field label="Tipo" fieldKey="authType" value={f('authType') || 'password'}
+      <Section label="Authentication">
+        <Field label="Type" fieldKey="authType" value={f('authType') || 'password'}
           type="select" options={['password','key']} {...p} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Utente"   fieldKey="user"     value={f('user')}     {...p} />
+          <Field label="User"   fieldKey="user"     value={f('user')}     {...p} />
           <Field label="Password" fieldKey="password" value={f('password')} type="password" {...p} />
         </div>
         {f('authType') === 'key' && (
-          <Field label="Path chiave privata" fieldKey="keyPath" value={f('keyPath')} {...p} />
+          <Field label="Private key path" fieldKey="keyPath" value={f('keyPath')} {...p} />
         )}
       </Section>
     </>
@@ -402,32 +402,32 @@ function WebhookConfig({ res, laneId }: { res: LaneResource; laneId: string }) {
     <>
       <Section label="Server HTTP">
         <div style={{ padding: '6px 10px', marginBottom: 8, background: 'color-mix(in srgb, #3ddc84 6%, #0f1117)', borderRadius: 4, border: '0.5px solid #3ddc8430', fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-          Un singolo server sulla porta configurata. Ogni nodo Receiver
-          si registra su un path distinto — tutti condividono questa porta.
+          A single server on the configured port. Each Receiver node
+          registers its own path — they all share this port.
         </div>
-        <Field label="Porta" fieldKey="port" value={f('port', '9110')} type="number" {...p} />
+        <Field label="Port" fieldKey="port" value={f('port', '9110')} type="number" {...p} />
         <Field label="IP Whitelist" fieldKey="ipWhitelist" value={f('ipWhitelist', '')} type="textarea" {...p} />
         <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic', marginTop: -2, marginBottom: 6, paddingLeft: 2 }}>
-          Un IP per riga. Vuoto = tutti accettati.
+          One IP per line. Empty = all accepted.
         </div>
       </Section>
 
-      <Section label="Firma HMAC — default per i Receiver">
+      <Section label="HMAC signature — Receiver defaults">
         <div style={{ padding: '6px 10px', marginBottom: 8, background: 'color-mix(in srgb, #3ddc84 6%, #0f1117)', borderRadius: 4, border: '0.5px solid #3ddc8430', fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-          Valori di default per i nodi Receiver. Ogni Receiver può sovrascrivere
-          secret e header individualmente (es. GitHub vs Stripe con secret diversi).
+          Default values for the Receiver nodes. Each Receiver can override
+          secret and header on its own (e.g. GitHub and Stripe with different secrets).
         </div>
         <Field label="HMAC Secret default" fieldKey="hmacSecret" value={f('hmacSecret')} type="password" {...p} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label="Header firma" fieldKey="sigHeader" value={f('sigHeader', 'X-Hub-Signature-256')} {...p} />
-          <Field label="Algoritmo"    fieldKey="sigAlgo"   value={f('sigAlgo', 'sha256')}
+          <Field label="Signature header" fieldKey="sigHeader" value={f('sigHeader', 'X-Hub-Signature-256')} {...p} />
+          <Field label="Algorithm"    fieldKey="sigAlgo"   value={f('sigAlgo', 'sha256')}
             type="select" options={['sha256','sha1']} {...p} />
         </div>
       </Section>
 
       {/* Path registrati — sezione informativa live */}
       {receivers.length > 0 && (
-        <Section label="Receiver collegati">
+        <Section label="Linked receivers">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {receivers.map((r) => (
               <div key={r.id} style={{
@@ -456,8 +456,10 @@ function ActionButtons({ resource, laneId }: { resource: LaneResource; laneId: s
   // Unione delle azioni salvate sulla risorsa + quelle canoniche per il suo kind
   // (fonte unica in resourceActions.ts), deduplicate per id. Così anche le
   // risorse create prima che il nodo esistesse mostrano l'azione.
-  const actions = [...resource.actions]
-  for (const a of actionsForKind(resource.kind)) {
+  // P353: le canoniche prima — così le etichette sono sempre quelle attuali
+  // anche per le risorse salvate con le vecchie (in italiano).
+  const actions = [...actionsForKind(resource.kind)]
+  for (const a of resource.actions) {
     if (!actions.some((x) => x.id === a.id)) actions.push(a)
   }
   if (actions.length === 0) return null
@@ -478,7 +480,7 @@ function ActionButtons({ resource, laneId }: { resource: LaneResource; laneId: s
   }
 
   return (
-    <Section label="Aggiungi al canvas">
+    <Section label="Add to canvas">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {actions.map((action) => (
           <button key={action.id} onClick={() => handleAction(action)}
@@ -509,7 +511,7 @@ function UsedBy({ resource, laneId }: { resource: LaneResource; laneId: string }
     return { id, label }
   })
   return (
-    <Section label="Usata da">
+    <Section label="Used by">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {nodes.map((n) => (
           <div key={n.id} style={{ fontSize: 11, padding: '5px 8px', borderRadius: 4, background: '#1e2535', color: '#9a9aaa', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -558,7 +560,7 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#6ab4ff' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4a9eff' }}>
             <i className="ti ti-chevron-left" style={{ fontSize: 10 }} aria-hidden="true" />
-            Risorse
+            Resources
           </button>
           <span>/ {liveResource.label}</span>
         </div>
@@ -576,7 +578,7 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
           {isWebhook ? (
             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d40', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <i className="ti ti-webhook" style={{ fontSize: 11 }} aria-hidden="true" />
-              server HTTP
+              HTTP server
             </span>
           ) : (
             <StatusBadge status={liveResource.status} />
@@ -593,11 +595,11 @@ export function ResourcePanel({ resource, laneId }: { resource: LaneResource; la
               onMouseEnter={(e) => { if (liveResource.status !== 'testing') (e.currentTarget as HTMLElement).style.background = '#2a4a7a' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a3a6a' }}>
               <i className="ti ti-plug" style={{ fontSize: 12 }} aria-hidden="true" />
-              {liveResource.status === 'testing' ? 'Test in corso…' : 'Testa connessione'}
+              {liveResource.status === 'testing' ? 'Testing…' : 'Test connection'}
             </button>
           )}
           <button
-            onClick={() => { if (confirm(`Eliminare la risorsa "${liveResource.label}"?`)) { deleteResource(laneId, liveResource.id); selectResource(null) } }}
+            onClick={() => { if (confirm(`Delete the resource "${liveResource.label}"?`)) { deleteResource(laneId, liveResource.id); selectResource(null) } }}
             style={{ padding: '5px 8px', fontSize: 11, borderRadius: 4, cursor: 'pointer', background: 'transparent', color: '#ff5f57', border: '1px solid #3d1010', display: 'flex', alignItems: 'center', gap: 4 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a1010' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>

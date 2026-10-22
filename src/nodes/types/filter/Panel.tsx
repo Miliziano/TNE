@@ -146,15 +146,15 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
   const remove = (id: string) => onChange(clauses.filter((c) => c.id !== id))
 
   const OPERATORS: Array<{ value: ConditionOperator; label: string }> = [
-    { value: '==',       label: '= uguale'           },
-    { value: '!=',       label: '≠ diverso'           },
-    { value: '>',        label: '> maggiore'          },
-    { value: '>=',       label: '≥ mag. o uguale'     },
-    { value: '<',        label: '< minore'            },
-    { value: '<=',       label: '≤ min. o uguale'     },
-    { value: 'contains', label: '∋ contiene'          },
-    { value: 'starts',   label: '⊏ inizia con'        },
-    { value: 'ends',     label: '⊐ finisce con'       },
+    { value: '==',       label: '= equals'            },
+    { value: '!=',       label: '≠ not equal'         },
+    { value: '>',        label: '> greater than'      },
+    { value: '>=',       label: '≥ greater or equal'  },
+    { value: '<',        label: '< less than'         },
+    { value: '<=',       label: '≤ less or equal'     },
+    { value: 'contains', label: '∋ contains'          },
+    { value: 'starts',   label: '⊏ starts with'       },
+    { value: 'ends',     label: '⊐ ends with'         },
     { value: 'is_null',  label: '∅ is null'            },
     { value: 'not_null', label: '≠∅ is not null'       },
     { value: 'in',       label: '∈ is in list'        },
@@ -213,10 +213,10 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
                 </div>
                 {!noValue && (
                   <div>
-                    <div style={labelStyle}>{['in', 'not_in'].includes(clause.operator) ? 'Valori (virgola)' : 'Valore'}</div>
+                    <div style={labelStyle}>{['in', 'not_in'].includes(clause.operator) ? 'Values (comma-separated)' : 'Value'}</div>
                     <input style={inputStyle} value={clause.value}
                       onChange={(e) => update(clause.id, 'value', e.target.value)}
-                      placeholder={['in', 'not_in'].includes(clause.operator) ? 'val1, val2' : 'valore'} />
+                      placeholder={['in', 'not_in'].includes(clause.operator) ? 'val1, val2' : 'value'} />
                   </div>
                 )}
               </div>
@@ -226,7 +226,7 @@ function VisualBuilder({ clauses, onChange, incomingFields }: {
       })}
       <button onClick={add}
         style={{ background: '#1a2030', border: '1px dashed #2a3349', borderRadius: 6, padding: '6px', fontSize: 11, color: '#4a9eff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-        <i className="ti ti-plus" style={{ fontSize: 11 }} /> Aggiungi clausola
+        <i className="ti ti-plus" style={{ fontSize: 11 }} /> Add clause
       </button>
     </div>
   )
@@ -323,15 +323,15 @@ function ConditionEditor({ cond, index, total, incomingFields, onUpdate, onDelet
         {/* Selettori modalità — con tooltip che mostra il campo che verrà portato */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
           {([
-            { value: 'visual',   label: '⊞', title: 'Builder visuale'  },
+            { value: 'visual',   label: '⊞', title: 'Visual builder'  },
             { value: 'template', label: '⚡', title: 'Template'         },
-            { value: 'code',     label: 'λ',  title: 'Codice TypeScript' },
+            { value: 'code',     label: 'λ',  title: 'TypeScript code' },
           ] as Array<{ value: ConditionMode; label: string; title: string }>).map((m) => {
             const isActive = cond.mode === m.value
             const tip = isActive
               ? m.title
               : currentField
-                ? `${m.title} — porta il campo "${currentField}"`
+                ? `${m.title} — keeps the field "${currentField}"`
                 : m.title
             return (
               <button key={m.value} onClick={() => handleModeChange(m.value)} title={tip}
@@ -438,7 +438,7 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
     saveConfig({
       ...config,
       conditions: [...config.conditions, {
-        id: `cond_${Date.now()}`, label: `uscita_${idx + 1}`,
+        id: `cond_${Date.now()}`, label: `output_${idx + 1}`,
         color: colors[idx % colors.length], mode: 'visual',
         clauses: [{ id: `c_${Date.now()}`, field: '', operator: '==' as ConditionOperator, value: '', logic: 'AND' }],
         lang: 'typescript', code: `(row) => {\n  return true\n}`,
@@ -550,7 +550,7 @@ export function FilterPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {[
-              { value: 'parallel',     icon: '⇉', label: 'Tutti in parallelo',       desc: 'I rami partono contemporaneamente.',                                              color: '#4a9eff' },
+              { value: 'parallel',     icon: '⇉', label: 'All in parallel',          desc: 'The branches start together.',                                                    color: '#4a9eff' },
               { value: 'sequential',   icon: '→', label: 'Sequential',              desc: 'Branches start in priority order without waiting for completion.',          color: '#ffb347' },
               { value: 'ordered_wait', icon: '⏱', label: 'Ordered with wait',      desc: 'Branch #N starts only when branch #N-1 has completed the entire sub-pipeline.', color: '#3ddc84' },
             ].map((m) => (

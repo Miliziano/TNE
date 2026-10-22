@@ -154,7 +154,7 @@ function ResourceChip({ resource, laneId }: { resource: LaneResource; laneId: st
     <div style={{ position: 'relative', display: 'flex' }} ref={triggerRef}>
       <div
         onClick={() => { selectLane(laneId); selectResource(resource.id) }}
-        title={`Configura ${resource.label}`}
+        title={`Configure ${resource.label}`}
         style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 7px', borderRadius: '20px 0 0 20px', border: '0.5px solid var(--color-border-secondary)', borderRight: 'none', background: 'var(--color-background-secondary)', fontSize: 11, cursor: 'pointer', userSelect: 'none', color: 'var(--color-text-secondary)', transition: 'background .12s' }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-background-tertiary)' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-background-secondary)' }}
@@ -236,7 +236,7 @@ function ResourceStrip({ lane }: { lane: Lane }) {
     },
     {
       kind: 'github' as const,
-      label: '⑃ GitHub (lettura)',
+      label: '⑃ GitHub (read-only)',
       build: () => ({
         kind: 'github' as const,
         label: 'GitHub',
@@ -400,8 +400,9 @@ function LaneFlow({ lane }: { lane: Lane }) {
   const onNodesChange = useCallback((changes: NodeChange<FlowNode_<NodeData>>[]) => {
     const filtered = changes.filter((c) => {
       if (c.type !== 'remove') return true
+      // P353: Start/End si possono cancellare; l'Error Handler no
       const node = useFlowStore.getState().nodes.find((n) => n.id === c.id)
-      return node?.data.type !== 'lane_start' && node?.data.type !== 'lane_end'
+      return node?.data.type !== 'error_handler'
     })
     setNodes((nds) => applyNodeChanges(filtered, nds))
     const posChanges = filtered.filter((c) => c.type === 'position')

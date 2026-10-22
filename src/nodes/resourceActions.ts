@@ -13,11 +13,11 @@ import type { ResourceKind, ResourceAction } from '../types'
  */
 export const RESOURCE_ACTIONS: Partial<Record<ResourceKind, ResourceAction[]>> = {
   ldap: [
-    { id: 'query', label: 'Aggiungi come query (source)', nodeType: 'ldap_source', propsOverride: {} },
-    { id: 'auth',  label: 'Aggiungi come autenticatore',   nodeType: 'ldap_auth',   propsOverride: {} },
+    { id: 'query', label: 'Add as query (source)', nodeType: 'ldap_source', propsOverride: {} },
+    { id: 'auth',  label: 'Add as authenticator',   nodeType: 'ldap_auth',   propsOverride: {} },
   ],
   github: [
-    { id: 'source', label: 'Aggiungi come source GitHub', nodeType: 'github_source', propsOverride: {} },
+    { id: 'source', label: 'Add as GitHub source', nodeType: 'github_source', propsOverride: {} },
   ],
 }
 

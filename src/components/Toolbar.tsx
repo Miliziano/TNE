@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useFlowStore, resyncNodeCounter } from '../store/flowStore'
+import { useFlowStore, resyncNodeCounter, normalizeLoadedNodes } from '../store/flowStore'
 import { invoke } from '@tauri-apps/api/core'
 import {
   isTauri,
@@ -1495,7 +1495,7 @@ export function Toolbar() {
   const restoreVersion = (plan: PlanSnapshot) => {
     useFlowStore.setState({
       pool:  plan.pool  as Pool,
-      nodes: plan.nodes as FlowNode<NodeData>[],
+      nodes: normalizeLoadedNodes(plan.nodes as FlowNode<NodeData>[]),
       edges: plan.edges as Edge[],
       selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
     })
@@ -1612,7 +1612,7 @@ export function Toolbar() {
         return
       }
       useFlowStore.setState({
-        pool: plan.pool, nodes: plan.nodes, edges: plan.edges,
+        pool: plan.pool, nodes: normalizeLoadedNodes(plan.nodes), edges: plan.edges,
         selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
         environments: {
           active:      data.environments?.active ?? '',

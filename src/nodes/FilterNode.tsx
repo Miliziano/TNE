@@ -62,7 +62,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
 
   // Icona modalità esecuzione
   const execIcon = execMode === 'ordered_wait' ? '⏱' : execMode === 'sequential' ? '→' : '⇉'
-  const execTitle = execMode === 'ordered_wait' ? 'Ordinato con attesa' : execMode === 'sequential' ? 'Sequenziale' : 'Parallelo'
+  const execTitle = execMode === 'ordered_wait' ? 'Ordered with wait' : execMode === 'sequential' ? 'Sequential' : 'Parallel'
 
   return (
     <div
@@ -81,7 +81,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
       {uiState && (uiState.hasErrors || uiState.hasWarnings) && <ValidationBadge uiState={uiState} />}
 
       {/* Badge settings */}
-      <div onClick={(e) => { e.stopPropagation(); openNodeEditor(id) }} title="Configura Filter"
+      <div onClick={(e) => { e.stopPropagation(); openNodeEditor(id) }} title="Configure Filter"
         style={{ position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: '50%', background: ACCENT, border: '2px solid #0f1117', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, boxShadow: `0 2px 6px rgba(255,179,71,0.4)` }}>
         <i className="ti ti-edit" style={{ fontSize: 10, color: '#0f1117' }} />
       </div>
@@ -113,7 +113,7 @@ export const FilterNode = memo(({ id, data, selected }: NodeProps) => {
       <div style={{ padding: '5px 8px 5px 8px', flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
         {conditions.length === 0 ? (
           <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic', marginTop: 2 }}>
-            nessuna condizione
+            no condition
           </div>
         ) : (
           conditions.map((cond, idx) => (

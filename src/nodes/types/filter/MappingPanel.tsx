@@ -42,7 +42,7 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
       {fields.length > 0 && (
         <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
           <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-            Campi in transito su tutte le uscite
+            Fields passing through on every output
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {fields.map((f) => (
@@ -57,16 +57,16 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Uscite */}
       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
-        Uscite — {conditions.length + 1}
+        Outputs — {conditions.length + 1}
       </div>
 
       {conditions.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-filter-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-          Nessuna condizione configurata. Configura le condizioni nel tab Configurazione.
+          No condition configured. Configure the conditions in the Configuration tab.
           <br />
           <span style={{ fontSize: 10, color: '#3a4a6a', marginTop: 4, display: 'block' }}>
-            Attualmente tutte le righe vanno al reject.
+            At the moment every row goes to reject.
           </span>
         </div>
       ) : (
@@ -87,23 +87,23 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6,
                   background: `color-mix(in srgb, ${cond.color} 10%, #0f1117)`,
                   color: cond.color, border: `0.5px solid ${cond.color}30` }}>
-                  {cond.mode === 'code' ? 'λ codice' : cond.mode === 'template' ? '⚡ template' : '⊞ visuale'}
+                  {cond.mode === 'code' ? 'λ code' : cond.mode === 'template' ? '⚡ template' : '⊞ visual'}
                 </span>
               </div>
 
               {/* Codice condizione */}
               <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
                 <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 2 }}>
-                  condizione
+                  condition
                 </div>
                 <code style={{ fontSize: 9, color: '#3ddc84', fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: 1.6 }}>
-                  {conditionToCode(cond) || '/* nessuna condizione */' }
+                  {conditionToCode(cond) || '/* no condition */' }
                 </code>
               </div>
 
               {/* Campi passthrough */}
               <div style={{ marginTop: 6, fontSize: 9, color: '#8593b5' }}>
-                Tutti i campi passano invariati →
+                All fields pass unchanged →
                 <span style={{ color: cond.color, marginLeft: 4 }}>{fields.length} campi</span>
               </div>
             </div>
@@ -117,11 +117,11 @@ export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff5f57' }} />
           <code style={{ fontSize: 11, color: '#ff5f57', fontWeight: 600 }}>reject</code>
           <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#2a0000', color: '#ff5f57', border: '0.5px solid #ff5f5730' }}>
-            #{conditions.length + 1} — sempre presente
+            #{conditions.length + 1} — always present
           </span>
         </div>
         <div style={{ fontSize: 9, color: '#8593b5' }}>
-          Righe che non soddisfano nessuna delle condizioni precedenti.
+          Rows that satisfy none of the conditions above.
           {fields.length > 0 && <span style={{ color: '#ff5f5780', marginLeft: 4 }}>All fields pass through unchanged.</span>}
         </div>
       </div>

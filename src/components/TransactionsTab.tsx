@@ -93,7 +93,7 @@ export function TransactionsTab() {
                       onClick={() => deleteTransaction(lane.id, tx.id)}
                       style={{ fontSize: 10, color: '#f87171', background: 'transparent',
                                border: 'none', cursor: 'pointer' }}>
-                      elimina
+                      delete
                     </button>
                   </div>
 
@@ -112,7 +112,7 @@ export function TransactionsTab() {
                   </div>
 
                   <div style={{ fontSize: 9, color: '#9a9aaa', marginBottom: 4 }}>
-                    Nodi membri ({members.length})
+                    Member nodes ({members.length})
                   </div>
                   {members.length === 0 ? (
                     <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>

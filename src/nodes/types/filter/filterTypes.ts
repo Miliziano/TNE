@@ -210,7 +210,7 @@ export function conditionToCode(cond: FilterCondition): string {
 
     case 'template': {
       const tmpl = FILTER_TEMPLATES.find((t) => t.id === cond.templateId)
-      if (!tmpl) return '/* seleziona un template */'
+      if (!tmpl) return '/* select a template */'
       // Sostituisce parametri mancanti con placeholder
       const safeParams = Object.fromEntries(
         tmpl.params.map((p) => [p.key, cond.templateParams?.[p.key] ?? p.placeholder])

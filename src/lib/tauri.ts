@@ -27,13 +27,13 @@ export interface FileEntry {
  * Legge un file di testo dal filesystem locale.
  */
 export async function readFile(path: string): Promise<string> {
-  if (!isTauri()) throw new Error('readFile disponibile solo in app desktop')
+  if (!isTauri()) throw new Error('readFile is available only in the desktop app')
   return invoke<string>('read_file', { path })
 }
 
 // ── Segreti (keychain del SO, provider in Rust) ───────────────────
 export async function secretSet(name: string, value: string): Promise<void> {
-  if (!isTauri()) throw new Error('secretSet disponibile solo in app desktop')
+  if (!isTauri()) throw new Error('secretSet is available only in the desktop app')
   return invoke<void>('secret_set', { name, value })
 }
 export async function secretHas(name: string): Promise<boolean> {
@@ -41,7 +41,7 @@ export async function secretHas(name: string): Promise<boolean> {
   return invoke<boolean>('secret_has', { name })
 }
 export async function secretDelete(name: string): Promise<void> {
-  if (!isTauri()) throw new Error('secretDelete disponibile solo in app desktop')
+  if (!isTauri()) throw new Error('secretDelete is available only in the desktop app')
   return invoke<void>('secret_delete', { name })
 }
 
@@ -53,7 +53,7 @@ export async function secretDelete(name: string): Promise<void> {
  * Il frontend decodifica il base64 in ArrayBuffer.
  */
 export async function readBinaryFile(path: string): Promise<ArrayBuffer> {
-  if (!isTauri()) throw new Error('readBinaryFile disponibile solo in app desktop')
+  if (!isTauri()) throw new Error('readBinaryFile is available only in the desktop app')
   const base64 = await invoke<string>('read_file_bytes', { path })
   // Decodifica base64 → Uint8Array → ArrayBuffer
   const binary = atob(base64)
@@ -68,7 +68,7 @@ export async function readBinaryFile(path: string): Promise<ArrayBuffer> {
  * Scrive un file di testo sul filesystem locale.
  */
 export async function writeFile(path: string, content: string): Promise<void> {
-  if (!isTauri()) throw new Error('writeFile disponibile solo in app desktop')
+  if (!isTauri()) throw new Error('writeFile is available only in the desktop app')
   return invoke<void>('write_file', { path, content })
 }
 
@@ -76,7 +76,7 @@ export async function writeFile(path: string, content: string): Promise<void> {
  * Scrive un file binario su disco decodificando il contenuto base64.
  */
 export async function writeFileBytes(path: string, contentBase64: string): Promise<void> {
-  if (!isTauri()) throw new Error('writeFileBytes disponibile solo in app desktop')
+  if (!isTauri()) throw new Error('writeFileBytes is available only in the desktop app')
   return invoke<void>('write_file_bytes', { path, contentBase64 })
 }
 
@@ -132,26 +132,26 @@ export async function saveFileDialog(options?: {
 
 export async function openDataFileDialog(): Promise<string | null> {
   const result = await openFileDialog({
-    title: 'Seleziona file dati',
+    title: 'Select data file',
     filters: [
-      { name: 'Dati',         extensions: ['csv', 'txt','json', 'jsonl', 'tsv', 'xml', 'xlsx', 'xls'] },
+      { name: 'Data',         extensions: ['csv', 'txt','json', 'jsonl', 'tsv', 'xml', 'xlsx', 'xls'] },
       { name: 'CSV',          extensions: ['csv', 'tsv'] },
       { name: 'JSON',         extensions: ['json', 'jsonl'] },
       { name: 'Excel',        extensions: ['xlsx', 'xls'] },
-      { name: 'Tutti i file', extensions: ['*'] },
+      { name: 'All files',    extensions: ['*'] },
     ],
   })
   return Array.isArray(result) ? result[0] : result
 }
 
 export async function openDirectoryDialog(): Promise<string | null> {
-  const result = await openFileDialog({ title: 'Seleziona directory', directory: true })
+  const result = await openFileDialog({ title: 'Select directory', directory: true })
   return Array.isArray(result) ? result[0] : result
 }
 
 export async function savePlanDialog(): Promise<string | null> {
   return saveFileDialog({
-    title:       'Salva pipeline FlowPilot',
+    title:       'Save FlowPilot pipeline',
     filters:     [{ name: 'FlowPilot Plan', extensions: ['ffplan', 'json'] }],
     defaultPath: 'pipeline.ffplan',
   })
@@ -159,7 +159,7 @@ export async function savePlanDialog(): Promise<string | null> {
 
 export async function openPlanDialog(): Promise<string | null> {
   const result = await openFileDialog({
-    title:   'Apri pipeline FlowPilot',
+    title:   'Open FlowPilot pipeline',
     filters: [{ name: 'FlowPilot Plan', extensions: ['ffplan', 'json'] }],
   })
   return Array.isArray(result) ? result[0] : result
