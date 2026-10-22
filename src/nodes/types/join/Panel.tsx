@@ -212,7 +212,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
     }))
 
     const rightSchema = rightFields
-      .filter((f) => {
+      .filter((_f) => {
         // In SEMI e ANTI join non includere campi del lato destro
         if (joinType === 'anti' || joinType === 'semi') return false
         return true

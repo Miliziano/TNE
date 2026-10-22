@@ -27,7 +27,6 @@ import { parseUserFunctions } from '../ir/userFunctions'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
 
-let abortFlag = false
 
 // ─── Polling ──────────────────────────────────────────────────────
 // Stato persistente fuori dal componente — sopravvive ai re-render
@@ -1371,7 +1370,6 @@ export function Toolbar() {
   // ── Run — usa Rust Engine ─────────────────────────────────────
   const handleRun = async () => {
     if (running) return
-    abortFlag = false
     setRunning(true)
 
     const { useLogViewerStore } = await import('../store/useLogViewerStore')
@@ -1416,7 +1414,6 @@ export function Toolbar() {
 
   // ── Stop ──────────────────────────────────────────────────────
   const handleStop = () => {
-    abortFlag = true
     // Ferma DAVVERO il run lato motore. Senza questo lo Stop era solo
     // cosmetico: in modalità servizio/continuo (dir_watcher continuo,
     // webhook) la lane resta viva sul watcher e continua a ri-eseguirsi

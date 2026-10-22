@@ -42,7 +42,7 @@ export function canonicalPlanString(plan: unknown): string {
 }
 
 /** Byte canonici (UTF-8) — quello che si hasha e (in seguito) si firma. */
-export function canonicalPlanBytes(plan: unknown): Uint8Array {
+export function canonicalPlanBytes(plan: unknown): Uint8Array<ArrayBuffer> {
   return new TextEncoder().encode(canonicalPlanString(plan))
 }
 

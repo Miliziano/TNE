@@ -106,7 +106,6 @@ function generateDbSource(
   label:   string,
 ): string {
   const props      = config?.props     ?? {}
-  const resConfig  = {}                   // config dalla risorsa (popolata a runtime)
   const query      = props.query         ?? `SELECT * FROM ${props.table ?? 'tabella'}`
   const limit      = parseInt(props.limit ?? '0')
   const outputType = schemaToTypeName(node, varName)
@@ -230,7 +229,7 @@ function generateAuthHeaders(authType: string): string {
 // ─── Generic source ───────────────────────────────────────────────
 
 function generateGenericSource(
-  node:    LogicalNode,
+  _node:    LogicalNode,
   varName: string,
   label:   string,
 ): string {

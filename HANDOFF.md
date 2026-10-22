@@ -1144,7 +1144,7 @@ aggiornamento si corregge il codice, **non** i vettori.
   uscito il 16 ottobre, lo store non lo usa ancora), `glib` 0.18 e `proc-macro-error`
   (GTK3 di Tauri su Linux).
 
-**⚠ Preesistente, da affrontare:** `npm run build` (e quindi `tauri build`, che lo usa
+**✅ Risolto nel P352** (vedi sezione in fondo). Testo originale: `npm run build` (e quindi `tauri build`, che lo usa
 come `beforeBuildCommand`) esegue `tsc -b` e **fallisce** per i 111 errori di typecheck
 — era così anche prima di questi aggiornamenti. `tauri dev` non ne risente. Sono quasi
 tutti variabili/import inutilizzati (TS6133/TS6196) più due errori veri
@@ -1581,3 +1581,26 @@ in transazione (chiave nella riga), MySQL e SQLite insert → run 1: 3 master, 6
 master giusti; run 2: **0 master scritti**, detail sui master del run 1. Upsert con cliente
 NULL: nuovo master al run 2 (comportamento del vincolo UNIQUE, documentato). Regressioni
 P345/P349/P350 invariate.
+
+## AGGIORNAMENTO — studio senza errori TypeScript (stato al P352, 22 ottobre)
+
+`npx tsc --noEmit -p tsconfig.app.json`: **da 111 errori a 0** (anche `tsconfig.node.json` a 0)
+→ **`npm run build` (tsc -b + vite build) passa**, quindi anche il `beforeBuildCommand` di
+`tauri build`. **Nuova regola di metodo: ogni patch chiude con tsc a 0** (non più "baseline").
+
+- 2 errori veri: `canonicalPlanBytes` ora restituisce `Uint8Array<ArrayBuffer>` (le lib DOM
+  recenti chiedono un `BufferSource` con `ArrayBuffer`, per `crypto.subtle.digest`);
+  `NodeAdvanced` non ha `parallel` → tolto dai default del nodo (non lo leggeva nessuno).
+- 109 dichiarazioni mai usate (`noUnusedLocals`/`noUnusedParameters`): import tolti; parametri
+  non usati con `_`; nomi destrutturati dalle props tolti dal pattern; codice morto rimosso
+  (`TabConnection`/`Row`/`Field` in NodeEditorModal, `collectXHandles`, `upsertFieldConfig`,
+  `inputColor`, `mb`, costanti e `useMemo` mai letti, `abortFlag` scritto e mai letto nel
+  Toolbar). Nessun cambiamento di comportamento.
+- Effetto collaterale buono: in `BridgeModal` (SchemaTab) c'erano hook (`useFlowStore`,
+  `useMemo`) **dopo** `if (!node) return null` — violazione delle regole degli hook; erano
+  proprio quelli inutilizzati, ora tolti.
+- ESLint: da 1080 a 983 problemi (non era l'obiettivo; restano da fare).
+- Test IR (tsx): invariati. **🐞 Preesistente, segnalato:** `src/ir/userFunctions.test.ts`
+  ha 4 FAIL (ridefinire `upper`, ricorsione indiretta, variabile non parametro nel corpo,
+  definizione malformata non vengono rifiutate) — la validazione delle funzioni utente FPEL
+  non copre questi casi.

@@ -26,10 +26,6 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: '.08em', marginBottom: 4, fontWeight: 600,
 }
 
-const CONDITION_COLORS = [
-  '#4a9eff', '#3ddc84', '#ffb347', '#a78bfa', '#22d3ee',
-  '#f472b6', '#84cc16', '#fb923c', '#e879f9', '#ff5f57',
-]
 
 const OPERATORS: Array<{ value: ConditionOperator; label: string }> = [
   { value: '==',       label: '= equal'           },

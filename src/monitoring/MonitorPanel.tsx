@@ -44,9 +44,6 @@ const sectionTitle = (color = ACCENT): React.CSSProperties => ({
   background: '#161b27', borderBottom: '0.5px solid #2a3349',
 })
 
-function mb(bytes: number): string {
-  return `${Math.round(bytes / 1024 / 1024 * 10) / 10} MB`
-}
 
 function ms(n: number | undefined): string {
   if (n === undefined) return '—'

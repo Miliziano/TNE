@@ -156,7 +156,7 @@ export const sinkGenerator: NodeGenerator = {
   },
 }
 
-function generateFileSink(node: LogicalNode, config: any, varName: string, label: string): string {
+function generateFileSink(_node: LogicalNode, config: any, varName: string, label: string): string {
   const props  = config?.props ?? {}
   const path   = props.path   ?? '/data/output.csv'
   const format = props.format ?? 'csv'
@@ -234,7 +234,7 @@ function generateJsonSinkBody(format: string): string {
   return `  fs.writeFileSync(outputPath, JSON.stringify(inputRows, null, 2), 'utf-8')`
 }
 
-function generateDbSink(node: LogicalNode, config: any, varName: string, label: string): string {
+function generateDbSink(_node: LogicalNode, config: any, varName: string, label: string): string {
   const props     = config?.props ?? {}
   const table     = props.table ?? 'tabella'
   const mode      = props.mode  ?? 'insert'
@@ -409,7 +409,7 @@ export const parseGenerator: NodeGenerator = {
 }
 
 function generateJsonParser(
-  node: LogicalNode, config: any, varName: string, label: string, ctx: CodegenContext
+  _node: LogicalNode, config: any, varName: string, label: string, _ctx: CodegenContext
 ): string {
   const jsonCfg     = config?.jsonParser
   const sourceField = jsonCfg?.sourceField ?? 'body'
@@ -491,7 +491,7 @@ ${fields.map((f: any) => {
 }
 
 function generateXmlParser(
-  node: LogicalNode, config: any, varName: string, label: string, ctx: CodegenContext
+  _node: LogicalNode, config: any, varName: string, label: string, _ctx: CodegenContext
 ): string {
   const xmlCfg      = config?.xmlParser
   const sourceField = xmlCfg?.sourceField ?? 'body'

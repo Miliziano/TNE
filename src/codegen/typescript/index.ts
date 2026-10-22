@@ -27,9 +27,8 @@
  *   // output.files: Map<filename, content>
  */
 
-import type { LogicalPlan, LogicalNode, SchemaField } from '../../ir/types'
+import type { LogicalPlan, LogicalNode } from '../../ir/types'
 import { topologicalSort, canvasNodeId } from '../../ir/lowering'
-import { getNodeSemantics } from '../../ir/nodeSemantics'
 import { generators } from './generators'
 
 // ─────────────────────────────────────────────────────────────────

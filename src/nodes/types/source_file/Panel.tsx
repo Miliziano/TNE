@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
-import type { TMapFieldType, Variable } from '../../../types'
+import type { Variable } from '../../../types'
 import type { FileFormat } from '../../fileSchema'
 import { FIXED_SCHEMA,STRUCTURED_FORMATS, FORMAT_GROUPS } from '../../fileSchema'
 import { CustomSelect } from '../../../components/CustomSelect'

@@ -9,11 +9,11 @@
  *        preview SQL generata dalla configurazione corrente.
  */
 
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { ScriptEditor } from '../../../components/ScriptEditor'
-import { DB_DIALECT_COLORS, DB_DIALECT_LABELS, type DbDialect } from '../../../nodes/resourceDefaults'
+import { DB_DIALECT_COLORS, type DbDialect } from '../../../nodes/resourceDefaults'
 import type { SinkColumnMapping } from './MappingPanel'
 
 // ─── Stili ────────────────────────────────────────────────────────
@@ -318,7 +318,6 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
 
   const dialect    = (selectedResource?.config?.dialect ?? selectedResource?.config?.driver ?? p('dialect', 'postgresql')) as DbDialect
   const color      = DB_DIALECT_COLORS[dialect] ?? '#3ddc84'
-  const dbLabel    = DB_DIALECT_LABELS[dialect] ?? 'DB'
   const queryMode  = p('customQueryMode', 'none')
   const schema     = p('querySchema', 'public')
   const table      = p('table', 'my_table')

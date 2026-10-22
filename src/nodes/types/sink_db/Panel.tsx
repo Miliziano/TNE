@@ -176,7 +176,6 @@ export function SinkDbPanel({ nodeId }: { nodeId: string }) {
     } catch { return 0 }
   }, [node.data.props?.['sinkColumns']])
 
-  const missingKeys     = needsKeys && mappingKeyCount === 0
   const needsDdlPk      = createIfNotExists || dropAndCreate
   // P349: la PRIMARY KEY della tabella creata viene dai badge PK del mapping
   // (l'unica fonte che il motore usa); il vecchio campo ddlPrimaryKey non c'e' piu'.

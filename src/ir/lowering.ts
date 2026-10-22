@@ -185,7 +185,7 @@ const UI_ONLY_NODE_TYPES = new Set<string>()
 function buildInputPorts(
   node:     FlowNode<NodeData>,
   edges:    Edge[],
-  allNodes: FlowNode<NodeData>[],
+  _allNodes: FlowNode<NodeData>[],
 ): PortSpec[] {
   const inEdges = edges.filter((e) => e.target === node.id)
   if (inEdges.length === 0) return []

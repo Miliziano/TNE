@@ -91,7 +91,6 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
                   : isGroup ? '<grp>'
                   : '<elm>'
 
-  const fullName = node.namespace ? `${node.namespace}:${node.xmlName}` : node.xmlName
 
   return (
     <div style={{ marginLeft: indent }}>

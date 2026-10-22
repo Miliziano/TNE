@@ -7,7 +7,6 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../useIncomingSchema'
-import { CustomSelect } from '../../../components/CustomSelect'
 
 const ACCENT = '#3ddc84'
 
@@ -68,7 +67,6 @@ export function DataQualityMappingPanel({ nodeId }: { nodeId: string }) {
     catch { return [] }
   }, [node.data.props['dqRules']])
 
-  const errorField = node.data.props['errorField'] ?? '_dq_errors'
 
   // Raggruppa regole per campo
   const rulesByField = useMemo(() => {

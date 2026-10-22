@@ -12,8 +12,6 @@ const OUT_COLOR    = '#ffb347'
 
 export function JoinMappingPanel({ nodeId }: { nodeId: string }) {
   const node  = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
-  const edges = useFlowStore((s) => s.edges)
-  const nodes = useFlowStore((s) => s.nodes)
   if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def

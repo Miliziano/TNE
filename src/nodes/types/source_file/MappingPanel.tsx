@@ -283,7 +283,6 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       }
 
       const inferred    = inferSchema(sample as Record<string, unknown>[])
-      const existingIds = new Set(schema.map((f) => f.id))
 
       // Sostituisci schema esistente con quello reale
       // Mantieni personalizzazioni (tipo, nome logico) se il campo fisico coincide

@@ -8,7 +8,6 @@ import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
-import { CustomSelect } from '../../../components/CustomSelect'
 
 const ACCENT = '#f97316'
 

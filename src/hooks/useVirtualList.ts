@@ -28,7 +28,7 @@
  *   </div>
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 export interface UseVirtualListOptions {
   /** Numero totale di elementi nella lista */

@@ -28,14 +28,11 @@
 import type {
   LogicalPlan,
   LogicalNode,
-  LogicalEdge,
   ExprNode,
-  SchemaField,
   MaterializationPoint,
 } from './types'
 import {
   extractFieldRefs,
-  isConstant,
   evaluateConstant,
   isPredicate,
   printExpr,
@@ -437,7 +434,6 @@ export const predicatePushdown: OptimizerPass = {
       if (filterInputs.length !== 1) return
 
       // Verifica che la sorgente supporti pushdown
-      const uiType   = scan._uiRef?.type ?? ''
       const pushdownPreds = filter.expressions.filter(isPredicate)
       if (pushdownPreds.length === 0) return
 

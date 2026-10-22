@@ -9,7 +9,6 @@ import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
-import { CustomSelect } from '../../../components/CustomSelect'
 import { AGG_FUNCTION_BY_VALUE } from '../../../ir/aggFunctions'
 
 const ACCENT = '#4a9eff'

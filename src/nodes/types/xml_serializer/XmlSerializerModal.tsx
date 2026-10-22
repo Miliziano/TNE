@@ -90,17 +90,6 @@ function reorderXNode(nodes: XmlTreeNode[], dragId: string, targetId: string, po
   }
   return nodes.map((n) => ({ ...n, children: reorderXNode(n.children, dragId, targetId, pos) }))
 }
-function collectXHandles(nodes: XmlTreeNode[], handle: string): string[] {
-  const f: string[] = []
-  function walk(ns: XmlTreeNode[]) {
-    ns.forEach((n) => {
-      if (n.sourceHandle === handle && n.sourceField) f.push(n.sourceField)
-      if (n.sources) n.sources.forEach((s) => { if (s.handle === handle) f.push(s.field) })
-      walk(n.children)
-    })
-  }
-  walk(nodes); return [...new Set(f)]
-}
 
 // ─── Parse da XML sample ──────────────────────────────────────────
 function parseXmlSample(s: string): XmlTreeNode[] {
@@ -503,7 +492,7 @@ function XmlTreeNodeRow({
 }
 
 // ─── FieldRow ─────────────────────────────────────────────────────
-function FieldRow({ name, type, handle, handleIdx, isMapped, color, onDelete }: {
+function FieldRow({ name, type, handle, isMapped, color, onDelete }: {
   name: string; type: string; handle: string; handleIdx: number
   isMapped: boolean; color: string; onDelete?: () => void
 }) {
@@ -718,8 +707,6 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
   }, [setTreeNodes])
 
   const handleAddChildFromDrop = useCallback((parentId: string, handle: string, field: string) => {
-    const inp   = realInputs[handle]
-    const fType = inp?.fields.find((f) => f.name === field)?.type ?? 'string'
     const leaf: XmlTreeNode = { id: uid(), xmlName: field, ns: '', kind: 'element', children: [], collapsed: false, sourceHandle: handle, sourceField: field }
     setTreeNodes((prev) => {
       // Se il parent è una foglia, promuovi a element
@@ -978,7 +965,6 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
               const handle = e.dataTransfer.getData('handle')
               const field  = e.dataTransfer.getData('field')
               if (!handle || !field) return
-              const inp   = realInputs[handle]
               const leaf: XmlTreeNode = { id: uid(), xmlName: field, ns: '', kind: 'element', children: [], collapsed: false, sourceHandle: handle, sourceField: field }
               setTreeNodes((prev) => [...prev, leaf])
             }}>

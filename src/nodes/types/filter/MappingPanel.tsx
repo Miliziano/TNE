@@ -10,7 +10,6 @@ import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../useIncomingSchema'
 import type { FilterConfig } from './filterTypes'
 import { conditionToCode } from './filterTypes'
-import { CustomSelect } from '../../../components/CustomSelect'
 
 const ACCENT = '#ffb347'
 

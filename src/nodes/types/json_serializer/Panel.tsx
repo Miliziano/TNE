@@ -379,7 +379,6 @@ export function JsonSerializerPanel({ nodeId }: { nodeId: string }) {
   const p = (key: string, def = '') => String(node.data.props?.[key] ?? def)
 
   // ── Campi per handle — da config.serializerInputs (come TMap usa tmap.inputs) ──
-  const serializerInputs = (node.data.config?.serializerInputs ?? {}) as Record<string, { label: string; fields: Array<{ name: string; type: string }> }>
 
 
     // ── Flussi in ingresso ─────────────────────────────────────────

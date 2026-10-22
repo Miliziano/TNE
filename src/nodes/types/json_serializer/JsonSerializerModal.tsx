@@ -7,7 +7,6 @@ import { TabGeneral }  from '../../../components/tabs/TabGeneral'
 import { TabAdvanced } from '../../../components/tabs/TabAdvanced'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
-import { getHandleSchema } from '../../../utils/schemaRegistry'
 
 const ACCENT = '#22d3ee'
 
@@ -506,22 +505,12 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
 
   const mappedInTree = getMappedInTree(treeNodes)
 
-  const schemaNames = new Set(schemaFields.map((f) => f.name))
 
   // Cerca il JsonFlowField per un campo schema (se ha trasformazione configurata)
   const getFieldConfig = (name: string): JsonFlowField | undefined =>
     mapping.fields.find((f) => f.sourceField === name)
 
   // Aggiorna o crea la config per un campo schema
-  const upsertFieldConfig = (name: string, patch: Partial<JsonFlowField>) => {
-    const existing = mapping.fields.find((f) => f.sourceField === name)
-    if (existing) {
-      onUpdate(mapping.handle, { fields: mapping.fields.map((f) => f.sourceField === name ? { ...f, ...patch } : f) })
-    } else {
-      const f: JsonFlowField = { id: `jf_${Date.now()}`, jsonKey: name, sourceField: name, transform: '', nullable: 'null', ...patch }
-      onUpdate(mapping.handle, { fields: [...mapping.fields, f] })
-    }
-  }
 
 /*
   const updateField = (id: string, patch: Partial<JsonFlowField>) =>
@@ -596,7 +585,7 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
 
 // ─── FieldRow — riga campo unificata ──────────────────────────────
 // Usata sia per campi da schema (readonly name) che manuali (name editabile)
-function FieldRow({ name, type, handle, handleIdx, isMapped, color, isManual,
+function FieldRow({ name, type, handle, isMapped, color, isManual,
   onNameChange, onDelete }: {
   name: string; type: string; handle: string; handleIdx: number
   isMapped: boolean; color: string; isManual: boolean
@@ -722,7 +711,6 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
   const realInputs: Record<string, SerInput> = useMemo(() => {
     const result: Record<string, SerInput> = {}
     const allNodes = useFlowStore.getState().nodes
-    const allEdges = useFlowStore.getState().edges
 
     incomingEdges.forEach((edge) => {
       const handle  = edge.targetHandle ?? 'input'
@@ -939,7 +927,6 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
     if (!inp?.fields.length) return
     const mapping = mappings[handle] ?? { handle, jsonKey: handle === 'input' ? 'data' : handle, mode: 'array', fields: [] }
 
-    const newLeaves: JsonTreeNode[] = []
     setTreeNodes((prev) => {
       // Controlla quali campi esistono già nell'albero per questo handle
       const existingFields = new Set<string>()

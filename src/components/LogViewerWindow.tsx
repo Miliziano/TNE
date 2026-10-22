@@ -85,13 +85,6 @@ export function LogViewerWindow() {
   )
   const hasPrev = firstCurrentIdx > 0
 
-  // Altezza effettiva: ogni riga ha ROW_HEIGHT, più SEPARATOR_HEIGHT
-  // se c'è un separatore di sessione da mostrare prima di firstCurrentIdx
-  const itemHeights = useMemo(() => {
-    if (!hasPrev) return rows.map(() => ROW_HEIGHT)
-    return rows.map((_, i) => i === firstCurrentIdx ? ROW_HEIGHT + SEPARATOR_HEIGHT : ROW_HEIGHT)
-  }, [rows, firstCurrentIdx, hasPrev])
-
   // Per la virtualizzazione usiamo l'altezza media come stima —
   // dato che il separatore è un singolo elemento raro, l'imprecisione
   // è trascurabile su migliaia di righe

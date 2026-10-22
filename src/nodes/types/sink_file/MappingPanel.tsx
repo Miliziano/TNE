@@ -10,7 +10,7 @@
 import { useFlowStore } from '../../../store/flowStore'
 import type { TMapFieldType } from '../../../types'
 import { useIncomingSchema } from '../../useIncomingSchema'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 const inputStyle: React.CSSProperties = {

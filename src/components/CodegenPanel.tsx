@@ -14,7 +14,6 @@
  */
 
 import React from 'react'
-import { CustomSelect } from '../components/CustomSelect'
 
 interface UIState {
   hasErrors?:    boolean

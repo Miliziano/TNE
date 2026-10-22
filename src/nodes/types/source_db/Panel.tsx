@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
 import {
-  DB_DIALECT_LABELS,
   DB_DIALECT_COLORS,
   type DbDialect,
 } from '../../../nodes/resourceDefaults'

@@ -31,14 +31,12 @@ import type {
   LogicalNode,
   LogicalEdge,
   SchemaField,
-  PortSpec,
   ValidationIssue,
 } from './types'
 import { isRejectPort } from './types'
 import { topologicalSort, canvasNodeId } from './lowering'
 import { parseScript, campiAssegnatiTipizzati } from './scriptParser'
 import type { FieldType } from '../types/fieldTypes'
-import { getNodeSemantics } from './nodeSemantics'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
 import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
 

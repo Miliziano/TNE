@@ -19,7 +19,7 @@ const SCRIPT_TEMPLATES: Partial<Record<string, string>> = {
   any:      '// Trasformazione libera\n// $value = valore input, usa variabili $label.campo per input multipli\nreturn $value',
 }
 
-export function ScriptMode({ value, outputType, onChange, iStyle }: Props) {
+export function ScriptMode({ value, outputType, onChange }: Props) {
   const template = SCRIPT_TEMPLATES[outputType] ?? SCRIPT_TEMPLATES.any!
   const lines    = (value.expression ?? '').split('\n')
 

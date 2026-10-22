@@ -69,7 +69,7 @@ function cancelFlush(): void {
   }
 }
 
-export const useLogViewerStore = create<LogViewerState>((set, get) => {
+export const useLogViewerStore = create<LogViewerState>((set, _get) => {
 
   // Funzione di flush — legge il buffer e aggiorna lo store
   function flush(): void {

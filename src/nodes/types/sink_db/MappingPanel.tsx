@@ -363,7 +363,6 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
 
   const importFromFlow = () => {
   if (incomingFields.length === 0) return
-  const existingMap = new Map(mapping.map(m => [m.dbColumn, m]))
   
   // Campi già presenti nel mapping — aggiorna tipo DB e assegna
   // sourceField se ancora vuoto e il nome coincide con un campo del flusso

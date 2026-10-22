@@ -23,7 +23,6 @@ import { CustomSelect } from '../../../components/CustomSelect'
 import { TabGeneral }  from '../../../components/tabs/TabGeneral'
 import { TabAdvanced } from '../../../components/tabs/TabAdvanced'
 import type { TMapConfig } from '../../../types'
-import { getHandleSchema } from '../../../utils/schemaRegistry'
 
 const ACCENT = '#a78bfa'
 
@@ -132,11 +131,6 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
     ) ?? null
   }, [allNodes, channelName, laneId])
 
-  const proposedSchema = useMemo(() => {
-    if (!counterpart) return []
-    return getHandleSchema(counterpart, 'input', true)
-  }, [counterpart])
-
   const counterLane = counterpart ? pool.lanes.find((l) => l.id === counterpart.data.laneId) : null
   const thisLane    = pool.lanes.find((l) => l.id === laneId)
   const color       = channelColor
@@ -235,24 +229,6 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore((s) => s.updateNodeProp)
 
   if (!node) return null
-  const allNodes     = useFlowStore((s) => s.nodes)
-  const channelName  = String(node.data.props?.['channelName'] ?? '')
-  const laneId       = node.data.laneId
-
-  const counterpart = useMemo(() => {
-    if (!channelName) return null
-    return allNodes.find((n) =>
-      n.data.type === 'bridge_out' &&
-      n.data.props?.['channelName'] === channelName &&
-      n.data.laneId !== laneId
-    ) ?? null
-  }, [allNodes, channelName, laneId])
-
-  const proposedSchema = useMemo(() => {
-    if (!counterpart) return []
-    return getHandleSchema(counterpart, 'input', true)
-  }, [counterpart])
-  
 
   const channelColor = String(node.data.props?.['channelColor'] ?? '#a78bfa')
   const color        = channelColor

@@ -48,7 +48,6 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
 
   // Ruolo dedotto dal tipo nodo — nessun toggle
   const isPublisher = node.data.type === 'sink_mqtt'
-  const role        = isPublisher ? 'publisher' : 'subscriber'
 
   const p = (key: string, def = '') => String(node.data.props?.[key] ?? def)
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>

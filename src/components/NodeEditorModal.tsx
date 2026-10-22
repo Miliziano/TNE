@@ -8,7 +8,6 @@ import { NODE_PREVIEW_PANELS } from '../nodes/registry'
 import type { NodeMapping } from '../types'
 import { NODE_PANELS } from '../nodes/registry'
 import { DefaultPanel } from '../nodes/DefaultPanel'
-import { ScriptMappingPanel } from '../nodes/types/script/MappingPanel'
 import { CustomSelect } from '../components/CustomSelect'
 
 import { TabGeneral }  from './tabs/TabGeneral'
@@ -64,15 +63,6 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 }
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 10,
-  color: '#9a9aaa',
-  textTransform: 'uppercase',
-  letterSpacing: '.08em',
-  marginBottom: 4,
-  fontWeight: 600,
-}
-
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
@@ -91,110 +81,10 @@ const sectionStyle: React.CSSProperties = {
 }
 
 // ─── Field ────────────────────────────────────────────────────────
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 4,
-      padding: '8px 10px',
-      background: '#1a2030',
-      borderRadius: 6,
-      border: '0.5px solid #2a3349',
-    }}>
-      <div style={labelStyle}>{label}</div>
-      {children}
-    </div>
-  )
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-      {children}
-    </div>
-  )
-}
-
 function SectionTitle({ label }: { label: string }) {
   return <div style={sectionTitleStyle}>{label}</div>
 }
 
-
-// ─── Tab: Connessione ─────────────────────────────────────────────
-function TabConnection({ nodeId }: { nodeId: string }) {
-  const node         = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
-  const pool         = useFlowStore((s) => s.pool)
-  const updateConfig = useFlowStore((s) => s.updateNodeConfig)
-  const updateProp   = useFlowStore((s) => s.updateNodeProp)
-  const def          = node ? NODE_DEFS[node.data.type] : null
-
-  if (!node || !def) return null
-
-  const laneId    = node.data.laneId
-  const lane      = pool.lanes.find((l) => l.id === laneId)
-  const resources = lane?.resources ?? []
-  const resId     = node.data.config.resourceId ?? ''
-  const resource  = resources.find((r) => r.id === resId)
-
-  const STATUS_COLOR: Record<string, string> = {
-    ok: '#3ddc84', error: '#ff5f57', testing: '#ffb347', untested: '#8593b5',
-  }
-  const STATUS_ICON: Record<string, string> = {
-    ok: 'ti-circle-check', error: 'ti-circle-x',
-    testing: 'ti-loader spin', untested: 'ti-circle-dashed',
-  }
-
-  return (
-    <div style={sectionStyle}>
-      <SectionTitle label="Connected resource" />
-      {resources.length === 0 ? (
-        <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 12, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          No resource available in this lane. Add one from the resource strip.
-        </div>
-      ) : (
-        <Field label="Select resource">
-          <CustomSelect style={inputStyle} value={resId}
-            onChange={(e) => updateConfig(nodeId, { resourceId: e.target.value })}>
-            <option value="">— none —</option>
-            {resources.map((r) => (
-              <option key={r.id} value={r.id}>{r.label} ({r.kind})</option>
-            ))}
-          </CustomSelect>
-        </Field>
-      )}
-      {resource && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#1a2030', borderRadius: 6, border: '1px solid #2a3349' }}>
-          <i className={`ti ${STATUS_ICON[resource.status] ?? 'ti-circle-dashed'}`}
-            style={{ fontSize: 14, color: STATUS_COLOR[resource.status] }} aria-hidden="true" />
-          <span style={{ fontSize: 12, color: '#c8d4f0', fontWeight: 600 }}>{resource.label}</span>
-          <span style={{ fontSize: 11, color: '#8593b5' }}>{resource.kind} · {resource.status}</span>
-        </div>
-      )}
-      {def.fields.length > 0 && (
-        <>
-          <SectionTitle label="Node parameters" />
-          {def.fields.map((field) => (
-            <Field key={field.key} label={field.label}>
-              {field.type === 'select' ? (
-                <CustomSelect style={inputStyle} value={node.data.props[field.key] ?? field.default}
-                  onChange={(e) => updateProp(nodeId, field.key, e.target.value)}>
-                  {field.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                </CustomSelect>
-              ) : field.type === 'password' ? (
-                <input type="password" style={inputStyle}
-                  value={node.data.props[field.key] ?? field.default}
-                  onChange={(e) => updateProp(nodeId, field.key, e.target.value)} />
-              ) : (
-                <input type={field.type === 'number' ? 'number' : 'text'} style={inputStyle}
-                  value={node.data.props[field.key] ?? field.default}
-                  onChange={(e) => updateProp(nodeId, field.key, e.target.value)} />
-              )}
-            </Field>
-          ))}
-        </>
-      )}
-    </div>
-  )
-}
 
 // ─── Tab: Query ───────────────────────────────────────────────────
 function TabQuery({ nodeId }: { nodeId: string }) {

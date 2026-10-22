@@ -8,7 +8,6 @@
 import { useState } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
-import { CustomSelect } from '../../../components/CustomSelect'
 
 const ACCENT = '#a78bfa'
 

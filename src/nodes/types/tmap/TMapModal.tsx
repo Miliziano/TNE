@@ -6,7 +6,7 @@ import '@xyflow/react/dist/style.css'
 import { updateNode, useFlowStore } from '../../../store/flowStore'
 import { riferimentoInput } from '../../../ir/exprParser'
 import type { TMapConfig, TMapInputField, TMapFieldType, TMapConnection, TMapTransformNode } from '../../../types'
-import { getTransformsForType, type TransformCategory } from '../../../transforms/catalog'
+import type { TransformCategory } from '../../../transforms/catalog'
 import { FieldTransformEditor } from '../../../components/FieldTransformEditor'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { TYPE_META } from '../../../types/fieldTypes'
@@ -82,13 +82,6 @@ export function buildExpr(field: string, fnId: string, arg1: string, arg2: strin
 }
 
 // ─── Colore flusso ────────────────────────────────────────────────
-function inputColor(inp: TMapConfig['inputs'][0]): string {
-  if (inp.isMain) return '#4a9eff'
-  // Assegna colori progressivi ai lookup
-  const LOOKUP_COLORS = ['#ffb347', '#a78bfa', '#22d3ee', '#f87171', '#34d399']
-  const idx = 0 // verrà calcolato dal chiamante
-  return '#ffb347'
-}
 
 const INPUT_COLORS = ['#4a9eff', '#ffb347', '#a78bfa', '#22d3ee', '#f87171', '#34d399']
 
@@ -693,7 +686,7 @@ function removeFieldFromTransforms(nodeId: string, inputId: string, fieldName: s
 // - Un link per ogni dstField se N>1
 // - Click sul pallino centrale → elimina la coppia
 // - previewPairs: coppie in anteprima dalla modal aperta (non ancora salvate)
-function JoinLinksOverlay({ tmap, draggingJoin, tick, onEditLookup, onDeletePair, previewPairs }: {
+function JoinLinksOverlay({ tmap, draggingJoin, onEditLookup, onDeletePair, previewPairs }: {
   tmap:          TMapConfig
   draggingJoin:  { fromKey: string; x: number; y: number; color: string } | null
   tick:          number
@@ -792,8 +785,6 @@ function JoinLinksOverlay({ tmap, draggingJoin, tick, onEditLookup, onDeletePair
     <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: draggingJoin ? 25 : 5, overflow: 'visible' }} width="100%" height="100%">
 
       {allSegments.map((seg, i) => {
-        const hovKey   = seg.key
-        const isHov    = hoveredLink === hovKey || hoveredLink?.startsWith(seg.pairId + '__') === true && hoveredLink === hovKey
         const isAnyHov = hoveredLink?.startsWith(seg.pairId + '__') ?? false
         // Sfasa leggermente le curve parallele
         const offset   = (i % 3) * 4
@@ -1621,7 +1612,7 @@ function OutputColumn({ nodeId, tmap, containerRef, onDrop, onDropOnOutput, onDr
 }
 
 // ─── ConnectionsOverlay ───────────────────────────────────────────
-function ConnectionsOverlay({ connections, dragging, onRemove, tick, transforms, tmap, transformDragging, hoveredFieldKey }: {
+function ConnectionsOverlay({ connections, dragging, onRemove, transforms, tmap, transformDragging, hoveredFieldKey }: {
   connections: TMapConnection[]; dragging: { fromKey: string; x: number; y: number; color: string } | null
   onRemove: (connId: string) => void; tick: number; transforms: TMapTransformNode[]
   tmap: TMapConfig | undefined; transformDragging: { transformId: string; x: number; y: number } | null

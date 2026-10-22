@@ -3,14 +3,14 @@ import { parseExpression, ExprParseError } from './exprParser'
 const labels = new Map([['DB Source Film', 'input_main'], ['Lookup', 'input_2']])
 let pass = 0, fail = 0
 
-function ok(expr: string, check: (n: any) => boolean, desc: string, opts: any = {}) {
+function ok(expr: string, check: (n: any) => boolean, _desc: string, opts: any = {}) {
   try {
     const n = parseExpression(expr, opts)
     if (check(n)) { pass++; console.log(`  ok   ${expr}`) }
     else { fail++; console.log(`  FAIL ${expr} → ${JSON.stringify(n)}`) }
   } catch (e: any) { fail++; console.log(`  FAIL ${expr} → errore: ${e.message}`) }
 }
-function bad(expr: string, desc: string, opts: any = {}) {
+function bad(expr: string, _desc: string, opts: any = {}) {
   try { const n = parseExpression(expr, opts); fail++; console.log(`  FAIL ${expr} doveva dare errore, ha dato ${JSON.stringify(n)}`) }
   catch (e) { if (e instanceof ExprParseError) { pass++; console.log(`  ok   ${expr} → errore atteso`) } else { fail++; console.log(`  FAIL ${expr} → errore sbagliato`) } }
 }

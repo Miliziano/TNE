@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { FieldTransform, PipelineStep, CastStep } from '../../transforms/types'
+import type { FieldTransform, CastStep } from '../../transforms/types'
 import type { TransformCategory } from '../../transforms/catalog'
 import { getTransformsForType, TRANSFORM_CATALOG } from '../../transforms/catalog'
 import { inferOutputType } from '../../transforms/utils'
@@ -17,7 +17,7 @@ interface Props {
 }
 
 export function PipelineMode({
-  value, inputType, inputVars, expandedStep, onExpandStep, onChange, iStyle, typeBadge,
+  value, inputType, inputVars, expandedStep, onExpandStep, onChange, iStyle,
 }: Props) {
   const [showCatalog, setShowCatalog]     = useState(false)
   const [catalogSearch, setCatalogSearch] = useState('')

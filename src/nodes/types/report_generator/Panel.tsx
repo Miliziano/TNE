@@ -89,7 +89,7 @@ const ICON_OPTS = [
 ]
 
 // ─── Editor regole per una colonna ───────────────────────────────
-function RulesEditor({ col, fields, onChange }: {
+function RulesEditor({ col, onChange }: {
   col:      ColumnConfig
   fields:   Array<{ name: string; type: string }>
   onChange: (rules: CellRule[]) => void
@@ -111,7 +111,7 @@ function RulesEditor({ col, fields, onChange }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-      {rules.map((rule, idx) => {
+      {rules.map((rule, _idx) => {
         const styleColor = { danger: '#ff5f57', warning: '#ffb347', success: '#3ddc84', info: '#4a9eff', custom: '#a78bfa' }[rule.style] ?? '#4a9eff'
         return (
           <div key={rule.id} style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `1px solid ${styleColor}30`, borderLeft: `3px solid ${styleColor}`, display: 'flex', flexDirection: 'column', gap: 6 }}>

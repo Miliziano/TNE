@@ -1,4 +1,4 @@
-import type { TMapInputField, TMapFieldType } from '../types'
+import type { TMapInputField } from '../types'
 import type { Node as FlowNode } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { FIXED_SCHEMA } from './fileSchema'
@@ -49,7 +49,6 @@ export function inferSchema(
     // ── Sink File — pass-through, propaga schema in ingresso ──────
     case 'sink_file': {
       const passthrough = props.passthrough === 'true'
-      const outputMode  = props.outputMode ?? 'passthrough'
 
       // Status è sempre presente
       const statusFields: TMapInputField[] = [

@@ -81,7 +81,6 @@ export interface NodeAdvanced {
   retryDelaySec: string
   onError:       OnError
   batchSize:     string
-   // ← aggiungere questi due:
   excludeFromErrorLog?: 'true' | 'false'
   critical?:            'true' | 'false'
 }

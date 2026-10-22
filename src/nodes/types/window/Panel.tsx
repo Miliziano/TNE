@@ -1,7 +1,7 @@
 /**
  * src/nodes/types/window/Panel.tsx
  */
-import { useState, useMemo, useEffect } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'

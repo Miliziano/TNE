@@ -20,7 +20,7 @@
  *   il codegen può ometterlo dal caricamento.
  */
 
-import type { TMapConfig, TMapInput, TMapOutput, TMapOutputField, TMapTransformNode, TMapConnection } from '../types'
+import type { TMapConfig } from '../types'
 import type { JoinPair } from '../nodes/types/tmap/TMapModal'
 
 // ─── Tipi pubblici ────────────────────────────────────────────────

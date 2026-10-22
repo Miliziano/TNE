@@ -81,7 +81,7 @@ function applyMockStep(value: string, fnId: string, params: Record<string, strin
   }
 }
 
-export function PreviewBar({ steps, cast, inputVars, inputType }: Props) {
+export function PreviewBar({ steps, cast, inputType }: Props) {
   // Calcola il valore mock iniziale
   const mockInput = MOCK_VALUES[inputType] ?? 'valore'
 

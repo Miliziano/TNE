@@ -190,7 +190,6 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
   }, [edges, nodes, nodeId])
 
   const hasInput    = incomingSchema.length > 0
-  const hasBinary   = incomingSchema.some((f) => f.type === 'binary' || f.name === 'content')
 
   // ── Inserisci ${campo} in un campo di testo ───────────────────
   const insertVar = (targetProp: string, fieldName: string) => {

@@ -16,7 +16,7 @@
  * dal nodo Rust `tmap` tramite serde_json::from_value.
  */
 
-import type { TMapConfig, TMapInput, TMapOutput, TMapOutputField } from '../types'
+import type { TMapConfig, TMapOutputField } from '../types'
 import type { JoinPair, JoinFieldExpr } from '../nodes/types/tmap/TMapModal'
 import { ExprParseError, riferimentoInput } from './exprParser'
 import { compileFpel, type UserFunction } from './userFunctions'
@@ -310,7 +310,7 @@ function buildJoinFieldExpr(
 
 function parseJoinTransformExpr(
   expr:           string,
-  inputId:        string,
+  _inputId:        string,
   labelToInputId: Map<string, string>,
 ): ExprNode {
   // Trasforma "row.campo" → DirectFieldRef

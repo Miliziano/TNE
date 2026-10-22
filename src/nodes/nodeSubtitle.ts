@@ -20,7 +20,6 @@ function withCatch(subtitle: string, data: NodeData): string {
 
 export function getNodeSubtitle(data: NodeData): string {
   const p = (key: string, def = '') => data.props?.[key] ?? def
-  const c = (key: string, def = '') => (data.config as any)?.[key] ?? def
 
   switch (data.type) {
 

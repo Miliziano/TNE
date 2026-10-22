@@ -24,7 +24,6 @@ export function BridgeTab() {
   const pool       = useFlowStore((s) => s.pool)
   const selectNode = useFlowStore((s) => s.selectNode)
   const selectLane = useFlowStore((s) => s.selectLane)
-  const addNode    = useFlowStore((s) => s.addNode)
 
   // Costruisce la lista di canali bridge da tutti i nodi bridge_out e bridge_in
   const channels = useMemo((): BridgeChannel[] => {

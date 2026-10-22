@@ -21,10 +21,9 @@
  *    Questo permette di distinguere "id rimosso a monte" da "id mai stato a monte".
  */
 
-import type { Edge } from '@xyflow/react'
 import { resolveStaticPorts } from '../ir/nodeSemantics'
 import type { PortSpec } from '../ir/types'
-import type { TMapConfig, TMapInputField, TMapOutputField, FieldRenameEntry } from '../types'
+import type { TMapConfig, TMapInputField, TMapOutputField } from '../types'
 import { onErrorEmitsCatch } from '../types'
 import type { StoreSnapshot } from './schemaUtils'
 

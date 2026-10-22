@@ -114,7 +114,6 @@ export interface Reporter {
 
 const IS_NODE    = typeof process !== 'undefined' && typeof process.memoryUsage === 'function'
 const IS_BROWSER = typeof window !== 'undefined'
-const IS_TAURI   = typeof window !== 'undefined' && '__TAURI__' in window
 
 // Invoke Tauri — tenta import indipendentemente da __TAURI__
 // In Tauri 2.x __TAURI__ potrebbe non essere nel window anche se l'app è Tauri

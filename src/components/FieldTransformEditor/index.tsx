@@ -294,7 +294,7 @@ function buildSummary(value: FieldTransform, inputVars: string[]): string {
 export function FieldTransformEditor({
   value, inputType, inputTypes: inputTypesProp, inputVars,
   onChange, onDelete, onDragStart, isDragging,
-  transformId, onRegisterOutputHandle,
+  onRegisterOutputHandle,
 }: Props) {
   const [pickerAperto, setPickerAperto] = useState(false)
   const exprRef  = useRef<HTMLInputElement>(null)

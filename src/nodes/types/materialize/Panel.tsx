@@ -80,7 +80,6 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
   const laneVar = lane?.variables.find((v) => v.value === nodeId && v.type === 'materialize')
   const isPublished = !!laneVar
 
-  const currentMode = MODES.find((m) => m.value === mode) ?? MODES[0]
 
   const publishToLane = () => {
     const name = matName || `materialize_${nodeId.slice(-4)}`

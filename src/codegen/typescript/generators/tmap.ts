@@ -25,7 +25,7 @@
 import type { LogicalNode } from '../../../ir/types'
 import type { CodegenContext } from '../index'
 import type { NodeGenerator } from './types'
-import type { TMapConfig, TMapInput, TMapOutput, TMapOutputField } from '../../../types'
+import type { TMapConfig, TMapInput } from '../../../types'
 import type { JoinPair } from '../../../nodes/types/tmap/TMapModal'
 import { canvasNodeId } from '../../../ir/lowering'
 import {
@@ -186,7 +186,6 @@ export const tmapGenerator: NodeGenerator = {
 
     // Lookup nelle hash map per ogni input secondario
     for (const inp of lookupInputs) {
-      const joinKey  = getJoinKey(inp, tmap)
       const mapName  = `__map_${sanitize(inp.label)}`
       const joinType = inp.joinType ?? 'left'
 
@@ -322,14 +321,13 @@ function generateOutputRouting(
  * Ogni funzione riceve il contesto completo (main + lookup)
  * e restituisce il record con i campi dell'output.
  */
-function generateProjectionFunctions(tmap: TMapConfig, varName: string): string {
+function generateProjectionFunctions(tmap: TMapConfig, _varName: string): string {
   const lines: string[] = []
   const mainInput    = tmap.inputs.find(i => i.isMain)!
   const lookupInputs = tmap.inputs.filter(i => !i.isMain)
 
   for (const out of tmap.outputs) {
     const outVar = sanitize(out.label)
-    const args   = getProjectionArgs(mainInput, lookupInputs)
     const argDefs = [
       `${sanitize(mainInput.label)}: Row`,
       ...lookupInputs.map(i => `${sanitize(i.label)}: Row | null`),
@@ -445,7 +443,7 @@ function translateExpression(
  * Prende la prima chiave dalle joinPairs se disponibili,
  * altrimenti usa 'id' come fallback.
  */
-function getJoinKey(inp: TMapInput, tmap: TMapConfig): string {
+function getJoinKey(inp: TMapInput, _tmap: TMapConfig): string {
   const pairs: JoinPair[] = (inp as any).joinPairs ?? []
   if (pairs.length > 0) {
     const firstPair  = pairs[0]
@@ -516,7 +514,7 @@ function getProjectionArgs(mainInput: TMapInput, lookupInputs: TMapInput[]): str
  * Equivalente al vecchio branchGenerator.
  */
 function generateSimpleBranch(
-  node:    LogicalNode,
+  _node:    LogicalNode,
   varName: string,
   label:   string,
   tmap:    TMapConfig | undefined,

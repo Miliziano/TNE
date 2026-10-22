@@ -61,7 +61,7 @@ const DIM_LABEL: Record<DQDimension, string> = {
 }
 
 // ─── Riga singola regola ─────────────────────────────────────────
-function RuleRow({ rule, index, fields, matVars, onChange, onDelete, onMove, isFirst, isLast }: {
+function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, isLast }: {
   rule:     DQRule
   index:    number
   fields:   Array<{ name: string; type: string }>

@@ -66,12 +66,6 @@ const FORMAT_SCHEMA: Record<string, TMapInputField[]> = {
 // Formati con schema fisso — non editabili
 const FIXED_FORMATS = new Set(['raw', 'text', 'list_files', 'json', 'xml', 'binary'])
 
-const META_FIELDS: TMapInputField[] = [
-  { id: 'ftp_filename',    name: '_filename',    type: 'string',  physicalName: '_filename'   },
-  { id: 'ftp_filepath',    name: '_filepath',    type: 'string',  physicalName: '_filepath'   },
-  { id: 'ftp_filesize',    name: '_filesize',    type: 'integer', physicalName: '_filesize'   },
-  { id: 'ftp_modified_at', name: '_modified_at', type: 'date',    physicalName: '_modified_at'},
-]
 
 export function FtpMappingPanel({ nodeId }: { nodeId: string }) {
   const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))

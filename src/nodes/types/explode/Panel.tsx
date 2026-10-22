@@ -8,10 +8,6 @@ import type { SchemaField } from '../../../utils/schemaUtils'
 import type { Variable } from '../../../types'
 import { CustomSelect } from '../../../components/CustomSelect'
 
-const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
-  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
-]
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -317,7 +313,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
 // ─── Editor schema manuale ────────────────────────────────────────
 import { FIELD_TYPES } from '../../../types/fieldTypes'
 
-function SchemaEditor({ nodeId, currentSchema, onSave }: {
+function SchemaEditor({ currentSchema, onSave }: {
   nodeId:        string
   currentSchema: SchemaField[]
   onSave:        (fields: SchemaField[]) => void
