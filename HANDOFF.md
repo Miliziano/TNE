@@ -2002,3 +2002,32 @@ Punto 8 dell'audit. `source_ftp.rs` riscritto (v2).
   windows-1252 + mapping + date_desc + maxFiles; gzip; zip a 2 voci; JSON; binario; Excel;
   raw; bzip2 → errore; gzip rotto → spostato in err/; move → arch/ (e il giro dopo non lo
   rilegge); delete; watch con file che arriva dopo 3 s. Prossimo punto: dir_watcher.
+
+## AGGIORNAMENTO — Directory Watcher: le opzioni del pannello applicate (stato al P363, 23 ottobre)
+
+Punto 9 dell'audit.
+- **Cartella da variabile di lane** (`pathSource=lane_var`, `laneVarName`): `resolve_directory`
+  (dir_watcher.rs) condiviso col loop del continuo (`continuous_watcher` in engine/mod.rs ora
+  ritorna `Option<Result<…>>`); `flow` nel continuo → errore chiaro. Il continuo usa anche
+  `debounceMs` (prima 300 ms fissi).
+- **Stabilità** (`stabilityMs`, watch): `wait_stable` ricampiona dimensione+mtime finché non
+  cambiano per quel tempo (file sparito → scartato; tetto 5 min → emesso con avviso,
+  cancellabile). `emit_watch` riscritto: separa righe piene e magre, stabilità sulle piene.
+- **Deduplicazione**: nuova chiave **`dedupMode`** (none | path | path_mtime | hash SHA-256) —
+  NON il vecchio `dedup`, che il pannello salvava a `path` su ogni nodo senza che fosse mai
+  applicato (lezione P359: leggerlo avrebbe tolto gli `update` dei flussi continui
+  esistenti). `dedupStore` memory (registro run-scoped `memory_seen`, pulito da mod.rs a
+  fine continuo con `forget_seen`) | file (`dedupFile`, relativo alla cartella osservata,
+  scrittura atomica .tmp+rename; il file di stato è escluso dalle righe). Le chiavi si
+  registrano SOLO se la valle finisce bene: il nodo, chiuso il suo tx, aspetta
+  `lane_done.wait_all(lane_done.downstream_all(id))` (nuovo `downstream_all` in
+  completion.rs).
+- `sortBy=created` applicato; `maxAgeMin` anche in watch. Pannello: `dedupMode`, testi
+  allineati, timeout nascosto nel continuo ("attivo fino a Stop"), avviso flow+continuo,
+  descrizioni leggibili; tolti dai default `dedup`/`dedupStore`/`checkLocked` (inerti).
+- Collaudo: 3 test unitari (variabile, dedup su file + vecchia chiave ignorata, stabilità
+  con file che cresce) + harness throwaway (scan da variabile ordinato per creazione con
+  dedup su file; valle in errore → file non segnato e ripreso al giro dopo; watch con file
+  che cresce per 0,6 s → una riga con la dimensione finale; continuo da variabile con
+  dedup per percorso: k1 nuovo, k1 aggiornato soppresso, k2 nuovo, stop_run; continuo dal
+  flusso → errore). Prossimi: FTP in ascolto continuo (richiesta utente), poi join.

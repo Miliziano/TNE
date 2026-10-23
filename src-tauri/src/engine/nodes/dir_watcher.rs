@@ -13,13 +13,29 @@
 //             a sessioni) = `design-nodo-dir-watcher.md`, capitolo a parte.
 //
 // I metadati file (mtime/size) vengono da std::fs — nessuna dipendenza nuova.
-// La cartella arriva dai props (pathSource=static) o dal primo record in
-// ingresso (pathSource=flow, campo `pathField`). Porte: input(innesco/path,
-// R8) → output; `reject` dichiarato ma INERTE in v1.
+// La cartella arriva dai props (pathSource=static), da una variabile di lane
+// (lane_var, `laneVarName`) o dal primo record in ingresso (pathSource=flow,
+// campo `pathField`; non nel continuo). Porte: input(innesco/path, R8) →
+// output; `reject` dichiarato ma INERTE in v1.
+//
+// P363 — opzioni del pannello ora applicate:
+//   stabilityMs  (watch) un file si emette quando dimensione e data non
+//                cambiano per quel tempo: non si legge un file mentre lo si
+//                sta ancora copiando. Tetto 5 minuti, poi si emette con un avviso.
+//   dedupMode    none | path | path_mtime | hash (sha-256 del contenuto) —
+//   dedupStore   memory (dentro il run: nel continuo, fra le sessioni) |
+//   dedupFile    file (JSON, relativo alla cartella osservata se non assoluto;
+//                persiste fra i run). Un file conta come "già emesso" solo
+//                quando i nodi a valle hanno finito SENZA errori: se la
+//                sessione fallisce, al giro dopo lo si riprende.
+//   sortBy       name | created | modified | size
+//   maxAgeMin    anche in watch.
 
-use std::collections::HashSet;
-use std::path::Path;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
+use tokio_util::sync::CancellationToken;
 use crate::engine::types::*;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
@@ -146,60 +162,234 @@ pub(crate) fn map_watch_event(ev: &notify::Event, out: &mut Vec<(String, String,
     }
 }
 
+/// Filtri e opzioni comuni a scan e watch.
+pub(crate) struct WatchOpts {
+    pub allowed:      HashSet<String>,
+    pub pattern:      String,
+    pub min_size:     u64,
+    pub max_age_min:  u64,
+    pub limit:        usize,
+    pub stability_ms: u64,
+}
+
+/// Info di un file esistente (None se non c'è o non è un file regolare).
+fn file_info(path: &str) -> Option<FileInfo> {
+    let meta = std::fs::metadata(path).ok()?;
+    if !meta.is_file() { return None }
+    let filename = Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
+    let directory = Path::new(path).parent().map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
+    Some(FileInfo {
+        path: path.to_string(), filename, extension: ext, directory,
+        size: meta.len(),
+        created_at:  meta.created().ok().map(systime_rfc3339),
+        modified_at: Some(systime_rfc3339(mtime)),
+        mtime,
+    })
+}
+
+fn too_old(f: &FileInfo, max_age_min: u64) -> bool {
+    max_age_min > 0 && SystemTime::now().duration_since(f.mtime).map(|a| a.as_secs() / 60 > max_age_min).unwrap_or(false)
+}
+
+/// Stabilità (P363): aspetta che dimensione e data dei file non cambino per
+/// `ms`. Un file sparito nel frattempo si scarta. Tetto 5 minuti: i file
+/// ancora in movimento si emettono comunque (secondo valore = quanti).
+async fn wait_stable(files: Vec<FileInfo>, ms: u64, cancel: &CancellationToken) -> (Vec<FileInfo>, usize) {
+    if ms == 0 || files.is_empty() { return (files, 0) }
+    let cap = Instant::now() + Duration::from_secs(300);
+    let mut pending = files;
+    let mut stable: Vec<FileInfo> = Vec::new();
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => return (Vec::new(), 0),
+            _ = tokio::time::sleep(Duration::from_millis(ms)) => {}
+        }
+        let mut still = Vec::new();
+        for f in pending {
+            match file_info(&f.path) {
+                Some(now) if now.size == f.size && now.mtime == f.mtime => stable.push(now),
+                Some(now) => still.push(now),
+                None => {}   // sparito: niente da emettere
+            }
+        }
+        pending = still;
+        if pending.is_empty() { return (stable, 0) }
+        if Instant::now() >= cap {
+            let n = pending.len();
+            stable.extend(pending);
+            return (stable, n);
+        }
+    }
+}
+
 /// Trasforma una sequenza di eventi `notify` GREZZI in righe e le emette su
 /// `tx`: mappa (map_watch_event) → dedup per path first-wins → filtro
 /// pattern+eventi → riga PIENA se il file esiste, MAGRA (size/date NULL) se è
-/// sparito (delete/rename-from), senza saltarla. Ritorna il numero di righe
-/// emesse. CONDIVISA da watch one-shot (drena il suo canale → Vec → qui) e
-/// continuo (slot run-scoped → Vec → qui, fetta 3).
+/// sparito (delete/rename-from), senza saltarla. I file esistenti passano da
+/// stabilità e deduplicazione (P363). Ritorna (righe emesse, file ancora
+/// instabili). CONDIVISA da watch one-shot e continuo.
 pub(crate) async fn emit_watch(
-    events:   &[notify::Event],
-    allowed:  &HashSet<String>,
-    pattern:  &str,
-    min_size: u64,
-    limit:    usize,
-    tx:       &RowSender,
-) -> u64 {
+    events: &[notify::Event],
+    o:      &WatchOpts,
+    dedup:  &mut Dedup,
+    cancel: &CancellationToken,
+    tx:     &RowSender,
+) -> (u64, usize) {
     let mut mapped: Vec<(String, String, Option<String>)> = Vec::new();
     for ev in events { map_watch_event(ev, &mut mapped); }
 
+    // Prima si separano i file presenti (righe piene) dalle righe magre.
+    enum Item { Full(String, String, Option<String>), Lean(String, String, Option<String>) }
     let mut seen: HashSet<String> = HashSet::new();
-    let mut rows_out = 0u64;
+    let mut items: Vec<Item> = Vec::new();
+    let mut present: Vec<FileInfo> = Vec::new();
     for (path, event, old_path) in mapped {
         if !seen.insert(path.clone()) { continue; }   // first-wins per path
         let filename = Path::new(&path).file_name()
             .map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-        if !glob_match(pattern, &filename) { continue; }
-
-        match std::fs::metadata(&path) {
-            Ok(meta) if meta.is_file() => {
-                if !allowed.contains(event.as_str()) { continue; }
-                if min_size > 0 && meta.len() < min_size { continue; }
-                let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
-                let ext = filename.rsplit_once('.').map(|(_, e)| e.to_string()).unwrap_or_default();
-                let dir_of = Path::new(&path).parent()
-                    .map(|pp| pp.to_string_lossy().to_string()).unwrap_or_default();
-                let fi = FileInfo {
-                    path: path.clone(), filename, extension: ext, directory: dir_of,
-                    size: meta.len(),
-                    created_at:  meta.created().ok().map(systime_rfc3339),
-                    modified_at: Some(systime_rfc3339(mtime)),
-                    mtime,
-                };
-                rows_out += 1;
-                if tx.send(to_row(&fi, Some(&event), old_path.as_deref())).await.is_err() { break; }
+        if !glob_match(&o.pattern, &filename) { continue; }
+        if dedup.is_state_file(&path) { continue; }
+        match file_info(&path) {
+            Some(fi) => {
+                if !o.allowed.contains(event.as_str()) { continue; }
+                if o.min_size > 0 && fi.size < o.min_size { continue; }
+                if too_old(&fi, o.max_age_min) { continue; }
+                items.push(Item::Full(path, event, old_path));
+                present.push(fi);
             }
-            _ => {
+            None => {
                 // File assente: rename ambiguo → delete; altrimenti tieni l'evento.
-                let ev2 = if event == "rename" { "delete" } else { event.as_str() };
-                if !allowed.contains(ev2) { continue; }
-                rows_out += 1;
-                if tx.send(to_row_magra(&path, ev2, old_path.as_deref())).await.is_err() { break; }
+                let ev2 = if event == "rename" { "delete".to_string() } else { event };
+                if !o.allowed.contains(ev2.as_str()) { continue; }
+                items.push(Item::Lean(path, ev2, old_path));
             }
         }
-        if limit > 0 && rows_out as usize >= limit { break; }
     }
-    rows_out
+
+    let (stable, unstable) = wait_stable(present, o.stability_ms, cancel).await;
+    let by_path: HashMap<String, FileInfo> = stable.into_iter().map(|f| (f.path.clone(), f)).collect();
+
+    let mut rows_out = 0u64;
+    for it in items {
+        let row = match it {
+            Item::Full(path, event, old_path) => {
+                // sparito durante l'attesa di stabilità: niente riga
+                let Some(fi) = by_path.get(&path) else { continue };
+                if !dedup.admit(fi) { continue; }
+                to_row(fi, Some(&event), old_path.as_deref())
+            }
+            Item::Lean(path, event, old_path) => to_row_magra(&path, &event, old_path.as_deref()),
+        };
+        rows_out += 1;
+        if tx.send(row).await.is_err() { break; }
+        if o.limit > 0 && rows_out as usize >= o.limit { break; }
+    }
+    (rows_out, unstable)
+}
+
+// ─── Deduplicazione (P363) ──────────────────────────────────────────
+
+/// Chiavi già emesse, per run (nel continuo valgono fra le sessioni).
+fn memory_seen() -> &'static Mutex<HashMap<String, HashSet<String>>> {
+    static SEEN: OnceLock<Mutex<HashMap<String, HashSet<String>>>> = OnceLock::new();
+    SEEN.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Fine del run continuo: si dimenticano le chiavi in memoria del nodo.
+pub(crate) fn forget_seen(key: &str) {
+    memory_seen().lock().unwrap().remove(key);
+}
+
+pub(crate) struct Dedup {
+    mode:     String,              // none | path | path_mtime | hash
+    file:     Option<PathBuf>,     // dedupStore = file
+    reg_key:  String,              // dedupStore = memory
+    seen:     HashSet<String>,
+    new_keys: Vec<String>,
+}
+
+impl Dedup {
+    fn load(spec: &Spec, directory: &str, reg_key: String) -> Result<Dedup, String> {
+        // `dedupMode` (P363), non il vecchio `dedup`: il pannello salvava
+        // `dedup: 'path'` su ogni nodo e non era mai applicato — leggerlo
+        // ora cambierebbe i flussi continui esistenti (gli `update` di un
+        // file già visto sparirebbero). Assente = nessuna deduplicazione.
+        let mode = spec.str_or("dedupMode", "none");
+        let mode = if mode.is_empty() { "none".to_string() } else { mode };
+        if !matches!(mode.as_str(), "none" | "path" | "path_mtime" | "hash") {
+            return Err(format!("unknown deduplication '{}'", mode));
+        }
+        let to_file = mode != "none" && spec.str_or("dedupStore", "memory") == "file";
+        let file = if to_file {
+            let f = spec.str_or("dedupFile", ".flowpilot_dw_state.json");
+            let f = if f.trim().is_empty() { ".flowpilot_dw_state.json".to_string() } else { f.trim().to_string() };
+            let p = PathBuf::from(&f);
+            Some(if p.is_absolute() { p } else { Path::new(directory).join(p) })
+        } else { None };
+        let seen: HashSet<String> = match &file {
+            Some(f) if f.exists() => {
+                let text = std::fs::read_to_string(f).map_err(|e| format!("cannot read the state file '{}': {}", f.display(), e))?;
+                serde_json::from_str::<Vec<String>>(&text)
+                    .map_err(|e| format!("the state file '{}' is not valid: {}", f.display(), e))?
+                    .into_iter().collect()
+            }
+            Some(_) => HashSet::new(),
+            None => memory_seen().lock().unwrap().get(&reg_key).cloned().unwrap_or_default(),
+        };
+        Ok(Dedup { mode, file, reg_key, seen, new_keys: Vec::new() })
+    }
+
+    /// Il file di stato non è mai un file da emettere.
+    fn is_state_file(&self, path: &str) -> bool {
+        self.file.as_ref().map(|f| Path::new(path) == f.as_path()).unwrap_or(false)
+    }
+
+    fn key(&self, f: &FileInfo) -> Option<String> {
+        match self.mode.as_str() {
+            "path" => Some(format!("p:{}", f.path)),
+            "path_mtime" => {
+                let secs = f.mtime.duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+                Some(format!("m:{}|{}|{}", f.path, secs, f.size))
+            }
+            "hash" => {
+                use sha2::{Digest, Sha256};
+                let bytes = std::fs::read(&f.path).ok()?;
+                Some(format!("h:{}", hex::encode(Sha256::digest(&bytes))))
+            }
+            _ => None,
+        }
+    }
+
+    /// true = il file va emesso (e la sua chiave si ricorda).
+    fn admit(&mut self, f: &FileInfo) -> bool {
+        let Some(k) = self.key(f) else { return true };
+        if self.seen.contains(&k) { return false }
+        self.seen.insert(k.clone());
+        self.new_keys.push(k);
+        true
+    }
+
+    /// Registra le chiavi nuove (memoria del run o file di stato).
+    fn commit(&self) -> Result<(), String> {
+        if self.new_keys.is_empty() { return Ok(()) }
+        match &self.file {
+            Some(f) => {
+                let mut all: Vec<&String> = self.seen.iter().collect();
+                all.sort();
+                let text = serde_json::to_string_pretty(&all).map_err(|e| e.to_string())?;
+                let tmp = f.with_extension("tmp");
+                std::fs::write(&tmp, text).map_err(|e| format!("cannot write the state file '{}': {}", tmp.display(), e))?;
+                std::fs::rename(&tmp, f).map_err(|e| format!("cannot write the state file '{}': {}", f.display(), e))
+            }
+            None => {
+                let mut reg = memory_seen().lock().unwrap();
+                reg.entry(self.reg_key.clone()).or_default().extend(self.new_keys.iter().cloned());
+                Ok(())
+            }
+        }
+    }
 }
 
 // Scansione (ricorsiva opzionale) con i filtri pattern/maxAge/minSize.
@@ -250,31 +440,33 @@ pub async fn run(
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("dir_watcher {}: {}", ctx.node_id.0, e))?;
-    spec.log_unconsumed("dir_watcher", &ctx.node_id.0);
-
-    let mode        = spec.str_or("mode", "scan");
-    let path_source = spec.str_or("pathSource", "static");
-    let directory = if path_source == "flow" {
-        let field = spec.str_or("pathField", "path");
-        first_input.as_ref().and_then(|r| r.get(&field)).map(|v| v.as_str_repr()).unwrap_or_default()
-    } else {
-        spec.str_or("directory", "")
-    };
-    let directory = directory.trim_end_matches('/').to_string();
-
-    if directory.is_empty() {
-        let msg = format!("dir_watcher {}: directory not configured", ctx.node_id.0);
+    let fail = |m: String| -> Result<NodeStats, String> {
+        let msg = format!("dir_watcher {}: {}", ctx.node_id.0, m);
         ctx.emit_failed(msg.clone());
-        return Err(msg);
-    }
+        Err(msg)
+    };
 
-    let pattern     = spec.str_or("pattern", "*");
-    let recursive   = spec.bool_or("recursive", false);
-    let min_size    = spec.u64_or("minSize", 0);
-    let max_age_min = spec.u64_or("maxAgeMin", 0);
-    let sort_by     = spec.str_or("sortBy", "name");
-    let sort_dir    = spec.str_or("sortDir", "asc");
-    let limit       = spec.u64_or("limit", 0) as usize;
+    let mode = spec.str_or("mode", "scan");
+    let directory = match resolve_directory(&spec, &ctx.variables, first_input.as_ref()) {
+        Ok(d) => d,
+        Err(e) => return fail(e),
+    };
+
+    let opts = WatchOpts {
+        allowed:      parse_events_filter(&spec.str_or("events", "all")),
+        pattern:      spec.str_or("pattern", "*"),
+        min_size:     spec.u64_or("minSize", 0),
+        max_age_min:  spec.u64_or("maxAgeMin", 0),
+        limit:        spec.u64_or("limit", 0) as usize,
+        stability_ms: if mode == "watch" { spec.u64_or("stabilityMs", 0) } else { 0 },
+    };
+    let recursive = spec.bool_or("recursive", false);
+    let sort_by   = spec.str_or("sortBy", "name");
+    let sort_dir  = spec.str_or("sortDir", "asc");
+    let continuo  = mode == "watch" && spec.str_or("submode", "oneshot") == "continuo";
+    let reg_key   = crate::engine::watch_subs::watch_key(&ctx.run_id.0, &ctx.node_id.0);
+    let mut dedup = match Dedup::load(&spec, &directory, reg_key.clone()) { Ok(d) => d, Err(e) => return fail(e) };
+    spec.log_unconsumed("dir_watcher", &ctx.node_id.0);
 
     let tx = match tx {
         Some(t) => t,
@@ -282,106 +474,103 @@ pub async fn run(
     };
 
     let start = Instant::now();
-    ctx.emit_log(&ctx.label, "info", 0,
-        format!("DirWatcher ({}): {} — pattern {}", mode, directory, pattern), "panel");
+    if !continuo {
+        ctx.emit_log(&ctx.label, "info", 0,
+            format!("DirWatcher ({}): {} — pattern {}", mode, directory, opts.pattern), "panel");
+    }
 
-    // ── SCAN ──────────────────────────────────────────────────────
-    if mode != "watch" {
+    let (rows_out, unstable) = if mode != "watch" {
+        // ── SCAN ──────────────────────────────────────────────────
         let mut files = Vec::new();
-        scan_dir(&directory, &pattern, recursive, max_age_min, min_size, &mut files);
+        scan_dir(&directory, &opts.pattern, recursive, opts.max_age_min, opts.min_size, &mut files);
+        files.retain(|f| !dedup.is_state_file(&f.path));
         sort_files(&mut files, &sort_by, &sort_dir);
-        if limit > 0 { files.truncate(limit); }
-
         let mut rows_out = 0u64;
         for f in &files {
+            if !dedup.admit(f) { continue }
             rows_out += 1;
             if tx.send(to_row(f, None, None)).await.is_err() { break; }
+            if opts.limit > 0 && rows_out as usize >= opts.limit { break; }
         }
-        let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
-            elapsed_ms: start.elapsed().as_millis() as u64, error: None };
-        ctx.emit_completed(stats.clone());
-        return Ok(stats);
-    }
+        (rows_out, 0)
+    } else if continuo {
+        // ── WATCH CONTINUO (fetta 3) — ADATTATORE ─────────────────
+        // In continuo il nodo NON ascolta il SO: il loop di sessione dell'engine
+        // (engine/mod.rs) ha già depositato il gruppo di eventi GREZZI di QUESTA
+        // sessione nello slot run-scoped (watch_subs). Qui li preleva ed emette con
+        // lo STESSO emettitore dell'one-shot (`emit_watch`). Ritorna → la lane
+        // committa e chiude; il loop la ri-esegue al gruppo successivo.
+        let events = crate::engine::watch_subs::take_group(&reg_key);
+        emit_watch(&events, &opts, &mut dedup, &ctx.cancel, &tx).await
+    } else {
+        // ── WATCH ONE-SHOT — attesa dell'evento REALE del SO (crate `notify`) ─
+        // FASE 1: sottoscrive la cartella, BLOCCA sull'evento (attesa efficiente,
+        // niente polling né loop occupato), al primo evento (o piccolo batch entro
+        // un debounce) emette i file coinvolti e RITORNA → la lane processa fino
+        // all'uscita. `watchTimeoutSec` è un TETTO di sicurezza (se non arriva
+        // nulla ritorna a vuoto, così il run finito non resta appeso).
+        use notify::{RecursiveMode, Watcher};
 
-    // ── WATCH CONTINUO (fetta 3) — ADATTATORE ─────────────────────
-    // In continuo il nodo NON ascolta il SO: il loop di sessione dell'engine
-    // (engine/mod.rs) ha già depositato il gruppo di eventi GREZZI di QUESTA
-    // sessione nello slot run-scoped (watch_subs). Qui li preleva ed emette con
-    // lo STESSO emettitore dell'one-shot (`emit_watch`). Ritorna → la lane
-    // committa e chiude; il loop la ri-esegue al gruppo successivo.
-    if spec.str_or("submode", "oneshot") == "continuo" {
-        let allowed = parse_events_filter(&spec.str_or("events", "all"));
-        let key    = crate::engine::watch_subs::watch_key(&ctx.run_id.0, &ctx.node_id.0);
-        let events = crate::engine::watch_subs::take_group(&key);
-        let rows_out = emit_watch(&events, &allowed, &pattern, min_size, limit, &tx).await;
-        let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
-            elapsed_ms: start.elapsed().as_millis() as u64, error: None };
-        ctx.emit_completed(stats.clone());
-        return Ok(stats);
-    }
+        let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };
+        let debounce = Duration::from_millis(spec.u64_or("debounceMs", 300).max(50));
 
-    // ── WATCH ONE-SHOT — attesa dell'evento REALE del SO (crate `notify`) ─
-    // FASE 1: sottoscrive la cartella, BLOCCA sull'evento (attesa efficiente,
-    // niente polling né loop occupato), al primo evento (o piccolo batch entro
-    // un debounce) emette i file coinvolti e RITORNA → la lane processa fino
-    // all'uscita. Event-driven vero, single-shot ⇒ finito ⇒ gira nel motore
-    // attuale. `watchTimeoutSec` è un TETTO di sicurezza (se non arriva nulla
-    // ritorna a vuoto, così il run finito non resta appeso).
-    use notify::{RecursiveMode, Watcher};
+        let (ev_tx, ev_rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
+        let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+            let _ = ev_tx.send(res);
+        }).map_err(|e| format!("dir_watcher {}: watcher: {}", ctx.node_id.0, e))?;
+        watcher.watch(
+            Path::new(&directory),
+            if recursive { RecursiveMode::Recursive } else { RecursiveMode::NonRecursive },
+        ).map_err(|e| format!("dir_watcher {}: watch '{}': {}", ctx.node_id.0, directory, e))?;
 
-    let timeout_sec = match spec.u64_or("watchTimeoutSec", 300) { 0 => 86_400, n => n };
-    let debounce = Duration::from_millis(spec.u64_or("debounceMs", 300).max(50));
+        ctx.emit_log(&ctx.label, "info", 0,
+            format!("DirWatcher watch: listening on {} (OS events, cap {}s)", directory, timeout_sec), "panel");
 
-    // Filtro eventi (prop `events`, prima INERTE nel motore → ora onorata).
-    // Vocabolario new/update/rename/delete; retro-compat create/modify.
-    let allowed = parse_events_filter(&spec.str_or("events", "all"));
-
-    let (ev_tx, ev_rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
-    let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        let _ = ev_tx.send(res);
-    }).map_err(|e| format!("dir_watcher {}: watcher: {}", ctx.node_id.0, e))?;
-    watcher.watch(
-        Path::new(&directory),
-        if recursive { RecursiveMode::Recursive } else { RecursiveMode::NonRecursive },
-    ).map_err(|e| format!("dir_watcher {}: watch '{}': {}", ctx.node_id.0, directory, e))?;
-
-    ctx.emit_log(&ctx.label, "info", 0,
-        format!("DirWatcher watch: listening on {} (OS events, cap {}s)", directory, timeout_sec), "panel");
-
-    // Drena i `notify::Event` GREZZI (attesa bloccante fuori dal runtime async):
-    // primo evento entro il tetto, poi il burst ravvicinato entro il debounce.
-    // La trasformazione in righe è delegata a `emit_watch` (condivisa col continuo).
-    let wait_timeout = Duration::from_secs(timeout_sec);
-    // node_id pre-clonato: nel select! sotto `ctx.cancel` è preso in prestito,
-    // così non usiamo `ctx` dentro i rami ed evitiamo intrecci di borrow.
-    let node_id_err = ctx.node_id.0.clone();
-    // Il thread bloccante attende l'evento del SO fuori dal runtime async.
-    let join = tokio::task::spawn_blocking(move || {
-        let mut out: Vec<notify::Event> = Vec::new();
-        match ev_rx.recv_timeout(wait_timeout) {
-            Ok(Ok(ev)) => out.push(ev),
-            _ => return out,
-        }
-        while let Ok(Ok(ev)) = ev_rx.recv_timeout(debounce) {
-            out.push(ev);
-        }
-        out
-    });
-    // P112 — CANCELLABILE: senza questo lo stop non fermava il watch one-shot
-    // (il thread restava su recv_timeout fino a watchTimeoutSec e, se un file
-    // arrivava nel frattempo, la lane eseguiva DOPO lo stop). Ora `select!` fra
-    // il thread e `ctx.cancel`: allo stop usciamo puliti con 0 eventi. Il thread
-    // abbandonato si sblocca da solo appena droppiamo `watcher` (il canale notify
-    // si disconnette → recv_timeout ritorna subito). Il continuo era già
-    // cancellabile (select! nel loop di sessione): qui allineiamo l'one-shot.
-    let events: Vec<notify::Event> = tokio::select! {
-        _   = ctx.cancel.cancelled() => Vec::new(),
-        res = join => res.map_err(|e| format!("dir_watcher {}: attesa evento: {}", node_id_err, e))?,
+        // Drena i `notify::Event` GREZZI (attesa bloccante fuori dal runtime async):
+        // primo evento entro il tetto, poi il burst ravvicinato entro il debounce.
+        let wait_timeout = Duration::from_secs(timeout_sec);
+        let node_id_err = ctx.node_id.0.clone();
+        let join = tokio::task::spawn_blocking(move || {
+            let mut out: Vec<notify::Event> = Vec::new();
+            match ev_rx.recv_timeout(wait_timeout) {
+                Ok(Ok(ev)) => out.push(ev),
+                _ => return out,
+            }
+            while let Ok(Ok(ev)) = ev_rx.recv_timeout(debounce) {
+                out.push(ev);
+            }
+            out
+        });
+        // P112 — CANCELLABILE: `select!` fra il thread e `ctx.cancel`; il thread
+        // abbandonato si sblocca appena si droppa `watcher`.
+        let events: Vec<notify::Event> = tokio::select! {
+            _   = ctx.cancel.cancelled() => Vec::new(),
+            res = join => res.map_err(|e| format!("dir_watcher {}: attesa evento: {}", node_id_err, e))?,
+        };
+        drop(watcher); // smette di ascoltare (e sblocca il thread se cancellati)
+        emit_watch(&events, &opts, &mut dedup, &ctx.cancel, &tx).await
     };
 
-    drop(watcher); // smette di ascoltare (e sblocca il thread se cancellati)
+    if unstable > 0 {
+        ctx.emit_log(&ctx.label, "warn", 0,
+            format!("{} file(s) were still changing after 5 minutes and were emitted anyway", unstable), "panel");
+    }
 
-    let rows_out = emit_watch(&events, &allowed, &pattern, min_size, limit, &tx).await;
+    // Deduplicazione: i file emessi contano come "già visti" solo se i nodi
+    // a valle finiscono senza errori (altrimenti al giro dopo si riprendono).
+    drop(tx);
+    if !dedup.new_keys.is_empty() {
+        let downstream = ctx.lane_done.downstream_all(&ctx.node_id.0);
+        let failed = ctx.lane_done.wait_all(&downstream).await;
+        if failed.is_empty() {
+            if let Err(e) = dedup.commit() { return fail(e) }
+        } else {
+            ctx.emit_log(&ctx.label, "warn", 0,
+                format!("{} file(s) not marked as processed: downstream node(s) failed ({})", dedup.new_keys.len(), failed.join(", ")), "panel");
+        }
+    }
+    // Fuori dal continuo la memoria del run non serve oltre questo nodo.
+    if !continuo { forget_seen(&reg_key); }
 
     let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0,
         elapsed_ms: start.elapsed().as_millis() as u64, error: None };
@@ -389,13 +578,115 @@ pub async fn run(
     Ok(stats)
 }
 
+/// La cartella da osservare, secondo pathSource (static | lane_var | flow).
+/// Usata anche dal loop del continuo (engine/mod.rs), senza la riga in ingresso.
+pub(crate) fn resolve_directory(spec: &Spec, variables: &HashMap<String, Value>, input: Option<&Row>) -> Result<String, String> {
+    let dir = match spec.str_or("pathSource", "static").as_str() {
+        "lane_var" => {
+            let var = spec.str_or("laneVarName", "");
+            if var.is_empty() { return Err("the directory comes from a lane variable, but no variable is selected".into()) }
+            match variables.get(&var) {
+                Some(Value::Null) | None => return Err(format!("lane variable '{}' is not set", var)),
+                Some(v) => v.as_str_repr(),
+            }
+        }
+        "flow" => {
+            let field = spec.str_or("pathField", "path");
+            let Some(row) = input else {
+                return Err(format!("the directory comes from the incoming flow, but no row arrived (field '{}')", field));
+            };
+            row.get(&field).map(|v| v.as_str_repr()).unwrap_or_default()
+        }
+        _ => spec.str_or("directory", ""),
+    };
+    let dir = dir.trim().trim_end_matches('/').to_string();
+    if dir.is_empty() { return Err("directory not configured".into()) }
+    Ok(dir)
+}
+
 fn sort_files(files: &mut [FileInfo], sort_by: &str, sort_dir: &str) {
     files.sort_by(|a, b| {
         let o = match sort_by {
             "size"     => a.size.cmp(&b.size),
             "modified" => a.mtime.cmp(&b.mtime),
+            // RFC 3339 in UTC: l'ordine delle stringhe è quello del tempo.
+            "created"  => a.created_at.cmp(&b.created_at),
             _          => a.filename.to_lowercase().cmp(&b.filename.to_lowercase()),
         };
         if sort_dir == "desc" { o.reverse() } else { o }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spec(props: serde_json::Value) -> Spec {
+        Spec::from_ctx(&serde_json::json!({"props": props, "config": {}})).unwrap()
+    }
+
+    fn tmpdir(nome: &str) -> String {
+        let d = std::env::temp_dir().join(format!("fp-dw-{}-{}", nome, std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn cartella_da_variabile() {
+        let mut vars = HashMap::new();
+        vars.insert("cartella".to_string(), Value::String("/dati/in/".into()));
+        let sp = spec(serde_json::json!({"pathSource": "lane_var", "laneVarName": "cartella"}));
+        assert_eq!(resolve_directory(&sp, &vars, None).unwrap(), "/dati/in");
+        let sp = spec(serde_json::json!({"pathSource": "lane_var", "laneVarName": "manca"}));
+        assert!(resolve_directory(&sp, &vars, None).is_err());
+        let sp = spec(serde_json::json!({"pathSource": "flow", "pathField": "p"}));
+        assert!(resolve_directory(&sp, &vars, None).is_err());
+    }
+
+    #[test]
+    fn deduplicazione_su_file() {
+        let dir = tmpdir("dedup");
+        let f = format!("{}/a.csv", dir);
+        std::fs::write(&f, "x").unwrap();
+        let fi = file_info(&f).unwrap();
+        let sp = spec(serde_json::json!({"dedupMode": "path_mtime", "dedupStore": "file"}));
+        let mut d = Dedup::load(&sp, &dir, "k1".into()).unwrap();
+        assert!(d.is_state_file(&format!("{}/.flowpilot_dw_state.json", dir)));
+        assert!(d.admit(&fi));
+        assert!(!d.admit(&fi));          // stesso giro: già visto
+        d.commit().unwrap();
+        let mut d2 = Dedup::load(&sp, &dir, "k1".into()).unwrap();
+        assert!(!d2.admit(&fi));         // giro dopo: ricordato nel file
+        std::thread::sleep(Duration::from_millis(20));
+        std::fs::write(&f, "xy").unwrap();
+        assert!(d2.admit(&file_info(&f).unwrap()));   // cambiato: di nuovo
+        // vecchia chiave `dedup` ignorata: nessuna deduplicazione
+        let mut d3 = Dedup::load(&spec(serde_json::json!({"dedup": "path"})), &dir, "k2".into()).unwrap();
+        assert!(d3.admit(&fi) && d3.admit(&fi));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn stabilita() {
+        let dir = tmpdir("stab");
+        let f = format!("{}/b.csv", dir);
+        std::fs::write(&f, "1").unwrap();
+        let fi = file_info(&f).unwrap();
+        let f2 = f.clone();
+        let w = std::thread::spawn(move || {
+            for i in 0..4 {
+                std::thread::sleep(Duration::from_millis(120));
+                std::fs::write(&f2, "1".repeat(i + 2)).unwrap();
+            }
+        });
+        let t = Instant::now();
+        let (out, unstable) = wait_stable(vec![fi], 300, &CancellationToken::new()).await;
+        w.join().unwrap();
+        assert_eq!(unstable, 0);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].size, 5);                       // la dimensione finale
+        assert!(t.elapsed() >= Duration::from_millis(480));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

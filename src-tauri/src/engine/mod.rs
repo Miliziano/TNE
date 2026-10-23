@@ -217,13 +217,15 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                     // (apre → elabora → commit/rollback → chiude). La
                     // sottoscrizione + coda stanno SOPRA la lane (watch_subs),
                     // così non si perdono eventi fra una sessione e l'altra.
-                    Some((node_id, dir, recursive)) => {
+                    Some(Err(e)) => Err(e),
+                    Some(Ok((node_id, dir, recursive, debounce_ms))) => {
                         let key = watch_subs::watch_key(&run_id_cl.0, &node_id);
                         let mut rx = match watch_subs::start_watch(key.clone(), &dir, recursive) {
                             Ok(rx) => rx,
                             Err(e) => return Err(e),
                         };
-                        let debounce = std::time::Duration::from_millis(300);
+                        // P363: il debounce del pannello (prima fisso a 300 ms).
+                        let debounce = std::time::Duration::from_millis(debounce_ms);
                         let mut last: Result<HashMap<String, NodeStats>, String> = Ok(HashMap::new());
                         let mut session: u32 = 0;
                         // P110: label del watcher per mostrarlo "in ascolto" fra le sessioni.
@@ -284,6 +286,7 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                             if cancel_cl.is_cancelled() || last.is_err() { break; }
                         }
                         watch_subs::stop_watch(&key);
+                        nodes::dir_watcher::forget_seen(&key);
                         last
                     }
                     // ── lane normale: una sola esecuzione (come sempre) ──
@@ -377,14 +380,27 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
 // submode='continuo'), ne ritorna (node_id, directory, recursive). Il continuo
 // cambia lo scheduling: la lane va RI-ESEGUITA per gruppo (loop di sessione).
 // v1: single-lane, directory statica (niente interpolazione di variabili).
-fn continuous_watcher(lane: &types::LanePlan) -> Option<(String, String, bool)> {
+/// Il dir_watcher in ascolto continuo della lane, se c'è: (nodo, cartella,
+/// ricorsivo, debounce ms). P363: la cartella può venire da una variabile di
+/// lane (come nel one-shot); dal flusso no — nel continuo non c'è una riga
+/// in ingresso prima della sessione.
+fn continuous_watcher(lane: &types::LanePlan) -> Option<Result<(String, String, bool, u64), String>> {
     for node in &lane.nodes {
         if node.node_type != "dir_watcher" { continue; }
         let props = node.spec.get("props");
         let s = |k: &str| props.and_then(|p| p.get(k)).and_then(|v| v.as_str()).unwrap_or("");
         if s("mode") == "watch" && s("submode") == "continuo" {
-            let dir = s("directory").trim_end_matches('/').to_string();
-            return Some((node.node_id.0.clone(), dir, s("recursive") == "true"));
+            let err = |m: String| Some(Err(format!("dir_watcher {}: {}", node.node_id.0, m)));
+            if s("pathSource") == "flow" {
+                return err("in continuous listening the directory cannot come from the incoming flow: use a static path or a lane variable".into());
+            }
+            let spec = match spec::Spec::from_ctx(&node.spec) { Ok(sp) => sp, Err(e) => return err(e) };
+            let dir = match nodes::dir_watcher::resolve_directory(&spec, &lane.variables, None) {
+                Ok(d) => d,
+                Err(e) => return err(e),
+            };
+            let debounce = s("debounceMs").trim().parse::<u64>().unwrap_or(300).max(50);
+            return Some(Ok((node.node_id.0.clone(), dir, s("recursive") == "true", debounce)));
         }
     }
     None

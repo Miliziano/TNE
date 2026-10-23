@@ -1,5 +1,9 @@
 /**
  * src/nodes/types/dir_watcher/Panel.tsx
+ *
+ * P363: ogni opzione è applicata dal motore (dir_watcher.rs): cartella da
+ * variabile di lane, stabilità, deduplicazione (`dedupMode`), ordine per
+ * data di creazione.
  */
 import { useMemo, useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
@@ -48,7 +52,7 @@ const OUTPUT_SCHEMA = [
   { name: 'modified_at', type: 'date',    desc: 'Last modified date'           },
 ]
 const WATCH_EXTRA = { name: 'event',    type: 'string', desc: 'new / update / rename / delete' }
-const WATCH_OLDP  = { name: 'old_path', type: 'string', desc: 'Path precedente (solo rename atomico), altrimenti null' }
+const WATCH_OLDP  = { name: 'old_path', type: 'string', desc: 'Previous path (atomic rename only), otherwise null' }
 
 const PROP_DEFAULTS: Record<string, string> = {
   mode:            'scan',
@@ -62,12 +66,9 @@ const PROP_DEFAULTS: Record<string, string> = {
   debounceMs:      '300',
   watchTimeoutSec: '300',
   events:          'all',
-  dedup:           'path',
-  dedupStore:      'memory',
   sortBy:          'name',
   sortDir:         'asc',
   limit:           '0',
-  checkLocked:     'false',
 }
 
 export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
@@ -116,6 +117,8 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
 
   const mode       = p('mode', 'scan')
   const pathSource = p('pathSource', 'static')
+  const continuo   = mode === 'watch' && p('submode', 'oneshot') === 'continuo'
+  const dedupMode  = p('dedupMode', 'none')
   const hasInput   = edges.some((e) => e.target === nodeId)
 
   const laneVars: Variable[] = useMemo(() => {
@@ -203,6 +206,11 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
           <input style={inputStyle} value={p('pathField', 'path')} onChange={u('pathField')} placeholder="path" />
         </Field>
       )}
+      {pathSource === 'flow' && continuo && (
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#ff5f57', background: '#2a0a0a', borderRadius: 4, border: '0.5px solid #ff5f5740' }}>
+          In continuous listening there is no incoming row before the first session: use a static path or a lane variable.
+        </div>
+      )}
 
       <SectionTitle label="File filters" />
       <Row>
@@ -220,30 +228,30 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
         <Field label="Min size (bytes)" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('minSize', '0')} onChange={u('minSize')} min="0" />
         </Field>
-        <Field label="Max age (minutes)" hint="0 = no limit">
+        <Field label="Max age (minutes)" hint="By modified date — 0 = no limit">
           <input type="number" style={inputStyle} value={p('maxAgeMin', '0')} onChange={u('maxAgeMin')} min="0" />
         </Field>
       </Row>
 
       <SectionTitle label="Integrity and deduplication" />
-      <Field label="Anti-bumping (deduplication)" hint="Avoids emitting the same file multiple times in the same run">
-        <CustomSelect style={inputStyle} value={p('dedup', 'path')} onChange={u('dedup')}>
-          <option value="none">Disabled</option>
-          <option value="path">By path — same path is not re-emitted</option>
-          <option value="hash">By content hash — also detects renamed files</option>
-          <option value="path_mtime">Path + modified date — re-emits if the file changed</option>
+      <Field label="Deduplication" hint="A file counts as processed only when the downstream nodes finished without errors: after a failure it is picked up again.">
+        <CustomSelect style={inputStyle} value={dedupMode} onChange={u('dedupMode')}>
+          <option value="none">Disabled — every file / event is emitted</option>
+          <option value="path">By path — the same path is not emitted again</option>
+          <option value="path_mtime">Path + modified date — emitted again if the file changed</option>
+          <option value="hash">By content (SHA-256) — also catches renamed copies</option>
         </CustomSelect>
       </Field>
-      {p('dedup') !== 'none' && (
-        <Field label="Deduplication persistence" hint="Where to track already-emitted files">
+      {dedupMode !== 'none' && (
+        <Field label="Deduplication memory" hint="Where to remember the processed files">
           <CustomSelect style={inputStyle} value={p('dedupStore', 'memory')} onChange={u('dedupStore')}>
-            <option value="memory">In memory — resets each run</option>
+            <option value="memory">In memory — for this run (in continuous: across sessions)</option>
             <option value="file">To file — persists across runs</option>
           </CustomSelect>
         </Field>
       )}
-      {p('dedup') !== 'none' && p('dedupStore') === 'file' && (
-        <Field label="State file path" hint="JSON file where already-processed paths are saved">
+      {dedupMode !== 'none' && p('dedupStore') === 'file' && (
+        <Field label="State file path" hint="JSON file of the processed files; a relative path is inside the watched directory">
           <input style={inputStyle} value={p('dedupFile', '.flowpilot_dw_state.json')} onChange={u('dedupFile')}
             placeholder=".flowpilot_dw_state.json" />
         </Field>
@@ -267,15 +275,15 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
                 <option value="all">All (new/update/rename/delete)</option>
               </CustomSelect>
             </Field>
-            <Field label="Debounce (ms)" hint="Wait before processing — avoids duplicate events">
+            <Field label="Debounce (ms)" hint="Events closer than this form one group (minimum 50)">
               <input type="number" style={inputStyle} value={p('debounceMs', '300')} onChange={u('debounceMs')} min="0" />
             </Field>
           </Row>
           <Row>
-            <Field label="File stability (ms)" hint="Waits for the file to stop changing before emitting it">
+            <Field label="File stability (ms)" hint="A file is emitted when its size and date do not change for this long (0 = at once)">
               <input type="number" style={inputStyle} value={p('stabilityMs', '500')} onChange={u('stabilityMs')} min="0" />
             </Field>
-            <Field
+            {!continuo && <Field
               label="Watch timeout (seconds)"
               hint="Synced with Timeout in the Advanced tab — 0 = infinite"
             >
@@ -286,18 +294,26 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
                 onChange={handleTimeoutChange}
                 min="0"
               />
-            </Field>
+            </Field>}
           </Row>
-          {displayTimeout === '0' && (
+          {continuo && (
+            <div style={{ padding: '6px 10px', background: '#0d1a10', borderRadius: 4, border: '0.5px solid #3ddc8430', fontSize: 9, color: '#3ddc84', display: 'flex', gap: 6 }}>
+              <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0 }} />
+              Continuous listening stays active until you click Stop.
+            </div>
+          )}
+          {!continuo && displayTimeout === '0' && (
             <div style={{ padding: '6px 10px', background: '#0d1a10', borderRadius: 4, border: '0.5px solid #3ddc8430', fontSize: 9, color: '#3ddc8490', display: 'flex', gap: 6 }}>
               <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0 }} />
               Timeout 0 = stays active until you click Stop.
             </div>
           )}
-          <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5', display: 'flex', gap: 5 }}>
-            <i className="ti ti-refresh" style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }} />
-            Synced with <strong style={{ color: ACCENT }}>Timeout</strong> in the Advanced tab.
-          </div>
+          {!continuo && (
+            <div style={{ padding: '5px 8px', background: '#0f1117', borderRadius: 4, border: `0.5px solid ${ACCENT}20`, fontSize: 9, color: '#8593b5', display: 'flex', gap: 5 }}>
+              <i className="ti ti-refresh" style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }} />
+              Synced with <strong style={{ color: ACCENT }}>Timeout</strong> in the Advanced tab.
+            </div>
+          )}
         </>
       )}
 
@@ -336,7 +352,7 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
           <div key={f.name} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: i < schema.length - 1 ? '0.5px solid #1a2030' : 'none' }}>
             <code style={{ fontSize: 10, color: ACCENT, minWidth: 100, flexShrink: 0 }}>{f.name}</code>
             <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50, flexShrink: 0 }}>{f.type}</span>
-            <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
+            <span style={{ fontSize: 9, color: '#8593b5' }}>{f.desc}</span>
           </div>
         ))}
       </div>

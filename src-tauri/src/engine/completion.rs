@@ -73,6 +73,16 @@ impl LaneCompletion {
         seen
     }
 
+    /// Nodi raggiungibili da QUALSIASI uscita di `node_id` (P363: il
+    /// dir_watcher ricorda un file solo se la sua valle è finita bene).
+    pub fn downstream_all(&self, node_id: &str) -> HashSet<String> {
+        let handles: HashSet<&str> = self.edges.iter()
+            .filter(|(s, _, _)| s == node_id).map(|(_, h, _)| h.as_str()).collect();
+        let mut all = HashSet::new();
+        for h in handles { all.extend(self.downstream_of(node_id, h)); }
+        all
+    }
+
     /// Attende che TUTTI i nodi indicati abbiano terminato. Restituisce
     /// quelli terminati senza successo (errore o interruzione), ordinati.
     /// Un id sconosciuto al registro è ignorato.
