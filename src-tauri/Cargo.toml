@@ -34,6 +34,10 @@ tiny_http           = { version = "0.12", optional = true }   # solo per il bina
 tauri-plugin-dialog = { version = "2.7.1", optional = true }
 base64     = "0.23"
 rust_xlsxwriter = "0.100"
+# P356: compressione del sink FTP (gzip, zip). Stesse versioni e feature già nel
+# lockfile tramite rust_xlsxwriter: nessun crate nuovo da scaricare.
+flate2 = "1"
+zip = { version = "9.0", default-features = false, features = ["deflate"] }
 # P342: LETTURA Excel/ODS nel motore (source_file formato "excel") e quindi anche
 # nell'anteprima dello studio: sostituisce SheetJS (xlsx su npm, abbandonato e vulnerabile).
 calamine = { version = "0.36", features = ["dates"] }

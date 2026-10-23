@@ -1,8 +1,11 @@
 /**
  * src/nodes/types/sink_ftp/Panel.tsx
+ * P356: le chiavi combaciano con il motore (sink_ftp.rs); tolto ciò che
+ * il motore non fa (Parquet, larghezza fissa, BZIP2, {batch_id}).
  */
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { SINK_FTP_SIGNAL_SCHEMA } from './schema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -53,8 +56,15 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
   const resource   = resources.find((r) => r.id === resourceId)
 
   const protocol    = resource?.config?.protocol ?? p('protocol', 'sftp')
-  const fileFormat  = p('fileFormat', 'csv')
-  const writeMode   = p('writeMode', 'overwrite')
+  // Progetti precedenti al P356: formato in `format`, e `writeMode` poteva
+  // valere rows/raw_field (il significato che gli dava il motore).
+  const fileFormat  = p('fileFormat', p('format', 'csv'))
+  const legacyWm    = ['rows', 'raw_field'].includes(p('writeMode'))
+  const writeMode   = legacyWm ? 'overwrite' : p('writeMode', 'overwrite')
+  const content     = p('writeMode2', legacyWm ? p('writeMode') : 'rows')   // 'rows' | 'raw_field'
+  const isRaw       = content === 'raw_field'
+  const compression = p('compression', 'none')
+  const appendOk    = isRaw || ['csv', 'tsv', 'jsonl'].includes(fileFormat)
   const outputMode  = p('outputMode', 'signal')    // 'signal' | 'passthrough'
   const atomicWrite = p('atomicWrite', 'true')
 
@@ -75,21 +85,21 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       ) : (
         <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-server-off" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
-          Aggiungi una risorsa FTP/SFTP dalla resource strip, poi selezionala nel tab Connessione.
+          Add an FTP/SFTP resource from the resource strip, then select it in the Connection tab.
         </div>
       )}
 
       {/* Destinazione */}
       <SectionTitle label="Remote destination" />
-      <Field label="Remote directory" hint="Destination directory path on the server">
+      <Field label="Remote directory" hint="Destination directory on the server — created if missing (see Advanced options)">
         <input style={inputStyle} value={p('remotePath')} onChange={u('remotePath')} placeholder="/data/output/" />
       </Field>
       <Field
         label="File name"
-        hint="Supports variables: {timestamp}, {date}, {datetime}, {run_id}, {batch_id}">
+        hint="Variables: {date} = 2026-10-23, {datetime} = 20261023_143000, {timestamp} = Unix seconds, {run_id}. With compression the .gz / .zip extension is added if missing.">
         <input style={inputStyle} value={p('fileName')} onChange={u('fileName')} placeholder="output_{timestamp}.csv" />
         <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3 }}>
-          Esempi: <code style={{ color: ACCENT }}>report_{'{'}date{'}'}.csv</code> · <code style={{ color: ACCENT }}>export_{'{'}run_id{'}'}.json</code> · <code style={{ color: ACCENT }}>data_{'{'}datetime{'}'}.parquet</code>
+          Examples: <code style={{ color: ACCENT }}>report_{'{'}date{'}'}.csv</code> · <code style={{ color: ACCENT }}>export_{'{'}run_id{'}'}.json</code> · <code style={{ color: ACCENT }}>data_{'{'}datetime{'}'}.xlsx</code>
         </div>
       </Field>
 
@@ -98,8 +108,8 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
           { value: 'overwrite', label: '↺ Overwrite',    desc: 'If the file exists, overwrites it completely' },
-          { value: 'append',    label: '+ Append',          desc: 'Appends the data at the end of the existing file' },
-          { value: 'new',       label: '✦ New file',      desc: 'Always creates a new file — adds a numeric suffix if it already exists' },
+          { value: 'append',    label: '+ Append',          desc: 'Appends the data at the end of the existing file (header only in a new file) — CSV, TSV, JSON Lines or field value, no ZIP' },
+          { value: 'new',       label: '✦ New file',      desc: 'Never overwrites — if the name is taken, adds _1, _2… before the extension' },
           { value: 'error',     label: '✕ Error',          desc: 'Raises an error if the file already exists' },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'writeMode', m.value)}
@@ -113,10 +123,17 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
         ))}
       </div>
 
+      {writeMode === 'append' && (!appendOk || compression === 'zip') && (
+        <div style={{ padding: '6px 10px', background: '#2a1a0a', borderRadius: 4, border: '0.5px solid #6a4a1a', fontSize: 10, color: '#ffb347' }}>
+          <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />
+          Append is not possible with this {compression === 'zip' ? 'compression (ZIP)' : `format (${fileFormat})`}: the run will fail. Use CSV, TSV or JSON Lines without ZIP.
+        </div>
+      )}
+
       {/* Scrittura atomica */}
       <Field
         label="Atomic write"
-        hint="Writes first to a temporary file (.tmp), then renames — avoids corrupted files on error">
+        hint="Writes first to a temporary file (.tmp), then renames — avoids corrupted files on error. Not used in append mode.">
         <CustomSelect style={inputStyle} value={atomicWrite} onChange={u('atomicWrite')}>
           <option value="true">Yes — write to .tmp then rename (recommended)</option>
           <option value="false">No — write directly to the final file</option>
@@ -129,9 +146,31 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
         )}
       </Field>
 
+      {/* Contenuto */}
+      <SectionTitle label="Content" />
+      <Field label="What to write">
+        <CustomSelect style={inputStyle} value={content} onChange={u('writeMode2')}>
+          <option value="rows">Rows — formatted as the chosen file format</option>
+          <option value="raw_field">Field value — the content of one field (e.g. Report Generator output)</option>
+        </CustomSelect>
+      </Field>
+      {isRaw && (
+        <Row>
+          <Field label="Field">
+            <input style={inputStyle} value={p('rawField', 'content')} onChange={u('rawField')} placeholder="content" />
+          </Field>
+          <Field label="Value encoding">
+            <CustomSelect style={inputStyle} value={p('rawEncoding', 'text')} onChange={u('rawEncoding')}>
+              <option value="text">Text — written as is (HTML, CSV, JSON…)</option>
+              <option value="base64">Base64 — decoded before writing (Excel, PDF…)</option>
+            </CustomSelect>
+          </Field>
+        </Row>
+      )}
+
       {/* Formato file */}
-      <SectionTitle label="File format" />
-      <Row>
+      {!isRaw && <SectionTitle label="File format" />}
+      {!isRaw && <Row>
         <Field label="Format">
           <CustomSelect style={inputStyle} value={fileFormat} onChange={u('fileFormat')}>
             <option value="csv">CSV</option>
@@ -140,31 +179,29 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
             <option value="jsonl">JSON Lines</option>
             <option value="xml">XML</option>
             <option value="excel">Excel (.xlsx)</option>
-            <option value="parquet">Parquet</option>
-            <option value="fixed">Fixed width</option>
           </CustomSelect>
         </Field>
-        <Field label="Encoding">
+        {fileFormat !== 'excel' && <Field label="Encoding">
           <CustomSelect style={inputStyle} value={p('encoding', 'utf-8')} onChange={u('encoding')}>
             <option value="utf-8">UTF-8</option>
             <option value="utf-16">UTF-16</option>
             <option value="iso-8859-1">ISO-8859-1 (Latin-1)</option>
             <option value="windows-1252">Windows-1252</option>
           </CustomSelect>
-        </Field>
-      </Row>
+        </Field>}
+      </Row>}
 
       {/* Opzioni CSV */}
-      {(fileFormat === 'csv' || fileFormat === 'tsv') && (
+      {!isRaw && (fileFormat === 'csv' || fileFormat === 'tsv' || fileFormat === 'excel') && (
         <>
-          <Row>
+          {fileFormat !== 'excel' && <Row>
             <Field label="Delimiter">
               <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
             </Field>
             <Field label="Quote character">
               <input style={inputStyle} value={p('quoteChar', '"')} onChange={u('quoteChar')} placeholder={'"'} />
             </Field>
-          </Row>
+          </Row>}
           <Field label="Include header">
             <CustomSelect style={inputStyle} value={p('writeHeader', 'true')} onChange={u('writeHeader')}>
               <option value="true">Yes — write column names in the first row</option>
@@ -176,11 +213,10 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
 
       {/* Compressione */}
       <Field label="Compression">
-        <CustomSelect style={inputStyle} value={p('compression', 'none')} onChange={u('compression')}>
+        <CustomSelect style={inputStyle} value={compression} onChange={u('compression')}>
           <option value="none">None</option>
           <option value="gzip">GZIP (.gz)</option>
-          <option value="zip">ZIP (.zip)</option>
-          <option value="bzip2">BZIP2 (.bz2)</option>
+          <option value="zip">ZIP (.zip) — one file inside the archive</option>
         </CustomSelect>
       </Field>
 
@@ -204,13 +240,7 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
           <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Status row schema</div>
           {[
-            { name: 'remote_path',    type: 'string',  desc: 'Full path of the file on the server'   },
-            { name: 'file_name',      type: 'string',  desc: 'Name of the written file'               },
-            { name: 'rows_written',   type: 'integer', desc: 'Number of rows written'             },
-            { name: 'bytes_written',  type: 'integer', desc: 'File size in bytes'         },
-            { name: 'status',         type: 'string',  desc: 'always "done"'                       },
-            { name: 'completed_at',   type: 'date',    desc: 'Completion timestamp'             },
-            { name: 'elapsed_ms',     type: 'integer', desc: 'Transfer duration in ms'          },
+            ...SINK_FTP_SIGNAL_SCHEMA,
           ].map((f) => (
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
               <code style={{ fontSize: 10, color: '#ffb347', minWidth: 120, flexShrink: 0 }}>{f.name}</code>
@@ -224,11 +254,11 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni avanzate */}
       <SectionTitle label="Advanced options" color="#8593b5" />
       <Row>
-        <Field label="Connection timeout (sec)">
+        <Field label="Connection timeout (sec)" hint="Overrides the resource's timeout">
           <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
         </Field>
-        <Field label="File permissions (chmod)" hint="SFTP/FTP Unix only — e.g. 644, 755">
-          <input style={inputStyle} value={p('filePermissions', '644')} onChange={u('filePermissions')} placeholder="644" />
+        <Field label="File permissions (chmod)" hint="Octal, e.g. 644 — empty = server default. On FTP it needs SITE CHMOD support">
+          <input style={inputStyle} value={p('filePermissions', '')} onChange={u('filePermissions')} placeholder="644" />
         </Field>
       </Row>
       <Field label="Create directory if missing">
@@ -240,8 +270,8 @@ export function SinkFtpPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: ACCENT }} />
-        The connection is opened and closed for each batch. For frequent transfers consider
-        increasing the <strong style={{ color: '#c8d4f0' }}>batch size</strong> in the Advanced tab to reduce the number of connections.
+        All incoming rows are collected and the file is uploaded in one transfer when the input ends.
+        Retry (Advanced tab) repeats the connection and the upload — not the upload in append mode.
       </div>
     </div>
   )

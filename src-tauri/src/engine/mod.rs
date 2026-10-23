@@ -32,6 +32,7 @@ pub mod reporter;
 pub mod errors;
 pub mod abort;
 pub mod completion;
+pub mod text_encoding;
 pub mod spec;
 pub mod pool;
 pub mod txregistry;

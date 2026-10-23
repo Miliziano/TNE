@@ -776,10 +776,10 @@ pub async fn execute_lane(
 // serve: host irraggiungibile, API giù, credenziali scadute. I nodi DB
 // (source_db, sink_db) hanno il loro retry sulla connessione
 // (`ctx.retry_policy()`) e non si rilanciano qui, per non moltiplicare i
-// tentativi. Per gli altri nodi con ingressi lo studio non offre il retry.
+// tentativi; sink_ftp ritenta l'upload (P356). Per gli altri nodi con ingressi lo studio non offre il retry.
 
 /// Nodi che gestiscono da sé il retry (sulla prima operazione).
-const RETRY_IN_NODE: &[&str] = &["source_db", "sink_db"];
+const RETRY_IN_NODE: &[&str] = &["source_db", "sink_db", "sink_ftp"];
 
 async fn run_with_policy(
     ctx:        NodeContext,

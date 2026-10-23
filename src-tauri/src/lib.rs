@@ -2564,6 +2564,182 @@ async fn ftp_plain_write(conn: &FtpConnectionParams, remote_path: &str, content:
   Ok(len)
 }
 
+// ─── Scrittura del sink FTP/SFTP (P356) ────────────────────────────
+//
+// ftp_write_impl (comando Tauri) scrive un testo e basta. Il nodo sink_ftp
+// promette di più: byte (gzip, zip, Excel, encoding non UTF-8), append,
+// "nuovo file" con suffisso, errore se esiste, permessi, cartelle anche in
+// FTP. Due passi, ognuno con la sua connessione: prima si risolve il
+// percorso (esiste? quanto è grande? quale nome libero?) — serve PRIMA di
+// serializzare, perché in append l'intestazione CSV va scritta solo se il
+// file è nuovo — poi si scrivono i byte.
+
+/// Modalità di scrittura del file remoto.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum FtpWriteMode { Overwrite, Append, New, Error }
+
+/// Esito della risoluzione: percorso definitivo e dimensione se il file c'è già.
+#[derive(Debug, Clone)]
+pub struct FtpTarget { pub path: String, pub existing_size: Option<u64> }
+
+#[derive(Debug, Clone, Copy)]
+pub struct FtpPutOpts { pub create_dirs: bool, pub atomic: bool, pub append: bool, pub chmod: Option<u32> }
+
+/// `dir/nome.csv.gz` → `dir/nome_N.csv.gz` (il suffisso va prima della
+/// prima estensione).
+pub fn ftp_numbered_path(path: &str, n: u32) -> String {
+  let (dir, name) = match path.rfind('/') { Some(i) => (&path[..=i], &path[i + 1..]), None => ("", path) };
+  match name.find('.') {
+    Some(0) | None => format!("{}{}_{}", dir, name, n),
+    Some(i)        => format!("{}{}_{}{}", dir, &name[..i], n, &name[i..]),
+  }
+}
+
+/// Risolve il percorso secondo la modalità: `new` cerca un nome libero
+/// (_1, _2…), `error` fallisce se il file esiste.
+pub async fn ftp_resolve_target(conn: &FtpConnectionParams, path: &str, mode: FtpWriteMode) -> Result<FtpTarget, String> {
+  // Dimensione del file se esiste, per un insieme di candidati (una connessione sola).
+  let candidates: Vec<String> = match mode {
+    FtpWriteMode::New => std::iter::once(path.to_string()).chain((1..=999).map(|n| ftp_numbered_path(path, n))).collect(),
+    _ => vec![path.to_string()],
+  };
+  // Dimensioni dei candidati esistenti (None = non esiste).
+  let known: std::collections::HashMap<String, Option<u64>> = if conn.protocol == "sftp" {
+    let c = conn.clone(); let cands = candidates.clone();
+    tokio::task::spawn_blocking(move || -> Result<std::collections::HashMap<String, Option<u64>>, String> {
+      let session = sftp_connect_sync(&c)?;
+      let sftp    = session.sftp().map_err(|e| format!("SFTP init: {}", e))?;
+      let mut m = std::collections::HashMap::new();
+      for cand in cands {
+        let sz = sftp.stat(std::path::Path::new(&cand)).ok().map(|st| st.size.unwrap_or(0));
+        let stop = mode == FtpWriteMode::New && sz.is_none();
+        m.insert(cand, sz);
+        if stop { break }
+      }
+      Ok(m)
+    }).await.map_err(|e| e.to_string())??
+  } else if conn.protocol == "ftp" || conn.protocol == "ftps" {
+    // FTP: SIZE per ogni candidato (in `new` ci si ferma al primo libero).
+    let mut m = std::collections::HashMap::new();
+    let c = ftp_plain_connect(conn).await?;
+    with_ftp!(c, ftp => {
+      for cand in &candidates {
+        let sz = ftp.size(cand).await.ok().map(|n| n as u64);
+        m.insert(cand.clone(), sz);
+        if mode == FtpWriteMode::New && sz.is_none() { break }
+      }
+      let _ = ftp.quit().await;
+    });
+    m
+  } else {
+    return Err(format!("Protocol '{}' not supported", conn.protocol));
+  };
+  let size_of = |p: &str| known.get(p).copied().flatten();
+  match mode {
+    FtpWriteMode::New => {
+      for c in &candidates {
+        if known.contains_key(c) && size_of(c).is_none() { return Ok(FtpTarget { path: c.clone(), existing_size: None }) }
+      }
+      Err(format!("no free file name for '{}' (tried up to _999)", path))
+    }
+    FtpWriteMode::Error => match size_of(path) {
+      Some(_) => Err(format!("the remote file '{}' already exists (write mode: Error)", path)),
+      None    => Ok(FtpTarget { path: path.to_string(), existing_size: None }),
+    },
+    _ => Ok(FtpTarget { path: path.to_string(), existing_size: size_of(path) }),
+  }
+}
+
+/// Scrive i byte nel percorso già risolto. Restituisce i byte scritti e gli
+/// avvisi (es. permessi non applicati dal server).
+pub async fn ftp_write_bytes(conn: &FtpConnectionParams, path: &str, data: Vec<u8>, o: FtpPutOpts) -> Result<(u64, Vec<String>), String> {
+  let len = data.len() as u64;
+  let mut warnings: Vec<String> = Vec::new();
+  let atomic = o.atomic && !o.append;   // in append si scrive in coda al file vero
+  match conn.protocol.as_str() {
+    "sftp" => {
+      let c = conn.clone(); let path = path.to_string();
+      tokio::task::spawn_blocking(move || {
+        use std::io::{Seek, SeekFrom, Write};
+        let session = sftp_connect_sync(&c)?;
+        let sftp    = session.sftp().map_err(|e| format!("SFTP init: {}", e))?;
+        let p = std::path::Path::new(&path);
+        if o.create_dirs { if let Some(parent) = p.parent() { let _ = sftp_mkdir_p(&sftp, parent); } }
+        if o.append {
+          let end = sftp.stat(p).ok().and_then(|st| st.size).unwrap_or(0);
+          let mut f = sftp.open_mode(p, ssh2::OpenFlags::WRITE | ssh2::OpenFlags::CREATE | ssh2::OpenFlags::APPEND, 0o644, ssh2::OpenType::File)
+            .map_err(|e| format!("SFTP open '{}' for append: {}", path, e))?;
+          f.seek(SeekFrom::Start(end)).map_err(|e| format!("SFTP seek: {}", e))?;
+          f.write_all(&data).map_err(|e| format!("SFTP write: {}", e))?;
+        } else {
+          let write_path = if atomic { format!("{}.tmp", path) } else { path.clone() };
+          let wp = std::path::Path::new(&write_path);
+          let mut f = sftp.create(wp).map_err(|e| format!("SFTP create '{}': {}", write_path, e))?;
+          if let Err(e) = f.write_all(&data) {
+            drop(f);
+            if atomic { let _ = sftp.unlink(wp); }
+            return Err(format!("SFTP write: {}", e));
+          }
+          drop(f);
+          if atomic {
+            sftp.rename(wp, p, Some(ssh2::RenameFlags::OVERWRITE | ssh2::RenameFlags::ATOMIC | ssh2::RenameFlags::NATIVE))
+              .or_else(|_| { let _ = sftp.unlink(p); sftp.rename(wp, p, None) })
+              .map_err(|e| { let _ = sftp.unlink(wp); format!("SFTP rename '{}' → '{}': {}", write_path, path, e) })?;
+          }
+        }
+        if let Some(mode) = o.chmod {
+          let st = ssh2::FileStat { size: None, uid: None, gid: None, perm: Some(mode), atime: None, mtime: None };
+          if let Err(e) = sftp.setstat(p, st) { warnings.push(format!("permissions {:o} not applied: {}", mode, e)); }
+        }
+        Ok((len, warnings))
+      }).await.map_err(|e| e.to_string())?
+    }
+    "ftp" | "ftps" => {
+      let c = ftp_plain_connect(conn).await?;
+      let path = path.to_string();
+      with_ftp!(c, ftp => {
+        if o.create_dirs {
+          if let Some(i) = path.rfind('/') {
+            let parent = &path[..i];
+            let mut acc = String::new();
+            for part in parent.split('/') {
+              if part.is_empty() { if acc.is_empty() { acc.push('/'); } continue }
+              if !acc.is_empty() && !acc.ends_with('/') { acc.push('/'); }
+              acc.push_str(part);
+              let _ = ftp.mkdir(&acc).await;   // già esistente → errore ignorato
+            }
+          }
+        }
+        let mut cursor = std::io::Cursor::new(data);
+        if o.append {
+          ftp.append_file(&path, &mut cursor).await.map_err(|e| format!("FTP append '{}': {}", path, e))?;
+        } else if atomic {
+          let tmp = format!("{}.tmp", path);
+          if let Err(e) = ftp.put_file(&tmp, &mut cursor).await {
+            let _ = ftp.rm(&tmp).await;
+            return Err(format!("FTP put '{}': {}", tmp, e));
+          }
+          // Non tutti i server rinominano sopra un file esistente.
+          if ftp.rename(&tmp, &path).await.is_err() {
+            let _ = ftp.rm(&path).await;
+            ftp.rename(&tmp, &path).await.map_err(|e| format!("FTP rename '{}' → '{}': {}", tmp, path, e))?;
+          }
+        } else {
+          ftp.put_file(&path, &mut cursor).await.map_err(|e| format!("FTP put '{}': {}", path, e))?;
+        }
+        if let Some(mode) = o.chmod {
+          if let Err(e) = ftp.site(format!("CHMOD {:o} {}", mode, path)).await {
+            warnings.push(format!("permissions {:o} not applied (SITE CHMOD): {}", mode, e));
+          }
+        }
+        let _ = ftp.quit().await;
+      });
+      Ok((len, warnings))
+    }
+    p => Err(format!("Protocol '{}' not supported", p)),
+  }
+}
+
 fn glob_match(pattern: &str, name: &str) -> bool {
   let pat: Vec<char> = pattern.chars().collect(); let txt: Vec<char> = name.chars().collect();
   let (mut pi, mut ti) = (0, 0); let (mut star_pi, mut star_ti) = (usize::MAX, 0);

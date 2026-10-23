@@ -2,6 +2,7 @@ import type { TMapInputField } from '../types'
 import type { Node as FlowNode } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { FIXED_SCHEMA } from './fileSchema'
+import { SINK_FTP_SIGNAL_SCHEMA } from './types/sink_ftp/schema'
 
 // ─── Schema inferito dai props del nodo ──────────────────────────
 export function inferSchema(
@@ -94,6 +95,12 @@ export function inferSchema(
 
       // Senza pass-through — solo status
       return statusFields
+    }
+
+    // ── SFTP Output (P356): riga di stato o righe ri-emesse ─────
+    case 'sink_ftp': {
+      if ((props.outputMode ?? 'signal') === 'passthrough') return propagateSchema(node.id, allNodes, allEdges)
+      return SINK_FTP_SIGNAL_SCHEMA.map(({ name, type }) => ({ name, type: type as TMapInputField['type'] }))
     }
 
     // ── HTTP Source ────────────────────────────────────────────

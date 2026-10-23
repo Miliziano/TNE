@@ -299,13 +299,14 @@ export function getNodeSubtitle(data: NodeData): string {
     }
 
     case 'sink_ftp': {
+      // Il protocollo sta nella risorsa, non nelle props: si mostra il formato.
       const path     = p('remotePath')
       const fileName = p('fileName')
-      const proto    = p('protocol', 'sftp').toUpperCase()
+      const fmt      = (p('writeMode2') === 'raw_field' ? 'field' : p('fileFormat', p('format', 'csv'))).toUpperCase()
       const mode     = p('outputMode', 'signal') === 'signal' ? 'sig' : 'pass'
-      if (fileName) return withCatch(`${proto} → ${truncate(fileName, 22)} [${mode}]`, data)
-      if (path)     return withCatch(`${proto} → ${truncate(path, 26)} [${mode}]`, data)
-      return withCatch(`${proto} [${mode}]`, data)
+      if (fileName) return withCatch(`${fmt} → ${truncate(fileName, 22)} [${mode}]`, data)
+      if (path)     return withCatch(`${fmt} → ${truncate(path, 26)} [${mode}]`, data)
+      return withCatch(`${fmt} [${mode}]`, data)
     }
 
     case 'json_serializer': {

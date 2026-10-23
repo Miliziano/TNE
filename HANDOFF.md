@@ -1755,3 +1755,44 @@ tutto", principio P348: implementare o togliere):
   ok; retry esaurito → "(after 2 retries)"; retry su nodo con ingresso → avviso, non
   applicato; maxRunSec 1 su pg_sleep(5) → "timed out after 1 s"; catch in un membro di
   transazione → lane ok, 0 righe (rollback; controllo: senza errore 2 righe).
+
+## AGGIORNAMENTO — SFTP Output allineato al pannello (stato al P356, 23 ottobre)
+
+Punto 2 dell'audit. Il nodo `sink_ftp` era scollegato dal suo pannello: formato letto da
+`format` (il pannello scrive `fileFormat` → sempre CSV), `writeMode` con due significati
+(motore: righe/campo; pannello: overwrite/append/new/error → ignorato), `fileName` ignorato
+(con la cartella in remotePath si scriveva un file chiamato come la cartella),
+`atomicWrite` letto come `atomic`, compressione/encoding/permessi/timeout ignorati,
+passthrough mai emesso, segnale con campi diversi da quelli mostrati.
+
+- **lib.rs**: nuovi `ftp_resolve_target` (percorso definitivo: esiste? dimensione? nome
+  libero `_N` per "new"; errore per "error") e `ftp_write_bytes` (byte, non testo;
+  append — SFTP open APPEND + seek, FTP `APPE`; atomic anche in FTP con `.tmp` + rename;
+  cartelle anche in FTP; chmod — SFTP setstat, FTP `SITE CHMOD`, con avviso se il server
+  rifiuta). `ftp_write_impl` (comando Tauri) invariato.
+- **engine/text_encoding.rs** (nuovo, senza crate): UTF-8, UTF-16LE+BOM, ISO-8859-1,
+  Windows-1252, ASCII; caratteri non rappresentabili → `?` contati nel log. Pronto per
+  sink_file (punto 7).
+- **sink_ftp.rs** riscritto sulle chiavi del pannello, con compatibilità per i progetti
+  vecchi (`format`, `writeMode` = rows/raw_field, `atomic`, percorso intero in remotePath).
+  Formati csv/tsv/json/jsonl/xml/**excel** (rust_xlsxwriter, numeri come numeri);
+  contenuto da campo (testo o **base64**, prima rifiutato); gzip/zip (crate `flate2` e
+  `zip` 9 — già nel lockfile via rust_xlsxwriter, solo 2 righe nuove in Cargo.lock);
+  append solo dove ha senso (CSV/TSV/JSONL/campo, senza ZIP: altrimenti errore chiaro).
+  Retry della scheda Advanced su connessione e upload (non l'upload in append) →
+  `RETRY_IN_NODE` += sink_ftp (executor, TabAdvanced, dagValidation).
+- **Pannello**: tolti Parquet, larghezza fissa, BZIP2, `{batch_id}` (il motore non li
+  fa); aggiunta la scelta "righe / valore di un campo"; avviso se append è incompatibile;
+  testi in inglese; nota finale corretta (non "una connessione per batch"). Schema del
+  segnale in `sink_ftp/schema.ts`, usato da pannello e `schemaInference` (passthrough →
+  schema in ingresso). Sottotitolo: mostra il formato (il protocollo è nella risorsa).
+- **Collaudo** (throwaway) su SFTP reale (openssh, :2222) e FTP reale (pyftpdlib, :2121),
+  12 casi × 2: nome con `{run_id}` + cartelle create; append ×2 → intestazione una volta e
+  4 righe; new ×2 → `n.csv` e `n_1.csv`; error su esistente → fallisce; excel+gzip →
+  `.xlsx.gz` valido; JSONL Windows-1252 → `è`=E8, `€`=80; csv zip → archivio con `z.csv`;
+  chmod 600 applicato + passthrough a valle; progetto "vecchio" → JSON corretto; append su
+  JSON array → errore chiaro; retry su porta chiusa → 2 tentativi poi "(after 2 retries)".
+  Nessun `.tmp` rimasto.
+- ⚠ Visto e non toccato: lo studio descrive l'uscita dei sink su file con campi `status.*`
+  e `row.*` (schemaInference/connectionResolver), il motore emette campi piatti — da
+  sistemare con sink_file (punto 7).

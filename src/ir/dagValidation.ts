@@ -140,7 +140,7 @@ function checkCatchHandles(plan: LogicalPlan): ValidationIssue[] {
     const onError = String((node._uiRef?.config as { advanced?: { onError?: string } } | undefined)?.advanced?.onError ?? '')
     const type    = node._uiRef?.type ?? ''
     if ((onError === 'retry_handler' || onError === 'retry_catch')
-        && !['source_db', 'sink_db'].includes(type)
+        && !['source_db', 'sink_db', 'sink_ftp'].includes(type)
         && plan.edges.some((e) => e.target === node.id)) {
       issues.push({
         nodeId:   canvasNodeId(node.id),

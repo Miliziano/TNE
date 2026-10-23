@@ -53,9 +53,10 @@ function SectionTitle({ label }: { label: string }) {
 const CATCH_COLOR = '#f97316'
 const ACCENT_DW   = '#22d3ee'
 
-/** Nodi che ritentano da sé la prima operazione (connessione al DB):
+/** Nodi che ritentano da sé la prima operazione (connessione al DB,
+ *  upload FTP):
  *  allineato a RETRY_IN_NODE in src-tauri/src/engine/executor.rs. */
-const RETRY_IN_NODE = new Set(['source_db', 'sink_db'])
+const RETRY_IN_NODE = new Set(['source_db', 'sink_db', 'sink_ftp'])
 
 function Hint({ children, color = '#8593b5' }: { children: React.ReactNode; color?: string }) {
   return (
@@ -138,7 +139,9 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
       {isRetry && (retrySupported ? (
         <Hint>
           {RETRY_IN_NODE.has(node.data.type)
-            ? 'The node retries opening the database connection, waiting the delay between attempts.'
+            ? (node.data.type === 'sink_ftp'
+              ? 'The node retries the connection and the upload, waiting the delay between attempts (the upload is not retried in append mode).'
+              : 'The node retries opening the database connection, waiting the delay between attempts.')
             : 'If the node fails before emitting any row, it is run again from the start after the delay. Once rows have been emitted it is not retried, so downstream never gets duplicates.'}
         </Hint>
       ) : (
