@@ -1056,7 +1056,9 @@ async fn run_node(
             let rx  = take_single_input(&mut inputs)
                 .ok_or_else(|| format!("bridge_out {} requires a connected input", ctx.node_id.0))?;
             let btx = bridge_tx.ok_or_else(|| format!("bridge_out {}: bridge_id not found", ctx.node_id.0))?;
-            super::bridge::run_bridge_out(ctx, rx, btx).await
+            // Uscita nella propria lane: passthrough o riga di stato (P358).
+            let out = take_primary_output(&mut outputs);
+            super::bridge::run_bridge_out(ctx, rx, btx, out).await
         }
 
         "bridge_in" => {

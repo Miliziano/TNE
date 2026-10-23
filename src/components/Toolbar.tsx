@@ -848,7 +848,17 @@ function buildRustPlan(
         
         case 'bridge_in': {
           const bridgeId = props['channelName'] ?? node.data.config?.['channelName'] ?? ''
-          config = { bridge_id: bridgeId }
+          // P358: consegna "tutto insieme" e attesa massima, da chiavi NUOVE
+          // (`delivery`, `waitTimeoutSec`). Le vecchie non contano:
+          // addNode salvava in ogni nodo i default di nodeDefs
+          // (transferMode 'content' sul BridgeOut, timeoutSec '30' sul
+          // BridgeIn) che il motore non applicava — leggerle cambierebbe
+          // ogni bridge esistente. Unica eccezione: syncMode 'gate' sul
+          // BridgeIn, che si otteneva solo scegliendolo.
+          const delivery = props['delivery']
+          const allAtOnce = delivery ? delivery === 'all' : props['syncMode'] === 'gate'
+          const timeout = parseInt(String(props['waitTimeoutSec'] ?? '0'), 10)
+          config = { bridge_id: bridgeId, all_at_once: allAtOnce, timeout_sec: Number.isFinite(timeout) && timeout > 0 ? timeout : 0 }
           break
         }
 

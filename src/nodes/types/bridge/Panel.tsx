@@ -4,7 +4,6 @@
  */
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
-import { CustomSelect } from '../../../components/CustomSelect'
 import { getBridgeOutFields } from './bridgeSchema'
 
 const inputStyle: React.CSSProperties = {
@@ -57,11 +56,8 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
 
   const channelName  = p('channelName')
   const channelColor = p('channelColor', '#a78bfa')
-  const syncMode     = p('syncMode', 'fire_and_forget')
-  const transferMode = p('transferMode', 'content')
-  const batchSize    = p('batchSize', '100')
-  const timeoutSec   = p('timeoutSec', '30')
-  const bufferSize   = p('bufferSize', '0')
+  const syncMode     = p('syncMode', 'fire_and_forget') === 'wait_for_ack' ? 'wait_for_ack' : 'fire_and_forget'
+  const timeoutSec   = p('waitTimeoutSec', '0')
   const outputMode   = p('outputMode', 'none')
   const laneId       = node.data.laneId
   const ACCENT       = channelColor
@@ -210,42 +206,6 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
             </div>
           )}
 
-          <SectionTitle label="Transfer" color={ACCENT} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {([
-              {
-                value: 'content',
-                label: '⬛ Content — one-shot',
-                desc:  'The whole flow is sent in a single payload. ' +
-                       'BridgeIn receives all rows before continuing. ' +
-                       'Ideal for small datasets or when B needs the complete picture.',
-              },
-              {
-                value: 'stream',
-                label: '▶▶ Stream — row-by-row',
-                desc:  'The flow is sent in progressive batches. ' +
-                       'BridgeIn processes the data as it arrives. ' +
-                       'Ideal for large datasets — natural backpressure.',
-              },
-            ] as const).map((m) => (
-              <button key={m.value} onClick={() => updateProp(nodeId, 'transferMode', m.value)}
-                style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
-                  background: transferMode === m.value ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
-                  border: transferMode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
-                  display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: transferMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</span>
-                <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
-              </button>
-            ))}
-          </div>
-
-          {transferMode === 'stream' && (
-            <Field label="Batch size (rows per envelope)"
-              hint="How many rows to send per envelope. Default 100.">
-              <input type="number" style={inputStyle} value={batchSize} onChange={u('batchSize')} min="1" max="10000" />
-            </Field>
-          )}
-
           {/* Output mode */}
           <SectionTitle label="Output to current lane" color={ACCENT} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -265,7 +225,7 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
               {
                 value: 'signal',
                 label: '⚡ Signal',
-                desc:  'Emits a single signal row { channel, rows_sent, status, sent_at }. ' +
+                desc:  'Emits a single status row { channel, rows_sent, status, sent_at } when the delivery is done. ' +
                        'Useful for notifications or completion logs without reprocessing the data.',
               },
             ] as const).map((m) => (
@@ -282,93 +242,95 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
         </>
       )}
 
-      {/* ── Sincronismo ── */}
-      <SectionTitle label="Sync" color={ACCENT} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {([
-          {
-            value: 'fire_and_forget',
-            label: '→ Fire & Forget',
-            desc:  isOut
-              ? 'Lane A sends the data and continues immediately without waiting for anything.'
-              : 'Lane B processes the data as soon as it arrives, without signaling Lane A.',
-          },
-          {
-            value: 'wait_for_ack',
-            label: '⇄ Wait for Ack',
-            desc:  isOut
-              ? 'Lane A waits for the receipt confirmation of each batch before sending the next. Produces backpressure.'
-              : 'Lane B sends an ACK for each received envelope (future: for remote channels).',
-          },
-          {
-            value: 'gate',
-            label: '⊟ Gate',
-            desc:  isOut
-              ? 'Lane A blocks until Lane B is ready (reserved — future implementation).'
-              : 'Lane B blocks until Lane A has completed the flow (BridgeIn default behavior).',
-          },
-        ] as const).map((m) => (
-          <button key={m.value} onClick={() => updateProp(nodeId, 'syncMode', m.value)}
-            style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
-              background: syncMode === m.value ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
-              border: syncMode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
-              display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: syncMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</span>
-            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── Timeout (solo BridgeIn) ── */}
-      {!isOut && (
+      {/* ── Sincronismo (P358: solo ciò che il motore fa) ── */}
+      {isOut ? (
         <>
-          <SectionTitle label="Timeout" color={ACCENT} />
-          <Field label="Wait timeout (seconds)"
-            hint="Maximum wait time for the first envelope from BridgeOut. If it expires, the pipeline fails with an explicit error.">
-            <input type="number" style={inputStyle} value={timeoutSec} onChange={u('timeoutSec')} min="1" max="3600" />
-          </Field>
+          <SectionTitle label="Sync" color={ACCENT} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {([
+              { value: 'fire_and_forget', label: '→ Fire & Forget',
+                desc: 'This node ends as soon as all rows are handed to the channel.' },
+              { value: 'wait_for_ack', label: '⇄ Wait for ack',
+                desc: 'This node ends only when the other lane has received all the rows. The status row then says "delivered"; if the other lane stops first, this node fails.' },
+            ] as const).map((m) => (
+              <button key={m.value} onClick={() => updateProp(nodeId, 'syncMode', m.value)}
+                style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
+                  background: syncMode === m.value ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030',
+                  border: syncMode === m.value ? `1px solid ${ACCENT}` : '1px solid #2a3349',
+                  display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: syncMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</span>
+                <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
+              </button>
+            ))}
+          </div>
         </>
-      )}
-
-      {/* ── Buffer (solo BridgeOut) ── */}
-      {isOut && (
-        <>
-          <SectionTitle label="Buffer" color={ACCENT} />
-          <Field label="Buffer size (rows)" hint="0 = unlimited. The buffer queues rows if BridgeIn is not listening yet.">
-            <input type="number" style={inputStyle} value={bufferSize} onChange={u('bufferSize')} min="0" />
-          </Field>
-          {parseInt(bufferSize) > 0 && (
-            <Field label="Full buffer behavior">
-              <CustomSelect style={inputStyle} value={p('bufferFull', 'block')} onChange={u('bufferFull')}>
-                <option value="block">Block Lane A until drained</option>
-                <option value="drop">Drop the new rows</option>
-                <option value="drop_oldest">Drop the oldest rows</option>
-                <option value="error">Error — stops the pipeline</option>
-              </CustomSelect>
-            </Field>
-          )}
-        </>
+      ) : (
+        <BridgeInDelivery nodeId={nodeId} accent={ACCENT} timeoutSec={timeoutSec} />
       )}
 
       {/* ── Info ── */}
       <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.6 }}>
         <div style={{ color: ACCENT, fontWeight: 600, marginBottom: 4 }}>
-          {isOut ? 'BridgeOut' : 'BridgeIn'} — come funziona
+          {isOut ? 'BridgeOut' : 'BridgeIn'} — how it works
         </div>
         {isOut ? (
           <>
             <div>• Receives the flow from the lane and publishes it to the channel <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
-            <div>• Does not produce output to the downstream nodes of the lane</div>
+            <div>• Optionally passes the same rows, or a status row, to the next nodes of this lane</div>
+            <div>• If the other lane is slower, this lane waits (backpressure)</div>
             <div>• The channel is isolated per run: concurrent executions do not interfere</div>
           </>
         ) : (
           <>
-            <div>• Blocks until BridgeOut publishes to the channel <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
-            <div>• Emits the received rows to the downstream nodes of the lane</div>
-            <div>• Il timeout protegge da BridgeOut mancante o crashato</div>
+            <div>• Receives the rows that BridgeOut publishes on the channel <code style={{ color: ACCENT }}>{channelName || '…'}</code></div>
+            <div>• Emits them to the next nodes of this lane — as they arrive, or all at once</div>
+            <div>• The wait timeout protects against a source lane that never produces</div>
           </>
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Consegna nella lane del BridgeIn (P358): "as it arrives" o "all at once"
+ * (solo flussi completi: se la lane sorgente si interrompe, a valle non
+ * arriva niente) + attesa massima. Condiviso col BridgeInModal.
+ * Il valore mostrato per i progetti vecchi è quello che il builder applica:
+ * "all" solo se il BridgeIn aveva syncMode "gate".
+ */
+export function BridgeInDelivery({ nodeId, accent, timeoutSec }: { nodeId: string; accent: string; timeoutSec: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  const updateProp = useFlowStore((s) => s.updateNodeProp)
+  if (!node) return null
+  const p = (k: string) => String(node.data.props?.[k] ?? '')
+  const delivery = p('delivery') || (p('syncMode') === 'gate' ? 'all' : 'stream')
+  return (
+    <>
+      <SectionTitle label="Delivery to this lane" color={accent} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {([
+          { value: 'stream', label: '▶▶ As it arrives',
+            desc: 'Rows go downstream as soon as they arrive. If the source lane stops halfway, the rows already passed stay passed and this node fails.' },
+          { value: 'all', label: '⬛ All at once',
+            desc: 'Rows are held until the whole flow has arrived and the source lane has confirmed it, then passed downstream. If the source lane stops, nothing is passed (no partial data). Rows are kept in memory.' },
+        ] as const).map((m) => (
+          <button key={m.value} onClick={() => updateProp(nodeId, 'delivery', m.value)}
+            style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
+              background: delivery === m.value ? `color-mix(in srgb, ${accent} 15%, #1a2030)` : '#1a2030',
+              border: delivery === m.value ? `1px solid ${accent}` : '1px solid #2a3349',
+              display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: delivery === m.value ? accent : '#c8d4f0' }}>{m.label}</span>
+            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
+          </button>
+        ))}
+      </div>
+      <SectionTitle label="Timeout" color={accent} />
+      <Field label="Wait timeout (seconds)"
+        hint="Maximum wait for the first row (or the end of an empty flow) from the source lane. 0 = no limit. If it expires, this node fails.">
+        <input type="number" style={inputStyle} value={timeoutSec}
+          onChange={(e) => updateProp(nodeId, 'waitTimeoutSec', e.target.value)} min="0" max="86400" />
+      </Field>
+    </>
   )
 }

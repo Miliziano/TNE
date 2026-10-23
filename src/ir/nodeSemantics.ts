@@ -898,7 +898,14 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
     staticInputPorts: [
       { id: 'input', label: 'input', role: 'data' },
     ],
-    staticOutputPorts:       [],           // nessuna uscita verso altri nodi della stessa lane
+    // Uscita nella propria lane (P358, outputMode): nessuna (default), le
+    // stesse righe (passthrough) o una riga di stato a consegna fatta.
+    staticOutputPorts: [
+      { id: 'output', label: 'output', role: 'data',
+        when: { prop: 'outputMode', equals: ['passthrough'], fallback: 'none' } },
+      { id: 'output', label: 'signal', role: 'signal',
+        when: { prop: 'outputMode', equals: ['signal'], fallback: 'none' } },
+    ],
     preferredRuntimes:       ['typescript', 'java_beam'],
     pushdownCapable:         [],
   },

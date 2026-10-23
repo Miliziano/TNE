@@ -193,3 +193,12 @@ export function syncBridgeInSchemas(store: any): number {
 
   return updated
 }
+
+/** Riga di stato del BridgeOut con outputMode = signal (P358): i campi
+ *  emessi da run_bridge_out (src-tauri/src/engine/bridge.rs). */
+export const BRIDGE_SIGNAL_SCHEMA = [
+  { name: 'channel',   type: 'string'  as const },
+  { name: 'rows_sent', type: 'integer' as const },
+  { name: 'status',    type: 'string'  as const },   // "sent" | "delivered" (wait for ack)
+  { name: 'sent_at',   type: 'date'    as const },
+]

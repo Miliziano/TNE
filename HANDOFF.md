@@ -1833,3 +1833,63 @@ bloccante, righe in streaming su canale), excel e test P342 conservati.
 - **Collaudo**: 6 test unitari nuovi (CSV completo, mapping, Windows-1252, json/jsonl/
   text/binary, glob) + harness throwaway sul motore: statico+mapping, variabile di lane,
   flusso (source_db → path), glob con limite su due file, json col path, parquet → errore.
+
+## AGGIORNAMENTO — Kafka sospeso (stato al P358, 23 ottobre)
+
+Punto 4 dell'audit, **decisione utente**: Kafka fuori dalla palette finché non sarà
+pubblicata e validata una versione pilota/beta della suite; poi si ripristina (servirà il
+protocollo nativo: oggi il motore parla solo con un REST Proxy di Confluent, e il pannello
+non ha nemmeno il campo per configurarlo).
+- Palette (`PALETTE_SECTIONS`) e striscia risorse (modello "Kafka") senza Kafka. Tipi,
+  pannelli e codice restano: i progetti esistenti si aprono.
+- Validazione: `NODE_SUSPENDED` (errore, blocca il Run) su source_kafka / sink_kafka
+  (`NODI_SOSPESI` in dagValidation).
+- Motore: senza REST Proxy il sink **fallisce** (prima: avviso, riga `_kafka_skipped`, run
+  riuscito = dati scartati in silenzio) e la sorgente pure (prima: run riuscito a zero
+  righe). Vale anche per i piani esportati eseguiti dal runner, che non passano dalla
+  validazione dello studio.
+- Per ripristinarlo: togliere le due voci da `NODI_SOSPESI`, rimetterle in
+  `PALETTE_SECTIONS` e nella striscia risorse (LaneCanvas), e dare al nodo un trasporto vero.
+
+Verifica chiesta dall'utente — **File Input JSON → JSON Parser dopo il P357**: provato sul
+motore (harness throwaway) in tre forme, tutte corrette: documento intero (default) +
+parser con flusso `$.ordini` array; una riga per ordine (path `$.ordini`, Array) + parser
+`$`; JSON Lines + parser `$`. Il JSON Parser accetta `content` sia testo sia oggetto
+(`parse_source`).
+
+🟡 **Aggiunte all'audit** (nodi configurati da editor, sfuggiti al confronto delle props):
+nel JSON Parser il `type` dei campi non converte (`#[allow(dead_code)]`: 7 resta intero
+anche se dichiarato decimal), `filter` e `streaming` del flusso sono ignorati. Da
+controllare allo stesso modo TMap, XML Parser, JSON/XML Serializer, Data Quality.
+
+## AGGIORNAMENTO — Bridge: le opzioni fanno ciò che dicono (stato al P359, 23 ottobre)
+
+Punto 5 dell'audit: tutte le opzioni del bridge erano ignorate (il piano porta solo gli
+id). Implementate quelle che hanno senso in un canale in memoria, tolte le altre.
+- **BridgeOut — uscita nella lane** (`outputMode`): passthrough (le stesse righe anche a
+  valle nella lane) e signal (`channel`, `rows_sent`, `status`, `sent_at`). Prima l'arm
+  dell'executor non prendeva l'uscita: un arco disegnato riceveva zero righe. Porte
+  condizionali in nodeSemantics (`when outputMode`), schema del segnale
+  `BRIDGE_SIGNAL_SCHEMA` (bridgeSchema.ts) in schemaPropagation.
+- **BridgeOut — wait for ack** (`syncMode`): nuovo `oneshot` di conferma BridgeIn →
+  BridgeOut in `BridgeOutEnds/BridgeInEnds`; il BridgeOut chiude il canale, aspetta la
+  conferma, status `delivered`; se la lane di valle muore prima → errore.
+- **BridgeIn — delivery** (`delivery` = stream | all): "all at once" tiene le righe finché
+  il flusso è completo e confermato (`done`), poi le passa; se la lane sorgente si
+  interrompe non passa niente. **Wait timeout** (`waitTimeoutSec`, 0 = nessuno) sulla prima
+  riga. Il builder li mette nella config del nodo (`all_at_once`, `timeout_sec`). Un
+  BridgeIn senza nodi a valle ora scarica il canale e conferma (prima usciva subito).
+- **Tolti** (P348): transfer mode content/stream e batch size (il canale è in memoria, riga
+  per riga), gate del BridgeOut, wait-for-ack del BridgeIn, buffer size e "buffer pieno"
+  (la contropressione c'è già: la lane sorgente aspetta).
+- ⚠ **Lezione (vale per tutti i prossimi punti)**: `addNode` salva nelle props di ogni nodo
+  nuovo TUTTI i default dei `fields` di `nodeDefs.ts`. Quindi "valore assente" non vuol dire
+  "non scelto": il bridge_out aveva `transferMode: 'content'` e il bridge_in
+  `timeoutSec: '30'` salvati ovunque, mai applicati. Per non cambiare il comportamento dei
+  progetti esistenti si usano chiavi nuove (`delivery`, `waitTimeoutSec`) e le vecchie non
+  si leggono (eccetto `syncMode = gate`, che si otteneva solo scegliendolo). Prima di
+  applicare un'opzione finora ignorata, guardare il suo default in nodeDefs.
+- Collaudo: harness throwaway su due lane (stream; passthrough; signal + wait for ack →
+  `delivered` e BridgeOut chiuso dopo il BridgeIn; signal senza ack → `sent`; all at once;
+  timeout 1 s su sorgente lenta → errore; timeout 5 s rispettato) + 2 test unitari
+  (all at once con mittente morto → nessuna riga a valle; stream interrotto → errore).

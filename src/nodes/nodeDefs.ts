@@ -325,9 +325,6 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       { key: 'channelName',  label: 'Channel name',   type: 'text',   default: '' },
       { key: 'channelColor', label: 'Color',        type: 'text',   default: '#a78bfa' },
       { key: 'syncMode',     label: 'Sync',   type: 'text',   default: 'fire_and_forget' },
-      { key: 'transferMode', label: 'Transfer', type: 'text',   default: 'content' },
-      { key: 'batchSize',    label: 'Batch size',    type: 'number', default: '100' },
-      { key: 'bufferSize',   label: 'Buffer size',   type: 'number', default: '0' },
       { key: 'outputMode', label: 'Output mode', type: 'text', default: 'none' },
     ],
   },
@@ -341,8 +338,10 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     fields: [
       { key: 'channelName',  label: 'Channel name',    type: 'text',   default: '' },
       { key: 'channelColor', label: 'Color',         type: 'text',   default: '#a78bfa' },
-      { key: 'syncMode',     label: 'Sync',    type: 'text',   default: 'fire_and_forget' },
-      { key: 'timeoutSec',   label: 'Timeout (sec)',  type: 'number', default: '30' },
+      // P358: `delivery` e `waitTimeoutSec` sostituiscono syncMode/timeoutSec,
+      // i cui default ('30' s) erano salvati in ogni nodo senza effetto.
+      { key: 'delivery',       label: 'Delivery',            type: 'text',   default: 'stream' },
+      { key: 'waitTimeoutSec', label: 'Wait timeout (sec)', type: 'number', default: '0' },
     ],
   },
   json_parser: {
@@ -523,9 +522,11 @@ export const NODE_DEFS: Record<string, NodeDef> = {
 }
 
 export const PALETTE_SECTIONS = [
-  { label: 'Input',     types: [  'source_kafka','source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','github_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
+  // Kafka (source_kafka / sink_kafka) fuori dalla palette per decisione
+  // utente (P358): torna dopo la versione pilota/beta della suite.
+  { label: 'Input',     types: [  'source_db', 'source_file', 'source_http', 'source_ftp','ldap_source','github_source','dir_watcher', 'source_activemq', 'source_mqtt', 'webhook_receiver', 'watchdog','bridge_in'] },
   { label: 'Transform', types: [  'log','data_quality', 'union','filter', 'transform', 'join', 'tmap', 'aggregate', 'json_parser', 'xml_parser', 'script', 'window', 'materialize', 'explode','report_generator','pivot','ldap_auth'] },
-  { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_kafka', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
+  { label: 'Output',    types: [ 'json_serializer', 'xml_serializer','sink_db', 'sink_file', 'sink_activemq', 'sink_mqtt', 'sink_ftp','mail_sink', 'webhook_responder','bridge_out'] },
   { label: 'Flow', types: ['stop', 'lane_start', 'lane_end'] },
   { label: 'DevOps', types: ['shell_exec', 'ssh_exec'] },
 ]

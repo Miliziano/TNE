@@ -240,9 +240,7 @@ function ResourceStrip({ lane }: { lane: Lane }) {
     },
     { kind: 'db', label: '⬡ Database (DB)', build: () => ({ kind: 'db' as const, label: 'New DB', config: { dialect: 'postgresql', host: DB_DEFAULTS.postgresql.host, port: DB_DEFAULTS.postgresql.port, database: DB_DEFAULTS.postgresql.database, user: DB_DEFAULTS.postgresql.user }, actions: [ { id: 'in', label: 'Add as input', nodeType: 'source_db', propsOverride: {} as Record<string, string> }, { id: 'out', label: 'Add as output', nodeType: 'sink_db', propsOverride: {} as Record<string, string> } ] }) },
     { kind: 'http', label: '⇄ HTTP / REST API', build: () => ({ kind: 'http' as const, label: 'New API', config: { url: HTTP_DEFAULTS.url, method: HTTP_DEFAULTS.method, authType: HTTP_DEFAULTS.authType, headers: HTTP_DEFAULTS.headers }, actions: [ { id: 'in', label: 'Add as HTTP source', nodeType: 'source_http', propsOverride: {} as Record<string, string> } ] }) },
-    { kind: 'kafka', label: '≋ Kafka', build: () => ({ kind: 'kafka' as const, label: 'New Kafka', config: { broker: 'localhost:9092' }, actions: [ 
-      { id: 'in', label: 'Add as Kafka source', nodeType: 'source_kafka', propsOverride: { broker: 'localhost:9092' } as Record<string, string> }, 
-      { id: 'out', label: 'Add as Kafka sink', nodeType: 'sink_kafka', propsOverride: { broker: 'localhost:9092', topic: 'output' } as Record<string, string> } ] }) },
+    // Kafka: fuori dalla striscia risorse finché il nodo è sospeso (P358).
     { kind: 'mqtt', label: '⊛ MQTT', build: () => ({ kind: 'mqtt' as const, label: 'New MQTT', config: { broker: 'localhost', port: '1883' }, actions: [ 
       { id: 'in', label: 'Add as MQTT source', nodeType: 'source_mqtt', propsOverride: { url: 'mqtt://localhost:1883' } as Record<string, string> } ,
       { id: 'out',  label: 'Add as publisher (sink)',  nodeType: 'sink_mqtt',  propsOverride: { url: 'mqtt://localhost:1883', topic: 'pipeline/output' } as Record<string, string>}] } ) },

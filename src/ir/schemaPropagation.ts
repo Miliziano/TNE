@@ -39,6 +39,7 @@ import { parseScript, campiAssegnatiTipizzati } from './scriptParser'
 import type { FieldType } from '../types/fieldTypes'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
 import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
+import { BRIDGE_SIGNAL_SCHEMA } from '../nodes/types/bridge/bridgeSchema'
 
 // ─────────────────────────────────────────────────────────────────
 // RISULTATO PROPAGAZIONE
@@ -316,8 +317,11 @@ function inferOutputSchema(
         } catch { /* schema illeggibile */ }
         return []
       }
-      // bridge_out consuma il flusso e non emette verso la lane;
-      // lane_start/lane_end sono marcatori. Per tutti, l'ingresso.
+      // bridge_out (P358): in passthrough rimanda l'ingresso, in signal una
+      // riga di stato; lane_start/lane_end sono marcatori (l'ingresso).
+      if (uiType === 'bridge_out' && props['outputMode'] === 'signal') {
+        return normalizeSchema(BRIDGE_SIGNAL_SCHEMA.map((f) => ({ ...f, id: `bridge_sig_${f.name}`, physicalName: f.name })))
+      }
       return inputSchema
     }
 

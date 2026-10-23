@@ -44,21 +44,17 @@ pub async fn run(
         return Ok(stats);
     }
 
-    // ── Nativo non disponibile (fase 1) ──────────────────────────
+    // ── Senza REST Proxy non si pubblica niente (P358) ───────────
+    // Prima: avviso + riga "_kafka_skipped" e run riuscito, cioè dati
+    // scartati in silenzio. Kafka è sospeso (fuori dalla palette) finché
+    // non ci sarà il protocollo nativo: un nodo rimasto in un progetto
+    // fallisce, non finge.
     if rest_proxy.is_empty() {
-        ctx.emit_log(&ctx.label, "warn", 0, format!(
-            "Kafka Sink [{}]: the native Kafka protocol is not available in phase 1 (requires librdkafka). Configure a REST Proxy URL in the panel to publish. In phase 2 native code will be generated.",
-            topic
-        ), "panel");
-        let mut row = Row::new();
-        row.set("_kafka_skipped".to_string(), Value::Int(rows_in as i64));
-        row.set("topic".to_string(),          Value::String(topic.clone()));
-        row.set("reason".to_string(),         Value::String("native_protocol_unavailable_phase1".to_string()));
-        row.set("completed_at".to_string(),   Value::String(chrono::Utc::now().to_rfc3339()));
-        let rows_out = match &tx { Some(t) => { let _ = t.send(row).await; 1 } None => 0 };
-        let stats = NodeStats { rows_in, rows_out, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
-        ctx.emit_completed(stats.clone());
-        return Ok(stats);
+        let msg = format!(
+            "Kafka Sink [{}]: Kafka is not available in this version (the native protocol is not implemented and no REST Proxy is configured) — {} rows were NOT published",
+            topic, rows_in);
+        ctx.emit_failed(msg.clone());
+        return Err(msg);
     }
 
     // ── REST Proxy (Confluent) ───────────────────────────────────

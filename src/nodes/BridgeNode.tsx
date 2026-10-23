@@ -18,21 +18,22 @@ export const BridgeOutNode = memo(({ id, data, selected }: NodeProps) => {
   const channelName  = String(nodeData.props?.['channelName']  || '...')
   const channelColor = String(nodeData.props?.['channelColor'] || '#a78bfa')
   const syncMode     = String(nodeData.props?.['syncMode']     || 'fire_and_forget')
-  const transferMode = String(nodeData.props?.['transferMode'] || 'content')
   const outputMode   = String(nodeData.props?.['outputMode']   || 'none')
   const schemaCount  = (() => {
     try { return JSON.parse(String(nodeData.props?.['incomingSchema'] ?? '[]')).length } catch { return 0 }
   })()
 
-  const syncIcon    = syncMode === 'wait_for_ack' ? '⇄' : syncMode === 'gate' ? '⊟' : '→'
-  const modeIcon    = transferMode === 'stream' ? '▶▶' : '⬛'
+  // P358: BridgeOut → solo fire & forget / wait for ack (la consegna
+  // "tutto insieme" si sceglie sul BridgeIn).
+  const syncIcon    = syncMode === 'wait_for_ack' ? '⇄' : '→'
+  const modeIcon    = ''
   const outputBadge = outputMode === 'passthrough' ? '↻' : outputMode === 'signal' ? '⚡' : null
 
   return (
     <div
       onClick={() => selectNode(id)}
       onDoubleClick={() => openNodeEditor(id)}
-      title={`Bridge OUT — canale "${channelName}"`}
+      title={`Bridge OUT — channel "${channelName}"`}
       style={{ width: 100, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
 
       <ValidationBadge uiState={nodeData.uiState} corner="top-left" />
@@ -109,19 +110,20 @@ export const BridgeInNode = memo(({ id, data, selected }: NodeProps) => {
 
   const channelName  = String(nodeData.props?.['channelName']  || '...')
   const channelColor = String(nodeData.props?.['channelColor'] || '#a78bfa')
-  const syncMode     = String(nodeData.props?.['syncMode']     || 'fire_and_forget')
-  const timeoutSec   = String(nodeData.props?.['timeoutSec']   || '30')
+  const delivery     = String(nodeData.props?.['delivery'] || (nodeData.props?.['syncMode'] === 'gate' ? 'all' : 'stream'))
+  const timeoutSec   = String(nodeData.props?.['waitTimeoutSec'] || '0')
   const schemaCount  = (() => {
     try { return JSON.parse(String(nodeData.props?.['outputSchema'] ?? '[]')).length } catch { return 0 }
   })()
 
-  const syncIcon = syncMode === 'wait_for_ack' ? '⇄' : syncMode === 'gate' ? '⊟' : '←'
+  // P358: ⬛ = consegna "tutto insieme", ← = man mano che arriva.
+  const syncIcon = delivery === 'all' ? '⬛' : '←'
 
   return (
     <div
       onClick={() => selectNode(id)}
       onDoubleClick={(e) => { e.stopPropagation(); setShowModal(true) }}
-      title={`Bridge IN — canale "${channelName}" (timeout ${timeoutSec}s)`}
+      title={`Bridge IN — channel "${channelName}"${delivery === 'all' ? ' — all at once' : ''}${timeoutSec !== '0' ? ` (timeout ${timeoutSec}s)` : ''}`}
       style={{ width: 100, position: 'relative', cursor: 'pointer', userSelect: 'none' }}>
 
       <ValidationBadge uiState={nodeData.uiState} corner="bottom-left" />

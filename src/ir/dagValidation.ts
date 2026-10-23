@@ -51,6 +51,7 @@ export function validateDAG(plan: LogicalPlan): ValidationResult {
   issues.push(...checkSinkDbCustomSql(plan))
   issues.push(...checkCatchHandles(plan))
   issues.push(...checkFilterConditions(plan))
+  issues.push(...checkNodiSospesi(plan))
 
   return buildResult(issues)
 }
@@ -254,7 +255,7 @@ function checkMissingSinks(plan: LogicalPlan): ValidationIssue[] {
   if (sinkIds.size === 0) {
     issues.push({
       code: 'NO_SINK', message: 'The pipeline has no destination (sink) nodes',
-      severity: 'warning', hint: 'Add a DB Sink, File Output or Kafka node',
+      severity: 'warning', hint: 'Add a DB Sink or a File Output node',
     })
     return issues
   }
@@ -737,6 +738,33 @@ const DATASET_SOURCED = new Set(['window', 'aggregate', 'pivot'])
 const MOTORE_NON_IMPLEMENTA = new Set<string>([
   // vuota: tutti i nodi hanno un'implementazione nel motore Rust.
 ])
+
+/**
+ * Nodi SOSPESI per decisione di prodotto (P358): Kafka. Il motore parla
+ * solo con un REST Proxy, che il pannello non permette di configurare,
+ * quindi il nodo non pubblicherebbe né leggerebbe niente. Fuori dalla
+ * palette fino alla versione pilota/beta; nei progetti esistenti blocca
+ * il Run (errore, non avviso: un sink che scarta i dati non deve partire).
+ */
+const NODI_SOSPESI: Record<string, string> = {
+  source_kafka: 'Kafka',
+  sink_kafka:   'Kafka',
+}
+
+function checkNodiSospesi(plan: LogicalPlan): ValidationIssue[] {
+  return plan.nodes.flatMap((node) => {
+    const what = NODI_SOSPESI[node._uiRef?.type ?? '']
+    if (!what) return []
+    const label = node._uiRef?.label ?? node.id
+    return [{
+      nodeId:   canvasNodeId(node.id),
+      code:     'NODE_SUSPENDED',
+      severity: 'error' as const,
+      message:  `"${label}": ${what} nodes are not available in this version — the node would neither publish nor consume`,
+      hint:     `Remove the node or replace it (e.g. File Output, DB Sink, MQTT). ${what} will return in a later version`,
+    }]
+  })
+}
 
 /**
  * Avvisa, a design-time, per ogni nodo in flusso che il motore non esegue

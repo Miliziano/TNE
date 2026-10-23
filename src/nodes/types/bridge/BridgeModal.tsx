@@ -22,6 +22,7 @@ import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { TabGeneral }  from '../../../components/tabs/TabGeneral'
 import { TabAdvanced } from '../../../components/tabs/TabAdvanced'
+import { BridgeInDelivery } from './Panel'
 import type { TMapConfig } from '../../../types'
 
 const ACCENT = '#a78bfa'
@@ -118,8 +119,7 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
 
   const channelName  = p('channelName')
   const channelColor = p('channelColor', '#a78bfa')
-  const syncMode     = p('syncMode', 'fire_and_forget')
-  const timeoutSec   = p('timeoutSec', '30')
+  const timeoutSec   = p('waitTimeoutSec', '0')
   const laneId       = node.data.laneId
 
   const counterpart = useMemo(() => {
@@ -160,7 +160,7 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
               </button>
             ) : (
               <div style={{ fontSize: 11, color: '#ff5f57', fontStyle: 'italic' }}>
-                {channelName ? 'Non trovato' : '—'}
+                {channelName ? 'Not found' : '—'}
               </div>
             )}
           </div>
@@ -189,35 +189,13 @@ function ConfigTab({ nodeId }: { nodeId: string }) {
         </div>
       </Field>
 
-      <SectionTitle label="Sync" color={color} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {([
-          { value: 'fire_and_forget', label: '→ Fire & Forget', desc: 'Processes the data as soon as it arrives, without signaling Lane A.' },
-          { value: 'wait_for_ack',    label: '⇄ Wait for Ack',  desc: 'Sends an ACK for each received envelope (for remote channels).' },
-          { value: 'gate',            label: '⊟ Gate',           desc: 'Blocks until Lane A has completed the flow.' },
-        ] as const).map((m) => (
-          <button key={m.value} onClick={() => updateProp(nodeId, 'syncMode', m.value)}
-            style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
-              background: syncMode === m.value ? `color-mix(in srgb, ${color} 15%, #1a2030)` : '#1a2030',
-              border: syncMode === m.value ? `1px solid ${color}` : '1px solid #2a3349',
-              display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: syncMode === m.value ? color : '#c8d4f0' }}>{m.label}</span>
-            <span style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4 }}>{m.desc}</span>
-          </button>
-        ))}
-      </div>
-
-      <SectionTitle label="Timeout" color={color} />
-      <Field label="Timeout attesa (secondi)"
-        hint="Tempo massimo di attesa per il primo envelope. Se scade, la pipeline fallisce.">
-        <input type="number" style={iStyle} value={timeoutSec} onChange={u('timeoutSec')} min="1" max="3600" />
-      </Field>
+      <BridgeInDelivery nodeId={nodeId} accent={color} timeoutSec={timeoutSec} />
 
       <div style={{ padding: '8px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.6 }}>
-        <div style={{ color, fontWeight: 600, marginBottom: 4 }}>BridgeIn — come funziona</div>
-        <div>• Blocks until BridgeOut publishes on channel <code style={{ color }}>{channelName || '…'}</code></div>
-        <div>• Emits the received rows to the downstream nodes of the lane</div>
-        <div>• Il timeout protegge da BridgeOut mancante o crashato</div>
+        <div style={{ color, fontWeight: 600, marginBottom: 4 }}>BridgeIn — how it works</div>
+        <div>• Receives the rows that BridgeOut publishes on channel <code style={{ color }}>{channelName || '…'}</code></div>
+        <div>• Emits them to the next nodes of this lane — as they arrive, or all at once</div>
+        <div>• The wait timeout protects against a source lane that never produces</div>
       </div>
     </div>
   )

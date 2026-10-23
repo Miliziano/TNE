@@ -45,14 +45,14 @@ pub async fn run(
     let start = Instant::now();
 
     // ── Nativo non disponibile (fase 1) ──────────────────────────
+    // Senza REST Proxy non si legge niente (P358): errore, non un run
+    // "riuscito" a zero righe. Kafka è sospeso finché non c'è il nativo.
     if rest_proxy.is_empty() {
-        ctx.emit_log(&ctx.label, "warn", 0, format!(
-            "Kafka Source [{}]: the native Kafka protocol is not available in phase 1 (requires librdkafka). Configure a REST Proxy URL in the panel to test, or use a File/Script source. In phase 2 native code will be generated.",
-            if topics.is_empty() { "topic not configured" } else { &topics }
-        ), "panel");
-        let stats = NodeStats { rows_in: 0, rows_out: 0, rows_rejected: 0, elapsed_ms: start.elapsed().as_millis() as u64, error: None };
-        ctx.emit_completed(stats.clone());
-        return Ok(stats);
+        let msg = format!(
+            "Kafka Source [{}]: Kafka is not available in this version (the native protocol is not implemented and no REST Proxy is configured)",
+            if topics.is_empty() { "topic not configured" } else { &topics });
+        ctx.emit_failed(msg.clone());
+        return Err(msg);
     }
 
     // ── REST Proxy (Confluent) ───────────────────────────────────
