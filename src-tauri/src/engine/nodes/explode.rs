@@ -14,9 +14,20 @@
 //   flow_field  — per ogni riga in ingresso, esplode un campo collettivo
 //                 (array o oggetto) in più righe.
 //
+// MAPPING (explodeMapping, tab Mapping dello studio — P360):
+//   [{ sourceField, outputName, type, transform, include }]
+//   Se c'è, ogni riga esplosa esce con SOLO i campi inclusi, col nome
+//   logico, trasformati (trim | uppercase |
+//   lowercase | nullify_empty) e convertiti al tipo (engine/field_mapping.rs).
+//   Un valore non convertibile resta com'è e si conta: un avviso a fine
+//   esecuzione per campo, invece di un null silenzioso.
+//   Il mapping vale per i campi dell'elemento esploso; i campi del padre
+//   (includeParent) si aggiungono così come sono.
+//   Senza mapping: tutti i campi, come prima.
+//
 // COSA NON FA, per scelta:
 //   - navigare strutture annidate (JSONPath) → è mestiere di `json_parser`
-//   - trasformare i valori (trim, uppercase…)  → è mestiere di `transform`
+//   - calcoli ed espressioni sui valori       → è mestiere di `transform`/`tmap`
 //   - leggere variabili di lane                 → caricale in un materialize
 //
 // Un nodo, una responsabilità.
@@ -26,6 +37,7 @@ use std::collections::HashMap;
 use crate::engine::types::*;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext, make_drain, take_primary_output};
+use crate::engine::field_mapping::{transform_text, effective_type, is_text_transform, matches_type, try_coerce};
 
 // ─── Config ────────────────────────────────────────────────────────
 //
@@ -42,12 +54,99 @@ struct ExplodeConfig {
     on_empty:         String,   // skip | null_row | error
     on_primitive:     String,   // wrap | skip | error
     limit:            usize,    // max righe per riga padre (0 = nessun limite)
+    mapping:          Mapping,
+}
+
+// ─── Mapping ───────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize, Clone, Debug)]
+struct MapField {
+    #[serde(default, rename = "sourceField")]
+    source:    String,
+    #[serde(default, rename = "outputName")]
+    name:      String,
+    #[serde(default, rename = "type")]
+    ty:        String,
+    #[serde(default)]
+    transform: String,
+    #[serde(default = "si")]
+    include:   bool,
+}
+
+fn si() -> bool { true }
+
+impl MapField {
+    /// Campo letto: `sourceField`, o il nome logico per i campi aggiunti a mano.
+    fn key(&self) -> &str { if self.source.is_empty() { &self.name } else { &self.source } }
+    fn out(&self) -> &str { if self.name.is_empty() { &self.source } else { &self.name } }
+}
+
+/// I campi inclusi del mapping. Vuoto = nessun mapping (tutti i campi).
+#[derive(Default)]
+struct Mapping {
+    fields: Vec<MapField>,
+}
+
+impl Mapping {
+    fn parse(raw: &str) -> Result<Mapping, String> {
+        if raw.trim().is_empty() { return Ok(Mapping::default()) }
+        let all: Vec<MapField> = serde_json::from_str(raw)
+            .map_err(|e| format!("invalid field mapping: {}", e))?;
+        Ok(Mapping { fields: all.into_iter()
+            .filter(|f| f.include && !f.key().is_empty())
+            .collect() })
+    }
+
+    /// Riga esplosa → riga d'uscita. `failed` conta, per campo d'uscita,
+    /// i valori che non si potevano convertire al tipo dichiarato.
+    fn apply(&self, row: Row, failed: &mut HashMap<String, (u64, String)>) -> Row {
+        if self.fields.is_empty() { return row }
+        let mut out = Row::new();
+        for f in &self.fields {
+            let v = match row.get(f.key()) {
+                None | Some(Value::Null) => Value::Null,
+                Some(v) => map_value(v, f, failed),
+            };
+            out.set(f.out().to_string(), v);
+        }
+        out
+    }
+}
+
+fn map_value(v: &Value, f: &MapField, failed: &mut HashMap<String, (u64, String)>) -> Value {
+    let ty = effective_type(&f.ty, &f.transform);
+    let text_t = is_text_transform(&f.transform);
+    // Già del tipo giusto e niente da trasformare: resta com'è.
+    if !text_t && matches_type(v, ty) { return v.clone() }
+
+    let Some(text) = transform_text(&v.as_str_repr(), &f.transform) else { return Value::Null };
+    let target = if ty.is_empty() || ty == "any" { "string" } else { ty };
+    match try_coerce(&text, target) {
+        Some(x) => x,
+        None => {
+            let e = failed.entry(f.out().to_string()).or_insert((0, target.to_string()));
+            e.0 += 1;
+            if text_t { Value::String(text) } else { v.clone() }
+        }
+    }
+}
+
+/// Un avviso per campo con valori non convertibili.
+fn report_failed(ctx: &NodeContext, failed: &HashMap<String, (u64, String)>) {
+    let mut keys: Vec<&String> = failed.keys().collect();
+    keys.sort();
+    for k in keys {
+        let (n, ty) = &failed[k];
+        let msg = format!("field '{}': {} value(s) could not be converted to {} and were kept as they are", k, n, ty);
+        eprintln!("[explode] {}: {}", ctx.node_id.0, msg);
+        ctx.emit_log(&ctx.label, "warn", 0, msg, "panel");
+    }
 }
 
 /// Legge la config dalle props del pannello (camelCase, verbatim).
 /// I default sono quelli dichiarati in docs/node-spec.md §8.
-fn config_from_spec(spec: &Spec) -> ExplodeConfig {
-    ExplodeConfig {
+fn config_from_spec(spec: &Spec) -> Result<ExplodeConfig, String> {
+    Ok(ExplodeConfig {
         source:           spec.str_or("explodeSource",  "materialize"),
         materialize_name: spec.str_or("materializeName", ""),
         field:            spec.str_or("flowField",       ""),
@@ -56,7 +155,8 @@ fn config_from_spec(spec: &Spec) -> ExplodeConfig {
         on_empty:         spec.str_or("onEmpty",         "skip"),
         on_primitive:     spec.str_or("onPrimitive",     "wrap"),
         limit:            spec.usize_or("limit",         0),
-    }
+        mapping:          Mapping::parse(&spec.str_or("explodeMapping", ""))?,
+    })
 }
 
 // ─── Esecuzione ────────────────────────────────────────────────────
@@ -69,7 +169,8 @@ pub async fn run(
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("explode {}: {}", ctx.node_id.0, e))?;
-    let cfg = config_from_spec(&spec);
+    let cfg = config_from_spec(&spec)
+        .map_err(|e| format!("explode {}: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("explode", &ctx.node_id.0);
 
     // Uscite: 'output' primaria (fallback drain se non collegata, così il nodo
@@ -123,21 +224,27 @@ async fn from_materialize(
     eprintln!("[explode] {}: dataset '{}' → {} righe",
               ctx.node_id.0, cfg.materialize_name, ds.len());
 
+    let mut failed: HashMap<String, (u64, String)> = HashMap::new();
+    let mut rows_out = 0u64;
+
     if ds.is_empty() {
         match cfg.on_empty.as_str() {
             "error" => return Err(format!("explode {}: dataset '{}' is empty",
                                           ctx.node_id.0, cfg.materialize_name)),
-            "null_row" => { let _ = tx.send(Row::new()).await; }
+            // Riga "tutti i campi null": coi campi del mapping, se c'è.
+            "null_row" => {
+                if tx.send(cfg.mapping.apply(Row::new(), &mut failed)).await.is_ok() { rows_out += 1 }
+            }
             _ => {}   // skip
         }
     }
 
-    let mut rows_out = 0u64;
     for row in ds.rows() {
-        if tx.send(row.clone()).await.is_err() { break }
+        if tx.send(cfg.mapping.apply(row.clone(), &mut failed)).await.is_err() { break }
         rows_out += 1;
         if cfg.limit > 0 && rows_out as usize >= cfg.limit { break }
     }
+    report_failed(&ctx, &failed);
 
     let stats = NodeStats {
         rows_in: 0, rows_out, rows_rejected: 0,
@@ -170,6 +277,7 @@ async fn from_flow_field(
     let mut rows_out      = 0u64;
     let mut rows_rejected = 0u64;
     let mut last_prog = Instant::now();
+    let mut failed: HashMap<String, (u64, String)> = HashMap::new();
 
     while let Some(parent) = rx.recv().await {
         rows_in += 1;
@@ -182,7 +290,7 @@ async fn from_flow_field(
                 "error" => return Err(format!("explode {}: field '{}' is null",
                                               ctx.node_id.0, cfg.field)),
                 "null_row" => {
-                    let row = if cfg.include_parent { parent.clone() } else { Row::new() };
+                    let row = child_row(&parent, &cfg, cfg.mapping.apply(Row::new(), &mut failed));
                     if tx.send(row).await.is_err() { break }
                     rows_out += 1;
                 }
@@ -200,7 +308,7 @@ async fn from_flow_field(
             match cfg.on_empty.as_str() {
                 "error" => return Err(format!("explode {}: field '{}' produces an empty structure", ctx.node_id.0, cfg.field)),
                 "null_row" => {
-                    let row = if cfg.include_parent { parent.clone() } else { Row::new() };
+                    let row = child_row(&parent, &cfg, cfg.mapping.apply(Row::new(), &mut failed));
                     if tx.send(row).await.is_err() { break }
                     rows_out += 1;
                 }
@@ -215,19 +323,7 @@ async fn from_flow_field(
         let take = if cfg.limit > 0 { cfg.limit.min(exploded.len()) } else { exploded.len() };
 
         for child in exploded.into_iter().take(take) {
-            let mut out = if cfg.include_parent {
-                // I campi del padre, meno quello esploso: sarebbe ridondante
-                // e in conflitto con i campi generati.
-                let mut r = Row::new();
-                for (k, v) in parent.fields() {
-                    if k != &cfg.field { r.set(k.clone(), v.clone()) }
-                }
-                r
-            } else {
-                Row::new()
-            };
-            for (k, v) in child.fields() { out.set(k.clone(), v.clone()) }
-
+            let out = child_row(&parent, &cfg, cfg.mapping.apply(child, &mut failed));
             if tx.send(out).await.is_err() { break }
             rows_out += 1;
         }
@@ -238,6 +334,8 @@ async fn from_flow_field(
             last_prog = Instant::now();
         }
     }
+
+    report_failed(&ctx, &failed);
 
     // Conteggi per handle di uscita → badge sul canvas (come filter).
     let mut per_out: HashMap<String, u64> = HashMap::new();
@@ -251,6 +349,19 @@ async fn from_flow_field(
     };
     ctx.emit_completed(stats.clone());
     Ok(stats)
+}
+
+/// Riga d'uscita: i campi del padre (se includeParent), meno quello
+/// esploso — sarebbe ridondante e in conflitto coi campi generati —, poi
+/// quelli dell'elemento (già passati dal mapping), che vincono sui nomi.
+fn child_row(parent: &Row, cfg: &ExplodeConfig, child: Row) -> Row {
+    if !cfg.include_parent { return child }
+    let mut r = Row::new();
+    for (k, v) in parent.fields() {
+        if k != &cfg.field { r.set(k.clone(), v.clone()) }
+    }
+    for (k, v) in child.fields() { r.set(k.clone(), v.clone()) }
+    r
 }
 
 // ─── L'esplosione ──────────────────────────────────────────────────
@@ -326,5 +437,55 @@ fn primitive(v: &Value, mode: &str) -> Result<Vec<Row>, String> {
             r.set("value".to_string(), v.clone());
             Ok(vec![r])
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn riga(campi: &[(&str, Value)]) -> Row {
+        let mut r = Row::new();
+        for (k, v) in campi { r.set(k.to_string(), v.clone()) }
+        r
+    }
+
+    #[test]
+    fn mapping_seleziona_rinomina_converte() {
+        let m = Mapping::parse(r#"[
+            {"sourceField":"id","outputName":"codice","type":"integer","transform":"","include":true},
+            {"sourceField":"nome","outputName":"nome","type":"string","transform":"uppercase","include":true},
+            {"sourceField":"note","outputName":"note","type":"string","transform":"","include":false},
+            {"sourceField":"","outputName":"extra","type":"string","transform":"","include":true},
+            {"sourceField":"qta","outputName":"qta","type":"integer","transform":"","include":true}
+        ]"#).unwrap();
+        let mut failed = HashMap::new();
+        let out = m.apply(riga(&[
+            ("id", Value::String("7".into())),
+            ("nome", Value::String("ada".into())),
+            ("note", Value::String("x".into())),
+            ("qta", Value::String("tre".into())),
+        ]), &mut failed);
+        let mut campi: Vec<&String> = out.fields().map(|(k, _)| k).collect();
+        campi.sort();
+        assert_eq!(campi, vec!["codice", "extra", "nome", "qta"]);
+        assert_eq!(out.get("codice"), Some(&Value::Int(7)));
+        assert_eq!(out.get("nome"), Some(&Value::String("ADA".into())));
+        assert_eq!(out.get("extra"), Some(&Value::Null));
+        // non convertibile: resta com'è e si conta
+        assert_eq!(out.get("qta"), Some(&Value::String("tre".into())));
+        assert_eq!(failed.get("qta").map(|x| x.0), Some(1));
+    }
+
+    #[test]
+    fn mapping_vuoto_lascia_tutto() {
+        let m = Mapping::parse("").unwrap();
+        assert!(m.fields.is_empty());
+        let mut failed = HashMap::new();
+        let r = riga(&[("a", Value::Int(1))]);
+        let out = m.apply(r, &mut failed);
+        assert_eq!(out.get("a"), Some(&Value::Int(1)));
+        assert_eq!(out.fields().count(), 1);
+        assert!(Mapping::parse("{non json").is_err());
     }
 }

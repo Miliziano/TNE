@@ -1893,3 +1893,38 @@ id). Implementate quelle che hanno senso in un canale in memoria, tolte le altre
   `delivered` e BridgeOut chiuso dopo il BridgeIn; signal senza ack → `sent`; all at once;
   timeout 1 s su sorgente lenta → errore; timeout 5 s rispettato) + 2 test unitari
   (all at once con mittente morto → nessuna riga a valle; stream interrotto → errore).
+
+## AGGIORNAMENTO — Explode: il mapping si applica (stato al P360, 23 ottobre)
+
+Punto 6 dell'audit: la tab Mapping dell'Explode (`explodeMapping`: sourceField, outputName,
+type, transform, include) era ignorata dal motore, e lo schema d'uscita dello studio non
+corrispondeva ai dati.
+- **Motore** (`explode.rs`): con un mapping, ogni riga esplosa esce con SOLO i campi
+  inclusi, col nome logico, trasformazione del testo (trim/uppercase/lowercase/
+  nullify_empty) e tipo; le vecchie to_* valgono come tipo. Un valore non convertibile
+  resta com'è (niente null silenzioso) e a fine esecuzione c'è un avviso `warn` per campo.
+  Il mapping vale per l'elemento esploso; i campi del padre (includeParent) si aggiungono
+  com'erano. Riga `null_row`: i campi del mapping a null. Senza mapping: come prima.
+  Mapping non JSON → errore parlante.
+- **Modulo comune** `engine/field_mapping.rs`: `transform_text`, `effective_type`,
+  `try_coerce`/`coerce`, `matches_type` — tolti da source_file.rs, che ora li importa. Il
+  tipo `number` ora dà un numero (prima, in source_file, una stringa).
+- **Studio**: lo schema d'uscita ha UNA regola, `explode/schema.ts`
+  (`explodeOutputSchema`), calcolata e propagata dal MappingPanel (sempre montato
+  nell'editor). Prima c'erano tre scrittori in conflitto: l'effetto del Panel (che a ogni
+  apertura rimetteva lo schema completo del materialize, cancellando il mapping), il
+  saveMapping e l'editor manuale dello schema per flow_field — quest'ultimo è stato tolto:
+  per flow_field i campi si dichiarano nella tab Mapping. Uno schema manuale vecchio resta
+  finché il mapping non viene toccato (prop `explodeMapping` assente). Trasformazioni
+  offerte: none/trim/UPPER/lower/empty→null; le to_* salvate compaiono come "(legacy)".
+  Hook spostati prima dei return in Panel e MappingPanel. Sottotitolo flow_field col nome
+  del campo; descrizione nodeDefs senza "lane variables".
+- Compatibilità: nodeDefs explode non ha `fields` (niente default salvati). Un mapping già
+  salvato ora si applica: con la sorgente materialize è stato seminato all'apertura della
+  tab con tutti i campi del dataset, quindi l'effetto è tenere solo i campi dichiarati
+  (lo schema che lo studio già mostrava) e convertire ai tipi dichiarati, lasciando
+  com'è ciò che non si converte.
+- Collaudo: 3 test unitari (mapping, field_mapping) + harness throwaway (CSV con campo JSON
+  → flow_field + includeParent + mapping + null_row; senza mapping invariato; materialize
+  signal → explode con rinomina/tipo/uppercase; mapping rotto → errore). Prossimo punto
+  dell'audit: sink_file.

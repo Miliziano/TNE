@@ -226,7 +226,8 @@ export function getNodeSubtitle(data: NodeData): string {
       const src = p('explodeSource', 'materialize')
       const mat = p('materializeName')
       if (src === 'materialize' && mat) return withCatch(`⊕ ◈${truncate(mat, 28)}`, data)
-      return withCatch('⊕ flow field', data)
+      const fld = p('flowField')
+      return withCatch(fld ? `⊕ ${truncate(fld, 28)}` : '⊕ flow field', data)
     }
 
     case 'json_parser': {

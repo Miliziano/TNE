@@ -154,7 +154,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category:    'transform',
     icon:        '⊕',
     color:       '#a78bfa',
-    description: 'Turns dense structures (Materialize, lane variables, object fields) into a flow of rows.',
+    description: 'Turns dense structures (a Materialize dataset, an array or object field) into a flow of rows.',
     fields:      [],
   },
   source_http: {

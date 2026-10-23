@@ -1,12 +1,12 @@
 /**
  * src/nodes/types/explode/Panel.tsx
  */
-import { useMemo, useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../useIncomingSchema'
 import type { SchemaField } from '../../../utils/schemaUtils'
 import type { Variable } from '../../../types'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { materializeSchemaOf } from './schema'
 
 
 const inputStyle: React.CSSProperties = {
@@ -44,6 +44,9 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
   const nodes      = useFlowStore((s) => s.nodes)
   const edges      = useFlowStore((s) => s.edges)
 
+  // Gli hook prima di ogni return (regole di React).
+  const incomingFields = useIncomingSchema(nodeId)
+
   if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
@@ -54,73 +57,16 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
   const laneId  = node.data.laneId
   const hasInput = edges.some((e) => e.target === nodeId)
 
-  const incomingFields = useIncomingSchema(nodeId)
-
   // Variabili lane
-  const laneVars: Variable[] = useMemo(() => {
-    const lane = pool.lanes.find((l) => l.id === laneId)
-    return lane?.variables ?? []
-  }, [pool, laneId])
-
+  const laneVars: Variable[] = pool.lanes.find((l) => l.id === laneId)?.variables ?? []
   const materializeVars = laneVars.filter((v) => v.type === 'materialize')
   const objectFields    = incomingFields.filter((f) => f.type === 'object' || f.type === 'any')
 
-  // ── Schema derivato dal Materialize selezionato ───────────────
-  // Quando source === 'materialize' e materializeName è configurato,
-  // legge incomingSchema del nodo Materialize corrispondente.
-  const materializeSchema = useMemo((): SchemaField[] => {
-    if (source !== 'materialize') return []
-    const matName = p('materializeName')
-    if (!matName) return []
-
-    const matVar = materializeVars.find((v) => v.name === matName)
-    if (!matVar) return []
-
-    const matNodeLocal = nodes.find((n) => n.id === matVar.value)
-    if (!matNodeLocal) return []
-
-    const matModeLocal = matNodeLocal.data.props['matMode'] ?? 'passthrough'
-    const isSignal     = matModeLocal === 'buffer_signal'
-    const signalFields = new Set(['name', 'row_count', 'status', 'completed_at', 'elapsed_ms'])
-
-    try {
-      const raw = matNodeLocal.data.props['incomingSchema'] || matNodeLocal.data.props['outputSchema']
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed)) return []
-      return parsed
-        .filter((f: any) => !isSignal || !signalFields.has(f.name))
-        .map((f: any, i: number) => ({
-          id:           f.id   ?? `mat_field_${i}`,
-          name:         f.name ?? `field_${i}`,
-          type:         f.type ?? 'string',
-          physicalName: f.physicalName ?? f.name,
-        }))
-    } catch {
-      return []
-    }
-  }, [source, p('materializeName'), nodes, materializeVars])
-
-  // ── Schema derivato dal campo flusso selezionato ─────────────
-  const flowFieldSchema = useMemo((): SchemaField[] => {
-    if (source !== 'flow_field') return []
-    const fieldName = p('flowField')
-    if (!fieldName) return []
-    // Lo schema del campo flusso non è noto staticamente —
-    // dipende dal contenuto runtime. Restituisce schema vuoto
-    // per permettere configurazione manuale.
-    return []
-  }, [source, p('flowField')])
-
-  // ── outputSchema effettivo ────────────────────────────────────
-  const derivedSchema = source === 'materialize' ? materializeSchema : flowFieldSchema
-
-  // Propaga outputSchema quando lo schema derivato cambia
-  useEffect(() => {
-    if (derivedSchema.length > 0) {
-      updateProp(nodeId, 'outputSchema', JSON.stringify(derivedSchema))
-    }
-  }, [JSON.stringify(derivedSchema)])
+  // ── Campi del dataset del Materialize selezionato (solo da mostrare:
+  // lo schema d'uscita lo calcola il MappingPanel, v. ./schema.ts) ──
+  const matVarSel  = source === 'materialize' ? materializeVars.find((v) => v.name === p('materializeName')) : undefined
+  const matNodeSel = matVarSel ? nodes.find((n) => n.id === matVarSel.value) : null
+  const materializeSchema: SchemaField[] = materializeSchemaOf(matNodeSel)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -197,7 +143,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
           {/* Schema derivato dal Materialize */}
           {materializeSchema.length > 0 && (
             <>
-              <SectionTitle label="Derived schema" color="#3ddc84" />
+              <SectionTitle label="Dataset fields" color="#3ddc84" />
               <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
                   {['Field', 'Type'].map((h) => (
@@ -213,7 +159,7 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
               </div>
               <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
                 <i className="ti ti-check" style={{ fontSize: 9, color: '#3ddc84' }} />
-                Schema propagated automatically to downstream nodes.
+                Choose, rename and convert the emitted fields in the Mapping tab.
               </div>
             </>
           )}
@@ -252,8 +198,8 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
           </Field>
           <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-            The exploded element's schema depends on the field's runtime content.
-            Configure the output schema manually in the section below.
+            The exploded element's fields depend on the field's runtime content.
+            Declare them in the Mapping tab: without a mapping every field is emitted as it is.
           </div>
         </>
       )}
@@ -268,26 +214,12 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
 
-      {/* ── Schema output manuale (solo flow_field) ── */}
-      {source === 'flow_field' && (
-        <>
-          <SectionTitle label="Output schema" />
-          <SchemaEditor
-            nodeId={nodeId}
-            currentSchema={(() => {
-              try { return JSON.parse(node.data.props['outputSchema'] ?? '[]') } catch { return [] }
-            })()}
-            onSave={(fields) => updateProp(nodeId, 'outputSchema', JSON.stringify(fields))}
-          />
-        </>
-      )}
-
       {/* ── Opzioni ── */}
       <SectionTitle label="Options" />
       <Field label="On empty structure">
         <CustomSelect style={inputStyle} value={p('onEmpty', 'skip')} onChange={u('onEmpty')}>
           <option value="skip">Skip — emits nothing</option>
-          <option value="null_row">Emit null row — all fields null</option>
+          <option value="null_row">Emit one row — mapped fields null</option>
           <option value="error">Error — stops the flow</option>
         </CustomSelect>
       </Field>
@@ -306,71 +238,6 @@ export function ExplodePanel({ nodeId }: { nodeId: string }) {
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
         Typical pattern: <code style={{ color: '#22d3ee', fontSize: 9 }}>Materialize → Explode → TMap → Sink</code>
       </div>
-    </div>
-  )
-}
-
-// ─── Editor schema manuale ────────────────────────────────────────
-import { FIELD_TYPES } from '../../../types/fieldTypes'
-
-function SchemaEditor({ currentSchema, onSave }: {
-  nodeId:        string
-  currentSchema: SchemaField[]
-  onSave:        (fields: SchemaField[]) => void
-}) {
-  const addField = () => {
-    const n = currentSchema.length + 1
-    onSave([...currentSchema, {
-      id:   `explode_field_${Date.now()}`,
-      name: `field_${n}`,
-      type: 'string',
-    }])
-  }
-
-  const updateField = (idx: number, key: keyof SchemaField, value: string) => {
-    onSave(currentSchema.map((f, i) => i === idx ? { ...f, [key]: value } : f))
-  }
-
-  const deleteField = (idx: number) =>
-    onSave(currentSchema.filter((_, i) => i !== idx))
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {currentSchema.length === 0 ? (
-        <div style={{ padding: '12px', textAlign: 'center', fontSize: 10, color: '#2a3349', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-          No field defined. Manually add the fields the Explode will produce.
-        </div>
-      ) : (
-        <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: 6, padding: '4px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Field name', 'Type', ''].map((h, i) => (
-              <div key={i} style={{ fontSize: 9, color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
-            ))}
-          </div>
-          {currentSchema.map((f, idx) => (
-            <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 24px', gap: 6, alignItems: 'center', padding: '4px 8px', background: idx % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: idx < currentSchema.length - 1 ? '0.5px solid #2a3349' : 'none' }}>
-              <input value={f.name} onChange={(e) => updateField(idx, 'name', e.target.value)}
-                style={{ ...inputStyle, fontSize: 10, padding: '2px 6px' }} placeholder="field_name" />
-              <CustomSelect value={f.type} onChange={(e) => updateField(idx, 'type', e.target.value)}
-                style={{ ...inputStyle, fontSize: 9, padding: '2px 3px' }}>
-                {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </CustomSelect>
-              <button onClick={() => deleteField(idx)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
-                <i className="ti ti-x" style={{ fontSize: 10 }} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <button onClick={addField}
-        style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #1a2030)`, color: ACCENT, border: `0.5px dashed ${ACCENT}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}60` }}>
-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi campo
-      </button>
     </div>
   )
 }

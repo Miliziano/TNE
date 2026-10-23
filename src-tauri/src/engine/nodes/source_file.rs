@@ -51,6 +51,7 @@ use crate::engine::types::*;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, NodeContext, RowReceiver};
 use crate::engine::text_encoding::{decode_text, decode_byte, is_single_byte, normalize};
+use crate::engine::field_mapping::{transform_text, effective_type, coerce};
 
 #[derive(serde::Deserialize, Clone, Debug)]
 struct FieldType {
@@ -310,27 +311,7 @@ fn next_record(src: &mut LineSource, c: &SourceFileConfig) -> Option<Result<Vec<
 
 // ─── Mapping ───────────────────────────────────────────────────────
 
-fn transform_text(s: &str, t: &str) -> Option<String> {
-    match t {
-        "trim"          => Some(s.trim().to_string()),
-        "uppercase"     => Some(s.to_uppercase()),
-        "lowercase"     => Some(s.to_lowercase()),
-        "nullify_empty" => if s.trim().is_empty() { None } else { Some(s.to_string()) },
-        _               => Some(s.to_string()),
-    }
-}
-
-/// Le trasformazioni-conversione (legacy) valgono come tipo.
-fn effective_type<'a>(f: &'a FieldType) -> &'a str {
-    match f.transform.as_str() {
-        "to_int" | "to_integer"  => "integer",
-        "to_float" | "to_decimal" => "decimal",
-        "to_date"   => "date",
-        "to_bool" | "to_boolean" => "boolean",
-        "to_string" => "string",
-        _ => f.ty.as_str(),
-    }
-}
+// transform_text, effective_type e coerce: engine/field_mapping.rs (P360).
 
 /// Riga del file (colonna → valore) → riga d'uscita secondo il mapping.
 fn project(raw: &Row, fields: &[FieldType]) -> Row {
@@ -340,7 +321,7 @@ fn project(raw: &Row, fields: &[FieldType]) -> Row {
         let v = match raw.get(f.column()) {
             None | Some(Value::Null) => Value::Null,
             Some(v) => {
-                let ty = effective_type(f);
+                let ty = effective_type(&f.ty, &f.transform);
                 let is_text = matches!(v, Value::String(_));
                 match transform_text(&v.as_str_repr(), &f.transform) {
                     None => Value::Null,
@@ -701,25 +682,6 @@ fn read_excel(
     Ok(out)
 }
 
-fn coerce(raw: &str, ty: &str) -> Value {
-    let t = raw.trim();
-    if t.is_empty() { return Value::Null }
-
-    match ty {
-        "integer" => t.parse::<i64>().map(Value::Int).unwrap_or(Value::Null),
-        "float"   => t.parse::<f64>().map(Value::Float).unwrap_or(Value::Null),
-        "decimal" => t.parse::<rust_decimal::Decimal>().map(Value::Decimal).unwrap_or(Value::Null),
-        "boolean" => match t.to_lowercase().as_str() {
-            "true"  | "1" | "si" | "sì" | "yes" | "y" | "t" => Value::Bool(true),
-            "false" | "0" | "no" | "n"  | "f"               => Value::Bool(false),
-            _ => Value::Null,
-        },
-        "date" | "datetime" => Value::String(t.to_string()),  // il motore parsa on-demand
-        "object" => serde_json::from_str::<serde_json::Value>(t)
-            .map(Value::Object).unwrap_or(Value::String(t.to_string())),
-        _ => Value::String(t.to_string()),   // string, any, sconosciuto
-    }
-}
 #[cfg(test)]
 mod tests_excel {
     use super::*;

@@ -1,10 +1,20 @@
 /**
  * src/nodes/types/explode/MappingPanel.tsx
+ *
+ * Mapping dei campi dell'Explode: quali campi escono, con che nome, tipo e
+ * trasformazione. Il motore lo applica (P360, explode.rs); lo schema
+ * d'uscita si ricava SOLO da qui, con la regola di ./schema.ts.
  */
 import { useEffect, useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { useIncomingSchema } from '../../useIncomingSchema'
 import type { TMapConfig } from '../../../types'
+import { FIELD_TYPES, type FieldType } from '../../../types/fieldTypes'
+import {
+  EXPLODE_TRANSFORMS, explodeOutputSchema, materializeSchemaOf, readExplodeMapping,
+  type ExplodeMappingField,
+} from './schema'
 
 const ACCENT = '#a78bfa'
 
@@ -14,26 +24,34 @@ const inputStyle: React.CSSProperties = {
   fontSize: 11, padding: '5px 8px', outline: 'none',
 }
 
-import { FIELD_TYPES } from '../../../types/fieldTypes'
-const TRANSFORMS = [
-  { value: '',              label: 'none'    },
-  { value: 'trim',          label: 'trim'       },
-  { value: 'uppercase',     label: 'UPPER'      },
-  { value: 'lowercase',     label: 'lower'      },
-  { value: 'to_int',        label: '→ int'      },
-  { value: 'to_float',      label: '→ dec'      },
-  { value: 'to_date',       label: '→ date'     },
-  { value: 'to_bool',       label: '→ bool'     },
-  { value: 'to_string',     label: '→ str'      },
-  { value: 'nullify_empty', label: 'empty→null' },
-]
+type MappingField = ExplodeMappingField
 
-type MappingField = {
-  sourceField: string
-  outputName:  string
-  type:        string
-  transform:   string
-  include:     boolean
+/** Porta lo schema d'uscita ai nodi collegati a valle. */
+function propagate(nodeId: string, outputSchema: Array<{ id: string; name: string; type: string; physicalName?: string }>) {
+  const store    = useFlowStore.getState()
+  const outEdges = store.edges.filter((e) => e.source === nodeId)
+  outEdges.forEach((edge) => {
+    const tgt = store.nodes.find((n) => n.id === edge.target)
+    if (!tgt) return
+    if (tgt.data.type === 'tmap') {
+      const tmap  = tgt.data.config?.tmap as TMapConfig | undefined
+      if (!tmap) return
+      const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
+      if (!input) return
+      const existingNames = new Set(
+        input.fields.filter((f) => !f.name.startsWith('status.')).map((f) => f.name)
+      )
+      const merged = [
+        ...input.fields,
+        ...outputSchema
+          .filter((f) => !existingNames.has(f.name))
+          .map((f) => ({ id: f.id, name: f.name, type: f.type as FieldType, physicalName: f.physicalName })),
+      ]
+      store.updateTMapInput(tgt.id, input.id, { fields: merged })
+    } else {
+      store.updateNodeProp(tgt.id, 'incomingSchema', JSON.stringify(outputSchema))
+    }
+  })
 }
 
 export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
@@ -41,94 +59,44 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const nodes      = useFlowStore((s) => s.nodes)
   const pool       = useFlowStore((s) => s.pool)
+  const parentFields = useIncomingSchema(nodeId)
 
-  if (!node) return null
+  const props   = node?.data.props ?? {}
+  const source  = props['explodeSource'] ?? 'materialize'
+  const laneId  = node?.data.laneId
+  const matName = props['materializeName'] ?? ''
 
-  const source  = node.data.props['explodeSource'] ?? 'materialize'
-  const laneId  = node.data.laneId
-  const matName = node.data.props['materializeName'] ?? ''
+  const laneVars = pool.lanes.find((l) => l.id === laneId)?.variables ?? []
+  const matVar   = laneVars.find((v) => v.type === 'materialize' && v.name === matName)
+  const matNode  = matVar ? nodes.find((n) => n.id === matVar.value) : null
+  const matMode  = matNode?.data.props['matMode'] ?? 'passthrough'
 
-  const laneVars   = pool.lanes.find((l) => l.id === laneId)?.variables ?? []
-  const matVar     = laneVars.find((v) => v.type === 'materialize' && v.name === matName)
-  const matNode    = matVar ? nodes.find((n) => n.id === matVar.value) : null
-  const matMode    = matNode?.data.props['matMode'] ?? 'passthrough'
-  const isSignal   = matMode === 'buffer_signal'
+  const materializeSchema = useMemo(
+    () => source === 'materialize' ? materializeSchemaOf(matNode) : [],
+    [source, matNode],
+  )
+  // Campi proposti dal "Sync": quelli del dataset (materialize).
+  const sourceSchema = materializeSchema
 
-  const sourceSchema = useMemo(() => {
-    if (source !== 'materialize' || !matNode) return []
-    try {
-      const raw = matNode.data.props['incomingSchema'] || matNode.data.props['outputSchema']
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed)) return []
-      const signalFields = new Set(['name', 'row_count', 'status', 'completed_at', 'elapsed_ms'])
-      return parsed.filter((f: any) =>
-        !isSignal || !signalFields.has(f.name)
-      ).map((f: any, i: number) => ({
-        id:   f.id   ?? `ef_${i}`,
-        name: f.name ?? `campo_${i}`,
-        type: f.type ?? 'string',
-      }))
-    } catch { return [] }
-  }, [source, matNode?.data.props['incomingSchema'], matNode?.data.props['outputSchema'], isSignal])
+  const mapping: MappingField[] = readExplodeMapping(props['explodeMapping'])
 
-  const getMapping = (): MappingField[] => {
-    try {
-      const raw = node.data.props['explodeMapping']
-      if (raw) return JSON.parse(raw)
-    } catch {}
-    return []
-  }
+  // Schema d'uscita: ricalcolato da mapping, sorgente e campi del padre;
+  // scritto (e propagato) solo quando cambia.
+  const outputSchema = explodeOutputSchema({ props, parentFields, materializeSchema })
+  const outputJson   = JSON.stringify(outputSchema)
+  useEffect(() => {
+    if (!node || outputJson === (props['outputSchema'] ?? '[]')) return
+    if (outputSchema.length === 0 && !props['outputSchema']) return
+    updateProp(nodeId, 'outputSchema', outputJson)
+    propagate(nodeId, outputSchema)
+  }, [outputJson])
 
-  // ── saveMapping: salva explodeMapping E aggiorna outputSchema + propaga ──
-  const saveMapping = (fields: MappingField[]) => {
+  const saveMapping = (fields: MappingField[]) =>
     updateProp(nodeId, 'explodeMapping', JSON.stringify(fields))
 
-    // Costruisce outputSchema dai campi inclusi
-    const outputSchema = fields
-      .filter((f) => f.include)
-      .map((f) => ({
-        id:           f.sourceField || f.outputName,
-        name:         f.outputName,
-        physicalName: f.sourceField || f.outputName,
-        type:         f.type,
-      }))
-
-    updateProp(nodeId, 'outputSchema', JSON.stringify(outputSchema))
-
-    // Propaga ai nodi successivi
-    const store    = useFlowStore.getState()
-    const outEdges = store.edges.filter((e) => e.source === nodeId)
-
-    outEdges.forEach((edge) => {
-      const tgt = store.nodes.find((n) => n.id === edge.target)
-      if (!tgt) return
-
-      if (tgt.data.type === 'tmap') {
-        const tmap  = tgt.data.config?.tmap as TMapConfig | undefined
-        if (!tmap) return
-        const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
-        if (!input) return
-        const existingNames = new Set(
-          input.fields.filter((f) => !f.name.startsWith('status.')).map((f) => f.name)
-        )
-        const merged = [
-          ...input.fields,
-          ...outputSchema
-            .filter((f) => !existingNames.has(f.name))
-            .map((f) => ({ id: f.id, name: f.name, type: f.type as any, physicalName: f.physicalName })),
-        ]
-        store.updateTMapInput(tgt.id, input.id, { fields: merged })
-      } else {
-        store.updateNodeProp(tgt.id, 'incomingSchema', JSON.stringify(outputSchema))
-      }
-    })
-  }
-
-  const mapping = getMapping()
-
+  // Primo accesso con un dataset noto: il mapping parte da tutti i suoi campi.
   useEffect(() => {
-    if (sourceSchema.length > 0 && mapping.length === 0) {
+    if (node && sourceSchema.length > 0 && mapping.length === 0) {
       saveMapping(sourceSchema.map((f) => ({
         sourceField: f.name,
         outputName:  f.name,
@@ -138,6 +106,8 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
       })))
     }
   }, [sourceSchema.map((f) => f.name).join(',')])
+
+  if (!node) return null
 
   const syncFromSource = () => {
     const existing = new Set(mapping.map((f) => f.sourceField))
@@ -211,8 +181,8 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
           {source === 'materialize' && !matName
             ? 'Select a Materialize in the Configuration tab.'
             : source === 'materialize' && sourceSchema.length === 0
-            ? `The Materialize "${matName}" has not received fields yet.`
-            : 'No field defined. Add manually or sync from the source.'}
+            ? `The Materialize "${matName}" has not received fields yet. Without a mapping every field is emitted as it is.`
+            : 'No mapping: every field of the exploded element is emitted as it is. Add the fields to choose, rename and convert them.'}
         </div>
       )}
 
@@ -269,11 +239,16 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
                 {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </CustomSelect>
 
-              <CustomSelect value={field.transform}
+              <CustomSelect value={field.transform ?? ''}
                 onChange={(e) => updateField(idx, 'transform', e.target.value)}
                 disabled={!field.include}
                 style={{ ...inputStyle, fontSize: 10, padding: '3px 2px' }}>
-                {TRANSFORMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {/* Le conversioni le fa la colonna Type: qui solo il testo.
+                    Valori vecchi (to_int, to_float…) il motore li applica come tipo. */}
+                {EXPLODE_TRANSFORMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {field.transform && !EXPLODE_TRANSFORMS.some((t) => t.value === field.transform) && (
+                  <option value={field.transform}>{field.transform} (legacy)</option>
+                )}
               </CustomSelect>
 
               <button onClick={() => saveMapping(mapping.filter((_, i) => i !== idx))}
@@ -309,8 +284,10 @@ export function ExplodeMappingPanel({ nodeId }: { nodeId: string }) {
 
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
         <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-        <strong style={{ color: '#9a9aaa' }}>Physical col.</strong> is the field name in the source structure.
-        The schema is propagated automatically to downstream nodes.
+        <strong style={{ color: '#9a9aaa' }}>Physical col.</strong> is the field name in the exploded element.
+        Only the selected fields are emitted, with the logical name and the chosen type.
+        {source === 'flow_field' && props['includeParent'] === 'true' && ' The parent row\'s fields are added as they are.'}
+        {' '}The schema is propagated automatically to downstream nodes.
       </div>
     </div>
   )
