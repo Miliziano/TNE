@@ -16,6 +16,7 @@
 //   fetchMode    list (i file presenti) | watch (attende, interrogando ogni
 //                pollInterval s, che almeno un file corrisponda; poi li legge
 //                e finisce — il tetto è "Max run time" della scheda Advanced)
+//                | continuous (P364: resta in ascolto fino a Stop; v. sotto)
 //   fileFormat   raw (tutto il file in `content`) | text | csv | tsv | excel
 //                | json | jsonl | xml | binary  (+ encoding, delimiter, hasHeader)
 //   compression  none | gzip | zip (ogni voce dell'archivio è un file)
@@ -29,9 +30,26 @@
 //
 // Ogni riga letta porta anche _filename, _filepath, _filesize, _modified_at.
 // L'eventuale arco in ingresso è un innesco (R8): si drena e si scarta.
+//
+// ASCOLTO CONTINUO (P364, fetchMode = continuous) — stesso modello a
+// SESSIONI del dir_watcher continuo: il controllo periodico sta SOPRA la
+// lane (engine/mod.rs, `ftp_sessions`), che a ogni gruppo di file pronti
+// viene ri-eseguita (commit per gruppo). Qui:
+//   - `poll_ready`: lista + stabilità (un file è pronto quando dimensione e
+//     data sono uguali in due controlli di fila) + file di stato (i file già
+//     elaborati, chiave percorso|dimensione|data: un file ricaricato diverso
+//     si rielabora);
+//   - il nodo preleva il gruppo (`take_group`), lo legge come in content e,
+//     se la valle finisce senza errori, registra i file nel file di stato
+//     (`stateFile`; default ~/.flowpilot/ftp-state/<id nodo>.json). Anche i
+//     file saltati per errore (onFileError = skip) si registrano: non si
+//     riprovano a ogni controllo, finché non cambiano.
 
 use std::time::{Duration, Instant};
 use std::io::Read;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 use crate::engine::types::*;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
@@ -125,6 +143,7 @@ struct Cfg {
     recursive:   bool,
     list_only:   bool,
     watch:       bool,
+    continuous:  bool,
     poll:        Duration,
     format:      String,
     encoding:    String,
@@ -163,6 +182,7 @@ fn config_from_spec(spec: &Spec) -> Result<Cfg, String> {
         recursive:   spec.bool_or("recursive", false),
         list_only:   spec.str_or("outputMode", "content") == "list_files",
         watch:       spec.str_or("fetchMode", "list") == "watch",
+        continuous:  spec.str_or("fetchMode", "list") == "continuous",
         poll:        Duration::from_secs(spec.u64_or("pollInterval", 30).max(5)),
         encoding:    spec.str_or("encoding", "utf-8"),
         compression: if compression.is_empty() { "none".into() } else { compression },
@@ -201,6 +221,7 @@ pub async fn run(
     let mut conn = build_conn(&spec);
     let node_timeout = spec.u64_or("connectTimeout", 0);
     if node_timeout > 0 { conn.connect_timeout = Some(node_timeout); }
+    let state_file = state_path(&spec, &ctx.node_id.0);
     spec.log_unconsumed("source_ftp", &ctx.node_id.0);
 
     let tx = match tx {
@@ -212,9 +233,12 @@ pub async fn run(
     ctx.emit_log(&ctx.label, "info", 0,
         format!("FTP: connecting to {}:{} ({})", conn.host, conn.port, conn.protocol), "panel");
 
+    // ── Ascolto continuo: i file pronti li ha già scelti il loop di sessione ──
+    let group_key = crate::engine::watch_subs::watch_key(&ctx.run_id.0, &ctx.node_id.0);
+    let continuous = cfg.continuous && !cfg.list_only;
     // ── Lista file (watch: si interroga finché qualcosa corrisponde) ──
     let mut announced = false;
-    let mut files: Vec<FtpFileEntry> = loop {
+    let mut files: Vec<FtpFileEntry> = if continuous { take_group(&group_key) } else { loop {
         let entries = match ftp_list_impl(conn.clone(), cfg.remote_path.clone(), cfg.pattern.clone(), Some(cfg.recursive)).await {
             Ok(e) => e,
             Err(e) => return fail(format!("listing of '{}' failed: {}", cfg.remote_path, e)),
@@ -235,12 +259,14 @@ pub async fn run(
                 return Ok(stats);
             }
         }
-    };
-    if files.is_empty() {
+    } };
+    if files.is_empty() && !continuous {
         ctx.emit_log(&ctx.label, "warn", 0, format!("FTP: no file in '{}'", cfg.remote_path), "panel");
     }
-    sort_files(&mut files, &cfg.order);
-    if cfg.max_files > 0 { files.truncate(cfg.max_files); }
+    if !continuous {
+        sort_files(&mut files, &cfg.order);
+        if cfg.max_files > 0 { files.truncate(cfg.max_files); }
+    }
 
     // ── Modalità LISTA FILE — metadati, niente download ───────────
     if cfg.list_only {
@@ -267,6 +293,8 @@ pub async fn run(
     let mut rows_out  = 0u64;
     let mut last_prog = Instant::now();
     let mut downstream_closed = false;
+    // Nel continuo: i file da registrare nel file di stato.
+    let mut done_keys: Vec<String> = Vec::new();
 
     for file in &files {
         if budget == 0 || downstream_closed { break }
@@ -282,6 +310,7 @@ pub async fn run(
                 if let Err(e) = done {
                     return fail(format!("{} read, but the after-processing action failed: {}", file.path, e));
                 }
+                done_keys.push(state_key(file));
             }
             Err(e) => {
                 let detail = format!("FTP: error on {} — {}", file.path, e);
@@ -293,9 +322,25 @@ pub async fn run(
                         }
                         ctx.emit_log(&ctx.label, "warn", 0, format!("{} (moved to {})", detail, cfg.error_dir), "panel");
                     }
-                    _ => ctx.emit_log(&ctx.label, "warn", 0, detail, "panel"),
+                    _ => {
+                        ctx.emit_log(&ctx.label, "warn", 0, detail, "panel");
+                        done_keys.push(state_key(file));
+                    }
                 }
             }
+        }
+    }
+
+    // Continuo: i file contano come elaborati solo se la valle è finita bene.
+    if continuous && !done_keys.is_empty() {
+        drop(tx);
+        let downstream = ctx.lane_done.downstream_all(&ctx.node_id.0);
+        let failed = ctx.lane_done.wait_all(&downstream).await;
+        if failed.is_empty() {
+            if let Err(e) = append_state(&state_file, &done_keys) { return fail(e) }
+        } else {
+            ctx.emit_log(&ctx.label, "warn", 0,
+                format!("{} file(s) not marked as processed: downstream node(s) failed ({})", done_keys.len(), failed.join(", ")), "panel");
         }
     }
 
@@ -303,6 +348,96 @@ pub async fn run(
         elapsed_ms: start.elapsed().as_millis() as u64, error: None };
     ctx.emit_completed(stats.clone());
     Ok(stats)
+}
+
+// ─── Ascolto continuo (P364) ───────────────────────────────────────
+
+/// Gruppi di file pronti, depositati dal loop di sessione per il nodo.
+fn ftp_groups() -> &'static Mutex<HashMap<String, Vec<FtpFileEntry>>> {
+    static G: OnceLock<Mutex<HashMap<String, Vec<FtpFileEntry>>>> = OnceLock::new();
+    G.get_or_init(|| Mutex::new(HashMap::new()))
+}
+pub(crate) fn put_group(key: &str, files: Vec<FtpFileEntry>) { ftp_groups().lock().unwrap().insert(key.to_string(), files); }
+fn take_group(key: &str) -> Vec<FtpFileEntry> { ftp_groups().lock().unwrap().remove(key).unwrap_or_default() }
+
+/// Chiave di un file nel file di stato: percorso, dimensione, data.
+fn state_key(f: &FtpFileEntry) -> String {
+    format!("{}|{}|{}", f.path, f.size, f.modified_at.as_deref().unwrap_or(""))
+}
+
+/// Il file di stato: `stateFile` (relativo a ~/.flowpilot/ftp-state/) o, se
+/// vuoto, ~/.flowpilot/ftp-state/<id nodo>.json.
+pub(crate) fn state_path(spec: &Spec, node_id: &str) -> PathBuf {
+    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_else(|_| ".".into());
+    let base = PathBuf::from(home).join(".flowpilot").join("ftp-state");
+    let f = spec.str_or("stateFile", "");
+    let f = f.trim();
+    if f.is_empty() {
+        let safe: String = node_id.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+        return base.join(format!("{}.json", safe));
+    }
+    let p = PathBuf::from(f);
+    if p.is_absolute() { p } else { base.join(p) }
+}
+
+fn load_state(path: &PathBuf) -> Result<HashSet<String>, String> {
+    if !path.exists() { return Ok(HashSet::new()) }
+    let text = std::fs::read_to_string(path).map_err(|e| format!("cannot read the state file '{}': {}", path.display(), e))?;
+    Ok(serde_json::from_str::<Vec<String>>(&text)
+        .map_err(|e| format!("the state file '{}' is not valid: {}", path.display(), e))?
+        .into_iter().collect())
+}
+
+fn append_state(path: &PathBuf, keys: &[String]) -> Result<(), String> {
+    let mut all = load_state(path)?;
+    all.extend(keys.iter().cloned());
+    let mut v: Vec<&String> = all.iter().collect();
+    v.sort();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("cannot create '{}': {}", dir.display(), e))?;
+    }
+    let tmp = path.with_extension("tmp");
+    let text = serde_json::to_string_pretty(&v).map_err(|e| e.to_string())?;
+    std::fs::write(&tmp, text).map_err(|e| format!("cannot write the state file '{}': {}", tmp.display(), e))?;
+    std::fs::rename(&tmp, path).map_err(|e| format!("cannot write the state file '{}': {}", path.display(), e))
+}
+
+/// L'intervallo dei controlli del continuo (minimo 5 s).
+pub(crate) fn poll_interval(spec: &Spec) -> Duration {
+    Duration::from_secs(spec.u64_or("pollInterval", 30).max(5))
+}
+
+/// Un controllo del continuo: i file PRONTI (stabili e non ancora elaborati),
+/// nell'ordine e nel numero chiesti. `pending` (del loop) ricorda dimensione e
+/// data viste al controllo precedente.
+pub(crate) async fn poll_ready(
+    spec:     &Spec,
+    node_id:  &str,
+    pending:  &mut HashMap<String, (u64, Option<String>)>,
+) -> Result<Vec<FtpFileEntry>, String> {
+    let cfg = config_from_spec(spec)?;
+    let mut conn = build_conn(spec);
+    let t = spec.u64_or("connectTimeout", 0);
+    if t > 0 { conn.connect_timeout = Some(t); }
+    let entries = ftp_list_impl(conn, cfg.remote_path.clone(), cfg.pattern.clone(), Some(cfg.recursive)).await
+        .map_err(|e| format!("listing of '{}' failed: {}", cfg.remote_path, e))?;
+    let state = load_state(&state_path(spec, node_id))?;
+
+    let mut ready = Vec::new();
+    let mut present: HashSet<String> = HashSet::new();
+    for f in entries.into_iter().filter(|e| !e.is_dir) {
+        present.insert(f.path.clone());
+        if state.contains(&state_key(&f)) { pending.remove(&f.path); continue }
+        let sig = (f.size, f.modified_at.clone());
+        match pending.get(&f.path) {
+            Some(prev) if *prev == sig => ready.push(f),        // fermo da un controllo: pronto
+            _ => { pending.insert(f.path.clone(), sig); }       // nuovo o ancora in movimento
+        }
+    }
+    pending.retain(|p, _| present.contains(p));
+    sort_files(&mut ready, &cfg.order);
+    if cfg.max_files > 0 { ready.truncate(cfg.max_files); }
+    Ok(ready)
 }
 
 /// Un file: scarica, decomprime, legge e invia le righe.
@@ -398,6 +533,26 @@ mod tests {
         assert_eq!(names("date_asc"),  vec!["c.csv", "b.csv", "a.csv"]);
         assert_eq!(names("date_desc"), vec!["b.csv", "c.csv", "a.csv"]);
         assert_eq!(names("size_asc"),  vec!["a.csv", "c.csv", "b.csv"]);
+    }
+
+    #[test]
+    fn file_di_stato() {
+        let p = std::env::temp_dir().join(format!("fp-ftp-state-{}", std::process::id())).join("s.json");
+        let _ = std::fs::remove_file(&p);
+        let a = f("/d/a.csv", 10, Some("2026-01-01T00:00:00+00:00"));
+        assert!(load_state(&p).unwrap().is_empty());
+        append_state(&p, &[state_key(&a)]).unwrap();
+        append_state(&p, &[state_key(&a)]).unwrap();          // nessun doppione
+        let st = load_state(&p).unwrap();
+        assert_eq!(st.len(), 1);
+        assert!(st.contains("/d/a.csv|10|2026-01-01T00:00:00+00:00"));
+        // stesso nome, contenuto diverso: chiave diversa → si rielabora
+        assert!(!st.contains(&state_key(&f("/d/a.csv", 11, Some("2026-01-02T00:00:00+00:00")))));
+        let sp = Spec::from_ctx(&serde_json::json!({"props": {"stateFile": "x.json"}, "config": {}})).unwrap();
+        assert!(state_path(&sp, "n1").ends_with(".flowpilot/ftp-state/x.json"));
+        let sp = Spec::from_ctx(&serde_json::json!({"props": {}, "config": {}})).unwrap();
+        assert!(state_path(&sp, "node/1").ends_with(".flowpilot/ftp-state/node_1.json"));
+        let _ = std::fs::remove_dir_all(p.parent().unwrap());
     }
 
     #[test]

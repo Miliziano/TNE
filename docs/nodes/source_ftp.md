@@ -62,6 +62,17 @@ file corrisponde, poi li legge e finisce. Per non aspettare all'infinito si impo
 *Max run time* nella scheda Advanced. Con *Delete* o *Move* dopo la lettura la
 cartella funziona da coda.
 
+**Continuous (P364).** Resta in ascolto fino a Stop. Ogni N secondi (minimo 5) controlla
+la cartella; un file è *pronto* quando dimensione e data sono uguali in due controlli di
+fila (così non si legge un file mentre lo si sta ancora caricando). A ogni gruppo di file
+pronti la lane riparte da capo, con il suo commit, e il log mostra "Sessione N". I file
+elaborati si ricordano in un **file di stato** locale (percorso + dimensione + data; di
+default `~/.flowpilot/ftp-state/<id nodo>.json`), che vale anche fra un run e l'altro: un
+file ricaricato con un contenuto diverso si rilegge. Un file conta come elaborato solo
+se i nodi a valle hanno finito senza errori; quelli saltati per errore (*Skip*) si
+registrano comunque, per non riprovarli a ogni controllo finché non cambiano. Un
+controllo fallito (rete, server giù) è solo un avviso: si riprova al successivo.
+
 **Dopo la lettura.** *Move* (nella cartella d'archivio, creata se manca; un file con
 lo stesso nome viene sostituito) o *Delete*, solo per i file letti senza errori. Se lo
 spostamento o la cancellazione falliscono, il nodo fallisce: un file rimasto al suo

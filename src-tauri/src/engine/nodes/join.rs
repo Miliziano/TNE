@@ -13,16 +13,19 @@
 // tutto in un array e indovinava con __sourceHandle — qui non serve).
 //
 // Semantica replicata da src/runner/joinExecutor.ts (legacy):
-//   tipi: inner | left | right | full | cross | anti | semi
+//   tipi: inner | left | right | full | cross | anti | semi | custom
 //   + chiavi composite, caseSensitive, rightPrefix anti-collisione,
-//     duplicates (all|first|last|error), nullKeys (exclude|error).
+//     duplicates (all|first|last|error), nullKeys (exclude|include|error).
 //
-// NON ANCORA SUPPORTATO (v. docs/node-spec.md §join, docs/TODO.md):
-//   - customCondition: il legacy eseguiva JS arbitrario (new Function);
-//     in Rust serve un interprete → rimandata. Se valorizzata, il nodo
-//     EMETTE UN WARNING e la ignora (niente drop muto).
-//   - rightSource=materialize: dipende dal nodo materialize non ancora
-//     migrato → per ora il lato destro è sempre lo stream input_right.
+// P365 — ora applicati:
+//   - custom: condizione FPEL compilata dallo studio (spec.config.condition,
+//     campi `left.x` / `right.x`), valutata per ogni coppia (nested loop:
+//     n×m). Semantica di un INNER: le righe sinistre senza match vanno sul
+//     reject; duplicates vale come per gli altri tipi.
+//   - rightSource=materialize: il lato destro è il dataset pubblicato
+//     (`materializeName`); l'ingresso destro, se collegato, è solo un innesco.
+//   - nullKeys=include: null = null (prima trattato come exclude).
+//   - rightSource=inline (query): non supportato → errore che lo dice.
 //
 // MEMORIA (modello a lane): il buffer del lato destro (ed eventualmente
 // del sinistro per right/full) è un picco di RAM DELLA LANE che contiene
@@ -48,8 +51,9 @@ struct JoinConfig {
     right_prefix:   String,
     duplicates:     String,   // all | first | last | error
     null_keys:      String,   // exclude | error
-    right_source:   String,   // stream | materialize (🕐)
-    custom_cond:    String,   // 🕐 ignorata con warning
+    right_source:   String,   // stream | materialize
+    materialize:    String,   // nome del dataset (rightSource = materialize)
+    condition:      Option<crate::engine::expr::ExprNode>,   // custom (FPEL compilato)
 }
 
 #[derive(serde::Deserialize)]
@@ -60,14 +64,19 @@ struct CompositeKeyRaw {
     right: String,
 }
 
-fn config_from_spec(spec: &Spec) -> JoinConfig {
+fn config_from_spec(spec: &Spec) -> Result<JoinConfig, String> {
     let raw: Vec<CompositeKeyRaw> = spec.json_or("compositeKeys", Vec::new());
     let composite_keys = raw.into_iter()
         .filter(|c| !c.left.is_empty() || !c.right.is_empty())
         .map(|c| CompositeKey { left: c.left, right: c.right })
         .collect();
 
-    JoinConfig {
+    let condition = match spec.config().get("condition") {
+        Some(v) if !v.is_null() => Some(serde_json::from_value(v.clone())
+            .map_err(|e| format!("invalid custom condition: {}", e))?),
+        _ => None,
+    };
+    Ok(JoinConfig {
         join_type:      spec.str_or("join_type", "inner"),
         left_key:       spec.str_or("leftKey", ""),
         right_key:      spec.str_or("rightKey", ""),
@@ -76,9 +85,10 @@ fn config_from_spec(spec: &Spec) -> JoinConfig {
         duplicates:     spec.str_or("duplicates", "all"),
         null_keys:      spec.str_or("nullKeys", "exclude"),
         right_source:   spec.str_or("rightSource", "stream"),
-        custom_cond:    spec.str_or("customCondition", ""),
+        materialize:    spec.str_or("materializeName", ""),
+        condition,
         composite_keys,
-    }
+    })
 }
 
 const NULL_KEY: &str = "\u{0}__null__";
@@ -157,17 +167,23 @@ pub async fn run(
 
     let spec = Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("join {}: {}", ctx.node_id.0, e))?;
-    let cfg = config_from_spec(&spec);
+    let cfg = config_from_spec(&spec).map_err(|e| format!("join {}: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("join", &ctx.node_id.0);
 
-    // Feature rimandate: avvisa invece di fallire in silenzio.
-    if !cfg.custom_cond.trim().is_empty() {
-        ctx.emit_log(&ctx.label, "warn", 0,
-            "[join] custom condition ignored: not yet supported by the engine (see docs/TODO.md)".to_string(), "panel");
+    match cfg.right_source.as_str() {
+        "stream" | "materialize" => {}
+        "inline" => return Err(format!("join {}: the 'inline query' right source is not supported. Put a DB Source on the right input (or in a Materialize).", ctx.node_id.0)),
+        other => return Err(format!("join {}: unknown right source '{}'", ctx.node_id.0, other)),
     }
-    if cfg.right_source == "materialize" {
-        ctx.emit_log(&ctx.label, "warn", 0,
-            "[join] rightSource=materialize not yet supported: using the input_right stream".to_string(), "panel");
+    if cfg.right_source == "materialize" && cfg.materialize.trim().is_empty() {
+        return Err(format!("join {}: right source 'Materialize' without a dataset name. Select it in the panel.", ctx.node_id.0));
+    }
+    let custom = cfg.join_type == "custom";
+    if custom && cfg.condition.is_none() {
+        return Err(format!("join {}: the custom join has no condition. Write it in the panel (e.g. left.price >= right.min_price).", ctx.node_id.0));
+    }
+    if !matches!(cfg.join_type.as_str(), "inner" | "left" | "right" | "full" | "cross" | "anti" | "semi" | "custom") {
+        return Err(format!("join {}: unknown join type '{}'", ctx.node_id.0, cfg.join_type));
     }
 
     // Uscite: 'output' primaria (fallback drain, il join non deve bloccarsi) e
@@ -200,7 +216,14 @@ pub async fn run(
 
     // ── 1. Materializza il lato destro (drain completo) ───────────
     let mut right_rows: Vec<Row> = Vec::new();
-    if let Some(mut rx) = right_rx {
+    if cfg.right_source == "materialize" {
+        // Il dataset pubblicato; l'ingresso destro, se collegato, è un innesco.
+        if let Some(mut rx) = right_rx { while rx.recv().await.is_some() {} }
+        let ds = ctx.lane_datasets.get(&cfg.materialize).await
+            .map_err(|e| format!("join {}: {}", ctx.node_id.0, e))?;
+        right_rows = ds.rows().to_vec();
+        rows_in += right_rows.len() as u64;
+    } else if let Some(mut rx) = right_rx {
         while let Some(r) = rx.recv().await {
             rows_in += 1;
             right_rows.push(r);
@@ -210,10 +233,10 @@ pub async fn run(
     // ── 2. Hashtable  chiave → indici in right_rows  ──────────────
     // (indici, non cloni: right_rows è la sola copia del lato destro)
     let mut table: HashMap<String, Vec<usize>> = HashMap::new();
-    if !cross {
+    if !cross && !custom {
         for (i, rr) in right_rows.iter().enumerate() {
             let k = build_key(rr, &cfg.right_key, &cfg.composite_keys, false, cfg.case_sensitive);
-            if is_null_key(&k) && cfg.null_keys == "exclude" { continue; }
+            if is_null_key(&k) && cfg.null_keys != "include" { continue; }
             table.entry(k).or_default().push(i);
         }
     }
@@ -235,9 +258,42 @@ pub async fn run(
                 continue;
             }
 
+            // custom: la condizione FPEL su ogni coppia (left, right).
+            if custom {
+                let cond = cfg.condition.as_ref().expect("condizione verificata");
+                let mut hits: Vec<usize> = Vec::new();
+                for (i, rr) in right_rows.iter().enumerate() {
+                    let mut m: HashMap<&str, &Row> = HashMap::new();
+                    m.insert("left", &lr);
+                    m.insert("right", rr);
+                    let ec = crate::engine::expr::EvalContext::multi(m, &ctx.variables);
+                    if crate::engine::expr::is_truthy(&crate::engine::expr::eval(cond, &ec)) { hits.push(i); }
+                }
+                if hits.is_empty() {
+                    if let Some(rej) = &reject_tx { let _ = rej.send(lr.clone()).await; }
+                    rows_rejected += 1;
+                    continue;
+                }
+                let selected: Vec<usize> = match cfg.duplicates.as_str() {
+                    "first" => vec![hits[0]],
+                    "last"  => vec![*hits.last().unwrap()],
+                    "error" if hits.len() > 1 => {
+                        return Err(format!("join {}: multiple matches for a left row (duplicates=error)", ctx.node_id.0));
+                    }
+                    _ => hits,
+                };
+                let mut closed = false;
+                for i in selected {
+                    if tx.send(merge(&lr, &right_rows[i], &left_names, &cfg.right_prefix)).await.is_err() { closed = true; break; }
+                    rows_out += 1;
+                }
+                if closed { break }
+                continue;
+            }
+
             let lk = build_key(&lr, &cfg.left_key, &cfg.composite_keys, true, cfg.case_sensitive);
 
-            if is_null_key(&lk) {
+            if is_null_key(&lk) && cfg.null_keys != "include" {
                 if cfg.null_keys == "error" {
                     return Err(format!("join {}: null key in the left flow (field '{}')",
                         ctx.node_id.0, cfg.left_key));

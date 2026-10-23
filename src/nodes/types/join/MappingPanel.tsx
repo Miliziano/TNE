@@ -1,10 +1,13 @@
 /**
  * src/nodes/types/join/MappingPanel.tsx
+ *
+ * Schema d'uscita del Join, in sola lettura: la regola è in ./schema.ts
+ * (la stessa del motore). Lato destro dal flusso collegato o dal Materialize.
  */
-import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchemaFromHandle } from '../../useIncomingSchema'
-
+import { useMaterializeSchema } from '../../useMaterializeSchema'
+import { joinOutputFields } from './schema'
 
 const LEFT_COLOR   = '#4a9eff'
 const LOOKUP_COLOR = '#22d3ee'
@@ -12,31 +15,21 @@ const OUT_COLOR    = '#ffb347'
 
 export function JoinMappingPanel({ nodeId }: { nodeId: string }) {
   const node  = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  const props = node?.data.props ?? {}
+
+  const joinType    = props['join_type'] ?? 'inner'
+  const leftKey     = props['leftKey'] ?? ''
+  const rightKey    = props['rightKey'] ?? ''
+  const rightPrefix = props['rightPrefix'] ?? 'r_'
+  const fromMat     = (props['rightSource'] ?? 'stream') === 'materialize'
+
+  const leftFields   = useIncomingSchemaFromHandle(nodeId, 'input_left')
+  const streamRight  = useIncomingSchemaFromHandle(nodeId, 'input_right')
+  const matRight     = useMaterializeSchema(nodeId, props['materializeName'] ?? '')
+  const rightFields  = fromMat ? matRight : streamRight
+  const outputFields = joinOutputFields(leftFields, rightFields, joinType, rightPrefix)
+
   if (!node) return null
-
-  const p = (key: string, def = '') => node.data.props[key] ?? def
-  const joinType   = p('join_type', 'inner')
-  const leftKey    = p('leftKey')
-  const rightKey   = p('rightKey')
-  const rightPrefix = p('rightPrefix', 'r_')
-
-  // Schema sinistro — da incomingSchema o dal nodo sorgente
-const leftFields = useIncomingSchemaFromHandle(nodeId, 'input_left')
-
-  // Schema destro — da rightSchema
-const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
-
-  // Schema output — unione con prefisso per collisioni
-  const outputFields = useMemo(() => {
-    const leftNames = new Set(leftFields.map((f: any) => f.name))
-    const left  = leftFields.map((f: any) => ({ name: f.name, type: f.type, side: 'left' as const }))
-    const right = (joinType === 'anti' || joinType === 'semi') ? [] :
-      rightFields.map((f: any) => {
-        const name = leftNames.has(f.name) ? `${rightPrefix}${f.name}` : f.name
-        return { name, type: f.type, side: 'right' as const }
-      })
-    return [...left, ...right]
-  }, [leftFields, rightFields, joinType, rightPrefix])
 
   const hasLeft  = leftFields.length > 0
   const hasRight = rightFields.length > 0
@@ -46,10 +39,10 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-        <span style={{ color: '#ffb347', fontWeight: 600 }}>⋈ Join</span> — schema di output.
-        I campi del flusso destro che collidono con il sinistro ricevono il prefisso <code style={{ color: LOOKUP_COLOR }}>{rightPrefix}</code>.
+        <span style={{ color: '#ffb347', fontWeight: 600 }}>⋈ Join</span> — output schema.
+        Right fields with the same name as a left field get the prefix <code style={{ color: LOOKUP_COLOR }}>{rightPrefix}</code>.
         {(joinType === 'anti' || joinType === 'semi') && (
-          <span style={{ color: '#ff5f57' }}> — {joinType.toUpperCase()} JOIN: solo campi sinistri in output.</span>
+          <span style={{ color: '#ff5f57' }}> — {joinType.toUpperCase()} JOIN: only left fields in output.</span>
         )}
       </div>
 
@@ -73,11 +66,11 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
         <div>
           <div style={{ fontSize: 9, fontWeight: 600, color: LEFT_COLOR, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: LEFT_COLOR }} />
-            Sinistra — {leftFields.length} campi
+            Left — {leftFields.length} fields
           </div>
           {!hasLeft ? (
             <div style={{ padding: '10px', textAlign: 'center', color: '#2a3349', fontSize: 10, background: '#1a2030', borderRadius: 4, border: '1px dashed #2a3349' }}>
-              Collega flusso principale
+              Connect the main flow
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -96,11 +89,11 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
         <div>
           <div style={{ fontSize: 9, fontWeight: 600, color: LOOKUP_COLOR, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: LOOKUP_COLOR }} />
-            Destra — {rightFields.length} campi
+            Right{fromMat ? ' (Materialize)' : ''} — {rightFields.length} fields
           </div>
           {!hasRight ? (
             <div style={{ padding: '10px', textAlign: 'center', color: '#2a3349', fontSize: 10, background: '#1a2030', borderRadius: 4, border: '1px dashed #2a3349' }}>
-              Collega lookup
+              {fromMat ? 'Select a Materialize with fields' : 'Connect the lookup flow'}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -118,17 +111,17 @@ const rightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
 
       {/* Schema output */}
       <div style={{ fontSize: 9, fontWeight: 600, color: OUT_COLOR, textTransform: 'uppercase', letterSpacing: '.06em', padding: '4px 0', borderBottom: `0.5px solid ${OUT_COLOR}30` }}>
-        Campi in uscita — {outputFields.length}
+        Output fields — {outputFields.length}
       </div>
 
       {outputFields.length === 0 ? (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 10, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Collega entrambi i flussi per vedere lo schema di output.
+          Connect both flows to see the output schema.
         </div>
       ) : (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Campo', 'Tipo', 'Da'].map((h) => (
+            {['Field', 'Type', 'From'].map((h) => (
               <div key={h} style={{ fontSize: 9, color: OUT_COLOR, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>

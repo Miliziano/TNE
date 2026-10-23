@@ -1,16 +1,16 @@
 /**
  * src/nodes/types/join/Panel.tsx
+ *
+ * P365: ogni opzione è applicata dal motore (join.rs). Join custom con
+ * condizione FPEL, lato destro da Materialize, null = null. Tolti: query
+ * inline, algoritmo/broadcast e "access mode" (mai letti dal motore).
  */
 import { useMemo, useEffect } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { useIncomingSchemaFromHandle } from '../../useIncomingSchema'
-
-const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
-  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
-]
+import { joinOutputFields } from './schema'
 
 
 const inputStyle: React.CSSProperties = {
@@ -98,7 +98,7 @@ function CompositeKeyEditor({ keys, leftFields, rightFields, onChange }: {
         style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff'; (e.currentTarget as HTMLElement).style.color = '#4a9eff' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi chiave composta
+        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add a composite key
       </button>
     )
   }
@@ -140,7 +140,7 @@ function CompositeKeyEditor({ keys, leftFields, rightFields, onChange }: {
         style={{ padding: '4px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px dashed #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4a9eff'; (e.currentTarget as HTMLElement).style.color = '#4a9eff' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2a3349'; (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>
-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi chiave
+        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add key
       </button>
     </div>
   )
@@ -152,17 +152,12 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const pool       = useFlowStore((s) => s.pool)
 
-  if (!node) return null
-
-  const p = (key: string, def = '') => node.data.props[key] ?? def
-  const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    updateProp(nodeId, key, e.target.value)
-
-  const joinType    = p('join_type', 'inner')
-  const rightSource = p('rightSource', 'stream')
-  const matName     = p('materializeName', '')
-  const accessMode = p('accessMode', 'dataset')   // ← definito qui
-  const laneId      = node.data.laneId
+  const props       = node?.data.props ?? {}
+  const joinType    = props['join_type'] ?? 'inner'
+  const rightSource = props['rightSource'] ?? 'stream'
+  const matName     = props['materializeName'] ?? ''
+  const rightPrefix = props['rightPrefix'] ?? 'r_'
+  const laneId      = node?.data.laneId
 
   // Variabili Materialize disponibili
   const materializeVars = useMemo(() => {
@@ -170,79 +165,48 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
     return (lane?.variables ?? []).filter((v) => v.type === 'materialize')
   }, [pool, laneId])
 
-
-    // Schema sinistro — da incomingSchema o dal nodo sorgente
-  const leftFields = useIncomingSchemaFromHandle(nodeId, 'input_left')
-  
-  
-
-  // Schema destro — dal Materialize, dal flusso connesso (rightSchema), o vuoto
+  // Schema sinistro e destro (dal flusso collegato o dal Materialize)
+  const leftFields        = useIncomingSchemaFromHandle(nodeId, 'input_left')
+  const streamRightFields = useIncomingSchemaFromHandle(nodeId, 'input_right')
   const materializeFields = useMaterializeSchema(nodeId, matName)
-  const streamRightFields = useMemo(() => {
-    try {
-      const raw = node.data.props['rightSchema']
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed)) return []
-      return parsed.map((f: any) => ({ name: f.name ?? f.sourceField, type: f.type ?? 'string' }))
-    } catch { return [] }
-  }, [node.data.props['rightSchema']])
-
-  const rightFields = rightSource === 'materialize' ? materializeFields
-                    : rightSource === 'stream'      ? streamRightFields
-                    : []
+  const rightFields = rightSource === 'materialize' ? materializeFields : streamRightFields
 
   // Chiavi composite
+  const compositeRaw = props['compositeKeys'] ?? '[]'
   const compositeKeys: CompositeKey[] = useMemo(() => {
-    try { return JSON.parse(p('compositeKeys', '[]')) }
+    try { return JSON.parse(compositeRaw) }
     catch { return [] }
-  }, [p('compositeKeys')])
+  }, [compositeRaw])
+
+  // Schema d'uscita: la regola del motore (./schema.ts)
+  const outFields  = joinOutputFields(leftFields, rightFields, joinType, rightPrefix)
+  const outJson    = JSON.stringify(outFields.map((f) => ({ id: `join_${f.side[0]}_${f.physicalName}`, ...f })))
+  useEffect(() => {
+    if (!node || (leftFields.length === 0 && rightFields.length === 0)) return
+    if (props['outputSchema'] !== outJson) updateProp(nodeId, 'outputSchema', outJson)
+  }, [outJson])
+
+  if (!node) return null
+
+  const p = (key: string, def = '') => node.data.props[key] ?? def
+  const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    updateProp(nodeId, key, e.target.value)
 
   const saveCompositeKeys = (keys: CompositeKey[]) =>
     updateProp(nodeId, 'compositeKeys', JSON.stringify(keys))
-
-  // Schema output — unione dei campi sinistro + destro con prefisso
-  const rightPrefix = p('rightPrefix', 'r_')
-
-  useEffect(() => {
-    if (leftFields.length === 0 && rightFields.length === 0) return
-
-    const leftSchema = leftFields.map((f) => ({
-      id: `join_l_${f.name}`, name: f.name, type: f.type, physicalName: f.name, side: 'left',
-    }))
-
-    const rightSchema = rightFields
-      .filter((_f) => {
-        // In SEMI e ANTI join non includere campi del lato destro
-        if (joinType === 'anti' || joinType === 'semi') return false
-        return true
-      })
-      .map((f) => {
-        // Applica prefisso se il nome collide con un campo sinistro
-        const leftNames = new Set(leftFields.map((lf) => lf.name))
-        const name = leftNames.has(f.name) ? `${rightPrefix}${f.name}` : f.name
-        return { id: `join_r_${f.name}`, name, type: f.type, physicalName: f.name, side: 'right' }
-      })
-
-    updateProp(nodeId, 'outputSchema', JSON.stringify([...leftSchema, ...rightSchema]))
-  }, [
-    leftFields.map((f) => f.name).join(','),
-    rightFields.map((f) => f.name).join(','),
-    joinType, rightPrefix,
-  ])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
-        <span style={{ color: '#4a9eff', fontWeight: 600 }}>⋈</span> Combina righe di due dataset in base a una chiave comune.
-        Il flusso principale (sinistra) viene elaborato riga per riga.
-        Il dataset destro deve essere accessibile come lookup — tramite Materialize o flusso connesso.
+        <span style={{ color: '#4a9eff', fontWeight: 600 }}>⋈</span> Combines the rows of two datasets on a common key.
+        The main flow (left) is processed row by row; the right side is kept in memory as a lookup —
+        from the connected flow or from a Materialize.
       </div>
 
       {/* Tipo join */}
-      <SectionTitle label="Tipo di join" />
+      <SectionTitle label="Join type" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 5 }}>
         {[
           { value: 'inner', label: 'INNER',  icon: 'ti-circles-relation', color: '#4a9eff' },
@@ -274,16 +238,16 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
 
       {/* Condizione custom */}
       {joinType === 'custom' && (
-        <Field label="Join condition" hint="Non-equi condition — e.g. range join, band lookup">
+        <Field label="Join condition (FPEL)" hint="Any condition — e.g. a range join or a band lookup. It works like an INNER join: left rows without a match go to the reject output.">
           <textarea
             style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontFamily: 'monospace', color: '#a78bfa' }}
             value={p('customCondition')}
             onChange={u('customCondition')}
-            placeholder="left.price >= right.min_price AND left.price <= right.max_price"
+            placeholder="left.price >= right.min_price && left.price <= right.max_price"
             spellCheck={false} />
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
-            Use <code style={{ color: '#a78bfa' }}>left.field</code> and <code style={{ color: '#a78bfa' }}>right.field</code> to refer to the two datasets.
-            Attenzione: richiede nested loop — potenzialmente lento su dataset grandi.
+            Every field needs its side: <code style={{ color: '#a78bfa' }}>left.field</code> or <code style={{ color: '#a78bfa' }}>right.field</code>.
+            Each left row is compared with every right row (n × m): slow on large datasets.
           </div>
         </Field>
       )}
@@ -294,23 +258,23 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
         {[
           {
             value: 'materialize',
-            label: '◈ Da Materialize',
-            desc:  'O(1) lookup on the hashtable — the most efficient pattern. The Materialize must already be populated.',
+            label: '◈ From Materialize',
+            desc:  'Reads the dataset published by a Materialize of this lane. A right edge, if connected, only acts as a trigger.',
             disabled: materializeVars.length === 0,
-            hint:  materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
+            hint:  materializeVars.length === 0 ? 'No Materialize published in this lane' : undefined,
           },
           {
             value: 'stream',
             label: '→ From connected flow',
-            desc:  'The right flow arrives via edge. It is buffered internally before the join.',
+            desc:  'The right flow arrives via edge. It is buffered in memory before the join.',
             disabled: false,
           },
-          {
+          ...(rightSource === 'inline' ? [{
             value: 'inline',
-            label: '⬡ Query inline',
-            desc:  'Runs a query on the same DB resource configured in the source node.',
+            label: '⬡ Inline query (not supported)',
+            desc:  'Not supported by the engine: the run stops with an error. Put a DB Source on the right input instead.',
             disabled: false,
-          },
+          }] : []),
         ].map((s) => (
           <button key={s.value}
             onClick={() => { if (!s.disabled) updateProp(nodeId, 'rightSource', s.value) }}
@@ -345,49 +309,23 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
               dataset <code style={{ color: '#22d3ee' }}>{matName}</code>
-              — {materializeFields.length} campi disponibili · accesso O(1)
+              — {materializeFields.length} fields available
             </div>
           )}
           {matName && materializeFields.length === 0 && (
             <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', gap: 5 }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
-              Il Materialize "{matName}" non ha ancora ricevuto campi.
+              The Materialize "{matName}" has not received fields yet.
             </div>
           )}
-          {/* accessMode — come Aggregate accede al Materialize */}
-          {matName && (
-            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
-              <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
-                {ACCESS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </CustomSelect>
-              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
-                {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
-                {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
-              </div>
-            </Field>
-          )}
-
         </>
         
-      )}
-
-      {/* Query inline */}
-      {rightSource === 'inline' && (
-        <Field label="Right source query" hint="Run on the same DB resource as the source node">
-          <textarea
-            style={{ ...inputStyle, resize: 'vertical', minHeight: 80, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 }}
-            value={p('rightQuery')} onChange={u('rightQuery')}
-            placeholder="SELECT id, name, price FROM products WHERE active = true"
-            spellCheck={false} />
-        </Field>
       )}
 
       {/* Chiavi di join */}
       {joinType !== 'cross' && joinType !== 'custom' && (
         <>
-          <SectionTitle label="Chiavi di join" />
+          <SectionTitle label="Join keys" />
           <Row>
             <Field label="Left field" hint="Field of the main flow">
               {leftFields.length > 0 ? (
@@ -444,62 +382,39 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
             <option value="error">Error if more than one</option>
           </CustomSelect>
         </Field>
-        <Field label="Chiavi null">
+        <Field label="Null keys">
           <CustomSelect style={inputStyle} value={p('nullKeys', 'exclude')} onChange={u('nullKeys')}>
             <option value="exclude">Exclude (null does not match)</option>
             <option value="include">Include (null = null)</option>
-            <option value="error">Error on null</option>
+            <option value="error">Error on a null left key</option>
           </CustomSelect>
         </Field>
       </Row>
 
-      {/* Performance */}
-      <SectionTitle label="Performance" color="#a78bfa" />
-      <Row>
-        <Field label="Algoritmo">
-          <CustomSelect style={inputStyle} value={p('algorithm', 'hash')} onChange={u('algorithm')}>
-            <option value="hash">Hash join — O(n+m), right dataset in memory</option>
-            <option value="sort_merge">Sort-merge — both sorted by key</option>
-            <option value="nested_loop">Nested loop — lento, per condizioni custom</option>
-          </CustomSelect>
-        </Field>
-        <Field label="Broadcast threshold (MB)" hint="If the right dataset is smaller → automatic broadcast">
-          <input type="number" style={inputStyle} value={p('broadcastThreshold', '100')} onChange={u('broadcastThreshold')} min="0" />
-        </Field>
-      </Row>
-
-      {rightSource === 'materialize' && (
-        <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
-          <i className="ti ti-zap" style={{ fontSize: 11, color: '#22d3ee', flexShrink: 0, marginTop: 1 }} />
-          The Materialize is already a hashtable — the algorithm is automatically Hash Join with O(1) access.
-          No extra buffering needed.
-        </div>
-      )}
+      <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #a78bfa30', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
+        <i className="ti ti-cpu" style={{ fontSize: 11, color: '#a78bfa', flexShrink: 0, marginTop: 1 }} />
+        {joinType === 'custom'
+          ? 'Custom join: every left row is compared with every right row. The right side is kept in memory.'
+          : 'Hash join: the right side is kept in memory as a table keyed by the join key; the left flow streams through it.'}
+      </div>
 
       {/* Schema output */}
-      {(leftFields.length > 0 || rightFields.length > 0) && joinType !== 'cross' && joinType !== 'custom' && (
+      {(leftFields.length > 0 || rightFields.length > 0) && (
         <>
           <SectionTitle label="Schema output" color="#22d3ee" />
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-              {['Campo', 'Tipo', 'Lato'].map((h) => (
+              {['Field', 'Type', 'Side'].map((h) => (
                 <div key={h} style={{ fontSize: 9, color: '#22d3ee', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
               ))}
             </div>
-            {[
-              ...leftFields.map((f) => ({ name: f.name, type: f.type, side: 'left' as const })),
-              ...(joinType === 'anti' || joinType === 'semi' ? [] : rightFields.map((f) => {
-                const leftNames = new Set(leftFields.map((lf) => lf.name))
-                const name = leftNames.has(f.name) ? `${p('rightPrefix', 'r_')}${f.name}` : f.name
-                return { name, type: f.type, side: 'right' as const }
-              })),
-            ].map((f, i, arr) => (
+            {outFields.map((f, i, arr) => (
               <div key={`${f.side}_${f.name}`}
                 style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.side === 'left' ? '#4a9eff' : '#22d3ee' }}>{f.name}</code>
                 <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: f.side === 'left' ? '#0d2a4a' : '#0d3d3d', color: f.side === 'left' ? '#4a9eff' : '#22d3ee', border: `0.5px solid ${f.side === 'left' ? '#4a9eff' : '#22d3ee'}30`, textAlign: 'center' }}>
-                  {f.side === 'left' ? '← sinistra' : '→ destra'}
+                  {f.side === 'left' ? '← left' : '→ right'}
                 </span>
               </div>
             ))}
@@ -507,7 +422,7 @@ export function JoinPanel({ nodeId }: { nodeId: string }) {
           {joinType === 'anti' && (
             <div style={{ fontSize: 9, color: '#ff5f57', fontStyle: 'italic', display: 'flex', gap: 5 }}>
               <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
-              ANTI JOIN — solo campi del lato sinistro in output.
+              ANTI JOIN — only left-side fields in output.
             </div>
           )}
           {joinType === 'semi' && (

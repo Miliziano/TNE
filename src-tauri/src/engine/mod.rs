@@ -289,10 +289,17 @@ pub async fn engine_run(plan_json: String) -> Result<String, String> {
                         nodes::dir_watcher::forget_seen(&key);
                         last
                     }
-                    // ── lane normale: una sola esecuzione (come sempre) ──
-                    None => {
-                        executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
-                    }
+                    // ── FTP/SFTP in ascolto continuo (P364): stesso modello a sessioni ──
+                    None => match continuous_ftp(&lane) {
+                        Some(Err(e)) => Err(e),
+                        Some(Ok((node_id, spec_json))) => {
+                            ftp_sessions(run_id_cl, lane, cancel_cl, node_id, spec_json).await
+                        }
+                        // ── lane normale: una sola esecuzione (come sempre) ──
+                        None => {
+                            executor::execute_lane(run_id_cl, lane, bridge_senders, bridge_receivers, cancel_cl).await
+                        }
+                    },
                 }
             });
 
@@ -404,6 +411,87 @@ fn continuous_watcher(lane: &types::LanePlan) -> Option<Result<(String, String, 
         }
     }
     None
+}
+
+/// Il source_ftp in ascolto continuo della lane, se c'è: (nodo, spec).
+fn continuous_ftp(lane: &types::LanePlan) -> Option<Result<(String, serde_json::Value), String>> {
+    for node in &lane.nodes {
+        if node.node_type != "source_ftp" { continue; }
+        let props = node.spec.get("props");
+        let s = |k: &str| props.and_then(|p| p.get(k)).and_then(|v| v.as_str()).unwrap_or("");
+        if s("fetchMode") == "continuous" && s("outputMode") != "list_files" {
+            let spec = match spec::Spec::from_ctx(&node.spec) {
+                Ok(sp) => sp,
+                Err(e) => return Some(Err(format!("source_ftp {}: {}", node.node_id.0, e))),
+            };
+            if !spec.has_resource() {
+                return Some(Err(format!("source_ftp {}: no FTP resource configured (select a connection in the node panel)", node.node_id.0)));
+            }
+            return Some(Ok((node.node_id.0.clone(), node.spec.clone())));
+        }
+    }
+    None
+}
+
+/// P364 — LOOP DI SESSIONE dell'FTP continuo. Ogni `pollInterval` secondi
+/// chiede al nodo i file PRONTI (stabili, non ancora nel file di stato); se
+/// ce ne sono, li deposita e ri-esegue la lane (una sessione = un commit).
+/// Un controllo fallito (rete, server giù) è un avviso: si riprova al giro
+/// dopo. Una sessione fallita chiude il run, come nel dir_watcher continuo.
+async fn ftp_sessions(
+    run_id:    types::RunId,
+    lane:      types::LanePlan,
+    cancel:    tokio_util::sync::CancellationToken,
+    node_id:   String,
+    spec_json: serde_json::Value,
+) -> Result<HashMap<String, NodeStats>, String> {
+    let label = lane.nodes.iter().find(|n| n.node_id.0 == node_id)
+        .map(|n| n.label.clone()).unwrap_or_else(|| node_id.clone());
+    let key = watch_subs::watch_key(&run_id.0, &node_id);
+    let log = |level: &str, message: String| push_event(EngineEvent::NodeLog {
+        run_id: run_id.clone(), lane_id: lane.lane_id.clone(), node_id: types::NodeId(node_id.clone()),
+        node_label: label.clone(), level: level.to_string(), row_num: 0, message, target: "panel".into(),
+    });
+    let spec = spec::Spec::from_ctx(&spec_json)?;
+    let poll = nodes::source_ftp::poll_interval(&spec);
+    log("info", format!("FTP: listening (checking every {} s; a file is read once it has not changed between two checks)", poll.as_secs()));
+
+    let mut pending: HashMap<String, (u64, Option<String>)> = HashMap::new();
+    let mut last: Result<HashMap<String, NodeStats>, String> = Ok(HashMap::new());
+    let mut session: u32 = 0;
+    let mut first = true;
+    loop {
+        // Come il dir_watcher continuo (P110): il nodo si mostra "in ascolto".
+        push_event(EngineEvent::NodeStarted {
+            run_id: run_id.clone(), lane_id: lane.lane_id.clone(),
+            node_id: types::NodeId(node_id.clone()), label: label.clone(),
+        });
+        if !first {
+            tokio::select! {
+                _ = cancel.cancelled() => break,
+                _ = tokio::time::sleep(poll) => {}
+            }
+        }
+        first = false;
+        let ready = tokio::select! {
+            _ = cancel.cancelled() => break,
+            r = nodes::source_ftp::poll_ready(&spec, &node_id, &mut pending) => r,
+        };
+        let ready = match ready {
+            Ok(r) => r,
+            Err(e) => { log("warn", format!("FTP: check failed, retrying in {} s — {}", poll.as_secs(), e)); continue }
+        };
+        if ready.is_empty() { continue }
+        session += 1;
+        push_event(EngineEvent::LaneSessionStarted {
+            run_id: run_id.clone(), lane_id: lane.lane_id.clone(),
+            node_id: types::NodeId(node_id.clone()), session, group_size: ready.len() as u32,
+        });
+        nodes::source_ftp::put_group(&key, ready);
+        last = executor::execute_lane(run_id.clone(), lane.clone(), HashMap::new(), HashMap::new(), cancel.clone()).await;
+        if cancel.is_cancelled() || last.is_err() { break; }
+    }
+    last
 }
 
 // ─── Service mode: registro dei token di cancellazione per-run ────

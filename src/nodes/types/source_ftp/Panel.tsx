@@ -151,10 +151,11 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       {!isListMode && (
         <>
           <SectionTitle label="Capture mode" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {[
-              { value: 'list',  label: '▤ Files present', desc: 'Reads the files that are there when the node starts' },
-              { value: 'watch', label: '◎ Wait for files', desc: 'Checks the directory every N seconds until at least one file matches, then reads them and finishes' },
+              { value: 'list',       label: '▤ Files present', desc: 'Reads the files that are there when the node starts' },
+              { value: 'watch',      label: '◎ Wait for files', desc: 'Checks the directory every N seconds until at least one file matches, then reads them and finishes' },
+              { value: 'continuous', label: '⟳ Continuous', desc: 'Stays listening until Stop: the lane runs again for every group of new files' },
             ].map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
@@ -167,6 +168,20 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             <Field label="Polling interval (seconds)" hint="Minimum 5. To stop waiting after a while, set Max run time in the Advanced tab.">
               <input type="number" style={inputStyle} value={p('pollInterval', '30')} onChange={u('pollInterval')} min="5" />
             </Field>
+          )}
+          {fetchMode === 'continuous' && (
+            <>
+              <Field label="Polling interval (seconds)" hint="Minimum 5. A file is read once its size and date did not change between two checks (so it is not read while it is still being uploaded).">
+                <input type="number" style={inputStyle} value={p('pollInterval', '30')} onChange={u('pollInterval')} min="5" />
+              </Field>
+              <Field label="State file" hint="Remembers the processed files across runs (path + size + date: a file uploaded again with different content is read again). Empty = ~/.flowpilot/ftp-state/<node id>.json; a relative path is inside ~/.flowpilot/ftp-state/.">
+                <input style={inputStyle} value={p('stateFile')} onChange={u('stateFile')} placeholder={`${nodeId}.json`} />
+              </Field>
+              <div style={{ padding: '6px 10px', background: '#0d1a10', borderRadius: 4, border: '0.5px solid #3ddc8430', fontSize: 9, color: '#3ddc84', display: 'flex', gap: 6 }}>
+                <i className="ti ti-info-circle" style={{ fontSize: 10, flexShrink: 0 }} />
+                Each group of files is a session with its own commit. A file counts as processed only when the downstream nodes finished without errors. A failed check (network, server down) is retried at the next one.
+              </div>
+            </>
           )}
 
           {/* Formato file */}

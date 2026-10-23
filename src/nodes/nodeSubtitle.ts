@@ -102,7 +102,8 @@ export function getNodeSubtitle(data: NodeData): string {
     case 'source_ftp': {
       const path    = p('remotePath')
       const pattern = p('filePattern')
-      const mode    = p('fetchMode', 'list') === 'watch' ? '◎' : '▤'
+      const fm      = p('fetchMode', 'list')
+      const mode    = fm === 'watch' ? '◎' : fm === 'continuous' ? '⟳' : '▤'
       const proto   = p('protocol', 'sftp').toUpperCase()
       if (path) return withCatch(`${mode} ${proto} ${truncate(path, 24)}${pattern ? pattern : ''}`, data)
       return withCatch(`${mode} ${proto}`, data)

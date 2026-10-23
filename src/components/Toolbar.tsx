@@ -754,6 +754,29 @@ function buildRustPlan(
         
         
 
+        case 'join': {
+          // P365: il join "custom" ha una condizione FPEL sui due lati
+          // (`left.campo`, `right.campo`), compilata qui in IR come il filter.
+          // Un campo senza lato sarebbe ambiguo → errore che blocca il Run.
+          if ((props['join_type'] ?? 'inner') === 'custom') {
+            const src = (props['customCondition'] ?? '').trim()
+            const where = `Join "${node.data.label}"`
+            if (!src) throw new Error(`${where}: the custom join condition is empty`)
+            let expr
+            try {
+              expr = compileFpel(src, { labelToInputId: new Map([['left', 'left'], ['right', 'right']]), userFunctions: userFns })
+            } catch (e) {
+              const detail = e instanceof ExprParseError ? e.pretty() : String(e)
+              throw new Error(`${where}: the custom condition is not a valid FPEL expression\n${detail}`)
+            }
+            if (JSON.stringify(expr).includes('"DirectFieldRef"')) {
+              throw new Error(`${where}: in the custom condition every field needs its side — left.field or right.field`)
+            }
+            specConfig.condition = expr
+          }
+          break
+        }
+
         case 'filter': {
           // Le conditions (visual/template/code) sono una struttura
           // elaborata dal builder → spec.config (node-spec §16). Quelle in

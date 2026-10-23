@@ -2031,3 +2031,50 @@ Punto 9 dell'audit.
   che cresce per 0,6 s → una riga con la dimensione finale; continuo da variabile con
   dedup per percorso: k1 nuovo, k1 aggiornato soppresso, k2 nuovo, stop_run; continuo dal
   flusso → errore). Prossimi: FTP in ascolto continuo (richiesta utente), poi join.
+
+## AGGIORNAMENTO — FTP/SFTP Source in ascolto continuo (stato al P364, 23 ottobre)
+
+Richiesta utente (scelte sue: terza modalità separata, file di stato, "pronto quando è fermo").
+- `fetchMode = continuous` (terza opzione accanto a list e watch). Modello a SESSIONI del
+  dir_watcher continuo: in engine/mod.rs `continuous_ftp(lane)` + `ftp_sessions(...)` — ogni
+  `pollInterval` s (min 5) chiama `source_ftp::poll_ready`, se ci sono file pronti li deposita
+  (`put_group`) e ri-esegue la lane (`execute_lane`, commit per gruppo); evento
+  `LaneSessionStarted`; `NodeStarted` del nodo fra i controlli (come P110). Controllo fallito
+  → NodeLog warn e si riprova; sessione fallita o stop → fine run.
+- `poll_ready`: lista (ricorsiva/pattern come sempre), esclude le chiavi del file di stato
+  (`percorso|dimensione|data`), stabilità = stessa (dimensione, data) in due controlli di
+  fila (mappa `pending` tenuta dal loop), poi ordine e maxFiles.
+- Nodo: nel continuo prende il gruppo (`take_group`) invece di listare; legge come content;
+  i file letti (e quelli saltati con onFileError=skip) si registrano nel file di stato SOLO
+  se la valle finisce bene (`lane_done.downstream_all` + `wait_all`, come P363). File di
+  stato: prop `stateFile` (relativo a ~/.flowpilot/ftp-state/), default
+  ~/.flowpilot/ftp-state/<id nodo>.json, scrittura atomica.
+- Studio: terza card "⟳ Continuous", campi pollInterval e stateFile con spiegazioni;
+  sottotitolo ⟳.
+- Collaudo: test unitario (file di stato, chiavi, percorso) + harness throwaway su SFTP e
+  FTP reali in parallelo: a.csv arriva → sessione 1; b.csv che cresce fra due controlli →
+  letto solo intero (sessione 2, 2 righe); a.csv cambiato → riletto (sessione 3); riavvio
+  con lo stesso file di stato → nessuna sessione; con i server spenti → avvisi e nuovi
+  tentativi, stop pulito. Prossimo punto dell'audit: join.
+
+## AGGIORNAMENTO — Join: le opzioni del pannello applicate (stato al P365, 23 ottobre)
+
+Punto 10 dell'audit.
+- **CUSTOM**: il builder (Toolbar `case 'join'`) compila `customCondition` in FPEL con
+  `labelToInputId` left/right → `spec.config.condition`; un `DirectFieldRef` (campo senza
+  lato) blocca il Run. Il motore valuta la condizione per ogni coppia (EvalContext::multi
+  {left, right}); semantica INNER (non trovate → reject), `duplicates` rispettato. Prima:
+  il tipo `custom` non produceva niente (nessun ramo nel match) e la condizione era
+  ignorata con un avviso.
+- **rightSource = materialize**: lato destro = `lane_datasets.get(materializeName)` (prima
+  avviso e si usava lo stream). `inline` → errore chiaro (opzione tolta dal pannello, mostrata
+  "(not supported)" solo se già salvata).
+- **nullKeys = include** (null = null) applicato; tipo sconosciuto → errore.
+- **Studio**: `join/schema.ts` (`joinOutputFields`, la regola del motore) usato da Panel e
+  MappingPanel; lato destro da `useIncomingSchemaFromHandle('input_right')` o dal Materialize
+  (anche nel MappingPanel); schema d'uscita anche per cross/custom; tolti algorithm,
+  broadcastThreshold e accessMode (mai letti); hook prima dei return; testi in inglese.
+- Collaudo: harness throwaway (CSV tipizzati): custom per fasce di prezzo (stream e
+  materialize) → 2 match + 1 reject; null include vs exclude; inline e custom senza
+  condizione → errori. Prossimo punto: materialize (onDuplicate, clearOn) e union
+  (schemaMismatch).
