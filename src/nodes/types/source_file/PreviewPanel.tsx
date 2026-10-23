@@ -10,9 +10,10 @@
  *
  * È I/O reale → a richiesta, con timeout implicito nel tetto righe.
  */
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../../../store/flowStore'
+import { sourceFileSpecFields } from './spec'
 
 const ACCENT = '#f59e0b'
 
@@ -41,12 +42,6 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
   const path       = p('path')
   const format     = p('format', 'csv')
 
-  const outputSchema = useMemo(() => {
-    try {
-      return JSON.parse(p('outputSchema') || '[]') as Array<{ name: string; type: string; physicalName?: string }>
-    } catch { return [] }
-  }, [node?.data.props?.['outputSchema']])
-
   const [limite,  setLimite]  = useState(20)
   const [output,  setOutput]  = useState<Array<Record<string, unknown>> | null>(null)
   const [errore,  setErrore]  = useState<string | null>(null)
@@ -59,23 +54,16 @@ export function SourceFilePreviewPanel({ nodeId }: { nodeId: string }) {
       setErrore('Dynamic path (from field): preview is available only with a static path.')
       return
     }
-    if (!path) { setErrore('No file path set on the node.'); return }
+    if (!path && !p('glob')) { setErrore('No file path set on the node.'); return }
 
     // Spec del nodo — STESSA ricetta di buildRustPlan: scalari nei props,
     // proiezione dello schema in config.fields (physicalName come nome).
+    // Tutte le props del nodo (encoding, quote, righe da saltare, glob…):
+    // l'anteprima legge il file come il Run.
+    const props = (node?.data.props ?? {}) as Record<string, string | undefined>
     const spec = {
-      props: {
-        path,
-        format,
-        delimiter: p('delimiter', ','),
-        hasHeader: p('hasHeader', 'true'),
-        sheetName: p('sheetName', ''),   // Excel/ODS (P342)
-        startRow:  p('startRow', '1'),
-        pathSource: 'static',
-      },
-      config: {
-        fields: outputSchema.map((f) => ({ name: f.physicalName ?? f.name, type: f.type })),
-      },
+      props:  { ...props, pathSource: 'static' },
+      config: { fields: sourceFileSpecFields(props) },
     }
 
     setInCorso(true)

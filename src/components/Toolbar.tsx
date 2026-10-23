@@ -25,6 +25,7 @@ import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
 import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
+import { sourceFileSpecFields } from '../nodes/types/source_file/spec'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
 
@@ -672,13 +673,9 @@ function buildRustPlan(
           // quindi è materiale elaborato → va in spec.config (node-spec
           // §13). Gli scalari (path, delimiter, hasHeader) restano props
           // verbatim e li legge il motore via Spec.
-          try {
-            const raw = props['outputSchema']
-            if (raw) {
-              specConfig.fields = (JSON.parse(raw) as Array<{ name: string; type: string; physicalName?: string }>)
-                .map(f => ({ name: f.physicalName ?? f.name, type: f.type }))
-            }
-          } catch { /* schema assente o illeggibile: nessuna conversione */ }
+          // P357: nome logico + colonna fisica + trasformazione (prima solo
+          // la colonna: la rinomina del mapping si perdeva).
+          specConfig.fields = sourceFileSpecFields(props as Record<string, string | undefined>)
           break
         }
 

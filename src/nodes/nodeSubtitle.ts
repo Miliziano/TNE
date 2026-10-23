@@ -25,7 +25,10 @@ export function getNodeSubtitle(data: NodeData): string {
 
     // ── Input ────────────────────────────────────────────────────
     case 'source_file': {
-      const path = p('filePath') || p('path')
+      const src  = p('pathSource', 'static')
+      if (src === 'lane_var' && p('laneVarName')) return withCatch(`var("${p('laneVarName')}")`, data)
+      if (src === 'flow') return withCatch(`from flow: ${p('pathField', 'path')}`, data)
+      const path = p('glob') || p('filePath') || p('path')
       if (path) return withCatch(truncate(path.split('/').pop() ?? path, 35), data)
       const fmt = p('format')
       return withCatch(fmt ? `format: ${fmt}` : 'no file', data)

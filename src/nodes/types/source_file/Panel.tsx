@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import type { Variable } from '../../../types'
-import type { FileFormat } from '../../fileSchema'
-import { FIXED_SCHEMA,STRUCTURED_FORMATS, FORMAT_GROUPS } from '../../fileSchema'
+import { FIXED_SCHEMA, SOURCE_FORMAT_GROUPS, SOURCE_FORMATS, SOURCE_TABULAR_FORMATS, SOURCE_TEXT_FORMATS } from '../../fileSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 const inputStyle: React.CSSProperties = {
@@ -51,7 +50,8 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     updateProp(nodeId, key, e.target.value)
 
-  const format     = p('format', 'csv') as FileFormat
+  const format     = p('format', 'csv')
+  const legacyFmt  = !SOURCE_FORMATS.includes(format)   // parquet/orc/avro/pdf_text… (≤ P356)
   const pathSource = p('pathSource', 'static')  // 'static' | 'lane_var' | 'flow'
   const hasInput   = edges.some((e) => e.target === nodeId)
 
@@ -63,7 +63,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
   // Path effettivo da mostrare come preview
   const effectivePath = (() => {
-    if (pathSource === 'static')   return p('path') || null
+    if (pathSource === 'static')   return p('glob') || p('path') || null
     if (pathSource === 'lane_var') return p('laneVarName') ? `var("${p('laneVarName')}")` : null
     if (pathSource === 'flow')     return p('pathField') ? `row.${p('pathField')}` : null
     return null
@@ -79,7 +79,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
         {[
           { value: 'static',   label: '📄 Static',         desc: 'Path configured directly below' },
           { value: 'lane_var', label: '◎ Lane variable',   desc: 'Reads the path from a lane variable' },
-          { value: 'flow',     label: '→ From flow',       desc: 'Uses the path field from each incoming row (e.g. from DirWatcher)' },
+          { value: 'flow',     label: '→ From flow',       desc: 'Uses the path field of the incoming row — one row (to read several files use the glob pattern)' },
         ].map((s) => {
           const disabled = s.value === 'flow' && !hasInput
           return (
@@ -105,10 +105,16 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
 
       {/* Configurazione sorgente */}
       {pathSource === 'static' && (
-        <Field label="File path" hint="Absolute or relative path to the job base directory">
-          <input type="text" style={inputStyle} value={p('path')} onChange={u('path')}
-            placeholder="/data/input/file.csv" />
-        </Field>
+        <>
+          <Field label="File path" hint="Absolute path, or relative to the directory the job runs in">
+            <input type="text" style={inputStyle} value={p('path')} onChange={u('path')}
+              placeholder="/data/input/file.csv" />
+          </Field>
+          <Field label="Glob pattern" hint="To read several files: /data/in/*.csv (wildcards * and ? in the file name). When set, it replaces the file path; files are read in name order">
+            <input type="text" style={inputStyle} value={p('glob', '')} onChange={u('glob')}
+              placeholder="/data/input/*.csv (optional)" />
+          </Field>
+        </>
       )}
 
       {pathSource === 'lane_var' && (
@@ -134,7 +140,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
       {pathSource === 'flow' && (
         <Field
           label="Path field from flow"
-          hint="Name of the row field containing the file path — usually 'path' from the DirWatcher"
+          hint="Field of the incoming row with the file path. The input must bring ONE row"
         >
           <input style={inputStyle} value={p('pathField', 'path')} onChange={u('pathField')}
             placeholder="path" />
@@ -161,12 +167,13 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
             const fixed = FIXED_SCHEMA[newFormat]
             if (fixed) {
               updateProp(nodeId, 'outputSchema', JSON.stringify(fixed))
-            } else if (!STRUCTURED_FORMATS.includes(newFormat as FileFormat)) {
+            } else if (!SOURCE_TABULAR_FORMATS.includes(newFormat)) {
               // formato non strutturato senza schema fisso — azzera
               updateProp(nodeId, 'outputSchema', '')
             }
           }}>
-            {FORMAT_GROUPS.map((group) => (
+            {legacyFmt && <option value={format}>{format} — not available</option>}
+            {SOURCE_FORMAT_GROUPS.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.formats.map((f) => (
                   <option key={f.value} value={f.value}>{f.label}</option>
@@ -176,8 +183,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
           </CustomSelect>
         </Field>
 
-        {STRUCTURED_FORMATS.includes(format) &&
-          format !== 'parquet' && format !== 'orc' && format !== 'avro' && (
+        {SOURCE_TEXT_FORMATS.includes(format) && (
           <Field label="Encoding">
             <CustomSelect style={inputStyle} value={p('encoding', 'utf-8')} onChange={u('encoding')}>
               <option value="utf-8">UTF-8</option>
@@ -199,6 +205,13 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
         )}
       </Row>
 
+      {legacyFmt && (
+        <div style={{ padding: '6px 10px', background: '#2a0a0a', borderRadius: 4, border: '0.5px solid #5a1a1a', fontSize: 10, color: '#ff8a80' }}>
+          <i className="ti ti-alert-triangle" style={{ fontSize: 11, marginRight: 4 }} />
+          The format "{format}" is not available: the engine cannot read it and the run will fail. Choose another format.
+        </div>
+      )}
+
       {/* ── Opzioni formato ── */}
       {(format === 'csv' || format === 'tsv') && (
         <>
@@ -219,7 +232,7 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
                 <option value="false">No header</option>
               </CustomSelect>
             </Field>
-            <Field label="Escape character">
+            <Field label="Escape character" hint="Inside quotes, before a quote or itself. Doubled quotes always work">
               <input type="text" style={inputStyle} value={p('escapeChar', '\\')} onChange={u('escapeChar')} />
             </Field>
           </Row>
@@ -251,70 +264,36 @@ export function SourceFilePanel({ nodeId }: { nodeId: string }) {
         </>
       )}
 
-      {(format === 'json' || format === 'jsonl') && (
+      {format === 'json' && (
         <>
           <SectionTitle label="JSON options" />
-          <Field label="Root JSON Path" hint="E.g. $.data.items for a nested array">
+          <Field label="JSON path" hint="Where the records are: $ = the whole document, $.data.items, $.data[0].rows">
             <input type="text" style={inputStyle} value={p('jsonPath', '$')} onChange={u('jsonPath')} placeholder="$" />
           </Field>
-          {format === 'json' && (
-            <Field label="Structure">
-              <CustomSelect style={inputStyle} value={p('jsonStructure', 'array')} onChange={u('jsonStructure')}>
-                <option value="array">Array of objects</option>
-                <option value="object">Single object</option>
-              </CustomSelect>
-            </Field>
-          )}
-        </>
-      )}
-
-      {(format === 'parquet' || format === 'orc' || format === 'avro') && (
-        <>
-          <SectionTitle label={`${format.toUpperCase()} options`} />
-          <Field label="Schema" hint="Leave empty to read the schema embedded in the file">
-            <textarea
-              style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontFamily: 'monospace' }}
-              value={p('schemaOverride', '')} onChange={u('schemaOverride')}
-              placeholder='{"fields": [{"name": "id", "type": "long"}, ...]}'
-              spellCheck={false} />
+          <Field label="Structure">
+            <CustomSelect style={inputStyle} value={p('jsonStructure', 'object')} onChange={u('jsonStructure')}>
+              <option value="object">Whole value — one row</option>
+              <option value="array">Array — one row per element</option>
+            </CustomSelect>
           </Field>
-        </>
-      )}
-
-      {format === 'pdf_text' && (
-        <>
-          <SectionTitle label="PDF extraction options" />
-          <Row>
-            <Field label="Pages" hint="E.g. 1-5, or empty for all">
-              <input type="text" style={inputStyle} value={p('pdfPages', '')} onChange={u('pdfPages')} placeholder="all" />
-            </Field>
-            <Field label="Output granularity">
-              <CustomSelect style={inputStyle} value={p('pdfGranularity', 'document')} onChange={u('pdfGranularity')}>
-                <option value="document">Whole document</option>
-                <option value="page">One row per page</option>
-                <option value="paragraph">One record per paragraph</option>
-              </CustomSelect>
-            </Field>
-          </Row>
         </>
       )}
 
       {/* ── Opzioni lettura ── */}
-      <SectionTitle label="Read options" />
-      <Row>
-        <Field label="Rows to skip" hint="Initial rows to ignore">
-          <input type="number" style={inputStyle} value={p('skipRows', '0')} onChange={u('skipRows')} min="0" />
-        </Field>
-        <Field label="Row limit" hint="0 = all rows">
-          <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
-        </Field>
-      </Row>
-
-      {STRUCTURED_FORMATS.includes(format) && (
-        <Field label="Glob pattern" hint="To read multiple files: /data/*.csv — used only in static mode">
-          <input type="text" style={inputStyle} value={p('glob', '')} onChange={u('glob')}
-            placeholder="/data/input/*.csv (optional)" />
-        </Field>
+      {!['xml', 'binary', 'pdf_binary'].includes(format) && (
+        <>
+          <SectionTitle label="Read options" />
+          <Row>
+            {['csv', 'tsv', 'jsonl', 'text'].includes(format) && (
+              <Field label="Lines to skip" hint="Physical lines ignored at the start of the file (before the header)">
+                <input type="number" style={inputStyle} value={p('skipRows', '0')} onChange={u('skipRows')} min="0" />
+              </Field>
+            )}
+            <Field label="Row limit" hint="0 = all rows (across all files of a glob)">
+              <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />
+            </Field>
+          </Row>
+        </>
       )}
 
     </div>

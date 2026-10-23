@@ -57,5 +57,39 @@ Conversione delle celle:
 > formato xlsx è un archivio compresso, non si legge a flusso come un CSV). Per file
 > molto grandi conviene esportare in CSV.
 
-Altre note d'uso, esempi e trabocchetti: _da compilare_.
+### Da dove viene il file (P357)
+- **Static**: il percorso, oppure un **glob** (`/data/in/*.csv`, `*` e `?` solo nel nome
+  del file): tutti i file che corrispondono, in ordine di nome, uno dopo l'altro.
+  "Row limit" vale sul totale.
+- **Lane variable**: il valore di una variabile di lane.
+- **From flow**: il campo della riga in ingresso. L'ingresso deve portare **una** riga
+  (regola delle sorgenti); per più file si usa il glob.
+
+### CSV e TSV
+Delimitatore, carattere di quote (le quote raddoppiate funzionano sempre), escape
+(dentro le quote, davanti a una quote o a sé stesso), commento (righe che iniziano con
+quel carattere), intestazione sì/no, righe iniziali da saltare. Un campo tra quote può
+andare a capo. Il BOM UTF-8 all'inizio del file viene tolto. Encoding: UTF-8, UTF-16,
+ISO-8859-1, Windows-1252, ASCII — un file non UTF-8 letto come UTF-8 dà un errore che
+dice la riga.
+
+### Il mapping
+Nella scheda Mapping ogni campo ha un **nome** (quello che esce), la **colonna** del file
+da cui viene, il **tipo** e una trasformazione del testo (maiuscolo/minuscolo). Con un
+mapping escono solo i campi mappati; senza, tutte le colonne come testo. Un valore che
+non si converte al tipo diventa NULL (meglio un null visibile che uno zero).
+
+### Gli altri formati
+- **JSON**: il valore al "JSON path" (`$`, `$.data.items`, `$.data[0].rows`) in una riga,
+  oppure — con Structure = Array — una riga per elemento. Campi `content` (oggetto) e
+  `raw` (il testo JSON), per il JSON Parser.
+- **JSON Lines**: una riga per riga del file, stessi campi; una riga non valida dà errore
+  col suo numero.
+- **XML**: il documento intero in `content`, per l'XML Parser.
+- **Text**: una riga per linea, `line` e `line_number`.
+- **Binary / PDF (binary)**: il file in `data`, Base64 o esadecimale, con `mime_type`.
+
+Non disponibili (tolti dal pannello nel P357): Parquet, ORC, Avro, estrazione del testo
+dai PDF.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

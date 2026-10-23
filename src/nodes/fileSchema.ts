@@ -16,6 +16,43 @@ export const STRUCTURED_FORMATS: FileFormat[] = [
   'csv', 'tsv', 'excel', 'parquet', 'orc', 'avro',
 ]
 
+/** File Input (P357): i formati tabellari, gli unici col mapping dei campi. */
+export const SOURCE_TABULAR_FORMATS = ['csv', 'tsv', 'excel']
+
+/** File Input (P357): solo ciò che il motore sa leggere (source_file.rs). */
+export const SOURCE_FORMAT_GROUPS = [
+  {
+    label: 'Tables',
+    formats: [
+      { value: 'csv',   label: 'CSV' },
+      { value: 'tsv',   label: 'TSV' },
+      { value: 'excel', label: 'Excel / OpenDocument (.xlsx .xls .ods)' },
+    ],
+  },
+  {
+    label: 'Documents (→ JSON / XML Parser)',
+    formats: [
+      { value: 'json',  label: 'JSON — the document, or one row per element' },
+      { value: 'jsonl', label: 'JSON Lines — one row per line' },
+      { value: 'xml',   label: 'XML — the whole document in one row' },
+    ],
+  },
+  {
+    label: 'Other',
+    formats: [
+      { value: 'text',       label: 'Plain text — one row per line' },
+      { value: 'binary',     label: 'Binary — Base64 / hex' },
+      { value: 'pdf_binary', label: 'PDF — binary, Base64 / hex' },
+    ],
+  },
+]
+
+/** I formati di testo: l'encoding conta. */
+export const SOURCE_TEXT_FORMATS = ['csv', 'tsv', 'json', 'jsonl', 'xml', 'text']
+
+/** Valori di `format` che il motore riconosce (tabelle + documenti + altro). */
+export const SOURCE_FORMATS: string[] = SOURCE_FORMAT_GROUPS.flatMap((g) => g.formats.map((f) => f.value))
+
 // ─── Gruppi per la select del formato ────────────────────────────
 export const FORMAT_GROUPS = [
   {
@@ -80,11 +117,6 @@ export const FIXED_SCHEMA: Record<string, TMapInputField[]> = {
     { id: 'text_line',    name: 'line',        type: 'string',  physicalName: 'line'        },
     { id: 'text_linenum', name: 'line_number', type: 'integer', physicalName: 'line_number' },
   ],
-  pdf_text: [
-    { id: 'pdf_text',     name: 'text',     type: 'string',  physicalName: 'text'     },
-    { id: 'pdf_pages',    name: 'pages',    type: 'integer', physicalName: 'pages'    },
-    { id: 'pdf_metadata', name: 'metadata', type: 'object',  physicalName: 'metadata' },
-  ],
   pdf_binary: [
     { id: 'pdfbin_data', name: 'data',      type: 'string', physicalName: 'data'      },
     { id: 'pdfbin_mime', name: 'mime_type', type: 'string', physicalName: 'mime_type' },
@@ -116,19 +148,18 @@ export const FIXED_SCHEMA: Record<string, TMapInputField[]> = {
  * Restituisce true se il formato ha schema fisso non modificabile.
  */
 export const isFixedFormat = (format: string): boolean =>
-  !STRUCTURED_FORMATS.includes(format as FileFormat)
+  !SOURCE_TABULAR_FORMATS.includes(format)
 
 /**
  * Messaggio descrittivo per i formati con schema fisso.
  */
 export const FIXED_FORMAT_HINT: Record<string, string> = {
-  json:       'Il formato JSON produce il documento come campo "content" (object) e "raw" (string). Collega questo nodo a un JSON Parser per estrarre i campi strutturati.',
-  jsonl:      'Il formato JSONL produce una riga per oggetto JSON, con campo "content" (object) e "raw" (string). Collega a un JSON Parser per estrarre i campi.',
-  xml:        'Il formato XML produce il documento come campo "content" (string). Collega questo nodo a un XML Parser per estrarre i campi strutturati.',
-  text:       'Il formato testo produce una riga per ogni linea del file, con campo "line" e "line_number".',
-  pdf_text:   'Il formato PDF estrae il testo con campi "text", "pages" e "metadata".',
-  pdf_binary: 'Il formato PDF binario produce il contenuto come Base64 nel campo "data".',
-  binary:     'Il formato binario produce il contenuto come Base64 nel campo "data".',
-  html:       'Formato HTML dal Report Generator. Il SinkFile scriverà il campo "content" direttamente su disco come file .html.',
-  excel_b64:  'Formato Excel dal Report Generator. Il SinkFile decodificherà il campo "content" (base64) e lo scriverà come file .xlsx binario.',
+  json:       'The value at the JSON path in one row — or one row per element if Structure is "Array": "content" (object) and "raw" (the JSON text). Connect a JSON Parser to extract the fields.',
+  jsonl:      'One row per line of the file: "content" (object) and "raw" (the JSON text). Connect a JSON Parser to extract the fields.',
+  xml:        'The whole document in one row, in the "content" field. Connect an XML Parser to extract the fields.',
+  text:       'One row per line of the file, with "line" and "line_number".',
+  pdf_binary: 'The PDF as Base64 (or hex) in "data", with "mime_type".',
+  binary:     'The file as Base64 (or hex) in "data", with "size" and "mime_type".',
+  html:       'HTML from the Report Generator. File Output writes the "content" field as an .html file.',
+  excel_b64:  'Excel from the Report Generator. File Output decodes "content" (base64) and writes an .xlsx file.',
 }

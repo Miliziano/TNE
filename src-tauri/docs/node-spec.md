@@ -736,30 +736,41 @@ e non costruisce più `config` legacy.
 
 ## 13. `source_file` — lettura da file
 
-Legge un file (CSV oggi pienamente supportato dal motore; altri formati
-sono nel pannello ma non ancora nel motore) e produce righe tipizzate.
-Nodo sorgente (nessun input). Nessuna risorsa DB.
+Legge uno o più file e produce righe. Nodo sorgente: l'ingresso facoltativo
+è una barriera + una riga di parametri (R8, cardinalità 1). Nessuna risorsa.
+Allineato al pannello nel P357 (v. testa di `source_file.rs`).
 
 ### Props — scalari (verbatim via Spec)
 
-| Chiave       | Tipo   | Default | Semantica                                              | Live |
-|--------------|--------|---------|--------------------------------------------------------|------|
-| `path`       | string | `""`    | Percorso del file                                      | ✅   |
-| `delimiter`  | string | `","`   | Separatore (prima char); es. `;` `\t`                 | ✅   |
-| `hasHeader`  | bool   | `true`  | Prima riga = intestazione                              | ✅   |
+| Chiave           | Default    | Semantica |
+|------------------|------------|-----------|
+| `pathSource`     | `static`   | `static` (`path` o `glob`) \| `lane_var` (`laneVarName`) \| `flow` (`pathField` della riga in ingresso) |
+| `path`, `glob`   |            | Percorso; `glob` (`*`, `?` nel nome del file) lo sostituisce: tutti i file, in ordine di nome |
+| `format`         | `csv`      | csv, tsv, excel, json, jsonl, xml, text, binary, pdf_binary — altro → errore |
+| `encoding`       | `utf-8`    | formati di testo: utf-8 (BOM tolto), utf-16, iso-8859-1, windows-1252, ascii |
+| `delimiter`, `quoteChar`, `escapeChar`, `commentChar`, `hasHeader` | | CSV/TSV; un campo tra virgolette può andare a capo |
+| `skipRows`       | `0`        | righe fisiche iniziali ignorate (csv, tsv, jsonl, text) |
+| `limit`          | `0`        | righe di dati, su tutti i file (0 = tutte) |
+| `sheetName`, `startRow` |     | Excel/ODS |
+| `jsonPath`, `jsonStructure` | `$`, `object` | json: valore al percorso in una riga, o (`array`) una riga per elemento |
+| `binaryEncoding` | `base64`   | binary / pdf_binary: `base64` \| `hex` |
 
-### `spec.config` — schema-proiezione
+### `spec.config` — mapping (solo csv, tsv, excel)
 
-| Chiave   | Tipo  | Semantica                                                     |
-|----------|-------|---------------------------------------------------------------|
-| `fields` | array | `[{name, type}]` — tipi per colonna. **Elaborato dal builder** |
+| Chiave   | Semantica |
+|----------|-----------|
+| `fields` | `[{name, physical, type, transform}]` — **elaborato dal builder** (`sourceFileSpecFields`) |
 
-`fields` è la proiezione per l'esecuzione dello schema del pannello: il
-builder mappa il nome logico → `physicalName` (il nome nell'header del
-CSV, perché source_file legge l'header e non rinomina). Essendo materiale
-elaborato (non props verbatim), va in `spec.config`. Serve per tipizzare:
-un CSV è tutto testo, ma `età: integer` deve produrre `Value::Int(45)`,
-non `Value::String("45")` (altrimenti `età * 5` dà null).
+Con un mapping escono SOLO i campi mappati, col nome logico (`name`) letto
+dalla colonna `physical`, trasformati (`uppercase`, `lowercase`; legacy
+`trim`, `nullify_empty`, `to_int`…) e convertiti a `type`. Senza mapping
+tutte le colonne, come testo (Excel: tipo naturale della cella). Prima del
+P357 il builder mandava solo `{name: physicalName, type}`: la rinomina si
+perdeva.
+
+Formati a schema fisso: json/jsonl → `content` (object) + `raw` (testo);
+xml → `content`; text → `line`, `line_number`; binary → `data`, `size`,
+`mime_type`; pdf_binary → `data`, `mime_type`.
 
 **Bug corretto in migrazione**: il vecchio builder leggeva `has_header`
 (chiave mai prodotta dal pannello, che salva `hasHeader`) → l'opzione era

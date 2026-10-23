@@ -9,20 +9,13 @@ import { invoke } from '@tauri-apps/api/core'
 
 const EXCEL_EXT = ['xlsx', 'xlsm', 'xlsb', 'xls', 'ods']
 
-/** Excel/ODS (P342): le prime righe le legge il MOTORE (source_file vero via
- *  engine_preview_node), lo stesso lettore del run. Prima lo faceva SheetJS nel
- *  browser: un secondo lettore, abbandonato su npm e con vulnerabilità note
- *  proprio nel parsing dei file. */
-async function readExcelViaEngine(path: string, props: Record<string, unknown>, limit: number): Promise<Record<string, unknown>[]> {
+/** Tabelle (CSV/TSV P357, Excel/ODS P342): le prime righe le legge il MOTORE
+ *  (source_file vero via engine_preview_node), lo stesso lettore del run —
+ *  con encoding, virgolette, escape, commenti e righe da saltare del nodo.
+ *  Senza mapping (fields vuoti): le colonne come sono nel file. */
+async function readTableViaEngine(path: string, props: Record<string, unknown>, limit: number): Promise<Record<string, unknown>[]> {
   const spec = {
-    props: {
-      path,
-      format:    'excel',
-      sheetName: String(props['sheetName'] ?? ''),
-      startRow:  String(props['startRow'] ?? '1'),
-      hasHeader: String(props['hasHeader'] ?? 'true'),
-      pathSource: 'static',
-    },
+    props:  { ...props, path, glob: '', limit: '0', pathSource: 'static' },
     config: { fields: [] },
   }
   const res = await invoke<string>('engine_preview_node', {
@@ -267,9 +260,9 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
       const rootPath  = node.data.props['xmlRootPath'] ?? undefined
 
       // Leggi le prime 50 righe per inferire lo schema
-      const isExcel = node.data.props['format'] === 'excel' || EXCEL_EXT.includes(ext)
-      const allRows = isExcel
-        ? await readExcelViaEngine(path, node.data.props, 50)
+      const isTable = ['csv', 'tsv', 'excel'].includes(format) || EXCEL_EXT.includes(ext)
+      const allRows = isTable
+        ? await readTableViaEngine(path, node.data.props, 50)
         : await readFileContent(await readFile(path), filename, {
             delimiter: delimiter || ',',
             sheetName: sheetName || undefined,
@@ -486,16 +479,14 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
 
                   <CustomSelect value={(field as any).transform ?? ''} onChange={(e) => updateField(idx, 'transform', e.target.value)}
                     style={{ ...inputStyle, fontSize: 10, padding: '3px 2px' }}>
+                    {/* Le conversioni le fa la colonna Type: qui solo il testo.
+                        Valori vecchi (to_int, to_float…) li applica ancora il motore. */}
                     <option value="">none</option>
-                    <option value="trim">trim</option>
                     <option value="uppercase">UPPER</option>
                     <option value="lowercase">lower</option>
-                    <option value="to_int">→ int</option>
-                    <option value="to_float">→ dec</option>
-                    <option value="to_date">→ date</option>
-                    <option value="to_bool">→ bool</option>
-                    <option value="to_string">→ str</option>
-                    <option value="nullify_empty">empty→null</option>
+                    {(field as any).transform && !['uppercase', 'lowercase'].includes((field as any).transform) && (
+                      <option value={(field as any).transform}>{(field as any).transform} (legacy)</option>
+                    )}
                   </CustomSelect>
 
                   <button onClick={() => deleteField(idx)}

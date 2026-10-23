@@ -1796,3 +1796,40 @@ passthrough mai emesso, segnale con campi diversi da quelli mostrati.
 - ⚠ Visto e non toccato: lo studio descrive l'uscita dei sink su file con campi `status.*`
   e `row.*` (schemaInference/connectionResolver), il motore emette campi piatti — da
   sistemare con sink_file (punto 7).
+
+## AGGIORNAMENTO — File Input allineato al pannello (stato al P357, 23 ottobre)
+
+Punto 3 dell'audit. `source_file.rs` riscritto (lettori per formato in un thread
+bloccante, righe in streaming su canale), excel e test P342 conservati.
+- **Formati**: jsonl, text, binary, pdf_binary prima letti come CSV → ora lettori veri;
+  json una riga col testo grezzo → valore al `jsonPath` (`$`, `$.a.b`, `$.a[0].b`), una
+  riga (default, compatibile) o una per elemento (`jsonStructure = array`), campi
+  `content` (object) + `raw` come dichiarava FIXED_SCHEMA. ⚠ `content` è ora un oggetto,
+  non un testo (il JSON Parser accetta entrambi). Parquet/ORC/Avro/estrazione testo PDF:
+  tolti (nessun lettore; il motore dà un errore chiaro sui progetti vecchi, il pannello lo
+  segnala).
+- **CSV**: parser nuovo — quote configurabile, escape (solo dentro le quote, davanti a quote
+  o a sé stesso: `C:\dir` resta com'è), commenti, campi su più righe, BOM UTF-8 tolto
+  (prima finiva nel nome della prima colonna), campi non quotati senza spazi ai bordi.
+  `parse_csv_line` resta (source_ftp) appoggiato al nuovo parser.
+- **Encoding**: `text_encoding::decode_text` / `decode_byte` (UTF-8 con errore che dice la
+  riga, UTF-16 con BOM, ISO-8859-1, Windows-1252, ASCII). UTF-8 e a un byte in streaming,
+  UTF-16 in memoria.
+- **Percorso**: variabile di lane e campo della riga in ingresso (cardinalità 1, come
+  deciso il 16 lug) — prima ignorati; **glob** sul nome del file, in ordine, `limit` sul
+  totale; `skipRows`, `limit` applicati.
+- **Mapping**: il builder (`sourceFileSpecFields`, `source_file/spec.ts`, usato anche
+  dall'anteprima) manda `{name, physical, type, transform}`; il motore emette solo i campi
+  mappati, col nome logico, trasformati e convertiti. Prima mandava `{name: physicalName}`
+  → la rinomina del mapping si perdeva e lo schema dello studio non corrispondeva ai dati.
+  Trasformazioni nel pannello ridotte a maiuscolo/minuscolo (trim, vuoto→null e le
+  conversioni le facevano già la conversione di tipo / la colonna Type; i valori vecchi
+  restano applicati e mostrati "(legacy)").
+- **Studio**: `SOURCE_FORMAT_GROUPS`/`SOURCE_FORMATS`/`SOURCE_TEXT_FORMATS`/
+  `SOURCE_TABULAR_FORMATS` in fileSchema.ts (FORMAT_GROUPS resta a sink_file, punto 7);
+  pannello con le sole opzioni reali per formato, glob accanto al percorso statico,
+  avviso sui formati tolti; anteprima e "carica schema" del mapping per CSV/TSV via motore
+  con tutte le props del nodo; pannello laterale e sottotitolo aggiornati; testi in inglese.
+- **Collaudo**: 6 test unitari nuovi (CSV completo, mapping, Windows-1252, json/jsonl/
+  text/binary, glob) + harness throwaway sul motore: statico+mapping, variabile di lane,
+  flusso (source_db → path), glob con limite su due file, json col path, parquet → errore.

@@ -9,6 +9,7 @@ import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import type { Variable } from '../../../types'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { SOURCE_FORMATS } from '../../fileSchema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -143,7 +144,8 @@ export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
       {/* Formato + limite — campi rapidi sempre utili */}
       <Field label="Format">
         <CustomSelect style={inputStyle} value={format} onChange={u('format')}>
-          {['csv', 'json', 'jsonl', 'parquet', 'tsv', 'xml', 'excel'].map((f) => (
+          {!SOURCE_FORMATS.includes(format) && <option value={format}>{format} — not available</option>}
+          {SOURCE_FORMATS.map((f) => (
             <option key={f} value={f}>{f.toUpperCase()}</option>
           ))}
         </CustomSelect>
