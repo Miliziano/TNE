@@ -1,4 +1,5 @@
 import { SINK_FILE_SIGNAL_SCHEMA_JSON } from '../nodes/types/sink_file/schema'
+import { ftpFixedSchema } from '../nodes/types/source_ftp/schema'
 import { scheduleCanvasValidation, runCompilation, runCodegen } from '../ir/pipeline'
 import { setActiveUserFunctions } from '../ir/userFunctions'
 import type { ValidationIssue } from '../ir/types'
@@ -164,10 +165,25 @@ export const updateNode = (
 /** Normalizza i nodi di un progetto caricato: Start/End salvati come non
  *  cancellabili (prima erano obbligatori) diventano cancellabili. */
 export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
-  return nodes.map((n) => normalizeSinkFile(normalizeAdvanced(
+  return nodes.map((n) => normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
     (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
       ? { ...n, deletable: true }
-      : n)))
+      : n))))
+}
+
+/**
+ * FTP/SFTP Source (P362): lo schema dei formati fissi è quello che il motore
+ * emette (es. text → line/line_number, prima lineNumber; binary → anche size
+ * e mime_type). Si riallinea al caricamento, senza aspettare l'apertura del
+ * pannello.
+ */
+function normalizeSourceFtp(n: FlowNode<NodeData>): FlowNode<NodeData> {
+  if (n.data?.type !== 'source_ftp') return n
+  const props = n.data.props ?? {}
+  const fixed = ftpFixedSchema(props['outputMode'] ?? 'content', props['fileFormat'] ?? 'csv')
+  if (!fixed) return n
+  const json = JSON.stringify(fixed)
+  return props['outputSchema'] === json ? n : { ...n, data: { ...n.data, props: { ...props, outputSchema: json } } }
 }
 
 /**

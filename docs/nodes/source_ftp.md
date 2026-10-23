@@ -42,4 +42,32 @@ _Nessun campo di configurazione._
 
 I trasferimenti FTP/FTPS sono **binari**: il file arriva byte per byte com'è (niente
 conversione dei fine riga).
+
+**Lettura (P362).** Un file scaricato si legge col lettore del File Input: stessi
+formati (testo, CSV, TSV, Excel, JSON, JSON Lines, XML, binario), stesse codifiche e,
+per CSV/TSV/Excel, lo stesso mapping (colonna nel file → nome, tipo). *Raw* mette
+tutto il file, come testo, nel campo `content`. Ogni riga porta anche `_filename`,
+`_filepath`, `_filesize`, `_modified_at`.
+
+**Ricerca.** Il filtro vale sui nomi dei file; con *Search in subfolders* si
+esplorano tutte le sottocartelle (fino a 32 livelli). In FTP la lista usa MLSD (o
+LIST): dimensione, data e cartelle sono veri, quindi anche l'ordine per data o
+dimensione funziona. Ordine dei file, poi *Max files per run*.
+
+**Compressione.** GZIP (un file) o ZIP (ogni file dell'archivio, nel formato scelto).
+BZIP2 non è supportato.
+
+**Wait for files.** Interroga la cartella ogni N secondi (minimo 5) finché almeno un
+file corrisponde, poi li legge e finisce. Per non aspettare all'infinito si imposta
+*Max run time* nella scheda Advanced. Con *Delete* o *Move* dopo la lettura la
+cartella funziona da coda.
+
+**Dopo la lettura.** *Move* (nella cartella d'archivio, creata se manca; un file con
+lo stesso nome viene sostituito) o *Delete*, solo per i file letti senza errori. Se lo
+spostamento o la cancellazione falliscono, il nodo fallisce: un file rimasto al suo
+posto verrebbe riletto la volta dopo.
+
+**Errori su un file** (scaricamento, decompressione, lettura): *Skip* (avviso e si
+continua), *Stop*, o *Move to error directory* (cartella da indicare).
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

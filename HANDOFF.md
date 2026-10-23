@@ -1973,3 +1973,32 @@ Punto 7 dell'audit. `sink_file.rs` riscritto (v3) attorno a un `Target` per file
   cartella / mese / dimensione; new ×2; ${seq} ×2; binario da base64; testo UTF-16 con BOM;
   comando ok e in errore; webhook su server locale e irraggiungibile; segnale per file
   verso un secondo sink; parquet e pdf_text → errore). Prossimo punto: source_ftp.
+
+## AGGIORNAMENTO — FTP/SFTP Source: ogni opzione fa ciò che dice (stato al P362, 23 ottobre)
+
+Punto 8 dell'audit. `source_ftp.rs` riscritto (v2).
+- **Lettura = File Input**: `source_file::FileReader` (nuovo, `config_with_format`) legge
+  la copia temporanea del file scaricato → stessi formati, codifiche e mapping (il builder
+  passa `fields` con `sourceFileSpecFields` su `fileFormat`, senza i metadati `_file*`).
+  Prima: text/jsonl/excel/binary letti come CSV, encoding ignorato, file non UTF-8 in
+  errore, mapping ignorato. `raw` resta nel nodo (decode_text). Tolto `parse_csv_line`.
+- **lib.rs**: `ftp_read_bytes_impl` (byte; `ftp_read_impl` ci passa sopra), `ftp_move_impl`
+  (crea la cartella; SFTP senza sovrascrittura → unlink e riprova), `ftp_delete_impl`;
+  `sftp_list` e `ftp_plain_list` ricorsivi (max 32 livelli); FTP con MLSD/LIST +
+  `suppaftp::list::ListParser` invece di NLST (prima: cartelle come file, size 0, nessuna
+  data). Vale anche per la lista file del pannello risorsa.
+- **Opzioni ora applicate**: recursive, fileOrder, compression gzip/zip (bzip2 tolto),
+  afterFetch move/delete (se fallisce → errore del nodo), onFileError move_error (+ nuovo
+  campo `errorPath`), connectTimeout del nodo (vuoto = quello della risorsa), fetchMode
+  watch = "Wait for files" (interroga ogni pollInterval s, min 5, finché c'è almeno un
+  file, poi legge e finisce; tetto = Max run time; cancellabile).
+- **Studio**: `source_ftp/schema.ts` (schema fisso per formato allineato al motore: text →
+  `line_number`, binary → data/size/mime_type, + metadati); i due pulsanti Output mode
+  impostavano entrambi `list_files` (bug) → corretti; MappingPanel riscritto (colonna nel
+  file + nome + tipo, niente setTimeout nel render, hook prima del return); stringhe
+  italiane tradotte; `normalizeSourceFtp` riallinea lo schema fisso al caricamento.
+- Collaudo: 2 test unitari (ordine, gzip/zip) + harness throwaway su SFTP (sshd :2222) e
+  FTP (pyftpdlib :2121) reali, 14 casi per protocollo: lista ricorsiva con size/data; CSV
+  windows-1252 + mapping + date_desc + maxFiles; gzip; zip a 2 voci; JSON; binario; Excel;
+  raw; bzip2 → errore; gzip rotto → spostato in err/; move → arch/ (e il giro dopo non lo
+  rilegge); delete; watch con file che arriva dopo 3 s. Prossimo punto: dir_watcher.

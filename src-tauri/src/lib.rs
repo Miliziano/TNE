@@ -2275,7 +2275,7 @@ struct FtpTestResult {
   elapsed_ms: u128,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FtpFileEntry {
   pub name:        String,
   pub path:        String,
@@ -2307,7 +2307,7 @@ pub async fn ftp_list_impl(
 ) -> Result<Vec<FtpFileEntry>, String> {
   match connection.protocol.as_str() {
     "sftp"        => sftp_list(&connection, &remote_path, pattern.as_deref(), recursive.unwrap_or(false)).await,
-    "ftp" | "ftps" => ftp_plain_list(&connection, &remote_path, pattern.as_deref()).await,
+    "ftp" | "ftps" => ftp_plain_list(&connection, &remote_path, pattern.as_deref(), recursive.unwrap_or(false)).await,
     p             => Err(format!("Protocol '{}' not supported", p)),
   }
 }
@@ -2324,9 +2324,16 @@ async fn ftp_list(
 }
 
 pub async fn ftp_read_impl(connection: FtpConnectionParams, remote_path: String) -> Result<String, String> {
+  let bytes = ftp_read_bytes_impl(&connection, &remote_path).await?;
+  String::from_utf8(bytes).map_err(|e| format!("'{}' is not UTF-8 text: {}", remote_path, e))
+}
+
+/// Il file remoto così com'è, byte per byte (P362: source_ftp legge binari,
+/// archivi e codifiche diverse da UTF-8).
+pub async fn ftp_read_bytes_impl(connection: &FtpConnectionParams, remote_path: &str) -> Result<Vec<u8>, String> {
   match connection.protocol.as_str() {
-    "sftp"        => sftp_read(&connection, &remote_path).await,
-    "ftp" | "ftps" => ftp_plain_read(&connection, &remote_path).await,
+    "sftp"        => sftp_read(connection, remote_path).await,
+    "ftp" | "ftps" => ftp_plain_read(connection, remote_path).await,
     p             => Err(format!("Protocol '{}' not supported", p)),
   }
 }
@@ -2412,30 +2419,47 @@ async fn sftp_test(conn: &FtpConnectionParams, start: std::time::Instant) -> Res
   }
 }
 
-async fn sftp_list(conn: &FtpConnectionParams, remote_path: &str, pattern: Option<&str>, _recursive: bool) -> Result<Vec<FtpFileEntry>, String> {
+/// Cartelle annidate oltre le quali la ricerca ricorsiva si ferma.
+const FTP_MAX_DEPTH: usize = 32;
+
+async fn sftp_list(conn: &FtpConnectionParams, remote_path: &str, pattern: Option<&str>, recursive: bool) -> Result<Vec<FtpFileEntry>, String> {
   let c = conn.clone(); let path = remote_path.to_string(); let pat = pattern.map(|s| s.to_string());
   tokio::task::spawn_blocking(move || {
     let session = sftp_connect_sync(&c)?;
     let sftp    = session.sftp().map_err(|e| format!("SFTP init: {}", e))?;
-    let entries = sftp.readdir(std::path::Path::new(&path)).map_err(|e| format!("SFTP readdir '{}': {}", path, e))?;
-    Ok(entries.into_iter().filter_map(|(p, stat)| {
-      let name = p.file_name()?.to_string_lossy().to_string();
-      if let Some(ref pat) = pat { if !glob_match(pat, &name) { return None; } }
-      let modified_at = stat.mtime.and_then(|t| chrono::DateTime::<chrono::Utc>::from_timestamp(t as i64, 0).map(|dt| dt.to_rfc3339()));
-      Some(FtpFileEntry { path: format!("{}/{}", path.trim_end_matches('/'), name), name, is_dir: stat.is_dir(), size: stat.size.unwrap_or(0), modified_at })
-    }).collect())
+    let mut out = Vec::new();
+    // P362: con `recursive` si scende nelle sottocartelle; il filtro vale
+    // sui nomi, le cartelle si attraversano comunque.
+    let mut stack = vec![(path.clone(), 0usize)];
+    while let Some((dir, depth)) = stack.pop() {
+      let entries = match sftp.readdir(std::path::Path::new(&dir)) {
+        Ok(e) => e,
+        Err(e) if depth == 0 => return Err(format!("SFTP readdir '{}': {}", dir, e)),
+        Err(_) => continue,
+      };
+      for (p, stat) in entries {
+        let Some(name) = p.file_name().map(|n| n.to_string_lossy().to_string()) else { continue };
+        if name == "." || name == ".." { continue }
+        let full = format!("{}/{}", dir.trim_end_matches('/'), name);
+        if stat.is_dir() && recursive && depth < FTP_MAX_DEPTH { stack.push((full.clone(), depth + 1)); }
+        if let Some(ref pat) = pat { if !glob_match(pat, &name) { continue } }
+        let modified_at = stat.mtime.and_then(|t| chrono::DateTime::<chrono::Utc>::from_timestamp(t as i64, 0).map(|dt| dt.to_rfc3339()));
+        out.push(FtpFileEntry { path: full, name, is_dir: stat.is_dir(), size: stat.size.unwrap_or(0), modified_at });
+      }
+    }
+    Ok(out)
   }).await.map_err(|e| e.to_string())?
 }
 
-async fn sftp_read(conn: &FtpConnectionParams, remote_path: &str) -> Result<String, String> {
+async fn sftp_read(conn: &FtpConnectionParams, remote_path: &str) -> Result<Vec<u8>, String> {
   use std::io::Read;
   let c = conn.clone(); let path = remote_path.to_string();
   tokio::task::spawn_blocking(move || {
     let session = sftp_connect_sync(&c)?;
     let sftp    = session.sftp().map_err(|e| format!("SFTP init: {}", e))?;
     let mut file = sftp.open(std::path::Path::new(&path)).map_err(|e| format!("SFTP open '{}': {}", path, e))?;
-    let mut content = String::new();
-    file.read_to_string(&mut content).map_err(|e| format!("SFTP read: {}", e))?;
+    let mut content = Vec::new();
+    file.read_to_end(&mut content).map_err(|e| format!("SFTP read: {}", e))?;
     Ok(content)
   }).await.map_err(|e| e.to_string())?
 }
@@ -2523,22 +2547,49 @@ async fn ftp_plain_test(conn: &FtpConnectionParams, start: std::time::Instant) -
   }
 }
 
-async fn ftp_plain_list(conn: &FtpConnectionParams, remote_path: &str, pattern: Option<&str>) -> Result<Vec<FtpFileEntry>, String> {
-  let path = remote_path.to_string(); let pat = pattern.map(|s| s.to_string());
-  let c = ftp_plain_connect(conn).await?;
-  let list = with_ftp!(c, ftp => {
-    let list = ftp.nlst(Some(&path)).await.map_err(|e| format!("FTP list '{}': {}", path, e))?;
-    let _ = ftp.quit().await;
-    list
-  });
-  Ok(list.into_iter().filter_map(|entry| {
-    let name = std::path::Path::new(&entry).file_name()?.to_string_lossy().to_string();
-    if let Some(ref pat) = pat { if !glob_match(pat, &name) { return None; } }
-    Some(FtpFileEntry { name, path: entry, is_dir: false, size: 0, modified_at: None })
-  }).collect())
+/// Una riga di MLSD o di LIST (formato Unix o DOS) → nome, cartella?, dimensione, data.
+/// P362: prima si usava NLST, che dà solo i nomi: cartelle viste come file,
+/// dimensione 0, nessuna data (e ordinamento per data/dimensione impossibile).
+fn ftp_parse_entry(line: &str) -> Option<(String, bool, u64, Option<String>)> {
+  use suppaftp::list::ListParser;
+  let f = ListParser::parse_mlsd(line).or_else(|_| ListParser::parse_posix(line)).or_else(|_| ListParser::parse_dos(line)).ok()?;
+  let modified = chrono::DateTime::<chrono::Utc>::from(f.modified()).to_rfc3339();
+  Some((f.name().to_string(), f.is_directory(), f.size() as u64, Some(modified)))
 }
 
-async fn ftp_plain_read(conn: &FtpConnectionParams, remote_path: &str) -> Result<String, String> {
+async fn ftp_plain_list(conn: &FtpConnectionParams, remote_path: &str, pattern: Option<&str>, recursive: bool) -> Result<Vec<FtpFileEntry>, String> {
+  let path = remote_path.to_string(); let pat = pattern.map(|s| s.to_string());
+  let c = ftp_plain_connect(conn).await?;
+  let out = with_ftp!(c, ftp => {
+    let mut out: Vec<FtpFileEntry> = Vec::new();
+    let mut stack = vec![(path.clone(), 0usize)];
+    while let Some((dir, depth)) = stack.pop() {
+      // MLSD (standard, date in UTC) se il server lo conosce, altrimenti LIST.
+      let lines = match ftp.mlsd(Some(&dir)).await {
+        Ok(l) => l,
+        Err(_) => match ftp.list(Some(&dir)).await {
+          Ok(l) => l,
+          Err(e) if depth == 0 => return Err(format!("FTP list '{}': {}", dir, e)),
+          Err(_) => continue,
+        },
+      };
+      for line in lines {
+        let Some((name, is_dir, size, modified_at)) = ftp_parse_entry(&line) else { continue };
+        let name = name.rsplit('/').next().unwrap_or(&name).to_string();
+        if name == "." || name == ".." || name.is_empty() { continue }
+        let full = format!("{}/{}", dir.trim_end_matches('/'), name);
+        if is_dir && recursive && depth < FTP_MAX_DEPTH { stack.push((full.clone(), depth + 1)); }
+        if let Some(ref pat) = pat { if !glob_match(pat, &name) { continue } }
+        out.push(FtpFileEntry { name, path: full, is_dir, size, modified_at });
+      }
+    }
+    let _ = ftp.quit().await;
+    out
+  });
+  Ok(out)
+}
+
+async fn ftp_plain_read(conn: &FtpConnectionParams, remote_path: &str) -> Result<Vec<u8>, String> {
   use tokio::io::AsyncReadExt;
   let path = remote_path.to_string();
   let c = ftp_plain_connect(conn).await?;
@@ -2550,7 +2601,7 @@ async fn ftp_plain_read(conn: &FtpConnectionParams, remote_path: &str) -> Result
     let _ = ftp.quit().await;
     content
   });
-  String::from_utf8(content).map_err(|e| format!("FTP UTF-8: {}", e))
+  Ok(content)
 }
 
 async fn ftp_plain_write(conn: &FtpConnectionParams, remote_path: &str, content: &str) -> Result<u64, String> {
@@ -2562,6 +2613,70 @@ async fn ftp_plain_write(conn: &FtpConnectionParams, remote_path: &str, content:
     let _ = ftp.quit().await;
   });
   Ok(len)
+}
+
+// ─── Spostare e cancellare file remoti (P362, source_ftp) ─────────
+
+/// Sposta (rinomina) un file remoto; crea la cartella di destinazione se
+/// manca. Se il file di destinazione esiste viene sostituito.
+pub async fn ftp_move_impl(connection: &FtpConnectionParams, from: &str, to: &str) -> Result<(), String> {
+  let parent = to.rfind('/').map(|i| to[..i].to_string()).filter(|d| !d.is_empty());
+  match connection.protocol.as_str() {
+    "sftp" => {
+      let c = connection.clone(); let (from, to) = (from.to_string(), to.to_string());
+      tokio::task::spawn_blocking(move || {
+        let session = sftp_connect_sync(&c)?;
+        let sftp    = session.sftp().map_err(|e| format!("SFTP init: {}", e))?;
+        if let Some(d) = parent { let _ = sftp_mkdir_p(&sftp, std::path::Path::new(&d)); }
+        let (fp, tp) = (std::path::Path::new(&from), std::path::Path::new(&to));
+        if sftp.rename(fp, tp, Some(ssh2::RenameFlags::OVERWRITE)).is_err() {
+          // Server SFTP v3 senza sovrascrittura: si toglie la destinazione e si riprova.
+          let _ = sftp.unlink(tp);
+          sftp.rename(fp, tp, None).map_err(|e| format!("SFTP rename '{}' → '{}': {}", from, to, e))?;
+        }
+        Ok(())
+      }).await.map_err(|e| e.to_string())?
+    }
+    "ftp" | "ftps" => {
+      let c = ftp_plain_connect(connection).await?;
+      with_ftp!(c, ftp => {
+        if let Some(d) = parent {
+          let mut acc = String::new();
+          for part in d.split('/').filter(|x| !x.is_empty()) {
+            acc.push('/'); acc.push_str(part);
+            let _ = ftp.mkdir(&acc).await;
+          }
+        }
+        ftp.rename(from, to).await.map_err(|e| format!("FTP rename '{}' → '{}': {}", from, to, e))?;
+        let _ = ftp.quit().await;
+      });
+      Ok(())
+    }
+    p => Err(format!("Protocol '{}' not supported", p)),
+  }
+}
+
+/// Cancella un file remoto.
+pub async fn ftp_delete_impl(connection: &FtpConnectionParams, path: &str) -> Result<(), String> {
+  match connection.protocol.as_str() {
+    "sftp" => {
+      let c = connection.clone(); let path = path.to_string();
+      tokio::task::spawn_blocking(move || {
+        let session = sftp_connect_sync(&c)?;
+        let sftp    = session.sftp().map_err(|e| format!("SFTP init: {}", e))?;
+        sftp.unlink(std::path::Path::new(&path)).map_err(|e| format!("SFTP delete '{}': {}", path, e))
+      }).await.map_err(|e| e.to_string())?
+    }
+    "ftp" | "ftps" => {
+      let c = ftp_plain_connect(connection).await?;
+      with_ftp!(c, ftp => {
+        ftp.rm(path).await.map_err(|e| format!("FTP delete '{}': {}", path, e))?;
+        let _ = ftp.quit().await;
+      });
+      Ok(())
+    }
+    p => Err(format!("Protocol '{}' not supported", p)),
+  }
 }
 
 // ─── Scrittura del sink FTP/SFTP (P356) ────────────────────────────

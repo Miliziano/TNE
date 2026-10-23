@@ -97,11 +97,17 @@ fn one_char(s: &str) -> Option<char> {
 }
 
 fn config_from_spec(spec: &Spec) -> Result<SourceFileConfig, String> {
+    config_with_format(spec, &spec.str_or("format", "csv"))
+}
+
+/// Come `config_from_spec`, col formato dato da chi chiama (source_ftp lo
+/// salva in `fileFormat`).
+fn config_with_format(spec: &Spec, format: &str) -> Result<SourceFileConfig, String> {
     let fields: Vec<FieldType> =
         serde_json::from_value(
             spec.config().get("fields").cloned().unwrap_or(serde_json::json!([]))
         ).map_err(|e| format!("invalid fields schema: {}", e))?;
-    let format = spec.str_or("format", "csv").to_ascii_lowercase();
+    let format = format.to_ascii_lowercase();
     let default_delim = if format == "tsv" { "\t" } else { "," };
     Ok(SourceFileConfig {
         delimiter:  one_char(&spec.str_or("delimiter", default_delim)).unwrap_or(','),
@@ -283,12 +289,6 @@ fn parse_fields(text: &str, d: char, q: char, esc: Option<char>) -> (Vec<String>
     (out, true)
 }
 
-/// Compatibilità (source_ftp): una riga, virgolette doppie, niente escape.
-pub(crate) fn parse_csv_line(line: &str, delimiter: u8) -> Vec<String> {
-    let (f, complete) = parse_fields(line, delimiter as char, '"', None);
-    if complete { f } else { parse_fields(&format!("{}\"", line), delimiter as char, '"', None).0 }
-}
-
 /// Prossimo record CSV (anche su più righe fisiche). Salta righe vuote e
 /// commenti.
 fn next_record(src: &mut LineSource, c: &SourceFileConfig) -> Option<Result<Vec<String>, String>> {
@@ -340,7 +340,7 @@ fn project(raw: &Row, fields: &[FieldType]) -> Row {
 // ─── Lettori ───────────────────────────────────────────────────────
 
 /// Invia una riga; false = il nodo a valle ha chiuso.
-type Emit<'a> = &'a mut dyn FnMut(Row) -> bool;
+pub(crate) type Emit<'a> = &'a mut dyn FnMut(Row) -> bool;
 
 fn read_csv(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> Result<(), String> {
     let mut src = LineSource::open(path, &c.encoding)?;
@@ -502,6 +502,32 @@ fn read_one(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> R
         "binary" => read_binary(path, c, false, budget, emit),
         "pdf_binary" => read_binary(path, c, true, budget, emit),
         other => Err(format!("format '{}' is not available", other)),
+    }
+}
+
+// ─── Lettore riusato da source_ftp (P362) ──────────────────────────
+//
+// Un file scaricato via FTP/SFTP si legge ESATTAMENTE come uno locale:
+// stessi formati, stesso mapping, stessa codifica (fonte unica).
+
+pub(crate) struct FileReader { c: SourceFileConfig }
+
+impl FileReader {
+    pub(crate) fn from_spec(spec: &Spec, format: &str) -> Result<FileReader, String> {
+        let mut c = config_with_format(spec, format)?;
+        if !FORMATS.contains(&c.format.as_str()) {
+            return Err(format!("format '{}' is not available", c.format));
+        }
+        if !TABULAR.contains(&c.format.as_str()) { c.fields.clear(); }
+        Ok(FileReader { c })
+    }
+
+    /// Righe al massimo (0 = nessun limite).
+    pub(crate) fn limit(&self) -> u64 { self.c.limit }
+
+    /// Legge un file locale; `budget` = righe ancora ammesse.
+    pub(crate) fn read(&self, path: &str, budget: &mut u64, emit: Emit) -> Result<(), String> {
+        read_one(path, &self.c, budget, emit)
     }
 }
 

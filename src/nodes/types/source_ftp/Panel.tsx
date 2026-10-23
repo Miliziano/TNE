@@ -1,8 +1,12 @@
 /**
  * src/nodes/types/source_ftp/Panel.tsx
+ *
+ * P362: ogni opzione è applicata dal motore (source_ftp.rs); bzip2 tolto
+ * (nessun decompressore), "watch" descritto per ciò che fa.
  */
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { ftpFixedSchema } from './schema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -60,6 +64,14 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
 
   const isListMode  = outputMode === 'list_files'
   const isRaw       = fileFormat === 'raw'
+  const onFileError = p('onFileError', 'skip')
+
+  // Schema d'uscita dei formati fissi (./schema.ts); CSV/TSV/Excel: tab Mapping.
+  const applySchema = (mode: string, fmt: string) => {
+    const fixed = ftpFixedSchema(mode, fmt)
+    if (fixed) updateProp(nodeId, 'outputSchema', JSON.stringify(fixed))
+    else if (ftpFixedSchema(outputMode, fileFormat)) updateProp(nodeId, 'outputSchema', '')
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -78,7 +90,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       ) : (
         <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-server-off" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
-          Aggiungi una risorsa FTP/SFTP dalla resource strip, poi selezionala nel tab Connessione.
+          Add an FTP/SFTP resource from the resource strip, then select it in the Connection tab.
         </div>
       )}
 
@@ -90,7 +102,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       <Field label="File pattern" hint="File name filter — leave empty for all. E.g. *.csv, report_*.json">
         <input style={inputStyle} value={p('filePattern')} onChange={u('filePattern')} placeholder="*.csv" />
       </Field>
-      <Field label="Search in subfolders">
+      <Field label="Search in subfolders" hint="The file pattern applies to file names; subfolders are always explored">
         <CustomSelect style={inputStyle} value={p('recursive', 'false')} onChange={u('recursive')}>
           <option value="false">No — only the specified directory</option>
           <option value="true">Yes — include subfolders</option>
@@ -105,14 +117,8 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           { value: 'list_files', label: '▤ List files',       desc: 'Does not download — emits one row per file found with name, path, size, date' },
         ].map((m) => (
           <button key={m.value} onClick={() => {
-              updateProp(nodeId, 'outputMode', 'list_files')
-              updateProp(nodeId, 'outputSchema', JSON.stringify([
-                { id: 'ftp_name',        name: 'name',         type: 'string',  physicalName: 'name'        },
-                { id: 'ftp_path',        name: 'path',         type: 'string',  physicalName: 'path'        },
-                { id: 'ftp_is_dir',      name: 'is_dir',       type: 'boolean', physicalName: 'is_dir'      },
-                { id: 'ftp_size',        name: 'size',         type: 'integer', physicalName: 'size'        },
-                { id: 'ftp_modified_at', name: 'modified_at',  type: 'date',    physicalName: 'modified_at' },
-              ]))
+              updateProp(nodeId, 'outputMode', m.value)
+              applySchema(m.value, fileFormat)
             }}
             style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: outputMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: outputMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: outputMode === m.value ? ACCENT : '#c8d4f0' }}>{m.label}</div>
@@ -135,7 +141,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
               <code style={{ color: ACCENT, minWidth: 90 }}>{f.name}</code>
               <span style={{ color: '#8593b5', minWidth: 55 }}>{f.type}</span>
-              <span style={{ color: '#2a3349' }}>{f.desc}</span>
+              <span style={{ color: '#8593b5' }}>{f.desc}</span>
             </div>
           ))}
         </div>
@@ -147,8 +153,8 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           <SectionTitle label="Capture mode" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[
-              { value: 'list',  label: '▤ File list',  desc: 'Downloads and processes all files in a single run' },
-              { value: 'watch', label: '◎ Watch',        desc: 'Monitors the directory by polling — processes new files as they arrive' },
+              { value: 'list',  label: '▤ Files present', desc: 'Reads the files that are there when the node starts' },
+              { value: 'watch', label: '◎ Wait for files', desc: 'Checks the directory every N seconds until at least one file matches, then reads them and finishes' },
             ].map((m) => (
               <button key={m.value} onClick={() => updateProp(nodeId, 'fetchMode', m.value)}
                 style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 3, background: fetchMode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030', border: fetchMode === m.value ? `1px solid ${ACCENT}60` : '1px solid #2a3349' }}>
@@ -158,54 +164,26 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             ))}
           </div>
           {fetchMode === 'watch' && (
-            <Field label="Polling interval (seconds)">
+            <Field label="Polling interval (seconds)" hint="Minimum 5. To stop waiting after a while, set Max run time in the Advanced tab.">
               <input type="number" style={inputStyle} value={p('pollInterval', '30')} onChange={u('pollInterval')} min="5" />
             </Field>
           )}
 
           {/* Formato file */}
-          <SectionTitle label="Formato file" />
+          <SectionTitle label="File format" />
           <Row>
-            <Field label="Formato" hint={isRaw ? 'The whole file is downloaded into the content field (string)' : undefined}>
+            <Field label="Format" hint={isRaw ? 'The whole file goes into the content field (text)' : undefined}>
               <CustomSelect style={inputStyle} value={fileFormat} onChange={(e) => {
                   const fmt = e.target.value
                   updateProp(nodeId, 'fileFormat', fmt)
-                  // Aggiorna outputSchema in base al formato
-                  if (fmt === 'raw') {
-                    updateProp(nodeId, 'outputSchema', JSON.stringify([
-                      { id: 'ftp_content',     name: 'content',     type: 'string',  physicalName: 'content'     },
-                      { id: 'ftp_filename',    name: '_filename',    type: 'string',  physicalName: '_filename'   },
-                      { id: 'ftp_filepath',    name: '_filepath',    type: 'string',  physicalName: '_filepath'   },
-                      { id: 'ftp_filesize',    name: '_filesize',    type: 'integer', physicalName: '_filesize'   },
-                      { id: 'ftp_modified_at', name: '_modified_at', type: 'date',    physicalName: '_modified_at'},
-                    ]))
-                  } else if (fmt === 'text') {
-                    updateProp(nodeId, 'outputSchema', JSON.stringify([
-                      { id: 'ftp_line',        name: 'line',         type: 'string',  physicalName: 'line'        },
-                      { id: 'ftp_linenum',     name: 'lineNumber',   type: 'integer', physicalName: 'lineNumber'  },
-                      { id: 'ftp_filename',    name: '_filename',    type: 'string',  physicalName: '_filename'   },
-                      { id: 'ftp_filepath',    name: '_filepath',    type: 'string',  physicalName: '_filepath'   },
-                      { id: 'ftp_modified_at', name: '_modified_at', type: 'date',    physicalName: '_modified_at'},
-                    ]))
-                  } else if (fmt === 'list_files') {
-                    updateProp(nodeId, 'outputSchema', JSON.stringify([
-                      { id: 'ftp_name',        name: 'name',         type: 'string',  physicalName: 'name'        },
-                      { id: 'ftp_path',        name: 'path',         type: 'string',  physicalName: 'path'        },
-                      { id: 'ftp_is_dir',      name: 'is_dir',       type: 'boolean', physicalName: 'is_dir'      },
-                      { id: 'ftp_size',        name: 'size',         type: 'integer', physicalName: 'size'        },
-                      { id: 'ftp_modified_at', name: 'modified_at',  type: 'date',    physicalName: 'modified_at' },
-                    ]))
-                  } else {
-                    // Per CSV/JSON/ecc. azzera — l'utente configura i campi manualmente
-                    updateProp(nodeId, 'outputSchema', '')
-                  }
+                  applySchema(outputMode, fmt)
                 }}>
                 <optgroup label="Raw — no parsing">
                   <option value="raw">Raw — raw text in content field</option>
                   
                 </optgroup>
                 <optgroup label="Structured text">
-                  <option value="text">Text — one row per line</option>   {/* ← aggiungi */}
+                  <option value="text">Text — one row per line</option>
                   <option value="csv">CSV</option>
                   <option value="tsv">TSV</option>
                   <option value="excel">Excel (.xlsx)</option>
@@ -220,13 +198,14 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
                 </optgroup>
               </CustomSelect>
             </Field>
-            {!isRaw && fileFormat !== 'binary' && (
+            {fileFormat !== 'binary' && fileFormat !== 'excel' && (
               <Field label="Encoding">
                 <CustomSelect style={inputStyle} value={p('encoding', 'utf-8')} onChange={u('encoding')}>
                   <option value="utf-8">UTF-8</option>
                   <option value="utf-16">UTF-16</option>
                   <option value="iso-8859-1">ISO-8859-1</option>
                   <option value="windows-1252">Windows-1252</option>
+                  <option value="ascii">ASCII</option>
                 </CustomSelect>
               </Field>
             )}
@@ -240,12 +219,14 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
             </div>
           )}
 
-          {/* Opzioni CSV */}
-          {(fileFormat === 'csv' || fileFormat === 'tsv') && (
+          {/* Opzioni CSV / Excel */}
+          {(fileFormat === 'csv' || fileFormat === 'tsv' || fileFormat === 'excel') && (
             <Row>
-              <Field label="Delimiter">
-                <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
-              </Field>
+              {fileFormat !== 'excel' && (
+                <Field label="Delimiter">
+                  <input style={inputStyle} value={p('delimiter', fileFormat === 'tsv' ? '\t' : ',')} onChange={u('delimiter')} placeholder="," />
+                </Field>
+              )}
               <Field label="Has header">
                 <CustomSelect style={inputStyle} value={p('hasHeader', 'true')} onChange={u('hasHeader')}>
                   <option value="true">Yes — first row is header</option>
@@ -256,12 +237,12 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           )}
 
           {/* Compressione */}
-          <Field label="Compression">
+          <Field label="Compression" hint={p('compression') === 'zip' ? 'Every file in the archive is read, in the chosen format' : undefined}>
             <CustomSelect style={inputStyle} value={p('compression', 'none')} onChange={u('compression')}>
               <option value="none">None</option>
               <option value="gzip">GZIP (.gz)</option>
               <option value="zip">ZIP (.zip)</option>
-              <option value="bzip2">BZIP2 (.bz2)</option>
+              {p('compression') === 'bzip2' && <option value="bzip2">BZIP2 (not supported)</option>}
             </CustomSelect>
           </Field>
 
@@ -270,7 +251,7 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
               { value: 'leave',  label: '○ Leave',  desc: 'The file stays in its original location' },
-              { value: 'move',   label: '→ Move',  desc: 'Move to an archive directory' },
+              { value: 'move',   label: '→ Move',  desc: 'Move to an archive directory (a file with the same name is replaced)' },
               { value: 'delete', label: '✕ Delete', desc: 'Deletes the file from the server — irreversible' },
             ].map((a) => (
               <button key={a.value} onClick={() => updateProp(nodeId, 'afterFetch', a.value)}
@@ -283,6 +264,9 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
               </button>
             ))}
           </div>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
+            Applied only to files read without errors. If the move or delete fails, the node fails: a file left in place would be read again next time.
+          </div>
           {afterFetch === 'move' && (
             <Field label="Archive directory">
               <input style={inputStyle} value={p('archivePath')} onChange={u('archivePath')} placeholder="/data/processed/" />
@@ -294,8 +278,8 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni avanzate */}
       <SectionTitle label="Advanced options" color="#8593b5" />
       <Row>
-        <Field label="Connection timeout (sec)">
-          <input type="number" style={inputStyle} value={p('connectTimeout', '30')} onChange={u('connectTimeout')} min="5" />
+        <Field label="Connection timeout (sec)" hint="Empty = the connection's value">
+          <input type="number" style={inputStyle} value={p('connectTimeout', '')} onChange={u('connectTimeout')} min="1" placeholder={String(resource?.config?.connectTimeout ?? 30)} />
         </Field>
         <Field label="Max files per run" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('maxFiles', '0')} onChange={u('maxFiles')} min="0" />
@@ -311,12 +295,17 @@ export function SourceFtpPanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
       {!isListMode && (
-        <Field label="On single-file error">
-          <CustomSelect style={inputStyle} value={p('onFileError', 'skip')} onChange={u('onFileError')}>
+        <Field label="On single-file error" hint="Download, decompression or reading errors">
+          <CustomSelect style={inputStyle} value={onFileError} onChange={u('onFileError')}>
             <option value="skip">Skip and continue with the next file</option>
             <option value="stop">Stop the pipeline</option>
             <option value="move_error">Move to error directory and continue</option>
           </CustomSelect>
+        </Field>
+      )}
+      {!isListMode && onFileError === 'move_error' && (
+        <Field label="Error directory">
+          <input style={inputStyle} value={p('errorPath')} onChange={u('errorPath')} placeholder="/data/errors/" />
         </Field>
       )}
     </div>

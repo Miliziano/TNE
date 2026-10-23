@@ -679,6 +679,16 @@ function buildRustPlan(
           break
         }
 
+        case 'source_ftp': {
+          // P362: il file scaricato si legge col lettore del File Input,
+          // quindi stessa proiezione (colonna → nome, tipo). Il formato sta
+          // in `fileFormat`; i metadati _file* li aggiunge il motore.
+          const fp = props as Record<string, string | undefined>
+          specConfig.fields = sourceFileSpecFields({ ...fp, format: fp['fileFormat'] ?? 'csv' })
+            .filter((f) => !f.name.startsWith('_file') && f.name !== '_modified_at')
+          break
+        }
+
         // sink_file: migrato alla spec (node-spec §14). Caso "tutto
         // props": tutte le props vanno verbatim nella busta spec e le
         // legge il motore via Spec (chiavi camelCase del pannello). Il
