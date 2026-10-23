@@ -9,6 +9,7 @@
 import { useMemo } from 'react'
 import { useFlowStore } from '../store/flowStore'
 import type { SchemaField } from '../utils/schemaUtils'
+import { materializeDatasetSchemaRaw } from './types/materialize/schema'
 
 export function useMaterializeSchema(
   nodeId:        string,
@@ -30,17 +31,15 @@ export function useMaterializeSchema(
     if (!matNode) return []
 
     try {
-      const raw = matNode.data.props['incomingSchema'] || matNode.data.props['outputSchema']
+      // P366: lo schema del DATASET (le righe in ingresso), non la riga di
+      // stato. Prima si toglievano per nome i campi del segnale, e un campo
+      // dati chiamato `name` o `status` spariva.
+      const raw = materializeDatasetSchemaRaw(matNode.data.props)
       if (!raw) return []
       const parsed = JSON.parse(raw)
       if (!Array.isArray(parsed)) return []
 
-      // Filtra campi di stato solo se buffer_signal
-      const matMode    = matNode.data.props['matMode'] ?? 'passthrough'
-      const signalFields = new Set(['name', 'row_count', 'status', 'completed_at', 'elapsed_ms'])
-
       return parsed
-        .filter((f: any) => matMode !== 'buffer_signal' || !signalFields.has(f.name))
         .map((f: any, i: number) => ({
           id:           f.id   ?? `mf_${i}`,
           name:         f.name ?? `campo_${i}`,

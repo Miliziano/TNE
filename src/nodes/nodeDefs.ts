@@ -383,7 +383,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     category: 'transform',
     icon: '◈',
     color: '#22d3ee',
-    description: 'In-memory hashtable for execution — accessible from any node via context.materialize().',
+    description: 'Keeps a flow in memory; published in the lane, other nodes read it by name (Explode, Join, Window, Aggregate, Pivot, Data Quality).',
     fields: [],
   },
 

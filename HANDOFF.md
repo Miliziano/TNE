@@ -2078,3 +2078,28 @@ Punto 10 dell'audit.
   materialize) → 2 match + 1 reject; null include vs exclude; inline e custom senza
   condizione → errori. Prossimo punto: materialize (onDuplicate, clearOn) e union
   (schemaMismatch).
+
+## AGGIORNAMENTO — Materialize e Union: le opzioni del pannello applicate (stato al P366, 23 ottobre)
+
+Punto 11 dell'audit.
+- **Materialize** (`materialize.rs`): `onDuplicate` con `keyField` — all (default, il
+  comportamento di sempre: il pannello mostrava "overwrite" ma non era salvato né applicato,
+  lezione P359) | overwrite (l'ultima riga al posto della prima) | keep | error; vale per il
+  dataset. Riga di stato allineata a quella dichiarata (`name`, `row_count`, `status` "done",
+  `completed_at`, `elapsed_ms`, `truncated`; prima `rows/name/elapsed_ms/truncated`).
+  `onOverflow` ora nel pannello (error | truncate → reject); `rows_rejected` corretto.
+  Tolti `clearOn` e la sezione "Access API" (`context.lane…`, codegen). Studio:
+  `materialize/schema.ts` (segnale, `materializeMode`, `materializeDatasetSchemaRaw`:
+  lo schema del DATASET = incomingSchema; prima si filtravano per NOME i campi del segnale e
+  un campo dati `name`/`status` spariva — usato da useMaterializeSchema ed explode);
+  schemaPropagation e useIncomingSchema danno il segnale in buffer_signal (prima
+  l'ingresso); `normalizeMaterialize` al caricamento: buffer_replay → passthrough (il motore
+  ri-emetteva le righe mentre il pannello mostrava "Signal"), outputSchema del segnale.
+- **Union**: `missingField = error` applicato (controllo della mappatura prima di leggere);
+  `addSourceField` default mostrato `false` (il builder passa `=== 'true'`), opzioni campo
+  sorgente e campo mancante visibili in concat e mix; tolto `schemaMismatch` (il mapping
+  decide lo schema).
+- Collaudo: test unitario (dedup_by_key) + harness (buffer_signal con chiave ripetuta letto
+  da Explode: all 3 righe, overwrite 2 con l'ultima, keep 2 con la prima, error → fallisce;
+  riga di stato coi nuovi campi; union con campo mancante in un flusso → errore).
+  Prossimo: i punti minori dell'audit.

@@ -24,6 +24,20 @@
 //                    segnale, così chi riceve la riga sa di poter leggere.
 //
 // Vedi docs/design-materialize-registry.md.
+//
+// P366 — opzioni del pannello applicate:
+//   keyField + onDuplicate  (il dataset, non le righe che passano a valle)
+//       all       — tutte le righe; una chiave → più righe (default: era
+//                   l'unico comportamento, i progetti esistenti non cambiano)
+//       overwrite — per chiave resta l'ULTIMA riga (al posto della prima)
+//       keep      — per chiave resta la PRIMA riga
+//       error     — una chiave ripetuta ferma il nodo
+//   maxRows + onOverflow (error | truncate → reject)
+//   riga di stato (buffer_signal): name, row_count, status "done",
+//   completed_at, elapsed_ms, truncated — lo schema dichiarato dallo studio
+//   (prima: rows/name/elapsed_ms/truncated, nomi che lo studio non mostrava).
+//   Il dataset vive quanto l'esecuzione della lane (nel continuo: una
+//   sessione); "clearOn" del pannello non c'è più.
 
 use std::time::Instant;
 use std::collections::HashMap;
@@ -50,7 +64,6 @@ pub async fn run(
     // in snake_case è stato rimosso. V. node-spec §23.
     let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("materialize {}: {}", ctx.node_id.0, e))?;
-    spec.log_unconsumed("materialize", &ctx.node_id.0);
 
     let mode      = { let m = spec.str_or("matMode", "passthrough");
                       if m.is_empty() { "passthrough".to_string() } else { m } };
@@ -63,6 +76,12 @@ pub async fn run(
                      if n > 0 { n as u64 } else { u64::MAX } };
     let on_overflow = { let o = spec.str_or("onOverflow", "error");
                         if o.is_empty() { "error".to_string() } else { o } };
+    let on_duplicate = { let d = spec.str_or("onDuplicate", "all");
+                         if d.is_empty() { "all".to_string() } else { d } };
+    if !matches!(on_duplicate.as_str(), "all" | "array" | "overwrite" | "keep" | "error") {
+        return Err(format!("materialize {}: unknown duplicate policy '{}'", ctx.node_id.0, on_duplicate));
+    }
+    spec.log_unconsumed("materialize", &ctx.node_id.0);
 
     let start = Instant::now();
     let mut buffer: Vec<Row> = Vec::new();
@@ -110,6 +129,17 @@ pub async fn run(
         }
     }
 
+    // ── Chiavi ripetute (P366) ─────────────────────────────────────
+    if let Some(kf) = &key_field {
+        if on_duplicate != "all" && on_duplicate != "array" {
+            match dedup_by_key(buffer, kf, &on_duplicate) {
+                Ok(b) => buffer = b,
+                Err(k) => bail!(format!("materialize {}: duplicate key '{}' in field '{}' (on duplicate = error)",
+                                        ctx.node_id.0, k, kf)),
+            }
+        }
+    }
+
     eprintln!("[materialize] {}: {} righe in memoria{}{}",
         ctx.node_id.0, buffer.len(),
         if truncated { " (troncato)" } else { "" },
@@ -132,10 +162,12 @@ pub async fn run(
             // Una sola riga di stato: il nodo a valle sa che il dataset
             // è pronto e può leggerlo dal registro.
             let mut signal = Row::new();
-            signal.set("rows".to_string(),       Value::Int(buffer.len() as i64));
-            signal.set("name".to_string(),       Value::String(name.clone()));
-            signal.set("elapsed_ms".to_string(), Value::Int(start.elapsed().as_millis() as i64));
-            signal.set("truncated".to_string(),  Value::Bool(truncated));
+            signal.set("name".to_string(),         Value::String(name.clone()));
+            signal.set("row_count".to_string(),    Value::Int(buffer.len() as i64));
+            signal.set("status".to_string(),       Value::String("done".into()));
+            signal.set("completed_at".to_string(), Value::DateTime(chrono::Local::now().to_rfc3339()));
+            signal.set("elapsed_ms".to_string(),   Value::Int(start.elapsed().as_millis() as i64));
+            signal.set("truncated".to_string(),    Value::Bool(truncated));
             if tx.send(signal).await.is_ok() { rows_out = 1; }
         }
 
@@ -152,7 +184,7 @@ pub async fn run(
                                ctx.node_id.0, other)),
     }
 
-    let rows_rejected = if truncated { rows_in.saturating_sub(buffer.len() as u64) } else { 0 };
+    let rows_rejected = if truncated { rows_in.saturating_sub(max_rows) } else { 0 };
 
     // Conteggi per handle di uscita → badge sul canvas (come filter).
     let mut per_out: HashMap<String, u64> = HashMap::new();
@@ -167,4 +199,44 @@ pub async fn run(
     };
     ctx.emit_completed(stats.clone());
     Ok(stats)
+}
+
+/// Una riga per chiave: `overwrite` tiene l'ultima (al posto della prima),
+/// `keep` la prima; `error` → Err(chiave ripetuta).
+fn dedup_by_key(rows: Vec<Row>, key_field: &str, policy: &str) -> Result<Vec<Row>, String> {
+    let mut pos: HashMap<String, usize> = HashMap::new();
+    let mut out: Vec<Row> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let k = row.get(key_field).map(|v| v.as_str_repr()).unwrap_or_default();
+        match pos.get(&k) {
+            None => { pos.insert(k, out.len()); out.push(row); }
+            Some(&i) => match policy {
+                "overwrite" => out[i] = row,
+                "error"     => return Err(k),
+                _           => {}   // keep
+            },
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn r(id: i64, v: &str) -> Row {
+        let mut row = Row::new();
+        row.set("id".into(), Value::Int(id));
+        row.set("v".into(), Value::String(v.into()));
+        row
+    }
+
+    #[test]
+    fn chiavi_ripetute() {
+        let rows = || vec![r(1, "a"), r(2, "b"), r(1, "c")];
+        let v = |rs: Vec<Row>| rs.iter().map(|x| x.get("v").unwrap().as_str_repr()).collect::<Vec<_>>();
+        assert_eq!(v(dedup_by_key(rows(), "id", "overwrite").unwrap()), vec!["c", "b"]);
+        assert_eq!(v(dedup_by_key(rows(), "id", "keep").unwrap()), vec!["a", "b"]);
+        assert_eq!(dedup_by_key(rows(), "id", "error").unwrap_err(), "1");
+    }
 }

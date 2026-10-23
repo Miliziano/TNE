@@ -1,5 +1,6 @@
 import { SINK_FILE_SIGNAL_SCHEMA_JSON } from '../nodes/types/sink_file/schema'
 import { ftpFixedSchema } from '../nodes/types/source_ftp/schema'
+import { MATERIALIZE_SIGNAL_SCHEMA_JSON } from '../nodes/types/materialize/schema'
 import { scheduleCanvasValidation, runCompilation, runCodegen } from '../ir/pipeline'
 import { setActiveUserFunctions } from '../ir/userFunctions'
 import type { ValidationIssue } from '../ir/types'
@@ -165,10 +166,32 @@ export const updateNode = (
 /** Normalizza i nodi di un progetto caricato: Start/End salvati come non
  *  cancellabili (prima erano obbligatori) diventano cancellabili. */
 export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
-  return nodes.map((n) => normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
+  return nodes.map((n) => normalizeMaterialize(normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
     (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
       ? { ...n, deletable: true }
-      : n))))
+      : n)))))
+}
+
+/**
+ * Materialize (P366). Il vecchio `buffer_replay` (il pannello lo mostrava
+ * come "Buffer → Signal") nel motore ri-emetteva le righe: diventa
+ * `passthrough`, che le fa passare a valle come prima. In buffer_signal
+ * `outputSchema` è la riga di stato (prima nessuno la scriveva).
+ */
+function normalizeMaterialize(n: FlowNode<NodeData>): FlowNode<NodeData> {
+  if (n.data?.type !== 'materialize') return n
+  const props = { ...(n.data.props ?? {}) }
+  let changed = false
+  if (props['matMode'] === 'buffer_replay' || props['matMode'] === 'buffer') {
+    props['matMode'] = 'passthrough'
+    if (props['outputSchema'] === MATERIALIZE_SIGNAL_SCHEMA_JSON) props['outputSchema'] = ''
+    changed = true
+  }
+  if (props['matMode'] === 'buffer_signal' && props['outputSchema'] !== MATERIALIZE_SIGNAL_SCHEMA_JSON) {
+    props['outputSchema'] = MATERIALIZE_SIGNAL_SCHEMA_JSON
+    changed = true
+  }
+  return changed ? { ...n, data: { ...n.data, props } } : n
 }
 
 /**

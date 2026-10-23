@@ -124,6 +124,24 @@ pub async fn run(
     if inputs.is_empty() {
         return Err(format!("union {}: no connected flow", ctx.node_id.0));
     }
+    // missingField = error (P366): ogni campo d'uscita deve venire da OGNI
+    // flusso collegato. La mappatura è decisa a design-time, quindi si
+    // controlla prima di leggere una riga.
+    if cfg.missing_field == "error" && !cfg.fields.is_empty() {
+        let mut missing: Vec<String> = Vec::new();
+        for f in &cfg.fields {
+            for (h, _) in &inputs {
+                if !f.from.contains_key(h) {
+                    let label = cfg.handle_labels.get(h).cloned().unwrap_or_else(|| h.clone());
+                    missing.push(format!("'{}' (not in {})", f.name, label));
+                }
+            }
+        }
+        if !missing.is_empty() {
+            return Err(format!("union {}: the flows do not all have the same fields (missing field = error): {}",
+                               ctx.node_id.0, missing.join(", ")));
+        }
+    }
     if cfg.fields.is_empty() {
         eprintln!("[union][WARN] {}: nessuna mappatura campi — le righe passano \
                    invariate, lo schema NON è unificato. Apri il tab Mapping.",

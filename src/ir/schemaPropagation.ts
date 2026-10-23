@@ -41,6 +41,7 @@ import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserType
 import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
 import { BRIDGE_SIGNAL_SCHEMA } from '../nodes/types/bridge/bridgeSchema'
 import { SINK_FILE_SIGNAL_SCHEMA } from '../nodes/types/sink_file/schema'
+import { MATERIALIZE_SIGNAL_SCHEMA, materializeMode } from '../nodes/types/materialize/schema'
 import { SINK_FTP_SIGNAL_SCHEMA } from '../nodes/types/sink_ftp/schema'
 
 // ─────────────────────────────────────────────────────────────────
@@ -170,7 +171,12 @@ function inferOutputSchema(
       // catena a valle. La derivazione vera esisteva già — nei pannelli.
 
       // materialize bufferizza e basta: lo schema esce com'è entrato.
-      if (uiType === 'materialize') return inputSchema
+      // P366: in buffer_signal esce la sola riga di stato.
+      if (uiType === 'materialize') {
+        return materializeMode(props) === 'buffer_signal'
+          ? normalizeSchema(MATERIALIZE_SIGNAL_SCHEMA.map((f) => ({ ...f, id: `mat_sig_${f.name}`, physicalName: f.name })))
+          : inputSchema
+      }
 
       // pivot: lo schema lo calcola il suo pannello e lo persiste in
       // props.outputSchema. Il marcatore __pivot_dynamic__ significa

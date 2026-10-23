@@ -33,5 +33,16 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Union**.
+Unisce più flussi in uno. Lo schema d'uscita si decide nella tab Mapping: per ogni
+campo, da quale campo di ogni flusso viene.
+
+**Modalità.** *Concat*: il primo flusso fino alla fine, poi il secondo, ecc. *Mix*: le
+righe nell'ordine in cui arrivano. *Zip*: una riga per flusso fusa in una sola (con
+flussi di lunghezza diversa: troncare, riempire di null o errore).
+
+**Campo mancante in un flusso (P366).** Null, campo omesso, oppure errore: con
+*Error* il nodo si ferma prima di leggere se un campo d'uscita non viene da tutti i
+flussi collegati. *Source field* aggiunge il nome del flusso di provenienza (Concat e
+Mix). L'opzione "schema incompatibile" è stata tolta: lo schema lo decide il mapping.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

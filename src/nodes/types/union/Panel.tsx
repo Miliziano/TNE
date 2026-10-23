@@ -113,25 +113,25 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       {/* Opzioni per modalità */}
-      {unionMode === 'mix' && (
+      {unionMode !== 'zip' && (
         <>
           <Field label="Source field" hint="Adds a field with the source flow name for traceability">
-            <CustomSelect style={inputStyle} value={p('addSourceField', 'true')} onChange={u('addSourceField')}>
-              <option value="true">Yes — add _union_source field</option>
+            <CustomSelect style={inputStyle} value={p('addSourceField', 'false')} onChange={u('addSourceField')}>
+              <option value="true">Yes — add a source field</option>
               <option value="false">No — do not add a source field</option>
             </CustomSelect>
           </Field>
-          {p('addSourceField', 'true') === 'true' && (
+          {p('addSourceField', 'false') === 'true' && (
             <Field label="Source field name">
               <input style={{ ...inputStyle, color: ACCENT }} value={p('sourceFieldName', '_union_source')}
                 onChange={u('sourceFieldName')} placeholder="_union_source" />
             </Field>
           )}
-          <Field label="Missing schema on field" hint="How to handle fields present in some flows but not others">
+          <Field label="Field missing in a flow" hint="Fields present in some flows but not in others (the field list is decided in the Mapping tab)">
             <CustomSelect style={inputStyle} value={p('missingField', 'null')} onChange={u('missingField')}>
               <option value="null">Write null — field present but null</option>
               <option value="omit">Omit — field absent from the record</option>
-              <option value="error">Error — requires identical schema</option>
+              <option value="error">Error — every flow must have every field</option>
             </CustomSelect>
           </Field>
         </>
@@ -149,15 +149,7 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
         </>
       )}
 
-      {unionMode === 'concat' && (
-        <Field label="On incompatible schema">
-          <CustomSelect style={inputStyle} value={p('schemaMismatch', 'error')} onChange={u('schemaMismatch')}>
-            <option value="error">Error — requires identical schema</option>
-            <option value="coerce">Coerce — try to adapt the types</option>
-            <option value="ignore">Ignore — emit the rows as they are</option>
-          </CustomSelect>
-        </Field>
-      )}
+
 
       
       {/* Output */}

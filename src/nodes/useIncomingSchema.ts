@@ -19,6 +19,7 @@ import { useMemo } from 'react'
 import { useFlowStore } from '../store/flowStore'
 import type { SchemaField } from './../utils/schemaUtils'
 import { readOutputSchema, readIncomingSchema } from './../utils/schemaUtils'
+import { materializeMode } from './types/materialize/schema'
 
 // Nodi passthrough — non producono schema proprio, lo ereditano.
 // NB lo `script` NON è qui, ed è giusto: aggiunge campi propri. Il suo
@@ -29,6 +30,8 @@ const PASSTHROUGH_TYPES = new Set(['log', 'materialize'])
 /** Nodi che ri-emettono le righe in ingresso: i passthrough sopra, e
  *  (P361) File Output in replay e SFTP Output in passthrough. */
 function isPassthrough(n: { data: { type: string; props?: Record<string, string> } }): boolean {
+  // Materialize in buffer_signal emette la riga di stato (outputSchema), non l'ingresso.
+  if (n.data.type === 'materialize') return materializeMode(n.data.props ?? {}) !== 'buffer_signal'
   if (PASSTHROUGH_TYPES.has(n.data.type)) return true
   if (n.data.type === 'sink_file') return n.data.props?.['outputMode'] === 'replay'
   if (n.data.type === 'sink_ftp')  return n.data.props?.['outputMode'] === 'passthrough'

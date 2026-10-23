@@ -14,6 +14,7 @@
  *     pannelli precedenti, se c'è (il motore emette tutti i campi).
  */
 import type { SchemaField } from '../../../utils/schemaUtils'
+import { materializeDatasetSchemaRaw } from '../materialize/schema'
 
 export type ExplodeMappingField = {
   sourceField: string
@@ -23,8 +24,6 @@ export type ExplodeMappingField = {
   include:     boolean
 }
 
-/** Campi del dataset che un Materialize in modalità signal aggiunge. */
-const SIGNAL_FIELDS = new Set(['name', 'row_count', 'status', 'completed_at', 'elapsed_ms'])
 
 /** Trasformazioni offerte (le conversioni le fa la colonna Type). */
 export const EXPLODE_TRANSFORMS = [
@@ -52,14 +51,12 @@ export function readExplodeMapping(raw: string | undefined): ExplodeMappingField
 /** Schema del dataset letto dal Materialize indicato (senza i campi signal). */
 export function materializeSchemaOf(matNode: { data: { props: Record<string, string> } } | null | undefined): SchemaField[] {
   if (!matNode) return []
-  const isSignal = (matNode.data.props['matMode'] ?? 'passthrough') === 'buffer_signal'
   try {
-    const raw = matNode.data.props['incomingSchema'] || matNode.data.props['outputSchema']
+    const raw = materializeDatasetSchemaRaw(matNode.data.props)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     return (parsed as Array<Partial<SchemaField>>)
-      .filter((f) => !isSignal || !SIGNAL_FIELDS.has(f.name ?? ''))
       .map((f, i) => ({
         id:           f.id   ?? `mat_field_${i}`,
         name:         f.name ?? `field_${i}`,

@@ -1,7 +1,12 @@
 /**
  * src/nodes/types/materialize/Panel.tsx
+ *
+ * P366: ogni opzione è applicata dal motore (materialize.rs). Duplicati per
+ * chiave, limite di righe con troncamento, riga di stato allineata. Tolti
+ * "clearOn" e l'API `context.lane…` (codegen, non il motore).
  */
 import { useFlowStore } from '../../../store/flowStore'
+import { MATERIALIZE_SIGNAL_SCHEMA, MATERIALIZE_SIGNAL_SCHEMA_JSON, materializeMode } from './schema'
 import type { Variable } from '../../../types'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
@@ -35,24 +40,22 @@ function SectionTitle({ label, color = '#22d3ee' }: { label: string; color?: str
 const ACCENT = '#22d3ee'
 
 // ─── Due modalità di flusso ───────────────────────────────────────
-// buffer_replay rimosso — i consumer accedono direttamente con
-// .toDataset(), .values() o .get(key) senza bisogno di replay
 const MODES = [
   {
     value:       'passthrough',
     label:       '⇒ Passthrough',
-    desc:        'Transparent — stores and passes row by row. The flow does not stop.',
-    outputDesc:  'N righe in uscita (stesse in ingresso)',
+    desc:        'Stores the rows and passes them on one by one. The flow does not stop.',
+    outputDesc:  'N output rows (the incoming ones)',
     outputColor: '#3ddc84',
-    detail:      'Useful to accumulate data while the flow passes through — consumers can access it while the rows arrive.',
+    detail:      'The dataset is complete when the input ends: the nodes that read it by name wait until then.',
   },
   {
     value:       'buffer_signal',
     label:       '⊟ Buffer → Signal',
-    desc:        'Blocks the flow, stores everything. Emits a single status row when complete.',
-    outputDesc:  '1 riga di stato in uscita',
+    desc:        'Stores everything, publishes the dataset, then emits a single status row.',
+    outputDesc:  '1 status row',
     outputColor: '#ffb347',
-    detail:      'Used as a trigger — the signal activates other nodes (Window, Aggregate, Pivot) that read the full dataset via direct API.',
+    detail:      'The status row is a trigger: the nodes after it can read the full dataset by name.',
   },
 ]
 
@@ -62,6 +65,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
   const pool           = useFlowStore((s) => s.pool)
   const addVariable    = useFlowStore((s) => s.addVariable)
   const deleteVariable = useFlowStore((s) => s.deleteVariable)
+  const incomingFields = useIncomingSchema(nodeId)
 
   if (!node) return null
 
@@ -69,17 +73,20 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     updateProp(nodeId, key, e.target.value)
 
-  // Migrazione: se matMode era buffer_replay → converti in buffer_signal
-  const rawMode = p('matMode', 'passthrough')
-  const mode    = rawMode === 'buffer_replay' ? 'buffer_signal' : rawMode
-
-  const matName = p('matName', '')
-  const laneId  = node.data.laneId
+  const mode     = materializeMode(node.data.props)
+  const matName  = p('matName', '')
+  const keyField = p('keyField', '')
+  const laneId   = node.data.laneId
 
   const lane    = pool.lanes.find((l) => l.id === laneId)
   const laneVar = lane?.variables.find((v) => v.value === nodeId && v.type === 'materialize')
   const isPublished = !!laneVar
 
+  const setMode = (m: string) => {
+    updateProp(nodeId, 'matMode', m)
+    // Lo schema d'uscita: la riga di stato in signal, l'ingresso in passthrough.
+    updateProp(nodeId, 'outputSchema', m === 'buffer_signal' ? MATERIALIZE_SIGNAL_SCHEMA_JSON : '')
+  }
 
   const publishToLane = () => {
     const name = matName || `materialize_${nodeId.slice(-4)}`
@@ -92,8 +99,6 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
   const removeFromLane = () => {
     if (laneVar) deleteVariable('lane', laneId, laneVar.id)
   }
-
-  const incomingFields = useIncomingSchema(nodeId)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -110,17 +115,17 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
           {isPublished ? (
             <>
               <div style={{ fontSize: 11, fontWeight: 600, color: ACCENT }}>
-                Pubblicato in Lane come <code style={{ fontFamily: 'monospace' }}>{laneVar!.name}</code>
+                Published in the lane as <code style={{ fontFamily: 'monospace' }}>{laneVar!.name}</code>
               </div>
               <div style={{ fontSize: 10, color: '#8593b5' }}>
-                Accedi tramite <code style={{ color: ACCENT, fontSize: 9 }}>context.lane.{laneVar!.name}</code>
+                Explode, Join, Window, Aggregate, Pivot and Data Quality can read it by name.
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#8593b5' }}>Non pubblicato nella lane</div>
-              <div style={{ fontSize: 10, color: '#2a3349' }}>
-                Pubblica per rendere accessibile da Window, Aggregate, Pivot, Join, Explode
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#8593b5' }}>Not published in the lane</div>
+              <div style={{ fontSize: 10, color: '#8593b5' }}>
+                Publish it so that other nodes can read the dataset by name
               </div>
             </>
           )}
@@ -128,37 +133,28 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
         {isPublished ? (
           <button onClick={removeFromLane}
             style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a0a0a', color: '#ff5f57', border: '1px solid #3d1010', flexShrink: 0 }}>
-            Rimuovi
+            Remove
           </button>
         ) : (
           <button onClick={publishToLane}
             style={{ padding: '4px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, flexShrink: 0, fontWeight: 600 }}>
-            Pubblica in Lane
+            Publish in lane
           </button>
         )}
       </div>
 
       {/* Nome */}
-      <Field label="Name" hint="Unique identifier in the lane — used by consumer nodes to access the data">
+      <Field label="Name" hint="Unique identifier in the lane — the nodes that read the dataset select it by this name">
         <input style={inputStyle} value={matName}
           onChange={(e) => updateProp(nodeId, 'matName', e.target.value)}
-          placeholder="lookup_clienti" />
+          placeholder="customers_lookup" />
       </Field>
 
-      {/* Modalità flusso — solo due */}
       <SectionTitle label="Flow mode" />
-
-      {/* Info architetturale */}
-      <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>◈ Materialize</span> accumulates rows in memory.
-        How the data is read is the responsibility of the <strong style={{ color: '#c8d4f0' }}>consumer node</strong> —
-        which chooses among <code style={{ color: ACCENT }}>dataset</code>, <code style={{ color: ACCENT }}>iterator</code> or <code style={{ color: ACCENT }}>lookup</code>.
-      </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {MODES.map((m) => (
           <button key={m.value}
-            onClick={() => updateProp(nodeId, 'matMode', m.value)}
+            onClick={() => setMode(m.value)}
             style={{
               padding: '10px 12px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
               background: mode === m.value ? `color-mix(in srgb, ${ACCENT} 12%, #1a2030)` : '#1a2030',
@@ -169,7 +165,7 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: mode === m.value ? ACCENT : '#c8d4f0', marginBottom: 3 }}>{m.label}</div>
               <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4, marginBottom: 4 }}>{m.desc}</div>
-              <div style={{ fontSize: 9, color: '#2a3349', lineHeight: 1.4, marginBottom: 4, fontStyle: 'italic' }}>{m.detail}</div>
+              <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.4, marginBottom: 4, fontStyle: 'italic' }}>{m.detail}</div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 8px', borderRadius: 8, background: `color-mix(in srgb, ${m.outputColor} 10%, #0f1117)`, border: `0.5px solid ${m.outputColor}30` }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: m.outputColor }} />
                 <span style={{ fontSize: 9, color: m.outputColor }}>{m.outputDesc}</span>
@@ -179,169 +175,64 @@ export function MaterializePanel({ nodeId }: { nodeId: string }) {
         ))}
       </div>
 
-      {/* ── Configurazione per modalità ── */}
-
-      {/* PASSTHROUGH */}
-      {mode === 'passthrough' && (
-        <>
-          <SectionTitle label="Options" />
-          <Field label="Key field" hint="If set, indexes the data for O(1) access via .get(key)">
-            {incomingFields.length > 0 ? (
-              <CustomSelect style={inputStyle} value={p('keyField')} onChange={u('keyField')}>
-                <option value="">— no key (access by index) —</option>
-                {incomingFields.map((f) => (
-                  <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
-                ))}
-              </CustomSelect>
-            ) : (
-              <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id (optional)" />
-            )}
-          </Field>
-          {p('keyField') && (
-            <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', padding: '3px 8px' }}>
-              Accesso O(1): <code style={{ color: ACCENT }}>context.lane.{matName || 'nome'}.get(row.{p('keyField')})</code>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* BUFFER → SIGNAL */}
-      {mode === 'buffer_signal' && (
-        <>
-          <SectionTitle label="Buffer configuration" />
-          <Field label="Key field" hint="Field used as the hashtable access key">
-            {incomingFields.length > 0 ? (
-              <CustomSelect style={inputStyle} value={p('keyField')} onChange={u('keyField')}>
-                <option value="">— select key field —</option>
-                {incomingFields.map((f) => (
-                  <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
-                ))}
-              </CustomSelect>
-            ) : (
-              <input style={inputStyle} value={p('keyField')} onChange={u('keyField')} placeholder="id" />
-            )}
-          </Field>
-          <Field label="On duplicate key">
-            <CustomSelect style={inputStyle} value={p('onDuplicate', 'overwrite')} onChange={u('onDuplicate')}>
-              <option value="overwrite">Overwrite — keep the last</option>
-              <option value="keep">Keep the first</option>
-              <option value="array">Accumula in array</option>
-              <option value="error">Error on duplicate</option>
-            </CustomSelect>
-          </Field>
-
-          {/* Schema output signal */}
-          <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
-            <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
-              Schema output — 1 riga di stato
-            </div>
-            {[
-              { name: 'name',         type: 'string',  desc: 'Materialize name'      },
-              { name: 'row_count',    type: 'integer', desc: 'Stored rows'          },
-              { name: 'status',       type: 'string',  desc: 'always "done"'             },
-              { name: 'completed_at', type: 'date',    desc: 'Timestamp completamento'   },
-              { name: 'elapsed_ms',   type: 'integer', desc: 'Tempo di esecuzione in ms' },
-            ].map((f) => (
-              <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
-                <code style={{ fontSize: 10, color: '#ffb347', minWidth: 110, flexShrink: 0 }}>{f.name}</code>
-                <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{f.type}</span>
-                <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
-              </div>
+      <SectionTitle label="Dataset" />
+      <Field label="Key field" hint="Indexes the dataset by this field: Data Quality uses it for lookups">
+        {incomingFields.length > 0 ? (
+          <CustomSelect style={inputStyle} value={keyField} onChange={u('keyField')}>
+            <option value="">— no key —</option>
+            {incomingFields.map((f) => (
+              <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
             ))}
-          </div>
-
-          <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.5 }}>
-            <i className="ti ti-info-circle" style={{ fontSize: 11, color: '#ffb347', marginRight: 6 }} />
-            Typical pattern: <code style={{ color: ACCENT }}>Materialize(signal) → BridgeOut → BridgeIn → Window/Aggregate/Pivot</code>.
-            The signal activates the consumer that reads the full dataset with <code style={{ color: ACCENT }}>.toDataset()</code>.
-          </div>
-        </>
-      )}
-
-      {/* API accesso — comune a tutte le modalità se pubblicato */}
-      {isPublished && (
-        <>
-          <SectionTitle label="Access API — consumer" />
-          <div style={{ padding: '10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-            {/* Dataset */}
-            <div>
-              <div style={{ fontSize: 9, color: '#3ddc84', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4, fontWeight: 600 }}>
-                Dataset completo — Window, Aggregate, Pivot
-              </div>
-              <code style={{ fontSize: 10, color: '#3ddc84', fontFamily: 'monospace' }}>
-                context.lane.{matName || 'nome'}.toDataset()
-              </code>
-              <div style={{ fontSize: 9, color: '#2a3349', marginTop: 2 }}>
-                → List&lt;Row&gt; completa, zero buffering aggiuntivo nel consumer
-              </div>
-            </div>
-
-            {/* Iterator */}
-            <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 8 }}>
-              <div style={{ fontSize: 9, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4, fontWeight: 600 }}>
-                Iteratore riga per riga — Explode
-              </div>
-              <code style={{ fontSize: 10, color: ACCENT, fontFamily: 'monospace' }}>
-                context.lane.{matName || 'nome'}.values()
-              </code>
-              <div style={{ fontSize: 9, color: '#2a3349', marginTop: 2 }}>
-                → Iterable&lt;Row&gt; — elabora senza caricare tutto in memoria
-              </div>
-            </div>
-
-            {/* Lookup */}
-            <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 8 }}>
-              <div style={{ fontSize: 9, color: '#ffb347', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4, fontWeight: 600 }}>
-                Lookup per chiave — Join
-              </div>
-              <code style={{ fontSize: 10, color: '#ffb347', fontFamily: 'monospace' }}>
-                context.lane.{matName || 'nome'}.get(row.{p('keyField') || 'key'})
-              </code>
-              <div style={{ fontSize: 9, color: '#2a3349', marginTop: 2 }}>
-                → Row | null — accesso O(1) sulla hashtable
-              </div>
-            </div>
-
-            {/* Utility */}
-            <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 8 }}>
-              <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Utility</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {[
-                  { code: `.has(row.${p('keyField') || 'key'})`, desc: '→ boolean' },
-                  { code: `.size`,                                   desc: '→ number — stored rows' },
-                  { code: `.clear()`,                                desc: '→ void — svuota (se clearOn: manual)' },
-                ].map((ex) => (
-                  <div key={ex.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                    <code style={{ fontSize: 9, color: '#9a9aaa', fontFamily: 'monospace', minWidth: 200 }}>
-                      context.lane.{matName || 'nome'}{ex.code}
-                    </code>
-                    <span style={{ fontSize: 9, color: '#2a3349' }}>{ex.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Ciclo di vita */}
-      <SectionTitle label="Ciclo di vita" />
-      <Field label="Quando svuotare">
-        <CustomSelect style={inputStyle} value={p('clearOn', 'run_end')} onChange={u('clearOn')}>
-          <option value="run_end">Fine esecuzione (default)</option>
-          <option value="lane_end">End of lane processing</option>
-          <option value="manual">Manual — .clear()</option>
-        </CustomSelect>
+          </CustomSelect>
+        ) : (
+          <input style={inputStyle} value={keyField} onChange={u('keyField')} placeholder="id (optional)" />
+        )}
       </Field>
-      <Field label="Row limit in memory" hint="0 = no limit">
-        <input type="number" style={inputStyle} value={p('maxRows', '0')} onChange={u('maxRows')} min="0" />
-      </Field>
+      {keyField && (
+        <Field label="On repeated key" hint="Applies to the stored dataset; in passthrough the rows passing downstream are not touched">
+          <CustomSelect style={inputStyle} value={p('onDuplicate', 'all')} onChange={u('onDuplicate')}>
+            <option value="all">Keep all rows — one key, several rows</option>
+            <option value="overwrite">Overwrite — keep the last row of each key</option>
+            <option value="keep">Keep the first row of each key</option>
+            <option value="error">Error on a repeated key</option>
+          </CustomSelect>
+        </Field>
+      )}
+      <Row2>
+        <Field label="Row limit in memory" hint="0 = no limit">
+          <input type="number" style={inputStyle} value={p('maxRows', '0')} onChange={u('maxRows')} min="0" />
+        </Field>
+        <Field label="Beyond the limit">
+          <CustomSelect style={inputStyle} value={p('onOverflow', 'error')} onChange={u('onOverflow')}>
+            <option value="error">Error — stop the node</option>
+            <option value="truncate">Truncate — extra rows go to reject</option>
+          </CustomSelect>
+        </Field>
+      </Row2>
+
+      {mode === 'buffer_signal' && (
+        <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
+          <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+            Output schema — 1 status row
+          </div>
+          {MATERIALIZE_SIGNAL_SCHEMA.map((f) => (
+            <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
+              <code style={{ fontSize: 10, color: '#ffb347', minWidth: 110, flexShrink: 0 }}>{f.name}</code>
+              <span style={{ fontSize: 9, color: '#8593b5', minWidth: 50 }}>{f.type}</span>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>{f.desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ padding: '6px 10px', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0, marginTop: 1 }} />
-        I dati sono <strong style={{ color: '#c8d4f0' }}>in-memory per esecuzione</strong> — non persistono tra run successivi.
+        The data is <strong style={{ color: '#c8d4f0' }}>in memory for one run of the lane</strong> (in continuous listening: for one session) — it does not persist across runs.
       </div>
     </div>
   )
+}
+
+function Row2({ children }: { children: React.ReactNode }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>
 }
