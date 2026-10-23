@@ -1928,3 +1928,48 @@ corrispondeva ai dati.
   → flow_field + includeParent + mapping + null_row; senza mapping invariato; materialize
   signal → explode con rinomina/tipo/uppercase; mapping rotto → errore). Prossimo punto
   dell'audit: sink_file.
+
+## AGGIORNAMENTO — File Output: ogni opzione fa ciò che dice (stato al P361, 23 ottobre)
+
+Punto 7 dell'audit. `sink_file.rs` riscritto (v3) attorno a un `Target` per file aperto.
+- **Formati**: righe csv/tsv/json/jsonl/xml + **excel** (rust_xlsxwriter: `sheetName`,
+  `headerStyle` none/bold/colored, numeri come numeri, max 1.048.576 righe); valore di un
+  campo html/text (testo) ed excel_b64/binary (base64 decodificato, forzato dal formato:
+  prima excel_b64 senza `rawEncoding=base64` scriveva il testo base64). parquet/orc/avro/
+  pdf_* → errore chiaro (prima text/binary/pdf venivano scritti come CSV in silenzio).
+  Studio: `sink_file/schema.ts` (`SINK_FILE_FORMAT_GROUPS`, formati, estensioni, segnale);
+  tolti `FORMAT_GROUPS`/`STRUCTURED_FORMATS` (etichette italiane, gruppo Report doppio) da
+  fileSchema; formato vecchio non scrivibile mostrato come "(not supported for writing)".
+- **Percorso**: `${date}` `${datetime}` `${uuid}` `${seq}` `${partition}` (prima scritti
+  letteralmente); cartelle mancanti create.
+- **Modalità**: `new` = nome libero `_1`, `_2`… (prima = `error`); append su array JSON,
+  XML o Excel → errore (prima file corrotto). `writeHeader=auto` = solo se nuovo/vuoto.
+- **Colonne** (`fileColumns`, tab Mapping): applicate dal motore via
+  `FieldMapping` — spostato da explode.rs in `engine/field_mapping.rs` (P360), ora
+  condiviso. Ordine delle colonne = ordine del mapping (anche in JSON: `json_object` non
+  ordina). Prima le colonne stavano in `outputSchema` (e i nomi rinominati in
+  `incomingSchema` del nodo stesso), erano modificabili solo in replay e il motore le
+  ignorava. `normalizeSinkFile` (flowStore, al caricamento) sposta il vecchio mapping in
+  `fileColumns`, rimette `outputSchema` (segnale o vuoto) e toglie `passthrough`/
+  `processingMode`. La tab non semina più da sola: con zero colonne si scrive tutto
+  (alfabetico) e un pulsante le carica dai campi in ingresso.
+- **Codifica**: `text_encoding::encode_chunk` (senza BOM) + `bom()`; il BOM UTF-16 solo in
+  testa a un file nuovo/vuoto; caratteri non rappresentabili → `?` + avviso.
+- **Partizioni**: field / date (year|month|day|hour; data illeggibile → `_unknown` +
+  avviso) / size (`partitionMaxMb`, nuovo campo; non per Excel). Max 1000 aperte.
+- **Uscita**: signal = una riga di stato PER FILE (status "ok"); replay invariato.
+  Studio: schemaInference e schemaPropagation (`case 'sink'`, anche sink_ftp) danno lo
+  schema del segnale o l'ingresso; `useIncomingSchema` tratta sink_file in replay e
+  sink_ftp in passthrough come passthrough; FlowNode "buffered output" = replay.
+- **postCommand** (sh -c / cmd /C, per file, `${file}` e `FP_FILE`; uscita ≠ 0 → errore) e
+  **webhookUrl** (POST JSON, timeout 30 s; errore → avviso) implementati.
+- **connectionResolver**: tolti i campi fantasma `status.*` (status.ok, status.rows_written…)
+  che venivano aggiunti all'ingresso del TMap per OGNI sorgente collegata: il motore non li
+  produce mai. Gli ingressi TMap già salvati li conservano (la sezione Status del TMap li
+  mostra ancora): 🟡 da ripulire, insieme a TMapModal/StatusFieldsSection, con l'audit TMap.
+- Collaudo: 3 test unitari (percorsi, JSON ordinato, date) + harness throwaway su file
+  reali (CSV con colonne + crlf + windows-1252 + append/auto ×2; JSON indent 4; append su
+  array → errore; Excel foglio "Dati" colorato riletto dal File Input; partizioni campo in
+  cartella / mese / dimensione; new ×2; ${seq} ×2; binario da base64; testo UTF-16 con BOM;
+  comando ok e in errore; webhook su server locale e irraggiungibile; segnale per file
+  verso un secondo sink; parquet e pdf_text → errore). Prossimo punto: source_ftp.

@@ -106,7 +106,8 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
     return getNodeSubtitle(nodeData)
   })()
 
-  const isBuffered = nodeData.type === 'sink_file' && nodeData.props?.['passthrough'] === 'true'
+  // File Output in replay: le righe restano in memoria fino alla fine della scrittura.
+  const isBuffered = nodeData.type === 'sink_file' && nodeData.props?.['outputMode'] === 'replay'
 
   // Badge transazione: il nodo porta solo transactionId; mode/nome
   // vivono sull'oggetto-transazione della lane (design v2).

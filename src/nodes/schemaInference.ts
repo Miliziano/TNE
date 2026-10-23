@@ -3,6 +3,7 @@ import type { Node as FlowNode } from '@xyflow/react'
 import type { NodeData } from '../types'
 import { FIXED_SCHEMA } from './fileSchema'
 import { SINK_FTP_SIGNAL_SCHEMA } from './types/sink_ftp/schema'
+import { SINK_FILE_SIGNAL_SCHEMA } from './types/sink_file/schema'
 
 // ─── Schema inferito dai props del nodo ──────────────────────────
 export function inferSchema(
@@ -47,54 +48,10 @@ export function inferSchema(
       // Formati strutturati senza schema dichiarato
       return []
     }
-    // ── Sink File — pass-through, propaga schema in ingresso ──────
+    // ── File Output (P361): una riga di stato per file, o le righe ri-emesse ──
     case 'sink_file': {
-      const passthrough = props.passthrough === 'true'
-
-      // Status è sempre presente
-      const statusFields: TMapInputField[] = [
-        { name: 'status.ok',             type: 'boolean' },
-        { name: 'status.rows_processed', type: 'integer' },
-        { name: 'status.rows_written',   type: 'integer' },
-        { name: 'status.bytes_written',  type: 'integer' },
-        { name: 'status.file_path',      type: 'string'  },
-        { name: 'status.completed_at',   type: 'date'    },
-        { name: 'status.error_message',  type: 'string'  },
-        { name: 'status.duration_ms',    type: 'integer' },
-      ]
-
-      // Se pass-through attivo — aggiunge anche i campi row
-     if (passthrough) {
-        const rowFields: TMapInputField[] = (() => {
-          // Prima prova da outputSchema del sink_file
-          try {
-            const raw = props.outputSchema
-            if (raw) {
-              const parsed = JSON.parse(raw)
-              const mapped = parsed
-                .filter((f: { include?: boolean }) => f.include !== false)
-                .map((f: { outputName: string; type: string }) => ({
-                  name: `row.${f.outputName}`,
-                  type: f.type ?? 'string',
-                }))
-                .filter((f: TMapInputField) => f.name.length > 5)
-              if (mapped.length > 0) return mapped
-            }
-          } catch {}
-
-          // Fallback — propaga dal nodo precedente al sink_file
-          const upstream = propagateSchema(node.id, allNodes, allEdges)
-          return upstream.map((f) => ({
-            name: `row.${f.name}`,
-            type: f.type,
-          }))
-        })()
-
-        return [...rowFields, ...statusFields]
-      }
-
-      // Senza pass-through — solo status
-      return statusFields
+      if ((props.outputMode ?? 'signal') === 'replay') return propagateSchema(node.id, allNodes, allEdges)
+      return SINK_FILE_SIGNAL_SCHEMA.map(({ name, type }) => ({ name, type: type as TMapInputField['type'] }))
     }
 
     // ── SFTP Output (P356): riga di stato o righe ri-emesse ─────

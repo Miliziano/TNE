@@ -449,7 +449,7 @@ function LaneFlow({ lane }: { lane: Lane }) {
             })
           }
         }
-        if (tgt.data.type === 'source_file' || tgt.data.type === 'sink_file') {
+        if (tgt.data.type === 'source_file') {
           useFlowStore.getState().updateNodeProp(tgt.id, 'outputSchema', '')
         }
       })

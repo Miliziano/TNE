@@ -40,6 +40,8 @@ import type { FieldType } from '../types/fieldTypes'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
 import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
 import { BRIDGE_SIGNAL_SCHEMA } from '../nodes/types/bridge/bridgeSchema'
+import { SINK_FILE_SIGNAL_SCHEMA } from '../nodes/types/sink_file/schema'
+import { SINK_FTP_SIGNAL_SCHEMA } from '../nodes/types/sink_ftp/schema'
 
 // ─────────────────────────────────────────────────────────────────
 // RISULTATO PROPAGAZIONE
@@ -326,7 +328,16 @@ function inferOutputSchema(
     }
 
     case 'sink': {
-      // I sink non producono output (eccetto passthrough opzionale)
+      // File Output e SFTP Output (P361): in signal una riga di stato, in
+      // replay/passthrough le righe in ingresso. Gli altri sink: nessun output.
+      if (uiType === 'sink_file') {
+        return (props['outputMode'] ?? 'signal') === 'replay' ? inputSchema
+          : normalizeSchema(SINK_FILE_SIGNAL_SCHEMA.map((f) => ({ ...f, id: `sf_${f.name}`, physicalName: f.name })))
+      }
+      if (uiType === 'sink_ftp') {
+        return (props['outputMode'] ?? 'signal') === 'passthrough' ? inputSchema
+          : normalizeSchema(SINK_FTP_SIGNAL_SCHEMA.map((f) => ({ ...f, id: `sftp_${f.name}`, physicalName: f.name })))
+      }
       return []
     }
 

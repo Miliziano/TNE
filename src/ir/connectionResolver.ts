@@ -92,32 +92,11 @@ function portIsFull(tgt: FlowNode<NodeData>, port: { id: string; maxEdges?: 1 | 
   return used >= (port.maxEdges ?? 1)
 }
 
-function buildStatusFields(srcType: string): TMapInputField[] {
-  const base: TMapInputField[] = [
-    { id: 'status_ok',             name: 'status.ok',             type: 'boolean' },
-    { id: 'status_rows_processed', name: 'status.rows_processed', type: 'integer' },
-    { id: 'status_duration_ms',    name: 'status.duration_ms',    type: 'integer' },
-    { id: 'status_error_message',  name: 'status.error_message',  type: 'string'  },
-    { id: 'status_node_id',        name: 'status.node_id',        type: 'string'  },
-    { id: 'status_node_type',      name: 'status.node_type',      type: 'string'  },
-    { id: 'status_timestamp',      name: 'status.timestamp',      type: 'date'    },
-  ]
-  if (['source_file', 'source_db', 'source_http', 'lane_start'].includes(srcType))
-    base.push({ id: 'status_rows_read', name: 'status.rows_read', type: 'integer' })
-  if (srcType === 'sink_file')
-    base.push(
-      { id: 'status_rows_written',  name: 'status.rows_written',  type: 'integer' },
-      { id: 'status_bytes_written', name: 'status.bytes_written', type: 'integer' },
-      { id: 'status_file_path',     name: 'status.file_path',     type: 'string'  },
-    )
-  if (srcType === 'sink_db')
-    base.push(
-      { id: 'status_rows_inserted', name: 'status.rows_inserted', type: 'integer' },
-      { id: 'status_rows_updated',  name: 'status.rows_updated',  type: 'integer' },
-      { id: 'status_rows_rejected', name: 'status.rows_rejected', type: 'integer' },
-    )
-  return base
-}
+// P361: niente più campi `status.*` aggiunti agli ingressi del TMap
+// (status.ok, status.rows_written…): il motore non li produce mai, quindi
+// un'espressione che li usava leggeva null. I nodi che emettono una riga
+// di stato (sink_file, sink_ftp, bridge_out in signal) la dichiarano nel
+// proprio schema d'uscita, coi campi piatti.
 
 export function resolveConnection(
   connection: Connection,
@@ -292,11 +271,8 @@ function resolveTMapConnection(
   } else {
     inferredFields = realSchema ?? inferSchema(src, nodes, edges)
   }
-  const statusFields   = buildStatusFields(src.data.type)
-  const allFields: TMapInputField[] = [
-    ...inferredFields.map((f) => ({ id: f.id, name: f.name, type: f.type as TMapInputField['type'], physicalName: f.physicalName })),
-    ...statusFields,
-  ]
+  const allFields: TMapInputField[] =
+    inferredFields.map((f) => ({ id: f.id, name: f.name, type: f.type as TMapInputField['type'], physicalName: f.physicalName }))
   const alreadyConnected = edges.some((e) =>
     e.source === connection.source && e.target === connection.target &&
     e.sourceHandle === (connection.sourceHandle ?? 'output')
@@ -330,9 +306,10 @@ function resolveTMapConnection(
     joinKey: '', sourceJoinKey: '',
     // allFields contiene ora i campi reali da outputSchema (Fix 1).
     // Se outputSchema era vuoto e inferSchema ha generato placeholder,
-    // scriviamo comunque statusFields ma non i placeholder — così il
-    // merge successivo non accumula campi spuri.
-    fields: realSchema !== null ? allFields : statusFields,
+    // non li scriviamo — così il merge successivo non accumula campi spuri.
+    // Parser e sink con riga di stato hanno uno schema certo anche senza
+    // outputSchema salvato.
+    fields: realSchema !== null || ['json_parser', 'xml_parser', 'sink_file', 'sink_ftp'].includes(src.data.type) ? allFields : [],
   }
   return { valid: true, resolvedTargetHandle: newInputId, edgeLabel: srcLabel, tmapUpdate: { targetNodeId: tgt.id, newInput } }
 }

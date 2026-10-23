@@ -30,14 +30,31 @@ pub fn normalize(label: &str) -> String {
 
 /// Testo → byte nella codifica richiesta. Restituisce anche il numero di
 /// caratteri sostituiti con '?'. Errore solo per una codifica sconosciuta.
+/// UTF-16: little endian con BOM, è ciò che si aspettano Excel e Windows.
 pub fn encode_text(s: &str, encoding: &str) -> Result<(Vec<u8>, usize), String> {
+    let (body, replaced) = encode_chunk(s, encoding)?;
+    let mut v = bom(encoding).to_vec();
+    v.extend_from_slice(&body);
+    Ok((v, replaced))
+}
+
+/// Il BOM che apre un file nella codifica (vuoto se non serve).
+pub fn bom(encoding: &str) -> &'static [u8] {
+    match normalize(encoding).as_str() {
+        "utf-16" | "utf-16le" => &[0xFF, 0xFE],
+        _ => &[],
+    }
+}
+
+/// Come `encode_text`, ma SENZA BOM: per scrivere un file a pezzi (P361,
+/// sink_file), col BOM messo una volta sola in testa.
+pub fn encode_chunk(s: &str, encoding: &str) -> Result<(Vec<u8>, usize), String> {
     let enc = normalize(encoding);
     let mut replaced = 0usize;
     let bytes = match enc.as_str() {
         "" | "utf-8" | "utf8" => s.as_bytes().to_vec(),
-        // UTF-16 little endian con BOM: è ciò che si aspettano Excel e Windows.
         "utf-16" | "utf-16le" => {
-            let mut v = vec![0xFF, 0xFE];
+            let mut v = Vec::with_capacity(s.len() * 2);
             for u in s.encode_utf16() { v.extend_from_slice(&u.to_le_bytes()) }
             v
         }
@@ -111,6 +128,9 @@ mod tests {
         assert_eq!(encode_text("aè", "ascii").unwrap(), (vec![b'a', b'?'], 1));
         assert_eq!(encode_text("A", "utf-16").unwrap().0, vec![0xFF, 0xFE, 0x41, 0x00]);
         assert!(encode_text("x", "ebcdic").is_err());
+        assert_eq!(encode_chunk("A", "utf-16").unwrap().0, vec![0x41, 0x00]);
+        assert_eq!(bom("UTF-16"), &[0xFF, 0xFE]);
+        assert!(bom("utf-8").is_empty());
     }
 
     #[test]

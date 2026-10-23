@@ -9,13 +9,6 @@ export type FileFormat =
   | 'pdf_text' | 'pdf_binary' | 'binary'
   | 'html' | 'excel_b64'   // ← output Report Generator
 
-/**
- * Formati con schema UTENTE — l'utente definisce i campi nel mapping.
- */
-export const STRUCTURED_FORMATS: FileFormat[] = [
-  'csv', 'tsv', 'excel', 'parquet', 'orc', 'avro',
-]
-
 /** File Input (P357): i formati tabellari, gli unici col mapping dei campi. */
 export const SOURCE_TABULAR_FORMATS = ['csv', 'tsv', 'excel']
 
@@ -52,50 +45,6 @@ export const SOURCE_TEXT_FORMATS = ['csv', 'tsv', 'json', 'jsonl', 'xml', 'text'
 
 /** Valori di `format` che il motore riconosce (tabelle + documenti + altro). */
 export const SOURCE_FORMATS: string[] = SOURCE_FORMAT_GROUPS.flatMap((g) => g.formats.map((f) => f.value))
-
-// ─── Gruppi per la select del formato ────────────────────────────
-export const FORMAT_GROUPS = [
-  {
-    label: 'Testo strutturato',
-    formats: [
-      { value: 'csv',   label: 'CSV'                  },
-      { value: 'tsv',   label: 'TSV'                  },
-      { value: 'excel', label: 'Excel (.xlsx / .xls)' },
-    ],
-  },
-  {
-    label: 'Semi-strutturato (→ usa Parser)',
-    formats: [
-      { value: 'json',  label: 'JSON  — contenuto grezzo → JSON Parser' },
-      { value: 'jsonl', label: 'JSONL — contenuto grezzo → JSON Parser' },
-      { value: 'xml',   label: 'XML   — contenuto grezzo → XML Parser'  },
-    ],
-  },
-  {
-    label: 'Binario con schema',
-    formats: [
-      { value: 'parquet', label: 'Parquet' },
-      { value: 'orc',     label: 'ORC'     },
-      { value: 'avro',    label: 'Avro'    },
-    ],
-  },
-  {
-    label: 'Binario / Non strutturato',
-    formats: [
-      { value: 'pdf_text',   label: 'PDF — estrai testo'      },
-      { value: 'pdf_binary', label: 'PDF — binario Base64'    },
-      { value: 'text',       label: 'Testo plain (riga×riga)' },
-      { value: 'binary',     label: 'Binario raw (Base64)'    },
-    ],
-  },
-  {
-    label: 'Report (da Report Generator)',
-    formats: [
-      { value: 'html',      label: 'HTML — documento web'                   },
-      { value: 'excel_b64', label: 'Excel da base64 (Report Generator)'     },
-    ],
-  },
-]
 
 /**
  * Schema fisso per formati non tabellari.

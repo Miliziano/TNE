@@ -1,3 +1,4 @@
+import { SINK_FILE_SIGNAL_SCHEMA_JSON } from '../nodes/types/sink_file/schema'
 import { scheduleCanvasValidation, runCompilation, runCodegen } from '../ir/pipeline'
 import { setActiveUserFunctions } from '../ir/userFunctions'
 import type { ValidationIssue } from '../ir/types'
@@ -163,10 +164,37 @@ export const updateNode = (
 /** Normalizza i nodi di un progetto caricato: Start/End salvati come non
  *  cancellabili (prima erano obbligatori) diventano cancellabili. */
 export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
-  return nodes.map((n) => normalizeAdvanced(
+  return nodes.map((n) => normalizeSinkFile(normalizeAdvanced(
     (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
       ? { ...n, deletable: true }
-      : n))
+      : n)))
+}
+
+/**
+ * File Output (P361). Prima la tab Mapping salvava le colonne del file in
+ * `outputSchema` (formato {sourceField, outputName, …}) e i campi rinominati
+ * in `incomingSchema`, e il motore le ignorava. Ora le colonne stanno in
+ * `fileColumns` (le applica il motore) e `outputSchema` torna lo schema
+ * d'uscita: la riga di stato in signal, niente in replay (si risale
+ * all'ingresso). `passthrough` e `processingMode` non erano mai letti.
+ */
+function normalizeSinkFile(n: FlowNode<NodeData>): FlowNode<NodeData> {
+  if (n.data?.type !== 'sink_file') return n
+  const props = { ...(n.data.props ?? {}) }
+  let changed = false
+  for (const k of ['passthrough', 'processingMode']) {
+    if (k in props) { delete props[k]; changed = true }
+  }
+  try {
+    const parsed = JSON.parse(props['outputSchema'] ?? '')
+    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.sourceField !== undefined) {
+      if (props['fileColumns'] === undefined) props['fileColumns'] = props['outputSchema']
+      props['outputSchema'] = (props['outputMode'] ?? 'signal') === 'replay' ? '' : SINK_FILE_SIGNAL_SCHEMA_JSON
+      delete props['incomingSchema']
+      changed = true
+    }
+  } catch { /* outputSchema vuoto o già nel formato giusto */ }
+  return changed ? { ...n, data: { ...n.data, props } } : n
 }
 
 /**

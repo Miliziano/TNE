@@ -1,11 +1,16 @@
 /**
  * src/nodes/types/sink_file/Panel.tsx
+ *
+ * P361: ogni opzione è applicata dal motore (sink_file.rs); i formati che
+ * il motore non sa scrivere non sono più offerti.
  */
 import { useFlowStore } from '../../../store/flowStore'
-import type { FileFormat } from '../../fileSchema'
-import type { TMapConfig, TMapInputField } from '../../../types'
-import { FORMAT_GROUPS, STRUCTURED_FORMATS } from '../../fileSchema'
+import type { TMapConfig, TMapInputField, TMapFieldType } from '../../../types'
 import { CustomSelect } from '../../../components/CustomSelect'
+import {
+  SINK_FILE_FORMAT_GROUPS, SINK_FILE_SIGNAL_SCHEMA, SINK_FILE_SIGNAL_SCHEMA_JSON,
+  SINK_FIELD_FORMATS, SINK_FORMAT_EXT, SINK_ROW_FORMATS,
+} from './schema'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -38,22 +43,6 @@ function Row({ children }: { children: React.ReactNode }) {
 
 const ACCENT = '#3ddc84'
 
-// ─── Mappa formato → estensione file ─────────────────────────────
-const FORMAT_EXT: Record<string, string> = {
-  csv:        'csv',
-  tsv:        'tsv',
-  json:       'json',
-  jsonl:      'jsonl',
-  excel:      'xlsx',
-  parquet:    'parquet',
-  orc:        'orc',
-  avro:       'avro',
-  xml:        'xml',
-  txt:        'txt',
-  html:       'html',
-  excel_b64:  'xlsx',
-}
-
 // ─── Aggiorna estensione nel path mantenendo nome e variabili ─────
 function updatePathExtension(path: string, newExt: string): string {
   if (!path) return path
@@ -76,30 +65,6 @@ function updatePathExtension(path: string, newExt: string): string {
   return `${dir}${base}.${newExt}`
 }
 
-// Schema riga di stato — fisso
-const SIGNAL_SCHEMA = JSON.stringify([
-  { id: 'sf_status',        name: 'status',        type: 'string',  physicalName: 'status'        },
-  { id: 'sf_rows_written',  name: 'rows_written',  type: 'integer', physicalName: 'rows_written'  },
-  { id: 'sf_bytes_written', name: 'bytes_written', type: 'integer', physicalName: 'bytes_written' },
-  { id: 'sf_file_path',     name: 'file_path',     type: 'string',  physicalName: 'file_path'     },
-  { id: 'sf_completed_at',  name: 'completed_at',  type: 'date',    physicalName: 'completed_at'  },
-  { id: 'sf_error_message', name: 'error_message', type: 'string',  physicalName: 'error_message' },
-  { id: 'sf_duration_ms',   name: 'duration_ms',   type: 'integer', physicalName: 'duration_ms'   },
-])
-
-// ─── Gruppi formato per il SinkFile ──────────────────────────────
-// Estende FORMAT_GROUPS aggiungendo html e excel_b64
-const SINK_FORMAT_GROUPS = [
-  ...FORMAT_GROUPS,
-  {
-    label: 'Report',
-    formats: [
-      { value: 'html',      label: 'HTML — web document'                },
-      { value: 'excel_b64', label: 'Excel from base64 (from Report Generator)' },
-    ],
-  },
-]
-
 export function SinkFilePanel({ nodeId }: { nodeId: string }) {
   const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
   const updateProp = useFlowStore((s) => s.updateNodeProp)
@@ -110,27 +75,35 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     updateProp(nodeId, key, e.target.value)
 
-  const format     = p('format', 'csv') as FileFormat
+  const format     = p('format', 'csv')
   const writeMode  = p('mode', 'overwrite')
   const outputMode = p('outputMode', 'signal')
-  const writeMode2 = p('writeMode2', 'rows')  // 'rows' | 'raw_field'
+  const fieldFormat = SINK_FIELD_FORMATS[format]           // formati "valore di un campo"
+  const writeMode2 = fieldFormat ? 'raw_field' : p('writeMode2', 'rows')  // 'rows' | 'raw_field'
   const rawField   = p('rawField', 'content')
+  const partition  = p('partition', 'none')
+  const knownFormat = SINK_ROW_FORMATS.includes(format) || !!fieldFormat
+  // Append non può estendere un documento chiuso (array JSON, XML, Excel).
+  const appendBlocked = writeMode2 === 'rows' &&
+    ((format === 'json' && p('jsonStructure', 'array') === 'array') || format === 'xml' || format === 'excel')
 
   // ── Cambio formato: aggiorna anche l'estensione nel path ──────
   const handleFormatChange = (newFormat: string) => {
     updateProp(nodeId, 'format', newFormat)
     const currentPath = node.data.props['path'] ?? ''
     if (currentPath) {
-      const ext     = FORMAT_EXT[newFormat]
+      const ext     = SINK_FORMAT_EXT[newFormat]
       if (ext) {
         const newPath = updatePathExtension(currentPath, ext)
         if (newPath !== currentPath) updateProp(nodeId, 'path', newPath)
       }
     }
-    // Se formato html o excel_b64 → imposta automaticamente raw_field
-    if (newFormat === 'html' || newFormat === 'excel_b64') {
+    // Formati "valore di un campo": modalità raw_field con la codifica giusta
+    const enc = SINK_FIELD_FORMATS[newFormat]
+    if (enc) {
       updateProp(nodeId, 'writeMode2', 'raw_field')
-      updateProp(nodeId, 'rawField', 'content')
+      updateProp(nodeId, 'rawEncoding', enc)
+      if (!node.data.props['rawField']) updateProp(nodeId, 'rawField', 'content')
     }
   }
 
@@ -141,7 +114,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
     const outEdges = store.edges.filter((e) => e.source === nodeId)
 
     if (mode === 'signal') {
-      updateProp(nodeId, 'outputSchema', SIGNAL_SCHEMA)
+      updateProp(nodeId, 'outputSchema', SINK_FILE_SIGNAL_SCHEMA_JSON)
     } else {
       updateProp(nodeId, 'outputSchema', '')
     }
@@ -154,7 +127,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
       const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
       if (!input) return
       if (mode === 'signal') {
-        const signalFields: TMapInputField[] = JSON.parse(SIGNAL_SCHEMA).map((f: any) => ({ id: f.id, name: f.name, type: f.type }))
+        const signalFields: TMapInputField[] = SINK_FILE_SIGNAL_SCHEMA.map((f) => ({ id: `sf_${f.name}`, name: f.name, type: f.type as TMapFieldType }))
         store.updateTMapInput(tgt.id, input.id, { fields: signalFields })
       } else {
         const inEdge  = store.edges.find((e) => e.target === nodeId)
@@ -174,7 +147,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
 
   // ── Indicatore coerenza formato/estensione ────────────────────
   const currentPath = p('path')
-  const expectedExt = FORMAT_EXT[format]
+  const expectedExt = SINK_FORMAT_EXT[format]
   const actualExt   = (() => {
     if (!currentPath) return null
     const lastDot = currentPath.lastIndexOf('.')
@@ -200,7 +173,8 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
       {/* Formato PRIMA del path — è la fonte di verità */}
       <Field label="File format" hint="The format sets the extension — the path is updated automatically">
         <CustomSelect style={inputStyle} value={format} onChange={(e) => handleFormatChange(e.target.value)}>
-          {SINK_FORMAT_GROUPS.map((group) => (
+          {!knownFormat && <option value={format}>{format} (not supported for writing)</option>}
+          {SINK_FILE_FORMAT_GROUPS.map((group) => (
             <optgroup key={group.label} label={group.label}>
               {group.formats.map((f) => (
                 <option key={f.value} value={f.value}>{f.label}</option>
@@ -209,9 +183,14 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
           ))}
         </CustomSelect>
       </Field>
+      {!knownFormat && (
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#ff5f57', background: '#2a0a0a', borderRadius: 4, border: '0.5px solid #ff5f5740' }}>
+          The engine cannot write "{format}": the run stops with an error. Choose one of the formats in the list.
+        </div>
+      )}
 
       {/* Path — con badge coerenza */}
-      <Field label="File path" hint="Use variables ${date}, ${datetime}, ${uuid}, ${seq} for dynamic paths">
+      <Field label="File path" hint="Variables: ${date}, ${datetime}, ${uuid}, ${seq} (first free number), ${partition}. Missing folders are created.">
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input type="text" style={{ ...inputStyle, flex: 1 }} value={currentPath} onChange={u('path')}
             placeholder={`/data/output/result_\${date}.${expectedExt ?? 'csv'}`} />
@@ -241,10 +220,11 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {[
-              { var: '${date}',     desc: 'Current date (2024-01-15)' },
-              { var: '${datetime}', desc: 'Date and time'                 },
+              { var: '${date}',     desc: 'Run date (2026-01-15)' },
+              { var: '${datetime}', desc: 'Run date and time (2026-01-15_14-30-00)' },
               { var: '${uuid}',     desc: 'Unique UUID'               },
-              { var: '${seq}',      desc: 'Sequential number'         },
+              { var: '${seq}',      desc: 'First number for which the file does not exist yet' },
+              ...(partition !== 'none' ? [{ var: '${partition}', desc: 'Partition key (without it, _key goes before the extension)' }] : []),
             ].map(({ var: v, desc }) => (
               <button key={v} title={desc}
                 onClick={() => updateProp(nodeId, 'path', (node.data.props['path'] ?? '') + v)}
@@ -258,12 +238,12 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
         </div>
       </Field>
 
-      {/* Encoding — solo per formati testo standard */}
-      {STRUCTURED_FORMATS.includes(format) && !['parquet','orc','avro','html','excel_b64'].includes(format) && (
+      {/* Encoding — per ciò che si scrive come testo */}
+      {knownFormat && format !== 'excel' && !(writeMode2 === 'raw_field' && (fieldFormat ?? p('rawEncoding', 'text')) === 'base64') && (
         <Field label="Encoding">
           <CustomSelect style={inputStyle} value={p('encoding', 'utf-8')} onChange={u('encoding')}>
             <option value="utf-8">UTF-8</option>
-            <option value="utf-16">UTF-16</option>
+            <option value="utf-16">UTF-16 (little endian, with BOM)</option>
             <option value="iso-8859-1">ISO-8859-1</option>
             <option value="ascii">ASCII</option>
             <option value="windows-1252">Windows-1252</option>
@@ -280,12 +260,12 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
             value: 'rows',
             label: '⊞ Flow rows',
             desc:  'Serializes all incoming rows in the selected format.',
-            disabled: format === 'html' || format === 'excel_b64',
+            disabled: !!fieldFormat,
           },
           {
             value: 'raw_field',
             label: '→ Value of a field',
-            desc:  'Writes the value of a specific field directly — useful for HTML and Excel from Report Generator.',
+            desc:  'Writes the value of one field per row — useful for HTML and Excel from Report Generator. The column mapping does not apply.',
             disabled: false,
           },
         ].map((m) => (
@@ -325,13 +305,15 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
             )}
           </Field>
 
-          {/* Encoding del valore */}
-          <Field label="Value encoding" hint="How to interpret the value before writing it">
-            <CustomSelect style={inputStyle} value={p('rawEncoding', 'text')} onChange={u('rawEncoding')}>
-              <option value="text">Text — write directly (for HTML, JSON, XML...)</option>
-              <option value="base64">Base64 — decode before writing (for Excel, PDF...)</option>
-            </CustomSelect>
-          </Field>
+          {/* Encoding del valore (fissato dai formati "valore di un campo") */}
+          {!fieldFormat && (
+            <Field label="Value encoding" hint="How to interpret the value before writing it">
+              <CustomSelect style={inputStyle} value={p('rawEncoding', 'text')} onChange={u('rawEncoding')}>
+                <option value="text">Text — one line per row (for HTML, JSON, XML...)</option>
+                <option value="base64">Base64 — decode before writing (for Excel, PDF...)</option>
+              </CustomSelect>
+            </Field>
+          )}
 
           {/* Info contestuale */}
           {format === 'html' && (
@@ -356,7 +338,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {[
-          { value: 'signal', label: '⊟ Buffer → Signal', desc: 'Emits a single status row.', outputDesc: '1 status row', color: '#ffb347' },
+          { value: 'signal', label: '⊟ Buffer → Signal', desc: 'Emits one status row per written file.', outputDesc: '1 row per file', color: '#ffb347' },
           { value: 'replay', label: '⊞ Buffer → Replay', desc: 'Re-emits the original rows after writing.', outputDesc: 'N original rows', color: ACCENT },
         ].map((m) => (
           <button key={m.value} onClick={() => handleOutputMode(m.value)}
@@ -381,15 +363,10 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
       {outputMode === 'signal' && (
         <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #ffb34730' }}>
           <div style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Status row schema</div>
-          {[
-            { name: 'status',        desc: '"done" or "error"'        },
-            { name: 'rows_written',  desc: 'Rows written to the file'   },
-            { name: 'file_path',     desc: 'Actual path of the file'  },
-            { name: 'completed_at',  desc: 'Completion timestamp'  },
-          ].map((f) => (
+          {SINK_FILE_SIGNAL_SCHEMA.map((f) => (
             <div key={f.name} style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
               <code style={{ fontSize: 10, color: '#ffb347', minWidth: 110, flexShrink: 0 }}>{f.name}</code>
-              <span style={{ fontSize: 9, color: '#2a3349' }}>{f.desc}</span>
+              <span style={{ fontSize: 9, color: '#8593b5' }}>{f.desc}</span>
             </div>
           ))}
         </div>
@@ -401,7 +378,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
         {[
           { value: 'overwrite', label: 'Overwrite', icon: 'ti-file-shredder', desc: 'Overwrites the file'      },
           { value: 'append',    label: 'Append',    icon: 'ti-file-plus',     desc: 'Appends at the end'        },
-          { value: 'new',       label: 'New file',  icon: 'ti-file-plus-2',   desc: 'Creates new with timestamp' },
+          { value: 'new',       label: 'New file',  icon: 'ti-file-plus-2',   desc: 'New name (_1, _2…) if it exists' },
           { value: 'error',     label: 'Error',     icon: 'ti-file-alert',    desc: 'Error if already exists'     },
         ].map((m) => (
           <button key={m.value} onClick={() => updateProp(nodeId, 'mode', m.value)}
@@ -419,6 +396,12 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
           </button>
         ))}
       </div>
+      {writeMode === 'append' && appendBlocked && (
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#ff5f57', background: '#2a0a0a', borderRadius: 4, border: '0.5px solid #ff5f5740' }}>
+          Append cannot extend {format === 'excel' ? 'an Excel file' : format === 'xml' ? 'an XML document' : 'a JSON array'}: the run stops with an error.
+          {format === 'json' ? ' Choose "One line per object" or JSON Lines, or another write mode.' : ' Choose another write mode.'}
+        </div>
+      )}
 
       {/* ── Opzioni formato specifiche ── */}
       {(format === 'csv' || format === 'tsv') && writeMode2 === 'rows' && (
@@ -437,7 +420,7 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
               <CustomSelect style={inputStyle} value={p('writeHeader', 'true')} onChange={u('writeHeader')}>
                 <option value="true">Yes — first row = header</option>
                 <option value="false">No — data only</option>
-                <option value="auto">Auto — only if new file</option>
+                <option value="auto">Auto — only if the file is new or empty</option>
               </CustomSelect>
             </Field>
             <Field label="Line ending">
@@ -468,22 +451,22 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
         </>
       )}
 
-      {(format === 'json' || format === 'jsonl') && writeMode2 === 'rows' && (
+      {format === 'json' && writeMode2 === 'rows' && (
         <>
           <SectionTitle label="JSON options" />
           <Row>
-            <Field label="Indentation">
-              <CustomSelect style={inputStyle} value={p('jsonIndent', 'none')} onChange={u('jsonIndent')}>
-                <option value="none">None (compact)</option>
-                <option value="2">2 spaces</option>
-                <option value="4">4 spaces</option>
+            <Field label="Output structure">
+              <CustomSelect style={inputStyle} value={p('jsonStructure', 'array')} onChange={u('jsonStructure')}>
+                <option value="array">Array of objects</option>
+                <option value="lines">One line per object</option>
               </CustomSelect>
             </Field>
-            {format === 'json' && (
-              <Field label="Output structure">
-                <CustomSelect style={inputStyle} value={p('jsonStructure', 'array')} onChange={u('jsonStructure')}>
-                  <option value="array">Array of objects</option>
-                  <option value="lines">One line per object</option>
+            {p('jsonStructure', 'array') === 'array' && (
+              <Field label="Indentation">
+                <CustomSelect style={inputStyle} value={p('jsonIndent', 'none')} onChange={u('jsonIndent')}>
+                  <option value="none">None (compact)</option>
+                  <option value="2">2 spaces</option>
+                  <option value="4">4 spaces</option>
                 </CustomSelect>
               </Field>
             )}
@@ -493,20 +476,20 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
 
       {/* ── Partizioni ── */}
       <SectionTitle label="Partitions" />
-      <Field label="Partition by">
-        <CustomSelect style={inputStyle} value={p('partition', 'none')} onChange={u('partition')}>
+      <Field label="Partition by" hint={partition === 'none' ? undefined : 'One file per partition: the key replaces ${partition} in the path, or goes before the extension (out_KEY.csv).'}>
+        <CustomSelect style={inputStyle} value={partition} onChange={u('partition')}>
           <option value="none">None — single file</option>
-          <option value="field">Row field</option>
-          <option value="date">Date (from timestamp field)</option>
-          <option value="size">Maximum size</option>
+          <option value="field">Row field — one file per value</option>
+          <option value="date">Date — from a timestamp field</option>
+          <option value="size">Maximum size — a new file every N MB</option>
         </CustomSelect>
       </Field>
-      {p('partition') === 'field' && (
+      {partition === 'field' && (
         <Field label="Partition field">
           <input type="text" style={inputStyle} value={p('partitionField', '')} onChange={u('partitionField')} placeholder="region" />
         </Field>
       )}
-      {p('partition') === 'date' && (
+      {partition === 'date' && (
         <Row>
           <Field label="Timestamp field">
             <input type="text" style={inputStyle} value={p('partitionTimestamp', 'created_at')} onChange={u('partitionTimestamp')} />
@@ -521,13 +504,18 @@ export function SinkFilePanel({ nodeId }: { nodeId: string }) {
           </Field>
         </Row>
       )}
+      {partition === 'size' && (
+        <Field label="Maximum size (MB)" hint="Files are numbered 1, 2, 3… Not available for Excel.">
+          <input type="number" min="0" step="1" style={inputStyle} value={p('partitionMaxMb', '')} onChange={u('partitionMaxMb')} placeholder="100" />
+        </Field>
+      )}
 
       {/* ── Post-processing ── */}
       <SectionTitle label="Post-processing" />
-      <Field label="Post-write command" hint="Run after the file is closed">
-        <input type="text" style={inputStyle} value={p('postCommand', '')} onChange={u('postCommand')} placeholder="gzip /data/output/result.csv" />
+      <Field label="Post-write command" hint="Shell command run after each file is closed. ${file} (and the FP_FILE environment variable) is the file path. A non-zero exit fails the node.">
+        <input type="text" style={inputStyle} value={p('postCommand', '')} onChange={u('postCommand')} placeholder={'gzip -f "${file}"'} />
       </Field>
-      <Field label="Completion notification (webhook URL)">
+      <Field label="Completion notification (webhook URL)" hint="POST with a JSON summary (files, rows) when writing ends. If it fails, the node logs a warning.">
         <input type="text" style={inputStyle} value={p('webhookUrl', '')} onChange={u('webhookUrl')} placeholder="https://hook.example.com/notify" />
       </Field>
 

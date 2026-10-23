@@ -26,6 +26,15 @@ import { readOutputSchema, readIncomingSchema } from './../utils/schemaUtils'
 // (v. l'effetto in script/Panel.tsx) — la stessa via delle sorgenti.
 const PASSTHROUGH_TYPES = new Set(['log', 'materialize'])
 
+/** Nodi che ri-emettono le righe in ingresso: i passthrough sopra, e
+ *  (P361) File Output in replay e SFTP Output in passthrough. */
+function isPassthrough(n: { data: { type: string; props?: Record<string, string> } }): boolean {
+  if (PASSTHROUGH_TYPES.has(n.data.type)) return true
+  if (n.data.type === 'sink_file') return n.data.props?.['outputMode'] === 'replay'
+  if (n.data.type === 'sink_ftp')  return n.data.props?.['outputMode'] === 'passthrough'
+  return false
+}
+
 /**
  * Legge i campi di un output specifico del TMap.
  * Usato quando il nodo sorgente è un TMap — ha output multipli per handle
@@ -83,7 +92,7 @@ function resolveSourceSchema(
   if (!srcNode) return []
 
   // Se il sorgente è passthrough, risali ancora
-  if (PASSTHROUGH_TYPES.has(srcNode.data.type)) {
+  if (isPassthrough(srcNode)) {
     const fromIncoming = readIncomingSchema(srcNode.data.props)
     if (fromIncoming.length > 0) return fromIncoming
     return resolveSourceSchema(srcNode.id, edges, nodes, visited)
@@ -160,7 +169,7 @@ export function useIncomingSchemaFromHandle(
     }
 
     // Se il sorgente è passthrough risali la catena
-    if (PASSTHROUGH_TYPES.has(srcNode.data.type)) {
+    if (isPassthrough(srcNode)) {
       const fromIncoming = readIncomingSchema(srcNode.data.props)
       if (fromIncoming.length > 0) return fromIncoming
       return resolveSourceSchema(srcNode.id, edges, nodes)

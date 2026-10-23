@@ -285,11 +285,9 @@ export const NODE_DEFS: Record<string, NodeDef> = {
     description: 'Writes rows to a file.',
     fields: [
       { key: 'path',           label: 'Path',    type: 'text',   default: '/data/output.csv' },
-      { key: 'format',         label: 'Format',     type: 'select', default: 'csv',       options: ['csv','json','jsonl','parquet','tsv','xml','excel'] },
+      { key: 'format',         label: 'Format',     type: 'select', default: 'csv',       options: ['csv','tsv','excel','json','jsonl','xml','html','text','excel_b64','binary'] },
       { key: 'mode',           label: 'Mode',    type: 'select', default: 'overwrite', options: ['overwrite','append','new','error'] },
       { key: 'partition',      label: 'Partition',  type: 'select', default: 'none',      options: ['none','field','date','size'] },
-      { key: 'processingMode', label: 'Processing',type: 'select', default: 'streaming', options: ['streaming','batch'] },
-      { key: 'passthrough',    label: 'Pass-through', type: 'text',  default: 'false' },
     ],
   },
     lane_start: {
