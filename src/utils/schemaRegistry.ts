@@ -24,7 +24,7 @@
 import { resolveStaticPorts } from '../ir/nodeSemantics'
 import type { PortSpec } from '../ir/types'
 import type { TMapConfig, TMapInputField, TMapOutputField } from '../types'
-import { onErrorEmitsCatch } from '../types'
+import { onErrorEmitsCatch, CATCH_PORT_SCHEMA } from '../types'
 import type { StoreSnapshot } from './schemaUtils'
 
 // ─── dbTypeToLogical ─────────────────────────────────────────────
@@ -218,6 +218,11 @@ export function getHandleSchema(
   handleId: string,
   isInput:  boolean,
 ): SchemaFieldDef[] {
+  // La porta catch porta la riga d'errore del nodo, uguale per tutti i
+  // tipi (P355): mai lo schema dei dati.
+  if (!isInput && handleId === 'catch') {
+    return CATCH_PORT_SCHEMA.map(({ id, name, type }) => ({ id, name, type, physicalName: name }) as SchemaFieldDef)
+  }
   if (node.data.type === 'tmap') {
     const tmap = node.data.config?.tmap as TMapConfig | undefined
     if (!tmap) return []

@@ -1,6 +1,6 @@
 import { useFlowStore } from '../../store/flowStore'
 import { CustomSelect } from '../../components/CustomSelect'
-import { normalizeOnError } from '../../types'
+import { normalizeOnError, CATCH_PORT_SCHEMA } from '../../types'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -53,85 +53,22 @@ function SectionTitle({ label }: { label: string }) {
 const CATCH_COLOR = '#f97316'
 const ACCENT_DW   = '#22d3ee'
 
-function NodeStatusSection({ nodeId }: { nodeId: string }) {
-  const node = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
-  if (!node) return null
+/** Nodi che ritentano da sé la prima operazione (connessione al DB):
+ *  allineato a RETRY_IN_NODE in src-tauri/src/engine/executor.rs. */
+const RETRY_IN_NODE = new Set(['source_db', 'sink_db'])
 
-  const passthrough    = node.data.props['passthrough'] === 'true'
-  const processingMode = node.data.props['processingMode'] ?? 'streaming'
-
-  const statusFields: Array<{ name: string; type: string; desc: string }> = (() => {
-    const base = [
-      { name: 'ok',             type: 'boolean', desc: 'Execution succeeded' },
-      { name: 'node_id',        type: 'string',  desc: 'Node ID' },
-      { name: 'node_type',      type: 'string',  desc: 'Node type' },
-      { name: 'timestamp',      type: 'date',    desc: 'Processing timestamp' },
-      { name: 'rows_processed', type: 'integer', desc: 'Rows processed' },
-      { name: 'duration_ms',    type: 'integer', desc: 'Duration in milliseconds' },
-      { name: 'error_message',  type: 'string',  desc: 'Error message (empty if ok)' },
-    ]
-    switch (node.data.type) {
-      case 'source_db': case 'source_file': case 'source_http':
-        return [...base, { name: 'rows_read', type: 'integer', desc: 'Rows read from the source' }]
-      case 'sink_file':
-        return [...base,
-          { name: 'rows_written',  type: 'integer', desc: 'Rows written to the file' },
-          { name: 'bytes_written', type: 'integer', desc: 'Bytes written' },
-          { name: 'file_path',     type: 'string',  desc: 'Path of the written file' },
-        ]
-      case 'sink_db':
-        return [...base,
-          { name: 'rows_inserted', type: 'integer', desc: 'Rows inserted' },
-          { name: 'rows_updated',  type: 'integer', desc: 'Rows updated' },
-          { name: 'rows_rejected', type: 'integer', desc: 'Rows rejected' },
-        ]
-      case 'filter':
-        return [...base, { name: 'rows_filtered', type: 'integer', desc: 'Rows filtered (discarded)' }]
-      default:
-        return base
-    }
-  })()
-
+function Hint({ children, color = '#8593b5' }: { children: React.ReactNode; color?: string }) {
   return (
-    <>
-      <SectionTitle label="Status — fields emitted to the next node" />
-      {node.data.type === 'sink_file' && (
-        <div style={{ padding: '8px 10px', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <i className="ti ti-info-circle" style={{ fontSize: 13, color: '#4a9eff' }} />
-          <div style={{ flex: 1, fontSize: 10, color: '#9a9aaa' }}>
-            {passthrough
-              ? processingMode === 'streaming'
-                ? 'row: original data (row by row) + status'
-                : 'row: original data (after file close, row by row) + status'
-              : 'row: empty {} + status — a single message at the end'}
-          </div>
-        </div>
-      )}
-      <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 1fr', gap: 8, padding: '5px 10px', background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-          {['status.*', 'Type', 'Description'].map((h) => (
-            <div key={h} style={{ fontSize: 10, color: '#4a9eff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
-          ))}
-        </div>
-        {statusFields.map((f, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 1fr', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < statusFields.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#c8d4f0' }}>{f.name}</span>
-            <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#1a3a6a', color: '#4a9eff', textAlign: 'center' }}>{f.type}</span>
-            <span style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{f.desc}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-        <i className="ti ti-info-circle" style={{ fontSize: 11, marginRight: 4 }} />
-        All status fields are also written to lane variables as{' '}
-        <strong style={{ color: '#9a9aaa' }}>{node.data.type}.{nodeId}.*</strong>
-      </div>
-    </>
+    <div style={{ padding: '6px 10px', fontSize: 10, color, background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
+      <i className="ti ti-info-circle" style={{ fontSize: 11, marginRight: 4 }} />
+      {children}
+    </div>
   )
 }
 
 export function TabAdvanced({ nodeId }: { nodeId: string }) {
   const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  const hasInputEdge   = useFlowStore((s) => s.edges.some((e) => e.target === nodeId))
   const updateAdvanced = useFlowStore((s) => s.updateNodeAdvanced)
   const updateProp     = useFlowStore((s) => s.updateNodeProp)
 
@@ -140,6 +77,9 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
   const onError = normalizeOnError(adv?.onError)
   const isRetry = onError === 'retry_handler' || onError === 'retry_catch'
   const isDirWatcher = node.data.type === 'dir_watcher'
+  // Il motore rilancia un nodo solo se non ha ingressi di dati (un
+  // ingresso già letto non si rilegge) — i nodi DB ritentano da sé.
+  const retrySupported = RETRY_IN_NODE.has(node.data.type) || (!hasInputEdge && node.data.type !== 'bridge_in')
 
   // Handler timeout — per dir_watcher sincronizza anche watchTimeoutSec
   const handleTimeoutChange = (value: string) => {
@@ -163,8 +103,8 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
       )}
 
       <Row>
-        <Field label={isDirWatcher ? 'Watch timeout (seconds)' : 'Timeout (seconds)'}>
-          <input type="number" style={inputStyle} value={adv?.timeoutSec ?? '30'}
+        <Field label={isDirWatcher ? 'Watch timeout (seconds)' : 'Max run time (seconds)'}>
+          <input type="number" min="0" style={inputStyle} value={adv?.timeoutSec ?? '0'}
             onChange={(e) => handleTimeoutChange(e.target.value)} />
         </Field>
         <Field label="On error">
@@ -172,23 +112,41 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
             onChange={(e) => updateAdvanced(nodeId, 'onError', e.target.value)}>
             <option value="handler">Error handler — the lane decides</option>
             <option value="catch">Catch on node — enables catch handle</option>
-            <option value="retry_handler">Retry, then error handler</option>
-            <option value="retry_catch">Retry, then catch on node</option>
+            {(retrySupported || onError === 'retry_handler') && <option value="retry_handler">Retry, then error handler</option>}
+            {(retrySupported || onError === 'retry_catch') && <option value="retry_catch">Retry, then catch on node</option>}
           </CustomSelect>
         </Field>
       </Row>
+      {!isDirWatcher && (
+        <Hint>
+          0 = no limit. If the node runs longer, it is stopped and fails with a timeout error,
+          handled like any other error (error handler or catch).
+        </Hint>
+      )}
       {isRetry && (
         <Row>
           <Field label="Retry count">
-            <input type="number" style={inputStyle} value={adv?.retryCount ?? '0'}
+            <input type="number" min="0" style={inputStyle} value={adv?.retryCount ?? '0'}
               onChange={(e) => updateAdvanced(nodeId, 'retryCount', e.target.value)} />
           </Field>
           <Field label="Delay between retries (seconds)">
-            <input type="number" style={inputStyle} value={adv?.retryDelaySec ?? '5'}
+            <input type="number" min="0" style={inputStyle} value={adv?.retryDelaySec ?? '5'}
               onChange={(e) => updateAdvanced(nodeId, 'retryDelaySec', e.target.value)} />
           </Field>
         </Row>
       )}
+      {isRetry && (retrySupported ? (
+        <Hint>
+          {RETRY_IN_NODE.has(node.data.type)
+            ? 'The node retries opening the database connection, waiting the delay between attempts.'
+            : 'If the node fails before emitting any row, it is run again from the start after the delay. Once rows have been emitted it is not retried, so downstream never gets duplicates.'}
+        </Hint>
+      ) : (
+        <Hint color="#ffb347">
+          Retry is not available here: the node receives incoming data, which cannot be read twice.
+          It applies to nodes without incoming data (sources) and to the database nodes.
+        </Hint>
+      ))}
 
       {(onError === 'catch' || onError === 'retry_catch') && (
         <div style={{
@@ -201,17 +159,11 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
           <div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>Catch handle active</div>
             The <strong style={{ color: CATCH_COLOR }}>catch</strong> handle is now visible on the node.
-            Rows that raise an unhandled exception exit through catch
-            enriched with the fields:
+            If the node fails, the error leaves through catch as one row with the fields below,
+            and counts as handled: the lane goes on. Rows rejected one by one go to the node's
+            reject port, where it has one.
             <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {[
-                { name: '_error_message',   type: 'string', desc: 'Exception message' },
-                { name: '_error_code',      type: 'string', desc: 'Error type / code' },
-                { name: '_error_node_id',   type: 'string', desc: 'ID of the node that raised the error' },
-                { name: '_error_node_type', type: 'string', desc: 'Node type' },
-                { name: '_error_at',        type: 'date',   desc: 'Exception timestamp' },
-                { name: '_error_row',       type: 'object', desc: 'The original row that caused the error' },
-              ].map((f) => (
+              {CATCH_PORT_SCHEMA.map((f) => (
                 <div key={f.name} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
                   <code style={{ fontSize: 10, color: CATCH_COLOR, minWidth: 140, flexShrink: 0 }}>{f.name}</code>
                   <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 4, background: '#1a1000', color: CATCH_COLOR, border: `0.5px solid ${CATCH_COLOR}30`, flexShrink: 0 }}>{f.type}</span>
@@ -221,21 +173,13 @@ export function TabAdvanced({ nodeId }: { nodeId: string }) {
             </div>
             <div style={{ marginTop: 8, padding: '6px 8px', background: '#1a1000', borderRadius: 4, border: `0.5px solid ${CATCH_COLOR}20`, fontSize: 9, color: '#8593b5' }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 9, marginRight: 4, color: CATCH_COLOR }} />
-              If the catch handle isn't connected to any node, exceptions are
-              handled by the lane's global configuration.
+              If the catch handle isn't connected, the error goes to the lane's error handler.
+              If the node belongs to a transaction group, the group is rolled back even when the
+              error is caught.
             </div>
           </div>
         </div>
       )}
-
-      <SectionTitle label="Performance" />
-      <Row>
-        <Field label="Batch size (rows per batch)">
-          <input type="number" style={inputStyle} value={adv?.batchSize ?? '1000'}
-            onChange={(e) => updateAdvanced(nodeId, 'batchSize', e.target.value)} />
-        </Field>
-      </Row>
-      <NodeStatusSection nodeId={nodeId} />
     </div>
   )
 }

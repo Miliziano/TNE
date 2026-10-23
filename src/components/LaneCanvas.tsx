@@ -9,7 +9,7 @@ import { FilterNode } from '../nodes/FilterNode'
 import { JsonSerializerNode } from '../nodes/JsonSerializerNode'
 import { XmlSerializerNode } from '../nodes/XmlSerializerNode'
 import { propagateUnionSchema } from '../utils/schemaUtils'
-import { propagateFromConnection, getHandleSchema } from '../utils/schemaRegistry'
+import { propagateFromConnection } from '../utils/schemaRegistry'
 import { JoinNode } from '../nodes/types/join/JoinNode'
 import { UnionNode } from '../nodes/types/union/UnionNode'
 import { flushSync } from 'react-dom'
@@ -38,6 +38,7 @@ import { FlowNode } from '../nodes/FlowNode'
 import { StartNode, EndNode } from '../nodes/StartEndNode'
 import { dragState } from '../dragState'
 import type { Lane, LaneResource, NodeData, ResourceKind , TMapConfig } from '../types'
+import { CATCH_PORT_SCHEMA } from '../types'
 import { TMapNode } from '../nodes/TMapNode'
 import '@xyflow/react/dist/style.css'
 import { BridgeOutNode, BridgeInNode } from '../nodes/BridgeNode'
@@ -46,17 +47,6 @@ import {
          isConnectionValid,
         buildEdge,
        } from '../ir/connectionResolver'
-
-// ─── Schema campo _catch ──────────────────────────────────────────
-// Campo singolo di tipo object — stesso pattern di status.*
-// I sottocampi sono documentati nel mapping panel e in TabAdvanced
-const CATCH_FIELD = {
-  id:          'catch_obj',
-  name:        '_catch',
-  type:        'object',
-  physicalName: '_catch',
-  description: 'Eccezione catturata — contiene message, code, node_id, node_type, at',
-}
 
 const nodeTypes = {
   flowNode:  FlowNode,
@@ -494,8 +484,8 @@ function LaneFlow({ lane }: { lane: Lane }) {
         const srcNode = store2.nodes.find((n) => n.id === connection.source)
         const tgtNode = store2.nodes.find((n) => n.id === connection.target)
         if (!srcNode || !tgtNode) return
-        const srcSchema = getHandleSchema(srcNode, 'output', false)
-        const catchSchema = [...srcSchema, CATCH_FIELD]
+        // Dalla catch esce la riga d'errore del nodo (P355), non i suoi dati.
+        const catchSchema = CATCH_PORT_SCHEMA.map(({ id, name, type }) => ({ id, name, type, physicalName: name }))
         store2.updateNodeProp(tgtNode.id, 'incomingSchema', JSON.stringify(catchSchema))
       }, 0)
       return

@@ -300,6 +300,13 @@ pub async fn execute_lane(
     for v in sizing.values_mut() { *v = (*v).max(2) + 1; }
 
     let lane_resources = super::pool::LaneResources::new(sizing);
+
+    // Nodi membri di una transazione di gruppo (v. caught_in_tx sotto).
+    let tx_members: std::collections::HashSet<String> = nodes.iter()
+        .filter(|n| n.spec.get("props").and_then(|p| p.get("transactionId"))
+            .and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false))
+        .map(|n| n.node_id.0.clone())
+        .collect();
     
     // Registro dataset: uno slot Pending per ogni dataset dichiarato.
     let declared_datasets: Vec<String> = lane_plan.datasets.iter()
@@ -505,6 +512,12 @@ pub async fn execute_lane(
         let err_node_id   = node_id_str.clone();
         let err_node_type = node_type.clone();
         let err_lane_id   = lane_id.0.clone();   // LaneId è una newtype: serve la String
+        // Scheda Advanced (P355): catch, retry, timeout.
+        let policy        = super::errors::exec_policy(&node_plan.config, &node_plan.spec);
+        let mut outputs   = outputs;
+        // La porta `catch` non è un'uscita dati del nodo: la tiene il
+        // wrapper, che ci scrive la riga d'errore se il nodo fallisce.
+        let catch_tx: Option<RowSender> = outputs.remove("catch");
 
         let done_guard_reg = lane_done.clone();
         let handle = tokio::spawn(async move {
@@ -513,24 +526,38 @@ pub async fn execute_lane(
             let mut done_guard = super::completion::DoneGuard {
                 registry: done_guard_reg, node_id: err_node_id.clone(), ok: false,
             };
-            let res = run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx).await;
+            let res = run_with_policy(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx, policy).await;
             done_guard.ok = res.is_ok();
+            let Err(e) = &res else { return (res, false) };
+
+            // Catch sul nodo (P355): l'errore esce come riga sulla porta
+            // catch ed è GESTITO — la lane prosegue. Senza arco sulla
+            // catch si ricade sull'error handler (come dice il pannello).
+            if policy.catches {
+                if let Some(tx) = &catch_tx {
+                    let row = super::errors::build_error_row(
+                        &err_node_id, &err_node_type, e,
+                        &super::errors::ErrorFlags { critical: false, excluded: err_flags.excluded },
+                        &err_lane_id);
+                    if tx.send(row).await.is_ok() {
+                        return (res, true);
+                    }
+                }
+            }
             // Canale CONTROLLO in streaming: il fallimento parte verso
             // l'EH ORA, appena il nodo conclude in errore — non a fine
             // lane. Il sender si droppa quando questo task termina: è la
             // chiusura naturale del collettore.
-            if let Err(e) = &res {
-                if goes_to_eh {
-                    if let Some(tx) = &err_tx {
-                        // send ingoiata VOLUTA: se l'EH è già caduto non
-                        // c'è più nessuno a cui consegnare — l'errore è
-                        // comunque su NodeFailed.
-                        let _ = tx.send(super::errors::build_error_row(
-                            &err_node_id, &err_node_type, e, &err_flags, &err_lane_id)).await;
-                    }
+            if goes_to_eh || policy.catches {
+                if let Some(tx) = &err_tx {
+                    // send ingoiata VOLUTA: se l'EH è già caduto non
+                    // c'è più nessuno a cui consegnare — l'errore è
+                    // comunque su NodeFailed.
+                    let _ = tx.send(super::errors::build_error_row(
+                        &err_node_id, &err_node_type, e, &err_flags, &err_lane_id)).await;
                 }
             }
-            res
+            (res, false)
         });
 
         // Registra il task come interrompibile — stesso insieme del
@@ -557,14 +584,39 @@ pub async fn execute_lane(
     // prima si determina l'esito, poi si chiude, poi si ritorna.
     let mut stats_map = HashMap::new();
     let mut lane_result: Result<(), String> = Ok(());
+    // Un errore gestito sulla catch non fa fallire la lane, ma se il nodo
+    // è membro di una transazione di gruppo il gruppo NON si committa: le
+    // sue scritture sono a metà.
+    let mut caught_in_tx = false;
 
     for (node_id_str, handle) in handles {
         match handle.await {
-            Ok(Ok(stats)) => {
+            Ok((Err(e), true)) => {
+                eprintln!("[executor] nodo {} fallito, errore gestito sulla catch: {}", node_id_str, e);
+                push_event(crate::engine::events::EngineEvent::NodeFailed {
+                    run_id:  run_id.clone(),
+                    lane_id: lane_id.clone(),
+                    node_id: crate::engine::types::NodeId(node_id_str.clone()),
+                    error:   e.clone(),
+                });
+                push_event(crate::engine::events::EngineEvent::NodeLog {
+                    run_id:     run_id.clone(),
+                    lane_id:    lane_id.clone(),
+                    node_id:    crate::engine::types::NodeId(node_id_str.clone()),
+                    node_label: node_id_str.clone(),
+                    level:      "warn".to_string(),
+                    row_num:    0,
+                    message:    format!("{}: error handled on the catch port — the lane continues", node_id_str),
+                    target:     "panel".to_string(),
+                });
+                if tx_members.contains(&node_id_str) { caught_in_tx = true; }
+                stats_map.insert(node_id_str, NodeStats { error: Some(e), ..Default::default() });
+            }
+            Ok((Ok(stats), _)) => {
                 eprintln!("[executor] nodo {} completato ok", node_id_str);
                 stats_map.insert(node_id_str, stats);
             }
-            Ok(Err(e)) => {
+            Ok((Err(e), false)) => {
                 eprintln!("[executor] nodo {} fallito: {}", node_id_str, e);
                 // Emette lo stato terminale al monitor: senza questo il
                 // nodo resta 'running' (giallo) perché nessun nodo emette
@@ -687,7 +739,10 @@ pub async fn execute_lane(
 
     // Finalizza le transazioni di gruppo in base all'esito COMPLETO
     // della lane (source e non-membri inclusi): commit solo se tutto ok.
-    lane_txns.finalize_with_outcome(lane_result.is_ok()).await;
+    if caught_in_tx && lane_result.is_ok() {
+        eprintln!("[executor] lane {}: errore gestito sulla catch in un membro di transazione → rollback del gruppo", lane_id.0);
+    }
+    lane_txns.finalize_with_outcome(lane_result.is_ok() && !caught_in_tx).await;
 
     // Chiusura garantita delle connessioni della lane — in ogni caso.
     lane_resources.close_all().await;
@@ -705,6 +760,109 @@ pub async fn execute_lane(
 
     lane_result.map(|_| stats_map)
 }
+// ─── run_with_policy (P355) ───────────────────────────────────────
+//
+// Applica la scheda Advanced attorno a run_node:
+//
+// TIMEOUT — `maxRunSec` > 0 (dalla scheda Advanced): tempo massimo d'esecuzione del nodo; allo
+// scadere il nodo è fermato e fallisce ("timed out"), poi va all'error
+// handler o alla catch come ogni errore. Non vale per dir_watcher, che
+// usa lo stesso campo come durata dell'osservazione (watchTimeoutSec).
+//
+// RETRY — `retry_handler` / `retry_catch`: il nodo si rilancia da capo,
+// dopo l'attesa, SOLO se non ha ancora emesso righe (altrimenti a valle
+// arriverebbero doppioni) e se non ha ingressi di dati (un ingresso già
+// consumato non si può rileggere). Copre le sorgenti — è lì che il retry
+// serve: host irraggiungibile, API giù, credenziali scadute. I nodi DB
+// (source_db, sink_db) hanno il loro retry sulla connessione
+// (`ctx.retry_policy()`) e non si rilanciano qui, per non moltiplicare i
+// tentativi. Per gli altri nodi con ingressi lo studio non offre il retry.
+
+/// Nodi che gestiscono da sé il retry (sulla prima operazione).
+const RETRY_IN_NODE: &[&str] = &["source_db", "sink_db"];
+
+async fn run_with_policy(
+    ctx:        NodeContext,
+    node_type:  String,
+    inputs:     HashMap<String, RowReceiver>,
+    outputs:    HashMap<String, RowSender>,
+    bridge_tx:  Option<super::bridge::BridgeOutEnds>,
+    bridge_rx:  Option<super::bridge::BridgeInEnds>,
+    policy:     super::errors::ExecPolicy,
+) -> Result<NodeStats, String> {
+    let timeout = if node_type == "dir_watcher" { 0 } else { policy.timeout_sec };
+    let retryable = inputs.is_empty() && bridge_tx.is_none() && bridge_rx.is_none()
+        && !RETRY_IN_NODE.contains(&node_type.as_str());
+
+    let Some((max_retries, delay)) = policy.retry.filter(|_| retryable) else {
+        if policy.retry.is_some() && !RETRY_IN_NODE.contains(&node_type.as_str()) {
+            ctx.emit_log(&ctx.label, "warn", 0,
+                "Retry is not applied: the node has incoming data, which cannot be read twice".to_string(),
+                "panel");
+        }
+        return with_timeout(timeout, run_node(ctx, node_type, inputs, outputs, bridge_tx, bridge_rx)).await;
+    };
+
+    let mut attempt: u32 = 0;
+    loop {
+        // Uscite "contate": ogni handle passa da un canale proprio di
+        // questo tentativo, inoltrato a quello vero. Così si sa se il
+        // tentativo fallito aveva già emesso righe.
+        let emitted = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let mut attempt_outputs: HashMap<String, RowSender> = HashMap::new();
+        let mut forwarders = Vec::new();
+        for (handle, real) in &outputs {
+            let (ptx, mut prx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
+            let real = real.clone();
+            let n = emitted.clone();
+            forwarders.push(tokio::spawn(async move {
+                while let Some(row) = prx.recv().await {
+                    n.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if real.send(row).await.is_err() { break }
+                }
+            }));
+            attempt_outputs.insert(handle.clone(), ptx);
+        }
+
+        let res = with_timeout(timeout,
+            run_node(ctx.clone(), node_type.clone(), HashMap::new(), attempt_outputs, None, None)).await;
+        for f in forwarders { let _ = f.await; }
+
+        let e = match res {
+            Ok(stats) => return Ok(stats),
+            Err(e)    => e,
+        };
+        let n = emitted.load(std::sync::atomic::Ordering::Relaxed);
+        if attempt >= max_retries {
+            return Err(if attempt > 0 { format!("{} (after {} retries)", e, attempt) } else { e });
+        }
+        if n > 0 {
+            ctx.emit_log(&ctx.label, "warn", 0, format!(
+                "Not retried: the failed attempt had already emitted {} rows (a retry would duplicate them)", n),
+                "panel");
+            return Err(e);
+        }
+        attempt += 1;
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "Attempt failed: {} — retry {}/{} in {} s", e, attempt, max_retries, delay), "panel");
+        tokio::select! {
+            _ = tokio::time::sleep(std::time::Duration::from_secs(delay)) => {}
+            _ = ctx.cancel.cancelled() => return Err(e),
+        }
+    }
+}
+
+async fn with_timeout(
+    secs: u64,
+    fut:  impl std::future::Future<Output = Result<NodeStats, String>>,
+) -> Result<NodeStats, String> {
+    if secs == 0 { return fut.await }
+    match tokio::time::timeout(std::time::Duration::from_secs(secs), fut).await {
+        Ok(r)  => r,
+        Err(_) => Err(format!("timed out after {} s (Advanced → Max run time)", secs)),
+    }
+}
+
 // ─── run_node ─────────────────────────────────────────────────────
 //
 // Riceve mappe handle → canale invece di Option singoli:

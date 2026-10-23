@@ -1697,3 +1697,61 @@ italiano del pannello Filter tradotte. Doc: node-spec §16, manuale FPEL (§3.4 
 
 **Non toccato:** il generatore di codice TypeScript (`codegen/.../generators.ts`, filter) usa
 ancora la stringa della condizione e un solo ramo — era già fuori allineamento col motore.
+
+## AGGIORNAMENTO — Audit studio↔motore e scheda Advanced applicata (stato al P355, 23 ottobre)
+
+**Audit (22 ottobre, su richiesta utente).** Confronto statico chiavi dei pannelli ↔ chiavi
+lette dal motore (+ builder), poi verifica a mano dei casi. Nessun nodo è più uno stub, ma
+molte opzioni non sono applicate. Ordine deciso con l'utente ("dobbiamo mettere a posto
+tutto", principio P348: implementare o togliere):
+1. ✅ scheda Advanced (questo P355);
+2. sink_ftp (chiavi pannello ≠ motore: `fileFormat`/`format`, `writeMode` con due
+   significati, `fileName` ignorato, `atomicWrite`/`atomic`; compressione, encoding,
+   permessi ignorati);
+3. source_file (jsonl/parquet/orc/avro/pdf/text letti come CSV; json/xml una riga grezza;
+   percorso da variabile/flusso ignorato; encoding/quote/escape/comment/skip/limit/glob
+   ignorati; rinomina e trasformazioni del mapping perse);
+4. Kafka (senza REST Proxy non pubblica né legge, e il pannello non ha il campo; il sink
+   scarta le righe con un avviso) — **serve decisione utente**: campo REST Proxy o togliere;
+5. bridge (transfer/batch/buffer/output passthrough-signal/sync wait-for-ack/gate/timeout
+   tutti ignorati); 6. explode (mapping ignorato); 7. sink_file (mapping colonne,
+   partizionamento, post-command, webhook, encoding ≠ UTF-8: avvisi solo su stderr; formati
+   excel/parquet/orc/avro offerti ma falliscono al Run); 8. source_ftp (after-fetch,
+   fetch mode, ordine, ricorsivo, header, compressione, encoding); 9. dir_watcher (percorso da
+   variabile, dedup hash/mtime/file, stabilityMs); 10. join (sorgente destra "Query inline"
+   = stream in silenzio; algorithm/broadcast); 11. materialize (onDuplicate, clearOn), union
+   (schemaMismatch).
+   🟡 Minori: source_db fetchSize/queryTimeout; ActiveMQ durable/prefetch/retry/OpenWire; MQTT
+   version/connectTimeout; mail priority; script timeout/memory/sandbox; ssh cwd/env; HTTP
+   OAuth2 auto-refresh; xml_serializer validateOutput + encoding; webhook varPollMs e
+   drop_newest; error_handler defaultOnError/logAll; aggregate execMode streaming; pivot
+   distinctValuesMat; "Materialize access mode" (solo codegen). 🧹 Studio: la scheda Mapping
+   di Data Quality legge `dqRules` che nessuno scrive; `json_serializer/Panel.tsx` morto.
+
+**P355 — scheda Advanced (vale per tutti i nodi).** Nuovo `run_with_policy` attorno a
+`run_node` nel wrapper di spawn; politica in `errors::exec_policy` (`ExecPolicy`).
+- **Catch sul nodo** (prima la porta non emetteva mai): se il nodo fallisce, la riga
+  `_error_*` di `build_error_row` esce sulla `catch` e l'errore è gestito — la lane prosegue
+  (NodeFailed + log "handled on the catch port"). Catch scollegata → error handler (prima:
+  l'errore non andava all'EH). Membro di transazione → rollback del gruppo comunque
+  (`caught_in_tx`). Livello nodo, non riga (decisione in DISEGNO-error-handling §13).
+  Schema unico `CATCH_PORT_SCHEMA` (types/index.ts) per lowering, canvas (prima: dati del
+  nodo + un `_catch` oggetto), `getHandleSchema('catch')` e scheda.
+- **Retry** (prima solo source_db/sink_db): il nodo si rilancia da capo dopo l'attesa se è
+  fallito senza aver emesso righe (uscite contate da canali-proxy per tentativo) e non ha
+  ingressi di dati. DB invariati (`RETRY_IN_NODE`). Lo studio offre il retry solo dove si
+  applica; validazione `RETRY_NOT_APPLICABLE`; il motore lo dice nel log se lo trova altrove.
+- **Max run time**: `maxRunSec` (scritto dal builder dal campo della scheda) → timeout del
+  nodo, errore "timed out after N s". NON si legge `timeoutSec`: era '30' di default in ogni
+  nodo senza effetto, e i piani esportati prima non devono cambiare. Allo studio il '30'
+  dei progetti salvati diventa '0' all'apertura (`normalizeAdvanced`), tranne dir_watcher
+  (lì è la durata dell'osservazione, e il limite generico non si applica). Nota: un timeout
+  ferma il nodo ma una query DB già partita finisce lato server (la lane chiude dopo).
+- **Tolti** (P348): "Batch size" generico (mai applicato; sink_db ha il suo) e la sezione
+  "Status — fields emitted to the next node / lane variables" (descriveva campi che il motore
+  non produce).
+- Collaudo (harness throwaway, PG): catch collegata → RunCompleted + riga d'errore; catch
+  scollegata → RunFailed; retry con file che compare dopo 1,5 s → 2 tentativi falliti poi
+  ok; retry esaurito → "(after 2 retries)"; retry su nodo con ingresso → avviso, non
+  applicato; maxRunSec 1 su pg_sleep(5) → "timed out after 1 s"; catch in un membro di
+  transazione → lane ok, 0 righe (rollback; controllo: senza errore 2 righe).

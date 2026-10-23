@@ -138,11 +138,10 @@ const defaultConfig = (): Partial<NodeConfig> => ({
   resourceId:   '',
   mappings:     [],
   advanced: {
-    timeoutSec:    '30',
+    timeoutSec:    '0',      // nessun limite (P355: ora il motore lo applica)
     retryCount:    '0',
     retryDelaySec: '5',
     onError:       'handler',
-    batchSize:     '1000',
     excludeFromErrorLog: 'false',
     critical:            'false',
   },
@@ -164,10 +163,30 @@ export const updateNode = (
 /** Normalizza i nodi di un progetto caricato: Start/End salvati come non
  *  cancellabili (prima erano obbligatori) diventano cancellabili. */
 export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
-  return nodes.map((n) =>
+  return nodes.map((n) => normalizeAdvanced(
     (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
       ? { ...n, deletable: true }
-      : n)
+      : n))
+}
+
+/**
+ * Scheda Advanced (P355). Il timeout del nodo prima non era applicato dal
+ * motore, e ogni nodo nasceva con '30': ora che lo è, quel default
+ * fermerebbe a 30 s qualunque nodo lungo. Il '30' dei progetti salvati
+ * prima diventa '0' (nessun limite) — tranne per dir_watcher, dove il
+ * campo è la durata dell'osservazione. `batchSize` (mai applicato) si
+ * toglie.
+ */
+function normalizeAdvanced(n: FlowNode<NodeData>): FlowNode<NodeData> {
+  const adv = n.data?.config?.advanced
+  if (!adv) return n
+  const legacyTimeout = adv.timeoutSec === '30' && n.data.type !== 'dir_watcher'
+  if (!legacyTimeout && adv.batchSize === undefined) return n
+  const { batchSize: _unused, ...rest } = adv
+  return {
+    ...n,
+    data: { ...n.data, config: { ...n.data.config, advanced: { ...rest, ...(legacyTimeout ? { timeoutSec: '0' } : {}) } } },
+  }
 }
 
 // ─── lane e pool di default ───────────────────────────────────────

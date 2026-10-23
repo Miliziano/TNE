@@ -4,7 +4,7 @@
 
 import type { Node as FlowNode, Edge } from '@xyflow/react'
 import type { NodeData, TMapConfig } from '../types'
-import { onErrorEmitsCatch } from '../types'
+import { onErrorEmitsCatch, CATCH_PORT_SCHEMA } from '../types'
 import type {
   LogicalPlan, LogicalNode, LogicalEdge,
   PortSpec, SchemaField, ExprNode, RawStringExpr,
@@ -263,14 +263,7 @@ export function canvasToIR(
         id:    'catch',
         label: 'catch',
         role:  'catch',
-        schema: [
-          { id: 'catch_error_message',   name: '_error_message',   type: 'string'  as const, physicalName: '_error_message'   },
-          { id: 'catch_error_code',      name: '_error_code',      type: 'string'  as const, physicalName: '_error_code'      },
-          { id: 'catch_error_node_id',   name: '_error_node_id',   type: 'string'  as const, physicalName: '_error_node_id'   },
-          { id: 'catch_error_node_type', name: '_error_node_type', type: 'string'  as const, physicalName: '_error_node_type' },
-          { id: 'catch_error_at',        name: '_error_at',        type: 'date'    as const, physicalName: '_error_at'        },
-          { id: 'catch_error_row',       name: '_error_row',       type: 'object'  as const, physicalName: '_error_row'       },
-        ],
+        schema: CATCH_PORT_SCHEMA.map(({ id, name, type }) => ({ id, name, type, physicalName: name })),
       })
     }
     // lane_start e lane_end → operazione lane_boundary

@@ -244,3 +244,27 @@ modello coerente sul canvas mentre il motore insegue.
 4. **Formato del segnale di fallimento sul bridge** (§5): cosa viaggia esattamente
    nel canale controllo del bridge.
 5. **Nomi interni** dei 4 valori (§6.1): confermare o cambiare.
+
+---
+
+## 13. Risposte del P355 (scheda Advanced applicata dal motore)
+
+1. **Granularità del retry → l'intera esecuzione del nodo**, e solo dove è
+   sicuro: il nodo si rilancia da capo se è fallito **prima di emettere righe**
+   (niente doppioni a valle) e se **non ha ingressi di dati** (un ingresso già
+   consumato non si rilegge). Copre le sorgenti. `source_db`/`sink_db` tengono il
+   loro retry sulla connessione (`ctx.retry_policy()`), senza doppio giro
+   (`RETRY_IN_NODE` in executor.rs). Sugli altri nodi con ingressi lo studio non
+   offre il retry e la validazione avvisa (`RETRY_NOT_APPLICABLE`).
+2. **`catch` → livello NODO**, non riga: quando il nodo fallisce, la riga
+   `_error_*` (`build_error_row`, `_error_source = "node"`) esce dalla porta
+   `catch` e l'errore è **gestito** (la lane prosegue). Gli scarti riga per riga
+   restano sulle porte `reject` dei nodi che le hanno. Catch scollegata → si
+   ricade sull'error handler. Nodo membro di una transazione di gruppo → il gruppo
+   va in **rollback** anche se l'errore è catturato (le sue scritture sono a metà):
+   così la cattura non corrompe le transazioni, e resta offribile su ogni tipo.
+   Schema della porta: `CATCH_PORT_SCHEMA` (types/index.ts), fonte unica per
+   lowering, canvas e scheda.
+3. **Timeout** (non era fra le domande): `maxRunSec`, scritto dal builder dal
+   campo della scheda; il vecchio `timeoutSec` (default '30', mai applicato) non
+   è letto, così i piani esportati prima non cambiano comportamento.

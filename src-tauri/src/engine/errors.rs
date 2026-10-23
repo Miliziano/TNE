@@ -43,6 +43,40 @@ pub fn goes_to_handler(config: &serde_json::Value, spec: &serde_json::Value) -> 
     mode != "catch" && mode != "retry_catch"
 }
 
+/// Politica d'esecuzione di un nodo, dalla scheda Advanced (P355).
+///
+/// - `catches`: modalità catch / retry_catch — un fallimento del nodo esce
+///   come riga `_error_*` sulla porta `catch` ed è GESTITO (la lane non
+///   fallisce). Senza un arco sulla catch si ricade sull'error handler.
+/// - `retry`: (tentativi, attesa_secondi) per retry_handler / retry_catch,
+///   None se 0 tentativi o modalità senza retry.
+/// - `timeout_sec`: tempo massimo d'esecuzione del nodo (`maxRunSec`), 0 = nessuno.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ExecPolicy {
+    pub catches:     bool,
+    pub retry:       Option<(u32, u64)>,
+    pub timeout_sec: u64,
+}
+
+pub fn exec_policy(config: &serde_json::Value, spec: &serde_json::Value) -> ExecPolicy {
+    let Some(adv) = advanced(config, spec) else { return ExecPolicy::default() };
+    let s = |k: &str| adv.get(k).map(|v| match v {
+        serde_json::Value::String(s) => s.trim().to_string(),
+        other => other.to_string(),
+    }).unwrap_or_default();
+    let mode = s("onError");
+    let n: u32 = s("retryCount").parse().unwrap_or(0);
+    let d: u64 = s("retryDelaySec").parse().unwrap_or(0);
+    ExecPolicy {
+        catches:     mode == "catch" || mode == "retry_catch",
+        retry:       if (mode == "retry_handler" || mode == "retry_catch") && n > 0 { Some((n, d)) } else { None },
+        // `maxRunSec`, scritto dal builder dal P355. NON `timeoutSec`: nei
+        // piani esportati prima valeva '30' di default senza essere mai
+        // applicato — leggerlo fermerebbe a 30 s nodi che oggi girano.
+        timeout_sec: s("maxRunSec").parse().unwrap_or(0),
+    }
+}
+
 /// Estrae un campo stringa da una riga `_error_*` (vuoto se assente o non
 /// stringa). Comodo per leggere `_error_node_id`, `_error_message`, ecc.
 pub fn field_str(row: &Row, key: &str) -> String {
@@ -111,11 +145,10 @@ pub fn build_error_row(
     m.insert("_error_excluded".to_string(),
              Value::String(if flags.excluded { "true" } else { "false" }.to_string()));
     m.insert("_error_lane_id".to_string(), Value::String(lane_id.to_string()));
-    // `_error_source` distingue i DUE CANALI del modello: "node" è il
-    // canale di CONTROLLO (eccezione di nodo, livello nodo) — l'unico che
-    // oggi produce righe. Quando la porta `catch` emetterà davvero
-    // (canale DATI, livello riga) quelle righe porteranno "row", e chi
-    // legge la pipeline d'errore potrà distinguerle senza indovinare.
+    // `_error_source` = "node": errore di NODO (il nodo è fallito). Vale
+    // sia sul collettore dell'error handler sia sulla porta `catch` (P355),
+    // che porta la stessa riga. Gli scarti riga per riga restano sulle
+    // porte `reject` dei nodi che le hanno.
     m.insert("_error_source".to_string(), Value::String("node".to_string()));
     m.insert("_error_message".to_string(),   Value::String(message.to_string()));
     m.insert("_error_node_id".to_string(),   Value::String(node_id.to_string()));
@@ -143,4 +176,27 @@ pub fn build_stop_row(node_id: &str, message: &str, lane_id: &str) -> Row {
     m.insert("_error_node_type".to_string(), Value::String("stop".to_string()));
     m.insert("_error_at".to_string(),        Value::String(EngineEvent::timestamp_ms().to_string()));
     Row(m)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pol(adv: serde_json::Value) -> ExecPolicy {
+        exec_policy(&serde_json::json!({}), &serde_json::json!({ "config": { "advanced": adv } }))
+    }
+
+    #[test]
+    fn politica_dalla_scheda_advanced() {
+        let p = pol(serde_json::json!({ "onError": "retry_catch", "retryCount": "3", "retryDelaySec": "2", "maxRunSec": "10" }));
+        assert!(p.catches);
+        assert_eq!(p.retry, Some((3, 2)));
+        assert_eq!(p.timeout_sec, 10);
+        // retry con 0 tentativi = niente retry; handler non cattura
+        let p = pol(serde_json::json!({ "onError": "retry_handler", "retryCount": "0" }));
+        assert!(!p.catches && p.retry.is_none());
+        // il vecchio timeoutSec (default '30', mai applicato) NON è un limite
+        assert_eq!(pol(serde_json::json!({ "timeoutSec": "30" })).timeout_sec, 0);
+        assert_eq!(exec_policy(&serde_json::json!({}), &serde_json::json!({})).timeout_sec, 0);
+    }
 }

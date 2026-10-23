@@ -133,6 +133,23 @@ function checkCatchHandles(plan: LogicalPlan): ValidationIssue[] {
 
   plan.nodes.forEach((node) => {
     if (node.operation === 'lane_boundary') return
+    const label = node._uiRef?.label ?? node.id
+
+    // Retry (P355): il motore rilancia un nodo solo se non ha ingressi
+    // di dati; i nodi DB ritentano da sé la connessione.
+    const onError = String((node._uiRef?.config as { advanced?: { onError?: string } } | undefined)?.advanced?.onError ?? '')
+    const type    = node._uiRef?.type ?? ''
+    if ((onError === 'retry_handler' || onError === 'retry_catch')
+        && !['source_db', 'sink_db'].includes(type)
+        && plan.edges.some((e) => e.target === node.id)) {
+      issues.push({
+        nodeId:   canvasNodeId(node.id),
+        code:     'RETRY_NOT_APPLICABLE',
+        message:  `Node "${label}" has retry enabled but receives incoming data, which cannot be read twice — the retry is ignored`,
+        severity: 'warning',
+        hint:     'Retry applies to nodes without incoming data (sources) and to the database nodes. Choose "Error handler" or "Catch on node"',
+      })
+    }
 
     // Nodo con porta catch dichiarata
     const hasCatchPort = node.outputs.some((p) => p.id === 'catch')
@@ -146,7 +163,7 @@ function checkCatchHandles(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(node.id),
         code:     'CATCH_NOT_CONNECTED',
-        message:  `Node "${node._uiRef?.label ?? node.id}" captures errors on the node but the catch handle is not connected — rows in error would be lost`,
+        message:  `Node "${label}" catches its errors but the catch handle is not connected — a failure will go to the lane's error handler`,
         severity: 'warning',
         hint:     'Connect the catch handle downstream, or choose "Error handler" as the error-handling mode',
       })

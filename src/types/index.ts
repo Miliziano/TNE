@@ -76,11 +76,14 @@ export function onErrorEmitsCatch(raw: string | undefined | null): boolean {
 }
 
 export interface NodeAdvanced {
+  /** Tempo massimo d'esecuzione (s), '0' = nessuno. Per dir_watcher è la
+   *  durata dell'osservazione (sincronizzato con watchTimeoutSec). */
   timeoutSec:    string
   retryCount:    string
   retryDelaySec: string
   onError:       OnError
-  batchSize:     string
+  /** Legacy (≤ P354): mai applicato dal motore, tolto dalla scheda. */
+  batchSize?:    string
   excludeFromErrorLog?: 'true' | 'false'
   critical?:            'true' | 'false'
 }
@@ -160,6 +163,22 @@ export function isLegacyRuleAction(raw: unknown): boolean {
   const a = String(raw ?? '')
   return a === 'retry' || a === 'skip'
 }
+
+/**
+ * La riga che esce dalla porta `catch` quando il nodo fallisce (P355):
+ * una per fallimento, con i campi di `build_error_row` del motore
+ * (src-tauri/src/engine/errors.rs). Fonte unica per lowering, canvas e
+ * scheda Advanced.
+ */
+export const CATCH_PORT_SCHEMA = [
+  { id: 'catch_error_message',   name: '_error_message',   type: 'string' as const, desc: 'Error message' },
+  { id: 'catch_error_node_id',   name: '_error_node_id',   type: 'string' as const, desc: 'ID of the node that failed' },
+  { id: 'catch_error_node_type', name: '_error_node_type', type: 'string' as const, desc: 'Node type' },
+  { id: 'catch_error_lane_id',   name: '_error_lane_id',   type: 'string' as const, desc: 'Lane of the node' },
+  { id: 'catch_error_at',        name: '_error_at',        type: 'string' as const, desc: 'When it failed (epoch milliseconds)' },
+  { id: 'catch_error_source',    name: '_error_source',    type: 'string' as const, desc: 'Always "node": the whole node failed' },
+  { id: 'catch_error_excluded',  name: '_error_excluded',  type: 'string' as const, desc: '"true" if excluded from the error log' },
+]
 
 // Campi aggiunti alle righe che escono dall'handle 'catch'
 export const CATCH_SCHEMA = [

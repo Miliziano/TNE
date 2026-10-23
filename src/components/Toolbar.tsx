@@ -625,6 +625,16 @@ function buildRustPlan(
       // l'IR compilato sotto chiave dedicata (contratto node-spec §2,
       // docs/expr-ir-schema.md). Chi non compila la lascia invariata.
       const specConfig: Record<string, unknown> = { ...(node.data.config ?? {}) }
+      // Tempo massimo d'esecuzione (scheda Advanced, P355): il motore legge
+      // `maxRunSec`, NON `timeoutSec` — i piani esportati prima del P355
+      // portano timeoutSec '30' (default mai applicato) e non devono
+      // cominciare a fermare i nodi a 30 s. dir_watcher usa il campo come
+      // durata dell'osservazione (watchTimeoutSec), non come limite.
+      const adv = node.data.config?.advanced
+      if (adv) {
+        const maxRun = node.data.type === 'dir_watcher' ? '0' : String(adv.timeoutSec ?? '0')
+        specConfig.advanced = { ...adv, maxRunSec: maxRun }
+      }
 
       // Legge la config dai props (come fanno i test manuali)
       const props = node.data.props ?? {}
