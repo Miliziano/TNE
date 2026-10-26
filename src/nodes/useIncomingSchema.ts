@@ -20,6 +20,7 @@ import { useFlowStore } from '../store/flowStore'
 import type { SchemaField } from './../utils/schemaUtils'
 import { readOutputSchema, readIncomingSchema } from './../utils/schemaUtils'
 import { materializeMode } from './types/materialize/schema'
+import { readDqConfig, dqOutputSchema } from './types/data_quality/schema'
 
 // Nodi passthrough — non producono schema proprio, lo ereditano.
 // NB lo `script` NON è qui, ed è giusto: aggiunge campi propri. Il suo
@@ -99,6 +100,15 @@ function resolveSourceSchema(
     const fromIncoming = readIncomingSchema(srcNode.data.props)
     if (fromIncoming.length > 0) return fromIncoming
     return resolveSourceSchema(srcNode.id, edges, nodes, visited)
+  }
+
+  // ── Data Quality (P368): l'ingresso più il campo `_dq` ────────
+  // Calcolato qui, non letto da outputSchema: resta giusto anche se
+  // l'ingresso cambia senza che il pannello del DQ venga aperto.
+  if (srcNode.data.type === 'data_quality') {
+    const fromIncoming = readIncomingSchema(srcNode.data.props)
+    const base = fromIncoming.length > 0 ? fromIncoming : resolveSourceSchema(srcNode.id, edges, nodes, visited)
+    return dqOutputSchema(base, readDqConfig(srcNode.data.props?.['dqConfig']))
   }
 
   // ── Caso TMap: output multipli per handle ─────────────────────

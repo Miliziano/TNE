@@ -143,6 +143,8 @@ export const DEFAULT_DQ_CONFIG: DQConfig = {
 }
 
 // ─── Metadati check per UI ────────────────────────────────────────
+// Allineati al motore (src-tauri/src/engine/nodes/data_quality.rs, P368):
+// un valore null passa tutti i check tranne not_null/not_empty/custom.
 export const DQ_CHECK_DEFS: Array<{
   type:      DQCheckType
   label:     string
@@ -151,40 +153,43 @@ export const DQ_CHECK_DEFS: Array<{
   desc:      string
 }> = [
   // Completeness
-  { type: 'not_null',       label: 'Not Null',        dimension: 'completeness', params: [],                     desc: 'Il campo non può essere null' },
-  { type: 'not_empty',      label: 'Not Empty',       dimension: 'completeness', params: [],                     desc: 'Il campo non può essere vuoto' },
+  { type: 'not_null',       label: 'Not null',          dimension: 'completeness', params: [],                     desc: 'The field must not be null' },
+  { type: 'not_empty',      label: 'Not empty',         dimension: 'completeness', params: [],                     desc: 'The field must not be null or blank' },
   // Conformity
-  { type: 'pattern',        label: 'Pattern Regex',   dimension: 'conformity',   params: ['pattern'],            desc: 'Deve corrispondere alla regex' },
-  { type: 'is_numeric',     label: 'Numerico',        dimension: 'conformity',   params: [],                     desc: 'Deve essere un numero' },
-  { type: 'is_date',        label: 'Data valida',     dimension: 'conformity',   params: ['pattern'],            desc: 'Deve essere una data valida' },
-  { type: 'is_email',       label: 'Email',           dimension: 'conformity',   params: [],                     desc: 'Deve essere un indirizzo email' },
-  { type: 'is_url',         label: 'URL',             dimension: 'conformity',   params: [],                     desc: 'Deve essere un URL valido' },
-  { type: 'min_length',     label: 'Lunghezza min',   dimension: 'conformity',   params: ['min'],                desc: 'Lunghezza minima' },
-  { type: 'max_length',     label: 'Lunghezza max',   dimension: 'conformity',   params: ['max'],                desc: 'Lunghezza massima' },
+  { type: 'pattern',        label: 'Regex pattern',     dimension: 'conformity',   params: ['pattern'],            desc: 'The value must match the regex' },
+  { type: 'is_numeric',     label: 'Numeric',           dimension: 'conformity',   params: [],                     desc: 'The value must be a number' },
+  { type: 'is_date',        label: 'Valid date',        dimension: 'conformity',   params: [],                     desc: 'The value must be a date: yyyy-MM-dd, dd/MM/yyyy, MM/dd/yyyy or yyyy/MM/dd, time optional' },
+  { type: 'is_email',       label: 'Email',             dimension: 'conformity',   params: [],                     desc: 'The value must look like an email address' },
+  { type: 'is_url',         label: 'URL',               dimension: 'conformity',   params: [],                     desc: 'The value must start with http:// or https://' },
+  { type: 'min_length',     label: 'Min length',        dimension: 'conformity',   params: ['min'],                desc: 'Minimum number of characters' },
+  { type: 'max_length',     label: 'Max length',        dimension: 'conformity',   params: ['max'],                desc: 'Maximum number of characters' },
   // Consistency
-  { type: 'range',          label: 'Range numerico',  dimension: 'consistency',  params: ['min', 'max'],         desc: 'Valore tra min e max' },
-  { type: 'in_list',        label: 'In lista',        dimension: 'consistency',  params: ['list'],               desc: 'Valore in lista ammessa' },
-  { type: 'not_in_list',    label: 'Non in lista',    dimension: 'consistency',  params: ['list'],               desc: 'Valore non in lista esclusa' },
-  { type: 'compare_fields', label: 'Confronto campi', dimension: 'consistency',  params: ['compareField','compareOp'], desc: 'Confronto tra due campi' },
+  { type: 'range',          label: 'Numeric range',     dimension: 'consistency',  params: ['min', 'max'],         desc: 'Number between min and max (an empty bound is open)' },
+  { type: 'in_list',        label: 'In list',           dimension: 'consistency',  params: ['list'],               desc: 'The value must be one of the list' },
+  { type: 'not_in_list',    label: 'Not in list',       dimension: 'consistency',  params: ['list'],               desc: 'The value must not be one of the list' },
+  { type: 'compare_fields', label: 'Compare fields',    dimension: 'consistency',  params: ['compareField','compareOp'], desc: 'Compares the field with another field of the row (numbers if both are numeric, otherwise text)' },
   // Accuracy
-  { type: 'referential',    label: 'Referenziale',    dimension: 'accuracy',     params: ['matName','refField'], desc: 'Valore esiste nel lookup' },
-  { type: 'custom',         label: 'Custom JS',       dimension: 'accuracy',     params: ['expression'],         desc: 'Espressione JavaScript custom' },
+  { type: 'referential',    label: 'Referential',       dimension: 'accuracy',     params: ['matName','refField'], desc: 'The value must exist in a column of a Materialize dataset' },
+  { type: 'custom',         label: 'FPEL expression',   dimension: 'accuracy',     params: ['expression'],         desc: 'An FPEL condition: true = the row passes' },
 ]
 
+/** Strategie offerte. `lookup_from_file` non c'è più: il motore non lo fa
+ *  (si carica il file con source_file → Materialize e si usa il lookup da
+ *  Materialize); una regola salvata con quel valore lo mostra come non
+ *  supportato. */
 export const DQ_REPAIR_DEFS: Array<{
   strategy: DQRepairStrategy
   label:    string
   params:   string[]
   desc:     string
 }> = [
-  { strategy: 'none',                    label: 'Solo segnala',          params: [],                                           desc: 'Non modifica il valore — aggiunge solo il problema in _dq.issues' },
-  { strategy: 'set_default',             label: 'Valore default',        params: ['repairDefault'],                            desc: 'Sostituisce con un valore fisso configurato' },
-  { strategy: 'set_null',                label: 'Forza null',            params: [],                                           desc: 'Imposta il campo a null' },
-  { strategy: 'set_empty_string',        label: 'Stringa vuota',         params: [],                                           desc: 'Imposta il campo a stringa vuota' },
-  { strategy: 'copy_from_field',         label: 'Copia da campo',        params: ['repairField'],                              desc: 'Copia il valore da un altro campo della stessa riga' },
-  { strategy: 'concat_fields',           label: 'Concatena campi',       params: ['repairFields', 'repairSeparator'],          desc: 'Concatena più campi con un separatore' },
-  { strategy: 'copy_from_previous',      label: 'Record precedente',     params: [],                                           desc: 'Usa il valore dal record precedente (forward fill)' },
-  { strategy: 'lookup_from_file',        label: 'Lookup da file',        params: ['repairFile','repairFileKey','repairFileValue'], desc: 'Cerca il valore in un file CSV di riferimento' },
-  { strategy: 'lookup_from_materialize', label: 'Lookup da Materialize', params: ['matName','repairFileKey','repairFileValue'], desc: 'Cerca il valore in un dataset in memoria' },
-  { strategy: 'expression',              label: 'Espressione JS',        params: ['repairExpression'],                         desc: 'Calcola il nuovo valore con una espressione JavaScript' },
+  { strategy: 'none',                    label: 'Report only',           params: [],                                           desc: 'Leaves the value as it is — the problem goes in _dq.issues' },
+  { strategy: 'set_default',             label: 'Default value',         params: ['repairDefault'],                            desc: 'Replaces the value with a fixed one' },
+  { strategy: 'set_null',                label: 'Set null',              params: [],                                           desc: 'Sets the field to null' },
+  { strategy: 'set_empty_string',        label: 'Empty string',          params: [],                                           desc: 'Sets the field to an empty string' },
+  { strategy: 'copy_from_field',         label: 'Copy from field',       params: ['repairField'],                              desc: 'Copies the value of another field of the same row' },
+  { strategy: 'concat_fields',           label: 'Concatenate fields',    params: ['repairFields', 'repairSeparator'],          desc: 'Joins several fields with a separator (null fields are skipped)' },
+  { strategy: 'copy_from_previous',      label: 'Previous row',          params: [],                                           desc: 'Uses the value of the previous row (forward fill)' },
+  { strategy: 'lookup_from_materialize', label: 'Lookup in Materialize', params: ['matName','repairFileKey','repairFileValue'], desc: 'Takes the value from a Materialize dataset, by key' },
+  { strategy: 'expression',              label: 'FPEL expression',       params: ['repairExpression'],                         desc: 'Computes the new value with an FPEL expression' },
 ]

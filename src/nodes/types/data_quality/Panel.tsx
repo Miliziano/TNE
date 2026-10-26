@@ -2,17 +2,20 @@
  * src/nodes/types/data_quality/Panel.tsx
  * ────────────────────────────────────────
  * Nuovo Data Quality con remediation e Data Trust Score.
+ * P368: opzioni allineate al motore (data_quality.rs) — vedi schema.ts.
  */
 import { useState, useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../useIncomingSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { readDqConfig } from './schema'
+import { useDqSchemaSync } from './useDqSchemaSync'
 
 import type {
   DQRule, DQConfig, DQDimension, DQCheckType, DQRepairStrategy,
 } from './dqTypes'
 import {
-  DEFAULT_DQ_CONFIG, DQ_CHECK_DEFS, DQ_REPAIR_DEFS,
+  DQ_CHECK_DEFS, DQ_REPAIR_DEFS,
 } from './dqTypes'
 
 const ACCENT = '#22d3ee'
@@ -155,7 +158,7 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
               )}
             </div>
             <div>
-              <div style={labelStyle}>Etichetta</div>
+              <div style={labelStyle}>Label</div>
               <input style={inputStyle} value={rule.label}
                 onChange={(e) => onChange(rule.id, { label: e.target.value })} placeholder="rule description" />
             </div>
@@ -177,8 +180,8 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
               <CustomSelect style={{ ...inputStyle, color: rule.severity === 'error' ? '#ff5f57' : '#ffb347' }}
                 value={rule.severity}
                 onChange={(e) => onChange(rule.id, { severity: e.target.value as 'error' | 'warn' })}>
-                <option value="error">error — penalizza score</option>
-                <option value="warn">warn — segnala solo</option>
+                <option value="error">error — if not repaired, level = error</option>
+                <option value="warn">warn — lowers the score only</option>
               </CustomSelect>
             </div>
           </div>
@@ -205,10 +208,10 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
 
           {/* Parametri check */}
           {checkDef?.params.includes('pattern') && (
-            <Field label={rule.checkType === 'is_date' ? 'Formato data (opzionale)' : 'Regex pattern'}>
+            <Field label="Regex pattern">
               <input style={{ ...inputStyle, color: '#a78bfa' }} value={rule.pattern ?? ''}
                 onChange={(e) => onChange(rule.id, { pattern: e.target.value })}
-                placeholder={rule.checkType === 'is_date' ? 'yyyy-MM-dd' : '^[A-Z]{2}\\d+$'} />
+                placeholder={'^[A-Z]{2}\\d+$'} />
             </Field>
           )}
           {(checkDef?.params.includes('min') || checkDef?.params.includes('max')) && (
@@ -252,7 +255,7 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
             </div>
           )}
           {checkDef?.params.includes('matName') && (
-            <Field label="Materialize di riferimento">
+            <Field label="Reference Materialize">
               {matVars.length > 0 ? (
                 <CustomSelect style={inputStyle} value={rule.matName ?? ''}
                   onChange={(e) => onChange(rule.id, { matName: e.target.value })}>
@@ -265,7 +268,7 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
             </Field>
           )}
           {checkDef?.params.includes('refField') && (
-            <Field label="Key field in the Materialize">
+            <Field label="Column of the Materialize" hint="The value must appear in this column">
               <input style={inputStyle} value={rule.refField ?? ''} onChange={(e) => onChange(rule.id, { refField: e.target.value })} placeholder="id" />
             </Field>
           )}
@@ -274,17 +277,24 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
               hint="Must return true (the row passes) or false. Use the field names: age > 18 && email is not null">
               <input style={{ ...inputStyle, color: '#f97316' }} value={rule.expression ?? ''}
                 onChange={(e) => onChange(rule.id, { expression: e.target.value })}
-                placeholder="row.eta >= 18 && row.eta <= 120" />
+                placeholder="age >= 18 && age <= 120" />
             </Field>
           )}
 
           {/* Repair */}
           <div style={{ borderTop: '0.5px solid #2a3349', paddingTop: 8 }}>
-            <div style={labelStyle}>Strategia di repair</div>
+            <div style={labelStyle}>Repair strategy</div>
             <CustomSelect style={inputStyle} value={rule.repair}
               onChange={(e) => onChange(rule.id, { repair: e.target.value as DQRepairStrategy })}>
-              {DQ_REPAIR_DEFS.map((d) => <option key={d.strategy} value={d.strategy}>{d.label} — {d.desc.slice(0, 40)}…</option>)}
+              {DQ_REPAIR_DEFS.map((d) => <option key={d.strategy} value={d.strategy}>{d.label}</option>)}
+              {!repairDef && <option value={rule.repair}>{rule.repair} (not supported)</option>}
             </CustomSelect>
+            {repairDef && <div style={{ fontSize: 9, color: '#8593b5', marginTop: 3, fontStyle: 'italic' }}>{repairDef.desc}</div>}
+            {rule.repair === 'lookup_from_file' && (
+              <div style={{ fontSize: 9, color: '#ffb347', marginTop: 3 }}>
+                File lookup is not supported: load the file with File Source → Materialize and use "Lookup in Materialize".
+              </div>
+            )}
           </div>
 
           {/* Parametri repair */}
@@ -317,21 +327,6 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
               </Field>
             </div>
           )}
-          {rule.repair === 'lookup_from_file' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Field label="CSV file path" hint="File with a key column and a value column">
-                <input style={inputStyle} value={rule.repairFile ?? ''} onChange={(e) => onChange(rule.id, { repairFile: e.target.value })} placeholder="/data/lookup.csv" />
-              </Field>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <Field label="Key column">
-                  <input style={inputStyle} value={rule.repairFileKey ?? ''} onChange={(e) => onChange(rule.id, { repairFileKey: e.target.value })} placeholder="codice" />
-                </Field>
-                <Field label="Value column">
-                  <input style={inputStyle} value={rule.repairFileValue ?? ''} onChange={(e) => onChange(rule.id, { repairFileValue: e.target.value })} placeholder="descrizione" />
-                </Field>
-              </div>
-            </div>
-          )}
           {rule.repair === 'lookup_from_materialize' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <Field label="Materialize">
@@ -345,11 +340,19 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
                 )}
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <Field label="Key field">
-                  <input style={inputStyle} value={rule.repairFileKey ?? ''} onChange={(e) => onChange(rule.id, { repairFileKey: e.target.value })} placeholder="codice" />
+                <Field label="Key field" hint="Field of this row with the key; without a dataset key, the Materialize column of the same name">
+                  {fields.length > 0 ? (
+                    <CustomSelect style={inputStyle} value={rule.repairFileKey ?? ''}
+                      onChange={(e) => onChange(rule.id, { repairFileKey: e.target.value })}>
+                      <option value="">— select —</option>
+                      {fields.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <input style={inputStyle} value={rule.repairFileKey ?? ''} onChange={(e) => onChange(rule.id, { repairFileKey: e.target.value })} placeholder="code" />
+                  )}
                 </Field>
-                <Field label="Value field">
-                  <input style={inputStyle} value={rule.repairFileValue ?? ''} onChange={(e) => onChange(rule.id, { repairFileValue: e.target.value })} placeholder="descrizione" />
+                <Field label="Value column" hint="Column of the Materialize copied into the field">
+                  <input style={inputStyle} value={rule.repairFileValue ?? ''} onChange={(e) => onChange(rule.id, { repairFileValue: e.target.value })} placeholder="description" />
                 </Field>
               </div>
             </div>
@@ -359,7 +362,7 @@ function RuleRow({ rule, fields, matVars, onChange, onDelete, onMove, isFirst, i
               hint="Must return the new value. Use the field names: coalesce(email, name + '@company.com')">
               <input style={{ ...inputStyle, color: '#f97316' }} value={rule.repairExpression ?? ''}
                 onChange={(e) => onChange(rule.id, { repairExpression: e.target.value })}
-                placeholder="row.name + ' ' + row.surname" />
+                placeholder="name + ' ' + surname" />
             </Field>
           )}
         </div>
@@ -374,25 +377,26 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const pool       = useFlowStore((s) => s.pool)
   const inFields   = useIncomingSchema(nodeId)
+  // P368: lo schema d'uscita (ingresso + _dq) va a valle anche da qui.
+  useDqSchemaSync(nodeId)
 
-  if (!node) return null
-
-  const p = (key: string, def = '') => node.data.props[key] ?? def
-
-  const config: DQConfig = useMemo(() => {
-    try {
-      const raw = JSON.parse(p('dqConfig', '{}'))
-      return { ...DEFAULT_DQ_CONFIG, ...raw, weights: { ...DEFAULT_DQ_CONFIG.weights, ...raw.weights }, thresholds: { ...DEFAULT_DQ_CONFIG.thresholds, ...raw.thresholds } }
-    } catch { return DEFAULT_DQ_CONFIG }
-  }, [p('dqConfig')])
-
-  const saveConfig = (c: DQConfig) => updateProp(nodeId, 'dqConfig', JSON.stringify(c))
-
-  const laneId  = node.data.laneId
+  // P368: tutti gli hook prima del return anticipato (prima useMemo veniva dopo).
+  const rawConfig = node?.data.props['dqConfig']
+  const config: DQConfig = useMemo(() => readDqConfig(rawConfig), [rawConfig])
+  const laneId  = node?.data.laneId
   const matVars = useMemo(() => {
     const lane = pool.lanes.find((l) => l.id === laneId)
     return (lane?.variables ?? []).filter((v) => v.type === 'materialize')
   }, [pool, laneId])
+  const rulesByDim = useMemo(() => {
+    const m = new Map<DQDimension, number>()
+    for (const r of config.rules) m.set(r.dimension, (m.get(r.dimension) ?? 0) + 1)
+    return m
+  }, [config.rules])
+
+  if (!node) return null
+
+  const saveConfig = (c: DQConfig) => updateProp(nodeId, 'dqConfig', JSON.stringify(c))
 
   const addRule = () => {
     const newRule: DQRule = {
@@ -418,12 +422,6 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
     saveConfig({ ...config, rules: arr })
   }
 
-  const rulesByDim = useMemo(() => {
-    const m = new Map<DQDimension, number>()
-    for (const r of config.rules) m.set(r.dimension, (m.get(r.dimension) ?? 0) + 1)
-    return m
-  }, [config.rules])
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -448,13 +446,13 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
             )
           })}
           <div style={{ fontSize: 9, padding: '2px 8px', borderRadius: 8, background: '#1a1000', color: '#ffb347', border: '0.5px solid #ffb34730' }}>
-            {config.rules.filter((r) => r.repair !== 'none').length} con repair
+            {config.rules.filter((r) => r.repair !== 'none').length} with repair
           </div>
         </div>
       )}
 
       {/* Regole */}
-      <SectionTitle label={`Regole — ${config.rules.length}`} />
+      <SectionTitle label={`Rules — ${config.rules.length}`} />
 
       {config.rules.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
@@ -476,13 +474,13 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
         style={{ background: '#1a2030', border: `1px dashed ${ACCENT}40`, borderRadius: 6, padding: '7px', fontSize: 11, color: ACCENT, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a2030' }}>
-        <i className="ti ti-plus" style={{ fontSize: 12 }} /> Aggiungi regola
+        <i className="ti ti-plus" style={{ fontSize: 12 }} /> Add rule
       </button>
 
       {/* Dimensioni e pesi */}
-      <SectionTitle label="Pesi dimensioni DTS" color="#8593b5" />
+      <SectionTitle label="DTS dimension weights" color="#8593b5" />
       <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
-        La somma dei pesi determina l'importanza relativa di ogni dimensione nel calcolo del score finale.
+        Relative weight of each dimension in the final score. Dimensions without rules are left out and the other weights are rescaled.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {(Object.keys(DIM_COLOR) as DQDimension[]).map((dim) => (
@@ -504,12 +502,12 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
       {/* Soglie */}
       <SectionTitle label="Quality thresholds" color="#8593b5" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Soglia valido (≥)" hint="_dq.valid = true">
+        <Field label="Valid threshold (≥)" hint="score ≥ threshold → valid = true">
           <input type="number" style={{ ...inputStyle, color: '#3ddc84' }} min="0" max="1" step="0.05"
             value={config.thresholds.valid}
             onChange={(e) => saveConfig({ ...config, thresholds: { ...config.thresholds, valid: parseFloat(e.target.value) } })} />
         </Field>
-        <Field label="Soglia warning (≥)" hint="_dq.level = warn">
+        <Field label="Warning threshold (≥)" hint="below it → level = error">
           <input type="number" style={{ ...inputStyle, color: '#ffb347' }} min="0" max="1" step="0.05"
             value={config.thresholds.warning}
             onChange={(e) => saveConfig({ ...config, thresholds: { ...config.thresholds, warning: parseFloat(e.target.value) } })} />
@@ -523,34 +521,35 @@ export function DataQualityPanel({ nodeId }: { nodeId: string }) {
           onChange={(e) => saveConfig({ ...config, outputField: e.target.value })} placeholder="_dq" />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Include original values" hint="Before the repair">
+        <Field label="Include the original row" hint="The row as it arrived, before the repairs">
           <CustomSelect style={inputStyle} value={config.showOriginal ? 'true' : 'false'}
             onChange={(e) => saveConfig({ ...config, showOriginal: e.target.value === 'true' })}>
             <option value="false">No</option>
-            <option value="true">Yes — in _dq.issues[].original</option>
+            <option value="true">Yes — in original_row</option>
           </CustomSelect>
         </Field>
         <Field label="Score pre-repair" hint="Compute score before and after">
           <CustomSelect style={inputStyle} value={config.scoreBeforeRepair ? 'true' : 'false'}
             onChange={(e) => saveConfig({ ...config, scoreBeforeRepair: e.target.value === 'true' })}>
             <option value="false">No — final score only</option>
-            <option value="true">Yes — also _dq.scoreOriginal</option>
+            <option value="true">Yes — also score_original</option>
           </CustomSelect>
         </Field>
       </div>
 
       {/* Preview struttura _dq */}
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
-        <div style={{ color: ACCENT, marginBottom: 4 }}>// struttura {config.outputField} aggiunta a ogni riga</div>
+        <div style={{ color: ACCENT, marginBottom: 4 }}>// {config.outputField || '_dq'} added to every row</div>
         <div><span style={{ color: '#a78bfa' }}>{config.outputField}</span>: {'{'}</div>
         <div style={{ paddingLeft: 12 }}>
           <div><span style={{ color: '#3ddc84' }}>score</span>: <span style={{ color: '#ffb347' }}>0.87</span>,</div>
-          {config.scoreBeforeRepair && <div><span style={{ color: '#3ddc84' }}>scoreOriginal</span>: <span style={{ color: '#ffb347' }}>0.72</span>,</div>}
+          {config.scoreBeforeRepair && <div><span style={{ color: '#3ddc84' }}>score_original</span>: <span style={{ color: '#ffb347' }}>0.72</span>,</div>}
           <div><span style={{ color: '#3ddc84' }}>valid</span>: <span style={{ color: '#4a9eff' }}>true</span>,  <span style={{ color: '#2a3349' }}>// score ≥ {config.thresholds.valid}</span></div>
-          <div><span style={{ color: '#3ddc84' }}>level</span>: <span style={{ color: '#c8d4f0' }}>"ok"</span>,  <span style={{ color: '#2a3349' }}>// ok | warn | error</span></div>
+          <div><span style={{ color: '#3ddc84' }}>level</span>: <span style={{ color: '#c8d4f0' }}>"ok"</span>,  <span style={{ color: '#2a3349' }}>// ok | warn (score &lt; {config.thresholds.valid}) | error</span></div>
           <div><span style={{ color: '#3ddc84' }}>repaired</span>: <span style={{ color: '#4a9eff' }}>false</span>,</div>
-          <div><span style={{ color: '#3ddc84' }}>dimensions</span>: {'{ completeness:1, conformity:0.8, consistency:1, accuracy:0.7 }'},</div>
-          <div><span style={{ color: '#3ddc84' }}>issues</span>: [...]</div>
+          <div><span style={{ color: '#3ddc84' }}>dimensions</span>: {'{ completeness:1, conformity:0.8 }'},  <span style={{ color: '#2a3349' }}>// only those with rules</span></div>
+          <div><span style={{ color: '#3ddc84' }}>issues</span>: [{'{ rule, field, dimension, severity, message, repaired, action, original, new_value }'}]{config.showOriginal ? ',' : ''}</div>
+          {config.showOriginal && <div><span style={{ color: '#3ddc84' }}>original_row</span>: {'{ ... }'}</div>}
         </div>
         <div>{'}'}</div>
       </div>

@@ -63,6 +63,9 @@ struct Rule {
     #[serde(default = "d_space")] repair_separator: String,
     /// `expression`: espressione FPEL che produce il valore riparato.
     #[serde(default)] repair_expression: Option<ExprNode>,
+    /// `lookup_from_materialize` (P368): la colonna del dataset da copiare.
+    /// Vuota = `ref_field` (il comportamento precedente).
+    #[serde(default)] lookup_field: String,
 }
 
 #[derive(Deserialize)]
@@ -379,21 +382,22 @@ fn repair(
 
         "expression" => r.repair_expression.as_ref().map(|e| eval(e, ectx)),
 
-        // Cerca nel dataset `mat_name` la riga la cui chiave (`repair_field`,
-        // o il keyField del dataset) vale quanto il campo `repair_field` di
-        // questa riga; ne prende il campo `ref_field`.
+        // Cerca nel dataset `mat_name` la riga la cui chiave (il keyField del
+        // dataset, o la colonna con lo stesso nome) vale quanto il campo
+        // `repair_field` di questa riga; ne prende `lookup_field` (o `ref_field`).
         "lookup_from_materialize" => {
             let ds  = datasets.get(&r.mat_name)?;
             let key = row.get(&r.repair_field)?.as_str_repr();
+            let col = if r.lookup_field.is_empty() { &r.ref_field } else { &r.lookup_field };
 
-            if ds.key_field() == Some(r.ref_field.as_str()) || ds.key_field().is_some() {
-                ds.get_one(&key)?.get(&r.ref_field).cloned()
+            let hit = if ds.key_field().is_some() {
+                ds.get_one(&key)
             } else {
                 // Dataset non indicizzato: scansione lineare.
                 ds.rows().iter()
                     .find(|x| x.get(&r.repair_field).map(|v| v.as_str_repr() == key).unwrap_or(false))
-                    .and_then(|x| x.get(&r.ref_field).cloned())
-            }
+            };
+            hit?.get(col).cloned()
         }
 
         // Il lookup da file non è supportato: si carica il CSV con
@@ -520,4 +524,43 @@ fn build_dq_field(
     }
 
     Value::Object(serde_json::Value::Object(dq))
+}
+
+#[cfg(test)]
+mod tests_lookup {
+    use super::*;
+    use crate::engine::datasets::Dataset;
+
+    fn rule(json: serde_json::Value) -> Rule { serde_json::from_value(json).unwrap() }
+    fn row(pairs: &[(&str, Value)]) -> Row {
+        let mut r = Row::new();
+        for (k, v) in pairs { r.set(k.to_string(), v.clone()) }
+        r
+    }
+
+    #[test]
+    fn lookup_da_materialize() {
+        let ds_rows = vec![
+            row(&[("cod", Value::String("A".into())), ("nome", Value::String("Alfa".into()))]),
+            row(&[("cod", Value::String("B".into())), ("nome", Value::String("Beta".into()))]),
+        ];
+        let mut datasets = HashMap::new();
+        datasets.insert("tab".to_string(), std::sync::Arc::new(Dataset::new("tab".into(), ds_rows.clone(), None)));
+        datasets.insert("idx".to_string(), std::sync::Arc::new(Dataset::new("idx".into(), ds_rows, Some("cod".into()))));
+        let r = rule(serde_json::json!({"id": "r", "field": "nome", "dimension": "completeness",
+            "check_type": "not_null", "repair": "lookup_from_materialize", "mat_name": "tab",
+            "repair_field": "cod", "lookup_field": "nome"}));
+        let vars = HashMap::new();
+        let riga = row(&[("cod", Value::String("B".into())), ("nome", Value::Null)]);
+        let ectx = EvalContext::single(&riga, &vars);
+        assert_eq!(repair(&r, &riga, None, &ectx, &datasets).map(|v| v.as_str_repr()), Some("Beta".into()));
+        // dataset indicizzato sul keyField
+        let mut r2 = rule(serde_json::json!({"id": "r", "field": "nome", "dimension": "completeness",
+            "check_type": "not_null", "repair": "lookup_from_materialize", "mat_name": "idx",
+            "repair_field": "cod", "lookup_field": "nome"}));
+        assert_eq!(repair(&r2, &riga, None, &ectx, &datasets).map(|v| v.as_str_repr()), Some("Beta".into()));
+        // chiave assente: nessuna riparazione
+        r2.repair_field = "manca".into();
+        assert!(repair(&r2, &riga, None, &ectx, &datasets).is_none());
+    }
 }

@@ -11,6 +11,7 @@
 
 import type { Edge } from '@xyflow/react'
 import type { TMapConfig, FieldRenameEntry, TMapInputField } from '../types'
+import { readDqConfig, dqOutputSchema } from '../nodes/types/data_quality/schema'
 
 
 const PASSTHROUGH_TYPES = new Set(['log', 'materialize', 'filter'])
@@ -99,6 +100,15 @@ export function propagateSchema(
 
     if (tgt.data.type === 'json_parser' || tgt.data.type === 'xml_parser') {
       propagateToParser(tgt, fields, current)
+    }
+
+    // Data Quality (P368): non è passthrough, aggiunge `_dq` — si propaga
+    // l'ingresso più quel campo.
+    if (tgt.data.type === 'data_quality') {
+      const out = dqOutputSchema(fields, readDqConfig(tgt.data.props?.['dqConfig']))
+      current.updateNodeProp(tgt.id, 'outputSchema', JSON.stringify(out))
+      propagateSchema(tgt.id, out, current, excludeHandles, visited, getStore)
+      continue
     }
 
     if (PASSTHROUGH_TYPES.has(tgt.data.type)) {

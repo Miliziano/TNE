@@ -990,6 +990,7 @@ function buildRustPlan(
             repairDefault?: string; repairField?: string
             repairFields?: string; repairSeparator?: string
             repairExpression?: string
+            repairFileKey?: string; repairFileValue?: string
           }
 
           let raw: {
@@ -1050,6 +1051,14 @@ function buildRustPlan(
 
             if (r.checkType === 'custom') out.expression = compile(r.expression, "the 'custom' check")
             if (r.repair === 'expression') out.repair_expression = compile(r.repairExpression, "the 'expression' repair")
+
+            // P368: il pannello scrive la chiave (campo di questa riga) e la
+            // colonna da copiare in repairFileKey/repairFileValue; prima non
+            // arrivavano al motore e il lookup non riparava mai.
+            if (r.repair === 'lookup_from_materialize') {
+              out.repair_field = r.repairFileKey || r.repairField || ''
+              out.lookup_field = r.repairFileValue ?? ''
+            }
 
             if (r.repair === 'lookup_from_file') {
               throw new Error(

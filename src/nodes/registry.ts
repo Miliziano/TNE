@@ -105,7 +105,6 @@ export const NODE_PANELS: Record<string, ComponentType<{ nodeId: string }>> = {
   github_source: GithubSourcePanel,
   ldap_auth: LdapAuthPanel,
   sink_ftp:   SinkFtpPanel,
-  //json_serializer: JsonSerializerPanel,
   xml_serializer:  XmlSerializerPanel,
   data_quality:    DataQualityPanel,
   source_kafka:    KafkaSourcePanel,

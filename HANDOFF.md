@@ -2147,3 +2147,26 @@ Punto 12 dell'audit: opzioni mostrate dallo studio e ignorate dal motore, implem
   radice senza figli (da guardare nell'audit di configurazione).
   Prossimo: bug solo-studio (Data Quality `dqRules`, `json_serializer/Panel.tsx` morto),
   poi l'audit di configurazione (JSON Parser, TMap, XML Parser, Serializer, Data Quality).
+
+## AGGIORNAMENTO — Data Quality allineato, pannello JSON morto tolto (stato al P368, 26 ottobre)
+
+Bug solo-studio + audit di configurazione del Data Quality.
+- **MappingPanel** leggeva `props.dqRules` (nessuno lo scrive: il pannello salva `dqConfig`)
+  → diceva sempre "nessuna regola". Riscritto su `dqConfig`, hook prima del return.
+- **Schema d'uscita**: il motore aggiunge `_dq` (oggetto) a ogni riga, lo studio non lo
+  diceva. `data_quality/schema.ts` (puro: `readDqConfig`, `dqOutputSchema`), usato da
+  `useIncomingSchema` (il DQ come sorgente = ingresso + `_dq`, calcolato) e da
+  `propagateSchema` (attraversa il DQ aggiungendo `_dq`); `useDqSchemaSync.ts` scrive
+  `outputSchema` e propaga dal pannello.
+- **Lookup in Materialize**: il pannello scriveva `repairFileKey`/`repairFileValue`, il
+  builder passava `repairField`/`refField` → il lookup non riparava mai. Builder:
+  `repair_field = repairFileKey`, `lookup_field = repairFileValue`; motore: `lookup_field`
+  (vuoto = `ref_field`, come prima). Test unitario `tests_lookup`.
+- **Pannello allineato al motore**: tolto `lookup_from_file` (il builder dava errore; valore
+  salvato mostrato "(not supported)"), tolto il formato di `is_date` (ignorato: il motore
+  accetta i formati di parse_datetime), severità descritta com'è (warn abbassa lo score,
+  error porta level a error), `score_original` e `original_row` coi nomi veri, placeholder
+  FPEL senza `row.`, testi in inglese. Panel: hook prima del return.
+- Tolto `json_serializer/Panel.tsx` (mai registrato; il nodo usa JsonSerializerModal).
+  Prossimo: audit di configurazione (JSON Parser, TMap con pulizia `status.*`, XML Parser,
+  JSON/XML Serializer).
