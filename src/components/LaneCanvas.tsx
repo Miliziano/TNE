@@ -612,7 +612,12 @@ function LaneFlow({ lane }: { lane: Lane }) {
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
         isValidConnection={isValidConnection}
-        deleteKeyCode="Delete" fitView fitViewOptions={{ padding: 0.3 }}
+        // P370: l'adattamento iniziale non ingrandisce oltre 0.8 — con un solo
+        // nodo (l'Error Handler di una lane nuova) fitView arrivava allo zoom
+        // massimo (2) e il nodo appariva enorme. minZoom più basso per far
+        // stare i flussi grandi.
+        deleteKeyCode="Delete" fitView fitViewOptions={{ padding: 0.3, maxZoom: 0.8 }}
+        minZoom={0.2}
         style={{ background: '#0f1117' }}>
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#2a3349" />
       </ReactFlow>

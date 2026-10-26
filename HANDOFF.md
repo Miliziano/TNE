@@ -2191,3 +2191,10 @@ Audit di configurazione, JSON Parser.
 - Notato, non toccato: `mergeParent`/`parentFields` il motore li applica ma la modale non
   li mostra (e lo schema del flusso non include i campi del padre).
   Prossimo: TMap (con pulizia dei `status.*` legacy), poi XML Parser e i Serializer.
+
+## AGGIORNAMENTO — Zoom iniziale delle lane (stato al P370, 26 ottobre)
+
+- `LaneCanvas`: `fitViewOptions.maxZoom = 0.8` (prima il default 2: in una lane nuova con il
+  solo Error Handler il nodo appariva enorme) e `minZoom = 0.2` (i flussi grandi entrano).
+  Verificato con uno screenshot (playwright) dello studio in vite: scala 0.8.
+- Error Handler: testi del nodo in inglese ("always active · N rules").

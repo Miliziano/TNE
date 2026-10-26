@@ -49,7 +49,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
     <div
       onClick={() => selectNode(id)}
       onDoubleClick={() => openNodeEditor(id)}
-      title="Error Handler — collettore errori della lane (sempre attivo, non eliminabile)"
+      title="Error Handler — error collector of the lane (always active, cannot be deleted)"
       style={{
         minWidth: 180, borderRadius: 8,
         background: `color-mix(in srgb, ${ERR_COLOR} 6%, #1e2535)`,
@@ -94,7 +94,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div style={{ color: ERR_COLOR, fontWeight: 600, fontSize: 11 }}>Error Handler</div>
           <div style={{ fontSize: 9, color: '#9a9aaa', fontFamily: 'monospace' }}>
-            sempre attivo · {rulesCount} regol{rulesCount === 1 ? 'a' : 'e'}
+            always active · {rulesCount} rule{rulesCount === 1 ? '' : 's'}
           </div>
         </div>
         <div style={{
