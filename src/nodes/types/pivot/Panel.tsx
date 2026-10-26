@@ -9,10 +9,6 @@ import { CustomSelect } from '../../../components/CustomSelect'
 
 const ACCENT = '#f97316'
 
-const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
-  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
-]
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -114,7 +110,6 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
   const pivotType  = p('pivotType',  'static')  // 'static' | 'dynamic'
   const dataSource = p('dataSource', 'flow')    // 'flow' | 'materialize'
   const matName    = p('materializeName', '')
-  const accessMode = p('accessMode', 'dataset')   // ← definito qui
   const laneId     = node.data.laneId
 
   // Variabili Materialize disponibili nella lane
@@ -280,20 +275,6 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
               Il Materialize "{matName}" non ha ancora ricevuto campi.
             </div>
           )}
-          {/* accessMode — come Aggregate accede al Materialize */}
-          {matName && (
-            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
-              <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
-                {ACCESS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </CustomSelect>
-              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
-                {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
-                {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
-              </div>
-            </Field>
-          )}
 
         </>
       )}
@@ -303,7 +284,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
         <>
           {/* Esempio visivo */}
           <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
-            <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Esempio</div>
+            <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Example</div>
             <div>{'{ anno:2023, mese:"gen", importo:100 }'}</div>
             <div>{'{ anno:2023, mese:"feb", importo:150 }'}</div>
             <div style={{ color: ACCENT, margin: '4px 0' }}>↓ PIVOT on month · SUM(amount)</div>
@@ -393,26 +374,13 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
             </>
           )}
 
-          {/* Pivot dinamico — Materialize per i valori distinti */}
-          {pivotType === 'dynamic' && dataSource === 'flow' && (
+          {/* Pivot dinamico — colonne dai valori distinti dei dati (P367) */}
+          {pivotType === 'dynamic' && (
             <>
-              <SectionTitle label="Distinct values Materialize" />
               <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
-                Per il pivot dinamico servono due Materialize:
-                <br />1. <code style={{ color: '#22d3ee' }}>DISTINCT_VALUES</code> — collects the distinct values of the pivot field
-                <br />2. <code style={{ color: '#22d3ee' }}>DATA</code> — contains the data to pivot
-                <br />Pattern: <code style={{ color: ACCENT }}>Source → Mat(pass) → [signal] → Pivot(from Mat)</code>
+                Dynamic pivot: the columns are the distinct values of the pivot field,
+                collected from the data itself (non-null values, ordered by "Pivot columns order").
               </div>
-              <Field label="Distinct values Materialize for the pivot field">
-                {materializeVars.length > 0 ? (
-                  <CustomSelect style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')}>
-                    <option value="">— select —</option>
-                    {materializeVars.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
-                  </CustomSelect>
-                ) : (
-                  <input style={inputStyle} value={p('distinctValuesMat')} onChange={u('distinctValuesMat')} placeholder="distinct_materialize_name" />
-                )}
-              </Field>
             </>
           )}
 
@@ -420,8 +388,8 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           <Row>
             <Field label="Pivot columns order">
               <CustomSelect style={inputStyle} value={p('pivotSort', 'asc')} onChange={u('pivotSort')}>
-                <option value="asc">Ascendente (A→Z, 1→9)</option>
-                <option value="desc">Discendente (Z→A, 9→1)</option>
+                <option value="asc">Ascending (A→Z, 1→9)</option>
+                <option value="desc">Descending (Z→A, 9→1)</option>
                 <option value="natural">Natural (data order)</option>
               </CustomSelect>
             </Field>
@@ -439,7 +407,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
       {mode === 'unpivot' && (
         <>
           <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
-            <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Esempio</div>
+            <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Example</div>
             <div>{'{ prodotto:"A", nord:100, sud:80, ovest:60 }'}</div>
             <div style={{ color: ACCENT, margin: '4px 0' }}>↓ UNPIVOT columns north, south, west</div>
             <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"nord", valore:100 }'}</div>

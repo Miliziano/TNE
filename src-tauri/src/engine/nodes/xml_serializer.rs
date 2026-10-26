@@ -45,6 +45,10 @@ struct XmlPlan {
     pretty:          bool,
     #[serde(default = "d_on_error")]
     on_error:        String,
+    /// P367: controlla che l'XML prodotto sia ben formato; un errore segue
+    /// on_error (reject | empty | skip | stop).
+    #[serde(default)]
+    validate:        bool,
     #[serde(default)]
     tree:            Vec<XmlTreeNode>,
     #[serde(default)]
@@ -213,9 +217,18 @@ pub async fn run(
             ctx.node_id.0, xml.len());
 
         let mut out = Row::new();
-        out.set(plan.output_field.clone(), Value::String(xml));
-        if let Some(tx) = &out_tx {
-            if tx.send(out).await.is_ok() { rows_out = 1; }
+        match check_xml(&plan, xml) {
+            Checked::Ok(x) => {
+                out.set(plan.output_field.clone(), Value::String(x));
+                if let Some(tx) = &out_tx { if tx.send(out).await.is_ok() { rows_out = 1; } }
+            }
+            Checked::Reject(e) => {
+                out.set("_xml_error".into(), Value::String(e));
+                if let Some(rej) = &reject_tx { let _ = rej.send(out).await; }
+                rows_rejected = 1;
+            }
+            Checked::Skip => { rows_rejected = 1; }
+            Checked::Stop(e) => return Err(format!("xml_serializer {}: the produced XML is not well formed: {}", ctx.node_id.0, e)),
         }
     } else {
         // ── Percorso 2: riga per riga (legacy / auto) ─────────────
@@ -235,17 +248,25 @@ pub async fn run(
             let xml = serialize_row(&row, &plan.legacy, &root_tag, &ns_str,
                 plan.xml_declaration, &plan.encoding, plan.pretty);
             let mut out = row.clone();
-            out.set(plan.output_field.clone(), Value::String(xml));
-            if let Some(tx) = &out_tx {
-                if tx.send(out).await.is_err() { break; }
-                rows_out += 1;
+            match check_xml(&plan, xml) {
+                Checked::Ok(x) => {
+                    out.set(plan.output_field.clone(), Value::String(x));
+                    if let Some(tx) = &out_tx {
+                        if tx.send(out).await.is_err() { break; }
+                        rows_out += 1;
+                    }
+                }
+                Checked::Reject(e) => {
+                    out.set("_xml_error".into(), Value::String(e));
+                    if let Some(rej) = &reject_tx { let _ = rej.send(out).await; }
+                    rows_rejected += 1;
+                }
+                Checked::Skip => { rows_rejected += 1; }
+                Checked::Stop(e) => return Err(format!("xml_serializer {}: the produced XML is not well formed: {}", ctx.node_id.0, e)),
             }
         }
     }
 
-    // reject: nel porting Rust gli errori JS non esistono; il canale
-    // resta cablato per gli errori futuri (B.2) e per coerenza col piano
-    let _ = (&reject_tx, &mut rows_rejected, &plan.on_error);
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let stats = NodeStats { rows_in, rows_out, rows_rejected, elapsed_ms, error: None };
@@ -623,4 +644,57 @@ fn tree_uses_js(nodes: &[XmlTreeNode]) -> bool {
         n.expr.as_deref().map_or(false, |e| !e.trim().is_empty())
         || n.condition.as_deref().map_or(false, |c| !c.trim().is_empty())
         || tree_uses_js(&n.children))
+}
+
+// ─── Controllo dell'XML prodotto (P367) ──────────────────────────────
+
+enum Checked { Ok(String), Reject(String), Skip, Stop(String) }
+
+/// Con `validate`: l'XML deve essere ben formato (quick-xml lo legge fino in
+/// fondo). Un errore segue on_error; "empty" lascia il campo vuoto.
+fn check_xml(plan: &XmlPlan, xml: String) -> Checked {
+    if !plan.validate { return Checked::Ok(xml) }
+    match well_formed(&xml) {
+        Ok(()) => Checked::Ok(xml),
+        Err(e) => match plan.on_error.as_str() {
+            "empty" => Checked::Ok(String::new()),
+            "skip"  => Checked::Skip,
+            "stop"  => Checked::Stop(e),
+            _       => Checked::Reject(e),
+        },
+    }
+}
+
+fn well_formed(xml: &str) -> Result<(), String> {
+    use quick_xml::events::Event;
+    let mut r = quick_xml::reader::Reader::from_str(xml);
+    r.config_mut().check_end_names = true;
+    let mut depth: i64 = 0;
+    let mut roots = 0;
+    loop {
+        match r.read_event() {
+            Ok(Event::Start(_)) => { if depth == 0 { roots += 1; } depth += 1; }
+            Ok(Event::End(_))   => depth -= 1,
+            Ok(Event::Empty(_)) => { if depth == 0 { roots += 1; } }
+            Ok(Event::Eof)      => break,
+            Ok(_) => {}
+            Err(e) => return Err(format!("at byte {}: {}", r.error_position(), e)),
+        }
+    }
+    if depth != 0 { return Err("unclosed elements".into()) }
+    if roots != 1 { return Err(format!("{} root elements (expected 1)", roots)) }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests_validate {
+    use super::well_formed;
+
+    #[test]
+    fn ben_formato() {
+        assert!(well_formed("<?xml version=\"1.0\"?><a><b>1</b></a>").is_ok());
+        assert!(well_formed("<a><b>1</a>").is_err());
+        assert!(well_formed("<a/><b/>").is_err());
+        assert!(well_formed("<a x=\"1>").is_err());
+    }
 }

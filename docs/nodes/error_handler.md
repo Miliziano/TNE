@@ -31,5 +31,13 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Error Handler**.
+Raccoglie gli errori della lane non gestiti in modo esplicito: nessun arco da disegnare.
+Le regole si valutano dall'alto; la prima che corrisponde decide l'azione, il resto esce su
+`error_out`.
+
+**Errori gestiti (P367).** Un errore preso sulla porta *catch* di un nodo segue solo quel
+percorso: **non** arriva qui in copia. Le opzioni "Lane default policy" e "Centralized
+log" sono state tolte: il motore non le leggeva. La policy di ogni nodo (catch, retry,
+timeout) sta nella sua scheda Advanced.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

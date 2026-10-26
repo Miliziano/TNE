@@ -41,6 +41,8 @@ struct SourceDbConfig {
     password:        String,
     ssl:             String,
     connect_timeout: u64,
+    /// P367: attesa massima della prima riga (s; 0 = nessun limite).
+    query_timeout:   u64,
     query:           String,
     resource_id:     String,
     /// R8 — la query compilata dallo studio, se cita parametri.
@@ -157,6 +159,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         password:        spec.res_str_or("password", ""),
         ssl:             spec.res_str_or("ssl", "false"),
         connect_timeout: spec.res_u64_or("connectTimeout", 30),
+        query_timeout:   spec.u64_or("queryTimeout", 0),
         resource_id:     spec.resource_id(),
         dialect,
         port,
@@ -391,13 +394,16 @@ pub async fn run(
         .map_err(|e| format!("source_db {}: {}", ctx.node_id.0, e))?;
 
     let resource_id = config.resource_id.clone();
+    // P367 — Query timeout: attesa massima della PRIMA riga (esecuzione della
+    // query), non della lettura intera: un'estrazione lunga non si interrompe.
+    let qt = (config.query_timeout > 0).then(|| std::time::Duration::from_secs(config.query_timeout));
     ctx.emit_connection_opened(&resource_id, &format!("db_{}", dialect));
 
     let result = match &pool {
-        DbPool::Pg(p)     => run_pg(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
-        DbPool::My(p)     => run_mysql(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
-        DbPool::Sqlite(p) => run_sqlite(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog).await,
-        DbPool::Odbc(p)   => run_odbc(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start).await,
+        DbPool::Pg(p)     => run_pg(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog, qt).await,
+        DbPool::My(p)     => run_mysql(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog, qt).await,
+        DbPool::Sqlite(p) => run_sqlite(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog, qt).await,
+        DbPool::Odbc(p)   => run_odbc(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, config.query_timeout).await,
     };
 
     // NB: nessun pool.close() — il pool è della lane (close_all()).
@@ -691,12 +697,21 @@ async fn run_pg(
     rows_out:  &mut u64,
     start:     &Instant,
     last_prog: &mut Instant,
+    first_row_timeout: Option<std::time::Duration>,
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
     let mut stream = bind_values!(sqlx::query(crate::sqlsafe::autore(query)), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
 
-    while let Some(row_result) = stream.next().await {
+    let mut first = true;
+    loop {
+        let next = match (first, first_row_timeout) {
+            (true, Some(t)) => tokio::time::timeout(t, stream.next()).await
+                .map_err(|_| format!("query timeout: no row within {} s (Query timeout in the panel)", t.as_secs()))?,
+            _ => stream.next().await,
+        };
+        first = false;
+        let Some(row_result) = next else { break };
         let row = row_result
             .map_err(|e| format!("PostgreSQL row error {}: {}", *rows_out + 1, e))?;
 
@@ -730,12 +745,21 @@ async fn run_mysql(
     rows_out:  &mut u64,
     start:     &Instant,
     last_prog: &mut Instant,
+    first_row_timeout: Option<std::time::Duration>,
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
     let mut stream = bind_values!(sqlx::query(crate::sqlsafe::autore(query)), binds, |d: &rust_decimal::Decimal| *d).fetch(pool);
 
-    while let Some(row_result) = stream.next().await {
+    let mut first = true;
+    loop {
+        let next = match (first, first_row_timeout) {
+            (true, Some(t)) => tokio::time::timeout(t, stream.next()).await
+                .map_err(|_| format!("query timeout: no row within {} s (Query timeout in the panel)", t.as_secs()))?,
+            _ => stream.next().await,
+        };
+        first = false;
+        let Some(row_result) = next else { break };
         let row = row_result
             .map_err(|e| format!("MySQL row error {}: {}", *rows_out + 1, e))?;
 
@@ -769,12 +793,21 @@ async fn run_sqlite(
     rows_out:  &mut u64,
     start:     &Instant,
     last_prog: &mut Instant,
+    first_row_timeout: Option<std::time::Duration>,
 ) -> Result<(), String> {
     use sqlx::Row as SqlxRow;
 
     let mut stream = bind_values!(sqlx::query(crate::sqlsafe::autore(query)), binds, |d: &rust_decimal::Decimal| d.to_string()).fetch(pool);
 
-    while let Some(row_result) = stream.next().await {
+    let mut first = true;
+    loop {
+        let next = match (first, first_row_timeout) {
+            (true, Some(t)) => tokio::time::timeout(t, stream.next()).await
+                .map_err(|_| format!("query timeout: no row within {} s (Query timeout in the panel)", t.as_secs()))?,
+            _ => stream.next().await,
+        };
+        first = false;
+        let Some(row_result) = next else { break };
         let row = row_result
             .map_err(|e| format!("SQLite row error {}: {}", *rows_out + 1, e))?;
 
@@ -816,13 +849,15 @@ async fn run_odbc(
     binds:     &[Value],
     rows_out:  &mut u64,
     start:     &Instant,
+    query_timeout: u64,
 ) -> Result<(), String> {
     let mut conn = pool.acquire().await?;
     let (ctx2, query, binds, start2) = (ctx.clone(), query.to_string(), binds.to_vec(), *start);
     let (res, conn, n) = tokio::task::spawn_blocking(move || {
         let mut n = 0u64;
         let mut last_prog = Instant::now();
-        let res = crate::odbc::read_rows(conn.conn(), &query, &binds, None, |_, rows| {
+        // Timeout di esecuzione del driver (se lo supporta).
+        let res = crate::odbc::read_rows(conn.conn(), &query, &binds, Some(query_timeout), |_, rows| {
             for row in rows {
                 if ctx2.cancel.is_cancelled() { return false; }
                 if tx.blocking_send(row).is_err() { return false; }

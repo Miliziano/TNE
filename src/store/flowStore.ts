@@ -282,8 +282,6 @@ const makeErrorHandler = (laneId: string, errorHandlerId: string): FlowNode<Node
     type: 'error_handler',
     label: 'Error Handler',
     props: {
-      defaultOnError: 'stop',
-      logAll: 'true',
       rules: '[]',
        outputSchema: JSON.stringify(ERROR_HANDLER_SCHEMA.map((f) => ({ id: f.id, name: f.name, type: f.type, physicalName: f.name }))),
     },

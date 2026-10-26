@@ -68,6 +68,20 @@ pub async fn run(
     let timeout_ms     = spec.u64_or("receiveTimeout", 5000);
     let max_messages   = spec.u64_or("maxMessages", 1000) as usize;
     let payload_format = spec.str_or("payloadFormat", "json");
+    // P367: prefetch e sottoscrizione durevole (topic). Il nome durevole è
+    // stabile fra i run: quello del nodo (id), così il broker tiene i
+    // messaggi arrivati mentre il flusso non girava.
+    // Assente = il default del broker (il pannello mostrava "1" senza salvarlo).
+    let prefetch     = spec.str_or("prefetch", "").trim().parse::<u32>().ok().filter(|n| *n > 0);
+    let durable_name = (spec.str_or("durable", "false") == "true")
+        .then(|| format!("flowpilot-{}", ctx.node_id.0));
+    // Solo STOMP: OpenWire e AMQP non sono implementati.
+    let protocol = spec.str_or("protocol", "stomp");
+    if protocol != "stomp" {
+        let msg = format!("ActiveMQ Consumer: protocol '{}' is not supported — use STOMP (port 61613)", protocol);
+        ctx.emit_failed(msg.clone());
+        return Err(msg);
+    }
 
     let tx = match tx {
         Some(t) => t,
@@ -83,6 +97,7 @@ pub async fn run(
     // Attesa CANCELLABILE: allo stop non restiamo appesi sul subscribe.
     let req = StompSubscribeRequest {
         connection: conn, destination, dest_type, ack_mode, selector, timeout_ms, max_messages,
+        prefetch, durable_name,
     };
     let messages = tokio::select! {
         _ = ctx.cancel.cancelled() => Vec::new(),

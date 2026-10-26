@@ -31,5 +31,9 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Webhook Receiver**.
+**Coda piena (P367).** Con "Buffer overflow policy" = *Refuse* il server risponde **503**
+`{"status":"queue_full"}` con `Retry-After: 5`, così il mittente sa di dover riprovare
+(prima l'evento veniva scartato rispondendo comunque 200). *Drop the incoming one* scarta
+l'evento nuovo, *Drop the oldest* fa posto togliendo il più vecchio.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

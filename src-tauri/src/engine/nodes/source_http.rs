@@ -78,7 +78,7 @@ pub(crate) async fn auth_headers(spec: &Spec)
             headers.push(("Authorization".into(), format!("Bearer {}", spec.str_or("bearerToken", ""))));
         }
         "oauth2_ac" => {
-            headers.push(("Authorization".into(), format!("Bearer {}", spec.str_or("oauth2AccessToken", ""))));
+            headers.push(("Authorization".into(), format!("Bearer {}", oauth2_ac_token(spec))));
         }
         "oauth2_cc" => {
             let token = oauth2_cc_token(spec).await?;
@@ -155,6 +155,66 @@ async fn oauth2_cc_token(spec: &Spec) -> Result<String, String> {
         let exp = Instant::now() + Duration::from_secs(expires_in.saturating_sub(30).max(1));
         m.insert(cache_key, (token.clone(), exp));
     }
+    Ok(token)
+}
+
+// ─── OAuth2: rinnovo del token su 401 (P367) ─────────────────────
+//
+// Client Credentials con "Auto-refresh" (default sì): un 401 a metà lettura
+// (token scaduto) → token nuovo e la richiesta si ripete una volta.
+// Authorization Code con Refresh Token + Token URL: un 401 → grant
+// `refresh_token`, il nuovo access token vale per il resto del processo.
+
+static OAUTH2_AC_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn oauth2_ac_key(spec: &Spec) -> String {
+    format!("{}::{}::{}", spec.str_or("oauth2TokenUrl", ""), spec.str_or("oauth2ClientId", ""), spec.str_or("oauth2RefreshToken", ""))
+}
+
+/// L'access token AC: quello rinnovato in questo processo, se c'è.
+fn oauth2_ac_token(spec: &Spec) -> String {
+    if let Some(m) = OAUTH2_AC_CACHE.get() {
+        if let Ok(map) = m.lock() {
+            if let Some(t) = map.get(&oauth2_ac_key(spec)) { return t.clone() }
+        }
+    }
+    spec.str_or("oauth2AccessToken", "")
+}
+
+/// Si può rinnovare il token dopo un 401?
+fn oauth2_can_refresh(spec: &Spec) -> bool {
+    match spec.str_or("authType", "none").as_str() {
+        "oauth2_cc" => spec.str_or("oauth2AutoRefresh", "true") != "false",
+        "oauth2_ac" => !spec.str_or("oauth2RefreshToken", "").is_empty() && !spec.str_or("oauth2TokenUrl", "").is_empty(),
+        _ => false,
+    }
+}
+
+/// Un token nuovo (Bearer), dopo un 401.
+async fn oauth2_refresh(spec: &Spec) -> Result<String, String> {
+    if spec.str_or("authType", "none") == "oauth2_cc" {
+        let key = format!("{}::{}", spec.str_or("oauth2TokenUrl", ""), spec.str_or("oauth2ClientId", ""));
+        if let Some(m) = OAUTH2_CACHE.get() { if let Ok(mut map) = m.lock() { map.remove(&key); } }
+        return oauth2_cc_token(spec).await;
+    }
+    let client_id = spec.str_or("oauth2ClientId", "");
+    let secret    = spec.str_or("oauth2ClientSecret", "");
+    let mut form: Vec<(String, String)> = vec![
+        ("grant_type".into(), "refresh_token".into()),
+        ("refresh_token".into(), spec.str_or("oauth2RefreshToken", "")),
+    ];
+    if !client_id.is_empty() { form.push(("client_id".into(), client_id)); }
+    if !secret.is_empty()    { form.push(("client_secret".into(), secret)); }
+    let res = reqwest::Client::new().post(spec.str_or("oauth2TokenUrl", "")).form(&form).send().await
+        .map_err(|e| format!("OAuth2 refresh: request failed: {}", e))?;
+    if !res.status().is_success() {
+        return Err(format!("OAuth2 refresh: token HTTP {}", res.status().as_u16()));
+    }
+    let body: J = res.json().await.map_err(|e| format!("OAuth2 refresh: non-JSON response: {}", e))?;
+    let token = body.get("access_token").and_then(|v| v.as_str())
+        .ok_or("OAuth2 refresh: 'access_token' missing")?.to_string();
+    let map = OAUTH2_AC_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(mut m) = map.lock() { m.insert(oauth2_ac_key(spec), token.clone()); }
     Ok(token)
 }
 
@@ -263,6 +323,7 @@ pub(crate) async fn execute_single_request(
 
     let is_digest = spec.str_or("authType", "none") == "digest";
     let mut digest_header: Option<String> = None;
+    let mut refreshed = false;
     let mut attempt: u32 = 0;
     let mut last_err = String::new();
     loop {
@@ -291,6 +352,19 @@ pub(crate) async fn execute_single_request(
                     if let Some(h) = compute_digest_header(&res, spec, &method, url.as_str()) {
                         digest_header = Some(h);
                         continue;
+                    }
+                }
+                // OAuth2 (P367): token scaduto → uno nuovo e si ripete, una volta.
+                if status == 401 && !refreshed && oauth2_can_refresh(spec) {
+                    refreshed = true;
+                    match oauth2_refresh(spec).await {
+                        Ok(tok) => {
+                            headers.retain(|(k, _)| !k.eq_ignore_ascii_case("authorization"));
+                            headers.push(("Authorization".into(), format!("Bearer {}", tok)));
+                            ctx.emit_log(&ctx.label, "info", 0, "OAuth2: token renewed after HTTP 401".into(), "panel");
+                            continue;
+                        }
+                        Err(e) => ctx.emit_log(&ctx.label, "warn", 0, e, "panel"),
                     }
                 }
 

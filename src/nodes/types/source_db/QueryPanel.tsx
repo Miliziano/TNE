@@ -211,14 +211,11 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
           <input type="number" style={inputStyle} value={p('offset', '0')} onChange={u('offset')} min="0" />
         </Field>
       </Row>
-      <Row>
-        <Field label="Fetch size (batch)">
-          <input type="number" style={inputStyle} value={p('fetchSize', '1000')} onChange={u('fetchSize')} />
-        </Field>
-        <Field label="Query timeout (s)">
-          <input type="number" style={inputStyle} value={p('queryTimeout', '30')} onChange={u('queryTimeout')} />
-        </Field>
-      </Row>
+      {/* P367: "Fetch size" tolto — la lettura è già a flusso, nessun driver lo usava.
+          Query timeout = attesa massima della prima riga (default: nessun limite). */}
+      <Field label="Query timeout (s)" hint="Maximum wait for the query to return its first row — 0 = no limit. A long read is not interrupted.">
+        <input type="number" style={inputStyle} value={p('queryTimeout', '0')} onChange={u('queryTimeout')} min="0" />
+      </Field>
       <Field label="Order (ORDER BY)">
         <input type="text" style={inputStyle} value={p('orderBy')} onChange={u('orderBy')} placeholder="id ASC, created_at DESC" />
       </Field>

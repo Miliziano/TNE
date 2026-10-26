@@ -69,6 +69,15 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
         </div>
       </div>
 
+      {/* P367: la connessione viene prima dalla risorsa collegata, poi da qui */}
+      {node.data.config?.resourceId ? (
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: `0.5px solid ${ACCENT}30` }}>
+          <i className="ti ti-plug-connected" style={{ fontSize: 10, color: ACCENT, marginRight: 4 }} />
+          Connected to a lane resource: broker, port, client ID, credentials and TLS come from the resource.
+          The fields below are used only where the resource leaves them empty.
+        </div>
+      ) : null}
+
       {/* Broker */}
       <SectionTitle label="Broker" />
       <Row2>
@@ -91,11 +100,8 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
         <Field label="Client ID" hint="Empty = auto-generated">
           <input style={inputStyle} value={p('clientId', '')} onChange={u('clientId')} placeholder="flowpilot-1" />
         </Field>
-        <Field label="MQTT version">
-          <CustomSelect style={inputStyle} value={p('version', '5')} onChange={u('version')}>
-            <option value="3">MQTT 3.1.1</option>
-            <option value="5">MQTT 5.0</option>
-          </CustomSelect>
+        <Field label="Protocol" hint="MQTT 5 brokers accept 3.1.1 clients">
+          <div style={{ ...inputStyle, color: '#8593b5' }}>MQTT 3.1.1</div>
         </Field>
       </Row2>
 
@@ -214,7 +220,7 @@ export function MQTTPanel({ nodeId }: { nodeId: string }) {
         <Field label="Keep alive (s)">
           <input type="number" style={inputStyle} value={p('keepAlive', '60')} onChange={u('keepAlive')} min="0" />
         </Field>
-        <Field label="Connection timeout (s)">
+        <Field label="Connection timeout (s)" hint="Maximum wait for the broker's answer">
           <input type="number" style={inputStyle} value={p('connectTimeout', '10')} onChange={u('connectTimeout')} min="1" />
         </Field>
       </Row2>

@@ -26,6 +26,11 @@ pub async fn run(
         .map_err(|e| format!("sink_activemq {}: {}", ctx.node_id.0, e))?;
     spec.log_unconsumed("sink_activemq", &ctx.node_id.0);
 
+    // Solo STOMP (P367): OpenWire e AMQP non sono implementati.
+    let protocol = spec.str_or("protocol", "stomp");
+    if protocol != "stomp" {
+        return Err(format!("ActiveMQ Producer: protocol '{}' is not supported — use STOMP (port 61613)", protocol));
+    }
     let destination   = spec.str_or("destination", "pipeline.output");
     let dest_type     = spec.str_or("destType", "queue");
     let serialization = spec.str_or("serialization", "json"); // json | text | bytes

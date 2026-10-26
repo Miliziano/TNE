@@ -32,5 +32,11 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Mail Sink**.
+**Priorità (P367).** *High* aggiunge `X-Priority: 1 (Highest)` e `Importance: High`,
+*Low* `X-Priority: 5 (Lowest)` e `Importance: Low`; *Normal* non aggiunge niente.
+
+**SMTP senza autenticazione (P367).** Con l'utente vuoto il nodo non tenta l'AUTH: un relay
+interno che non chiede credenziali ora funziona (prima ogni invio falliva con "No
+compatible authentication mechanism").
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

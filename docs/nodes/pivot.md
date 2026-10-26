@@ -31,5 +31,9 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Pivot / Unpivot**.
+**Pivot dinamico (P367).** Le colonne sono i valori distinti (non null) del campo pivot,
+raccolti dai dati stessi e ordinati secondo "Pivot columns order". Non serve un secondo
+Materialize: il campo "Distinct values Materialize" è stato tolto perché il motore non lo
+usava.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

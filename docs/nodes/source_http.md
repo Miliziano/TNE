@@ -38,5 +38,16 @@ Recupera dati da un endpoint HTTP.
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **HTTP Source**.
+**OAuth2, rinnovo del token (P367).** Al primo 401 il nodo rinnova il token e ripete la
+richiesta una volta:
+
+- *Client credentials* con "Auto-refresh" attivo: scarta il token in cache e ne chiede uno
+  nuovo al token endpoint;
+- *Authorization code* con "Refresh token" e token URL compilati: chiede un nuovo access
+  token con `grant_type=refresh_token`; il nuovo token resta in memoria per le richieste
+  successive dello stesso processo.
+
+Se anche la seconda risposta è 401, o il rinnovo non è possibile, vale la gestione normale
+degli errori HTTP del nodo.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

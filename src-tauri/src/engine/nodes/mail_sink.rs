@@ -127,6 +127,7 @@ pub async fn run(
     let from_name  = spec.str_or("fromName", "FlowPilot");
     let from = if from_name.is_empty() { from_email.clone() } else { format!("{} <{}>", from_name, from_email) };
     let retry_count = spec.u64_or("retryCount", 2).min(5);
+    let priority    = spec.str_or("priority", "normal");
     let on_error    = spec.str_or("onError", "continue");
 
     let mut rows: Vec<Row> = Vec::new();
@@ -205,6 +206,7 @@ pub async fn run(
             html: if htmls.is_empty() { None } else { Some(htmls.join("\n<hr/>\n")) },
             text: if texts.is_empty() { None } else { Some(texts.join("\n---\n")) },
             attachments: build_attachment(&spec, first).into_iter().collect(),
+            priority: Some(priority.clone()),
         };
         match send_with_retry(&req, retry_count).await {
             Ok(()) => sent += 1,
@@ -229,6 +231,7 @@ pub async fn run(
             let req = MailSendRequest {
                 smtp: smtp.clone(), from: from.clone(), to: to.clone(), cc, bcc, subject, html, text,
                 attachments: build_attachment(&spec, row).into_iter().collect(),
+                priority: Some(priority.clone()),
             };
             match send_with_retry(&req, retry_count).await {
                 Ok(()) => sent += 1,

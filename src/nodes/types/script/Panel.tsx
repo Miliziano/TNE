@@ -48,25 +48,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: 11, padding: '5px 8px', outline: 'none',
 }
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase',
-  letterSpacing: '.08em', marginBottom: 4, fontWeight: 600,
-}
-
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '7px 10px', background: '#1a2030', borderRadius: 6, border: '0.5px solid #2a3349' }}>
-      <div style={labelStyle}>{label}</div>
-      {children}
-      {hint && <div style={{ fontSize: 10, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
-    </div>
-  )
-}
-
-function GridRow({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>
-}
-
 // ─── SmartPill ────────────────────────────────────────────────────
 function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
   label:    string
@@ -164,7 +145,6 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   const nodes      = useFlowStore((s) => s.nodes)
   const pool       = useFlowStore((s) => s.pool)
 
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [snippet,      setSnippet]      = useState<string | undefined>(undefined)
   const [wrap,         setWrap]         = useState<string | undefined>(undefined)
   const [pickerOpen,   setPickerOpen]   = useState(false)
@@ -172,8 +152,6 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   if (!node) return null
 
   const p = (key: string) => node.data.props[key] ?? ''
-  const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    updateProp(nodeId, key, e.target.value)
 
   // `sourceMode` decide la NATURA del nodo: trasforma righe che riceve,
   // oppure le genera lui. In "genera" la porta d'ingresso non esiste
@@ -634,37 +612,13 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
           esterne per disegno (v. design-nodo-script.md §6): tutto quello
           che si può chiamare è nelle ~80 funzioni di FPEL. */}
 
-      {/* ══ SEZ 6 — OPZIONI AVANZATE ════════════════════════════ */}
-      <div style={{ background: '#1a2030', border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
+      {/* P367: tolte le "opzioni avanzate" (timeout, memoria, sandbox): il
+          motore non le applicava. Il linguaggio degli script (FPEL) non ha
+          accesso a file, rete o thread per disegno; il tempo massimo è
+          "Max run time" della scheda Advanced. */}
       <div style={{ padding: '5px 10px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', background: '#0f1117', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-  <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
-  Threads are not allowed in any sandbox mode. For parallelism use multiple lanes or multiple script nodes in a pipeline.
-</div>
-        <button onClick={() => setShowAdvanced((v) => !v)}
-          style={{ width: '100%', background: 'none', border: 'none', padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#9a9aaa', fontSize: 10 }}>
-          <i className={`ti ${showAdvanced ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 10 }} />
-          <i className="ti ti-settings-2" style={{ fontSize: 11, color: '#8593b5' }} />
-          Advanced options
-        </button>
-        {showAdvanced && (
-          <div style={{ padding: '8px 10px', borderTop: '0.5px solid #2a3349', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <GridRow>
-              <Field label="Timeout (s)">
-                <input type="number" style={inputStyle} value={p('scriptTimeout') || '30'} onChange={u('scriptTimeout')} min="1" />
-              </Field>
-              <Field label="Memoria max (MB)">
-                <input type="number" style={inputStyle} value={p('maxMemory') || '256'} onChange={u('maxMemory')} min="64" />
-              </Field>
-            </GridRow>
-            <Field label="Sandbox">
-              <CustomSelect style={inputStyle} value={p('sandbox') || 'strict'} onChange={u('sandbox')}>
-              <option value="strict">Strict — no filesystem / rete / thread</option>
-              <option value="network">Network — HTTP permesso, no thread</option>
-              <option value="full">Full — accesso completo, no thread</option>
-              </CustomSelect>
-            </Field>
-          </div>
-        )}
+        <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4 }} />
+        Scripts cannot access files, the network or threads. To limit how long the node may run, set Max run time in the Advanced tab.
       </div>
 
     </div>

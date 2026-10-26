@@ -3,16 +3,17 @@
  *
  * Pannello "Configurazione" del nodo Error Handler.
  * Due livelli, come da progettazione:
- *  1. Regole dichiarative semplici (policy default + tabella regole)
+ *  1. Regole dichiarative semplici (tabella regole)
  *     per i casi comuni, senza disegnare nulla.
  *  2. Handle 'error_out' per pipeline di recovery visuali (Sequencer/Filter)
  *     per i casi complessi — quello che le regole non risolvono.
  *
  * Dati salvati nei props del nodo (Record<string,string>):
- *  - defaultOnError: policy ereditata dai nodi della lane (documentale per ora)
- *  - logAll: 'true'|'false' — se true, anche gli errori gestiti da catch/reject
- *            espliciti arrivano qui in copia per logging centralizzato
  *  - rules: JSON.stringify(ErrorRule[])
+ *
+ * P367: tolti "defaultOnError" e "logAll" — il motore non li leggeva
+ * (nessuna policy ereditata; gli errori gestiti su catch/reject non
+ * arrivano qui in copia). La policy di ogni nodo sta nella scheda Advanced.
  */
 
 import { useFlowStore } from '../../../store/flowStore'
@@ -28,10 +29,6 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 4, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace",
   fontSize: 11, padding: '5px 8px', outline: 'none',
 }
-const labelStyle: React.CSSProperties = {
-  fontSize: 10, color: '#9a9aaa', textTransform: 'uppercase',
-  letterSpacing: '.08em', marginBottom: 4, fontWeight: 600,
-}
 
 function SectionTitle({ label, color }: { label: string; color: string }) {
   return (
@@ -39,18 +36,6 @@ function SectionTitle({ label, color }: { label: string; color: string }) {
       {label}
     </div>
   )
-}
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={labelStyle}>{label}</div>
-      {children}
-      {hint && <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>{hint}</div>}
-    </div>
-  )
-}
-function Row2({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>{children}</div>
 }
 function InfoBox({ children, color }: { children: React.ReactNode; color: string }) {
   return (
@@ -88,7 +73,6 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   if (!node) return null
 
-  const p = (key: string, def = '') => String(node.data.props?.[key] ?? def)
   const rules = parseRules(node.data.props?.['rules'])
 
   const setRules = (next: ErrorRule[]) =>
@@ -117,33 +101,11 @@ export function ErrorHandlerPanel({ nodeId }: { nodeId: string }) {
 
       <InfoBox color={ERR_COLOR}>
         Every error not handled by an explicit <code style={{ color: ERR_COLOR }}>catch</code>/<code style={{ color: ERR_COLOR }}>reject</code>
-        automatically flows here — no wire to draw. If a node has
-        <code style={{ color: ERR_COLOR }}> catch</code>/<code style={{ color: ERR_COLOR }}>reject</code> connected elsewhere, the error still follows
-        that path <strong>and</strong> also arrives here as a copy (if "Centralized log" is active)
-        for unified audit/log. Connect <code style={{ color: ERR_COLOR }}>error_out</code> to a Sequencer
+        automatically flows here — no wire to draw. An error handled on a node's
+        <code style={{ color: ERR_COLOR }}> catch</code> port follows that path only. The on-error policy of each
+        node (catch, retry, timeout) is set in its Advanced tab. Connect <code style={{ color: ERR_COLOR }}>error_out</code> to a Sequencer
         or Filter to build a custom recovery/notification path.
       </InfoBox>
-
-      {/* Policy default lane */}
-      <SectionTitle label="Lane default policy" color={ERR_COLOR} />
-      <Row2>
-        <Field label="On error (node default)" hint="Policy inherited by new nodes in this lane">
-          <CustomSelect style={inputStyle} value={p('defaultOnError', 'stop')}
-            onChange={(e) => updateProp(nodeId, 'defaultOnError', e.target.value)}>
-            <option value="stop">Stop — halt the pipeline</option>
-            <option value="skip">Skip — skip the node</option>
-            <option value="retry">Retry — retry N times</option>
-            <option value="propagate">Propagate — use catch/reject</option>
-          </CustomSelect>
-        </Field>
-        <Field label="Centralized log" hint="Also copies errors handled by explicit catch/reject">
-          <CustomSelect style={inputStyle} value={p('logAll', 'true')}
-            onChange={(e) => updateProp(nodeId, 'logAll', e.target.value)}>
-            <option value="true">Yes — log everything here</option>
-            <option value="false">No — only unhandled errors</option>
-          </CustomSelect>
-        </Field>
-      </Row2>
 
       {/* Regole automatiche */}
       <SectionTitle label={`Automatic rules — ${rules.length}`} color={ERR_COLOR} />

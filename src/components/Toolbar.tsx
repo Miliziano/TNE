@@ -746,6 +746,7 @@ function buildRustPlan(
           specConfig.xml_declaration = (props['xmlDeclaration'] ?? 'true') === 'true'
           specConfig.encoding        = props['encoding']       ?? 'UTF-8'
           specConfig.on_error        = props['onError']        ?? 'reject'
+          specConfig.validate        = props['validateOutput'] === 'true'
           specConfig.tree   = (() => { try { return JSON.parse(props['_treeNodes']   ?? '[]') } catch { return [] } })()
           specConfig.legacy = (() => { try { return JSON.parse(props['xmlStructure'] ?? '[]') } catch { return [] } })()
           specConfig.mappings = ser.mappings ?? {}

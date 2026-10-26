@@ -56,12 +56,6 @@ const FN_COLOR: Record<string, string> = {
   array_agg: '#f97316', string_agg: '#f97316', json_agg: '#f97316',
 }
 
-// Opzioni accessMode per Aggregate — dataset è il default e il consigliato
-const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
-  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
-]
-
 function AggRow({ agg, index, total, fields, onChange, onDelete }: {
   agg:      AggFunction
   index:    number
@@ -161,7 +155,6 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
 
   const dataSource = p('dataSource', 'flow')
   const matName    = p('materializeName', '')
-  const accessMode = p('accessMode', 'dataset')   // ← definito qui
   const laneId     = node.data.laneId
 
   const materializeVars = useMemo(() => {
@@ -256,7 +249,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
         ))}
       </div>
 
-      {/* Selettore Materialize + accessMode */}
+      {/* Selettore Materialize */}
       {dataSource === 'materialize' && (
         <>
           <Field label="Source Materialize" hint="Must already be populated when this node is activated">
@@ -272,29 +265,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
           {matName && materializeFields.length === 0 && (
             <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', gap: 5 }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
-              Il Materialize "{matName}" non ha ancora ricevuto campi.
+              The Materialize "{matName}" has not received any fields yet.
             </div>
           )}
           {matName && materializeFields.length > 0 && (
             <div style={{ padding: '5px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #22d3ee20', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5, alignItems: 'center' }}>
               <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
-              dataset <code style={{ color: '#22d3ee' }}>{matName}</code> — {materializeFields.length} campi disponibili
+              dataset <code style={{ color: '#22d3ee' }}>{matName}</code> — {materializeFields.length} fields available
             </div>
-          )}
-
-          {/* accessMode — come Aggregate accede al Materialize */}
-          {matName && (
-            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
-              <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
-                {ACCESS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </CustomSelect>
-              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
-                {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
-                {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
-              </div>
-            </Field>
           )}
 
           <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
@@ -379,16 +357,10 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       {/* Opzioni */}
       <SectionTitle label="Options" />
       <Row>
-        <Field label="Null nel GROUP BY">
+        <Field label="Nulls in GROUP BY">
           <CustomSelect style={inputStyle} value={p('nullGroups', 'include')} onChange={u('nullGroups')}>
             <option value="include">Include as a separate group</option>
             <option value="exclude">Exclude rows with null</option>
-          </CustomSelect>
-        </Field>
-        <Field label="Execution mode">
-          <CustomSelect style={inputStyle} value={p('execMode', 'batch')} onChange={u('execMode')}>
-            <option value="batch">Batch — attende tutti i dati</option>
-            <option value="streaming">Streaming — risultati incrementali</option>
           </CustomSelect>
         </Field>
       </Row>
@@ -399,7 +371,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
           <SectionTitle label="Derived output schema" color="#22d3ee" />
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-              {['Campo', 'Tipo', 'Origine'].map((h) => (
+              {['Field', 'Type', 'Origin'].map((h) => (
                 <div key={h} style={{ fontSize: 9, color: '#22d3ee', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
               ))}
             </div>

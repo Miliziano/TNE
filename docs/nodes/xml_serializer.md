@@ -33,5 +33,10 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **XML Serializer**.
+**Controllo dell'output (P367).** "Check the output" verifica che ogni XML prodotto sia
+**ben formato** (tag chiusi nell'ordine giusto, attributi validi, un solo elemento
+radice). Non è una validazione su XSD. Un documento sbagliato segue "On error": *stop*
+ferma il nodo, *reject* manda la riga sul reject, *empty* scrive il campo vuoto, *skip*
+scarta la riga.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

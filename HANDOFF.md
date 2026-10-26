@@ -2103,3 +2103,47 @@ Punto 11 dell'audit.
   da Explode: all 3 righe, overwrite 2 con l'ultima, keep 2 con la prima, error → fallisce;
   riga di stato coi nuovi campi; union con campo mancante in un flusso → errore).
   Prossimo: i punti minori dell'audit.
+
+## AGGIORNAMENTO — I punti minori dell'audit (stato al P367, 26 ottobre)
+
+Punto 12 dell'audit: opzioni mostrate dallo studio e ignorate dal motore, implementate o tolte.
+- **DB Source**: `queryTimeout` applicato = tempo massimo per la PRIMA riga (pg, mysql, sqlite
+  con `tokio::time::timeout` sul primo `stream.next()`; ODBC passa il valore a `read_rows`),
+  0 = nessun limite. Il nodo fallisce subito, il pool aspetta la fine della query alla
+  chiusura della lane (limite lato server = statement_timeout dell'utente). Tolto Fetch size.
+- **MQTT**: `connect_timeout` in `MqttConnectionParams` (serde default 10) e
+  `mqtt_wait_connack` (subscribe e publish); `build_conn` legge la risorsa e ripiega sui
+  props del nodo. Pannello: versione fissa "MQTT 3.1.1".
+- **Mail**: `priority` (X-Priority + Importance). Bug trovato col collaudo: con utente vuoto
+  si mandavano credenziali vuote e un relay senza AUTH rifiutava tutto → credenziali solo
+  se c'è l'utente.
+- **Script**: tolte le opzioni avanzate (timeout/memoria/sandbox) mai lette; nota al loro posto.
+- **ActiveMQ**: `prefetch` (solo se impostato: un default avrebbe cambiato i flow salvati),
+  `durable` → `activemq.subscriptionName` + `client-id` `flowpilot-<id>` (topic), timeout e
+  max 0 = senza limite, protocollo ≠ stomp → errore (pannello: solo STOMP), retry → scheda
+  Advanced. Bug trovati col collaudo (coilmq): `read_stomp_frame` leggeva a righe e un NUL
+  senza a-capo dopo restava in attesa per sempre; l'EOF tornava come frame vuoto (giro a
+  vuoto). Ora `read_until(0)`, EOF = errore, `stomp_handshake` (CONNECTED entro 10 s, ERROR
+  col messaggio del broker), ERROR durante la lettura = errore; messaggi già ricevuti
+  consegnati se la connessione cade.
+- **HTTP**: al primo 401 con OAuth2 si rinnova il token (CC: scarta la cache e lo richiede;
+  AC: grant refresh_token, cache `OAUTH2_AC_CACHE`) e si ripete una volta.
+- **XML Serializer**: `validate` (Toolbar da `validateOutput`) = controllo ben formato
+  (quick-xml, una sola radice) che segue `on_error`.
+- **Webhook**: overflow `error` → 503 `queue_full` + Retry-After (prima = drop_newest);
+  responder: tolto "Polling interval" (le variabili di lane non cambiano nel run).
+- **Error Handler**: tolti `defaultOnError` e `logAll` (nessuno li leggeva; un errore preso
+  sulla catch non arriva in copia all'EH — copiarlo avrebbe cambiato i flow con error_out).
+- **Aggregate/Window/Pivot**: tolto "Materialize access mode" (solo codegen); Aggregate:
+  tolto `execMode` (solo batch); Pivot: tolto `distinctValuesMat` (il dinamico ricava le
+  colonne dai dati).
+- Collaudo: test unitari (overflow webhook, frame STOMP) + harness (PG/MySQL timeout 1 s con
+  sleep 3 → errore a 1 s; mail su aiosmtpd con gli header; MQTT su server muto → errore al
+  timeout, lettura da mosquitto, props del nodo; XML ok/rotto/skip; ActiveMQ su coilmq:
+  put 3, get con prefetch e max 0, vhost rifiutato, openwire; OAuth2 AC e CC con server
+  che risponde 401 al vecchio token).
+- Notati e lasciati: NodeFailed emesso due volte dai nodi che chiamano `emit_failed` e
+  tornano Err (anche l'executor lo emette); XML Serializer col formato `legacy` produce la
+  radice senza figli (da guardare nell'audit di configurazione).
+  Prossimo: bug solo-studio (Data Quality `dqRules`, `json_serializer/Panel.tsx` morto),
+  poi l'audit di configurazione (JSON Parser, TMap, XML Parser, Serializer, Data Quality).

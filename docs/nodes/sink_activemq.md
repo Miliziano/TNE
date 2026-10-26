@@ -31,5 +31,9 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **ActiveMQ Sink**.
+**Solo STOMP (P367).** Come il consumer: OpenWire e AMQP danno errore. Ogni riga è un
+SEND con `receipt`; un frame ERROR del broker diventa l'errore di quella riga. La
+connessione, l'attesa del CONNECTED (massimo 10 s) e la lettura dei frame sono quelle del
+consumer (vedi ActiveMQ).
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

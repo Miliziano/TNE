@@ -587,7 +587,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
                 <option value="basic">Basic Auth header</option>
               </CustomSelect>
             </Field>
-            <Field label="Auto-refresh">
+            <Field label="Auto-refresh" hint="On HTTP 401, get a new token and repeat the request once">
               <CustomSelect style={inputStyle} value={p('oauth2AutoRefresh', 'true')} onChange={u('oauth2AutoRefresh')}>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
@@ -603,7 +603,7 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
             <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 56, fontFamily: 'monospace', fontSize: 10 }}
               value={p('oauth2AccessToken')} onChange={u('oauth2AccessToken')} placeholder="eyJ..." spellCheck={false} />
           </Field>
-          <Field label="Refresh Token" hint="Optional">
+          <Field label="Refresh Token" hint="Optional — with the Token URL, used to get a new access token when the server answers 401">
             <input type="password" style={inputStyle} value={p('oauth2RefreshToken')} onChange={u('oauth2RefreshToken')} />
           </Field>
           <Field label="Token URL">

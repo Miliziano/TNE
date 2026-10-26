@@ -348,19 +348,19 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
         </Field>
       </Row>
       <Row>
-        <Field label="Encoding dichiarazione">
+        <Field label="Declared encoding" hint="Only the XML declaration: the bytes are encoded by the node that writes the file (e.g. File Output → Encoding)">
           <CustomSelect style={inputStyle} value={p('encoding', 'UTF-8')} onChange={u('encoding')}>
             <option value="UTF-8">UTF-8</option>
             <option value="UTF-16">UTF-16</option>
             <option value="ISO-8859-1">ISO-8859-1</option>
           </CustomSelect>
         </Field>
-        <Field label="On serialization error">
+        <Field label="On serialization error" hint="Applies when 'Check the output' finds malformed XML">
           <CustomSelect style={inputStyle} value={p('onError', 'reject')} onChange={u('onError')}>
-            <option value="reject">Invia a output reject</option>
+            <option value="reject">Send to the reject output</option>
             <option value="empty">Empty element</option>
             <option value="skip">Skip the row</option>
-            <option value="stop">Interrompi pipeline</option>
+            <option value="stop">Stop the pipeline</option>
           </CustomSelect>
         </Field>
       </Row>
@@ -475,10 +475,10 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
 
       {/* Validazione XSD output */}
       <SectionTitle label="Output validation" color="#8593b5" />
-      <Field label="Validate output against XSD" hint="Optional — slows the pipeline, useful in development">
+      <Field label="Check the output" hint="Checks that every XML produced is well formed; a failure follows 'On serialization error'. There is no XSD validation.">
         <CustomSelect style={inputStyle} value={p('validateOutput', 'false')} onChange={u('validateOutput')}>
-          <option value="false">No — skip validation</option>
-          <option value="true">Yes — validate every XML row produced</option>
+          <option value="false">No — skip the check</option>
+          <option value="true">Yes — well-formed XML only</option>
         </CustomSelect>
       </Field>
 

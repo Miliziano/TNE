@@ -147,7 +147,7 @@ function ReceiverPanel({ nodeId }: { nodeId: string }) {
         <CustomSelect style={inputStyle} value={p('overflow', 'drop_oldest')} onChange={u('overflow')}>
           <option value="drop_oldest">Drop the oldest (FIFO)</option>
           <option value="drop_newest">Drop the incoming one</option>
-          <option value="error">Error — block the server</option>
+          <option value="error">Refuse — answer 503 so the sender retries</option>
         </CustomSelect>
       </Field>
       <Row2>
@@ -441,18 +441,13 @@ function ResponderPanel({ nodeId }: { nodeId: string }) {
         color={ACCENT_RESP}
       />
 
-      {/* Solo modalità monitor: frequenza di aggiornamento */}
+      {/* P367: tolto "Polling interval": le variabili di lane non cambiano durante
+          un'esecuzione, quindi non c'è niente da rileggere. */}
       {mode === 'monitor' && (
-        <>
-          <SectionTitle label="Variables refresh" color={ACCENT_RESP} />
-          <Field label="Polling interval (ms)" hint="How often to re-read the lane variables">
-            <input type="number" style={inputStyle} value={p('varPollMs', '1000')} onChange={u('varPollMs')} min="100" />
-          </Field>
-          <InfoBox color={ACCENT_RESP}>
-            The Responder reads the lane variables every <strong>{p('varPollMs', '1000')} ms</strong> and
-            updates the exposed headers. No need to restart the server — the update is in real time.
-          </InfoBox>
-        </>
+        <InfoBox color={ACCENT_RESP}>
+          The headers are taken from the lane variables when the node starts and stay
+          the same until the run ends.
+        </InfoBox>
       )}
 
       {/* Solo modalità flow: info pass-through */}

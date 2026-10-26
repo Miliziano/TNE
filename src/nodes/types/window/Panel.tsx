@@ -8,10 +8,6 @@ import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
 
 
-const ACCESS_OPTIONS = [
-  { value: 'dataset',  label: 'Dataset — .toDataset() (recommended — full List, zero extra buffering)' },
-  { value: 'iterator', label: 'Iterator — .values() (row by row with internal buffering)' },
-]
 
 
 const inputStyle: React.CSSProperties = {
@@ -116,7 +112,6 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
 
   const dataSource     = p('dataSource', 'flow')       // 'flow' | 'materialize'
   const matName        = p('materializeName', '')
-  const accessMode = p('accessMode', 'dataset')   // ← definito qui
   const laneId         = node.data.laneId
 
   // Variabili Materialize disponibili nella lane
@@ -250,22 +245,8 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
           <div style={{ padding: '6px 10px', fontSize: 9, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', lineHeight: 1.5 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 4, color: '#22d3ee' }} />
             Typical pattern: <code style={{ color: '#22d3ee' }}>Materialize(buffer_signal) → Bridge Out → Bridge In → Window</code>.
-            Il signal del Materialize arriva come trigger, Window legge i dati dalla lane.
+            The Materialize signal arrives as the trigger; Window reads the data from the lane.
           </div>
-          {/* accessMode — come Aggregate accede al Materialize */}
-          {matName && (
-            <Field label="Materialize access mode" hint="Determines how the codegen reads data from the Materialize">
-              <CustomSelect style={inputStyle} value={accessMode} onChange={u('accessMode')}>
-                {ACCESS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </CustomSelect>
-              <div style={{ fontSize: 9, color: '#8593b5', marginTop: 4, fontStyle: 'italic' }}>
-                {accessMode === 'dataset'  && '→ legge in blocco il dataset ' + matName + ' — nessun buffering aggiuntivo nel nodo'}
-                {accessMode === 'iterator' && '→ legge il dataset ' + matName + ' riga per riga, bufferizzando internamente per gruppo'}
-              </div>
-            </Field>
-          )}
 
         </>
       )}

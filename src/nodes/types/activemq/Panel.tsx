@@ -77,11 +77,10 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
 
       {/* Protocollo */}
       <SectionTitle label="Protocol" />
-      <Field label="Connection protocol" hint="STOMP is the most compatible and simplest to configure">
+      <Field label="Connection protocol" hint="The engine speaks STOMP (ActiveMQ Classic and Artemis both accept it)">
         <CustomSelect style={inputStyle} value={protocol} onChange={u('protocol')}>
-          <option value="stomp">STOMP (port 61613) — recommended</option>
-          <option value="openwire">OpenWire (port 61616) — native ActiveMQ</option>
-          <option value="amqp">AMQP (port 5672)</option>
+          <option value="stomp">STOMP (port 61613)</option>
+          {protocol !== 'stomp' && <option value={protocol}>{protocol} (not supported)</option>}
         </CustomSelect>
       </Field>
 
@@ -142,8 +141,8 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
                 <option value="client">Client — manual ack</option>
               </CustomSelect>
             </Field>
-            <Field label="Prefetch" hint="Messages to pre-load">
-              <input type="number" style={inputStyle} value={p('prefetch', '1')} onChange={u('prefetch')} min="1" />
+            <Field label="Prefetch" hint="Messages the broker may send ahead — empty = broker default">
+              <input type="number" style={inputStyle} value={p('prefetch', '')} onChange={u('prefetch')} min="1" placeholder="broker default" />
             </Field>
           </Row2>
           <Row2>
@@ -157,7 +156,7 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
           <Field label="JMS selector" hint="SQL-like message filter — e.g. type='order'">
             <input style={inputStyle} value={p('selector', '')} onChange={u('selector')} placeholder="type='order'" />
           </Field>
-          <Field label="Durable subscription (topic only)">
+          <Field label="Durable subscription (topic only)" hint="The broker keeps the messages that arrive while the flow is not running">
             <CustomSelect style={inputStyle} value={p('durable', 'false')} onChange={u('durable')}>
               <option value="false">No</option>
               <option value="true">Yes — keep messages offline</option>
@@ -219,16 +218,12 @@ export function ActiveMQPanel({ nodeId }: { nodeId: string }) {
         </>
       )}
 
-      {/* Resilienza */}
-      <SectionTitle label="Resilience" />
-      <Row2>
-        <Field label="Connection retry">
-          <input type="number" style={inputStyle} value={p('retryCount', '3')} onChange={u('retryCount')} min="0" />
-        </Field>
-        <Field label="Retry delay (s)">
-          <input type="number" style={inputStyle} value={p('retryDelay', '5')} onChange={u('retryDelay')} min="1" />
-        </Field>
-      </Row2>
+      {/* P367: "Connection retry" tolto — è il retry della scheda Advanced. */}
+      {node.data.type === 'source_activemq' && (
+        <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
+          To retry a failed connection, set Retry in the Advanced tab.
+        </div>
+      )}
 
     </div>
   )

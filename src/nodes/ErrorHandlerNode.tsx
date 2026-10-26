@@ -8,9 +8,8 @@
  * Comportamento (vedi sviluppo):
  * - Nessun handle di ingresso: è un collettore IMPLICITO. Ogni errore
  *   non gestito da un catch/reject esplicito confluisce qui automaticamente.
- * - Se un nodo ha catch/reject collegato altrove, l'errore segue quel
- *   percorso E arriva qui in copia per logging centralizzato
- *   (a meno che 'logAll' nel panel sia impostato a 'false').
+ * - Se un nodo ha catch/reject collegato altrove, l'errore segue solo
+ *   quel percorso (P367: tolto 'logAll', la copia non esisteva).
  * - Un solo handle di uscita 'error_out' — collegabile a Filter
  *   per costruire pipeline di recovery/notifica.
  */

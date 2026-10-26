@@ -15,29 +15,45 @@ use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 use crate::{MqttConnectionParams, MqttSubscribeRequest, mqtt_subscribe_impl};
 
-/// Parametri di connessione dalla risorsa di lane (chiavi di buildConnection
-/// del runner: host/port/clientId/username|user/password/keepAlive/
-/// cleanSession/scheme).
+/// Parametri di connessione. P367: prima la RISORSA di lane collegata (chiavi
+/// del suo pannello: broker, port, clientId, username, password, useTls),
+/// poi i campi del nodo (host, port, scheme, clientId, username, password,
+/// keepAlive, connectTimeout). Prima si leggeva solo la risorsa e con chiavi
+/// diverse dalle sue (`host`, `scheme`): l'host del broker era ignorato
+/// (sempre localhost) e i campi del nodo pure.
 pub(crate) fn build_conn(spec: &Spec) -> MqttConnectionParams {
-    let username = {
-        let u = spec.res_str_or("username", "");
-        if u.is_empty() { spec.res_str_or("user", "") } else { u }
+    let pick = |res_keys: &[&str], prop: &str, default: &str| -> String {
+        for k in res_keys {
+            let v = spec.res_str_or(k, "");
+            if !v.is_empty() { return v }
+        }
+        spec.str_or(prop, default)
     };
-    let pw     = spec.res_str_or("password", "");
-    let client = {
-        let c = spec.res_str_or("clientId", "");
+    let username = pick(&["username", "user"], "username", "");
+    let pw       = pick(&["password"], "password", "");
+    let client   = {
+        let c = pick(&["clientId"], "clientId", "");
         if c.is_empty() { format!("flowpilot_{}", chrono::Utc::now().timestamp_millis()) } else { c }
     };
-    let scheme = spec.res_str_or("scheme", "mqtt");
+    let use_tls = match spec.res_str_or("useTls", "").as_str() {
+        "true"  => true,
+        "false" => false,
+        _ => { let sch = pick(&["scheme"], "scheme", "mqtt"); sch == "mqtts" || sch == "wss" }
+    };
+    let num = |res_key: &str, prop: &str, default: u64| -> u64 {
+        let r = spec.res_u64_or(res_key, 0);
+        if r > 0 { r } else { spec.u64_or(prop, default) }
+    };
     MqttConnectionParams {
-        host:          spec.res_str_or("host", "localhost"),
-        port:          spec.res_u16_or("port", 1883),
-        client_id:     client,
-        username:      if username.is_empty() { None } else { Some(username) },
-        password:      if pw.is_empty()       { None } else { Some(pw) },
-        keep_alive:    spec.res_u64_or("keepAlive", 60),
-        clean_session: spec.res_str_or("cleanSession", "true") != "false",
-        use_tls:       scheme == "mqtts" || scheme == "wss",
+        host:            pick(&["broker", "host"], "host", "localhost"),
+        port:            num("port", "port", if use_tls { 8883 } else { 1883 }) as u16,
+        client_id:       client,
+        username:        if username.is_empty() { None } else { Some(username) },
+        password:        if pw.is_empty()       { None } else { Some(pw) },
+        keep_alive:      num("keepAlive", "keepAlive", 60),
+        clean_session:   pick(&["cleanSession"], "cleanSession", "true") != "false",
+        use_tls,
+        connect_timeout: num("connectTimeout", "connectTimeout", 10),
     }
 }
 
