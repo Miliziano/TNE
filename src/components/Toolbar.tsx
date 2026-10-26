@@ -704,6 +704,9 @@ function buildRustPlan(
           specConfig.flows            = xp.flows ?? []
           specConfig.ignoreNamespaces = xp.ignoreNamespaces !== false
           specConfig.trimText         = xp.trimText !== false
+          // P372: tipo dei campi applicato solo se acceso (assente = no:
+          // le config salvate prima davano tutto testo).
+          specConfig.applyTypes       = xp.applyTypes === true
           break
         }
         

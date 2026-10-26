@@ -63,24 +63,40 @@ const FLOW_COLORS = [
 
 const FIELD_TYPES: XmlFieldType[] = ['string', 'integer', 'decimal', 'boolean', 'date', 'object', 'any']
 
+// P372: le conversioni le fa la colonna Type (con "Apply field types");
+// le vecchie to_* di una config salvata restano visibili come "(legacy)".
 const TRANSFORMS: Array<{ value: XmlFieldTransform; label: string }> = [
-  { value: 'none',       label: 'Nessuna'   },
-  { value: 'trim',       label: 'trim'      },
-  { value: 'uppercase',  label: 'UPPERCASE' },
-  { value: 'lowercase',  label: 'lowercase' },
-  { value: 'to_integer', label: '→ integer' },
-  { value: 'to_decimal', label: '→ decimal' },
-  { value: 'to_boolean', label: '→ boolean' },
-  { value: 'to_date',    label: '→ date'    },
-  { value: 'to_string',  label: '→ string'  },
+  { value: 'none',          label: 'none'       },
+  { value: 'trim',          label: 'trim'       },
+  { value: 'uppercase',     label: 'UPPER'      },
+  { value: 'lowercase',     label: 'lower'      },
+  { value: 'nullify_empty', label: 'empty→null' },
 ]
 
 const ON_MISSING: Array<{ value: XmlFieldMissing; label: string }> = [
   { value: 'null',    label: 'null'        },
-  { value: 'default', label: 'Usa default' },
-  { value: 'skip',    label: 'Skip row'  },
+  { value: 'default', label: 'Default'     },
+  { value: 'skip',    label: 'Skip row'    },
   { value: 'error',   label: 'Reject'      },
 ]
+
+/** Tipo dedotto da un valore d'esempio. Un numero con zeri davanti ("007",
+ *  CAP, codici) resta testo: convertito perderebbe gli zeri. */
+function inferXmlType(text: string | null | undefined): XmlFieldType {
+  const t = (text ?? '').trim()
+  if (/^-?(0|[1-9]\d*)$/.test(t)) return 'integer'
+  if (/^-?(0|[1-9]\d*)\.\d+$/.test(t)) return 'decimal'
+  if (/^(true|false)$/i.test(t)) return 'boolean'
+  return 'string'
+}
+
+/** L'ultimo passo dell'XPath come attributo (@nome) o come elemento. */
+function toggleAttributeXpath(xpath: string): string {
+  const i = xpath.lastIndexOf('/')
+  const head = xpath.slice(0, i + 1)
+  const last = xpath.slice(i + 1)
+  return head + (last.startsWith('@') ? last.slice(1) : `@${last}`)
+}
 
 let _counter = 0
 
@@ -217,7 +233,7 @@ function generateFlowsFromXml(xmlString: string, ignoreNs = true): { flows: XmlP
         flows.push({
           id: `flow_${Date.now()}_${idx}`, label: name,
           color: FLOW_COLORS[idx % FLOW_COLORS.length],
-          xpath, isRepeating: isRep, streaming: false, fields,
+          xpath, isRepeating: isRep, fields,
         })
       })
     } else {
@@ -225,7 +241,7 @@ function generateFlowsFromXml(xmlString: string, ignoreNs = true): { flows: XmlP
       const fields = extractFieldsFromElement(root, xpath, ignoreNs)
       flows.push({
         id: `flow_${Date.now()}_0`, label: rootName,
-        color: FLOW_COLORS[0], xpath, isRepeating: false, streaming: false, fields,
+        color: FLOW_COLORS[0], xpath, isRepeating: false, fields,
       })
     }
   } catch {}
@@ -239,7 +255,7 @@ function extractFieldsFromElement(el: Element, baseXpath: string, ignoreNs: bool
   Array.from(el.attributes).forEach((attr, i) => {
     fields.push({
       id: `f_attr_${i}_${Date.now()}`, name: attr.name,
-      xpath: `${baseXpath}/@${attr.name}`, type: 'string',
+      xpath: `${baseXpath}/@${attr.name}`, type: inferXmlType(attr.value),
       isAttribute: true, transform: 'none', onMissing: 'null',
     })
   })
@@ -250,11 +266,7 @@ function extractFieldsFromElement(el: Element, baseXpath: string, ignoreNs: bool
     if (seen.has(cName)) return
     seen.add(cName)
     const isLeaf = child.children.length === 0
-    const type: XmlFieldType = !isLeaf ? 'object'
-      : child.textContent?.match(/^\d+$/) ? 'integer'
-      : child.textContent?.match(/^\d+\.\d+$/) ? 'decimal'
-      : child.textContent?.toLowerCase() === 'true' || child.textContent?.toLowerCase() === 'false' ? 'boolean'
-      : 'string'
+    const type: XmlFieldType = !isLeaf ? 'object' : inferXmlType(child.textContent)
     fields.push({
       id: `f_${i}_${Date.now()}`, name: cName,
       xpath: `${baseXpath}/${cName}`, type,
@@ -355,7 +367,8 @@ function XmlTreeNodeRow({ node, depth, flows, onToggleFieldInFlow, onGenerateFlo
   )
 }
 
-function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDelete }: {
+function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDelete, applyTypes }: {
+  applyTypes:     boolean
   flow:           XmlParserFlow
   color:          string
   selectedFlowId: string | null
@@ -386,7 +399,6 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
           style={{ background: 'none', border: 'none', outline: 'none', fontSize: 11, fontWeight: 600, color, fontFamily: 'monospace', flex: 1, minWidth: 0 }} />
         <code style={{ fontSize: 9, color: '#8593b5', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{flow.xpath}</code>
         {flow.isRepeating && <span style={{ fontSize: 9, color: '#ffb347' }}>[ ]</span>}
-        {flow.streaming   && <i className="ti ti-wave-sine" style={{ fontSize: 9, color: '#ffb347' }} />}
         <button onClick={(e) => { e.stopPropagation(); setMaximized((v) => !v) }}
           style={{ background: 'none', border: `0.5px solid ${color}40`, borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = color }}
@@ -411,8 +423,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
             <input value={flow.xpath} onChange={(e) => onUpdate({ xpath: e.target.value })}
               style={{ ...inputStyle, fontSize: 9, padding: '2px 6px', width: 180 }} placeholder="/root/element" />
             {[
-              { key: 'isRepeating', label: '[ ] Repeating', title: 'Generate one row per match' },
-              { key: 'streaming',   label: '〜 Stream',     title: 'Streaming'                      },
+              { key: 'isRepeating', label: '[ ] Repeating', title: 'One row per match (off: only the first match)' },
             ].map((opt) => (
               <button key={opt.key} title={opt.title} onClick={() => onUpdate({ [opt.key]: !(flow as any)[opt.key] })}
                 style={{ padding: '2px 8px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: (flow as any)[opt.key] ? `color-mix(in srgb, ${color} 20%, #161b27)` : '#1e2535', color: (flow as any)[opt.key] ? color : '#8593b5', border: (flow as any)[opt.key] ? `1px solid ${color}60` : '1px solid #2a3349' }}>
@@ -434,7 +445,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(60px, 0.8fr) minmax(120px, 1.3fr) 40px 70px 80px 80px 24px', gap: 4, padding: '3px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349', flexShrink: 0 }}>
-                {['Nome', 'XPath', '@', 'Tipo', 'Trasforma', 'Mancante', ''].map((h, i) => (
+                {['Name', 'XPath', '@', applyTypes ? 'Type' : 'Type (off)', 'Transform', 'If missing', ''].map((h, i) => (
                   <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
                 ))}
               </div>
@@ -446,8 +457,8 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                       style={{ ...inputStyle, fontSize: 10, padding: '2px 5px' }} />
                     <input value={f.xpath} onChange={(e) => updateField(f.id, 'xpath', e.target.value)}
                       style={{ ...inputStyle, fontSize: 9, padding: '2px 5px', color: '#9a9aaa' }} placeholder="/root/field" />
-                    <button onClick={() => updateField(f.id, 'isAttribute', !f.isAttribute)}
-                      title={f.isAttribute ? 'It is an XML attribute' : 'It is an element'}
+                    <button onClick={() => { const x = toggleAttributeXpath(f.xpath); onUpdate({ fields: flow.fields.map((g) => g.id === f.id ? { ...g, xpath: x, isAttribute: x.slice(x.lastIndexOf('/') + 1).startsWith('@') } : g) }) }}
+                      title={f.isAttribute ? 'XML attribute (@ in the XPath) — click for an element' : 'Element — click for an attribute (@ in the XPath)'}
                       style={{ padding: '2px 4px', fontSize: 9, borderRadius: 3, cursor: 'pointer', background: f.isAttribute ? '#2a1a4a' : 'transparent', color: f.isAttribute ? '#a78bfa' : '#2a3349', border: f.isAttribute ? '1px solid #4a2a8a' : '1px solid #2a3349', fontFamily: 'monospace', fontWeight: 700 }}>
                       @
                     </button>
@@ -458,11 +469,19 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                     <CustomSelect value={f.transform} onChange={(e) => updateField(f.id, 'transform', e.target.value as XmlFieldTransform)}
                       style={{ ...inputStyle, fontSize: 9, padding: '2px 3px' }}>
                       {TRANSFORMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      {!TRANSFORMS.some((t) => t.value === f.transform) && <option value={f.transform}>{f.transform} (legacy)</option>}
                     </CustomSelect>
-                    <CustomSelect value={f.onMissing} onChange={(e) => updateField(f.id, 'onMissing', e.target.value as XmlFieldMissing)}
-                      style={{ ...inputStyle, fontSize: 9, padding: '2px 3px' }}>
-                      {ON_MISSING.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </CustomSelect>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <CustomSelect value={f.onMissing} onChange={(e) => updateField(f.id, 'onMissing', e.target.value as XmlFieldMissing)}
+                        style={{ ...inputStyle, fontSize: 9, padding: '2px 3px' }}>
+                        {ON_MISSING.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </CustomSelect>
+                      {f.onMissing === 'default' && (
+                        <input value={f.defaultValue ?? ''} onChange={(e) => updateField(f.id, 'defaultValue', e.target.value)}
+                          title="Value used when the node is missing or empty"
+                          style={{ ...inputStyle, fontSize: 9, padding: '2px 5px' }} placeholder="default" />
+                      )}
+                    </div>
                     <button onClick={() => deleteField(f.id)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8593b5', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}
@@ -564,15 +583,12 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
   const { ref: dragRef, pos, onMouseDown, reset: resetDrag } = useDraggable()
   const { modalRef, width, onResizeStart } = useResizable(1100)
 
-  if (!node) return null
-
+  // P372: niente return prima degli hook; config nuova con i tipi applicati.
+  const rawCfg = node?.data.config?.xmlParser
   const config: XmlParserConfig = useMemo(() => {
-    try {
-      const raw = node.data.config?.xmlParser
-      if (raw) return raw as XmlParserConfig
-    } catch {}
-    return { sourceField: 'content', hasReject: false, flows: [], ignoreNamespaces: true, trimText: true }
-  }, [node.data.config?.xmlParser])
+    if (rawCfg) return rawCfg as XmlParserConfig
+    return { sourceField: 'content', hasReject: false, flows: [], ignoreNamespaces: true, trimText: true, applyTypes: true }
+  }, [rawCfg])
 
   useEffect(() => {
     if (config._sampleXml) {
@@ -657,7 +673,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
         setParseError('')
       } else {
         const { flows, tree } = generateFlowsFromXml(rawInput, config.ignoreNamespaces)
-        if (tree.length === 0) { setParseError('XML non valido'); return }
+        if (tree.length === 0) { setParseError('Invalid XML'); return }
         saveConfig({ ...config, flows, _sampleXml: rawInput, inputMode: 'xml' } as any)
         pruneOrphanEdges(flows.map((f) => f.id))
         setXmlTree(tree)
@@ -703,7 +719,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
       }))
     const newFlow: XmlParserFlow = {
       id: `flow_${Date.now()}`, label: treeNode.name, color,
-      xpath: treeNode.xpath, isRepeating: treeNode.isRepeating, streaming: false, fields,
+      xpath: treeNode.xpath, isRepeating: treeNode.isRepeating, fields,
     }
     saveConfig({ ...config, flows: [...config.flows, newFlow] })
     setSelectedFlowId(newFlow.id)
@@ -714,7 +730,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
     const color = FLOW_COLORS[idx % FLOW_COLORS.length]
     const newFlow: XmlParserFlow = {
       id: `flow_${Date.now()}`, label: `flow_${idx + 1}`, color,
-      xpath: '/root', isRepeating: false, streaming: false, fields: [],
+      xpath: '/root', isRepeating: false, fields: [],
     }
     saveConfig({ ...config, flows: [...config.flows, newFlow] })
     setSelectedFlowId(newFlow.id)
@@ -740,6 +756,8 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
+
+  if (!node) return null
 
   const TABS: Array<{ id: Tab; label: string; icon: string }> = [
     { id: 'config',   label: 'Configuration',  icon: 'ti-adjustments' },
@@ -848,7 +866,8 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {[
-                    { key: 'hasReject',        label: config.hasReject ? 'Reject attivo' : 'Reject disabilitato', color: config.hasReject ? '#ff5f57' : '#8593b5', activeColor: '#ff5f57', border: config.hasReject ? '#3a1a1a' : '#2a3349' },
+                    { key: 'hasReject',        label: config.hasReject ? 'Reject on' : 'Reject off', color: config.hasReject ? '#ff5f57' : '#8593b5', activeColor: '#ff5f57', border: config.hasReject ? '#3a1a1a' : '#2a3349' },
+                    { key: 'applyTypes',       label: 'Apply field types',      color: config.applyTypes ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
                     { key: 'ignoreNamespaces', label: 'Ignore namespaces',      color: config.ignoreNamespaces ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
                     { key: 'trimText',         label: 'Automatic text trim', color: config.trimText ? ACCENT : '#8593b5', activeColor: ACCENT, border: '#2a3349' },
                   ].map((opt) => (
@@ -916,7 +935,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                   </span>
                   {selectedFlowId && (
                     <span style={{ fontSize: 9, color: ACCENT, fontStyle: 'italic' }}>
-                      selezionato: {config.flows.find((f) => f.id === selectedFlowId)?.label}
+                      selected: {config.flows.find((f) => f.id === selectedFlowId)?.label}
                     </span>
                   )}
                   <button onClick={addFlow}
@@ -938,7 +957,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                       <FlowFieldsTable key={flow.id} flow={flow} color={flow.color ?? FLOW_COLORS[0]}
                         selectedFlowId={selectedFlowId} onSelect={setSelectedFlowId}
                         onUpdate={(patch) => updateFlow(flow.id, patch)}
-                        onDelete={() => deleteFlow(flow.id)} />
+                        onDelete={() => deleteFlow(flow.id)} applyTypes={config.applyTypes === true} />
                     ))
                   )}
                 </div>

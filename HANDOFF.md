@@ -2227,3 +2227,21 @@ Audit di configurazione, TMap.
   chiave composta automatica (da JavaScript salvato) e manuale `$0 + "-" + upper($1)`, reject
   inner, qty "12" → 12 e "x" contato; helper delle etichette provati con esbuild.
   Prossimo: XML Parser, poi JSON/XML Serializer.
+
+## AGGIORNAMENTO — XML Parser: tipi applicabili, opzioni morte tolte (stato al P372, 26 ottobre)
+
+Audit di configurazione, XML Parser.
+- **`applyTypes`** (nuova opzione "Apply field types"): con l'opzione il motore applica il
+  tipo (`convert_value`, non convertibili tenuti come testo e contati nel log), default di
+  "Default" tipizzato (`default_value`). Assente = spenta: le config salvate prima davano
+  tutto testo e i tipi li aveva dedotti l'esempio (es. "007" → integer avrebbe perso gli
+  zeri — lezione dei default salvati). Accesa sulle config nuove (default della modale).
+  Inferenza dall'esempio: zeri davanti → string (`inferXmlType`), anche per gli attributi.
+- XML mancante/non leggibile senza reject: contato e detto nel log.
+- Studio: tolto *Stream* (modale, nodo, tipo), trasformazioni di testo (+ empty→null, le to_*
+  salvate mostrate "(legacy)"), input del default, il bottone `@` cambia l'XPath (prima
+  era solo un'etichetta, il motore legge l'XPath), hook della modale prima del return,
+  testi in inglese. Tolto `xmlParserUtils.ts` (mai importato).
+- Collaudo: test `tests_tipi::tipi_applicati_o_no` (@id → 7, "007" string, "si" → true, "x"
+  tenuto e contato, default 0, senza applyTypes tutto testo).
+  Prossimo: JSON Serializer e XML Serializer (incluso il formato `legacy` senza figli).

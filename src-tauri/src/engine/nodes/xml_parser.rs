@@ -10,6 +10,15 @@
 //
 // Config in spec.config (node-spec §21). Multi-output: un handle per
 // flow + reject. `filter` per-flow: non presente in questo nodo.
+//
+// P372: con `applyTypes` (opzione "Apply field types", attiva sui nodi
+// nuovi) il tipo di ogni campo si applica come negli altri parser
+// (`field_mapping::convert_value`: un valore non convertibile resta testo e
+// si conta nel log); senza, il comportamento di prima (tutto testo, salvo
+// le trasformazioni to_*). Il default di "Default" prende il tipo del campo.
+// Tolto `streaming` (mai applicato); `isAttribute` non serve al motore:
+// l'attributo lo dice l'XPath (`@nome`). Righe con XML non leggibile senza
+// reject: contate e dette nel log.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -30,6 +39,8 @@ struct XmlParserConfig {
     #[serde(default)] flows: Vec<XmlParserFlow>,
     #[serde(default = "d_true")] ignore_namespaces: bool,
     #[serde(default = "d_true")] trim_text: bool,
+    /// P372: applica il tipo dei campi. Assente (config salvate prima) = no.
+    #[serde(default)] apply_types: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -39,7 +50,6 @@ struct XmlParserFlow {
     #[serde(default)] label: String,
     #[serde(default)] xpath: String,
     #[serde(default)] is_repeating: bool,
-    #[serde(default)] #[allow(dead_code)] streaming: bool,
     #[serde(default)] fields: Vec<XmlParserField>,
 }
 
@@ -48,8 +58,7 @@ struct XmlParserFlow {
 struct XmlParserField {
     #[serde(default)] name: String,
     #[serde(default)] xpath: String,
-    #[serde(default)] #[allow(dead_code)] r#type: String,
-    #[serde(default)] #[allow(dead_code)] is_attribute: bool,
+    #[serde(default)] r#type: String,
     #[serde(default = "d_none")] transform: String,
     #[serde(default = "d_null")] on_missing: String,
     #[serde(default)] default_value: Option<String>,
@@ -418,6 +427,8 @@ fn process_element(
     flow: &XmlParserFlow,
     ignore_ns: bool,
     trim_text: bool,
+    apply_types: bool,
+    failed: &mut HashMap<String, (u64, String)>,
 ) -> ProcessResult {
     let mut out = Row(HashMap::new());
     let mut should_reject = false;
@@ -433,7 +444,7 @@ fn process_element(
             match field.on_missing.as_str() {
                 "null"    => { out.0.insert(field.name.clone(), Value::Null); }
                 "default" => {
-                    let v = field.default_value.clone().map(Value::String).unwrap_or(Value::Null);
+                    let v = default_value(field, apply_types);
                     out.0.insert(field.name.clone(), v);
                 }
                 "skip"    => return ProcessResult::Skip,
@@ -444,7 +455,18 @@ fn process_element(
         }
 
         let val = Value::String(raw.unwrap());
-        out.0.insert(field.name.clone(), apply_transform(val, &field.transform));
+        let v = if apply_types {
+            match crate::engine::field_mapping::convert_value(&val, &field.r#type, &field.transform) {
+                Ok(v) => v,
+                Err((kept, target)) => {
+                    failed.entry(field.name.clone()).or_insert((0, target)).0 += 1;
+                    kept
+                }
+            }
+        } else {
+            apply_transform(val, &field.transform)
+        };
+        out.0.insert(field.name.clone(), v);
     }
 
     if should_reject { ProcessResult::Reject(out) } else { ProcessResult::Row(out) }
@@ -478,6 +500,8 @@ pub async fn run(
     let mut rows_in:       u64 = 0;
     let mut rows_out:      u64 = 0;
     let mut rows_rejected: u64 = 0;
+    let mut unreadable:    u64 = 0;   // XML mancante o non leggibile senza reject
+    let mut failed: HashMap<String, (u64, String)> = HashMap::new();
 
     while let Some(row) = rx.recv().await {
         rows_in += 1;
@@ -488,8 +512,10 @@ pub async fn run(
                     let mut rej = row.clone();
                     rej.0.insert("_reject_reason".into(), Value::String("source_field_missing".into()));
                     send_to(&mut outputs, "reject", rej).await;
-                    rows_rejected += 1;
+                } else {
+                    unreadable += 1;
                 }
+                rows_rejected += 1;
                 continue;
             }
             Some(Value::String(s)) => s.clone(),
@@ -503,8 +529,10 @@ pub async fn run(
                     let mut rej = row.clone();
                     rej.0.insert("_reject_reason".into(), Value::String("invalid_xml".into()));
                     send_to(&mut outputs, "reject", rej).await;
-                    rows_rejected += 1;
+                } else {
+                    unreadable += 1;
                 }
+                rows_rejected += 1;
                 continue;
             }
         };
@@ -520,7 +548,8 @@ pub async fn run(
             };
 
             for element in targets {
-                match process_element(&dom, element, flow, cfg.ignore_namespaces, cfg.trim_text) {
+                match process_element(&dom, element, flow, cfg.ignore_namespaces, cfg.trim_text,
+                                      cfg.apply_types, &mut failed) {
                     ProcessResult::Row(out) => {
                         send_to(&mut outputs, &flow.id, out).await;
                         rows_out += 1;
@@ -539,6 +568,19 @@ pub async fn run(
                 }
             }
         }
+    }
+
+    if unreadable > 0 {
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "{} row(s) without a readable XML in '{}' were discarded (enable Reject to keep them)",
+            unreadable, cfg.source_field), "panel");
+    }
+    let mut keys: Vec<&String> = failed.keys().collect();
+    keys.sort();
+    for k in keys {
+        let (n, ty) = &failed[k];
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "field '{}': {} value(s) could not be converted to {} and were kept as text", k, n, ty), "panel");
     }
 
     let stats = NodeStats {
@@ -568,6 +610,7 @@ fn apply_transform(val: Value, transform: &str) -> Value {
         "trim"      => Value::String(s.trim().to_string()),
         "uppercase" => Value::String(s.to_uppercase()),
         "lowercase" => Value::String(s.to_lowercase()),
+        "nullify_empty" => if s.trim().is_empty() { Value::Null } else { val },
         "to_integer" => {
             let cleaned: String = s.chars().filter(|c| c.is_ascii_digit() || *c == '-').collect();
             cleaned.parse::<i64>().map(Value::Int).unwrap_or(Value::Null)
@@ -582,5 +625,49 @@ fn apply_transform(val: Value, transform: &str) -> Value {
         "to_date"   => Value::Date(s),
         "to_string" => Value::String(s),
         _           => val,
+    }
+}
+
+// ─── Default di "Default" ──────────────────────────────────────────
+// Con i tipi applicati il testo prende il tipo del campo ("0" su un
+// integer → 0); senza, resta testo come prima.
+
+fn default_value(field: &XmlParserField, apply_types: bool) -> Value {
+    let Some(d) = field.default_value.as_deref() else { return Value::Null };
+    if !apply_types { return Value::String(d.to_string()) }
+    let ty = crate::engine::field_mapping::effective_type(&field.r#type, &field.transform);
+    match ty {
+        "" | "string" | "any" => Value::String(d.to_string()),
+        _ => crate::engine::field_mapping::coerce(d, ty),
+    }
+}
+
+#[cfg(test)]
+mod tests_tipi {
+    use super::*;
+
+    #[test]
+    fn tipi_applicati_o_no() {
+        let dom = parse_xml("<r><o id=\"7\"><qty>12</qty><cod>007</cod><ok>si</ok></o><o id=\"x\"><cod>8</cod></o></r>", true).unwrap();
+        let flow: XmlParserFlow = serde_json::from_value(serde_json::json!({"id": "f", "xpath": "/r/o[*]", "isRepeating": true, "fields": [
+            {"name": "id",  "xpath": "@id",  "type": "integer"},
+            {"name": "qty", "xpath": "qty",  "type": "integer", "onMissing": "default", "defaultValue": "0"},
+            {"name": "cod", "xpath": "cod",  "type": "string"},
+            {"name": "ok",  "xpath": "ok",   "type": "boolean"},
+        ]})).unwrap();
+        let els = find_flow_elements(&dom, &flow, true);
+        let mut failed = HashMap::new();
+        let ProcessResult::Row(r) = process_element(&dom, els[0], &flow, true, true, true, &mut failed) else { panic!() };
+        assert_eq!(r.get("id"), Some(&Value::Int(7)));
+        assert_eq!(r.get("qty"), Some(&Value::Int(12)));
+        assert_eq!(r.get("cod"), Some(&Value::String("007".into())));
+        assert_eq!(r.get("ok"), Some(&Value::Bool(true)));
+        let ProcessResult::Row(r) = process_element(&dom, els[1], &flow, true, true, true, &mut failed) else { panic!() };
+        assert_eq!(r.get("id"), Some(&Value::String("x".into())));   // tenuto, contato
+        assert_eq!(r.get("qty"), Some(&Value::Int(0)));              // default tipizzato
+        assert_eq!(failed.get("id").map(|x| x.0), Some(1));
+        // senza applyTypes: tutto testo, come prima
+        let ProcessResult::Row(r) = process_element(&dom, els[0], &flow, true, true, false, &mut failed) else { panic!() };
+        assert_eq!(r.get("qty"), Some(&Value::String("12".into())));
     }
 }

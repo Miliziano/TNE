@@ -144,7 +144,6 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
                   {flow.label}
                 </span>
                 {flow.isRepeating && <span style={{ fontSize: 7, color: '#8593b5' }}>[ ]</span>}
-                {flow.streaming && <i className="ti ti-wave-sine" style={{ fontSize: 7, color: '#ffb347' }} />}
               </div>
             ))}
           </div>
