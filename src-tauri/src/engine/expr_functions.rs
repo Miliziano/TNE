@@ -272,6 +272,22 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             let parts: Vec<&str> = slug.split('-').filter(|p| !p.is_empty()).collect();
             Value::String(parts.join("-"))
         }
+        "regex_extract" => {
+            // regex_extract(s, pattern): il primo gruppo catturato, o tutta la
+            // corrispondenza se il pattern non ha gruppi; nessuna → null.
+            // P371: serve alla chiave di join "regex extract" del TMap (prima
+            // usava regex_match, che dà true/false: tutte le chiavi uguali).
+            let txt = s(a0);
+            match cached_regex(&s(a1)) {
+                Some(re) => match re.captures(&txt) {
+                    Some(c) => c.get(1).or_else(|| c.get(0))
+                        .map(|m| Value::String(m.as_str().to_string()))
+                        .unwrap_or(Value::Null),
+                    None => Value::Null,
+                },
+                None => Value::Null,
+            }
+        }
         "replace_regex" => {
             // replace_regex(s, pattern, sostituto)
             let txt = s(a0);
@@ -522,3 +538,15 @@ pub fn normalize_date_pattern(fmt: &str) -> String {
 
 pub fn now_value()   -> Value { Value::DateTime(Local::now().naive_local().to_string()) }
 pub fn today_value() -> Value { Value::Date(Local::now().date_naive().to_string()) }
+
+#[cfg(test)]
+mod tests_regex_extract {
+    use super::*;
+    #[test]
+    fn estrae() {
+        let f = |t: &str, p: &str| eval_extra("regex_extract", &[Value::String(t.into()), Value::String(p.into())]).unwrap();
+        assert_eq!(f("ORD-2024-001", r"(\d{4})"), Value::String("2024".into()));
+        assert_eq!(f("abc123", r"\d+"), Value::String("123".into()));
+        assert_eq!(f("abc", r"\d+"), Value::Null);
+    }
+}

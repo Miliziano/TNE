@@ -18,6 +18,7 @@
 
 import type { TMapConfig, TMapOutputField } from '../types'
 import type { JoinPair, JoinFieldExpr } from '../nodes/types/tmap/TMapModal'
+import { joinFieldFpel, expandCombine, isLegacyJsKey } from '../nodes/types/tmap/joinKey'
 import { ExprParseError, riferimentoInput } from './exprParser'
 import { compileFpel, type UserFunction } from './userFunctions'
 import { findPreset } from '../transforms/presets'
@@ -168,7 +169,7 @@ function buildLookupOrder(
   tmap:           TMapConfig,
   mainInputId:    string,
   labelToInputId: Map<string, string>,
-  inputFields:    Map<string, Map<string, string>>,
+  _inputFields:   Map<string, Map<string, string>>,
 ): TMapLookupPlan[] {
   const lookupInputs = tmap.inputs.filter(i => !i.isMain)
 
@@ -210,120 +211,101 @@ function buildLookupOrder(
     const inp = tmap.inputs.find(i => i.id === inputId)!
     const pairs: JoinPair[] = (inp as any).joinPairs ?? []
 
-    const joinPairs: TMapJoinPairPlan[] = pairs.flatMap(pair => {
-      // Ogni JoinPair può avere N srcFields e M dstFields
-      // Per semplicità: combina con combineExpr se N>1
-      const srcExpr = buildJoinKeyExpr(
-        pair.srcFields, pair.combineExpr, pair.srcInputId,
-        labelToInputId, inputFields
-      )
-      const dstExpr = buildJoinKeyExpr(
-        pair.dstFields, pair.dstCombineExpr ?? '', inputId,
-        labelToInputId, inputFields
-      )
+    const joinPairs: TMapJoinPairPlan[] = pairs.map((pair, idx) => {
+      // P371: lato sorgente i campi si leggono per esteso dall'input da cui
+      // vengono (anche il main); lato lookup dalla riga del lookup.
+      const where = `lookup "${inp.label}", join ${idx + 1}`
+      const dstFields: JoinFieldExpr[] = pair.dstFields?.length
+        ? pair.dstFields
+        : (pair as any).dstField
+          ? [{ id: 'legacy', field: (pair as any).dstField, fn: (pair as any).dstFn ?? 'none', arg1: (pair as any).dstArg1 ?? '', arg2: (pair as any).dstArg2 ?? '' }]
+          : []
+      if (!pair.srcFields?.some((f) => f.field || f.fn === 'free') || !dstFields.some((f) => f.field || f.fn === 'free')) {
+        throw new Error(`${where}: both sides need a field`)
+      }
+      const srcExpr = buildJoinKeyExpr(pair.srcFields, pair.combineExpr, labelToInputId, pair.srcInputId, `${where}, source side`)
+      const dstExpr = buildJoinKeyExpr(dstFields, pair.dstCombineExpr ?? '', labelToInputId, null, `${where}, lookup side`)
 
-      // Il dst_field è il primo campo del dst — usato come chiave
-      // per l'HashMap di materializzazione
-      const primaryDstField = pair.dstFields?.[0]?.field ?? ''
-
-      return [{
+      return {
         src_key_expr: srcExpr,
-        dst_field:    primaryDstField,
+        // Il primo campo del lookup: chiave di ripiego del motore.
+        dst_field:    dstFields[0]?.field ?? '',
         dst_key_expr: dstExpr,
-      }]
+      }
     })
 
     return {
       input_id:   inputId,
       label:      inp.label,
-      join_type:  (inp.joinType as 'inner' | 'left' | 'first') ?? 'left',
+      // 'none' (vecchie config) e l'assente valgono 'left', come il default.
+      join_type:  inp.joinType === 'inner' || inp.joinType === 'first' ? inp.joinType : 'left',
       join_pairs: joinPairs,
     }
   })
 }
 
 // ─── Costruisce l'ExprNode per una chiave join ────────────────────
+// P371: tutto passa da FPEL (joinKey.ts), la stessa forma dell'anteprima.
+// Prima: la "free expression" non scritta come `row.campo` diventava una
+// COSTANTE (tutte le righe con la stessa chiave), "regex extract" dava
+// true/false, e la combinazione automatica salvata in JavaScript fermava il
+// Run. `qualifyInput`: i campi nudi diventano campi di quell'input.
 
 function buildJoinKeyExpr(
   fields:         JoinFieldExpr[],
   combineExpr:    string,
-  inputId:        string,
   labelToInputId: Map<string, string>,
-  inputFields:    Map<string, Map<string, string>>,
+  qualifyInput:   string | null,
+  where:          string,
 ): ExprNode {
-  if (!fields || fields.length === 0) {
-    return { kind: 'Literal', value: null }
+  const used = (fields ?? []).filter((f) => f.field || f.fn === 'free')
+  const compile = (text: string): ExprNode => {
+    try {
+      const e = compileFpel(text, { labelToInputId, userFunctions: userFnScope }) as ExprNode
+      return qualifyInput ? qualifica(e, qualifyInput) : e
+    } catch (err) {
+      const detail = err instanceof ExprParseError ? err.pretty() : String(err)
+      throw new Error(`${where}: ${detail}`)
+    }
   }
 
-  if (fields.length === 1) {
-    return buildJoinFieldExpr(fields[0], inputId, labelToInputId)
+  const manual = (combineExpr ?? '').trim()
+  if (used.length > 1 && manual && !isLegacyJsKey(manual)) {
+    return compile(expandCombine(manual, used))
   }
+  const parts = used.map((f) => compile(joinFieldFpel(f.field, f.fn, f.arg1, f.arg2)))
+  if (parts.length === 1) return parts[0]
 
-  // Chiave composta: usa combineExpr se presente, altrimenti concatenazione
-  if (combineExpr) {
-    return parseExpressionString(combineExpr, labelToInputId, inputFields)
-  }
-
-  // Concatenazione automatica con separatore "-"
-  let result: ExprNode = buildJoinFieldExpr(fields[0], inputId, labelToInputId)
-  for (let i = 1; i < fields.length; i++) {
+  // Combinazione automatica: i campi uniti da "-".
+  let result: ExprNode = parts[0]
+  for (let i = 1; i < parts.length; i++) {
     result = {
-      kind: 'BinaryOp',
-      op: 'CONCAT',
+      kind: 'BinaryOp', op: 'CONCAT',
       left: { kind: 'BinaryOp', op: 'CONCAT', left: result, right: { kind: 'Literal', value: '-' } },
-      right: buildJoinFieldExpr(fields[i], inputId, labelToInputId),
+      right: parts[i],
     }
   }
   return result
 }
 
-function buildJoinFieldExpr(
-  jf:             JoinFieldExpr,
-  inputId:        string,
-  labelToInputId: Map<string, string>,
-): ExprNode {
-  if (jf.fn === 'free' && jf.arg1) {
-    // Espressione libera — parsala come stringa
-    return parseJoinTransformExpr(jf.arg1, inputId, labelToInputId)
+/** DirectFieldRef → FieldRef dell'input indicato (in profondità). */
+function qualifica(n: ExprNode, input: string): ExprNode {
+  switch (n.kind) {
+    case 'DirectFieldRef': return { kind: 'FieldRef', input, field: n.field }
+    case 'BinaryOp':       return { ...n, left: qualifica(n.left, input), right: qualifica(n.right, input) }
+    case 'UnaryOp':        return { ...n, expr: qualifica(n.expr, input) }
+    case 'Cast':           return { ...n, expr: qualifica(n.expr, input) }
+    case 'IsNull':         return { ...n, expr: qualifica(n.expr, input) }
+    case 'IsNotNull':      return { ...n, expr: qualifica(n.expr, input) }
+    case 'FunctionCall':   return n.name === 'var' ? n : { ...n, args: n.args.map((a) => qualifica(a, input)) }
+    case 'Coalesce':       return { ...n, args: n.args.map((a) => qualifica(a, input)) }
+    case 'CaseWhen':       return {
+      ...n,
+      branches: n.branches.map((b) => ({ condition: qualifica(b.condition, input), value: qualifica(b.value, input) })),
+      default:  n.default ? qualifica(n.default, input) : null,
+    }
+    default: return n
   }
-
-  const baseExpr: ExprNode = { kind: 'DirectFieldRef', field: jf.field }
-
-  switch (jf.fn) {
-    case 'none':   return baseExpr
-    case 'trim':   return { kind: 'FunctionCall', name: 'trim',  args: [baseExpr] }
-    case 'lower':  return { kind: 'FunctionCall', name: 'lower', args: [baseExpr] }
-    case 'upper':  return { kind: 'FunctionCall', name: 'upper', args: [baseExpr] }
-    case 'year':   return { kind: 'FunctionCall', name: 'year',  args: [baseExpr] }
-    case 'month':  return { kind: 'FunctionCall', name: 'month', args: [baseExpr] }
-    case 'day':    return { kind: 'FunctionCall', name: 'day',   args: [baseExpr] }
-    case 'date':   return { kind: 'FunctionCall', name: 'substring', args: [baseExpr, { kind: 'Literal', value: 0 }, { kind: 'Literal', value: 10 }] }
-    case 'substr': return { kind: 'FunctionCall', name: 'substring', args: [
-      baseExpr,
-      { kind: 'Literal', value: parseInt(jf.arg1 || '0') },
-      { kind: 'Literal', value: parseInt(jf.arg2 || '8') },
-    ]}
-    case 'regex':  return { kind: 'FunctionCall', name: 'regex_match', args: [baseExpr, { kind: 'Literal', value: jf.arg1 || '(.+)' }] }
-    default:       return baseExpr
-  }
-}
-
-function parseJoinTransformExpr(
-  expr:           string,
-  _inputId:        string,
-  labelToInputId: Map<string, string>,
-): ExprNode {
-  // Trasforma "row.campo" → DirectFieldRef
-  const rowMatch = expr.match(/^row\.(\w+)$/)
-  if (rowMatch) return { kind: 'DirectFieldRef', field: rowMatch[1] }
-  // Trasforma "$label.campo" → FieldRef
-  const dollarMatch = expr.match(/^\$(\w+)\.(\w+)$/)
-  if (dollarMatch) {
-    const id = labelToInputId.get(dollarMatch[1])
-    if (id) return { kind: 'FieldRef', input: id, field: dollarMatch[2] }
-  }
-  // Fallback: literal stringa (espressione non parsabile)
-  return { kind: 'Literal', value: expr }
 }
 
 // ─── Transforms ───────────────────────────────────────────────────

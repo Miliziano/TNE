@@ -2198,3 +2198,32 @@ Audit di configurazione, JSON Parser.
   solo Error Handler il nodo appariva enorme) e `minZoom = 0.2` (i flussi grandi entrano).
   Verificato con uno screenshot (playwright) dello studio in vite: scala 0.8.
 - Error Handler: testi del nodo in inglese ("always active · N rules").
+
+## AGGIORNAMENTO — TMap: chiavi di join, tipi in uscita, pulizia `status.*` (stato al P371, 26 ottobre)
+
+Audit di configurazione, TMap.
+- **Chiavi di join** (`src/nodes/types/tmap/joinKey.ts`, usato da modale e builder): ogni
+  funzione ha la sua forma FPEL. Bug chiusi: espressione libera non `row.x` → Literal (tutte
+  le chiavi uguali); "regex extract" → regex_match (true/false) — nuova funzione FPEL
+  `regex_extract` (motore + `functions.ts` + manuale); combinazione automatica salvata in
+  JavaScript nel `combineExpr` → il parser FPEL fermava il Run (ora vuota = automatica, non
+  si salva; a mano: FPEL con `$0`, `$1`); substring descritto come (start, length), come fa
+  il motore; coppia senza campi → errore chiaro. Lato sorgente i campi sono `FieldRef`
+  dell'input (`qualifica`), il motore registra il main anche col suo id
+  (`compute_src_key`) e la riga del lookup col suo id e label (`compute_lookup_key`).
+  `joinType` 'none' → 'left'.
+- **Tipi in uscita**: `build_output_row` applica il tipo (`convert_value`), tranne `string`
+  (ripiego quando non si deduce); non convertibili tenuti e contati nel log.
+- **Etichette**: `labelRefs.ts` (`renameInputLabel`, `inputFieldRef`). Rinominare un ingresso
+  aggiorna trasformazioni, campi e filtri (prima cercava `$Etichetta.campo` → trasformazioni
+  con l'etichetta vecchia, Run fermo); togliere un campo da una trasformazione non riscrive
+  più in forma `$…` (rifiutata da FPEL).
+- **`status.*`**: `normalizeTMap` li toglie (campi e collegamenti) al caricamento; tolta la
+  sezione dalla modale e i filtri inerti (schemaUtils, schemaRegistry, explode, bridge,
+  xml_parser, source_file, flowStore, analyzeTMapColumnUsage). `normalizeTMap` riporta anche
+  le combinazioni JavaScript a vuote e `row.campo` → `campo` nelle espressioni libere.
+- Collaudo: test `tests_regex_extract`; piani costruiti con `buildTMapPlan` vero (esbuild) e
+  eseguiti: join upper/upper, catena Clienti→Zone con campo omonimo nel main, regex 2024/1999,
+  chiave composta automatica (da JavaScript salvato) e manuale `$0 + "-" + upper($1)`, reject
+  inner, qty "12" → 12 e "x" contato; helper delle etichette provati con esbuild.
+  Prossimo: XML Parser, poi JSON/XML Serializer.

@@ -144,7 +144,7 @@ export function propagateBridgeInSchema(
       const input = tmap.inputs.find((i: any) => i.id === edge.targetHandle)
       if (!input) return
       const existingNames = new Set(
-        input.fields.filter((f: any) => !f.name.startsWith('status.')).map((f: any) => f.name),
+        input.fields.map((f: any) => f.name),
       )
       const merged = [
         ...input.fields,

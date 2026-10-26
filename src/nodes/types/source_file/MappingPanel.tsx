@@ -191,7 +191,7 @@ export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
 
       const merged = [
         ...input.fields
-          .filter((f) => f.name.startsWith('status.') || newFieldNames.has(f.name) || renames.some((r) => r.oldName === f.name))
+          .filter((f) => newFieldNames.has(f.name) || renames.some((r) => r.oldName === f.name))
           .map((f) => {
             const rename = renames.find((r) => r.oldName === f.name)
             if (rename) return { ...f, name: rename.newName }

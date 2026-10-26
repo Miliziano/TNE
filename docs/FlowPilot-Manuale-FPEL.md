@@ -239,6 +239,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `title_case(s)` | string | `titlecase` | Ogni Parola Maiuscola |
 | `remove_accents(s)` | string | `removeaccents` | Rimuove gli accenti |
 | `to_slug(s)` | string | `toslug` | Testo-normalizzato-per-url |
+| `regex_extract(s, pattern)` | string | `regexextract` | Il primo gruppo catturato (o tutta la corrispondenza se il pattern non ha gruppi); null se non combacia |
 | `replace_regex(s, pattern, sost)` | string | `replaceregex` | Sostituisce via espressione regolare |
 | `mask_email(s)` | string | `maskemail` | m****@dominio.it |
 | `mask_card(s)` | string | `maskcard` | Mostra solo le ultime 4 cifre |

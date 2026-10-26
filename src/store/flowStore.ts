@@ -1,4 +1,5 @@
 import { SINK_FILE_SIGNAL_SCHEMA_JSON } from '../nodes/types/sink_file/schema'
+import { stripRowPrefix, isLegacyJsKey } from '../nodes/types/tmap/joinKey'
 import { ftpFixedSchema } from '../nodes/types/source_ftp/schema'
 import { MATERIALIZE_SIGNAL_SCHEMA_JSON } from '../nodes/types/materialize/schema'
 import { scheduleCanvasValidation, runCompilation, runCodegen } from '../ir/pipeline'
@@ -166,10 +167,52 @@ export const updateNode = (
 /** Normalizza i nodi di un progetto caricato: Start/End salvati come non
  *  cancellabili (prima erano obbligatori) diventano cancellabili. */
 export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
-  return nodes.map((n) => normalizeJsonParser(normalizeMaterialize(normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
+  return nodes.map((n) => normalizeTMap(normalizeJsonParser(normalizeMaterialize(normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
     (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
       ? { ...n, deletable: true }
-      : n))))))
+      : n)))))))
+}
+
+/**
+ * TMap (P371).
+ *  - i campi `status.*` degli ingressi (status.ok, status.rows_written…):
+ *    li aggiungeva lo studio, il motore non li ha mai prodotti (sempre null);
+ *    via anche i collegamenti che li usavano;
+ *  - chiavi di join: la combinazione salvata in JavaScript dalle versioni
+ *    precedenti (`row.a + '-' + …`) torna automatica (vuota); nelle
+ *    espressioni libere `row.campo` diventa `campo` (FPEL).
+ */
+function normalizeTMap(n: FlowNode<NodeData>): FlowNode<NodeData> {
+  if (n.data?.type !== 'tmap') return n
+  const tmap = (n.data.config as any)?.tmap
+  if (!tmap || !Array.isArray(tmap.inputs)) return n
+  let changed = false
+  const isStatus = (name: unknown) => typeof name === 'string' && name.startsWith('status.')
+  const fixField = (f: any) => {
+    if (f?.fn === 'free' && typeof f.arg1 === 'string' && /\brow\./.test(f.arg1)) {
+      changed = true
+      return { ...f, arg1: stripRowPrefix(f.arg1) }
+    }
+    return f
+  }
+  const inputs = tmap.inputs.map((inp: any) => {
+    const fields = (inp.fields ?? []).filter((f: any) => !isStatus(f?.name))
+    if (fields.length !== (inp.fields ?? []).length) changed = true
+    const joinPairs = Array.isArray(inp.joinPairs) ? inp.joinPairs.map((p: any) => {
+      const q = { ...p, srcFields: (p.srcFields ?? []).map(fixField), dstFields: p.dstFields ? p.dstFields.map(fixField) : p.dstFields }
+      if (isLegacyJsKey(p.combineExpr))    { q.combineExpr = '';    changed = true }
+      if (isLegacyJsKey(p.dstCombineExpr)) { q.dstCombineExpr = ''; changed = true }
+      return q
+    }) : inp.joinPairs
+    return { ...inp, fields, joinPairs }
+  })
+  const connections = Array.isArray(tmap.connections)
+    ? tmap.connections.filter((c: any) => !isStatus(c?.fieldName))
+    : tmap.connections
+  if (Array.isArray(tmap.connections) && connections.length !== tmap.connections.length) changed = true
+  return changed
+    ? { ...n, data: { ...n.data, config: { ...n.data.config, tmap: { ...tmap, inputs, connections } } } }
+    : n
 }
 
 /**
@@ -821,7 +864,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
                 const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
                 if (!input) return
                 const existingNames = new Set(
-                  input.fields.filter((f) => !f.name.startsWith('status.')).map((f) => f.name)
+                  input.fields.map((f) => f.name)
                 )
                 const merged = [
                   ...input.fields,
@@ -890,7 +933,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
                 const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
                 if (!input) return
                 const existingNames = new Set(
-                  input.fields.filter((f) => !f.name.startsWith('status.')).map((f) => f.name)
+                  input.fields.map((f) => f.name)
                 )
                 const merged = [
                   ...input.fields.map((f) => {

@@ -237,7 +237,7 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
         const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
         if (!input) return
         const existingNames = new Set(
-          input.fields.filter((f) => !f.name.startsWith('status.')).map((f) => f.name)
+          input.fields.map((f) => f.name)
         )
         const merged = [
           ...input.fields,

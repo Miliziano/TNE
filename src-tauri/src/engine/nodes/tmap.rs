@@ -26,6 +26,14 @@
 //         MULTI-MATCH verso gli output (filtro indipendente per
 //         output; nessun filtro = tutte le righe)
 //
+//   P371: le chiavi di join leggono i campi per esteso — lato sorgente
+//   l'input da cui vengono (main incluso, registrato anche col suo id),
+//   lato lookup la riga del lookup (registrata anche col suo id e label).
+//   Prima un campo omonimo fra main e lookup poteva dare la chiave
+//   sbagliata. I campi d'uscita prendono il TIPO dichiarato (field_mapping::
+//   convert_value), tranne `string`; un valore non convertibile resta com'è
+//   e si conta.
+//
 //   Es. dvdrental: film(main) ⋈ film_actor(inner, per film_id) ⋈
 //   actor(inner, per actor_id) → un film con 4 attori produce 4
 //   righe in uscita; il JSON Serializer a valle le riaggrega con
@@ -134,7 +142,7 @@ pub async fn run(
 
         while let Some(lkp_row) = rx.recv().await {
             count += 1;
-            let key = compute_lookup_key(&lkp_row, &lookup_plan.join_pairs, &variables)?;
+            let key = compute_lookup_key(&lkp_row, &lookup_plan, &variables)?;
             index.entry(key).or_default().push(lkp_row);
         }
 
@@ -150,6 +158,8 @@ pub async fn run(
     let mut rows_rejected: u64 = 0;   // righe main senza combinazioni valide
     // Fase 8: conteggi per handle di uscita (output_id → righe)
     let mut per_out: HashMap<String, u64> = HashMap::new();
+    // P371: "output.campo" → (valori non convertibili al tipo, tipo)
+    let mut failed: HashMap<String, (u64, String)> = HashMap::new();
 
     // Variabili di lane mutabili
     let mut lane_vars: HashMap<String, Value> = variables
@@ -172,7 +182,7 @@ pub async fn run(
             let mut next: Vec<HashMap<String, Row>> = Vec::new();
 
             for combo in &combos {
-                let src_key = compute_src_key(lkp, &main_row, combo, &variables);
+                let src_key = compute_src_key(lkp, &main_row, plan.main_input_id.as_str(), combo, &variables);
 
                 match lkp.index.get(&src_key).filter(|r| !r.is_empty()) {
                     Some(rows) => {
@@ -225,7 +235,7 @@ pub async fn run(
                     &plan.transforms, &inputs, &mut lane_vars, plan.main_input_id.as_str());
                 inputs.insert("__transforms__".to_string(), transform_row.clone());
                 if let Some(tx) = output_txs.get(i) {
-                    let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars);
+                    let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars, &mut failed);
                     let _ = tx.send(out_row).await;
                     rows_out += 1;
                     *per_out.entry("output_rejected".to_string()).or_insert(0) += 1;
@@ -268,7 +278,7 @@ pub async fn run(
 
                 if passes {
                     if let Some(tx) = output_txs.get(i) {
-                        let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars);
+                        let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars, &mut failed);
                         if tx.send(out_row).await.is_err() { continue; }
                         rows_out += 1;
                         *per_out.entry(output.output_id.clone()).or_insert(0) += 1;
@@ -281,6 +291,14 @@ pub async fn run(
             let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
             ctx.emit_progress(rows_in, rows_out, rows_rejected, rps);
         }
+    }
+
+    let mut keys: Vec<&String> = failed.keys().collect();
+    keys.sort();
+    for k in keys {
+        let (n, ty) = &failed[k];
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "field '{}': {} value(s) could not be converted to {} and were kept as they are", k, n, ty), "panel");
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -343,22 +361,25 @@ fn compute_transforms(
 /// Calcola la chiave di join per indicizzare una riga lookup (fase 1)
 fn compute_lookup_key(
     lkp_row:    &Row,
-    join_pairs: &[TMapJoinPairPlan],
+    lookup:     &TMapLookupPlan,
     variables:  &HashMap<String, Value>,
 ) -> Result<String, String> {
-    if join_pairs.is_empty() { return Ok(String::new()); }
+    if lookup.join_pairs.is_empty() { return Ok(String::new()); }
 
     let mut key_parts = Vec::new();
 
-    for pair in join_pairs {
+    for pair in &lookup.join_pairs {
         let default_expr = ExprNode::DirectFieldRef {
             field: pair.dst_field.clone(),
         };
         let key_expr = pair.dst_key_expr.as_ref().unwrap_or(&default_expr);
 
-        // Contesto minimale: solo la riga lookup corrente
+        // Contesto minimale: solo la riga lookup corrente — anche col suo id
+        // e la sua label, per le espressioni che la citano per esteso.
         let mut single: HashMap<&str, &Row> = HashMap::new();
         single.insert("__current__", lkp_row);
+        single.insert(lookup.input_id.as_str(), lkp_row);
+        single.insert(lookup.label.as_str(), lkp_row);
         let ctx = EvalContext::multi(single, variables);
         let val = eval(key_expr, &ctx);
         key_parts.push(val.as_str_repr());
@@ -373,6 +394,7 @@ fn compute_lookup_key(
 fn compute_src_key(
     lkp:       &MaterializedLookup,
     main_row:  &Row,
+    main_id:   &str,
     combo:     &HashMap<String, Row>,
     variables: &HashMap<String, Value>,
 ) -> String {
@@ -381,10 +403,11 @@ fn compute_src_key(
     for pair in &lkp.plan.join_pairs {
         let mut refs: HashMap<&str, &Row> = HashMap::new();
         refs.insert("main", main_row);
+        refs.insert(main_id, main_row);
         for (k, r) in combo {
             refs.insert(k.as_str(), r);
         }
-        let ctx = EvalContext::multi(refs, variables);
+        let ctx = EvalContext::multi_con_main(refs, variables, main_id);
         let val = eval(&pair.src_key_expr, &ctx);
         key_parts.push(val.as_str_repr());
     }
@@ -398,6 +421,7 @@ fn build_output_row(
     inputs:        &HashMap<String, Row>,
     transform_row: &Row,
     variables:     &HashMap<String, Value>,
+    failed:        &mut HashMap<String, (u64, String)>,
 ) -> Row {
     let mut out_row = Row::new();
 
@@ -411,6 +435,19 @@ fn build_output_row(
 
     for field in &output.fields {
         let val = eval(&field.expr, &eval_ctx);
+        // P371: il tipo dichiarato (o dedotto dallo studio) si applica. Non
+        // `string`: è anche il ripiego quando lo studio non deduce il tipo, e
+        // trasformare in testo un numero romperebbe le scritture a valle.
+        let val = if field.r#type == "string" { Ok(val) } else {
+            crate::engine::field_mapping::convert_value(&val, &field.r#type, "none")
+        };
+        let val = match val {
+            Ok(v) => v,
+            Err((kept, target)) => {
+                failed.entry(format!("{}.{}", output.label, field.name)).or_insert((0, target)).0 += 1;
+                kept
+            }
+        };
         out_row.set(field.name.clone(), val);
     }
 

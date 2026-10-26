@@ -135,7 +135,7 @@ export function analyzeTMapColumnUsage(tmap: TMapConfig): ColumnUsageResult {
   // tenere il set esplicito — promuovi a wildcard per semplicità.
   for (const inp of tmap.inputs) {
     if (wildcardInputs.has(inp.id)) continue
-    const totalFields = inp.fields.filter(f => !f.name.startsWith('status.')).length
+    const totalFields = inp.fields.length
     if (totalFields > 0 && usage[inp.id].size >= totalFields) {
       wildcardInputs.add(inp.id)
       usage[inp.id] = new Set([WILDCARD])
@@ -150,7 +150,7 @@ export function analyzeTMapColumnUsage(tmap: TMapConfig): ColumnUsageResult {
   // ── 8. Statistiche debug ──────────────────────────────────────
   const stats: ColumnUsageResult['stats'] = {}
   for (const inp of tmap.inputs) {
-    const total  = inp.fields.filter(f => !f.name.startsWith('status.')).length
+    const total  = inp.fields.length
     const isWild = wildcardInputs.has(inp.id)
     const used   = isWild ? total : usage[inp.id].size
     stats[inp.id] = { total, used, pruned: total - used }

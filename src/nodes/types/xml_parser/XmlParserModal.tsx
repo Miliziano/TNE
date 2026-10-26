@@ -611,10 +611,9 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
           const input = tmap.inputs.find((i) => i.id === edge.targetHandle)
           if (!input) return
           const existingIds   = new Set(input.fields.map((f) => f.id))
-          const existingNames = new Set(input.fields.filter((f) => !f.name.startsWith('status.')).map((f) => f.name))
+          const existingNames = new Set(input.fields.map((f) => f.name))
           const updatedFields = [
             ...input.fields.map((existing) => {
-              if (existing.name.startsWith('status.')) return existing
               const incoming = schema.find((s) => s.id === existing.id || s.name === existing.name)
               return incoming ? { ...existing, type: incoming.type as any } : existing
             }),

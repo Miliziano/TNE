@@ -567,8 +567,7 @@ function mergeIntoTMapInput(
   } catch {}
 
   const incomingById  = new Map(fields.map((f) => [f.id, f]))
-  const statusFields  = input.fields.filter((f) => f.name.startsWith('status.'))
-  const regularFields = input.fields.filter((f) => !f.name.startsWith('status.'))
+  const regularFields = input.fields
 
   const kept: TMapInputField[] = []
   for (const existing of regularFields) {
@@ -598,7 +597,7 @@ function mergeIntoTMapInput(
     }
   }
 
-  store.updateTMapInput(tgt.id, input.id, { fields: [...statusFields, ...kept] })
+  store.updateTMapInput(tgt.id, input.id, { fields: kept })
   store.updateNodeProp(tgt.id, prevKey, JSON.stringify(fields.map((f) => f.id)))
 }
 

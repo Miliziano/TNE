@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { JOIN_TRANSFORMS, joinFieldFpel, autoCombineFpel, expandCombine, isLegacyJsKey } from './joinKey'
+import { renameInputLabel, inputFieldRef } from './labelRefs'
 import { createPortal } from 'react-dom'
 import { TabGeneral }  from '../../../components/tabs/TabGeneral'
 import { TabAdvanced } from '../../../components/tabs/TabAdvanced'
 import '@xyflow/react/dist/style.css'
 import { updateNode, useFlowStore } from '../../../store/flowStore'
 import { riferimentoInput } from '../../../ir/exprParser'
-import type { TMapConfig, TMapInputField, TMapFieldType, TMapConnection, TMapTransformNode } from '../../../types'
+import type { TMapConfig, TMapFieldType, TMapConnection, TMapTransformNode } from '../../../types'
 import type { TransformCategory } from '../../../transforms/catalog'
 import { FieldTransformEditor } from '../../../components/FieldTransformEditor'
 import { CustomSelect } from '../../../components/CustomSelect'
@@ -59,26 +61,12 @@ export interface JoinPair {
 }
 
 // ─── Trasformazioni guidate ───────────────────────────────────────
-export const JOIN_TRANSFORMS = [
-  { id: 'none',   label: 'none',            fn: (f: string) => `row.${f}` },
-  { id: 'trim',   label: 'trim',               fn: (f: string) => `String(row.${f}??'').trim()` },
-  { id: 'lower',  label: 'lowercase',          fn: (f: string) => `String(row.${f}??'').toLowerCase()` },
-  { id: 'upper',  label: 'uppercase',          fn: (f: string) => `String(row.${f}??'').toUpperCase()` },
-  { id: 'year',   label: 'extract year',        fn: (f: string) => `new Date(row.${f}).getFullYear()` },
-  { id: 'month',  label: 'extract month',        fn: (f: string) => `new Date(row.${f}).getMonth()+1` },
-  { id: 'day',    label: 'extract day',      fn: (f: string) => `new Date(row.${f}).getDate()` },
-  { id: 'date',   label: 'extract date',        fn: (f: string) => `String(row.${f}??'').split('T')[0]` },
-  { id: 'substr', label: 'substring(n,m)',     fn: (f: string, a='0', b='8') => `String(row.${f}??'').substring(${a},${b})` },
-  { id: 'regex',  label: 'regex extract',      fn: (f: string, p='(.+)') => `(String(row.${f}??'').match(/${p}/)||[])[1]??''` },
-  { id: 'free',   label: 'free expression', fn: (f: string) => `row.${f}` },
-]
+// P371: definite in joinKey.ts (FPEL), le stesse del builder del piano.
+export { JOIN_TRANSFORMS } from './joinKey'
 
+/** Anteprima del campo con la sua funzione (FPEL). */
 export function buildExpr(field: string, fnId: string, arg1: string, arg2: string): string {
-  if (!field) return ''
-  if (fnId === 'substr') return `String(row.${field}??'').substring(${arg1||'0'},${arg2||'8'})`
-  if (fnId === 'regex')  return `(String(row.${field}??'').match(/${arg1||'(.+)'}/)||[])[1]??''`
-  if (fnId === 'free')   return arg1 || `row.${field}`
-  return JOIN_TRANSFORMS.find((t) => t.id === fnId)?.fn(field) ?? `row.${field}`
+  return joinFieldFpel(field, fnId, arg1, arg2)
 }
 
 // ─── Colore flusso ────────────────────────────────────────────────
@@ -106,12 +94,12 @@ function FnEditor({ value, arg1, arg2, onChange, accentColor }: {
       </CustomSelect>
       {value === 'substr' && (
         <div style={{ display: 'flex', gap: 4 }}>
-          <input style={{ ...iStyle, width: 60, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="inizio" />
-          <input style={{ ...iStyle, width: 60, fontSize: 9 }} value={arg2} onChange={(e) => onChange({ arg2: e.target.value })} placeholder="fine" />
+          <input style={{ ...iStyle, width: 60, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="start (0 = first)" title="Position of the first character, 0 = the first" />
+          <input style={{ ...iStyle, width: 60, fontSize: 9 }} value={arg2} onChange={(e) => onChange({ arg2: e.target.value })} placeholder="length" title="Number of characters" />
         </div>
       )}
-      {value === 'regex' && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="pattern es: (\d{4})" />}
-      {value === 'free'  && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="e.g. row.field.split('-')[0]" />}
+      {value === 'regex' && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="pattern e.g. (\d{4}) — first group, or the whole match" />}
+      {value === 'free'  && <input style={{ ...iStyle, fontSize: 9 }} value={arg1} onChange={(e) => onChange({ arg1: e.target.value })} placeholder="FPEL, e.g. upper(trim(code))" />}
     </div>
   )
 }
@@ -183,40 +171,32 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
   const addSrcField = (pairId: string) => setPairs((ps) => ps.map((p) => {
     if (p.id !== pairId) return p
     const newFields = [...p.srcFields, { id: `jf_${Date.now()}`, field: '', fn: 'none', arg1: '', arg2: '' }]
-    const oldAuto   = autoExpr(p.srcFields)
-    const isAuto    = !p.combineExpr || p.combineExpr === oldAuto
-    return { ...p, srcFields: newFields, combineExpr: isAuto ? autoExpr(p.srcFields) : p.combineExpr }
+    return { ...p, srcFields: newFields }
   }))
   const removeSrcField = (pairId: string, idx: number) => setPairs((ps) => ps.map((p) => p.id !== pairId ? p : {
     ...p, srcFields: p.srcFields.filter((_, i) => i !== idx),
   }))
   // Costruisce l'espressione automatica da una lista di campi
+  // P371: la combinazione automatica non si salva (vuota = automatica).
   function autoExpr(fields: JoinFieldExpr[]): string {
-    return fields.map((f) => f.field ? buildExpr(f.field, f.fn, f.arg1, f.arg2) : '').filter(Boolean).join(" + '-' + ")
+    return autoCombineFpel(fields)
   }
 
-  // Aggiorna un campo sorgente e ricalcola combineExpr se non è in modalità manuale
+  // Aggiorna un campo sorgente (la combinazione automatica non si salva, P371)
   const updateSrcField = (pairId: string, idx: number, patch: Partial<JoinFieldExpr>) =>
     setPairs((ps) => ps.map((p) => {
       if (p.id !== pairId) return p
       const newFields = p.srcFields.map((f, i) => i === idx ? { ...f, ...patch } : f)
-      // Ricalcola combineExpr se il vecchio valore era auto o vuoto
-      const oldAuto   = autoExpr(p.srcFields)
-      const isAuto    = !p.combineExpr || p.combineExpr === oldAuto
-      const newExpr   = isAuto && newFields.length > 1 ? autoExpr(newFields) : p.combineExpr
-      return { ...p, srcFields: newFields, combineExpr: newExpr }
+      return { ...p, srcFields: newFields }
     }))
 
-  // Aggiorna un campo destinatario e ricalcola dstCombineExpr se non è in modalità manuale
+  // Aggiorna un campo destinatario (idem)
   const updateDstField = (pairId: string, idx: number, patch: Partial<JoinFieldExpr>) =>
     setPairs((ps) => ps.map((p) => {
       if (p.id !== pairId) return p
       const dstArr    = p.dstFields ?? []
       const newFields = dstArr.map((f, i) => i === idx ? { ...f, ...patch } : f)
-      const oldAuto   = autoExpr(dstArr)
-      const isAuto    = !p.dstCombineExpr || p.dstCombineExpr === oldAuto
-      const newExpr   = isAuto && newFields.length > 1 ? autoExpr(newFields) : (p.dstCombineExpr ?? '')
-      return { ...p, dstFields: newFields, dstCombineExpr: newExpr }
+      return { ...p, dstFields: newFields }
     }))
 
   const addDstField = (pairId: string) => setPairs((ps) => ps.map((p) => {
@@ -234,7 +214,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
   }))
 
   // Campi del flusso destinatario (questo lookup)
-  const dstFields = inp.fields.filter((f) => !f.name.startsWith('status.'))
+  const dstFields = inp.fields
 
   // Altri flussi disponibili come sorgente (tutto tranne questo lookup)
   const srcInputs = tmap.inputs.filter((i) => i.id !== inp.id)
@@ -272,7 +252,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
 
         {/* Tipo join — sopra lo scroll */}
         <div style={{ padding: '8px 16px', borderBottom: '1px solid #2a3349', background: '#161b27', display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ fontSize: 9, color: '#8593b5', marginRight: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Tipo join</span>
+          <span style={{ fontSize: 9, color: '#8593b5', marginRight: 4, textTransform: 'uppercase', letterSpacing: '.06em' }}>Join type</span>
           {(['inner', 'left', 'first'] as const).map((jt) => {
             const jc = JOIN_TYPE_COLORS[jt]
             return (
@@ -300,7 +280,7 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
           {pairs.map((pair, pairIdx) => {
             const srcInp    = tmap.inputs.find((i) => i.id === pair.srcInputId)
             const srcColor  = pair.srcInputId ? getInputColor(tmap, pair.srcInputId) : '#8593b5'
-            const srcFields = srcInp?.fields.filter((f) => !f.name.startsWith('status.')) ?? []
+            const srcFields = srcInp?.fields ?? []
 
             return (
               <div key={pair.id} style={{ background: '#1a2030', borderRadius: 8, border: `1px solid ${srcColor}30`, overflow: 'hidden', flexShrink: 0 }}>
@@ -414,32 +394,32 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                     {/* Espressione combinazione se N>1 */}
                     {pair.srcFields.length > 1 && (() => {
                       const auto    = autoExpr(pair.srcFields)
-                      const isAuto  = !pair.combineExpr || pair.combineExpr === auto
+                      const isAuto  = !pair.combineExpr || isLegacyJsKey(pair.combineExpr)
                       return (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span>Combinazione</span>
+                            <span>Combination</span>
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 600,
                               background: isAuto ? 'color-mix(in srgb, #3ddc84 15%, #0f1117)' : 'color-mix(in srgb, #ffb347 15%, #0f1117)',
                               color: isAuto ? '#3ddc84' : '#ffb347',
                               border: isAuto ? '1px solid #3ddc8440' : '1px solid #ffb34740' }}>
-                              {isAuto ? '⟳ auto' : '✎ manuale'}
+                              {isAuto ? '⟳ auto' : '✎ manual'}
                             </span>
                             {!isAuto && (
-                              <button onClick={() => updatePair(pair.id, { combineExpr: auto })}
+                              <button onClick={() => updatePair(pair.id, { combineExpr: '' })}
                                 title="Restore automatic expression"
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3ddc84', fontSize: 9, padding: 0 }}>
-                                ripristina auto
+                                restore auto
                               </button>
                             )}
                           </div>
                           <input style={{ ...iStyle, borderColor: isAuto ? '#3ddc8430' : `${srcColor}40` }}
-                            value={pair.combineExpr || auto}
-                            onChange={(e) => updatePair(pair.id, { combineExpr: e.target.value })}
-                            placeholder={auto || "e.g. $0 + '-' + $1"} />
-                          {pair.combineExpr && (
+                            value={isAuto ? auto : pair.combineExpr}
+                            onChange={(e) => updatePair(pair.id, { combineExpr: e.target.value === auto ? '' : e.target.value })}
+                            placeholder={auto || 'e.g. $0 + "-" + $1'} />
+                          {!isAuto && (
                             <code style={{ display: 'block', marginTop: 3, fontSize: 9, color: '#3ddc84', padding: '2px 6px', background: '#0d1a10', borderRadius: 3, wordBreak: 'break-all' }}>
-                              → {pair.srcFields.reduce((acc, sf, i) => acc.replace(new RegExp(`\\$${i}`, 'g'), buildExpr(sf.field, sf.fn, sf.arg1, sf.arg2) || `$${i}`), pair.combineExpr || auto)}
+                              → {expandCombine(pair.combineExpr, pair.srcFields)}
                             </code>
                           )}
                         </div>
@@ -514,32 +494,32 @@ function JoinConfigModal({ inp, tmap, nodeId, onClose, onPairsChange }: {
                     {(pair.dstFields ?? []).length > 1 && (() => {
                       const dstArr  = pair.dstFields ?? []
                       const auto    = autoExpr(dstArr)
-                      const isAuto  = !pair.dstCombineExpr || pair.dstCombineExpr === auto
+                      const isAuto  = !pair.dstCombineExpr || isLegacyJsKey(pair.dstCombineExpr)
                       return (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ fontSize: 9, color: '#8593b5', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span>Combinazione</span>
+                            <span>Combination</span>
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 600,
                               background: isAuto ? 'color-mix(in srgb, #3ddc84 15%, #0f1117)' : 'color-mix(in srgb, #ffb347 15%, #0f1117)',
                               color: isAuto ? '#3ddc84' : '#ffb347',
                               border: isAuto ? '1px solid #3ddc8440' : '1px solid #ffb34740' }}>
-                              {isAuto ? '⟳ auto' : '✎ manuale'}
+                              {isAuto ? '⟳ auto' : '✎ manual'}
                             </span>
                             {!isAuto && (
-                              <button onClick={() => updatePair(pair.id, { dstCombineExpr: auto })}
+                              <button onClick={() => updatePair(pair.id, { dstCombineExpr: '' })}
                                 title="Restore automatic expression"
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3ddc84', fontSize: 9, padding: 0 }}>
-                                ripristina auto
+                                restore auto
                               </button>
                             )}
                           </div>
                           <input style={{ ...iStyle, borderColor: isAuto ? '#3ddc8430' : `${dstColor}40` }}
-                            value={pair.dstCombineExpr || auto}
-                            onChange={(e) => updatePair(pair.id, { dstCombineExpr: e.target.value })}
-                            placeholder={auto || "e.g. $0 + '-' + $1"} />
-                          {(pair.dstCombineExpr || auto) && (
+                            value={isAuto ? auto : (pair.dstCombineExpr ?? '')}
+                            onChange={(e) => updatePair(pair.id, { dstCombineExpr: e.target.value === auto ? '' : e.target.value })}
+                            placeholder={auto || 'e.g. $0 + "-" + $1'} />
+                          {!isAuto && (
                             <code style={{ display: 'block', marginTop: 3, fontSize: 9, color: '#3ddc84', padding: '2px 6px', background: '#0d1a10', borderRadius: 3, wordBreak: 'break-all' }}>
-                              → {dstArr.reduce((acc, df, i) => acc.replace(new RegExp(`\\$${i}`, 'g'), buildExpr(df.field, df.fn, df.arg1, df.arg2) || `$${i}`), pair.dstCombineExpr || auto)}
+                              → {expandCombine(pair.dstCombineExpr ?? '', dstArr)}
                             </code>
                           )}
                         </div>
@@ -610,66 +590,17 @@ function AddFieldRow({ color, label, onClick }: { color: string; label: string; 
   )
 }
 
-// ─── StatusFieldsSection ──────────────────────────────────────────
-function StatusFieldsSection({ fields, inputId, containerRef, onDragStart, onHover, color, onJoinDragStart }: {
-  fields: TMapInputField[]; inputId: string; containerRef: React.RefObject<HTMLDivElement | null>
-  onDragStart: (key: string, inputId: string, fieldName: string, color: string) => void
-  onHover: (key: string | null) => void; color: string
-  onJoinDragStart: (key: string, inputId: string, fieldName: string, color: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const registerHandle = useCallback((el: HTMLDivElement | null, key: string) => {
-    if (!el || !containerRef.current) return
-    const cr = containerRef.current.getBoundingClientRect(); const er = el.getBoundingClientRect()
-    inputHandleRefs.set(key, { x: er.right - cr.left, y: er.top + er.height / 2 - cr.top })
-  }, [containerRef])
-  const registerJoinHandle = useCallback((el: HTMLDivElement | null, key: string) => {
-    if (!el || !containerRef.current) return
-    const cr = containerRef.current.getBoundingClientRect(); const er = el.getBoundingClientRect()
-    joinHandleRefs.set(key, { x: er.left + er.width / 2 - cr.left, y: er.top + er.height / 2 - cr.top })
-  }, [containerRef])
-
-  return (
-    <>
-      <div onClick={() => setOpen((o) => !o)}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', background: '#0f1117', borderBottom: '0.5px solid #1a2030', cursor: 'pointer', userSelect: 'none' }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#141920' }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0f1117' }}>
-        <i className={`ti ${open ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ fontSize: 9, color: '#8593b5' }} />
-        <i className="ti ti-activity" style={{ fontSize: 10, color: '#8593b5' }} />
-        <span style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>status ({fields.length} fields)</span>
-      </div>
-      {open && fields.map((field) => {
-        const key = `${inputId}__${field.name}`; const joinKey = `${inputId}__${field.name}__join`
-        return (
-          <FieldRow key={field.name} fieldKey={key} onHover={onHover}>
-            <div ref={(el) => { if (el) registerJoinHandle(el as HTMLDivElement, joinKey) }}
-              data-join-handle={joinKey} data-join-input-id={inputId} data-join-field={field.name}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onJoinDragStart(joinKey, inputId, field.name, color) }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: '#8593b5', flexShrink: 0, cursor: 'crosshair', border: '2px solid #0f1117', opacity: 0.6 }} />
-            <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#8593b5', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.name}</span>
-            <span style={{ fontSize: 9, color: '#2a3349', padding: '1px 4px', background: '#1a2030', borderRadius: 3 }}>{field.type}</span>
-            <div ref={(el) => { if (el) registerHandle(el as HTMLDivElement, key) }}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onDragStart(key, inputId, field.name, '#8593b5') }}
-              style={{ width: 10, height: 10, borderRadius: '50%', background: '#2a3349', flexShrink: 0, cursor: 'crosshair', border: '2px solid #0f1117', marginRight: 2 }} />
-          </FieldRow>
-        )
-      })}
-    </>
-  )
-}
-
 // ─── removeFieldFromTransforms ────────────────────────────────────
 function removeFieldFromTransforms(nodeId: string, inputId: string, fieldName: string, tmap: TMapConfig) {
   if (!tmap.transforms?.length) return
   const inputLabel = tmap.inputs.find((i) => i.id === inputId)?.label ?? inputId
-  const removedVar = `$${inputLabel}.${fieldName}`
+  const removedVar = inputFieldRef(inputLabel, fieldName)
   const updatedTransforms = tmap.transforms.map((tr) => {
     if (!tr.inputs.some((i) => i.inputId === inputId && i.fieldName === fieldName)) return tr
     const newInputs = tr.inputs.filter((i) => !(i.inputId === inputId && i.fieldName === fieldName))
     const sep = tr.mode === 'script' ? '\n' : ' + '
     let newExpression = tr.expression.split(sep).map((p) => p.trim()).filter((p) => p !== removedVar).join(sep).trim()
-    if (newExpression === '' && newInputs.length > 0) newExpression = newInputs.map((i) => { const lbl = tmap.inputs.find((ti) => ti.id === i.inputId)?.label ?? i.inputId; return `$${lbl}.${i.fieldName}` }).join(sep)
+    if (newExpression === '' && newInputs.length > 0) newExpression = newInputs.map((i) => { const lbl = tmap.inputs.find((ti) => ti.id === i.inputId)?.label ?? i.inputId; return inputFieldRef(lbl, i.fieldName) }).join(sep)
     return { ...tr, inputs: newInputs, expression: newExpression }
   })
   useFlowStore.setState((s) => ({
@@ -901,8 +832,9 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
       <div ref={scrollRef as React.RefObject<HTMLDivElement>} style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 8px 14px' }}>
         {tmap.inputs.map((inp) => {
           const color        = getInputColor(tmap, inp.id)
-          const rowFields    = inp.fields.filter((f) => !f.name.startsWith('status.'))
-          const statusFields = inp.fields.filter((f) => f.name.startsWith('status.'))
+          // P371: i vecchi campi `status.*` (mai prodotti dal motore) si
+          // tolgono al caricamento del progetto (normalizeTMap).
+          const rowFields    = inp.fields
           const isConnected  = edges.some((e) => e.target === nodeId && e.targetHandle === inp.id)
           const joinPairs: JoinPair[] = (inp as any).joinPairs ?? []
 
@@ -922,24 +854,27 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                     const t = store.nodes.find((n) => n.id === nodeId)?.data.config?.tmap as TMapConfig | undefined
                     if (!t) return
 
-                    // Aggiorna transforms ($oldLabel.campo → $newLabel.campo)
+                    // P371: l'etichetta nuova nelle espressioni (trasformazioni,
+                    // campi e filtri delle uscite), nella forma FPEL — prima si
+                    // cercava `$Etichetta.campo` e le trasformazioni restavano
+                    // con l'etichetta vecchia.
                     const updatedTransforms = (t.transforms ?? []).map((tr) => {
-                      let expr = tr.expression
-                      tr.inputs.forEach((ti) => {
-                        expr = expr.split(`$${oldLabel}.${ti.fieldName}`).join(`$${newLabel}.${ti.fieldName}`)
-                      })
-                      return { ...tr, expression: expr }
+                      const expr = renameInputLabel(tr.expression ?? '', oldLabel, newLabel)
+                      return expr !== tr.expression ? { ...tr, expression: expr } : tr
                     })
 
-                    // Aggiorna expression dei campi di output (oldLabel.campo → newLabel.campo)
-                    const updatedOutputs = t.outputs.map((out) => ({
-                      ...out,
-                      fields: out.fields.map((f) => {
-                        if (!f.expression) return f
-                        const updated = f.expression.split(`${oldLabel}.`).join(`${newLabel}.`)
-                        return updated !== f.expression ? { ...f, expression: updated } : f
-                      }),
-                    }))
+                    const updatedOutputs = t.outputs.map((out) => {
+                      const filter = out.filter ? renameInputLabel(out.filter, oldLabel, newLabel) : out.filter
+                      return {
+                        ...out,
+                        filter,
+                        fields: out.fields.map((f) => {
+                          if (!f.expression) return f
+                          const updated = renameInputLabel(f.expression, oldLabel, newLabel)
+                          return updated !== f.expression ? { ...f, expression: updated } : f
+                        }),
+                      }
+                    })
 
                     useFlowStore.setState((s) => ({
                       nodes: updateNode(s.nodes, nodeId, (n) => {
@@ -956,7 +891,7 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                 </span>
                 <button onClick={(e) => {
                     e.stopPropagation()
-                    const rFields = inp.fields.filter((f) => !f.name.startsWith('status.')); if (rFields.length === 0) return
+                    const rFields = inp.fields; if (rFields.length === 0) return
                     const store = useFlowStore.getState(); const t = store.nodes.find((n) => n.id === nodeId)?.data.config?.tmap as TMapConfig | undefined
                     const OUTPUT_COLORS = ['#3ddc84', '#ff5f57', '#4a9eff', '#ffb347', '#a78bfa', '#22d3ee']
                     const outColor = OUTPUT_COLORS[(t?.outputs.length ?? 0) % OUTPUT_COLORS.length]
@@ -1045,10 +980,6 @@ function InputColumn({ nodeId, tmap, containerRef, onDragStart, onHover, scrollR
                       </FieldRow>
                     )
                   })}
-                  {statusFields.length > 0 && (
-                    <StatusFieldsSection fields={statusFields} inputId={inp.id} containerRef={containerRef}
-                      onDragStart={onDragStart} onHover={onHover} color={color} onJoinDragStart={onJoinDragStart} />
-                  )}
                   <AddFieldRow color={color} label="add field"
                     onClick={() => addTMapInputField(nodeId, inp.id, { name: `field_${Date.now().toString().slice(-3)}`, type: 'string' })} />
                 </>
@@ -2056,9 +1987,9 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
     const tr = tmap?.transforms?.find((t) => t.id === transformId); if (!tr) return
     const removedInput = tr.inputs[inputIndex]; if (!removedInput) return
     const newInputs = tr.inputs.filter((_, i) => i !== inputIndex); const inputLabel = tmap?.inputs.find((i) => i.id === removedInput.inputId)?.label ?? removedInput.inputId
-    const removedVar = `$${inputLabel}.${removedInput.fieldName}`; const sep = tr.mode === 'script' ? '\n' : ' + '
+    const removedVar = inputFieldRef(inputLabel, removedInput.fieldName); const sep = tr.mode === 'script' ? '\n' : ' + '
     let newExpression = tr.expression.split(sep).map((p) => p.trim()).filter((p) => p !== removedVar).join(sep).trim()
-    if (newExpression === '' && newInputs.length > 0) newExpression = newInputs.map((inp) => { const lbl = tmap?.inputs.find((ti) => ti.id === inp.inputId)?.label ?? inp.inputId; return `$${lbl}.${inp.fieldName}` }).join(sep)
+    if (newExpression === '' && newInputs.length > 0) newExpression = newInputs.map((inp) => { const lbl = tmap?.inputs.find((ti) => ti.id === inp.inputId)?.label ?? inp.inputId; return inputFieldRef(lbl, inp.fieldName) }).join(sep)
     useFlowStore.getState().updateTMapTransform(nodeId, transformId, { inputs: newInputs, expression: newExpression })
   }, [nodeId, tmap])
 

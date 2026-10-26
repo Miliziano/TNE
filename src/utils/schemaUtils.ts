@@ -170,7 +170,7 @@ function propagateToTMap(
   if (!input) return
 
   const inputId   = input.id
-  const oldFields = input.fields.filter((f) => !f.name.startsWith('status.'))
+  const oldFields = input.fields
 
   const renames: FieldRenameEntry[] = []
   oldFields.forEach((oldField) => {
@@ -186,7 +186,6 @@ function propagateToTMap(
   const handledNames = new Set(
     input.fields
       .filter((f) =>
-        f.name.startsWith('status.') ||
         newNames.has(f.name) ||
         renames.some((r) => r.oldName === f.name)
       )
@@ -199,7 +198,6 @@ function propagateToTMap(
   const merged: TMapInputField[] = [
     ...input.fields
       .filter((f) =>
-        f.name.startsWith('status.') ||
         newNames.has(f.name) ||
         renames.some((r) => r.oldName === f.name)
       )

@@ -126,6 +126,7 @@ export const FUNCTIONS: FnSignature[] = [
   { name: 'title_case',     aliases: ['titlecase'],     category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'title_case(s)',     desc: 'Each Word Capitalized' },
   { name: 'remove_accents', aliases: ['removeaccents'], category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'remove_accents(s)', desc: 'Removes accents' },
   { name: 'to_slug',        aliases: ['toslug'],        category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'to_slug(s)',        desc: 'text-normalized-for-url' },
+  { name: 'regex_extract',  aliases: ['regexextract'],  category: 'string', returns: 'string', minArgs: 2, maxArgs: 2, usage: 'regex_extract(s, pattern)', desc: 'First captured group (or the whole match); null if no match' },
   { name: 'replace_regex',  aliases: ['replaceregex'],  category: 'string', returns: 'string', minArgs: 3, maxArgs: 3, usage: 'replace_regex(s, pattern, repl)', desc: 'Replaces via regular expression' },
   { name: 'mask_email',     aliases: ['maskemail'],     category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'mask_email(s)',     desc: 'm****@domain.com' },
   { name: 'mask_card',      aliases: ['maskcard'],      category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'mask_card(s)',      desc: 'Shows only the last 4 digits' },
