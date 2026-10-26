@@ -33,5 +33,22 @@ _Nessun campo di configurazione._
 
 ## Approfondimento
 
-_Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **JSON Serializer**.
+Raccoglie **tutte** le righe dei flussi in ingresso e costruisce **un** documento JSON
+seguendo l'albero disegnato: oggetti, array (una voce per riga del flusso che li guida,
+o per gruppo con *group by*) e foglie collegate a un campo. Esce una riga col documento
+nel campo indicato (default `content`).
+
+**Espressioni e condizioni (P373).** L'espressione di una foglia (`ƒ expr`) e la sua
+condizione (`if`) sono FPEL: i campi nudi si leggono dal flusso della foglia, quelli di
+un altro flusso come `flusso.campo`. Condizione falsa → il campo non compare. Trascinando
+due campi sulla stessa foglia si crea `a + " " + b`. Fino al P372 erano JavaScript mai
+eseguito: l'espressione dava sempre null (anche le foglie con due campi) e la condizione
+era sempre vera. Il vecchio `row.campo` vale `campo`; un'espressione JavaScript vera ora
+ferma il Run con l'errore, va riscritta in FPEL.
+
+**Tipi delle foglie (P373).** Con *Field types = Applied* il tipo della foglia
+(string/number/boolean) si applica: `"41"` su una foglia *number* esce 41; un valore non
+convertibile resta com'è e il log lo conta. Acceso sui nodi nuovi; sui nodi salvati
+prima resta "Values as they come", come allora.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

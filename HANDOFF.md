@@ -2245,3 +2245,40 @@ Audit di configurazione, XML Parser.
 - Collaudo: test `tests_tipi::tipi_applicati_o_no` (@id → 7, "007" string, "si" → true, "x"
   tenuto e contato, default 0, senza applyTypes tutto testo).
   Prossimo: JSON Serializer e XML Serializer (incluso il formato `legacy` senza figli).
+
+## AGGIORNAMENTO — JSON Serializer: espressioni e condizioni FPEL, tipi delle foglie (stato al P373, 26 ottobre)
+
+Audit di configurazione, JSON Serializer.
+- `expr`/`condition` delle foglie: erano JavaScript mai eseguito (expr → null, condition →
+  vera; trascinare due campi su una foglia generava `row.a + ' ' + row.b` → null). Ora il
+  builder (Toolbar) compila FPEL in `exprIr`/`conditionIr` (`row.` tolto con
+  `stripRowPrefix`, labelToInputId = gli handle), il motore valuta con la riga corrente di
+  ogni flusso e quella della foglia come `row`; condizione falsa → campo omesso. La modale
+  genera `a + " " + b` (`joinSourcesFpel`), placeholder FPEL. Errore di sintassi → Run fermo
+  col percorso del campo.
+- Tipi delle foglie (string/number/boolean): prop `applyTypes` ("Field types" nelle
+  opzioni). Assente = no (nodi salvati: i tipi li dava l'esempio); un nodo mai configurato
+  la riceve 'true' all'apertura della modale. `leaf_type` + conteggio nel log.
+- `build_node_value` prende un contesto `Build` (mappings, null_default, tree, apply_types,
+  variables, conteggi). Tolti `tree_uses_js` e i campi testo `expr`/`condition` dal motore.
+- Collaudo: `tests_foglie::expr_condizione_tipi`; compilazione FPEL delle nuove forme provata
+  con esbuild.
+  Prossimo: XML Serializer (formato `legacy` senza figli).
+
+## AGGIORNAMENTO — XML Serializer: espressioni FPEL, attributi per riga (stato al P374, 26 ottobre)
+
+- `expr`/`condition` di foglie, attributi, CDATA e foglie ripetute: FPEL compilato dal builder
+  (`src/ir/serializerTree.ts`, `compileSerializerTree`, condiviso col JSON Serializer; anche
+  `joinSourcesFpel` per le due modali). Motore: `leaf_value` (condizione → `Leaf::Omit`,
+  espressione o campo), contesto = riga corrente di ogni flusso + `row` del nodo.
+- Bug trovato col test: nell'iterazione senza groupBy (e nelle foglie con iterHandle) gli
+  attributi si calcolavano una volta col contesto esterno → la prima riga per tutte. Ora per
+  riga (`attrs_with(Some(&ctx), …)`).
+- CDATA con `]]>` spezzato; `to_int`/`to_float` non numerici: valore tenuto (prima "NaN").
+- Correzione a una nota del P367: il percorso `legacy` (`xmlStructure`) funziona; nel
+  collaudo di allora avevo scritto le chiavi in snake_case (`xml_name`) invece di camelCase.
+- Collaudo: `tests_albero::expr_condizione_attributi_cdata` (attributo upper per riga,
+  elemento omesso se eta < 18, CDATA spezzato, XML ben formato).
+  Fine dell'audit di configurazione. Restano: le ~560 stringhe italiane (es. pannello
+  ssh_exec/shell), i 4 test delle funzioni utente FPEL che falliscono, brochure sicurezza,
+  ESLint, codegen TS del filter; facoltativo: mergeParent del JSON Parser nella modale.

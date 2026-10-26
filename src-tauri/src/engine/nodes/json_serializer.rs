@@ -27,11 +27,14 @@
 //   - Output: UNA riga { output_field: json } sull'handle 'output'
 //   - Errori: on_error reject → riga { _json_error } su 'reject'
 //
-// LIMITE DICHIARATO (Stage B.1): expr e condition sono espressioni
-// JavaScript nel runner TS — qui non eseguibili. Comportamento
-// allineato al fallback del riferimento: expr → null, condition →
-// true, con warning esplicito nel log. La conversione a ExprNode
-// (come buildTMapPlan) è il passo B.2.
+// P373: `expr` e `condition` delle foglie sono FPEL, compilati dallo
+// studio in `exprIr` / `conditionIr` (prima erano JavaScript non
+// eseguibile: expr → sempre null, condition → sempre vera; una foglia con
+// due campi trascinati sopra usciva null). Contesto: la riga corrente di
+// ogni flusso (rowContext, o la prima), con quella del flusso della foglia
+// come `row` — i campi nudi si leggono lì. Condizione falsa → campo omesso.
+// Con `apply_types` il tipo della foglia (string/number/boolean) si applica;
+// un valore non convertibile resta com'è e si conta nel log.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -40,6 +43,7 @@ use serde_json::Value as JVal;
 use crate::engine::types::*;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
 
 // ─── Strutture config (mirroring dei tipi della modal) ────────────
 
@@ -59,6 +63,9 @@ struct SerPlan {
     tree:         Vec<TreeNode>,
     #[serde(default)]
     mappings:     HashMap<String, FlowMapping>,
+    /// P373: applica il tipo delle foglie. Assente (nodi salvati prima) = no.
+    #[serde(default)]
+    apply_types:  bool,
 }
 fn d_output_field() -> String { "content".into() }
 fn d_null()         -> String { "null".into() }
@@ -80,13 +87,25 @@ struct TreeNode {
     #[serde(default)]
     sources:       Option<Vec<SourceRef>>,
     #[serde(default)]
-    expr:          Option<String>,
-    #[serde(default)]
     iter_handle:   Option<String>,
     #[serde(default)]
-    condition:     Option<String>,
-    #[serde(default)]
     group_by:      Option<String>,
+    /// P373: `expr` e `condition` compilati (FPEL → IR) dallo studio.
+    #[serde(default)]
+    expr_ir:       Option<ExprNode>,
+    #[serde(default)]
+    condition_ir:  Option<ExprNode>,
+}
+
+/// Contesto comune della costruzione: opzioni e conteggi per il log.
+struct Build<'a> {
+    mappings:     &'a HashMap<String, FlowMapping>,
+    null_default: &'a str,
+    tree:         &'a [TreeNode],
+    apply_types:  bool,
+    variables:    &'a HashMap<String, Value>,
+    /// chiave della foglia → (valori non convertibili, tipo)
+    failed:       std::cell::RefCell<HashMap<String, (u64, String)>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -153,12 +172,12 @@ pub async fn run(
         by_handle.iter().map(|(h, r)| format!("{}({})", h, r.len()))
             .collect::<Vec<_>>().join(", "));
 
-    // Warning una tantum per expr/condition (Stage B.2)
-    if tree_uses_js(&plan.tree) {
-        eprintln!("[json_serializer {}] ATTENZIONE: expr/condition JavaScript nell'albero \
-                   non ancora supportati dal motore Rust — expr → null, condition → sempre vera",
-                   ctx.node_id.0);
-    }
+    let variables = ctx.variables.clone();
+    let b = Build {
+        mappings: &plan.mappings, null_default: &plan.null_default, tree: &plan.tree,
+        apply_types: plan.apply_types, variables: &variables,
+        failed: std::cell::RefCell::new(HashMap::new()),
+    };
 
     let out_tx    = outputs.remove("output");
     let reject_tx = outputs.remove("reject");
@@ -193,9 +212,7 @@ pub async fn run(
                     rows.iter().map(row_to_json).collect::<Vec<_>>()
                 };
                 doc.insert(root.key.clone(), JVal::Array(arr));
-            } else if let Some(v) = build_node_value(
-                root, &by_handle, &plan.mappings, &plan.null_default, &HashMap::new(), &plan.tree,
-            ) {
+            } else if let Some(v) = build_node_value(root, &by_handle, &HashMap::new(), &b) {
                 doc.insert(root.key.clone(), v);
             }
         }
@@ -266,6 +283,15 @@ pub async fn run(
         }
     };
 
+    let failed = b.failed.borrow();
+    let mut keys: Vec<&String> = failed.keys().collect();
+    keys.sort();
+    for k in keys {
+        let (n, ty) = &failed[k];
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "field '{}': {} value(s) could not be converted to {} and were kept as they are", k, n, ty), "panel");
+    }
+
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let stats = NodeStats { rows_in, rows_out, rows_rejected, elapsed_ms, error: None };
     ctx.emit_completed(stats.clone());
@@ -278,11 +304,10 @@ pub async fn run(
 fn build_node_value(
     node:         &TreeNode,
     by_handle:    &HashMap<String, Vec<Row>>,
-    mappings:     &HashMap<String, FlowMapping>,
-    null_default: &str,
     row_context:  &HashMap<String, Row>,
-    tree:         &[TreeNode],
+    b:            &Build,
 ) -> Option<JVal> {
+    let (mappings, null_default, tree) = (b.mappings, b.null_default, b.tree);
 
     // ── Foglia ────────────────────────────────────────────────────
     if node.node_type != "object" && node.node_type != "array" {
@@ -291,26 +316,43 @@ fn build_node_value(
             by_handle.get(handle).and_then(|rows| rows.first().cloned())
         };
 
-        // expr JS: non eseguibile → null (allineato al catch del riferimento)
-        if node.expr.as_deref().map_or(false, |e| !e.trim().is_empty()) {
-            return Some(JVal::Null);
+        // Contesto delle espressioni: la riga corrente di ogni flusso, e
+        // quella del flusso della foglia come `row`.
+        let needs_eval = node.expr_ir.is_some() || node.condition_ir.is_some();
+        let owned: Vec<(String, Row)> = if needs_eval {
+            let mut v: Vec<(String, Row)> = by_handle.keys()
+                .filter_map(|h| effective_row(h).map(|r| (h.clone(), r)))
+                .collect();
+            let own = node.source_handle.clone()
+                .or_else(|| node.sources.as_ref().and_then(|s| s.first().map(|x| x.handle.clone())));
+            if let Some(r) = own.as_deref().and_then(|h| effective_row(h)) {
+                v.push(("row".to_string(), r));
+            }
+            v
+        } else { Vec::new() };
+        let ectx = EvalContext::multi(owned.iter().map(|(k, r)| (k.as_str(), r)).collect(), b.variables);
+
+        if let Some(c) = &node.condition_ir {
+            if !is_truthy(&eval(c, &ectx)) { return None }
         }
 
-        if let (Some(h), Some(f)) = (&node.source_handle, &node.source_field) {
+        let val = if let Some(e) = &node.expr_ir {
+            eval(e, &ectx).to_json()
+        } else if let (Some(h), Some(f)) = (&node.source_handle, &node.source_field) {
             let row = effective_row(h).unwrap_or_else(Row::new);
-            // condition JS: non valutabile → true (fallback del riferimento)
-            let val = row.get(f).map(|v| v.to_json()).unwrap_or(JVal::Null);
-            return apply_nullable(val, null_default);
-        }
-
-        return Some(JVal::Null);
+            row.get(f).map(|v| v.to_json()).unwrap_or(JVal::Null)
+        } else {
+            JVal::Null
+        };
+        let val = if b.apply_types { leaf_type(val, &node.node_type, &node.key, b) } else { val };
+        return apply_nullable(val, null_default);
     }
 
     // ── Object ────────────────────────────────────────────────────
     if node.node_type == "object" {
         let mut obj = serde_json::Map::new();
         for child in &node.children {
-            if let Some(v) = build_node_value(child, by_handle, mappings, null_default, row_context, tree) {
+            if let Some(v) = build_node_value(child, by_handle, row_context, b) {
                 obj.insert(child.key.clone(), v);
             }
         }
@@ -343,7 +385,7 @@ fn build_node_value(
             if !node.children.is_empty() {
                 let mut obj = serde_json::Map::new();
                 for child in &node.children {
-                    if let Some(v) = build_node_value(child, by_handle, mappings, null_default, row_context, tree) {
+                    if let Some(v) = build_node_value(child, by_handle, row_context, b) {
                         obj.insert(child.key.clone(), v);
                     }
                 }
@@ -393,7 +435,7 @@ fn build_node_value(
             }
             let mut obj = serde_json::Map::new();
             for child in &node.children {
-                if let Some(v) = build_node_value(child, &group_by_handle, mappings, null_default, &ctx, tree) {
+                if let Some(v) = build_node_value(child, &group_by_handle, &ctx, b) {
                     obj.insert(child.key.clone(), v);
                 }
             }
@@ -409,7 +451,7 @@ fn build_node_value(
         ctx.insert(iter_h.clone(), row.clone());
         let mut obj = serde_json::Map::new();
         for child in &node.children {
-            if let Some(v) = build_node_value(child, by_handle, mappings, null_default, &ctx, tree) {
+            if let Some(v) = build_node_value(child, by_handle, &ctx, b) {
                 obj.insert(child.key.clone(), v);
             }
         }
@@ -579,9 +621,76 @@ fn jval_to_string(v: &JVal) -> String {
     }
 }
 
-fn tree_uses_js(nodes: &[TreeNode]) -> bool {
-    nodes.iter().any(|n|
-        n.expr.as_deref().map_or(false, |e| !e.trim().is_empty())
-        || n.condition.as_deref().map_or(false, |c| !c.trim().is_empty())
-        || tree_uses_js(&n.children))
+/// Il tipo della foglia (string/number/boolean); `null` e gli altri valgono
+/// come "qualsiasi". Oggetti e array restano com'è.
+fn leaf_type(val: JVal, ty: &str, key: &str, b: &Build) -> JVal {
+    if val.is_null() || val.is_object() || val.is_array() { return val }
+    let fail = |val: JVal, ty: &str| {
+        b.failed.borrow_mut().entry(key.to_string()).or_insert((0, ty.to_string())).0 += 1;
+        val
+    };
+    match ty {
+        "string" => match val {
+            JVal::String(_) => val,
+            other => JVal::String(jval_to_string(&other)),
+        },
+        "number" => match &val {
+            JVal::Number(_) => val,
+            JVal::String(s) => {
+                let t = s.trim();
+                if let Ok(i) = t.parse::<i64>() { JVal::Number(i.into()) }
+                else if let Some(n) = t.parse::<f64>().ok().and_then(serde_json::Number::from_f64) { JVal::Number(n) }
+                else { fail(val, ty) }
+            }
+            JVal::Bool(x) => JVal::Number((*x as i64).into()),
+            _ => fail(val, ty),
+        },
+        "boolean" => match &val {
+            JVal::Bool(_) => val,
+            JVal::Number(n) => JVal::Bool(n.as_f64().map_or(false, |f| f != 0.0)),
+            JVal::String(s) => match s.trim().to_lowercase().as_str() {
+                "true" | "1" | "yes" | "si" | "sì" | "y" | "t" => JVal::Bool(true),
+                "false" | "0" | "no" | "n" | "f" => JVal::Bool(false),
+                _ => fail(val, ty),
+            },
+            _ => fail(val, ty),
+        },
+        _ => val,
+    }
+}
+
+#[cfg(test)]
+mod tests_foglie {
+    use super::*;
+
+    fn row(pairs: &[(&str, Value)]) -> Row { let mut r = Row::new(); for (k, v) in pairs { r.set(k.to_string(), v.clone()) } r }
+    fn ir(j: serde_json::Value) -> ExprNode { serde_json::from_value(j).unwrap() }
+
+    #[test]
+    fn expr_condizione_tipi() {
+        let mut by_handle = HashMap::new();
+        by_handle.insert("in".to_string(), vec![row(&[("nome", Value::String("Anna".into())), ("cognome", Value::String("Bo".into())), ("eta", Value::String("41".into()))])]);
+        let mappings = HashMap::new();
+        let vars = HashMap::new();
+        let b = Build { mappings: &mappings, null_default: "null", tree: &[], apply_types: true, variables: &vars,
+                        failed: std::cell::RefCell::new(HashMap::new()) };
+        let leaf = |json: serde_json::Value| -> TreeNode { serde_json::from_value(json).unwrap() };
+        // expr: nome + " " + cognome (campi nudi → la riga del flusso)
+        let mut n = leaf(serde_json::json!({"key": "full", "type": "string", "sourceHandle": "in", "sourceField": "nome"}));
+        n.expr_ir = Some(ir(serde_json::json!({"kind": "BinaryOp", "op": "ADD",
+            "left": {"kind": "BinaryOp", "op": "ADD", "left": {"kind": "DirectFieldRef", "field": "nome"}, "right": {"kind": "Literal", "value": " "}},
+            "right": {"kind": "DirectFieldRef", "field": "cognome"}})));
+        assert_eq!(build_node_value(&n, &by_handle, &HashMap::new(), &b), Some(JVal::String("Anna Bo".into())));
+        // tipo number: "41" → 41
+        let n = leaf(serde_json::json!({"key": "eta", "type": "number", "sourceHandle": "in", "sourceField": "eta"}));
+        assert_eq!(build_node_value(&n, &by_handle, &HashMap::new(), &b), Some(serde_json::json!(41)));
+        // condizione falsa → campo omesso
+        let mut n = leaf(serde_json::json!({"key": "eta", "type": "number", "sourceHandle": "in", "sourceField": "eta"}));
+        n.condition_ir = Some(ir(serde_json::json!({"kind": "Literal", "value": false})));
+        assert_eq!(build_node_value(&n, &by_handle, &HashMap::new(), &b), None);
+        // non convertibile: tenuto e contato
+        let n = leaf(serde_json::json!({"key": "nome", "type": "number", "sourceHandle": "in", "sourceField": "nome"}));
+        assert_eq!(build_node_value(&n, &by_handle, &HashMap::new(), &b), Some(JVal::String("Anna".into())));
+        assert_eq!(b.failed.borrow().get("nome").map(|x| x.0), Some(1));
+    }
 }

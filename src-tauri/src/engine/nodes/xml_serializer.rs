@@ -11,10 +11,11 @@
 //      legacy (xmlStructure) o auto (tutti i campi). Output: una riga
 //      per input, campi originali + output_field.
 //
-// LIMITE DICHIARATO (B.2): expr e condition sono JavaScript nel
-// riferimento — qui non eseguibili. Fallback allineato: expr sulle
-// foglie → valore null (self-closing), sugli attributi/cdata → resta
-// il valore del sourceField; condition → sempre vera. Warning nel log.
+// P374: `expr` e `condition` di foglie, attributi e CDATA sono FPEL,
+// compilati dallo studio in `exprIr` / `conditionIr` (prima JavaScript mai
+// eseguito: expr → null sulle foglie, ignorata su attributi e CDATA;
+// condition sempre vera). Contesto: la riga corrente di ogni flusso, con
+// quella del flusso del nodo come `row`. Condizione falsa → nodo omesso.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -22,6 +23,7 @@ use serde::Deserialize;
 use crate::engine::types::*;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
+use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
 
 // ─── Strutture config ─────────────────────────────────────────────
 
@@ -80,13 +82,49 @@ struct XmlTreeNode {
     #[serde(default)]
     sources:       Option<Vec<XmlSourceRef>>,
     #[serde(default)]
-    expr:          Option<String>,
-    #[serde(default)]
-    condition:     Option<String>,
-    #[serde(default)]
     iter_handle:   Option<String>,
     #[serde(default)]
     group_by:      Option<String>,
+    /// P374: `expr` e `condition` compilati (FPEL → IR) dallo studio.
+    #[serde(default)]
+    expr_ir:       Option<ExprNode>,
+    #[serde(default)]
+    condition_ir:  Option<ExprNode>,
+}
+
+/// Esito di un nodo foglia/attributo/CDATA: omesso (condizione falsa), o il
+/// suo valore (None = vuoto).
+enum Leaf { Omit, Value(Option<String>) }
+
+/// Valore di un nodo: condizione, poi espressione o campo. `own` è la riga
+/// del flusso del nodo; `ctx`/`bh` danno la riga corrente degli altri.
+fn leaf_value(
+    n:   &XmlTreeNode,
+    own: &Row,
+    ctx: Option<&HashMap<String, Row>>,
+    bh:  &HashMap<String, Vec<Row>>,
+    variables: &HashMap<String, Value>,
+) -> Leaf {
+    if n.expr_ir.is_some() || n.condition_ir.is_some() {
+        let mut rows: Vec<(String, Row)> = bh.keys().filter_map(|h| {
+            ctx.and_then(|c| c.get(h)).cloned()
+                .or_else(|| bh.get(h).and_then(|r| r.first().cloned()))
+                .map(|r| (h.clone(), r))
+        }).collect();
+        rows.push(("row".to_string(), own.clone()));
+        let ectx = EvalContext::multi(rows.iter().map(|(k, r)| (k.as_str(), r)).collect(), variables);
+        if let Some(c) = &n.condition_ir {
+            if !is_truthy(&eval(c, &ectx)) { return Leaf::Omit }
+        }
+        if let Some(e) = &n.expr_ir {
+            let v = eval(e, &ectx);
+            return Leaf::Value(if matches!(v, Value::Null) { None } else { Some(v.as_str_repr()) });
+        }
+    }
+    Leaf::Value(n.source_field.as_deref()
+        .and_then(|f| own.get(f))
+        .filter(|v| !matches!(v, Value::Null))
+        .map(|v| v.as_str_repr()))
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -166,11 +204,7 @@ pub async fn run(
         by_handle.iter().map(|(h, r)| format!("{}({})", h, r.len()))
             .collect::<Vec<_>>().join(", "));
 
-    if tree_uses_js(&plan.tree) {
-        eprintln!("[xml_serializer {}] ATTENZIONE: expr/condition JavaScript nell'albero \
-                   non ancora supportati — expr foglia → null, condition → sempre vera",
-                   ctx.node_id.0);
-    }
+    let variables = ctx.variables.clone();
 
     let out_tx    = outputs.remove("output");
     let reject_tx = outputs.remove("reject");
@@ -209,7 +243,7 @@ pub async fn run(
             parts.push(format!("<?xml version=\"1.0\" encoding=\"{}\"?>", plan.encoding));
         }
         let body = build_xml_from_tree(
-            &plan.tree, &by_handle, &plan.mappings, &plan.tree, 1, plan.pretty, None);
+            &plan.tree, &by_handle, &plan.mappings, &plan.tree, 1, plan.pretty, None, &variables);
         parts.push(format!("<{}{}>{}{}{}</{}>", root_tag, ns_str, nl, body, nl, root_tag));
         let xml = parts.join(nl);
 
@@ -284,6 +318,7 @@ fn build_xml_from_tree(
     indent:      usize,
     pretty:      bool,
     row_context: Option<&HashMap<String, Row>>,
+    variables:   &HashMap<String, Value>,
 ) -> String {
     let pad: String = if pretty { "  ".repeat(indent) } else { String::new() };
     let nl:  &str   = if pretty { "\n" } else { "" };
@@ -317,14 +352,9 @@ fn build_xml_from_tree(
                 let a_row = a.source_handle.as_deref()
                     .map(|h| get_row(h, ctx, bh))
                     .unwrap_or_else(Row::new);
-                // expr JS non eseguibile: resta il valore del sourceField
-                let a_val = a.source_field.as_deref()
-                    .and_then(|f| a_row.get(f))
-                    .filter(|v| !matches!(v, Value::Null))
-                    .map(|v| v.as_str_repr());
-                match a_val {
-                    Some(v) => format!(" {}=\"{}\"", atag, escape_xml(&v)),
-                    None    => String::new(),
+                match leaf_value(a, &a_row, ctx, bh, variables) {
+                    Leaf::Value(Some(v)) => format!(" {}=\"{}\"", atag, escape_xml(&v)),
+                    _ => String::new(),
                 }
             }).collect::<Vec<_>>().join("")
         };
@@ -335,12 +365,12 @@ fn build_xml_from_tree(
             let row = n.source_handle.as_deref()
                 .map(|h| get_row(h, row_context, by_handle))
                 .unwrap_or_else(Row::new);
-            let val = n.source_field.as_deref()
-                .and_then(|f| row.get(f))
-                .filter(|v| !matches!(v, Value::Null))
-                .map(|v| v.as_str_repr())
-                .unwrap_or_default();
-            parts.push(format!("{}<{}><![CDATA[{}]]></{}>", pad, tag, val, tag));
+            let val = match leaf_value(n, &row, row_context, by_handle, variables) {
+                Leaf::Omit => continue,
+                Leaf::Value(v) => v.unwrap_or_default(),
+            };
+            // "]]>" chiuderebbe il CDATA: si spezza in due sezioni.
+            parts.push(format!("{}<{}><![CDATA[{}]]></{}>", pad, tag, val.replace("]]>", "]]]]><![CDATA[>"), tag));
             continue;
         }
 
@@ -380,7 +410,7 @@ fn build_xml_from_tree(
                         let group_attrs = attrs_with(Some(&ctx), &group_bh);
                         let inner = build_xml_from_tree(
                             &child_elms, &group_bh, mappings, tree,
-                            indent + 1, pretty, Some(&ctx));
+                            indent + 1, pretty, Some(&ctx), variables);
                         format!("{}<{}{}>{}{}{}{}</{}>",
                             pad, tag, group_attrs, nl, inner, nl, pad, tag)
                     }).collect();
@@ -392,11 +422,14 @@ fn build_xml_from_tree(
                         let mut ctx: HashMap<String, Row> =
                             row_context.cloned().unwrap_or_default();
                         ctx.insert(iter_h.to_string(), row.clone());
+                        // P374: attributi della RIGA corrente (prima quelli
+                        // del contesto esterno: la prima riga per tutte).
+                        let row_attrs = attrs_with(Some(&ctx), by_handle);
                         let inner = build_xml_from_tree(
                             &child_elms, by_handle, mappings, tree,
-                            indent + 1, pretty, Some(&ctx));
+                            indent + 1, pretty, Some(&ctx), variables);
                         format!("{}<{}{}>{}{}{}{}</{}>",
-                            pad, tag, attr_str, nl, inner, nl, pad, tag)
+                            pad, tag, row_attrs, nl, inner, nl, pad, tag)
                     }).collect();
                     parts.push(rendered.join(nl));
                 }
@@ -404,7 +437,7 @@ fn build_xml_from_tree(
                 // Wrapper senza iterazione
                 let inner = build_xml_from_tree(
                     &child_elms, by_handle, mappings, tree,
-                    indent + 1, pretty, row_context);
+                    indent + 1, pretty, row_context, variables);
                 parts.push(format!("{}<{}{}>{}{}{}{}</{}>",
                     pad, tag, attr_str, nl, inner, nl, pad, tag));
             }
@@ -415,18 +448,16 @@ fn build_xml_from_tree(
         if let Some(iter_h) = n.iter_handle.as_deref().filter(|h| !h.is_empty()) {
             let iter_rows = by_handle.get(iter_h).cloned().unwrap_or_default();
             let iter_parts: Vec<String> = iter_rows.iter().filter_map(|irow| {
-                // condition JS → sempre vera (B.2); expr → null
-                let val = if n.expr.as_deref().map_or(false, |e| !e.trim().is_empty()) {
-                    None
-                } else {
-                    n.source_field.as_deref()
-                        .and_then(|f| irow.get(f))
-                        .filter(|v| !matches!(v, Value::Null))
-                        .map(|v| v.as_str_repr())
+                let mut ictx: HashMap<String, Row> = row_context.cloned().unwrap_or_default();
+                ictx.insert(iter_h.to_string(), irow.clone());
+                let val = match leaf_value(n, irow, Some(&ictx), by_handle, variables) {
+                    Leaf::Omit => return None,
+                    Leaf::Value(v) => v,
                 };
+                let row_attrs = attrs_with(Some(&ictx), by_handle);
                 Some(match val {
-                    None    => format!("{}<{}{}/>", pad, tag, attr_str),
-                    Some(v) => format!("{}<{}{}>{}</{}>", pad, tag, attr_str, escape_xml(&v), tag),
+                    None    => format!("{}<{}{}/>", pad, tag, row_attrs),
+                    Some(v) => format!("{}<{}{}>{}</{}>", pad, tag, row_attrs, escape_xml(&v), tag),
                 })
             }).collect();
             parts.push(iter_parts.join(nl));
@@ -437,16 +468,10 @@ fn build_xml_from_tree(
         let row = n.source_handle.as_deref()
             .map(|h| get_row(h, row_context, by_handle))
             .unwrap_or_else(Row::new);
-        // expr JS → null (B.2, allineato al catch del riferimento)
-        let val = if n.expr.as_deref().map_or(false, |e| !e.trim().is_empty()) {
-            None
-        } else {
-            n.source_field.as_deref()
-                .and_then(|f| row.get(f))
-                .filter(|v| !matches!(v, Value::Null))
-                .map(|v| v.as_str_repr())
+        let val = match leaf_value(n, &row, row_context, by_handle, variables) {
+            Leaf::Omit => continue,
+            Leaf::Value(v) => v,
         };
-        // condition JS → sempre vera (B.2): il nodo non viene mai omesso
 
         match val {
             None    => parts.push(format!("{}<{}{}/>", pad, tag, attr_str)),
@@ -616,11 +641,12 @@ fn collect_handle_fields(nodes: &[XmlTreeNode], handle: &str) -> Vec<String> {
 }
 
 fn apply_transform(s: &str, transform: &str) -> String {
+    // P374: un valore non convertibile resta com'è (prima "NaN" nell'XML).
     match transform {
         "to_int"    => s.trim().parse::<f64>().map(|n| (n as i64).to_string())
-                        .unwrap_or_else(|_| "NaN".into()),
+                        .unwrap_or_else(|_| s.to_string()),
         "to_float"  => s.trim().replace(',', ".").parse::<f64>()
-                        .map(|n| n.to_string()).unwrap_or_else(|_| "NaN".into()),
+                        .map(|n| n.to_string()).unwrap_or_else(|_| s.to_string()),
         "to_bool"   => matches!(s.to_lowercase().as_str(),
                         "true" | "1" | "yes" | "si" | "sì").to_string(),
         "to_date"   => s.split('T').next().unwrap_or(s).to_string(),
@@ -637,13 +663,6 @@ fn escape_xml(s: &str) -> String {
      .replace('>', "&gt;")
      .replace('"', "&quot;")
      .replace('\'', "&apos;")
-}
-
-fn tree_uses_js(nodes: &[XmlTreeNode]) -> bool {
-    nodes.iter().any(|n|
-        n.expr.as_deref().map_or(false, |e| !e.trim().is_empty())
-        || n.condition.as_deref().map_or(false, |c| !c.trim().is_empty())
-        || tree_uses_js(&n.children))
 }
 
 // ─── Controllo dell'XML prodotto (P367) ──────────────────────────────
@@ -696,5 +715,35 @@ mod tests_validate {
         assert!(well_formed("<a><b>1</a>").is_err());
         assert!(well_formed("<a/><b/>").is_err());
         assert!(well_formed("<a x=\"1>").is_err());
+    }
+}
+
+#[cfg(test)]
+mod tests_albero {
+    use super::*;
+
+    fn row(pairs: &[(&str, Value)]) -> Row { let mut r = Row::new(); for (k, v) in pairs { r.set(k.to_string(), v.clone()) } r }
+
+    #[test]
+    fn expr_condizione_attributi_cdata() {
+        let mut bh = HashMap::new();
+        bh.insert("in".to_string(), vec![
+            row(&[("nome", Value::String("Anna".into())), ("eta", Value::Int(41))]),
+            row(&[("nome", Value::String("Bo".into())), ("eta", Value::Int(7))]),
+        ]);
+        let tree: Vec<XmlTreeNode> = serde_json::from_value(serde_json::json!([{
+            "xmlName": "p", "kind": "group", "iterHandle": "in", "children": [
+                {"xmlName": "id", "kind": "attribute", "sourceHandle": "in", "sourceField": "nome",
+                 "exprIr": {"kind": "FunctionCall", "name": "upper", "args": [{"kind": "DirectFieldRef", "field": "nome"}]}},
+                {"xmlName": "nome", "kind": "element", "sourceHandle": "in", "sourceField": "nome"},
+                {"xmlName": "adulto", "kind": "element", "sourceHandle": "in", "sourceField": "eta",
+                 "conditionIr": {"kind": "BinaryOp", "op": "GTE", "left": {"kind": "DirectFieldRef", "field": "eta"}, "right": {"kind": "Literal", "value": 18}}},
+                {"xmlName": "note", "kind": "cdata", "sourceHandle": "in", "sourceField": "nome",
+                 "exprIr": {"kind": "Literal", "value": "a]]>b"}}
+            ]}])).unwrap();
+        let vars = HashMap::new();
+        let xml = build_xml_from_tree(&tree, &bh, &HashMap::new(), &tree, 0, false, None, &vars);
+        assert_eq!(xml, "<p id=\"ANNA\"><nome>Anna</nome><adulto>41</adulto><note><![CDATA[a]]]]><![CDATA[>b]]></note></p><p id=\"BO\"><nome>Bo</nome><note><![CDATA[a]]]]><![CDATA[>b]]></note></p>");
+        assert!(well_formed(&format!("<r>{}</r>", xml)).is_ok());
     }
 }

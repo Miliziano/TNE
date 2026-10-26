@@ -24,6 +24,7 @@ import { SigningKeyModal } from './SigningKeyModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
+import { compileSerializerTree } from '../ir/serializerTree'
 import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
 import { sourceFileSpecFields } from '../nodes/types/source_file/spec'
  import { parseExpression, ExprParseError } from '../ir/exprParser'
@@ -730,9 +731,14 @@ function buildRustPlan(
           specConfig.envelope     = props['envelope'] ?? ''
           specConfig.null_default = props['nullDefault'] ?? 'null'
           specConfig.on_error     = props['onError'] ?? 'reject'
-          specConfig.tree     = (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })()
-          specConfig.mappings = ser.mappings ?? {}
-          specConfig.inputs   = ser.inputs ?? {}
+          const tree = (() => { try { return JSON.parse(props['_treeNodes'] ?? '[]') } catch { return [] } })()
+          // P373: `expr` e `condition` delle foglie sono FPEL (src/ir/serializerTree.ts).
+          specConfig.tree        = compileSerializerTree(tree, Object.keys(ser.inputs ?? {}),
+            `JSON Serializer "${node.data.label}"`, (n) => String(n.key ?? ''), userFns)
+          specConfig.mappings    = ser.mappings ?? {}
+          specConfig.inputs      = ser.inputs ?? {}
+          // P373: tipo delle foglie applicato solo se acceso (assente = no).
+          specConfig.apply_types = props['applyTypes'] === 'true'
           break
         }
 
@@ -750,7 +756,10 @@ function buildRustPlan(
           specConfig.encoding        = props['encoding']       ?? 'UTF-8'
           specConfig.on_error        = props['onError']        ?? 'reject'
           specConfig.validate        = props['validateOutput'] === 'true'
-          specConfig.tree   = (() => { try { return JSON.parse(props['_treeNodes']   ?? '[]') } catch { return [] } })()
+          const xtree = (() => { try { return JSON.parse(props['_treeNodes']   ?? '[]') } catch { return [] } })()
+          // P374: `expr` e `condition` FPEL, come nel JSON Serializer.
+          specConfig.tree   = compileSerializerTree(xtree, Object.keys(ser.inputs ?? {}),
+            `XML Serializer "${node.data.label}"`, (n) => String(n.xmlName ?? ''), userFns)
           specConfig.legacy = (() => { try { return JSON.parse(props['xmlStructure'] ?? '[]') } catch { return [] } })()
           specConfig.mappings = ser.mappings ?? {}
           break

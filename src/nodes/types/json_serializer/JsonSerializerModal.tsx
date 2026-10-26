@@ -7,6 +7,7 @@ import { TabGeneral }  from '../../../components/tabs/TabGeneral'
 import { TabAdvanced } from '../../../components/tabs/TabAdvanced'
 import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { joinSourcesFpel } from '../../../ir/serializerTree'
 
 const ACCENT = '#22d3ee'
 
@@ -332,7 +333,7 @@ function TreeNodeRow({
                 if (e.key === 'Enter') { onChangeExpr(node.id, exprVal); setExprEditing(false) }
                 if (e.key === 'Escape') { setExprVal(node.expr ?? ''); setExprEditing(false) }
               }}
-              placeholder={mappedField ? `row.${mappedField}` : 'e.g. row.field.trim()'}
+              placeholder={mappedField ? `FPEL, e.g. upper(${mappedField})` : 'FPEL, e.g. trim(field)'}
               style={{ ...iStyle, fontSize: 9, padding: '1px 5px', flex: 1, minWidth: 80,
                 color: '#ffb347', borderColor: '#ffb34760', background: '#1a1500' }}
             />
@@ -404,13 +405,13 @@ function TreeNodeRow({
                 if (e.key === 'Enter') { onChangeCondition(node.id, condVal); setCondEditing(false) }
                 if (e.key === 'Escape') { setCondVal(node.condition ?? ''); setCondEditing(false) }
               }}
-              placeholder="e.g. row.age > 0"
+              placeholder="FPEL, e.g. age > 0"
               style={{ ...iStyle, fontSize: 9, padding: '1px 5px', width: 120, flexShrink: 0,
                 color: '#a78bfa', borderColor: '#a78bfa60', background: '#110d1a' }}
               onClick={(e) => e.stopPropagation()} />
           ) : node.condition ? (
             <button onClick={(e) => { e.stopPropagation(); setCondVal(node.condition ?? ''); setCondEditing(true) }}
-              title={`Condizione: ${node.condition}`}
+              title={`Condition: ${node.condition}`}
               style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, cursor: 'pointer', flexShrink: 0,
                 background: 'color-mix(in srgb, #a78bfa 15%, #0f1117)',
                 color: '#a78bfa', border: '0.5px solid #a78bfa40',
@@ -773,6 +774,15 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
     })
   }, [nodeId])
 
+  // P373: un nodo mai configurato (niente albero né opzione) parte coi tipi
+  // applicati; quelli salvati prima restano "valori come arrivano".
+  useEffect(() => {
+    const props = (node.data as any).props ?? {}
+    if (props['_treeNodes'] === undefined && props['applyTypes'] === undefined) {
+      useFlowStore.getState().updateNodeProp(nodeId, 'applyTypes', 'true')
+    }
+  }, [])
+
   // Aggiorna quando props cambiano (apertura modal)
   useEffect(() => {
     try {
@@ -818,9 +828,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
         sources:      remaining.length > 0 ? remaining : undefined,
         sourceHandle: remaining[0]?.handle,
         sourceField:  remaining[0]?.field,
-        expr:         remaining.length > 1
-          ? remaining.map((s) => `row.${s.field}`).join(" + ' ' + ")
-          : undefined,
+        expr:         remaining.length > 1 ? joinSourcesFpel(remaining) : undefined,
       }
     }))
   }, [setTreeNodes])
@@ -896,9 +904,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
       const newSources = [...existing, { handle, field }]
 
       // Pre-popola expr se ci sono più sorgenti (l'utente può modificarla)
-      const newExpr = newSources.length > 1
-        ? newSources.map((s) => `row.${s.field}`).join(" + ' ' + ")
-        : undefined
+      const newExpr = newSources.length > 1 ? joinSourcesFpel(newSources) : undefined
 
       return {
         ...n,
@@ -1031,7 +1037,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
       {/* Opzioni */}
       {showOptions && (
         <div style={{ padding: '6px 12px', borderBottom: '0.5px solid #2a3349', background: '#1a2030', flexShrink: 0 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 8 }}>
             {[{label:'Output field',key:'outputField',def:'content'},{label:'Envelope',key:'envelope',def:''}].map((opt) => (
               <div key={opt.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{opt.label}</div>
@@ -1047,6 +1053,12 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
               <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Format</div>
               <CustomSelect style={{ ...iStyle, fontSize: 10, padding: '3px 4px' }} value={p('pretty','false')} onChange={(e) => updateNodeProp(nodeId, 'pretty', e.target.value)}>
                 <option value="false">Compact</option><option value="true">Pretty print</option>
+              </CustomSelect>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }} title="string / number / boolean of each field applied to the value">
+              <div style={{ fontSize: 9, color: '#9a9aaa', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>Field types</div>
+              <CustomSelect style={{ ...iStyle, fontSize: 10, padding: '3px 4px' }} value={p('applyTypes','false')} onChange={(e) => updateNodeProp(nodeId, 'applyTypes', e.target.value)}>
+                <option value="true">Applied</option><option value="false">Values as they come</option>
               </CustomSelect>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

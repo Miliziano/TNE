@@ -18,6 +18,7 @@ import { useFlowStore } from '../../../store/flowStore'
 import { CustomSelect } from '../../../components/CustomSelect'
 import { parseXsd, type XsdNode } from '../shared/xsdParser'
 import { getHandleSchema } from '../../../utils/schemaRegistry'
+import { joinSourcesFpel } from '../../../ir/serializerTree'
 
 const ACCENT = '#f97316'
 
@@ -360,13 +361,13 @@ function XmlTreeNodeRow({
                 if (e.key === 'Enter') { onChangeExpr(node.id, exprVal); setExprEditing(false) }
                 if (e.key === 'Escape') { setExprVal(node.expr ?? ''); setExprEditing(false) }
               }}
-              placeholder={node.sourceField ? `row.${node.sourceField}` : 'e.g. row.field.trim()'}
+              placeholder={node.sourceField ? `FPEL, e.g. upper(${node.sourceField})` : 'FPEL, e.g. trim(field)'}
               onClick={(e) => e.stopPropagation()}
               style={{ ...iStyle, fontSize: 9, padding: '1px 5px', flex: 1, minWidth: 80,
                 color: '#ffb347', borderColor: '#ffb34760', background: '#1a1500' }} />
           ) : (
             <button onClick={(e) => { e.stopPropagation(); setExprVal(node.expr ?? ''); setExprEditing(true) }}
-              title={node.expr ? `Expr: ${node.expr}` : 'Aggiungi espressione custom'}
+              title={node.expr ? `Expr: ${node.expr}` : 'Add a custom expression (FPEL)'}
               style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, cursor: 'pointer', flexShrink: 0,
                 background: node.expr ? 'color-mix(in srgb, #ffb347 15%, #0f1117)' : 'none',
                 color: node.expr ? '#ffb347' : '#2a3349',
@@ -431,7 +432,7 @@ function XmlTreeNodeRow({
               if (e.key === 'Escape') { setCondVal(node.condition ?? ''); setCondEditing(false) }
             }}
             onClick={(e) => e.stopPropagation()}
-            placeholder="e.g. row.value !== null"
+            placeholder="FPEL, e.g. value is not null"
             style={{ ...iStyle, fontSize: 9, padding: '1px 5px', width: 120, flexShrink: 0, color: '#a78bfa', borderColor: '#a78bfa60', background: '#110d1a' }} />
         )}
 
@@ -457,7 +458,7 @@ function XmlTreeNodeRow({
                   title="Add child (converts to element with children)"
                   style={{ background: 'none', border: `0.5px solid ${kc}40`, borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: kc, fontSize: 9 }}>+elm</button>
                 <button onClick={(e) => { e.stopPropagation(); setCondVal(node.condition ?? ''); setCondEditing(true) }}
-                  title="Aggiungi condizione"
+                  title="Add a condition (FPEL): the node is omitted if false"
                   style={{ background: 'none', border: '0.5px solid #a78bfa40', borderRadius: 3, padding: '1px 4px', cursor: 'pointer', color: '#8593b5', fontSize: 9 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#a78bfa' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#8593b5' }}>if</button>
@@ -692,7 +693,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
       const all = n.sources?.length ? n.sources : n.sourceHandle && n.sourceField ? [{handle: n.sourceHandle, field: n.sourceField}] : []
       const rem = all.filter((_, i) => i !== sourceIdx)
       return { ...n, sources: rem.length > 0 ? rem : undefined, sourceHandle: rem[0]?.handle, sourceField: rem[0]?.field,
-        expr: rem.length > 1 ? rem.map((s) => `row.${s.field}`).join(" + ' ' + ") : undefined }
+        expr: rem.length > 1 ? joinSourcesFpel(rem) : undefined }
     }))
   }, [setTreeNodes])
 
@@ -702,7 +703,7 @@ function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
       if (existing.some((s) => s.handle === handle && s.field === field)) return n
       const newSources = [...existing, {handle, field}]
       return { ...n, sourceHandle: newSources[0].handle, sourceField: newSources[0].field, sources: newSources,
-        expr: newSources.length > 1 ? newSources.map((s) => `row.${s.field}`).join(" + ' ' + ") : n.expr }
+        expr: newSources.length > 1 ? joinSourcesFpel(newSources) : n.expr }
     }))
   }, [setTreeNodes])
 
