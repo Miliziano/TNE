@@ -89,6 +89,30 @@ pub fn coerce(raw: &str, ty: &str) -> Value {
     try_coerce(raw, ty).unwrap_or(Value::Null)
 }
 
+/// Tipi che `try_coerce` sa produrre; gli altri (es. `array` dei parser)
+/// valgono come `any`: il valore resta com'è.
+const KNOWN_TYPES: [&str; 9] = ["string", "integer", "float", "decimal", "number", "boolean", "date", "datetime", "object"];
+
+/// Un valore già letto → trasformazione del testo + tipo dichiarato (le
+/// trasformazioni legacy to_* valgono come tipo). Err(valore tenuto, tipo
+/// voluto) se non è convertibile: chi chiama lo conta e lo dice nel log.
+/// Usata dal mapping qui sotto e dal json_parser (P369).
+pub fn convert_value(v: &Value, ty: &str, transform: &str) -> Result<Value, (Value, String)> {
+    if matches!(v, Value::Null) { return Ok(Value::Null) }
+    let ty = effective_type(ty, transform);
+    let ty = if KNOWN_TYPES.contains(&ty) { ty } else { "any" };
+    let text_t = is_text_transform(transform);
+    // Già del tipo giusto e niente da trasformare: resta com'è.
+    if !text_t && matches_type(v, ty) { return Ok(v.clone()) }
+
+    let Some(text) = transform_text(&v.as_str_repr(), transform) else { return Ok(Value::Null) };
+    let target = if ty == "any" { "string" } else { ty };
+    match try_coerce(&text, target) {
+        Some(x) => Ok(x),
+        None => Err((if text_t { Value::String(text) } else { v.clone() }, target.to_string())),
+    }
+}
+
 // ─── Mapping dei campi (explode P360, sink_file P361) ──────────────
 //
 // [{ sourceField, outputName, type, transform, include }] come lo salvano
@@ -159,19 +183,12 @@ impl FieldMapping {
 
     fn map_value(&mut self, v: &Value, i: usize) -> Value {
         let f = &self.fields[i];
-        let ty = effective_type(&f.ty, &f.transform);
-        let text_t = is_text_transform(&f.transform);
-        // Già del tipo giusto e niente da trasformare: resta com'è.
-        if !text_t && matches_type(v, ty) { return v.clone() }
-
-        let Some(text) = transform_text(&v.as_str_repr(), &f.transform) else { return Value::Null };
-        let target = if ty.is_empty() || ty == "any" { "string" } else { ty };
-        match try_coerce(&text, target) {
-            Some(x) => x,
-            None => {
-                let e = self.failed.entry(f.out().to_string()).or_insert((0, target.to_string()));
+        match convert_value(v, &f.ty, &f.transform) {
+            Ok(x) => x,
+            Err((kept, target)) => {
+                let e = self.failed.entry(f.out().to_string()).or_insert((0, target));
                 e.0 += 1;
-                if text_t { Value::String(text) } else { v.clone() }
+                kept
             }
         }
     }

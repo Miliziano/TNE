@@ -1,10 +1,18 @@
 // ─── Tipi JSON Parser ─────────────────────────────────────────────
+//
+// P369: allineati al motore (src-tauri/src/engine/nodes/json_parser.rs).
+// Il tipo del campo si applica davvero; le trasformazioni sono solo di
+// testo. Le vecchie to_* restano nel tipo per le config salvate, ma il
+// caricamento (flowStore) le riporta a tipo. Tolti `filter` e `streaming`:
+// il motore non li ha mai applicati.
 
 export type JsonParserFieldTransform =
   | 'none'
   | 'trim'
   | 'uppercase'
   | 'lowercase'
+  | 'nullify_empty'
+  // legacy (config salvate prima del P369): valgono come tipo
   | 'to_integer'
   | 'to_decimal'
   | 'to_boolean'
@@ -13,24 +21,18 @@ export type JsonParserFieldTransform =
 
 export type JsonParserFieldMissing =
   | 'null'       // valore null
-  | 'default'    // usa il valore default dichiarato
-  | 'skip'       // salta la riga
-  | 'error'      // manda al reject
+  | 'default'    // usa il valore default dichiarato (convertito al tipo)
+  | 'skip'       // salta l'elemento (nessuna riga su questo flusso)
+  | 'error'      // manda l'elemento al reject
 
 export interface JsonParserField {
   id:          string
   name:        string           // nome campo output
   jsonPath:    string           // percorso relativo al nodo corrente (es: $.nome)
-  type:        string           // tipo logico output
+  type:        string           // tipo logico output — applicato dal motore
   transform:   JsonParserFieldTransform
   onMissing:   JsonParserFieldMissing
   defaultValue?: string
-}
-export interface JsonParserConfig {
-  sourceField: string
-  hasReject:   boolean
-  flows:       JsonParserFlow[]
-  _sampleJson?: string   // ← aggiungere
 }
 
 export interface JsonParserFlow {
@@ -38,16 +40,15 @@ export interface JsonParserFlow {
   label:        string           // nome handle di uscita
   color:        string           // colore handle
   jsonPath:     string           // JSONPath per estrarre il ramo (es: $.righe)
-  filter?:      string           // espressione filtro opzionale (es: $.qty > 0)
-  isArray:      boolean          // true = emetti una riga per elemento
-  streaming:    boolean          // true = streaming per array grandi
+  isArray:      boolean          // true = una riga per elemento, false = solo il primo
   mergeParent:  boolean          // true = includi campi del padre
   parentFields: string[]         // campi del padre da includere (vuoto = tutti)
   fields:       JsonParserField[]
 }
 
 export interface JsonParserConfig {
-  sourceField:   string           // campo in ingresso che contiene il JSON
-  hasReject:     boolean          // abilita handle reject
-  flows:         JsonParserFlow[]
+  sourceField:  string           // campo in ingresso che contiene il JSON
+  hasReject:    boolean          // abilita handle reject
+  flows:        JsonParserFlow[]
+  _sampleJson?: string           // esempio incollato nella modale
 }

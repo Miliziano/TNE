@@ -12,7 +12,14 @@
 //
 // Config in spec.config (node-spec §20). Multi-output: riceve l'intera
 // mappa `outputs`. resolve_json_path replica il parser JS (stesso
-// sottoinsieme). `filter` per-flow NON implementato (come nel JS).
+// sottoinsieme).
+//
+// P369: il TIPO dichiarato di ogni campo si applica (prima era ignorato):
+// stessa regola di source_file/explode (`field_mapping::convert_value`),
+// le trasformazioni legacy to_* valgono come tipo, un valore non
+// convertibile resta com'è e si conta nel log. Il default di "Use default"
+// prende il tipo del campo. Tolti `filter` e `streaming` (mai applicati).
+// Le righe con JSON non leggibile, senza reject, si contano e si dicono nel log.
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -38,10 +45,7 @@ struct JsonParserFlow {
     #[serde(default)] id: String,
     #[serde(default)] label: String,
     #[serde(default)] json_path: String,
-    /// Non implementato (non lo era nemmeno nel JS). Ignorato a runtime.
-    #[serde(default)] #[allow(dead_code)] filter: Option<String>,
     #[serde(default)] is_array: bool,
-    #[serde(default)] #[allow(dead_code)] streaming: bool,
     #[serde(default)] merge_parent: bool,
     #[serde(default)] parent_fields: Vec<String>,
     #[serde(default)] fields: Vec<JsonParserField>,
@@ -52,7 +56,7 @@ struct JsonParserFlow {
 struct JsonParserField {
     #[serde(default)] name: String,
     #[serde(default)] json_path: String,
-    #[serde(default)] #[allow(dead_code)] r#type: String,
+    #[serde(default)] r#type: String,
     #[serde(default = "d_none")] transform: String,
     #[serde(default = "d_null")] on_missing: String,
     #[serde(default)] default_value: Option<String>,
@@ -89,6 +93,9 @@ pub async fn run(
     let mut rows_in:       u64 = 0;
     let mut rows_out:      u64 = 0;
     let mut rows_rejected: u64 = 0;
+    let mut unreadable:    u64 = 0;   // JSON non leggibile senza reject
+    // campo → (valori non convertibili, tipo voluto)
+    let mut failed: HashMap<String, (u64, String)> = HashMap::new();
 
     while let Some(row) = rx.recv().await {
         rows_in += 1;
@@ -101,8 +108,10 @@ pub async fn run(
                     let mut rej = row.clone();
                     rej.0.insert("_reject_reason".into(), Value::String(reason));
                     send_to(&mut outputs, "reject", rej).await;
-                    rows_rejected += 1;
+                } else {
+                    unreadable += 1;
                 }
+                rows_rejected += 1;
                 continue;
             }
         };
@@ -128,7 +137,7 @@ pub async fn run(
             };
 
             for element in elements {
-                match process_element(element, &parsed, flow) {
+                match process_element(element, &parsed, flow, &mut failed) {
                     ProcessResult::Row(mut out) => {
                         if flow.merge_parent {
                             let parent = build_parent_data(&row, &cfg.source_field, flow);
@@ -154,6 +163,19 @@ pub async fn run(
                 }
             }
         }
+    }
+
+    if unreadable > 0 {
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "{} row(s) without a readable JSON in '{}' were discarded (enable Reject to keep them)",
+            unreadable, cfg.source_field), "panel");
+    }
+    let mut keys: Vec<&String> = failed.keys().collect();
+    keys.sort();
+    for k in keys {
+        let (n, ty) = &failed[k];
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "field '{}': {} value(s) could not be converted to {} and were kept as they are", k, n, ty), "panel");
     }
 
     let stats = NodeStats {
@@ -196,7 +218,12 @@ async fn send_to(outputs: &mut HashMap<String, RowSender>, handle: &str, row: Ro
 
 enum ProcessResult { Row(Row), Skip, Reject(Row) }
 
-fn process_element(element: &JVal, root: &JVal, flow: &JsonParserFlow) -> ProcessResult {
+fn process_element(
+    element: &JVal,
+    root:    &JVal,
+    flow:    &JsonParserFlow,
+    failed:  &mut HashMap<String, (u64, String)>,
+) -> ProcessResult {
     let mut out = Row(HashMap::new());
     let mut should_reject = false;
 
@@ -208,8 +235,7 @@ fn process_element(element: &JVal, root: &JVal, flow: &JsonParserFlow) -> Proces
             match field.on_missing.as_str() {
                 "null"    => { out.0.insert(field.name.clone(), Value::Null); }
                 "default" => {
-                    let v = field.default_value.clone()
-                        .map(Value::String).unwrap_or(Value::Null);
+                    let v = default_value(field);
                     out.0.insert(field.name.clone(), v);
                 }
                 "skip"    => return ProcessResult::Skip,
@@ -220,7 +246,14 @@ fn process_element(element: &JVal, root: &JVal, flow: &JsonParserFlow) -> Proces
         }
 
         let val = Value::from_json(raw.unwrap().clone());
-        out.0.insert(field.name.clone(), apply_transform(val, &field.transform));
+        let v = match crate::engine::field_mapping::convert_value(&val, &field.r#type, &field.transform) {
+            Ok(v) => v,
+            Err((kept, target)) => {
+                failed.entry(field.name.clone()).or_insert((0, target)).0 += 1;
+                kept
+            }
+        };
+        out.0.insert(field.name.clone(), v);
     }
 
     if should_reject { ProcessResult::Reject(out) } else { ProcessResult::Row(out) }
@@ -321,36 +354,46 @@ fn resolve_json_path<'a>(data: &'a JVal, path: &str) -> Option<&'a JVal> {
     Some(cur)
 }
 
-// ─── Trasformazioni per campo ──────────────────────────────────────
-// none|trim|uppercase|lowercase|to_integer|to_decimal|to_boolean|
-// to_date|to_string. Fedeli al JS.
+// ─── Default di "Use default" ──────────────────────────────────────
+// Il testo del pannello col tipo del campo ("0" su un integer → 0); un testo
+// vuoto su un campo di testo resta "".
 
-fn apply_transform(val: Value, transform: &str) -> Value {
-    if matches!(val, Value::Null) { return val; }
-    let s = val.as_str_repr();
-    match transform {
-        "none"      => val,
-        "trim"      => Value::String(s.trim().to_string()),
-        "uppercase" => Value::String(s.to_uppercase()),
-        "lowercase" => Value::String(s.to_lowercase()),
-        "to_integer" => {
-            let cleaned: String = s.chars().filter(|c| c.is_ascii_digit() || *c == '-').collect();
-            cleaned.parse::<i64>().map(Value::Int).unwrap_or(Value::Null)
-        }
-        "to_decimal" => {
-            s.replace(',', ".").parse::<f64>().map(Value::Float).unwrap_or(Value::Null)
-        }
-        "to_boolean" => {
-            let l = s.to_lowercase();
-            Value::Bool(matches!(l.as_str(), "true"|"1"|"yes"|"si"|"sì"|"on"))
-        }
-        "to_date" => {
-            // Fedele al JS: prende la parte data ISO se parsabile.
-            // Il motore non ha un parser date completo: teniamo la stringa
-            // così com'è se già in forma YYYY-MM-DD, altrimenti Date(s).
-            Value::Date(s)
-        }
-        "to_string" => Value::String(s),
-        _           => val,
+fn default_value(field: &JsonParserField) -> Value {
+    let Some(d) = field.default_value.as_deref() else { return Value::Null };
+    let ty = crate::engine::field_mapping::effective_type(&field.r#type, &field.transform);
+    match ty {
+        "" | "string" | "any" => Value::String(d.to_string()),
+        _ => crate::engine::field_mapping::coerce(d, ty),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn flow(fields: serde_json::Value) -> JsonParserFlow {
+        serde_json::from_value(serde_json::json!({"id": "f", "jsonPath": "$.items[*]", "isArray": true, "fields": fields})).unwrap()
+    }
+
+    #[test]
+    fn tipi_e_default() {
+        let doc: JVal = serde_json::json!({"items": [{"qty": "12", "price": 3.5, "ok": "si", "name": " a "}, {"price": "x"}]});
+        let f = flow(serde_json::json!([
+            {"name": "qty",   "jsonPath": "$.qty",   "type": "integer", "onMissing": "default", "defaultValue": "0"},
+            {"name": "price", "jsonPath": "$.price", "type": "decimal"},
+            {"name": "ok",    "jsonPath": "$.ok",    "type": "string", "transform": "to_boolean"},
+            {"name": "name",  "jsonPath": "$.name",  "type": "string", "transform": "trim"},
+        ]));
+        let items = doc["items"].as_array().unwrap();
+        let mut failed = HashMap::new();
+        let ProcessResult::Row(r) = process_element(&items[0], &doc, &f, &mut failed) else { panic!() };
+        assert_eq!(r.get("qty"), Some(&Value::Int(12)));
+        assert!(matches!(r.get("price"), Some(Value::Decimal(_))));
+        assert_eq!(r.get("ok"), Some(&Value::Bool(true)));
+        assert_eq!(r.get("name"), Some(&Value::String("a".into())));
+        let ProcessResult::Row(r) = process_element(&items[1], &doc, &f, &mut failed) else { panic!() };
+        assert_eq!(r.get("qty"), Some(&Value::Int(0)));            // default tipizzato
+        assert_eq!(r.get("price"), Some(&Value::String("x".into()))); // tenuto, contato
+        assert_eq!(failed.get("price").map(|x| x.0), Some(1));
     }
 }

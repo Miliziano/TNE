@@ -145,7 +145,6 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
                   {flow.label}
                 </span>
                 {flow.isArray   && <span style={{ fontSize: 7, color: '#8593b5' }}>[ ]</span>}
-                {flow.streaming && <i className="ti ti-wave-sine" style={{ fontSize: 7, color: '#ffb347' }} />}
               </div>
             ))}
           </div>

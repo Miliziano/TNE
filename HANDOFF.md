@@ -2170,3 +2170,24 @@ Bug solo-studio + audit di configurazione del Data Quality.
 - Tolto `json_serializer/Panel.tsx` (mai registrato; il nodo usa JsonSerializerModal).
   Prossimo: audit di configurazione (JSON Parser, TMap con pulizia `status.*`, XML Parser,
   JSON/XML Serializer).
+
+## AGGIORNAMENTO — JSON Parser: tipi applicati, opzioni morte tolte (stato al P369, 26 ottobre)
+
+Audit di configurazione, JSON Parser.
+- **Tipo dei campi** applicato (prima `#[allow(dead_code)]`): `field_mapping::convert_value`
+  (estratta da `FieldMapping::map_value`, stessa regola di source_file/explode; tipi non
+  noti, es. `array`, valgono `any`). Valori non convertibili tenuti e contati nel log.
+  Default di "Default" convertito al tipo (`default_value`). Tolta `apply_transform`.
+- JSON non leggibile senza reject: contato in `rows_rejected` e detto nel log (prima sparivano
+  in silenzio).
+- Studio: tolti *Stream* (bottone e badge su modale e nodo) e `filter` (solo nel tipo);
+  trasformazioni solo di testo (+ empty→null); input per il valore di default (prima
+  "Usa default" non aveva dove scriverlo → null); `fieldTypeOf` (array → object); hook della
+  modale prima del return; testi in inglese. `normalizeJsonParser` al caricamento: to_* →
+  tipo del campo, `array` → `object`, via `streaming`/`filter`.
+- Collaudo: test `json_parser::tests::tipi_e_default` + harness (CSV con JSON: righe con
+  merge del padre, qty "2" → 2, "x" tenuto e contato, default 1, cliente UPPER, riga non
+  JSON → log o reject `invalid_json`).
+- Notato, non toccato: `mergeParent`/`parentFields` il motore li applica ma la modale non
+  li mostra (e lo schema del flusso non include i campi del padre).
+  Prossimo: TMap (con pulizia dei `status.*` legacy), poi XML Parser e i Serializer.

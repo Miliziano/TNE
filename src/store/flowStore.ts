@@ -166,10 +166,40 @@ export const updateNode = (
 /** Normalizza i nodi di un progetto caricato: Start/End salvati come non
  *  cancellabili (prima erano obbligatori) diventano cancellabili. */
 export function normalizeLoadedNodes(nodes: FlowNode<NodeData>[]): FlowNode<NodeData>[] {
-  return nodes.map((n) => normalizeMaterialize(normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
+  return nodes.map((n) => normalizeJsonParser(normalizeMaterialize(normalizeSourceFtp(normalizeSinkFile(normalizeAdvanced(
     (n.data?.type === 'lane_start' || n.data?.type === 'lane_end') && n.deletable === false
       ? { ...n, deletable: true }
-      : n)))))
+      : n))))))
+}
+
+/**
+ * JSON Parser (P369). Il motore ora applica il tipo dei campi: le vecchie
+ * trasformazioni-conversione (to_integer…) diventano il tipo del campo
+ * (prima il tipo mostrato poteva dire `string` mentre usciva un intero),
+ * un tipo `array` diventa `object`; tolti `streaming`/`filter` (mai applicati).
+ */
+const JP_LEGACY_TYPE: Record<string, string> = {
+  to_integer: 'integer', to_decimal: 'decimal', to_boolean: 'boolean', to_date: 'date', to_string: 'string',
+}
+function normalizeJsonParser(n: FlowNode<NodeData>): FlowNode<NodeData> {
+  if (n.data?.type !== 'json_parser') return n
+  const jp = (n.data.config as any)?.jsonParser
+  if (!jp || !Array.isArray(jp.flows)) return n
+  let changed = false
+  const flows = jp.flows.map((f: any) => {
+    const { streaming, filter, ...rest } = f
+    if (streaming !== undefined || filter !== undefined) changed = true
+    const fields = (f.fields ?? []).map((fd: any) => {
+      const legacy = JP_LEGACY_TYPE[fd.transform]
+      if (legacy) { changed = true; return { ...fd, type: legacy, transform: 'none' } }
+      if (fd.type === 'array') { changed = true; return { ...fd, type: 'object' } }
+      return fd
+    })
+    return { ...rest, fields }
+  })
+  return changed
+    ? { ...n, data: { ...n.data, config: { ...n.data.config, jsonParser: { ...jp, flows } } } }
+    : n
 }
 
 /**

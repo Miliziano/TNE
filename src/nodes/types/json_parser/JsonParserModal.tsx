@@ -43,23 +43,26 @@ function SectionTitle({ label, color = ACCENT }: { label: string; color?: string
 
 const FLOW_COLORS = ['#4a9eff','#3ddc84','#ffb347','#a78bfa','#22d3ee','#f472b6','#84cc16','#fb923c','#e879f9','#ff5f57']
 
+// P369: le conversioni le fa la colonna Type (il motore applica il tipo);
+// le vecchie to_* sono riportate a tipo al caricamento (flowStore).
 const TRANSFORMS: Array<{ value: JsonParserFieldTransform; label: string }> = [
-  { value: 'none',       label: 'Nessuna'   },
-  { value: 'trim',       label: 'trim'      },
-  { value: 'uppercase',  label: 'UPPERCASE' },
-  { value: 'lowercase',  label: 'lowercase' },
-  { value: 'to_integer', label: '→ integer' },
-  { value: 'to_decimal', label: '→ decimal' },
-  { value: 'to_boolean', label: '→ boolean' },
-  { value: 'to_date',    label: '→ date'    },
-  { value: 'to_string',  label: '→ string'  },
+  { value: 'none',          label: 'none'       },
+  { value: 'trim',          label: 'trim'       },
+  { value: 'uppercase',     label: 'UPPER'      },
+  { value: 'lowercase',     label: 'lower'      },
+  { value: 'nullify_empty', label: 'empty→null' },
 ]
 const ON_MISSING: Array<{ value: JsonParserFieldMissing; label: string }> = [
   { value: 'null',    label: 'null'        },
-  { value: 'default', label: 'Usa default' },
-  { value: 'skip',    label: 'Skip row'  },
+  { value: 'default', label: 'Default'     },
+  { value: 'skip',    label: 'Skip row'    },
   { value: 'error',   label: 'Reject'      },
 ]
+
+/** Tipo del campo dal tipo del nodo JSON (un array foglia è un `object`). */
+function fieldTypeOf(valueType: string): string {
+  return valueType === 'array' ? 'object' : valueType
+}
 
 // ─── Albero JSON ──────────────────────────────────────────────────
 interface JsonTreeNode {
@@ -141,7 +144,6 @@ function generateFlowsFromJson(jsonString: string): { flows: JsonParserFlow[]; t
         color: FLOW_COLORS[0],
         jsonPath: '$',
         isArray: true,
-        streaming: false,
         mergeParent: false,
         parentFields: [],
         fields: makeFields(parsed[0], '$', true),
@@ -164,8 +166,7 @@ function generateFlowsFromJson(jsonString: string): { flows: JsonParserFlow[]; t
           color: FLOW_COLORS[0],
           jsonPath: '$',
           isArray: false,
-          streaming: false,
-          mergeParent: false,
+            mergeParent: false,
           parentFields: [],
           fields: rootEntries.map(([key, val], i) => {
             let type = 'string'
@@ -194,8 +195,7 @@ function generateFlowsFromJson(jsonString: string): { flows: JsonParserFlow[]; t
           color: FLOW_COLORS[colorIdx % FLOW_COLORS.length],
           jsonPath: `$.${key}`,
           isArray: isArr,
-          streaming: false,
-          mergeParent: false,
+            mergeParent: false,
           parentFields: [],
           fields: makeFields(sample, `$.${key}`, isArr),
         })
@@ -286,7 +286,6 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
           style={{ background:'none', border:'none', outline:'none', fontSize:11, fontWeight:600, color, fontFamily:'monospace', flex:1, minWidth:0 }} />
         <code style={{ fontSize:8, color:'#8593b5', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{flow.jsonPath}</code>
         {flow.isArray   && <span style={{ fontSize:9, color:'#8593b5' }}>[ ]</span>}
-        {flow.streaming && <i className="ti ti-wave-sine" style={{ fontSize:9, color:'#ffb347' }} />}
         <button onClick={(e)=>{e.stopPropagation();setMaximized(v=>!v)}} style={{ background:'none', border:`0.5px solid ${color}40`, borderRadius:3, padding:'1px 4px', cursor:'pointer', color:'#8593b5' }}
           onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.color=color}}
           onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#8593b5'}}>
@@ -306,7 +305,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
           <div style={{ display:'flex', gap:4, padding:'5px 10px', borderBottom:`0.5px solid ${color}20`, flexWrap:'wrap', alignItems:'center' }}>
             <input value={flow.jsonPath} onChange={(e)=>onUpdate({jsonPath:e.target.value})}
               style={{ ...inputStyle, fontSize:9, padding:'2px 6px', width:140 }} placeholder="$.path" />
-            {[{key:'isArray',label:'[ ] Array',title:'Array → rows'},{key:'streaming',label:'〜 Stream',title:'Streaming'}].map((opt) => (
+            {[{key:'isArray',label:'[ ] Array',title:'Array → one row per element (off: only the first element)'}].map((opt) => (
               <button key={opt.key} title={opt.title} onClick={()=>onUpdate({[opt.key]:!(flow as any)[opt.key]})}
                 style={{ padding:'2px 8px', fontSize:9, borderRadius:3, cursor:'pointer', background:(flow as any)[opt.key]?`color-mix(in srgb, ${color} 20%, #161b27)`:'#1e2535', color:(flow as any)[opt.key]?color:'#8593b5', border:(flow as any)[opt.key]?`1px solid ${color}60`:'1px solid #2a3349' }}>
                 {opt.label}
@@ -325,7 +324,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
           ) : (
             <>
               <div style={{ display:'grid', gridTemplateColumns:'minmax(60px, 0.8fr) minmax(110px, 1.2fr) 70px 80px 80px 24px', gap:4, padding:'3px 8px', background:'#1a2030', borderBottom:'0.5px solid #2a3349', flexShrink:0 }}>
-                {['Nome','JSONPath','Tipo','Trasforma','Mancante',''].map((h,i) => (
+                {['Name','JSONPath','Type','Transform','If missing',''].map((h,i) => (
                   <div key={i} style={{ fontSize:8, color:'#8593b5', textTransform:'uppercase', letterSpacing:'.05em', fontWeight:600 }}>{h}</div>
                 ))}
               </div>
@@ -339,10 +338,18 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                     </CustomSelect>
                     <CustomSelect value={f.transform} onChange={(e)=>updateField(f.id,'transform',e.target.value as JsonParserFieldTransform)} style={{ ...inputStyle, fontSize:9, padding:'2px 3px' }}>
                       {TRANSFORMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      {!TRANSFORMS.some((t) => t.value === f.transform) && <option value={f.transform}>{f.transform}</option>}
                     </CustomSelect>
-                    <CustomSelect value={f.onMissing} onChange={(e)=>updateField(f.id,'onMissing',e.target.value as JsonParserFieldMissing)} style={{ ...inputStyle, fontSize:9, padding:'2px 3px' }}>
-                      {ON_MISSING.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </CustomSelect>
+                    <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                      <CustomSelect value={f.onMissing} onChange={(e)=>updateField(f.id,'onMissing',e.target.value as JsonParserFieldMissing)} style={{ ...inputStyle, fontSize:9, padding:'2px 3px' }}>
+                        {ON_MISSING.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </CustomSelect>
+                      {f.onMissing === 'default' && (
+                        <input value={f.defaultValue ?? ''} onChange={(e)=>updateField(f.id,'defaultValue',e.target.value)}
+                          title="Value used when the path is missing or null (converted to the field type)"
+                          style={{ ...inputStyle, fontSize:9, padding:'2px 5px' }} placeholder="default" />
+                      )}
+                    </div>
                     <button onClick={()=>deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#8593b5', padding:0, display:'flex', alignItems:'center', justifyContent:'center' }}
                       onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.color='#ff5f57'}}
                       onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#8593b5'}}>
@@ -415,12 +422,13 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
   const { ref: dragRef, pos, onMouseDown, reset: resetDrag } = useDraggable()
   const { modalRef, width, onResizeStart } = useResizable(1100)
 
-  if (!node) return null
-
+  // P369: niente return prima degli hook (regole degli hook) — il return
+  // anticipato è sotto, dopo l'ultimo hook.
+  const rawCfg = node?.data.config?.jsonParser
   const config: JsonParserConfig = useMemo(() => {
-    try { const r=node.data.config?.jsonParser; if(r) return r as JsonParserConfig } catch {}
+    if (rawCfg) return rawCfg as JsonParserConfig
     return { sourceField:'body', hasReject:false, flows:[] }
-  }, [node.data.config?.jsonParser])
+  }, [rawCfg])
 
   useEffect(() => {
     if (config._sampleJson) {
@@ -454,7 +462,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
       pruneOrphanEdges(flows.map((f) => f.id))
       setJsonTree(tree); setParseError('')
       if (flows.length > 0) setSelectedFlowId(flows[0].id)
-    } catch (e: any) { setParseError(e.message ?? 'JSON non valido') }
+    } catch (e: any) { setParseError(e.message ?? 'Invalid JSON') }
   }, [rawJson, config, saveConfig, pruneOrphanEdges])
 
   const toggleTreeNode = useCallback((id: string) => {
@@ -467,16 +475,16 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
   const generateFlowFromTree = useCallback((treeNode: JsonTreeNode) => {
     const idx=config.flows.length; const color=FLOW_COLORS[idx%FLOW_COLORS.length]
     const fields: JsonParserField[] = treeNode.children.filter((c)=>c.children.length===0).map((c,i)=>({
-      id:`f_${i}_${Date.now()}`, name:c.name, jsonPath:c.path, type:c.valueType,
+      id:`f_${i}_${Date.now()}`, name:c.name, jsonPath:c.path, type:fieldTypeOf(c.valueType),
       transform:'none' as JsonParserFieldTransform, onMissing:'null' as JsonParserFieldMissing,
     }))
-    const newFlow: JsonParserFlow = { id:`flow_${Date.now()}`, label:treeNode.name, color, jsonPath:treeNode.path, isArray:treeNode.isArray, streaming:false, mergeParent:false, parentFields:[], fields }
+    const newFlow: JsonParserFlow = { id:`flow_${Date.now()}`, label:treeNode.name, color, jsonPath:treeNode.path, isArray:treeNode.isArray, mergeParent:false, parentFields:[], fields }
     saveConfig({ ...config, flows:[...config.flows,newFlow] }); setSelectedFlowId(newFlow.id)
   }, [config, saveConfig])
 
   const addFlow = useCallback(() => {
     const idx=config.flows.length; const color=FLOW_COLORS[idx%FLOW_COLORS.length]
-    const newFlow: JsonParserFlow = { id:`flow_${Date.now()}`, label:`flow_${idx+1}`, color, jsonPath:'$', isArray:false, streaming:false, mergeParent:false, parentFields:[], fields:[] }
+    const newFlow: JsonParserFlow = { id:`flow_${Date.now()}`, label:`flow_${idx+1}`, color, jsonPath:'$', isArray:false, mergeParent:false, parentFields:[], fields:[] }
     saveConfig({ ...config, flows:[...config.flows,newFlow] }); setSelectedFlowId(newFlow.id)
   }, [config, saveConfig])
 
@@ -494,7 +502,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
     if (existingIdx >= 0) {
       saveConfig({ ...config, flows:config.flows.map((f)=>f.id===flowId?{...f,fields:f.fields.filter((_,i)=>i!==existingIdx)}:f) })
     } else {
-      const newField: JsonParserField = { id:`f_${Date.now()}`, name:treeNode.name, jsonPath:treeNode.path, type:treeNode.valueType, transform:'none', onMissing:'null' }
+      const newField: JsonParserField = { id:`f_${Date.now()}`, name:treeNode.name, jsonPath:treeNode.path, type:fieldTypeOf(treeNode.valueType), transform:'none', onMissing:'null' }
       saveConfig({ ...config, flows:config.flows.map((f)=>f.id===flowId?{...f,fields:[...f.fields,newField]}:f) })
     }
   }, [config, saveConfig])
@@ -506,6 +514,8 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
     const handler=(e: KeyboardEvent)=>{ if(e.key==='Escape') onClose() }
     document.addEventListener('keydown',handler); return()=>document.removeEventListener('keydown',handler)
   }, [onClose])
+
+  if (!node) return null
 
   const TABS: Array<{id:Tab;label:string;icon:string}> = [
     { id:'config',   label:'Configuration',  icon:'ti-adjustments' },
@@ -584,7 +594,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                       <div style={{ width:10, height:10, borderRadius:'50%', background:'#fff', position:'absolute', top:2, left:config.hasReject?14:2, transition:'left .2s' }} />
                     </button>
                     <span style={{ fontSize:9, color:config.hasReject?'#ff5f57':'#8593b5', fontWeight:600 }}>
-                      {config.hasReject?'Reject attivo':'Reject disabilitato'}
+                      {config.hasReject?'Reject on':'Reject off'}
                     </span>
                   </div>
                   {incomingFields.length===0 && (
@@ -624,7 +634,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                 <div style={{ padding:'8px 12px', background:'#1a2030', borderBottom:'0.5px solid #2a3349', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                   <i className="ti ti-git-branch" style={{ fontSize:12, color:'#3ddc84' }} />
                   <span style={{ fontSize:10, fontWeight:600, color:'#3ddc84', textTransform:'uppercase', letterSpacing:'.06em', flex:1 }}>Output flows — {config.flows.length}</span>
-                  {selectedFlowId && <span style={{ fontSize:9, color:ACCENT, fontStyle:'italic' }}>selezionato: {config.flows.find((f)=>f.id===selectedFlowId)?.label}</span>}
+                  {selectedFlowId && <span style={{ fontSize:9, color:ACCENT, fontStyle:'italic' }}>selected: {config.flows.find((f)=>f.id===selectedFlowId)?.label}</span>}
                   <button onClick={addFlow} style={{ padding:'3px 12px', fontSize:10, borderRadius:4, cursor:'pointer', background:'#0d3d20', color:'#3ddc84', border:'1px solid #1d6d40', display:'flex', alignItems:'center', gap:4 }}
                     onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.background='#1d6d40'}}
                     onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.background='#0d3d20'}}>
