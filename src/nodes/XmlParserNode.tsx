@@ -65,7 +65,7 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
       {/* ── Badge editor — sempre visibile, angolo in alto a destra ── */}
       <div
         onClick={(e) => { e.stopPropagation(); setShowModal(true) }}
-        title="Apri configuratore XML Parser"
+        title="Open the XML Parser editor"
         style={{
           position:       'absolute',
           top:            -8,
@@ -150,7 +150,7 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
         )}
 
         {flows.length === 0 && (
-          <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic', marginTop: 2 }}>nessun flusso configurato</div>
+          <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic', marginTop: 2 }}>no flow configured</div>
         )}
 
         {hasReject && (
@@ -180,7 +180,7 @@ export const XmlParserNode = memo(({ id, data, selected }: NodeProps) => {
         return (
           <Handle id="reject" type="source" position={Position.Right}
             style={{ top: `${pct}%`, background: '#ff5f57', border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
-            title="Flusso reject" />
+            title="Reject flow" />
         )
       })()}
 

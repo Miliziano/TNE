@@ -56,7 +56,7 @@ export function parseSchema(text: string): SchemaFileField[] {
   try {
     data = JSON.parse(text)
   } catch {
-    throw new Error('il file non è JSON valido')
+    throw new Error('the file is not valid JSON')
   }
 
   const raw: unknown = Array.isArray(data)
@@ -66,17 +66,17 @@ export function parseSchema(text: string): SchemaFileField[] {
       : null
 
   if (!raw || !Array.isArray(raw)) {
-    throw new Error('formato non riconosciuto: manca l\u2019elenco dei campi')
+    throw new Error('unrecognized format: the list of fields is missing')
   }
 
   const fields: SchemaFileField[] = []
   raw.forEach((item, i) => {
     if (!item || typeof item !== 'object') {
-      throw new Error(`campo ${i + 1}: non è un oggetto`)
+      throw new Error(`field ${i + 1}: not an object`)
     }
     const o = item as Record<string, unknown>
     const name = typeof o.name === 'string' ? o.name.trim() : ''
-    if (!name) throw new Error(`campo ${i + 1}: nome mancante`)
+    if (!name) throw new Error(`field ${i + 1}: missing name`)
     fields.push({
       name,
       type: typeof o.type === 'string' && o.type ? o.type : 'string',
@@ -85,7 +85,7 @@ export function parseSchema(text: string): SchemaFileField[] {
     })
   })
 
-  if (fields.length === 0) throw new Error('il file non contiene campi')
+  if (fields.length === 0) throw new Error('the file contains no fields')
   return fields
 }
 
@@ -106,7 +106,7 @@ export async function downloadSchema(
 
   if (isTauri()) {
     const path = await saveFileDialog({
-      title:       'Esporta schema campi',
+      title:       'Export field schema',
       filters:     [{ name: 'Schema JSON', extensions: ['json'] }],
       defaultPath: name,
     })
@@ -114,7 +114,7 @@ export async function downloadSchema(
     try {
       await writeFile(path, content)
     } catch (e) {
-      alert(`Impossibile salvare lo schema: ${e instanceof Error ? e.message : String(e)}`)
+      alert(`Cannot save the schema: ${e instanceof Error ? e.message : String(e)}`)
     }
     return
   }

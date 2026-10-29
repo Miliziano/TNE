@@ -221,7 +221,7 @@ export function LogViewerWindow() {
         <span style={{ fontSize: 10, color: '#8593b5' }}>{rows.length.toLocaleString()} rows</span>
 
         <button onClick={() => setAutoScroll((v) => !v)}
-          title={autoScroll ? 'Auto-scroll attivo' : 'Auto-scroll disattivato'}
+          title={autoScroll ? 'Auto-scroll on' : 'Auto-scroll disattivato'}
           style={{
             background: autoScroll ? `color-mix(in srgb, ${ACCENT} 20%, ${BG3})` : BG3,
             border: `0.5px solid ${autoScroll ? ACCENT : BORDER}`,
@@ -290,7 +290,7 @@ export function LogViewerWindow() {
                       }}>
                         <div style={{ flex: 1, height: '0.5px', background: '#22d3ee40' }} />
                         <span style={{ fontSize: 9, color: '#22d3ee', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                          ▶ nuova sessione
+                          ▶ new session
                         </span>
                         <div style={{ flex: 1, height: '0.5px', background: '#22d3ee40' }} />
                       </div>

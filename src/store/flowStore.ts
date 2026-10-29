@@ -28,6 +28,8 @@ import type {
   FieldRenameEntry,
 } from '../types'
 import { NODE_DEFS } from '../nodes/registry'
+import { jsonParserFlowFields } from '../nodes/types/json_parser/schema'
+import type { JsonParserFlow } from '../nodes/types/json_parser/jsonParserTypes'
 import {
   applyRenameMap,
   removeFieldFromTransforms as removeFieldFromTransformsFn,
@@ -687,7 +689,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         irState: {
           ...s.irState,
           compiling: false,
-          compilationErrors: [`Errore di compilazione: ${e}`],
+          compilationErrors: [`Compilation error: ${e}`],
         },
       }))
     }
@@ -715,7 +717,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         irState: {
           ...s.irState,
           compiling: false,
-          compilationErrors: [`Errore codegen: ${e}`],
+          compilationErrors: [`Codegen error: ${e}`],
         },
       }))
     }
@@ -849,8 +851,9 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         const config = node.data.config?.[parserKey] as any
         if (!config?.flows) return
         config.flows.forEach((flow: any) => {
-          if (!flow.fields?.length) return
-          const schema = flow.fields.map((f: any) => ({
+          const flowFields: any[] = parserKey === 'jsonParser' ? jsonParserFlowFields(flow) : (flow.fields ?? [])
+          if (!flowFields.length) return
+          const schema = flowFields.map((f: any) => ({
             id: f.id, name: f.name, type: f.type, physicalName: f.name,
           }))
           store.edges
@@ -898,9 +901,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       // propaga lo schema di ogni flusso sugli edge con sourceHandle === flow.id
       const srcNode = s.nodes.find((n) => n.id === id)
       if (srcNode?.data.type === 'json_parser' && (patch as any).jsonParser) {
-        const jpConfig = (patch as any).jsonParser as {
-          flows: Array<{ id: string; fields: Array<{ id: string; name: string; type: string }> }>
-        }
+        const jpConfig = (patch as any).jsonParser as { flows: JsonParserFlow[] }
 
         // Rimuovi edge orfani — handle non più esistenti nei nuovi flussi
         const newFlowIds = new Set((patch as any).jsonParser.flows?.map((f: any) => f.id) ?? [])
@@ -917,8 +918,9 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         setTimeout(() => {
           const store = useFlowStore.getState()
           jpConfig.flows?.forEach((flow) => {
-            if (!flow.fields?.length) return
-            const schema = flow.fields.map((f) => ({
+            const flowFields = jsonParserFlowFields(flow)
+            if (!flowFields.length) return
+            const schema = flowFields.map((f) => ({
               id: f.id, name: f.name, type: f.type, physicalName: f.name,
             }))
             const outEdges = store.edges.filter(
@@ -1864,7 +1866,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       })
 
       setResourceStatus(laneId, resourceId, 'ok')
-      addLog('ok', `"${res.label}" — connessione riuscita (${dialect})`, undefined, laneId)
+      addLog('ok', `"${res.label}" — connection successful (${dialect})`, undefined, laneId)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setResourceStatus(laneId, resourceId, 'error')
@@ -1901,10 +1903,10 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const st0 = get()
     const lane = st0.pool.lanes.find((l) => l.id === laneId)
     const v = lane?.variables.find((x) => x.id === variableId)
-    if (!lane || !v) return 'Variabile non trovata.'
-    if (v.type === 'materialize') return 'Le variabili di materializzazione sono legate a un nodo: non si promuovono.'
+    if (!lane || !v) return 'Variable not found.'
+    if (v.type === 'materialize') return 'Materialize variables are tied to a node: they cannot be promoted.'
     if ((st0.pool.variables ?? []).some((pv) => pv.name === v.name))
-      return `Esiste già una variabile condivisa chiamata "${v.name}".`
+      return `A shared variable called "${v.name}" already exists.`
 
     set((st) => ({
       pool: {

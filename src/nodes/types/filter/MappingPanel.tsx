@@ -14,10 +14,18 @@ import { conditionToFpel, isCaseSensitive, effectiveExecMode } from './filterTyp
 const ACCENT = '#ffb347'
 
 export function FilterMappingPanel({ nodeId }: { nodeId: string }) {
-  const node   = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <FilterMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function FilterMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node   = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const fields = useIncomingSchema(nodeId)
 
-  if (!node) return null
 
   const config: FilterConfig = useMemo(() => {
     try {

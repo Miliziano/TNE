@@ -38,11 +38,19 @@ function SectionTitle({ label, color = '#4a9eff' }: { label: string; color?: str
 const ACCENT = '#4a9eff'
 
 export function MailSinkPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <MailSinkPanelBody nodeId={nodeId} /> : null
+}
+
+function MailSinkPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
 
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -57,7 +65,7 @@ export function MailSinkPanel({ nodeId }: { nodeId: string }) {
   const fieldSelect = (key: string, placeholder: string) =>
     incomingFields.length > 0 ? (
       <CustomSelect style={inputStyle} value={p(key)} onChange={u(key)}>
-        <option value="">— seleziona campo —</option>
+        <option value="">— select field —</option>
         {incomingFields.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.type})</option>)}
       </CustomSelect>
     ) : (

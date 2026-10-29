@@ -42,7 +42,7 @@ export function useMaterializeSchema(
       return parsed
         .map((f: any, i: number) => ({
           id:           f.id   ?? `mf_${i}`,
-          name:         f.name ?? `campo_${i}`,
+          name:         f.name ?? `field_${i}`,
           type:         f.type ?? 'string',
           physicalName: f.physicalName ?? f.name,
         }))

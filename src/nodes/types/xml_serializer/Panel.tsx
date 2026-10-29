@@ -111,7 +111,7 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
         <input value={node.xmlName}
           onChange={(e) => onChange(node.id, { xmlName: e.target.value })}
           style={{ ...inputStyle, fontSize: 10, padding: '2px 6px', flex: 1, color: kindColor, fontWeight: 600 }}
-          placeholder={isAttr ? 'nome_attributo' : 'nome_elemento'} />
+          placeholder={isAttr ? 'attribute_name' : 'element_name'} />
 
         {/* Campo sorgente — non per group */}
         {!isGroup && (
@@ -187,11 +187,19 @@ function XmlNodeRow({ node, depth, fields, onChange, onDelete, onAddChild }: {
 
 // ─── Panel principale ────────────────────────────────────────────
 export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <XmlSerializerPanelBody nodeId={nodeId} /> : null
+}
+
+function XmlSerializerPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const inFields   = useIncomingSchema(nodeId)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -280,7 +288,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       const pad = '  '.repeat(indent)
       return nodes.map((n) => {
         const ns  = n.namespace ? `${n.namespace}:` : ''
-        const tag = `${ns}${n.xmlName || 'elemento'}`
+        const tag = `${ns}${n.xmlName || 'element'}`
         if (n.kind === 'attribute') return '' // attributi vanno nel tag padre
         if (n.kind === 'cdata') return `${pad}<${tag}><![CDATA[<${n.sourceField || tag}>]]></${tag}>`
         if (n.kind === 'group' || (n.children && n.children.length > 0)) {
@@ -306,7 +314,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
         <span style={{ color: ACCENT, fontWeight: 600 }}>&lt;/&gt; XML Serializer</span> — converts flow rows into XML strings.
-        Il risultato viene scritto nel campo <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code>.
+        The result is written to the field <code style={{ color: ACCENT }}>{p('outputField', 'xml_output')}</code>.
       </div>
 
       {/* Elemento root */}
@@ -318,7 +326,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
         </Field>
         <Field label="Root namespace" hint="Namespace URI of the root element (optional)">
           <input style={inputStyle} value={p('rootNamespace')} onChange={u('rootNamespace')}
-            placeholder="http://esempio.com/schema" />
+            placeholder="http://example.com/schema" />
         </Field>
       </Row>
       <Row>
@@ -340,10 +348,10 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
             <option value="true">Indented — readable</option>
           </CustomSelect>
         </Field>
-        <Field label="Dichiarazione XML">
+        <Field label="XML declaration">
           <CustomSelect style={inputStyle} value={p('xmlDeclaration', 'true')} onChange={u('xmlDeclaration')}>
             <option value="true">Include — &lt;?xml version="1.0"?&gt;</option>
-            <option value="false">Ometti</option>
+            <option value="false">Omit</option>
           </CustomSelect>
         </Field>
       </Row>
@@ -433,7 +441,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
               </button>
             ))}
             <span style={{ fontSize: 9, color: '#8593b5', alignSelf: 'center', marginLeft: 4 }}>
-              {importMode === 'xsd' ? 'Incolla un XSD — gli elementi semplici vengono importati come mapping' : 'Incolla XML di esempio — la struttura viene importata come template'}
+              {importMode === 'xsd' ? 'Paste an XSD — simple elements are imported as mappings' : 'Paste sample XML — the structure is imported as a template'}
             </span>
           </div>
           <textarea
@@ -461,7 +469,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       {structure.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-code" style={{ fontSize: 24, display: 'block', marginBottom: 8, color: `${ACCENT}40` }} />
-          Aggiungi elementi o importa un XSD per definire la struttura XML output.
+          Add elements or import an XSD to define the output XML structure.
         </div>
       ) : (
         <div style={{ background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', padding: '8px' }}>
@@ -483,7 +491,7 @@ export function XmlSerializerPanel({ nodeId }: { nodeId: string }) {
       </Field>
 
       {/* Output nodo */}
-      <SectionTitle label="Output del nodo" color="#8593b5" />
+      <SectionTitle label="Node output" color="#8593b5" />
       <div style={{ padding: '8px 10px', background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', fontSize: 10, color: '#8593b5', lineHeight: 1.8 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 9, padding: '1px 8px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d40' }}>output</span>

@@ -685,7 +685,7 @@ export function LaneCanvas({ lane }: { lane: Lane }) {
         <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginLeft: 4 }}>
           {nodeCount} nodes · {lane.resources.length} resources · {lane.height}px
         </span>
-        <input type="color" value={lane.color} onChange={(e) => updateLane(lane.id, { color: e.target.value })} title="Colore lane"
+        <input type="color" value={lane.color} onChange={(e) => updateLane(lane.id, { color: e.target.value })} title="Lane color"
           style={{ width: 20, height: 20, border: 'none', borderRadius: 4, padding: 0, cursor: 'pointer', background: 'none' }} />
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           {([

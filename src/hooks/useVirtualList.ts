@@ -120,6 +120,9 @@ export function useVirtualList({
 
   const scrollToBottom = useCallback(() => {
     if (!containerEl) return
+    // containerEl è l'elemento DOM (tenuto in uno state per ri-agganciare il
+    // listener): scriverne lo scroll è lavoro sul DOM, non mutare lo state.
+    // eslint-disable-next-line react-hooks/immutability
     containerEl.scrollTop = containerEl.scrollHeight
     setScrollTop(containerEl.scrollTop)
     const distFromBottom = containerEl.scrollHeight - containerEl.scrollTop - containerEl.clientHeight

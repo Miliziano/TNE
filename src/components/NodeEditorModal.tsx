@@ -204,7 +204,7 @@ function TabPreview({ nodeId }: { nodeId: string }) {
   const cols = ['id', 'name', 'email', 'created_at', 'status']
   const rows = Array.from({ length: 5 }, (_, i) => ({
     id: 1000 + i,
-    name: ['Mario Rossi', 'Giulia Bianchi', 'Luca Verdi', 'Anna Neri', 'Paolo Blu'][i],
+    name: ['Mario Rossi', 'Giulia Bianchi', 'Luca Verdi', 'Anna Neri', 'Paul Blue'][i],
     email: `user${i}@example.com`,
     created_at: `2024-0${i + 1}-15`,
     status: i % 2 === 0 ? 'active' : 'pending',

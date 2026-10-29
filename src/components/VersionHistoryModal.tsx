@@ -35,7 +35,7 @@ export function VersionHistoryModal({
     setError(null)
     if (!currentPath || !isTauri()) {
       setCurrent(null); setHistory([])
-      if (!currentPath) setError('Save prima il progetto per avere una cronologia.')
+      if (!currentPath) setError('Save the project first to have a history.')
       return
     }
     try {
@@ -44,7 +44,7 @@ export function VersionHistoryModal({
       setCurrentLabel((data.version?.label ?? '') as string)
       setHistory(Array.isArray(data.history) ? data.history : [])
     } catch {
-      setError('Impossibile leggere la cronologia dal file.')
+      setError('Cannot read the history from the file.')
     }
   }
 
@@ -82,7 +82,7 @@ export function VersionHistoryModal({
                 <input
                   value={currentLabel}
                   onChange={(e) => setCurrentLabel(e.target.value)}
-                  placeholder="comment della versione corrente…"
+                  placeholder="comment for the current version…"
                   style={{ flex: 1, background: '#1e2535', border: '1px solid #3a4a6a', borderRadius: 4, color: '#c8d4f0', fontSize: 11, padding: '4px 7px', outline: 'none' }}
                 />
                 <button
@@ -98,7 +98,7 @@ export function VersionHistoryModal({
 
           {!error && history.length === 0 && (
             <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic', padding: '6px 2px' }}>
-              Nessuna versione precedente. Ogni salvataggio ne aggiunge una qui.
+              No previous version. Every save adds one here.
             </div>
           )}
 
@@ -112,11 +112,11 @@ export function VersionHistoryModal({
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                 <button
-                  onClick={() => { if (confirm('Restorere questa versione? Le modifiche non salvate andranno perse.')) onRestore(h.plan) }}
+                  onClick={() => { if (confirm('Restore this version? Unsaved changes will be lost.')) onRestore(h.plan) }}
                   style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
                 >Restore</button>
                 <button
-                  onClick={async () => { if (confirm('Eliminare questa versione dalla cronologia? L\'operazione non è annullabile.')) { await onDeleteVersion(i); await refresh() } }}
+                  onClick={async () => { if (confirm('Delete this version from the history? This cannot be undone.')) { await onDeleteVersion(i); await refresh() } }}
                   title="Delete this version"
                   style={{ background: 'transparent', color: '#8a6a6a', border: '1px solid #4a2a2a', borderRadius: 6, padding: '4px 7px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
@@ -131,13 +131,13 @@ export function VersionHistoryModal({
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="nome new checkpoint…"
+            placeholder="name of the new checkpoint…"
             style={{ flex: 1, background: '#1e2535', border: '1px solid #3a4a6a', borderRadius: 4, color: '#c8d4f0', fontSize: 11, padding: '5px 8px', outline: 'none' }}
           />
           <button
             onClick={async () => { await onSaveCheckpoint(label.trim()); setLabel(''); await refresh() }}
             disabled={!currentPath}
-            title={currentPath ? 'Save lo stato attuale come versione con nome' : 'Save prima il progetto'}
+            title={currentPath ? 'Save the current state as a named version' : 'Save the project first'}
             style={{ background: '#1d6d40', color: '#eafff2', border: '1px solid #2a3349', borderRadius: 6, padding: '5px 12px', fontSize: 11, cursor: currentPath ? 'pointer' : 'default', opacity: currentPath ? 1 : 0.5, flexShrink: 0 }}
           >Save new checkpoint</button>
         </div>

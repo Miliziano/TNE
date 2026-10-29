@@ -34,12 +34,20 @@ function Field({ label, children, hint }: { label: string; children: React.React
 const ACCENT = '#4a9eff'
 
 export function SourceFileSidebarPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <SourceFileSidebarPanelBody nodeId={nodeId} /> : null
+}
+
+function SourceFileSidebarPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const edges      = useFlowStore((s) => s.edges)
   const pool       = useFlowStore((s) => s.pool)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>

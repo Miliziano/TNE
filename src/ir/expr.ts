@@ -249,7 +249,7 @@ export function parseExpr(input: string, defaultType: FieldType = 'any'): ParseR
   const s = input.trim()
 
   if (!s) {
-    return { success: false, expr: expr.raw(input, defaultType), error: 'Espressione vuota' }
+    return { success: false, expr: expr.raw(input, defaultType), error: 'Empty expression' }
   }
 
   // Script multi-riga o con JS → sempre RawStringExpr
@@ -405,7 +405,7 @@ function parsePrimary(s: string): ExprNode {
   }
 
   // Non riconosciuto → raw
-  throw new Error(`Impossibile parsare: ${s}`)
+  throw new Error(`Cannot parse: ${s}`)
 }
 
 function parseLiteral(s: string): LiteralExpr | null {

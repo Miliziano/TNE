@@ -78,7 +78,16 @@ interface DbColumnInfo {
 }
 
 export function DbMappingPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <DbMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function DbMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const pool       = useFlowStore((s) => s.pool)
 
@@ -94,7 +103,6 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
   const [inferring, setInferring]   = useState(false)
   const [inferError, setInferError] = useState<string | null>(null)
 
-  if (!node) return null
 
   const p       = (key: string, def = '') => node.data.props[key] ?? def
   const dialect = p('dialect', 'postgresql') as DbDialect
@@ -121,7 +129,7 @@ export function DbMappingPanel({ nodeId }: { nodeId: string }) {
 
   const addField = useCallback(() => {
     const n = fields.length + 1
-    saveAndPropagate([...fields, { id: `df_${Date.now()}`, name: `campo_${n}`, type: 'string', dbType: '', nullable: true }])
+    saveAndPropagate([...fields, { id: `df_${Date.now()}`, name: `field_${n}`, type: 'string', dbType: '', nullable: true }])
   }, [fields, saveAndPropagate])
 
   const updateField = useCallback((id: string, key: string, value: unknown) => {

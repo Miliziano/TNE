@@ -283,7 +283,7 @@ function TreeNodeRow({
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { onRename(node.id, keyVal); setEditing(false) } }}
             style={{ ...iStyle, fontSize: 10, padding: '1px 4px', flex: 1, minWidth: 0, color: typeColor }} />
         ) : (
-          <span onDoubleClick={() => setEditing(true)} title="Doppio click per rinominare"
+          <span onDoubleClick={() => setEditing(true)} title="Double click to rename"
             style={{ fontSize: 10, color: typeColor, fontFamily: 'monospace', flex: 1, overflow: 'hidden',
               textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}>
             {node.key}
@@ -353,7 +353,7 @@ function TreeNodeRow({
 
         {/* Indicatore drag-over da FieldPill */}
         {isDragOver && (
-          <span style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }}>← rilascia</span>
+          <span style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }}>← drop</span>
         )}
 
         {/* iterHandle — solo per nodi array: quale flusso guida l'iterazione */}
@@ -642,7 +642,7 @@ function FieldRow({ name, type, handle, isMapped, color, isManual,
       <span style={{ fontSize: 9, color: '#8593b5', fontFamily: 'monospace', textAlign: 'center',
         padding: '1px 3px', borderRadius: 2, background: '#1a2030',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        title={type || 'tipo sconosciuto'}>
+        title={type || 'unknown type'}>
         {type || '—'}
       </span>
 
@@ -694,13 +694,21 @@ function reorderNode(nodes: JsonTreeNode[], dragId: string, targetId: string, po
 
 // ─── JsonSerializerLayout ─────────────────────────────────────────
 function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
-  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <JsonSerializerLayoutBody nodeId={nodeId} /> : null
+}
+
+function JsonSerializerLayoutBody({ nodeId }: { nodeId: string }) {
+  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const edges          = useFlowStore((s) => s.edges)
   const updateNodeConfig = useFlowStore((s) => s.updateNodeConfig)
   const updateNodeProp   = useFlowStore((s) => s.updateNodeProp)
   const nodes = useFlowStore((s) => s.nodes)
 
-  if (!node) return null
 
   const serConfig = (node.data.config as any)?.jsonSerializer ?? { inputs: {}, mappings: {} }
   const inputs: Record<string, SerInput>         = serConfig.inputs ?? {}
@@ -924,7 +932,7 @@ function JsonSerializerLayout({ nodeId }: { nodeId: string }) {
       setTreeNodes(() => nodes)
       setSampleErr('')
       setSampleRaw('')
-    } catch { setSampleErr('JSON non valido') }
+    } catch { setSampleErr('Invalid JSON') }
   }
 
   // Auto-map: aggiunge a ogni flusso una entry foglia nell'albero

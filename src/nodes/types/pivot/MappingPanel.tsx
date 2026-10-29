@@ -12,8 +12,16 @@ import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 const ACCENT = '#f97316'
 
 export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
-  const node = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
-  if (!node) return null
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <PivotMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function PivotMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
 
@@ -45,10 +53,10 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
       if (identityFields.includes(fieldName)) return { label: 'identity', color: '#3ddc84' }
       if (fieldName === pivotField)           return { label: 'pivot',    color: ACCENT    }
       if (fieldName === valueField)           return { label: 'value',   color: '#ffb347' }
-      return { label: 'ignorato', color: '#2a3349' }
+      return { label: 'ignored', color: '#2a3349' }
     } else {
       if (unpivotCols.includes(fieldName)) return { label: '→ rows', color: ACCENT }
-      return { label: 'fissa', color: '#3ddc84' }
+      return { label: 'fixed', color: '#3ddc84' }
     }
   }
 
@@ -59,27 +67,27 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa' }}>
         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>
           {mode === 'pivot' ? '⊞ Pivot' : '⊟ Unpivot'}
-          {mode === 'pivot' && ` · ${p('pivotType', 'static') === 'dynamic' ? 'dinamico' : 'statico'}`}
+          {mode === 'pivot' && ` · ${p('pivotType', 'static') === 'dynamic' ? 'dynamic' : 'static'}`}
         </div>
-        Sorgente: <strong style={{ color: '#c8d4f0' }}>
-          {dataSource === 'materialize' ? `Materialize "${matName || '—'}"` : 'Flusso in ingresso'}
+        Source: <strong style={{ color: '#c8d4f0' }}>
+          {dataSource === 'materialize' ? `Materialize "${matName || '—'}"` : 'Incoming flow'}
         </strong>
       </div>
 
       {/* Campi in ingresso con ruoli */}
       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
-        Campi in ingresso — {activeFields.length} campi
+        Incoming fields — {activeFields.length}
       </div>
 
       {activeFields.length === 0 ? (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
-          {dataSource === 'materialize' ? `Il Materialize "${matName || '—'}" non ha ancora ricevuto campi.` : 'Collega un nodo in ingresso.'}
+          {dataSource === 'materialize' ? `The Materialize "${matName || '—'}" has not received any fields yet.` : 'Connect an input node.'}
         </div>
       ) : (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Campo', 'Tipo', 'Ruolo'].map((h) => (
+            {['Field', 'Type', 'Role'].map((h) => (
               <div key={h} style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>
@@ -87,7 +95,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
             const role = getRole(f.name)
             return (
               <div key={f.name}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center', opacity: role.label === 'ignorato' ? 0.35 : 1 }}>
+                style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center', opacity: role.label === 'ignored' ? 0.35 : 1 }}>
                 <code style={{ fontFamily: 'monospace', fontSize: 11, color: role.color }}>{f.name}</code>
                 <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `color-mix(in srgb, ${role.color} 12%, #0f1117)`, color: role.color, border: `0.5px solid ${role.color}30`, textAlign: 'center' }}>
@@ -101,23 +109,23 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Schema output */}
       <div style={{ fontSize: 10, fontWeight: 600, color: '#22d3ee', textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: '0.5px solid #22d3ee30' }}>
-        Campi in uscita
+        Output fields
       </div>
 
       {isDynamic ? (
         <div style={{ padding: '8px 12px', background: '#1a1000', borderRadius: 6, border: '0.5px solid #ffb34740', fontSize: 10, color: '#ffb347', lineHeight: 1.5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 6 }} />
-          Pivot dinamico — schema determinato a runtime. Non propagabile a design time.
+          Dynamic pivot — schema determined at runtime. Not propagated at design time.
         </div>
       ) : outputSchema.length === 0 ? (
         <div style={{ padding: '10px', textAlign: 'center', color: '#8593b5', fontSize: 10, fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-          Configura i campi nel tab Configurazione.
+          Set the fields in the Configuration tab.
         </div>
       ) : (
         <>
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-              {['Campo', 'Tipo', 'Origine'].map((h) => (
+              {['Field', 'Type', 'Origin'].map((h) => (
                 <div key={h} style={{ fontSize: 9, color: '#22d3ee', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
               ))}
             </div>
@@ -125,7 +133,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
               const isPivotCol = mode === 'pivot'   && !identityFields.includes(f.name)
               const isKeyVal   = mode === 'unpivot' && (f.id === 'upv_key' || f.id === 'upv_value')
               const color      = isPivotCol ? ACCENT : isKeyVal ? '#4a9eff' : '#9a9aaa'
-              const badge      = isPivotCol ? 'pivot' : isKeyVal ? (f.id === 'upv_key' ? 'chiave' : 'valore') : 'fisso'
+              const badge      = isPivotCol ? 'pivot' : isKeyVal ? (f.id === 'upv_key' ? 'key' : 'value') : 'fixed'
               const bc         = isPivotCol ? ACCENT : isKeyVal ? '#4a9eff' : '#8593b5'
               return (
                 <div key={f.id ?? f.name}
@@ -139,7 +147,7 @@ export function PivotMappingPanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
             <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
-            Schema propagato automaticamente ai nodi a valle.
+            Schema propagated automatically to downstream nodes.
           </div>
         </>
       )}

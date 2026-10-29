@@ -425,10 +425,18 @@ function ConditionEditor({ cond, index, total, caseSensitive, nullBehavior, inco
 
 // ─── FilterPanel ──────────────────────────────────────────────────
 export function FilterPanel({ nodeId }: { nodeId: string }) {
-  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <FilterPanelBody nodeId={nodeId} /> : null
+}
+
+function FilterPanelBody({ nodeId }: { nodeId: string }) {
+  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const incomingFields = useIncomingSchema(nodeId)
 
-  if (!node) return null
 
   const config: FilterConfig & { execMode?: string } = useMemo(() => {
     try {

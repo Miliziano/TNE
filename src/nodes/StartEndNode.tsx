@@ -13,7 +13,7 @@ export const StartNode = memo(({ id, data, selected }: NodeProps) => {
   return (
     <div
       onClick={() => selectNode(id)}
-      title="Punto di avvio della lane — non eliminabile"
+      title="Start point of the lane"
       style={{
         width: SIZE, height: SIZE, borderRadius: '50%',
         background: selected ? 'color-mix(in srgb, #3ddc84 25%, #1e2535)' : '#1e2535',
@@ -46,7 +46,7 @@ export const EndNode = memo(({ id, data, selected }: NodeProps) => {
   return (
     <div
       onClick={() => selectNode(id)}
-      title="Punto di fine della lane — non eliminabile"
+      title="End point of the lane"
       style={{
         width: SIZE, height: SIZE, borderRadius: '50%',
         background: selected ? 'color-mix(in srgb, #ff5f57 25%, #1e2535)' : '#1e2535',

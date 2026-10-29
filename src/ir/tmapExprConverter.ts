@@ -117,7 +117,7 @@ let userFnScope: UserFunction[] = []
 export function buildTMapPlan(tmap: TMapConfig, userFunctions: UserFunction[] = []): TMapPlan {
   userFnScope = userFunctions
   const mainInput = tmap.inputs.find(i => i.isMain)
-  if (!mainInput) throw new Error('TMap: nessun input main trovato')
+  if (!mainInput) throw new Error('TMap: no main input found')
 
   // Mappa label → inputId (per parsing delle expression)
   const labelToInputId = new Map<string, string>()
@@ -265,7 +265,7 @@ function buildJoinKeyExpr(
       return qualifyInput ? qualifica(e, qualifyInput) : e
     } catch (err) {
       const detail = err instanceof ExprParseError ? err.pretty() : String(err)
-      throw new Error(`${where}: ${detail}`)
+      throw new Error(`${where}: ${detail}`, { cause: err })
     }
   }
 
@@ -558,12 +558,12 @@ function verificaRiferimentiQualificati(
           if (campi.has(nome)) dove.push(idToLabel.get(inputId) ?? inputId)
         }
         const comeScriverlo = dove.length
-          ? dove.map((l) => `${riferimentoInput(l)}.${nome}`).join('  oppure  ')
+          ? dove.map((l) => `${riferimentoInput(l)}.${nome}`).join('  or  ')
           : null
         throw new ExprParseError(
           comeScriverlo
-            ? `"${nome}" è un campo in ingresso: indica la sorgente — ${comeScriverlo}`
-            : `"${nome}" non è né una trasformazione né un campo di un ingresso`,
+            ? `"${nome}" is an incoming field: give its source — ${comeScriverlo}`
+            : `"${nome}" is neither a transform nor a field of an input`,
           Math.max(0, testo.indexOf(nome)), testo,
         )
       }
@@ -591,21 +591,21 @@ function segnalaSintassiNonFpel(expr: string): void {
   const dollaroCampo = fuoriDaStringhe.match(/\$(\w+)\.(\w+)/)
   if (dollaroCampo) {
     throw new ExprParseError(
-      `"$${dollaroCampo[1]}.${dollaroCampo[2]}" non è valido: scrivi "${dollaroCampo[1]}.${dollaroCampo[2]}" (senza il $)`,
+      `"$${dollaroCampo[1]}.${dollaroCampo[2]}" is not valid: write "${dollaroCampo[1]}.${dollaroCampo[2]}" (without the $)`,
       fuoriDaStringhe.indexOf(dollaroCampo[0]), expr,
     )
   }
   const segnaposto = fuoriDaStringhe.match(/\$value\b/)
   if (segnaposto) {
     throw new ExprParseError(
-      '"$value" è un segnaposto degli snippet: sostituiscilo col nome del campo (es. "importo" oppure "Anagrafica.importo")',
+      '"$value" is a snippet placeholder: replace it with the field name (e.g. "amount" or "Customers.amount")',
       fuoriDaStringhe.indexOf('$value'), expr,
     )
   }
   const riga = fuoriDaStringhe.match(/\browt?\.(\w+)/) ?? fuoriDaStringhe.match(/\brow\.(\w+)/)
   if (riga) {
     throw new ExprParseError(
-      `"row.${riga[1]}" non è valido: il campo della riga si scrive "${riga[1]}"`,
+      `"row.${riga[1]}" is not valid: the field of the row is written "${riga[1]}"`,
       fuoriDaStringhe.indexOf(riga[0]), expr,
     )
   }

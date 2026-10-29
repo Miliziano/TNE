@@ -82,32 +82,32 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
 
   const handleRenameProfile = () => {
     if (!editingProfile) return
-    const nuovo = window.prompt('Nuovo nome del profilo:', editingProfile)?.trim()
+    const nuovo = window.prompt('New profile name:', editingProfile)?.trim()
     if (!nuovo || nuovo === editingProfile) return
-    if (environments.profiles[nuovo]) { setMsg(`Esiste già un profilo "${nuovo}".`); return }
+    if (environments.profiles[nuovo]) { setMsg(`A profile "${nuovo}" already exists.`); return }
     renameProfile(editingProfile, nuovo)
     setEditing(nuovo)
-    setMsg(`Profilo rinominato in "${nuovo}" — valori conservati.`)
+    setMsg(`Profile renamed to "${nuovo}" — values kept.`)
   }
 
   const handleAddVar = () => {
-    const base = 'nuova_var'; let name = base, i = 2
+    const base = 'new_var'; let name = base, i = 2
     const taken = new Set((pool.variables ?? []).map((v) => v.name))
     while (taken.has(name)) { name = `${base}_${i++}` }
     addVariable('pool', null, { name, type: 'string', value: '' })
   }
   const handleAddSecret = () => {
-    const base = 'NUOVO_SEGRETO'; let name = base, i = 2
+    const base = 'NEW_SECRET'; let name = base, i = 2
     const taken = new Set((pool.variables ?? []).map((v) => v.name))
     while (taken.has(name)) { name = `${base}_${i++}` }
     addVariable('pool', null, { name, type: 'secret', value: '' })
   }
   const handleAddProfile = () => {
-    const name = window.prompt('Name del nuovo profilo (es. prod):')?.trim()
+    const name = window.prompt('Name of the new profile (e.g. prod):')?.trim()
     if (name) { addProfile(name); setEditing(name) }
   }
   const handleDeleteProfile = () => {
-    if (editingProfile && confirm(`Deletere il profilo «${editingProfile}»?`)) { deleteProfile(editingProfile); setEditing('') }
+    if (editingProfile && confirm(`Delete the profile «${editingProfile}»?`)) { deleteProfile(editingProfile); setEditing('') }
   }
 
   // ── file esterno ──────────────────────────────────────────────
@@ -122,49 +122,49 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
     } catch { return null }
   }
   const handleImport = async () => {
-    if (!isTauri()) { setMsg('Import disponibile solo nell\'app desktop.'); return }
-    const res = await openFileDialog({ title: 'Importa profilo', filters: [{ name: 'Profilo', extensions: ['json'] }, { name: 'Tutti', extensions: ['*'] }] })
+    if (!isTauri()) { setMsg('Import is available only in the desktop app.'); return }
+    const res = await openFileDialog({ title: 'Import profile', filters: [{ name: 'Profile', extensions: ['json'] }, { name: 'All', extensions: ['*'] }] })
     const path = Array.isArray(res) ? res[0] : res
     if (!path) return
     const raw = await readFile(path).catch(() => null)
     const values = raw ? parseValues(raw) : null
-    if (!values) { setMsg('File profilo non valido (atteso JSON di coppie nome/valore).'); return }
-    let name = 'importato'
-    try { const d = JSON.parse(raw as string); name = (d.profile || d.name || basename(path).replace(/\.[^.]+$/, '') || 'importato').trim() } catch { /* usa fallback */ }
+    if (!values) { setMsg('Invalid profile file (expected JSON with name/value pairs).'); return }
+    let name = 'imported'
+    try { const d = JSON.parse(raw as string); name = (d.profile || d.name || basename(path).replace(/\.[^.]+$/, '') || 'imported').trim() } catch { /* usa fallback */ }
     importProfile(name, values, path)
     setEditing(name)
-    setMsg(`Profilo «${name}» importato da ${basename(path)}.`)
+    setMsg(`Profile «${name}» imported from ${basename(path)}.`)
   }
   const handleExport = async () => {
-    if (!isTauri()) { setMsg('Export disponibile solo nell\'app desktop.'); return }
+    if (!isTauri()) { setMsg('Export is available only in the desktop app.'); return }
     if (!editingProfile) return
-    const path = await saveFileDialog({ title: 'Esporta profilo', defaultPath: `${editingProfile}.env.json`, filters: [{ name: 'Profilo', extensions: ['json'] }] })
+    const path = await saveFileDialog({ title: 'Export profile', defaultPath: `${editingProfile}.env.json`, filters: [{ name: 'Profile', extensions: ['json'] }] })
     if (!path) return
     const exported: Record<string, string> = {}
     for (const v of profileVars) exported[v.name] = values[v.name] ?? v.value ?? ''
     const payload = JSON.stringify({ profile: editingProfile, values: exported }, null, 2)
     const ok = await writeFile(path, payload).then(() => true).catch(() => false)
-    setMsg(ok ? `Profilo «${editingProfile}» esportato in ${basename(path)}.` : 'Impossibile scrivere il file.')
+    setMsg(ok ? `Profile «${editingProfile}» exported to ${basename(path)}.` : 'Cannot write the file.')
   }
   const handleReload = async () => {
     if (!ref) return
     const raw = await readFile(ref).catch(() => null)
     const vv = raw ? parseValues(raw) : null
-    if (!vv) { setMsg(`Impossibile reloadre da ${basename(ref)} (file mancante o non valido).`); return }
+    if (!vv) { setMsg(`Cannot reload from ${basename(ref)} (missing or invalid file).`); return }
     importProfile(editingProfile, vv, ref)
-    setMsg(`Profilo «${editingProfile}» reloadto da ${basename(ref)}.`)
+    setMsg(`Profile «${editingProfile}» reloaded from ${basename(ref)}.`)
   }
   const handleSetSecret = async (name: string) => {
     const val = secretInputs[name] ?? ''
     if (!val) return
     const ok = await secretSet(name, val).then(() => true).catch(() => false)
-    if (ok) { setSecretInputs((p) => ({ ...p, [name]: '' })); setMsg(`Secret «${name}» salvato nel keychain.`); await refreshSecretStatus() }
-    else setMsg(`Impossibile salvare il segreto «${name}».`)
+    if (ok) { setSecretInputs((p) => ({ ...p, [name]: '' })); setMsg(`Secret «${name}» saved in the keychain.`); await refreshSecretStatus() }
+    else setMsg(`Cannot save the secret «${name}».`)
   }
   const handleDeleteSecret = async (name: string) => {
-    if (!confirm(`Rimuovere il segreto «${name}» dal keychain di questa macchina?`)) return
+    if (!confirm(`Remove the secret «${name}» from the keychain of this machine?`)) return
     await secretDelete(name).catch(() => {})
-    setMsg(`Secret «${name}» rimosso dal keychain.`)
+    setMsg(`Secret «${name}» removed from the keychain.`)
     await refreshSecretStatus()
   }
 
@@ -184,19 +184,19 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={labelStyle}>Shared variables (pool)</div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={handleAddVar} style={addBtnStyle}>+ variabile</button>
+                <button onClick={handleAddVar} style={addBtnStyle}>+ variable</button>
                 <button onClick={handleAddSecret} style={{ ...addBtnStyle, background: '#5a3a10', border: '1px solid #7a5a20' }} title="Add a secret (name only; the value comes from the keychain at run-time)">+ secret</button>
               </div>
             </div>
             {poolVars.length === 0 ? (
-              <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>No shared variables. Add one: it will be referenceable with <code style={{ color: '#8aa' }}>{'${nome}'}</code> in every lane.</div>
+              <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>No shared variables. Add one: it will be referenceable with <code style={{ color: '#8aa' }}>{'${name}'}</code> in every lane.</div>
             ) : (
               poolVars.map((v) => (
                 <div key={v.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input value={v.name} onChange={(e) => updateVariable('pool', null, v.id, { name: e.target.value })} placeholder="name" style={{ ...inputStyle, flex: '0 0 170px' }} />
                   {v.type === 'secret' ? (
                     <div style={{ flex: 1, fontSize: 10, color: '#c8a060', display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <i className="ti ti-lock" aria-hidden="true" /> segreto — valore dal keychain a run-time, mai salvato nel file
+                      <i className="ti ti-lock" aria-hidden="true" /> secret — value from the keychain at run time, never saved in the file
                     </div>
                   ) : (
                     <input value={v.value} onChange={(e) => updateVariable('pool', null, v.id, { value: e.target.value })} placeholder="default value" style={inputStyle} />
@@ -212,7 +212,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           {secrets.length > 0 && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={labelStyle}>Secrets — valori su questa macchina (keychain)</div>
+                <div style={labelStyle}>Secrets — values on this machine (keychain)</div>
                 {!isTauri() && <div style={{ fontSize: 10, color: '#c8a060', fontStyle: 'italic' }}>Available only in the desktop app.</div>}
                 {secrets.map((sv) => {
                   const present = !!secretStatus[sv.name]
@@ -222,7 +222,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                       <div style={{ width: 150, fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden' }}>
                         <i className="ti ti-lock" aria-hidden="true" /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sv.name}</span>
                       </div>
-                      <span style={{ width: 64, fontSize: 10, color: present ? '#3ddc84' : '#c8a060' }}>{present ? '✓ presente' : 'mancante'}</span>
+                      <span style={{ width: 64, fontSize: 10, color: present ? '#3ddc84' : '#c8a060' }}>{present ? '✓ present' : 'missing'}</span>
                       <input type="password" value={val} placeholder="new value…" onChange={(e) => setSecretInputs((p) => ({ ...p, [sv.name]: e.target.value }))} style={inputStyle} />
                       <button onClick={() => handleSetSecret(sv.name)} disabled={!isTauri() || !val.length} style={{ ...addBtnStyle, opacity: (!isTauri() || !val.length) ? 0.5 : 1 }}>Save</button>
                       <button onClick={() => handleDeleteSecret(sv.name)} disabled={!isTauri() || !present} title="Remove from keychain" style={{ ...trashStyle, opacity: (!isTauri() || !present) ? 0.5 : 1 }}><i className="ti ti-trash" aria-hidden="true" /></button>
@@ -277,7 +277,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
           {profileNames.length > 0 && profileVars.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={labelStyle}>
-                Values per profilo — cella vuota = eredita il default; il default si cambia sopra, in «Variabili condivise»
+                Values per profile — empty cell = inherits the default; the default is changed above, in «Shared variables»
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: `170px repeat(${profileNames.length}, minmax(150px, 1fr))`, gap: 6, minWidth: 'min-content' }}>
@@ -297,7 +297,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                   {/* una riga per variabile */}
                   {profileVars.map((v) => (
                     <Fragment key={v.id}>
-                      <div title={v.value ? `default: ${v.value}` : 'nessun default'} style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }}>
+                      <div title={v.value ? `default: ${v.value}` : 'no default'} style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }}>
                         {v.name}
                       </div>
                       {profileNames.map((n) => {
@@ -307,9 +307,9 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                           <input
                             key={n}
                             value={proprio ?? ''}
-                            placeholder={v.value ? `↳ ${v.value}` : '(vuoto)'}
+                            placeholder={v.value ? `↳ ${v.value}` : '(empty)'}
                             onChange={(e) => setProfileValue(n, v.name, e.target.value)}
-                            title={personalizzato ? `valore proprio del profilo "${n}"` : `eredita il default${v.value ? `: ${v.value}` : ''}`}
+                            title={personalizzato ? `own value of the profile "${n}"` : `inherits the default${v.value ? `: ${v.value}` : ''}`}
                             style={{
                               ...inputStyle,
                               color: personalizzato ? '#dce6ff' : '#8aa4d0',
@@ -323,7 +323,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                 </div>
               </div>
               <div style={{ fontSize: 10, color: '#5a6a8a' }}>
-                Le modifiche entrano subito nel progetto: diventano permanenti quando <b>salvi il progetto</b>.
+                Changes go into the project at once: they become permanent when you <b>save the project</b>.
               </div>
             </div>
           )}
@@ -332,7 +332,7 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
         </div>
 
         <div style={{ padding: '10px 16px', borderTop: '1px solid #2a3349', fontSize: 10, color: '#5a6a8a' }}>
-          I valori stanno nel progetto (Save). L'import/export su file è opzionale; all'apertura vale sempre il progetto — ricarichi dal file quando vuoi.
+          The values live in the project (Save). Import/export to a file is optional; on opening the project always wins — reload from the file when you want.
         </div>
       </div>
     </div>

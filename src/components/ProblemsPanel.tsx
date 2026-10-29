@@ -92,7 +92,7 @@ export function ProblemsView() {
   }, [shown])
 
   const toggleLane = (id: string) =>
-    setColl((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setColl((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   if (all.length === 0) {
     return (
@@ -119,7 +119,7 @@ export function ProblemsView() {
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {/* Barra riepilogo/filtro */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderBottom: '0.5px solid #2a3349', flexShrink: 0 }}>
-        {chip('all', `Tutti ${all.length}`, '#4a9eff')}
+        {chip('all', `All ${all.length}`, '#4a9eff')}
         {chip('error', `⛔ ${errorCount}`, RED)}
         {chip('warning', `⚠ ${warningCount}`, ORANGE)}
       </div>

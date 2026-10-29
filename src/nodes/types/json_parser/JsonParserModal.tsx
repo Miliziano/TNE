@@ -236,7 +236,7 @@ function JsonTreeNodeRow({ node, depth, selectedFlowId, flows, onToggleFieldInFl
           <div style={{ display:'flex', gap:3, flexShrink:0, alignItems:'center', marginLeft:'auto' }}>
             {flowMembership.map(({ flow, isMember }) => (
               <button key={flow.id} onClick={(e) => { e.stopPropagation(); onToggleFieldInFlow(node, flow.id) }}
-                title={isMember ? `Rimuovi da "${flow.label}"` : `Aggiungi a "${flow.label}"`}
+                title={isMember ? `Remove from "${flow.label}"` : `Add to "${flow.label}"`}
                 style={{ width:10, height:10, borderRadius:'50%', background:isMember?flow.color:'transparent', border:`1.5px solid ${flow.color}`, cursor:'pointer', padding:0, flexShrink:0, transition:'background .12s, transform .1s', transform:isMember?'scale(1.1)':'scale(1)' }}
                 onMouseEnter={(e) => { const el=e.currentTarget as HTMLElement; el.style.transform='scale(1.25)'; el.style.background=isMember?`color-mix(in srgb, ${flow.color} 60%, transparent)`:`color-mix(in srgb, ${flow.color} 40%, transparent)` }}
                 onMouseLeave={(e) => { const el=e.currentTarget as HTMLElement; el.style.transform=isMember?'scale(1.1)':'scale(1)'; el.style.background=isMember?flow.color:'transparent' }}
@@ -260,9 +260,10 @@ function JsonTreeNodeRow({ node, depth, selectedFlowId, flows, onToggleFieldInFl
 }
 
 // ─── FlowFieldsTable ──────────────────────────────────────────────
-function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDelete }: {
+function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDelete, parentCandidates }: {
   flow: JsonParserFlow; color: string; selectedFlowId: string|null
   onSelect: (id: string|null) => void; onUpdate: (patch: Partial<JsonParserFlow>) => void; onDelete: () => void
+  parentCandidates: Array<{ name: string; type: string }>
 }) {
   const [maximized, setMaximized] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -277,6 +278,24 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
   const deleteField = (id: string) =>
     onUpdate({ fields: flow.fields.filter((f) => f.id!==id) })
 
+  // Campi del padre (master-detail): la scelta è sempre esplicita. Con
+  // parentFields vuoto il motore copierebbe TUTTO l'ingresso, che lo
+  // studio non può dichiarare a valle: svuotare la scelta spegne l'opzione.
+  const setParentFields = (names: string[]) => {
+    if (names.length === 0) { onUpdate({ mergeParent:false, parentFields:[], parentSchema:undefined }); return }
+    const typeOf = new Map([...(flow.parentSchema ?? []), ...parentCandidates].map((p) => [p.name, p.type]))
+    onUpdate({ mergeParent:true, parentFields:names, parentSchema:names.map((name) => ({ name, type:typeOf.get(name) ?? 'any' })) })
+  }
+  const toggleMergeParent = () =>
+    setParentFields(flow.mergeParent ? [] : parentCandidates.map((p) => p.name))
+  const toggleParentField = (name: string) =>
+    setParentFields(flow.parentFields.includes(name) ? flow.parentFields.filter((n) => n !== name) : [...flow.parentFields, name])
+  const ownNames = new Set(flow.fields.map((f) => f.name))
+  const parentChips = [
+    ...parentCandidates.map((p) => ({ ...p, stale:false })),
+    ...flow.parentFields.filter((n) => !parentCandidates.some((p) => p.name === n)).map((name) => ({ name, type:'?', stale:true })),
+  ]
+
   return (
     <div onClick={() => onSelect(isSelected ? null : flow.id)}
       style={{ border:`1px solid ${isSelected?color:color+'40'}`, borderRadius:8, overflow:'hidden', marginBottom:8, flexShrink:0, cursor:'pointer', transition:'border-color .15s' }}>
@@ -286,6 +305,7 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
           style={{ background:'none', border:'none', outline:'none', fontSize:11, fontWeight:600, color, fontFamily:'monospace', flex:1, minWidth:0 }} />
         <code style={{ fontSize:8, color:'#8593b5', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{flow.jsonPath}</code>
         {flow.isArray   && <span style={{ fontSize:9, color:'#8593b5' }}>[ ]</span>}
+        {flow.mergeParent && <span title={`Parent fields: ${flow.parentFields.join(', ')}`} style={{ fontSize:9, color:'#8593b5' }}>⊕ {flow.parentFields.length}</span>}
         <button onClick={(e)=>{e.stopPropagation();setMaximized(v=>!v)}} style={{ background:'none', border:`0.5px solid ${color}40`, borderRadius:3, padding:'1px 4px', cursor:'pointer', color:'#8593b5' }}
           onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.color=color}}
           onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.color='#8593b5'}}>
@@ -311,12 +331,39 @@ function FlowFieldsTable({ flow, color, selectedFlowId, onSelect, onUpdate, onDe
                 {opt.label}
               </button>
             ))}
+            <button onClick={toggleMergeParent} disabled={!flow.mergeParent && parentCandidates.length === 0}
+              title={!flow.mergeParent && parentCandidates.length === 0
+                ? 'Connect an input first: the parent fields are the fields of the incoming row'
+                : 'Parent fields → every row of this flow also carries the chosen fields of the incoming row (master-detail)'}
+              style={{ padding:'2px 8px', fontSize:9, borderRadius:3, cursor:(!flow.mergeParent && parentCandidates.length === 0)?'not-allowed':'pointer', background:flow.mergeParent?`color-mix(in srgb, ${color} 20%, #161b27)`:'#1e2535', color:flow.mergeParent?color:'#8593b5', border:flow.mergeParent?`1px solid ${color}60`:'1px solid #2a3349', opacity:(!flow.mergeParent && parentCandidates.length === 0)?0.5:1 }}>
+              ⊕ Parent fields
+            </button>
             <button onClick={addField} style={{ marginLeft:'auto', background:'none', border:`0.5px dashed ${color}60`, borderRadius:4, padding:'2px 8px', fontSize:9, cursor:'pointer', color }}
               onMouseEnter={(e)=>{(e.currentTarget as HTMLElement).style.borderColor=color}}
               onMouseLeave={(e)=>{(e.currentTarget as HTMLElement).style.borderColor=`${color}60`}}>
               <i className="ti ti-plus" style={{ fontSize:9 }} /> field
             </button>
           </div>
+          {flow.mergeParent && (
+            <div style={{ display:'flex', gap:4, padding:'5px 10px', borderBottom:`0.5px solid ${color}20`, flexWrap:'wrap', alignItems:'center' }}>
+              <span style={{ fontSize:9, color:'#8593b5', marginRight:2 }}>From the incoming row:</span>
+              {parentChips.map((p) => {
+                const on = flow.parentFields.includes(p.name)
+                const title = p.stale ? 'No longer in the incoming schema — click to remove'
+                            : ownNames.has(p.name) ? `${p.type} · a flow field has the same name and wins`
+                            : p.type
+                return (
+                  <button key={p.name} title={title} onClick={() => toggleParentField(p.name)}
+                    style={{ padding:'1px 7px', fontSize:9, borderRadius:8, cursor:'pointer', fontFamily:'monospace',
+                      background:on?`color-mix(in srgb, ${p.stale?'#ff5f57':color} 15%, #161b27)`:'#1e2535',
+                      color:on?(p.stale?'#ff5f57':color):'#8593b5', border:`0.5px solid ${on?(p.stale?'#ff5f57':color)+'60':'#2a3349'}`,
+                      textDecoration:on && ownNames.has(p.name)?'line-through':'none' }}>
+                    {p.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {flow.fields.length === 0 ? (
             <div style={{ padding:'12px', textAlign:'center', fontSize:10, color:'#2a3349', fontStyle:'italic' }}>
               Select the flow and click "+ field" in the tree, or add manually
@@ -437,6 +484,9 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
   }, [])
 
   const incomingFields = useIncomingSchema(nodeId)
+  const parentCandidates = useMemo(
+    () => incomingFields.filter((f) => f.name && f.name !== config.sourceField).map((f) => ({ name: f.name, type: f.type ?? 'any' })),
+    [incomingFields, config.sourceField])
 
   const saveConfig = useCallback((newConfig: JsonParserConfig) => {
     useFlowStore.getState().updateNodeConfig(nodeId, { jsonParser: newConfig } as any)
@@ -526,6 +576,8 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
   return createPortal(
     <div style={{ position:'fixed', inset:0, display:'flex', alignItems:pos?'flex-start':'center', justifyContent:'center', zIndex:20000, padding:24, pointerEvents:'none' }}>
       <div
+        // dragRef viene da useDraggable ed è un ref: assegnarne .current è lecito.
+        // eslint-disable-next-line react-hooks/immutability
         ref={(el)=>{ ;(dragRef as React.MutableRefObject<HTMLDivElement|null>).current=el; ;(modalRef as React.MutableRefObject<HTMLDivElement|null>).current=el }}
         onClick={(e)=>e.stopPropagation()}
         style={{ pointerEvents:'all', background:'#161b27', border:`1px solid ${ACCENT}40`, borderRadius:isMaximized?0:10, width:isMaximized?'100vw':`${width}px`, maxWidth:isMaximized?'100vw':'96vw', maxHeight:isMaximized?'100vh':'92vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 24px 64px rgba(0,0,0,.8), 0 0 0 1px #2a3349', position:'relative',
@@ -577,7 +629,7 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   <textarea style={{ ...inputStyle, resize:'vertical', minHeight:52, fontSize:10, fontFamily:'monospace' }}
                     value={rawJson} onChange={(e)=>setRawJson(e.target.value)}
-                    placeholder={'{\n  "ordini": [...],\n  "clienti": [...]\n}'} spellCheck={false} />
+                    placeholder={'{\n  "orders": [...],\n  "customers": [...]\n}'} spellCheck={false} />
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     <button onClick={handleAnalyze} disabled={!rawJson}
                       style={{ padding:'3px 14px', fontSize:10, borderRadius:4, cursor:rawJson?'pointer':'not-allowed', background:rawJson?`color-mix(in srgb, ${ACCENT} 20%, #161b27)`:'#1e2535', color:rawJson?ACCENT:'#8593b5', border:`1px solid ${rawJson?ACCENT+'60':'#2a3349'}`, fontWeight:600, display:'flex', alignItems:'center', gap:5 }}>
@@ -651,7 +703,8 @@ export function JsonParserModal({ nodeId, onClose }: { nodeId: string; onClose: 
                     config.flows.map((flow) => (
                       <FlowFieldsTable key={flow.id} flow={flow} color={flow.color??FLOW_COLORS[0]}
                         selectedFlowId={selectedFlowId} onSelect={setSelectedFlowId}
-                        onUpdate={(patch)=>updateFlow(flow.id,patch)} onDelete={()=>deleteFlow(flow.id)} />
+                        onUpdate={(patch)=>updateFlow(flow.id,patch)} onDelete={()=>deleteFlow(flow.id)}
+                        parentCandidates={parentCandidates} />
                     ))
                   )}
                 </div>

@@ -38,7 +38,7 @@ export class TemplateCompileError extends Error {
   readonly field: string
   readonly detail: string
   constructor(field: string, detail: string) {
-    super(`campo "${field}": ${detail}`)
+    super(`field "${field}": ${detail}`)
     this.name = 'TemplateCompileError'
     this.field = field
     this.detail = detail
@@ -74,7 +74,7 @@ function paramToLiteral(raw: string, param: TransformParam | undefined): string 
   if (param?.type === 'number') {
     if (v === '') return '0'
     if (!/^-?\d+(\.\d+)?$/.test(v)) {
-      throw new Error(`parametro "${param.key}" deve essere numerico (ricevuto "${v}")`)
+      throw new Error(`parameter "${param.key}" must be numeric (got "${v}")`)
     }
     return v
   }
@@ -109,7 +109,7 @@ export function resolveTemplate(
   })
 
   if (!sourceField.trim()) {
-    throw new Error('nessun campo sorgente selezionato')
+    throw new Error('no source field selected')
   }
   expr = expr.replace(/\$value/g, sourceField)
 
@@ -125,22 +125,22 @@ export function resolveTemplate(
  */
 export function compileField(f: TransformFieldSpec, userFunctions: UserFunction[] = []): CompiledField {
   const out = f.output.trim()
-  if (!out) throw new TemplateCompileError('(senza nome)', 'nome del campo di output mancante')
+  if (!out) throw new TemplateCompileError('(unnamed)', 'missing output field name')
 
   let exprText: string
 
   try {
     if (f.presetId === 'expr') {
       // Espressione libera scritta dall'utente: già FPEL.
-      if (!f.expression.trim()) throw new Error('espressione vuota')
+      if (!f.expression.trim()) throw new Error('empty expression')
       exprText = f.expression
     } else if (f.presetId === 'passthrough' || !f.presetId) {
       // Il campo passa invariato.
-      if (!f.source.trim()) throw new Error('nessun campo sorgente selezionato')
+      if (!f.source.trim()) throw new Error('no source field selected')
       exprText = f.source
     } else {
       const tpl = findPreset(f.presetId)
-      if (!tpl) throw new Error(`template sconosciuto: "${f.presetId}"`)
+      if (!tpl) throw new Error(`unknown template: "${f.presetId}"`)
       exprText = resolveTemplate(tpl, f.source, f.params ?? {})
     }
   } catch (e) {

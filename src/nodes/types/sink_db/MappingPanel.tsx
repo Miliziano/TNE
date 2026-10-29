@@ -145,7 +145,16 @@ const iStyle: React.CSSProperties = {
 const HASH_COLOR = '#a855f7'
 
 export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <SinkDbMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function SinkDbMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))!
   const updateProp = useFlowStore(s => s.updateNodeProp)
   const pool       = useFlowStore(s => s.pool)
 
@@ -159,7 +168,6 @@ export function SinkDbMappingPanel({ nodeId }: { nodeId: string }) {
   const [loadingConstraints, setLoadingConstraints]  = useState(false)
   const [constraintsError,   setConstraintsError]    = useState<string | null>(null)
 
-  if (!node) return null
 
   const p     = (key: string, def = '') => String(node.data.props?.[key] ?? def)
   const resId = (node.data.config?.resourceId as string | undefined) ?? ''

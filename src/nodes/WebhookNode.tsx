@@ -121,7 +121,7 @@ export const WebhookReceiverNode = memo(({ id, data }: NodeProps) => {
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 9, color: hmacOn ? '#7a9aaa' : '#2a3349' }}>
-            {hmacOn ? 'HMAC verificato' : 'nessuna firma'}
+            {hmacOn ? 'HMAC verified' : 'no signature'}
           </span>
         </div>
 
@@ -324,7 +324,7 @@ export const WatchdogNode = memo(({ id, data }: NodeProps) => {
             </code>
           </div>
         ) : (
-          <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>URL non configurato</div>
+          <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>URL not configured</div>
         )}
 
         {/* Condizione attesa */}

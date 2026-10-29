@@ -38,7 +38,16 @@ const BRIDGE_COLORS = [
 ]
 
 export function BridgePanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <BridgePanelBody nodeId={nodeId} /> : null
+}
+
+function BridgePanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const allNodes   = useFlowStore((s) => s.nodes)
   const edges      = useFlowStore((s) => s.edges)
   const pool       = useFlowStore((s) => s.pool)
@@ -46,7 +55,6 @@ export function BridgePanel({ nodeId }: { nodeId: string }) {
   const selectNode = useFlowStore((s) => s.selectNode)
   const selectLane = useFlowStore((s) => s.selectLane)
 
-  if (!node) return null
 
   const isOut        = node.data.type === 'bridge_out'
   const p            = (key: string, def = '') => String(node.data.props?.[key] ?? def)

@@ -7,6 +7,7 @@ import type { NodeData, TMapConfig, TMapInput, TMapInputField } from '../types'
 import { inferSchema, mergeSchema } from '../nodes/schemaInference'
 import { getNodePorts } from '../utils/schemaRegistry'
 import { getNodeSemantics } from './nodeSemantics'
+import { jsonParserFlowFields } from '../nodes/types/json_parser/schema'
 
 /** Ingresso dinamico dichiarato: id + etichetta + colore. NIENTE schema
  *  qui dentro — lo schema si deriva, non si copia (era la trappola di
@@ -83,7 +84,7 @@ const hasNoInputs = (n: FlowNode<NodeData>) =>
 /**
  * Quanti archi accetta già quella porta. La regola stava scritta cinque volte
  * in cinque `return` diversi ("Nodo già collegato", "Handle input_main già
- * collegato", "Handle ${label} già connesso"…); ora la dichiara il contratto
+ * collegato", "Handle ${label} already connected"…); ora la dichiara il contratto
  * con `maxEdges`, e qui si legge. Default 1.
  */
 function portIsFull(tgt: FlowNode<NodeData>, port: { id: string; maxEdges?: 1 | 'many' }, edges: Edge[]): boolean {
@@ -108,15 +109,15 @@ export function resolveConnection(
   const tgt = nodes.find((n) => n.id === connection.target)
 
   if (!src || !tgt)
-    return { valid: false, rejectionReason: 'Nodo non trovato', resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: 'Node not found', resolvedTargetHandle: '' }
   if (src.data.laneId !== tgt.data.laneId)
-    return { valid: false, rejectionReason: 'Connessioni cross-lane non permesse', resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: 'Cross-lane connections are not allowed', resolvedTargetHandle: '' }
   if (connection.source === connection.target)
-    return { valid: false, rejectionReason: 'Auto-connessione non permessa', resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: 'A node cannot connect to itself', resolvedTargetHandle: '' }
   if (hasNoOutputs(src))
-    return { valid: false, rejectionReason: `${src.data.type} non ha uscite dati`, resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: `${src.data.type} has no data outputs`, resolvedTargetHandle: '' }
   if (hasNoInputs(tgt))
-    return { valid: false, rejectionReason: `${tgt.data.type} non accetta connessioni in ingresso`, resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: `${tgt.data.type} does not accept incoming connections`, resolvedTargetHandle: '' }
 
   if (src.data.type === 'filter' && connection.sourceHandle) {
     const handleAlreadyUsed = edges.some(
@@ -129,7 +130,7 @@ export function resolveConnection(
           ?? connection.sourceHandle
       return {
         valid: false,
-        rejectionReason: `Handle '${handleLabel}' già collegato — ogni uscita del Filter accetta un solo flusso. Rimuovi prima la connessione esistente.`,
+        rejectionReason: `Handle '${handleLabel}' already connected — each Filter output takes a single flow. Remove the existing connection first.`,
         resolvedTargetHandle: '',
       }
     }
@@ -147,10 +148,10 @@ export function resolveConnection(
   const ports = inputPortsOf(tgt)
   const port  = ports[0]
   if (!port)
-    return { valid: false, rejectionReason: `${tgt.data.type} non accetta connessioni in ingresso`, resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: `${tgt.data.type} does not accept incoming connections`, resolvedTargetHandle: '' }
 
   if (portIsFull(tgt, port, edges))
-    return { valid: false, rejectionReason: 'Nodo già collegato', resolvedTargetHandle: port.id }
+    return { valid: false, rejectionReason: 'Node already connected', resolvedTargetHandle: port.id }
 
   return { valid: true, resolvedTargetHandle: port.id }
 }
@@ -196,7 +197,7 @@ function resolveUnionConnection(
   if (th === 'input_main') {
     const occupied = edges.some(e => e.target === tgt.id && e.targetHandle === 'input_main')
     if (occupied)
-      return { valid: false, rejectionReason: 'Handle input_main già collegato', resolvedTargetHandle: th }
+      return { valid: false, rejectionReason: 'Handle input_main already connected', resolvedTargetHandle: th }
     return { valid: true, resolvedTargetHandle: th, edgeLabel: 'flusso 1' }
   }
 
@@ -204,12 +205,12 @@ function resolveUnionConnection(
   if (th.startsWith('union_input_')) {
     const occupied = edges.some(e => e.target === tgt.id && e.targetHandle === th)
     if (occupied)
-      return { valid: false, rejectionReason: `Handle ${th} già collegato`, resolvedTargetHandle: th }
+      return { valid: false, rejectionReason: `Handle ${th} already connected`, resolvedTargetHandle: th }
     const inp = existingInputs.find((i: any) => i.id === th)
     return { valid: true, resolvedTargetHandle: th, edgeLabel: inp?.label ?? th }
   }
 
-  return { valid: false, rejectionReason: 'Handle Union non riconosciuto', resolvedTargetHandle: '' }
+  return { valid: false, rejectionReason: 'Unrecognized Union handle', resolvedTargetHandle: '' }
 }
 
 // ─── Join ─────────────────────────────────────────────────────────
@@ -223,12 +224,12 @@ function resolveJoinConnection(
   const targetHandle = connection.targetHandle
   const port = inputPortsOf(tgt).find((p) => p.id === targetHandle)
   if (!port)
-    return { valid: false, rejectionReason: 'Collega sull\'handle blu (principale) o ciano (lookup)', resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: 'Connect to the blue (main) or cyan (lookup) handle', resolvedTargetHandle: '' }
   if (portIsFull(tgt, port, edges)) {
-    const label = targetHandle === 'input_left' ? 'principale' : 'lookup'
-    return { valid: false, rejectionReason: `Handle ${label} già connesso`, resolvedTargetHandle: port.id }
+    const label = targetHandle === 'input_left' ? 'main' : 'lookup'
+    return { valid: false, rejectionReason: `Handle ${label} already connected`, resolvedTargetHandle: port.id }
   }
-  return { valid: true, resolvedTargetHandle: port.id, edgeLabel: port.id === 'input_left' ? 'principale' : 'lookup' }
+  return { valid: true, resolvedTargetHandle: port.id, edgeLabel: port.id === 'input_left' ? 'main' : 'lookup' }
 }
 
 // ─── TMap ─────────────────────────────────────────────────────────
@@ -260,8 +261,9 @@ function resolveTMapConnection(
     const parserKey = src.data.type === 'json_parser' ? 'jsonParser' : 'xmlParser'
     const config    = src.data.config?.[parserKey] as any
     const flow      = config?.flows?.find((f: any) => f.id === connection.sourceHandle)
-    if (flow?.fields?.length) {
-      inferredFields = flow.fields.map((f: any) => ({
+    const flowFields: any[] = !flow ? [] : parserKey === 'jsonParser' ? jsonParserFlowFields(flow) : (flow.fields ?? [])
+    if (flowFields.length) {
+      inferredFields = flowFields.map((f: any) => ({
         id:           f.id,
         name:         f.name,
         type:         f.type as TMapInputField['type'],
@@ -278,7 +280,7 @@ function resolveTMapConnection(
     e.sourceHandle === (connection.sourceHandle ?? 'output')
   )
   if (alreadyConnected)
-    return { valid: false, rejectionReason: 'Questo flusso è già collegato al TMap', resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: 'This flow is already connected to the TMap', resolvedTargetHandle: '' }
 
   if (connection.targetHandle && connection.targetHandle !== 'input_new') {
     const existingInput = tmap?.inputs.find((i) => i.id === connection.targetHandle)
@@ -287,7 +289,7 @@ function resolveTMapConnection(
         e.target === tgt.id && e.targetHandle === existingInput.id && e.source !== connection.source
       )
       if (occupied)
-        return { valid: false, rejectionReason: `Input '${existingInput.label}' già connesso`, resolvedTargetHandle: existingInput.id }
+        return { valid: false, rejectionReason: `Input '${existingInput.label}' already connected`, resolvedTargetHandle: existingInput.id }
       const mergedFields = mergeSchema(existingInput.fields, allFields) as TMapInputField[]
       return { valid: true, resolvedTargetHandle: existingInput.id, edgeLabel: existingInput.label, tmapUpdate: { targetNodeId: tgt.id, updateInput: { inputId: existingInput.id, fields: mergedFields } } }
     }
@@ -394,7 +396,7 @@ export function resolveSerializerConnection(
     e.source === connection.source && e.target === connection.target
   )
   if (alreadyConnected)
-    return { valid: false, rejectionReason: 'Questo flusso è già collegato al serializer', resolvedTargetHandle: '' }
+    return { valid: false, rejectionReason: 'This flow is already connected to the serializer', resolvedTargetHandle: '' }
 
   // Le porte NASCEVANO qui, contando gli archi: `existingInputs.length + 1`.
   // Era la dipendenza invertita — l'arco creava la porta invece di attaccarsi

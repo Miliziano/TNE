@@ -27,8 +27,8 @@ const LOOKUP_COLOR = '#22d3ee'
 /** Solo aspetto, indicizzato per id della porta. Le PORTE le dice il
  *  contratto (nodeSemantics); qui si decide solo come si vedono. */
 const JOIN_LOOK: Record<string, { top: string; color: string; badge: string; title: string }> = {
-  input_left:  { top: '22%', color: LEFT_COLOR,   badge: 'L', title: 'Flusso principale (sinistra)' },
-  input_right: { top: '78%', color: LOOKUP_COLOR, badge: 'R', title: 'Lookup (destra)' },
+  input_left:  { top: '22%', color: LEFT_COLOR,   badge: 'L', title: 'Main flow (left)' },
+  input_right: { top: '78%', color: LOOKUP_COLOR, badge: 'R', title: 'Lookup (right)' },
 }
 const BORDER_COLOR = '#3d2a0a'
 
@@ -130,7 +130,7 @@ export const JoinNode = memo(({ id, data, selected }: NodeProps) => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: LEFT_COLOR, flexShrink: 0 }} />
-          <span style={{ fontSize: 10, fontFamily: 'monospace', color: LEFT_COLOR }}>{leftKey || 'principale'}</span>
+          <span style={{ fontSize: 10, fontFamily: 'monospace', color: LEFT_COLOR }}>{leftKey || 'main'}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

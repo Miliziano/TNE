@@ -19,6 +19,30 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      // ── Rumore escluso, con motivo (P376) ───────────────────────────────
+      // I blob di configurazione dei nodi (node.data.config, spec.config) sono
+      // JSON dinamico tipizzato ai bordi: `any` lì è una scelta, non una svista.
+      '@typescript-eslint/no-explicit-any': 'off',
+      // `catch {}` vuoto è usato di proposito per "valore illeggibile → default".
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      // Il prefisso `_` marca un parametro o un elemento ignorato di proposito.
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_', varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_',
+      }],
+      // Regole pensate per il React Compiler, che lo studio non usa: restano
+      // come avvisi da smaltire a poco a poco. Le violazioni che erano bug
+      // veri (hook condizionali, componenti creati nel render, JSX nel try)
+      // sono state corrette; rules-of-hooks resta un errore.
+      'react-hooks/use-memo': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/refs': 'warn',
+      // Solo hot-reload in sviluppo: un file che esporta anche helper ricarica
+      // la pagina invece del componente. Nessun effetto sul prodotto.
+      'react-refresh/only-export-components': 'warn',
+
       // ── Guardrail sicurezza (anti-XSS) ──────────────────────────────────
       // Oggi lo studio NON usa nessuno di questi pattern: il contenuto non
       // fidato (label nodi, FPEL, .ffplan importati) è reso come TESTO via JSX

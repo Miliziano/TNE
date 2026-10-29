@@ -43,7 +43,7 @@ export function compileSerializerTree(
       try { return compileFpel(t, { labelToInputId, userFunctions: userFns }) }
       catch (e) {
         const d = e instanceof ExprParseError ? e.pretty() : String(e)
-        throw new Error(`${where}, "${path}", ${what}:\n${d}`)
+        throw new Error(`${where}, "${path}", ${what}:\n${d}`, { cause: e })
       }
     }
     return {

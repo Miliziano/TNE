@@ -237,7 +237,7 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
               </CustomSelect>
             ) : (
               <input style={inputStyle} value={col.field}
-                onChange={(e) => onChange({ ...col, field: e.target.value })} placeholder="nome_campo" />
+                onChange={(e) => onChange({ ...col, field: e.target.value })} placeholder="field_name" />
             )}
           </div>
           <div>
@@ -295,11 +295,19 @@ function ColumnRow({ col, incomingFields, onChange, onDelete }: {
 
 // ─── Panel principale ────────────────────────────────────────────
 export function ReportGeneratorPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <ReportGeneratorPanelBody nodeId={nodeId} /> : null
+}
+
+function ReportGeneratorPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const incomingFields = useIncomingSchema(nodeId)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>

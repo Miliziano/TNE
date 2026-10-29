@@ -315,9 +315,9 @@ export function readOutputSchema(nodeProps: Record<string, string>): SchemaField
     if (!Array.isArray(parsed)) return []
     return parsed.map((f: any, i: number) => ({
       id:           f.id   ?? `field_auto_${i}`,
-      name:         f.name ?? `campo_${i}`,
+      name:         f.name ?? `field_${i}`,
       type:         f.type ?? 'string',
-      physicalName: f.physicalName ?? f.name ?? `campo_${i}`,
+      physicalName: f.physicalName ?? f.name ?? `field_${i}`,
     }))
   } catch { return [] }
 }
@@ -330,9 +330,9 @@ export function readIncomingSchema(nodeProps: Record<string, string>): SchemaFie
     if (!Array.isArray(parsed)) return []
     return parsed.map((f: any, i: number) => ({
       id:           f.id   ?? `field_auto_${i}`,
-      name:         f.name ?? `campo_${i}`,
+      name:         f.name ?? `field_${i}`,
       type:         f.type ?? 'string',
-      physicalName: f.physicalName ?? f.name ?? `campo_${i}`,
+      physicalName: f.physicalName ?? f.name ?? `field_${i}`,
     }))
   } catch { return [] }
 }

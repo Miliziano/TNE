@@ -23,11 +23,19 @@ interface OutputField {
 
 // ─── ScriptMappingPanel ───────────────────────────────────────────
 export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <ScriptMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function ScriptMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const edges      = useFlowStore((s) => s.edges)
 
-  if (!node) return null
 
   const p = (key: string) => node.data.props[key] ?? ''
   const hasReject = p('hasReject') === 'true'
@@ -77,7 +85,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
 
   const addField = useCallback(() => {
     const n    = outputFields.length + 1
-    const name = `campo_${n}`
+    const name = `field_${n}`
     saveFields([...outputFields, { id: `of_${n}`, name, type: 'string' }])
   }, [outputFields, saveFields])
 
@@ -99,12 +107,12 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '8px 12px', background: '#1a2030', borderBottom: '1px solid #2a3349', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4a9eff', flexShrink: 0 }} />
           <div style={{ fontSize: 11, fontWeight: 600, color: '#4a9eff', flex: 1 }}>
-            Flusso principale — out
+            Main flow — out
           </div>
           <div style={{ fontSize: 10, color: '#8593b5' }}>
             {mainEdges.length > 0
               ? `→ ${mainEdges.map((e) => e.target).join(', ')}`
-              : 'nessun collegamento'}
+              : 'no connection'}
           </div>
           <button onClick={addField}
             style={{ background: 'none', border: '0.5px dashed #2a3349', borderRadius: 4, padding: '2px 8px', fontSize: 9, cursor: 'pointer', color: '#4a9eff' }}
@@ -117,13 +125,13 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
         {/* Lista campi */}
         {outputFields.length === 0 ? (
           <div style={{ padding: '16px 12px', fontSize: 10, color: '#2a3349', fontStyle: 'italic', textAlign: 'center' }}>
-            Nessun campo definito — clicca + campo per aggiungere
+            No field defined — click + field to add one
           </div>
         ) : (
           <div style={{ padding: '6px 0' }}>
             {/* Intestazione colonne */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 24px', gap: 6, padding: '3px 12px 5px', borderBottom: '0.5px solid #2a3349' }}>
-              {['Nome', 'Tipo', ''].map((h, i) => (
+              {['Name', 'Type', ''].map((h, i) => (
                 <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
               ))}
             </div>
@@ -165,12 +173,12 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
           </button>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: hasReject ? '#ff5f57' : '#2a3349', flexShrink: 0, transition: 'background .2s' }} />
           <div style={{ fontSize: 11, fontWeight: 600, color: hasReject ? '#ff5f57' : '#8593b5', flex: 1, transition: 'color .2s' }}>
-            Flusso reject — reject
+            Reject flow — reject
           </div>
           <div style={{ fontSize: 10, color: '#8593b5' }}>
             {rejectEdges.length > 0
               ? `→ ${rejectEdges.map((e) => e.target).join(', ')}`
-              : hasReject ? 'handle attivo, nessun collegamento' : 'disabilitato'}
+              : hasReject ? 'handle active, no connection' : 'disabled'}
           </div>
         </div>
 
@@ -178,12 +186,12 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
         {hasReject && (
           rejectFields.length === 0 ? (
             <div style={{ padding: '16px 12px', fontSize: 10, color: '#2a3349', fontStyle: 'italic', textAlign: 'center' }}>
-              Aggiungi campi al flusso principale — il reject usa gli stessi nomi
+              Add fields to the main flow — the reject uses the same names
             </div>
           ) : (
             <div style={{ padding: '6px 0' }}>
               <div style={{ padding: '4px 12px 5px', fontSize: 9, color: '#8593b5', fontStyle: 'italic', borderBottom: '0.5px solid #2a3349' }}>
-                Stessi campi del flusso principale — istanze indipendenti con valori distinti
+                Same fields as the main flow — independent instances with separate values
               </div>
               {rejectFields.map((f) => (
                 <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 6, alignItems: 'center', padding: '4px 12px' }}>
@@ -201,7 +209,7 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
 
         {!hasReject && (
           <div style={{ padding: '12px', fontSize: 10, color: '#2a3349', fontStyle: 'italic', textAlign: 'center' }}>
-            Attiva il toggle per abilitare il flusso reject e mostrare l'handle sul nodo
+            Turn on the toggle to enable the reject flow and show the handle on the node
           </div>
         )}
       </div>
@@ -210,10 +218,10 @@ export function ScriptMappingPanel({ nodeId }: { nodeId: string }) {
       {outputFields.length > 0 && (
         <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', alignItems: 'flex-start', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }} />
-          I campi vengono propagati automaticamente ai nodi collegati.
+          Fields are propagated automatically to the connected nodes.
           <strong style={{ color: '#4a9eff' }}>out</strong> flow on the main handle,
           <strong style={{ color: '#ff5f57' }}>reject</strong> flow on the reject handle.
-          I due flussi condividono i nomi dei campi ma hanno valori indipendenti.
+          The two flows share field names but have independent values.
         </div>
       )}
 

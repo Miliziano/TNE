@@ -54,4 +54,13 @@ con `_reject_reason = missing_required_field`).
 
 Tolte nel P369 le opzioni *Stream* e il filtro per flusso: il motore non le applicava.
 
+**Campi del padre (P376).** Il bottone *⊕ Parent fields* di un flusso aggiunge a ogni sua
+riga i campi della riga in ingresso scelti (master-detail: le righe d'ordine con
+l'`order_id` della testata già nella riga). Si sceglie campo per campo dallo schema in
+ingresso (escluso il campo JSON sorgente); a parità di nome vince il campo del flusso.
+I campi scelti entrano nello schema del flusso, quindi i nodi a valle li vedono. La
+scelta è sempre esplicita: deselezionare l'ultimo campo spegne l'opzione, perché con
+l'elenco vuoto il motore copierebbe tutto l'ingresso, che lo studio non saprebbe
+dichiarare a valle.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

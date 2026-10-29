@@ -38,6 +38,7 @@ import { topologicalSort, canvasNodeId } from './lowering'
 import { parseScript, campiAssegnatiTipizzati } from './scriptParser'
 import type { FieldType } from '../types/fieldTypes'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
+import { jsonParserFlowFields } from '../nodes/types/json_parser/schema'
 import type { XmlParserConfig }  from '../nodes/types/xml_parser/xmlParserTypes'
 import { BRIDGE_SIGNAL_SCHEMA } from '../nodes/types/bridge/bridgeSchema'
 import { SINK_FILE_SIGNAL_SCHEMA } from '../nodes/types/sink_file/schema'
@@ -442,7 +443,7 @@ function buildOutputPortSchemas(
   const jsonCfg = config?.jsonParser as JsonParserConfig | undefined
   if (jsonCfg?.flows?.length) {
     jsonCfg.flows.forEach((flow) => {
-      result.set(flow.id, flow.fields.map((f): SchemaField => ({
+      result.set(flow.id, jsonParserFlowFields(flow).map((f): SchemaField => ({
         id:   f.id,
         name: f.name,
         type: f.type as any,
@@ -490,7 +491,7 @@ function buildOutputPortSchemas(
 function normalizeSchema(raw: any[]): SchemaField[] {
   return raw.map((f: any, i: number): SchemaField => ({
     id:           f.id ?? f.name ?? `field_${i}`,
-    name:         f.name ?? f.sourceField ?? f.outputName ?? `campo_${i}`,
+    name:         f.name ?? f.sourceField ?? f.outputName ?? `field_${i}`,
     type:         f.type ?? 'string',
     physicalName: f.physicalName ?? f.name,
     nullable:     f.nullable,
@@ -557,7 +558,7 @@ export function propagateSchema(plan: LogicalPlan): PropagationResult {
       plan,
       issues: [{
         code:     'CYCLE_DETECTED',
-        message:  'Il DAG contiene un ciclo — impossibile propagare lo schema',
+        message:  'The DAG contains a cycle — cannot propagate the schema',
         severity: 'error',
       }],
     }
@@ -665,9 +666,9 @@ function validateNodeSchema(
     issues.push({
       nodeId:   canvasId,
       code:     'EMPTY_OUTPUT_SCHEMA',
-      message:  `Il nodo "${node._uiRef?.label ?? canvasId}" non ha campi output definiti`,
+      message:  `The node "${node._uiRef?.label ?? canvasId}" has no output fields defined`,
       severity: 'warning',
-      hint:     'Configura i campi nel pannello del nodo o usa "Test connessione" per rilevarli automaticamente',
+      hint:     'Set the fields in the node panel, or use "Test connection" to detect them',
     })
   }
 
@@ -684,9 +685,9 @@ function validateNodeSchema(
     issues.push({
       nodeId:   canvasId,
       code:     'EMPTY_INPUT_SCHEMA',
-      message:  `Il nodo "${node._uiRef?.label ?? canvasId}" non riceve campi in ingresso`,
+      message:  `The node "${node._uiRef?.label ?? canvasId}" receives no incoming fields`,
       severity: 'warning',
-      hint:     'Verifica che il nodo sorgente abbia lo schema definito',
+      hint:     'Check that the source node has its schema defined',
     })
   }
 
@@ -695,7 +696,7 @@ function validateNodeSchema(
     issues.push({
       nodeId:   canvasId,
       code:     'AGGREGATE_NO_INPUT',
-      message:  `Aggregazione senza campi input`,
+      message:  `Aggregation without input fields`,
       severity: 'error',
     })
   }
@@ -709,16 +710,16 @@ function validateNodeSchema(
     if (stale.length > 0) {
       issues.push({
         nodeId: canvasNodeId(node.id), code: 'SCHEMA_MISMATCH',
-        message: `${stale.length} campo/i di output riferiscono sorgenti non più disponibili: ${stale.slice(0,3).join(', ')}${stale.length > 3 ? '…' : ''}`,
+        message: `${stale.length} output field(s) refer to sources no longer available: ${stale.slice(0,3).join(', ')}${stale.length > 3 ? '…' : ''}`,
         severity: 'warning',
-        hint: 'Lo schema sorgente è cambiato. Aggiorna il mapping di output.',
+        hint: 'The source schema has changed. Update the output mapping.',
       })
     } else if (newIn.length > 0) {
       issues.push({
         nodeId: canvasNodeId(node.id), code: 'SCHEMA_NEW_FIELDS',
-        message: `${newIn.length} nuovo/i campo/i in ingresso non mappato/i: ${newIn.slice(0,3).join(', ')}${newIn.length > 3 ? '…' : ''}`,
+        message: `${newIn.length} new incoming field(s) not mapped: ${newIn.slice(0,3).join(', ')}${newIn.length > 3 ? '…' : ''}`,
         severity: 'warning',
-        hint: 'Nuovi campi disponibili dal sorgente. Valuta se aggiungerli.',
+        hint: 'New fields available from the source. Consider adding them.',
       })
     }
   }
@@ -730,9 +731,9 @@ function validateNodeSchema(
     if (!hasMappings && inputSchema.length > 0) {
       issues.push({
         nodeId: canvasNodeId(node.id), code: 'SERIALIZER_NO_MAPPING',
-        message: `JSON Serializer "${node._uiRef?.label ?? canvasNodeId(node.id)}": nessun campo mappato`,
+        message: `JSON Serializer "${node._uiRef?.label ?? canvasNodeId(node.id)}": no mapped field`,
         severity: 'warning',
-        hint: 'Apri il configuratore e mappa i campi di ingresso.',
+        hint: 'Open the editor and map the incoming fields.',
       })
     }
   }

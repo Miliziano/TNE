@@ -94,7 +94,7 @@ function buildPreviewSql(props: Record<string, any>, dialect: string): PreviewRe
     return `$${pidx}`
   }
 
-  let mainSql        = ''
+  let mainSql: string
   let passthroughSql: string | null = null
 
   // ── Modalità pass-through ─────────────────────────────────────
@@ -249,11 +249,19 @@ function CodeBlock({ sql, accent }: { sql: string; accent?: string }) {
 // ─── Componente principale ────────────────────────────────────────
 
 export function SinkDbPreviewPanel({ nodeId }: { nodeId: string }) {
-  const node = useFlowStore(s => s.nodes.find(n => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <SinkDbPreviewPanelBody nodeId={nodeId} /> : null
+}
+
+function SinkDbPreviewPanelBody({ nodeId }: { nodeId: string }) {
+  const node = useFlowStore(s => s.nodes.find(n => n.id === nodeId))!
   const pool = useFlowStore(s => s.pool)
   const [key, setKey] = useState(0)
 
-  if (!node) return null
 
   const p     = (k: string, def = '') => String(node.data.props?.[k] ?? def)
   const resId = (node.data.config?.resourceId as string | undefined) ?? ''

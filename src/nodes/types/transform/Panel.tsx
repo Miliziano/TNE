@@ -61,7 +61,16 @@ function btnStyle(color: string): React.CSSProperties {
 // ─── Componente principale ────────────────────────────────────────
 
 export function TransformPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <TransformPanelBody nodeId={nodeId} /> : null
+}
+
+function TransformPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))!
   const updateProp = useFlowStore(s => s.updateNodeProp)
 
   // ── useIncomingSchema — pattern corretto ───────────────────────
@@ -70,7 +79,6 @@ export function TransformPanel({ nodeId }: { nodeId: string }) {
   // Gestisce correttamente TMap (output per handle), passthrough, ecc.
   const incomingFields = useIncomingSchema(nodeId)
 
-  if (!node) return null
 
   const fields: TransformField[] = useMemo(() => {
     try {
@@ -151,7 +159,7 @@ export function TransformPanel({ nodeId }: { nodeId: string }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 16px 1fr 82px 1fr 22px', gap: 4, padding: '3px 6px', background: '#161b27', borderRadius: 4 }}>
-        {['', 'Sorgente', '', 'Output', 'Tipo', 'Trasformazione', ''].map((h, i) => (
+        {['', 'Source', '', 'Output', 'Type', 'Transform', ''].map((h, i) => (
           <div key={i} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>{h}</div>
         ))}
       </div>
@@ -166,7 +174,7 @@ export function TransformPanel({ nodeId }: { nodeId: string }) {
 
       {fields.length === 0 && (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Nessun campo — clicca "+ Campo" o "Importa schema"
+          No fields — click "+ Field" or "Import schema"
         </div>
       )}
 
@@ -227,7 +235,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
     const { start, end } = caretRef.current
     const sel = field.expression.slice(start, end)
     if (!sel) {
-      const base  = (field.expression || field.source || 'campo').trim()
+      const base  = (field.expression || field.source || 'field').trim()
       const nuovo = voce.codice.replace(/\$sel/g, base)
       onChange({ expression: nuovo })
       requestAnimationFrame(() => {
@@ -306,7 +314,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             style={{ ...S_input, fontSize: 10, flex: 1, minWidth: 0, cursor: 'pointer', textAlign: 'left',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               color: field.presetId === 'passthrough' ? '#8aa4d0' : '#c8d4f0' }}>
-            {field.presetId === 'passthrough' ? 'passa invariato…' : (selectedP?.label ?? field.presetId)}
+            {field.presetId === 'passthrough' ? 'pass through unchanged…' : (selectedP?.label ?? field.presetId)}
           </button>
           {field.presetId !== 'passthrough' && (
             <button onClick={() => onChange({ presetId: 'passthrough', params: {}, expression: '' })}
@@ -360,7 +368,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             {field.source && (
               <button
                 onClick={() => inserisciCampo(field.source)}
-                title={`Inserisci ${field.source} al punto del cursore`}
+                title={`Insert ${field.source} at the cursor`}
                 style={{ fontSize: 9, padding: '1px 5px', borderRadius: 5, background: '#0f1117',
                   border: '1px solid #2a3349', color: '#4a9eff', cursor: 'pointer', flexShrink: 0,
                   fontFamily: 'monospace' }}>
@@ -373,7 +381,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
               title="Apply a function: wraps the selection, or the whole expression if there is no selection (with search)"
               style={{ ...S_input, width: 'auto', fontSize: 9, padding: '2px 6px', cursor: 'pointer',
                 color: '#8aa4d0', flexShrink: 0 }}>
-              ƒ applica…
+              ƒ apply…
             </button>
             {pickerExpr && (
               <FunctionPicker
@@ -390,7 +398,7 @@ function FieldRow({ field, incomingFields, onChange, onRemove }: {
             onSelect={aggiornaCaret}
             onKeyUp={aggiornaCaret}
             onClick={aggiornaCaret}
-            placeholder={`${field.source || 'campo'} — es: trim(nome), var("prefisso") + "/" + codice`}
+            placeholder={`${field.source || 'field'} — e.g. trim(name), var("prefix") + "/" + code`}
           />
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>
             Use the <code style={{ color: '#4a9eff' }}>field name</code> as is,{' '}

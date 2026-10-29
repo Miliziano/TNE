@@ -340,7 +340,7 @@ function XmlTreeNodeRow({ node, depth, flows, onToggleFieldInFlow, onGenerateFlo
             {flowMembership.map(({ flow, isMember }) => (
               <button key={flow.id}
                 onClick={(e) => { e.stopPropagation(); onToggleFieldInFlow(node, flow.id) }}
-                title={isMember ? `Rimuovi da "${flow.label}"` : `Aggiungi a "${flow.label}"`}
+                title={isMember ? `Remove from "${flow.label}"` : `Add to "${flow.label}"`}
                 style={{ width: 10, height: 10, borderRadius: '50%', background: isMember ? flow.color : 'transparent', border: `1.5px solid ${flow.color}`, cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'background .12s, transform .1s', transform: isMember ? 'scale(1.1)' : 'scale(1)' }}
                 onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = 'scale(1.25)'; el.style.background = isMember ? `color-mix(in srgb, ${flow.color} 60%, transparent)` : `color-mix(in srgb, ${flow.color} 40%, transparent)` }}
                 onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = isMember ? 'scale(1.1)' : 'scale(1)'; el.style.background = isMember ? flow.color : 'transparent' }}
@@ -681,7 +681,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
         if (flows.length > 0) setSelectedFlowId(flows[0].id)
       }
     } catch (e: any) {
-      setParseError(e.message ?? 'Parsing fallito')
+      setParseError(e.message ?? 'Parsing failed')
     }
   }, [rawInput, inputMode, config, saveConfig, pruneOrphanEdges])
 
@@ -769,7 +769,10 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: pos ? 'flex-start' : 'center', justifyContent: 'center', zIndex: 20000, padding: 24, pointerEvents: 'none' }}>
       <div
         ref={(el) => {
+          // dragRef viene da useDraggable ed è un ref: assegnarne .current è lecito.
+          // eslint-disable-next-line react-hooks/immutability
           ;(dragRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+          // eslint-disable-next-line react-hooks/immutability
           ;(modalRef as React.MutableRefObject<HTMLDivElement | null>).current = el
         }}
         onClick={(e) => e.stopPropagation()}
@@ -914,7 +917,7 @@ export function XmlParserModal({ nodeId, onClose }: { nodeId: string; onClose: (
                   <div style={{ padding: '5px 10px', background: '#1a2030', borderTop: '0.5px solid #2a3349', display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
                     {[
                       { icon: '<>', color: '#c8d4f0', label: 'element'   },
-                      { icon: '[]', color: '#ffb347', label: 'ripetuto'  },
+                      { icon: '[]', color: '#ffb347', label: 'repeated'  },
                       { icon: '@',  color: '#a78bfa', label: 'attribute' },
                       { icon: '—',  color: '#3ddc84', label: 'leaf'      },
                     ].map((item) => (

@@ -65,10 +65,18 @@ const RESPONSE_TYPE_LABELS: Record<string, string> = {
 }
 
 export function HttpMappingPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <HttpMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function HttpMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const responseType = p('responseType', 'json')

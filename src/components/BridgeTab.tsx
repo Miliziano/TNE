@@ -111,11 +111,11 @@ export function BridgeTab() {
               </code>
               {ch.isComplete ? (
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `${ch.color}20`, color: ch.color, border: `0.5px solid ${ch.color}40` }}>
-                  ✓ completo
+                  ✓ complete
                 </span>
               ) : (
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#2a1010', color: '#ff5f57', border: '0.5px solid #3d1010' }}>
-                  ⚠ incompleto
+                  ⚠ incomplete
                 </span>
               )}
             </div>
@@ -132,7 +132,7 @@ export function BridgeTab() {
                     {ch.outNode.laneLabel}
                   </button>
                 ) : (
-                  <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '3px 0' }}>mancante</div>
+                  <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '3px 0' }}>missing</div>
                 )}
               </div>
 
@@ -154,7 +154,7 @@ export function BridgeTab() {
                     {ch.inNode.laneLabel}
                   </button>
                 ) : (
-                  <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '3px 0', textAlign: 'right' }}>mancante</div>
+                  <div style={{ fontSize: 10, color: '#ff5f57', fontStyle: 'italic', padding: '3px 0', textAlign: 'right' }}>missing</div>
                 )}
               </div>
             </div>
@@ -164,7 +164,7 @@ export function BridgeTab() {
               <div style={{ padding: '5px 10px', background: '#2a1010', fontSize: 10, color: '#ff5f57', display: 'flex', gap: 5, alignItems: 'center' }}>
                 <i className="ti ti-alert-circle" style={{ fontSize: 10, flexShrink: 0 }} />
                 {!ch.outNode && !ch.inNode
-                  ? 'Entrambi i nodi mancanti'
+                  ? 'Both nodes missing'
                   : !ch.outNode
                   ? `Missing BridgeOut node with channel "${ch.name}"`
                   : `Missing BridgeIn node with channel "${ch.name}"`}

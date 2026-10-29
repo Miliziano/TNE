@@ -620,7 +620,7 @@ export const TRANSFORM_CATALOG: Record<TransformCategory, TransformTemplate[]> =
       expression: '$value ? 1 : 0',
     },
     {
-      id: 'bool_to_yn', label: '→ S/N',
+      id: 'bool_to_yn', label: '→ Sì/No (Italian)',
       description: '"Sì" / "No"',
       outputType: 'string',
       expression: '$value ? "Sì" : "No"',

@@ -231,11 +231,11 @@ function VariableEditor({
               </span>
               {e.type === 'secret' ? (
                 <span style={{ fontSize: 10, color: '#c8a060', display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <i className="ti ti-lock" aria-hidden="true" /> segreto
+                  <i className="ti ti-lock" aria-hidden="true" /> secret
                 </span>
               ) : (
                 <span style={{ fontSize: 10, color: '#5a6a8a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {e.value || '(vuoto)'}
+                  {e.value || '(empty)'}
                 </span>
               )}
               {e.ombreggiata && (
@@ -513,7 +513,7 @@ export function PropertyPanel() {
                       )}
                       {def.fields.map((field) => (
                         <div key={field.key} style={{ margin: '4px 8px', opacity: inerte(field) ? 0.45 : 1 }}>
-                          <Field label={inerte(field) ? `${field.label} — IGNORATO` : field.label}>
+                          <Field label={inerte(field) ? `${field.label} — IGNORED` : field.label}>
                             {field.type === 'select' ? (
                               <CustomSelect value={node.data.props[field.key] ?? field.default}
                                 onChange={(e) => updateNodeProp(node.id, field.key, e.target.value)}
@@ -598,7 +598,7 @@ export function PropertyPanel() {
                     ombreggiata: currentLane.variables.some((lv) => lv.name === v.name),
                   }))}
                 emptyMessage="No local variable in this lane."
-                onAdd={() => addVariable('lane', currentLane.id, { name: 'nuova_var', type: 'string', value: '' })}
+                onAdd={() => addVariable('lane', currentLane.id, { name: 'new_var', type: 'string', value: '' })}
                 onDelete={(id) => deleteVariable('lane', currentLane.id, id)}
                 onUpdate={(id, key, value) => updateVariable('lane', currentLane.id, id, { [key]: value } as Partial<Variable>)}
                 onDeleteMat={(id) => deleteVariable('lane', currentLane.id, id)}

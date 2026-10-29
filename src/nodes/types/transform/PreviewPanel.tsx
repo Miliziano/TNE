@@ -68,9 +68,9 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
     let rows: unknown
     try {
       rows = JSON.parse(mockRaw || '[]')
-      if (!Array.isArray(rows)) throw new Error('devono essere un array JSON di oggetti')
+      if (!Array.isArray(rows)) throw new Error('must be a JSON array of objects')
     } catch (e) {
-      setErrore(`Righe di prova non valide: ${e instanceof Error ? e.message : String(e)}`)
+      setErrore(`Invalid test rows: ${e instanceof Error ? e.message : String(e)}`)
       return
     }
 
@@ -133,14 +133,14 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
           <button onClick={semeVuoto}
             style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'none',
                      border: '1px solid #2a3349', color: '#8aa4d0', cursor: 'pointer' }}>
-            riga vuota dai campi
+            empty row from fields
           </button>
         </div>
         <textarea
           value={mockRaw}
           onChange={(e) => updateProp(nodeId, 'previewMockRows', e.target.value)}
           spellCheck={false}
-          placeholder={'[\n  { "campo": "valore" }\n]'}
+          placeholder={'[\n  { "field": "value" }\n]'}
           style={{ ...box, width: '100%', minHeight: 90, resize: 'vertical', color: '#c8d4f0',
                    fontFamily: 'monospace', fontSize: 11, lineHeight: 1.5, boxSizing: 'border-box' }}
         />
@@ -157,7 +157,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
                    background: inCorso ? '#2a3349' : `color-mix(in srgb, ${ACCENT} 22%, #0f1117)`,
                    color: inCorso ? '#8593b5' : ACCENT, border: `0.5px solid ${ACCENT}50`,
                    cursor: inCorso ? 'default' : 'pointer' }}>
-          {inCorso ? 'elaborazione…' : '\u25b6 elabora col motore'}
+          {inCorso ? 'processing…' : '\u25b6 run with the engine'}
         </button>
         <span style={{ fontSize: 9, color: '#8593b5' }}>the engine runs it, as in production</span>
       </div>

@@ -116,7 +116,7 @@ function PoolHeader() {
       }} aria-hidden="true" />
 
       <span
-        title={currentPath ?? 'Progetto non ancora salvato'}
+        title={currentPath ?? 'Project not saved yet'}
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           fontSize: 12,
@@ -127,7 +127,7 @@ function PoolHeader() {
         }}
       >
         <i className="ti ti-file-text" style={{ fontSize: 13, opacity: 0.7 }} aria-hidden="true" />
-        {nomeProgetto ?? 'progetto non salvato'}
+        {nomeProgetto ?? 'unsaved project'}
       </span>
     </div>
   )

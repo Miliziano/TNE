@@ -29,9 +29,17 @@ const AGG_FUNCTIONS: Record<string, { label: string; outputType: string; color: 
   ]))
 
 export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
-  const node  = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <AggregateMappingPanelBody nodeId={nodeId} /> : null
+}
 
-  if (!node) return null
+function AggregateMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node  = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
+
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
 
@@ -70,8 +78,8 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
       {/* Info sorgente */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa' }}>
         <div style={{ fontWeight: 600, color: ACCENT, marginBottom: 2 }}>Σ Aggregate</div>
-        Sorgente: <strong style={{ color: '#c8d4f0' }}>
-          {dataSource === 'materialize' ? `Materialize "${matName || '—'}"` : 'Flusso in ingresso'}
+        Source: <strong style={{ color: '#c8d4f0' }}>
+          {dataSource === 'materialize' ? `Materialize "${matName || '—'}"` : 'Incoming flow'}
         </strong>
         {groupByFields.length > 0 && (
           <span style={{ marginLeft: 8, color: '#8593b5' }}>
@@ -84,20 +92,20 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Schema in ingresso */}
       <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: `0.5px solid ${ACCENT}30` }}>
-        Campi in ingresso — {activeFields.length} campi
+        Incoming fields — {activeFields.length}
       </div>
 
       {activeFields.length === 0 ? (
         <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
           {dataSource === 'materialize'
-            ? `Il Materialize "${matName || '—'}" non ha ancora ricevuto campi.`
-            : 'Collega un nodo in ingresso.'}
+            ? `The Materialize "${matName || '—'}" has not received any fields yet.`
+            : 'Connect an input node.'}
         </div>
       ) : (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Campo', 'Tipo', 'Ruolo'].map((h) => (
+            {['Field', 'Type', 'Role'].map((h) => (
               <div key={h} style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>
@@ -111,7 +119,7 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
                 {isGroupBy ? (
                   <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: '#0d3d20', color: '#3ddc84', border: '0.5px solid #1d6d4060', display: 'inline-block', textAlign: 'center' }}>GROUP BY</span>
                 ) : (
-                  <span style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>non usato</span>
+                  <span style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic' }}>not used</span>
                 )}
               </div>
             )
@@ -121,17 +129,17 @@ export function AggregateMappingPanel({ nodeId }: { nodeId: string }) {
 
       {/* Schema in uscita */}
       <div style={{ fontSize: 10, fontWeight: 600, color: '#ffb347', textTransform: 'uppercase', letterSpacing: '.08em', padding: '4px 0', borderBottom: '0.5px solid #ffb34730' }}>
-        Campi in uscita — {outputFields.length} campi (1 riga per gruppo)
+        Output fields — {outputFields.length} (1 row per group)
       </div>
 
       {outputFields.length === 0 ? (
         <div style={{ padding: '12px', textAlign: 'center', color: '#8593b5', fontSize: 10, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349', fontStyle: 'italic' }}>
-          Configura GROUP BY e funzioni nel tab Configurazione.
+          Set GROUP BY and functions in the Configuration tab.
         </div>
       ) : (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Campo output', 'Tipo', 'Origine'].map((h) => (
+            {['Output field', 'Type', 'Origin'].map((h) => (
               <div key={h} style={{ fontSize: 9, color: '#ffb347', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
             ))}
           </div>

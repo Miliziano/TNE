@@ -38,7 +38,7 @@ export function readJson(content: string): Row[] {
   if (typeof parsed === 'object' && parsed !== null) {
     return [{ content: parsed, raw: content }]  // ← produce content e raw
   }
-  throw new Error('Il file JSON deve contenere un array o un oggetto')
+  throw new Error('The JSON file must contain an array or an object')
 
 }
 
@@ -50,7 +50,7 @@ export function readJsonl(content: string): Row[] {
     .filter((line) => line.length > 0 && !line.startsWith('//'))
     .map((line, i) => {
       try { return JSON.parse(line) as Row }
-      catch { throw new Error(`Riga JSONL ${i + 1} non valida: ${line.slice(0, 50)}`) }
+      catch { throw new Error(`Invalid JSONL line ${i + 1}: ${line.slice(0, 50)}`) }
     })
 }
 
@@ -73,12 +73,12 @@ export async function readXml(content: string, rootPath?: string): Promise<Row[]
       if (typeof current === 'object' && current !== null && part in (current as Record<string, unknown>)) {
         current = (current as Record<string, unknown>)[part]
       } else {
-        throw new Error(`Path XML '${rootPath}' non trovato`)
+        throw new Error(`XML path '${rootPath}' not found`)
       }
     }
     if (Array.isArray(current)) return current as Row[]
     if (typeof current === 'object' && current !== null) return [current as Row]
-    throw new Error(`Il path XML '${rootPath}' non punta a un array o oggetto`)
+    throw new Error(`The XML path '${rootPath}' does not point to an array or object`)
   }
   return findFirstArray(parsed)
 }

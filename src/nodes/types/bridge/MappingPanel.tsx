@@ -14,12 +14,20 @@ import { useFlowStore } from '../../../store/flowStore'
 import { findBridgeOutFor, getBridgeOutFields } from './bridgeSchema'
 
 export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
-  const node     = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <BridgeInMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function BridgeInMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node     = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const allNodes = useFlowStore((s) => s.nodes)
   const edges    = useFlowStore((s) => s.edges)
   const lanes    = useFlowStore((s) => s.pool.lanes)
 
-  if (!node) return null
 
   const color       = String(node.data.props?.['channelColor'] ?? '#a78bfa')
   const channelName = String(node.data.props?.['channelName'] ?? '')
@@ -89,7 +97,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
             {' · '}{String(outNode.data.label ?? outNode.id)}
           </span>
           <span style={{ fontSize: 10, color: '#8593b5' }}>
-            {fields.length} {fields.length === 1 ? 'campo' : 'campi'}
+            {fields.length} {fields.length === 1 ? 'field' : 'fields'}
           </span>
         </div>
       )}
@@ -98,7 +106,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
       {outNode && fields.length === 0 && (
         <div style={{ padding: '32px 12px', textAlign: 'center', color: '#2a3349', fontSize: 11,
           background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Il BridgeOut non ha ancora uno schema in ingresso — collega una sorgente nella sua lane.
+          The BridgeOut has no incoming schema yet — connect a source in its lane.
         </div>
       )}
 
@@ -106,7 +114,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ background: '#0f1117', borderRadius: 6, border: '0.5px solid #2a3349', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px',
             gap: 4, padding: '5px 8px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-            {['Nome campo', 'Nome fisico', 'Tipo'].map((h) => (
+            {['Field name', 'Physical name', 'Type'].map((h) => (
               <div key={h} style={{ fontSize: 9, color: '#8593b5', textTransform: 'uppercase',
                 letterSpacing: '.05em', fontWeight: 600 }}>{h}</div>
             ))}
@@ -130,7 +138,7 @@ export function BridgeInMappingPanel({ nodeId }: { nodeId: string }) {
         <div style={{ padding: '5px 8px', background: '#1a2030', borderRadius: 4,
           border: '0.5px solid #2a3349', fontSize: 9, color: '#8593b5', display: 'flex', gap: 5 }}>
           <i className="ti ti-info-circle" style={{ fontSize: 10, color, flexShrink: 0 }} />
-          Propagato automaticamente ai TMap e agli altri nodi collegati all'output.
+          Propagated automatically to the TMaps and other nodes connected to the output.
         </div>
       )}
     </div>

@@ -53,16 +53,16 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>⊕ Union</span> — fonde N flussi in uno.
-        Collega i flussi sorgente agli handle di ingresso numerati sul lato sinistro del nodo.
-        Un nuovo handle appare automaticamente quando tutti quelli esistenti sono connessi.
+        <span style={{ color: ACCENT, fontWeight: 600 }}>⊕ Union</span> — merges N flows into one.
+        Connect the source flows to the numbered input handles on the left side of the node.
+        A new handle appears automatically when all existing ones are connected.
       </div>
 
       {/* Flussi collegati */}
-      <SectionTitle label={`Flussi in ingresso — ${inEdges.length} collegati`} />
+      <SectionTitle label={`Incoming flows — ${inEdges.length} connected`} />
       {inEdges.length === 0 ? (
         <div style={{ padding: '12px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
-          Collega almeno due flussi agli handle sul lato sinistro del nodo.
+          Connect at least two flows to the handles on the left side of the node.
         </div>
       ) : (
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
@@ -73,7 +73,7 @@ export function UnionPanel({ nodeId }: { nodeId: string }) {
                 handle: {e.targetHandle ?? 'input'}
               </code>
               <code style={{ fontFamily: 'monospace', fontSize: 9, color: '#8593b5' }}>
-                da: {e.source}
+                from: {e.source}
               </code>
             </div>
           ))}

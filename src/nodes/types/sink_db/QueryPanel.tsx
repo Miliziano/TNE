@@ -259,7 +259,7 @@ function buildPreviewSql(props: Record<string, any>, dialect: string) {
     return `$${pidx}`
   }
 
-  let mainSql = ''
+  let mainSql: string
   if (customMode !== 'none') {
     mainSql = p('customSql', '-- no custom query configured')
   } else if (mode === 'insert' || mode === 'truncate_insert') {
@@ -297,7 +297,16 @@ function buildPreviewSql(props: Record<string, any>, dialect: string) {
 // ─── Componente principale ────────────────────────────────────────
 
 export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <SinkDbQueryPanelBody nodeId={nodeId} /> : null
+}
+
+function SinkDbQueryPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore(s => s.nodes.find(n => n.id === nodeId))!
   const updateProp = useFlowStore(s => s.updateNodeProp)
   const pool       = useFlowStore(s => s.pool)
 
@@ -306,7 +315,6 @@ export function SinkDbQueryPanel({ nodeId }: { nodeId: string }) {
   const [showPreview, setShowPreview] = useState(false)
   const [previewKey,  setPreviewKey]  = useState(0)
 
-  if (!node) return null
 
   const p     = (key: string, def = '') => String(node.data.props?.[key] ?? def)
   const resId = (node.data.config?.resourceId as string | undefined) ?? ''

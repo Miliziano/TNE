@@ -60,7 +60,7 @@ function inferType(value: unknown): TMapFieldType {
     return /[.,eE]/.test(str) ? 'decimal' : 'integer'
   }
   // Date — pattern semplice
-  if (/^\d{4}-\d{2}-\d{2}/.test(str) || /^\d{2}[\/\-]\d{2}[\/\-]\d{4}/.test(str)) {
+  if (/^\d{4}-\d{2}-\d{2}/.test(str) || /^\d{2}[/-]\d{2}[/-]\d{4}/.test(str)) {
     return 'date'
   }
   if (['true','false','si','no','yes'].includes(str.toLowerCase())) return 'boolean'
@@ -128,12 +128,20 @@ function inferSchema(rows: Record<string, unknown>[]): TMapInputField[] {
 }
 
 export function SourceFileMappingPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <SourceFileMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function SourceFileMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const [loading, setLoading]   = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  if (!node) return null
 
   const format      = node.data.props['format'] ?? 'csv'
   const pathSource  = node.data.props['pathSource'] ?? 'static'

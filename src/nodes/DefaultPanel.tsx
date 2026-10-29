@@ -89,7 +89,7 @@ export function DefaultPanel({ nodeId }: { nodeId: string }) {
           background: '#1a2030', borderRadius: 6,
           border: '0.5px dashed #2a3349',
         }}>
-          Nessun campo configurabile per questo nodo.
+          No configurable field for this node.
         </div>
       )}
     </div>

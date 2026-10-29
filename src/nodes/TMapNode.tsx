@@ -73,7 +73,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
       {/* ── Badge editor — sempre visibile, angolo in alto a destra ── */}
       <div
         onClick={(e) => { e.stopPropagation(); setShowModal(true) }}
-        title="Apri editor TMap"
+        title="Open the TMap editor"
         style={{
           position:       'absolute',
           top:            -8,
@@ -138,7 +138,7 @@ export const TMapNode = memo(({ id, data, selected }: NodeProps) => {
           borderRadius: '50%',
           opacity:     0.6,
         }}
-        title="Trascina qui per aggiungere un nuovo input"
+        title="Drop here to add a new input"
       />
 
       {/* ── Header ── */}

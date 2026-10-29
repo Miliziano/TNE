@@ -42,7 +42,11 @@ export interface JsonParserFlow {
   jsonPath:     string           // JSONPath per estrarre il ramo (es: $.righe)
   isArray:      boolean          // true = una riga per elemento, false = solo il primo
   mergeParent:  boolean          // true = includi campi del padre
-  parentFields: string[]         // campi del padre da includere (vuoto = tutti)
+  parentFields: string[]         // campi del padre da includere (vuoto = tutti, nel motore)
+  /** Solo studio (il motore lo ignora): nome e tipo dei campi del padre
+   *  scelti nella modale, perché lo schema del flusso li possa dichiarare
+   *  senza risalire il grafo. V. jsonParserFlowFields. */
+  parentSchema?: Array<{ name: string; type: string }>
   fields:       JsonParserField[]
 }
 

@@ -11,6 +11,7 @@ import type {
 } from './types'
 import { resolveStaticPorts, getNodeSemantics } from './nodeSemantics'
 import type { JsonParserConfig } from '../nodes/types/json_parser/jsonParserTypes'
+import { jsonParserFlowFields } from '../nodes/types/json_parser/schema'
 import type { XmlParserConfig  } from '../nodes/types/xml_parser/xmlParserTypes'
 
 export const IR_VERSION = '1.0.0'
@@ -59,7 +60,7 @@ const jsonParserLowerer: NodeLowerer = {
     if (!cfg?.flows?.length) return [{ id: 'output', label: 'output', role: 'data' }]
     const ports: PortSpec[] = cfg.flows.map((flow) => ({
       id: flow.id, label: flow.label, role: 'data',
-      schema: flow.fields.map((f): SchemaField => ({ id: f.id, name: f.name, type: f.type as any })),
+      schema: jsonParserFlowFields(flow).map((f): SchemaField => ({ id: f.id, name: f.name, type: f.type as any })),
     }))
     if (cfg.hasReject) ports.push({ id: 'reject', label: 'reject', role: 'reject' })
     return ports

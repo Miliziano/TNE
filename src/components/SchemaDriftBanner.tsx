@@ -18,9 +18,9 @@ export function SchemaDriftBanner({
   if (!drift.hasDrift) return null
 
   const parts: string[] = []
-  if (drift.added.length   > 0) parts.push(`${drift.added.length} nuovo${drift.added.length > 1 ? 'i' : ''}`)
-  if (drift.removed.length > 0) parts.push(`${drift.removed.length} rimosso${drift.removed.length > 1 ? 'i' : ''}`)
-  if (drift.retyped.length > 0) parts.push(`${drift.retyped.length} tipo cambiato`)
+  if (drift.added.length   > 0) parts.push(`${drift.added.length} new`)
+  if (drift.removed.length > 0) parts.push(`${drift.removed.length} removed`)
+  if (drift.retyped.length > 0) parts.push(`${drift.retyped.length} type changed`)
 
   return (
     <div style={{
@@ -30,7 +30,7 @@ export function SchemaDriftBanner({
     }}>
       <i className="ti ti-refresh-alert" style={{ fontSize: 14, color, flexShrink: 0, marginTop: 1 }} />
       <div style={{ flex: 1, fontSize: 10, color, lineHeight: 1.5 }}>
-        <strong>Lo schema a monte è cambiato</strong> — {parts.join(', ')} rispetto all'ultimo import.
+        <strong>The upstream schema has changed</strong> — {parts.join(', ')} rispetto all'ultimo import.
         {drift.added.length > 0 && (
           <div style={{ marginTop: 3, opacity: 0.85 }}>Nuovi: {drift.added.join(', ')}</div>
         )}
@@ -45,7 +45,7 @@ export function SchemaDriftBanner({
       </div>
       <button onClick={onResync}
         style={{ padding: '3px 10px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `${color}20`, border: `1px solid ${color}60`, color, fontWeight: 600, flexShrink: 0 }}>
-        Re-importa
+        Re-import
       </button>
     </div>
   )

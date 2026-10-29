@@ -2295,4 +2295,49 @@ Audit di configurazione, JSON Serializer.
   (CodegenPanel non montato, `generateCode` dello store mai chiamato) e resta congelato (D3):
   decisione dell'utente (29 ottobre). I codegen futuri partiranno dal piano del motore (D1).
   Restano: ~560 stringhe italiane (es. pannello ssh_exec/shell), brochure sicurezza, ESLint;
-  facoltativo: mergeParent del JSON Parser nella modale.
+  facoltativo: mergeParent del JSON Parser nella modale. → Fatti tutti nel P376.
+
+## AGGIORNAMENTO — Interfaccia in inglese, ESLint a zero errori, campi del padre nel JSON Parser (stato al P376, 29 ottobre)
+
+Patch P376, sopra il P375.
+
+**Traduzione.** Tradotte in inglese le stringhe italiane rimaste nell'interfaccia (pannelli
+di aggregate, pivot, window, union, log, bridge, script, transform, xml_serializer,
+report_generator, ssh_exec/shell, modali, messaggi dello store e della validazione,
+`campo_N` → `field_N`, porta segnale `innesco` → `trigger`). NON tradotti, perché sono
+contratto: valori di opzione e default di prop (`flusso`/`genera`, `continuo`,
+`normale`/`essenziale`/`diagnostico`, `chiave`/`valore` dell'unpivot), etichette di handle
+(`flusso_1`), id dei template; il trasformatore *→ Sì/No (Italian)* produce davvero "Sì".
+Il codegen TS congelato (CodegenPanel, optimizer) resta in italiano. Commenti in italiano
+come prima. Il suggerimento del Report Generator ora rimanda al File Output coi formati
+"HTML" / "Excel from base64" (il vecchio parlava di uno Script con `Buffer.from`).
+Tolti 4 file morti di FieldTransformEditor (`ScriptMode`, `*_dprecated`), mai importati.
+
+**ESLint: 983 problemi (727 errori) → 0 errori, 193 avvisi.** Bug veri corretti:
+- **Hook condizionali (171)**: 32 pannelli/modali chiamavano hook dopo `if (!node) return
+  null` → eliminando il nodo con il pannello aperto React poteva andare in errore. Ora un
+  *guscio* (`X`) controlla che il nodo esista e un *corpo* (`XBody`) chiama sempre tutti gli
+  hook (`useFlowStore(...)!`). FlowNode: `pool` letto prima del `return`.
+- **Pivot**: `FieldSelect` era un componente dichiarato nel render (il campo perdeva il
+  fuoco a ogni tasto) → funzione di render; il parse dello schema d'uscita fuori dal JSX.
+- `SigningKeyModal` usava `msg` prima di dichiararlo (spostato a livello di modulo);
+  l'effetto del drag-join del TMap spostato dopo `addJoinPair`; `{ cause }` sugli errori
+  rilanciati; assegnazioni inutili, escape inutili, un'espressione-istruzione.
+Configurazione (`eslint.config.js`, motivata nei commenti): `no-explicit-any` spento (i blob
+di config sono JSON dinamico), `catch {}` vuoto ammesso, prefisso `_` = ignorato apposta,
+regole del React Compiler (che non usiamo) e `only-export-components` come avvisi.
+`rules-of-hooks` resta errore. Gli avvisi rimasti sono soprattutto `exhaustive-deps`.
+
+**JSON Parser — campi del padre.** Il motore sapeva già aggiungere a ogni riga di un flusso
+i campi della riga in ingresso (`mergeParent`/`parentFields`), la modale no. Ora il bottone
+*⊕ Parent fields* e i chip per scegliere i campi; la scelta è sempre esplicita (vuota =
+opzione spenta, perché vuoto nel motore = tutto l'ingresso, non dichiarabile). Nuova chiave
+solo-studio `parentSchema` (nome+tipo, il motore la ignora). Fonte unica dello schema di un
+flusso: `json_parser/schema.ts` → `jsonParserFlowFields`, usata da schemaRegistry,
+flowStore (propagazione), connectionResolver, schemaPropagation e lowering. Test:
+`src/ir/jsonParserSchema.test.ts` (6 file in `npm run test:ir`, tutti verdi).
+
+**Brochure di sicurezza** (artifact "FlowPilot — Security Overview", rev. 2026-10):
+aggiunti redaction dei segreti, monitor chiuso per default, connettori cifrati / SQL
+sicuro, toolchain fissata; "Guaranteed today" e roadmap allineati (TLS nativo del monitor,
+audit di lettura, sandbox/policy shell-ssh, firma dei binari e audit in CI restano da fare).

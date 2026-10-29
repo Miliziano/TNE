@@ -154,7 +154,7 @@ function startPolling() {
           case 'LaneSessionStarted':
             // dir_watcher continuo: una nuova sessione del loop (la lane si
             // ri-esegue per gruppo). Log visibile con indice + n. eventi.
-            store.addLog('info', `Sessione ${p.session} — ${p.group_size} eventi`, p.node_id)
+            store.addLog('info', `Session ${p.session} — ${p.group_size} events`, p.node_id)
             break
           case 'NodeStarted': {
             store.setNodeStatus(p.node_id, 'running')
@@ -233,7 +233,7 @@ function startPolling() {
             // per un fallimento suo.
             const timing = _nodeTimings.get(p.node_id)
             if (timing) {
-              monitor.nodeEnd(timing, { error: `interrotto: ${p.reason}` })
+              monitor.nodeEnd(timing, { error: `interrupted: ${p.reason}` })
               _nodeTimings.delete(p.node_id)
             }
             break
@@ -286,7 +286,7 @@ function startPolling() {
               }
             })
             if (stuck.length > 0) {
-              console.warn('[bus] nodi senza NodeCompleted a fine run:', stuck)
+              console.warn('[bus] nodes without NodeCompleted at the end of the run:', stuck)
             }
             store.setRunning(false)
             store.addLog('ok', `✓ Run completed in ${p.elapsed_ms}ms`)
@@ -780,7 +780,7 @@ function buildRustPlan(
               expr = compileFpel(src, { labelToInputId: new Map([['left', 'left'], ['right', 'right']]), userFunctions: userFns })
             } catch (e) {
               const detail = e instanceof ExprParseError ? e.pretty() : String(e)
-              throw new Error(`${where}: the custom condition is not a valid FPEL expression\n${detail}`)
+              throw new Error(`${where}: the custom condition is not a valid FPEL expression\n${detail}`, { cause: e })
             }
             if (JSON.stringify(expr).includes('"DirectFieldRef"')) {
               throw new Error(`${where}: in the custom condition every field needs its side — left.field or right.field`)
@@ -806,7 +806,7 @@ function buildRustPlan(
               return { ...c, expr: compileFpel(src, { userFunctions: userFns }) }
             } catch (e) {
               const detail = e instanceof ExprParseError ? e.pretty() : String(e)
-              throw new Error(`${where}: not a valid FPEL expression (the old JavaScript code mode is no longer supported)\n${detail}`)
+              throw new Error(`${where}: not a valid FPEL expression (the old JavaScript code mode is no longer supported)\n${detail}`, { cause: e })
             }
           })
           specConfig.conditions     = conditions
@@ -831,7 +831,7 @@ function buildRustPlan(
               // ("missing field `main_input_id`"). Ora si blocca il run col
               // motivo vero (es. "input sconosciuto: $DBActor").
               const msg = e instanceof Error ? e.message : String(e)
-              throw new Error(`TMap "${node.data.label}": ${msg}`)
+              throw new Error(`TMap "${node.data.label}": ${msg}`, { cause: e })
             }
           }
           break
@@ -878,7 +878,7 @@ function buildRustPlan(
             specConfig.body = parseScript(sorgente)
           } catch (e) {
             const dettaglio = e instanceof ScriptParseError ? e.pretty() : String(e)
-            throw new Error(`Script "${node.data.label}":\n  • ${dettaglio}`)
+            throw new Error(`Script "${node.data.label}":\n  • ${dettaglio}`, { cause: e })
           }
           break
         }
@@ -966,7 +966,7 @@ function buildRustPlan(
             try { cols = JSON.parse(props['unpivotColumns'] ?? '[]') } catch { /* vuoto */ }
             if (cols.length === 0) {
               throw new Error(
-                `Pivot "${node.data.label}": seleziona almeno una colonna da ruotare (unpivot).`)
+                `Pivot "${node.data.label}": select at least one column to rotate (unpivot).`)
             }
           }
 
@@ -1057,7 +1057,7 @@ function buildRustPlan(
               catch (e) {
                 const detail = e instanceof ExprParseError ? e.pretty() : String(e)
                 throw new Error(
-                  `Data Quality "${node.data.label}", rule "${r.label || r.id}":\n${detail}`)
+                  `Data Quality "${node.data.label}", rule "${r.label || r.id}":\n${detail}`, { cause: e })
               }
             }
 
@@ -1125,8 +1125,8 @@ function buildRustPlan(
 
           if (fns.length === 0) {
             throw new Error(
-              `Aggregate "${node.data.label}": nessuna funzione di aggregazione. ` +
-              `Apri il tab Mapping e aggiungine almeno una.`)
+              `Aggregate "${node.data.label}": no aggregation function. ` +
+              `Open the Mapping tab and add at least one.`)
           }
 
           // Le finestre temporali hanno un modello di esecuzione opposto
@@ -1145,7 +1145,7 @@ function buildRustPlan(
             try { return parseExpression(src) }
             catch (e) {
               const detail = e instanceof ExprParseError ? e.pretty() : String(e)
-              throw new Error(`Aggregate "${node.data.label}", ${what}:\n${detail}`)
+              throw new Error(`Aggregate "${node.data.label}", ${what}:\n${detail}`, { cause: e })
             }
           }
 
@@ -1157,7 +1157,7 @@ function buildRustPlan(
               separator: f.separator ?? ', ',
             }
             if (f.filter?.trim()) {
-              out.filter = compile(f.filter, `il filtro di "${f.alias || f.fn}"`)
+              out.filter = compile(f.filter, `the filter of "${f.alias || f.fn}"`)
             }
             return out
           })
@@ -1195,8 +1195,8 @@ function buildRustPlan(
 
           if (defs.length === 0) {
             throw new Error(
-              `Window "${node.data.label}": nessuna funzione configurata. ` +
-              `Apri il tab Mapping e aggiungine almeno una.`)
+              `Window "${node.data.label}": no function configured. ` +
+              `Open the Mapping tab and add at least one.`)
           }
 
           // `streak` prende una condizione, che l'utente scrive in FPEL
@@ -1217,15 +1217,15 @@ function buildRustPlan(
             if (d.fn === 'streak') {
               if (!d.expr?.trim()) {
                 throw new Error(
-                  `Window "${node.data.label}", campo "${d.outputField}": ` +
-                  `la funzione streak richiede una condizione (es. amount > 0)`)
+                  `Window "${node.data.label}", field "${d.outputField}": ` +
+                  `the streak function needs a condition (e.g. amount > 0)`)
               }
               try {
                 out.expr = parseExpression(d.expr)
               } catch (e) {
                 const detail = e instanceof ExprParseError ? e.pretty() : String(e)
                 throw new Error(
-                  `Window "${node.data.label}", condizione di "${d.outputField}":\n${detail}`)
+                  `Window "${node.data.label}", condition of "${d.outputField}":\n${detail}`, { cause: e })
               }
             }
             return out
@@ -1397,11 +1397,11 @@ export function Toolbar() {
     // ── PROVENIENZA (fase A) ─────────────────────────────────────
     // CHI ha compilato: identita' dello studio (UUID + etichetta leggibile), da
     // ~/.flowpilot/studio.json. Identifica l'INSTALLAZIONE, non la persona.
-    let studio: { id: string; label: string } | null = null
+    let studio: { id: string; label: string } | null
     try { studio = await invoke<{ id: string; label: string }>('studio_identity') } catch { studio = null }
 
     // Versione dello STUDIO che compila (da tauri.conf.json, letta a runtime).
-    let studioVersion: string | null = null
+    let studioVersion: string | null
     try {
       const { getVersion } = await import('@tauri-apps/api/app')
       studioVersion = await getVersion()
@@ -1449,7 +1449,7 @@ export function Toolbar() {
       publicKey:     sealed.publicKey,
       plan,
     }
-    const path = await saveFileDialog({ title: 'Genera artifact', defaultPath: `artifact-${platform}.ffart`, filters: [{ name: 'Artifact FlowPilot', extensions: ['ffart', 'json'] }] })
+    const path = await saveFileDialog({ title: 'Generate artifact', defaultPath: `artifact-${platform}.ffart`, filters: [{ name: 'Artifact FlowPilot', extensions: ['ffart', 'json'] }] })
     if (!path) return
     const ok = await writeFile(path, JSON.stringify(artifact, null, 2)).then(() => true).catch(() => false)
     if (ok) { addLog('ok', `Artifact generated: ${path} (profile: ${profile}, ${platform})${requiredSecrets.length ? ` — requires the secrets: ${requiredSecrets.join(', ')}` : ''}`); setCompileOpen(false) }
@@ -1596,7 +1596,7 @@ export function Toolbar() {
   // Salva lo stato attuale come versione con NOME (checkpoint).
   const handleCheckpoint = async (label: string) => {
     const path = useFlowStore.getState().currentPath
-    if (!path) { addLog('warn', 'Salva prima il progetto.'); return }
+    if (!path) { addLog('warn', 'Save the project first.'); return }
     await scriviProgetto(path, label)
   }
 
@@ -1604,7 +1604,7 @@ export function Toolbar() {
   // una nuova versione né toccare la cronologia (riscrive stesso plan + history).
   const labelCurrentVersion = async (label: string) => {
     const path = useFlowStore.getState().currentPath
-    if (!path) { addLog('warn', 'Salva prima il progetto.'); return }
+    if (!path) { addLog('warn', 'Save the project first.'); return }
     try {
       const data = JSON.parse(await readFile(path))
       const plan = data.plan ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)
@@ -1625,7 +1625,7 @@ export function Toolbar() {
   // stessa versione corrente, con la voce rimossa dalla history.
   const deleteVersion = async (index: number) => {
     const path = useFlowStore.getState().currentPath
-    if (!path) { addLog('warn', 'Salva prima il progetto.'); return }
+    if (!path) { addLog('warn', 'Save the project first.'); return }
     try {
       const data = JSON.parse(await readFile(path))
       const plan = data.plan ?? (data.pool ? { pool: data.pool, nodes: data.nodes, edges: data.edges } : null)

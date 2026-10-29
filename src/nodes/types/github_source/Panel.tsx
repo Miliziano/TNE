@@ -214,7 +214,7 @@ export function GithubSourcePanel({ nodeId }: { nodeId: string }) {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Elementi per pagina" hint={`resource default: ${resource?.config?.perPage ?? '100'}`}>
+        <Field label="Items per page" hint={`resource default: ${resource?.config?.perPage ?? '100'}`}>
           <input style={inputStyle} type="number" value={p('perPage', resource?.config?.perPage ?? '100')} onChange={u('perPage')} />
         </Field>
         <Field label="Max items (opt.)" hint={perRow ? '0/empty = all, per repo' : '0/empty = all pages'}>

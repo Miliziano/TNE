@@ -31,6 +31,8 @@ const btn: CSSProperties = {
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: '#9aa4c0' }
 const mono: CSSProperties = { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, wordBreak: 'break-all' }
 
+const msg = (e: unknown) => (typeof e === 'string' ? e : (e as Error)?.message ?? String(e))
+
 export function SigningKeyModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [status, setStatus]         = useState<Status | null>(null)
   const [passphrase, setPassphrase] = useState('')
@@ -51,7 +53,6 @@ export function SigningKeyModal({ open, onClose }: { open: boolean; onClose: () 
 
   if (!open) return null
 
-  const msg = (e: unknown) => (typeof e === 'string' ? e : (e as Error)?.message ?? String(e))
   const run = async (fn: () => Promise<unknown>) => {
     if (busy) return
     setBusy(true); setErr('')

@@ -19,7 +19,7 @@
  *
  * Uso:  npm run docs:nodes      (equivale a  tsx scripts/gen-node-docs.ts)
  */
-import { writeFileSync, readFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -152,11 +152,6 @@ function existingTail(path: string, label: string): string {
   const idx = prev.indexOf(AUTO_END)
   if (idx === -1) return seedTail(label)          // file legacy senza marcatore
   return prev.slice(idx + AUTO_END.length)         // tutto dopo il marcatore di fine
-}
-
-function paletteSectionOf(type: string): string | null {
-  for (const sec of PALETTE_SECTIONS) if (sec.types.includes(type)) return sec.label
-  return null
 }
 
 // ─── generazione ──────────────────────────────────────────────────

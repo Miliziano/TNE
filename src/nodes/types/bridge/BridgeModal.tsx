@@ -104,14 +104,22 @@ function useDraggable() {
 
 // ─── Tab Configurazione ───────────────────────────────────────────
 function ConfigTab({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <ConfigTabBody nodeId={nodeId} /> : null
+}
+
+function ConfigTabBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const allNodes   = useFlowStore((s) => s.nodes)
   const pool       = useFlowStore((s) => s.pool)
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const selectNode = useFlowStore((s) => s.selectNode)
   const selectLane = useFlowStore((s) => s.selectLane)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => String(node.data.props?.[key] ?? def)
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -299,7 +307,7 @@ function SchemaTab({ nodeId }: { nodeId: string }) {
           <i className="ti ti-plus" style={{ fontSize: 11 }} /> Add field
         </button>
         {schema.length > 0 && (
-          <button onClick={() => { if (confirm('Svuotare lo schema?')) saveSchema([]) }}
+          <button onClick={() => { if (confirm('Clear the schema?')) saveSchema([]) }}
             style={{ padding: '5px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
               background: 'none', color: '#8593b5', border: '0.5px solid #2a3349' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ff5f57' }}

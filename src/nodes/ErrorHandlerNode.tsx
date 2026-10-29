@@ -61,7 +61,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
       <ValidationBadge uiState={nodeData.uiState} corner="bottom-left" />
       {/* Pin — indica nodo fisso/non eliminabile */}
       <div
-        title="Nodo fisso della lane — non può essere eliminato"
+        title="Fixed node of the lane — cannot be deleted"
         style={{
           position: 'absolute', top: -8, left: -8,
           width: 18, height: 18, borderRadius: '50%',
@@ -76,7 +76,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Badge edit */}
       <div
         onClick={(e) => { e.stopPropagation(); openNodeEditor(id) }}
-        title="Configura Error Handler"
+        title="Configure the Error Handler"
         style={{
           position: 'absolute', top: -8, right: -8,
           width: 20, height: 20, borderRadius: '50%',
@@ -106,7 +106,7 @@ export const ErrorHandlerNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Output — verso pipeline di recovery */}
       <Handle id="error_out" type="source" position={Position.Right}
         style={{ background: ERR_COLOR, border: '2px solid #0f1117', width: 10, height: 10 }}
-        title="error_out — collega un Filter per il recovery" />
+        title="error_out — connect a Filter for recovery" />
       
     {/* Fase 8: contatori runtime */}
       <NodeRuntimeBadges nodeId={id} />

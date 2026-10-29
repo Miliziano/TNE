@@ -26,6 +26,7 @@ import type { PortSpec } from '../ir/types'
 import type { TMapConfig, TMapInputField, TMapOutputField } from '../types'
 import { onErrorEmitsCatch, CATCH_PORT_SCHEMA } from '../types'
 import type { StoreSnapshot } from './schemaUtils'
+import { jsonParserFlowFields } from '../nodes/types/json_parser/schema'
 
 // ─── dbTypeToLogical ─────────────────────────────────────────────
 // Usata in getHandleSchema per normalizzare i tipi DB del sink_db
@@ -269,8 +270,11 @@ export function getHandleSchema(
     const cfgKey = node.data.type === 'json_parser' ? 'jsonParser' : 'xmlParser'
     const cfg = node.data.config?.[cfgKey]
     const flow = cfg?.flows?.find((f: any) => f.id === handleId)
-    if (!flow?.fields?.length) return []
-    return flow.fields
+    if (!flow) return []
+    // JSON Parser: anche i campi del padre scelti (mergeParent).
+    const fields: any[] = node.data.type === 'json_parser' ? jsonParserFlowFields(flow) : (flow.fields ?? [])
+    if (!fields.length) return []
+    return fields
       .filter((f: any) => f.name)
       .map((f: any) => ({
         id:           f.id ?? `${handleId}__${generateShortId()}`,

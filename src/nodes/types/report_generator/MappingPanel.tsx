@@ -11,10 +11,18 @@ import { useMemo } from 'react'
 const ACCENT = '#f472b6'
 
 export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
-  const node   = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <ReportGeneratorMappingPanelBody nodeId={nodeId} /> : null
+}
+
+function ReportGeneratorMappingPanelBody({ nodeId }: { nodeId: string }) {
+  const node   = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const fields = useIncomingSchema(nodeId)
 
-  if (!node) return null
 
   const props      = node.data.props ?? {}
   const templateId = (props['templateId']   as string) ?? 'table'
@@ -45,12 +53,12 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
   }, [templateId, columns, fields, xField, yField, kpiFields])
 
   const templateLabels: Record<string, string> = {
-    table:      '⊞ Tabella dati',
+    table:      '⊞ Data table',
     summary:    '◉ Summary KPI',
     bar_chart:  '▦ Bar Chart',
     line_chart: '↗ Line Chart',
     pie_chart:  '◔ Pie Chart',
-    mixed:      '⊕ Report completo',
+    mixed:      '⊕ Full report',
   }
 
   return (
@@ -154,8 +162,8 @@ export function ReportGeneratorMappingPanel({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#8593b5', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349', display: 'flex', gap: 6 }}>
         <i className="ti ti-info-circle" style={{ fontSize: 11, color: ACCENT, flexShrink: 0 }} />
         {outputFmt === 'excel'
-          ? 'Per salvare il file: collega un nodo Script che legge content (base64) e lo scrive su disco con Buffer.from(content, "base64").'
-          : 'Per salvare il file HTML: collega un nodo File Output configurato con formato "testo" e scrivi il campo content.'}
+          ? 'To save the file: connect a File Output node with format "Excel from base64" — it decodes the content field.'
+          : 'To save the HTML file: connect a File Output node with format "HTML" — it writes the content field.'}
       </div>
     </div>
   )

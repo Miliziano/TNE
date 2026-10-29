@@ -490,7 +490,7 @@ export const NODE_SEMANTICS: Record<string, NodeSemantics> = {
       // genera falsi allarmi. Stesso vocabolario dei sink (outputMode).
       { id: 'output', label: 'output', role: 'data',
         when: { prop: 'outputMode', notEquals: ['signal', 'none'], fallback: 'passthrough' } },
-      { id: 'output', label: 'innesco', role: 'signal',
+      { id: 'output', label: 'trigger', role: 'signal',
         when: { prop: 'outputMode', equals: ['signal'] } },
       // Il reject dello script esiste solo se l'utente lo attiva. Prima
       // era il canvas a saperlo (hasReject cablato in FlowNode) mentre

@@ -68,7 +68,7 @@ export function fmtRps(n: number): string {
 }
 
 // ─── CounterBadge ──────────────────────────────────────────────────
-// Badge contatori sotto il nodo: righe in ingresso / uscita + tempo.
+// Badge contatori sotto il nodo: incoming rows / uscita + tempo.
 // Visibile solo quando il nodo ha prodotto/consumato qualcosa o gira.
 export function CounterBadge({ stats }: { stats: NodeRunStats }) {
   const active = stats.status !== 'idle' || stats.rowsIn > 0 || stats.rowsOut > 0
@@ -84,15 +84,15 @@ export function CounterBadge({ stats }: { stats: NodeRunStats }) {
       fontFamily: 'monospace', fontSize: 9, fontWeight: 600, color,
       zIndex: 9, cursor: 'default', userSelect: 'none', pointerEvents: 'none',
     }}>
-      <span title="righe in ingresso">↓ {fmtRows(stats.rowsIn)}</span>
-      <span title="righe in uscita">↑ {fmtRows(stats.rowsOut)}</span>
+      <span title="incoming rows">↓ {fmtRows(stats.rowsIn)}</span>
+      <span title="outgoing rows">↑ {fmtRows(stats.rowsOut)}</span>
            {stats.rowsRejected != null && stats.rowsRejected > 0 && (
-        <span title="righe rigettate" style={{ color: '#ff7a6b' }}>
+        <span title="rejected rows" style={{ color: '#ff7a6b' }}>
           ⊘ {fmtRows(stats.rowsRejected)}
         </span>
       )}
       {stats.status === 'running' && stats.throughputRps != null && stats.throughputRps >= 1 && (
-        <span title="righe/secondo" style={{ opacity: 0.75 }}>
+        <span title="rows/second" style={{ opacity: 0.75 }}>
           {fmtRps(stats.throughputRps)}/s
         </span>
       )}

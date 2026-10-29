@@ -111,7 +111,7 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a3349' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
             <span style={{ fontSize: 9, color: '#8593b5' }}>⬡</span>
-            <span style={{ fontSize: 9, color: '#9a9aaa' }}>wrap selezione nell'editor</span>
+            <span style={{ fontSize: 9, color: '#9a9aaa' }}>wrap selection in the editor</span>
           </div>
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
             {transforms.map((t) => {
@@ -139,7 +139,16 @@ function SmartPill({ label, color, type, varName, onInsert, onWrap }: {
 
 // ─── ScriptPanel ─────────────────────────────────────────────────
 export function ScriptPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <ScriptPanelBody nodeId={nodeId} /> : null
+}
+
+function ScriptPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const edges      = useFlowStore((s) => s.edges)
   const nodes      = useFlowStore((s) => s.nodes)
@@ -149,7 +158,6 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
   const [wrap,         setWrap]         = useState<string | undefined>(undefined)
   const [pickerOpen,   setPickerOpen]   = useState(false)
 
-  if (!node) return null
 
   const p = (key: string) => node.data.props[key] ?? ''
 
@@ -288,7 +296,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
         prev.forEach((oldField) => {
           if (!oldField.id) return
           if (curr.some((f) => f.id === oldField.id)) return
-          const marker = ` /* ⚠ '${oldField.name}' rimosso */`
+          const marker = ` /* ⚠ '${oldField.name}' removed */`
           newCode = newCode
             .split(`row.${oldField.name}`).join(`row.${oldField.name}${marker}`)
             .split(`row['${oldField.name}']`).join(`row['${oldField.name}']${marker}`)
@@ -365,7 +373,7 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
               { value: 'none',        label: 'None',  icon: 'ti-player-stop',  desc: 'no output',  pronto: true  },
             ].map((m) => (
               <button key={m.value} disabled={!m.pronto}
-                title={m.pronto ? undefined : 'Lo Script non emette ancora segnali: arriva con una fetta successiva'}
+                title={m.pronto ? undefined : 'The Script does not emit signals yet: coming in a later release'}
                 onClick={() => { if (m.pronto) updateProp(nodeId, 'outputMode', m.value) }}
                 style={{
                   flex: 1, padding: '7px 10px', borderRadius: 6,
@@ -519,8 +527,8 @@ export function ScriptPanel({ nodeId }: { nodeId: string }) {
             domanda "e le mie variabili di pool?" prima che venga posta. */}
         {poolVars.length > 0 && (
           <div style={{ fontSize: 9, color: '#8593b5', lineHeight: 1.5, fontStyle: 'italic' }}>
-            Le {poolVars.length} variabili di pool non sono leggibili dalle espressioni:
-            usa quelle di lane.
+            The {poolVars.length} pool variables cannot be read by expressions:
+            use lane variables.
           </div>
         )}
 

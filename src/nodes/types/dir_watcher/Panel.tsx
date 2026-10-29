@@ -72,7 +72,16 @@ const PROP_DEFAULTS: Record<string, string> = {
 }
 
 export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
-  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <DirWatcherPanelBody nodeId={nodeId} /> : null
+}
+
+function DirWatcherPanelBody({ nodeId }: { nodeId: string }) {
+  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp     = useFlowStore((s) => s.updateNodeProp)
   const updateAdvanced = useFlowStore((s) => s.updateNodeAdvanced)
   const edges          = useFlowStore((s) => s.edges)
@@ -95,7 +104,6 @@ export function DirWatcherPanel({ nodeId }: { nodeId: string }) {
   // Schema d'uscita → props.outputSchema + propagazione a valle (vedi schema.ts).
   useDirWatcherSchemaSync(nodeId)
 
-  if (!node) return null
 
   const p   = (key: string, def = '') => node.data.props[key] ?? def
   const u   = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>

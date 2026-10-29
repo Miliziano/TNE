@@ -64,7 +64,7 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
       {/* ── Badge editor — sempre visibile, angolo in alto a destra ── */}
       <div
         onClick={(e) => { e.stopPropagation(); setShowModal(true) }}
-        title="Apri configuratore JSON Parser"
+        title="Open the JSON Parser editor"
         style={{
           position:       'absolute',
           top:            -8,
@@ -152,7 +152,7 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
 
         {flows.length === 0 && (
           <div style={{ fontSize: 9, color: '#2a3349', fontStyle: 'italic', marginTop: 2 }}>
-            nessun flusso configurato
+            no flow configured
           </div>
         )}
 
@@ -191,7 +191,7 @@ export const JsonParserNode = memo(({ id, data, selected }: NodeProps) => {
             type="source"
             position={Position.Right}
             style={{ top: `${pct}%`, background: '#ff5f57', border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
-            title="Flusso reject"
+            title="Reject flow"
           />
         )
       })()}

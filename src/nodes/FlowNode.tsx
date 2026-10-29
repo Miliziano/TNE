@@ -77,8 +77,8 @@ function CounterBadge({ stats }: { stats: NodeRunStats }) {
       fontFamily: 'monospace', fontSize: 9, fontWeight: 600, color,
       zIndex: 9, cursor: 'default', userSelect: 'none', pointerEvents: 'none',
     }}>
-      <span title="righe in ingresso">↓ {fmtRows(stats.rowsIn)}</span>
-      <span title="righe in uscita">↑ {fmtRows(stats.rowsOut)}</span>
+      <span title="incoming rows">↓ {fmtRows(stats.rowsIn)}</span>
+      <span title="outgoing rows">↑ {fmtRows(stats.rowsOut)}</span>
       {stats.elapsedMs != null && stats.elapsedMs > 0 && (
         <span style={{ opacity: 0.75 }}>{fmtElapsed(stats.elapsedMs)}</span>
       )}
@@ -93,6 +93,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
   const openNodeEditor = useFlowStore((s) => s.openNodeEditor)
   // Fase 8: statistiche runtime dal polling del Rust engine
   const stats          = useFlowStore((s) => s.nodeStats[id])
+  const pool           = useFlowStore((s) => s.pool)
 
   if (!def) return null
 
@@ -111,7 +112,6 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
 
   // Badge transazione: il nodo porta solo transactionId; mode/nome
   // vivono sull'oggetto-transazione della lane (design v2).
-  const pool = useFlowStore((s) => s.pool)
   const txConfig = (() => {
     const txId = nodeData.props?.['transactionId']
     if (!txId) return null
@@ -180,7 +180,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Badge editor */}
       <div
         onClick={(e) => { e.stopPropagation(); if (nodeData.type !== 'tmap'  ) openNodeEditor(id) }}
-        title="Apri editor"
+        title="Open editor"
         style={{
           position: 'absolute', top: -8, right: -8,
           width: 20, height: 20, borderRadius: '50%',
@@ -243,7 +243,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
           padding: '2px 10px 5px', display: 'flex', alignItems: 'center', gap: 4,
         }}>
           <i className="ti ti-bug" style={{ fontSize: 9, color: CATCH_COLOR }} />
-          <span style={{ fontSize: 9, color: CATCH_COLOR, fontStyle: 'italic' }}>catch attivo</span>
+          <span style={{ fontSize: 9, color: CATCH_COLOR, fontStyle: 'italic' }}>catch on</span>
         </div>
       )}
 
@@ -276,7 +276,7 @@ export const FlowNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Badge transazione */}
       {txConfig && (
         <div
-          title={`Transazione ${txConfig.mode === 'xa' ? 'XA' : 'nativa'} · gruppo "${txConfig.name}"}s`}
+          title={`${txConfig.mode === 'xa' ? 'XA' : 'Native'} transaction · group "${txConfig.name}"`}
           style={{
             position: 'absolute', bottom: -11, left: -11,
             display: 'flex', alignItems: 'center', gap: 3,

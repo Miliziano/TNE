@@ -786,7 +786,7 @@ function checkSchemaDedotto(plan: LogicalPlan): ValidationIssue[] {
   for (const node of plan.nodes) {
     const raw = node._uiRef?.props?.['schemaAvvisi']
     if (typeof raw !== 'string' || raw.trim() === '') continue
-    let colonne: string[] = []
+    let colonne: string[]
     try { colonne = JSON.parse(raw) } catch { continue }
     if (!Array.isArray(colonne) || colonne.length === 0) continue
     const label = node._uiRef?.label ?? node.id
@@ -971,7 +971,7 @@ function checkFiltroSuCampoDiUscita(plan: LogicalPlan): ValidationIssue[] {
       issues.push({
         nodeId:   canvasNodeId(node.id),
         code:     'TMAP_FILTRO_SU_CAMPO_USCITA',
-        message:  `"${label}" — the output filter "${out.label ?? '?'}" usa ${colpevoli.map((c) => `"${c}"`).join(', ')}, which ${colpevoli.length > 1 ? 'are fields' : 'is a field'} of that same output: at Run it will be empty.`,
+        message:  `"${label}" — the output filter "${out.label ?? '?'}" uses ${colpevoli.map((c) => `"${c}"`).join(', ')}, which ${colpevoli.length > 1 ? 'are fields' : 'is a field'} of that same output: at Run it will be empty.`,
         severity: 'warning',
         hint:     'The filter is evaluated before the output row is built, so it reads only inputs and transformations. Move that value among the transformations (on the left): from there it is readable both by the filter and by the output fields.',
       })

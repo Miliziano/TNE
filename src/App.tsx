@@ -104,7 +104,7 @@ function Palette() {
         borderTop: '0.5px solid var(--color-border-tertiary)',
         lineHeight: 1.5,
       }}>
-        Trascina un componente su una lane.
+        Drag a component onto a lane.
       </div>
     </aside>
   )
@@ -356,7 +356,7 @@ function Layout() {
         ) : (
           <SideTab
             onClick={() => setPropsOpen(true)}
-            icon="ti-adjustments" label="Proprietà" color="#8a9ac0" />
+            icon="ti-adjustments" label="Properties" color="#8a9ac0" />
         )}
 
         {/* ── Pannello Monitor ── */}
@@ -366,7 +366,7 @@ function Layout() {
             onClose={() => setMonitorMode('closed')}
             extraAction={{
               icon: 'ti-picture-in-picture-top',
-              title: 'Stacca in finestra flottante',
+              title: 'Detach into a floating window',
               onClick: () => setMonitorMode('float'),
             }}>
             <MonitorPanel position="right" />

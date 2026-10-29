@@ -27,20 +27,20 @@ export interface AggFunctionDef {
 }
 
 export const AGG_FUNCTIONS: AggFunctionDef[] = [
-  { value: 'count',          label: 'COUNT',          needsField: false, outputType: 'integer', desc: 'Conta le righe del gruppo'             },
-  { value: 'count_distinct', label: 'COUNT DISTINCT', needsField: true,  outputType: 'integer', desc: 'Conta i valori unici del campo'        },
-  { value: 'sum',            label: 'SUM',            needsField: true,  outputType: 'decimal', desc: 'Somma i valori del campo'              },
-  { value: 'avg',            label: 'AVG',            needsField: true,  outputType: 'decimal', desc: 'Calcola la media del campo'            },
-  { value: 'min',            label: 'MIN',            needsField: true,  outputType: 'any',     desc: 'Valore minimo del campo'               },
-  { value: 'max',            label: 'MAX',            needsField: true,  outputType: 'any',     desc: 'Valore massimo del campo'              },
-  { value: 'first',          label: 'FIRST',          needsField: true,  outputType: 'any',     desc: 'Primo valore incontrato'               },
-  { value: 'last',           label: 'LAST',           needsField: true,  outputType: 'any',     desc: 'Ultimo valore incontrato'              },
+  { value: 'count',          label: 'COUNT',          needsField: false, outputType: 'integer', desc: 'Counts the rows of the group'             },
+  { value: 'count_distinct', label: 'COUNT DISTINCT', needsField: true,  outputType: 'integer', desc: 'Counts the distinct values of the field'        },
+  { value: 'sum',            label: 'SUM',            needsField: true,  outputType: 'decimal', desc: 'Sums the values of the field'              },
+  { value: 'avg',            label: 'AVG',            needsField: true,  outputType: 'decimal', desc: 'Average of the field'            },
+  { value: 'min',            label: 'MIN',            needsField: true,  outputType: 'any',     desc: 'Minimum value of the field'               },
+  { value: 'max',            label: 'MAX',            needsField: true,  outputType: 'any',     desc: 'Maximum value of the field'              },
+  { value: 'first',          label: 'FIRST',          needsField: true,  outputType: 'any',     desc: 'First value met'               },
+  { value: 'last',           label: 'LAST',           needsField: true,  outputType: 'any',     desc: 'Last value met'              },
   { value: 'std_dev',        label: 'STD DEV',        needsField: true,  outputType: 'decimal', desc: 'Deviazione standard'                   },
-  { value: 'variance',       label: 'VARIANCE',       needsField: true,  outputType: 'decimal', desc: 'Varianza del campo'                    },
-  { value: 'median',         label: 'MEDIAN',         needsField: true,  outputType: 'decimal', desc: 'Valore mediano'                        },
-  { value: 'array_agg',      label: 'ARRAY AGG',      needsField: true,  outputType: 'object',  desc: 'Raccoglie tutti i valori in un array'  },
-  { value: 'string_agg',     label: 'STRING AGG',     needsField: true,  outputType: 'string',  desc: 'Concatena i valori con separatore'     },
-  { value: 'json_agg',       label: 'JSON AGG',       needsField: true,  outputType: 'object',  desc: 'Raccoglie i valori in un array JSON'   },
+  { value: 'variance',       label: 'VARIANCE',       needsField: true,  outputType: 'decimal', desc: 'Variance of the field'                    },
+  { value: 'median',         label: 'MEDIAN',         needsField: true,  outputType: 'decimal', desc: 'Median value'                        },
+  { value: 'array_agg',      label: 'ARRAY AGG',      needsField: true,  outputType: 'object',  desc: 'Collects all the values into an array'  },
+  { value: 'string_agg',     label: 'STRING AGG',     needsField: true,  outputType: 'string',  desc: 'Joins the values with a separator'     },
+  { value: 'json_agg',       label: 'JSON AGG',       needsField: true,  outputType: 'object',  desc: 'Collects the values into a JSON array'   },
 ]
 
 /** Lookup per valore — l'accesso più frequente. */

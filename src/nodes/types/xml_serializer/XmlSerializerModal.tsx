@@ -322,8 +322,8 @@ function XmlTreeNodeRow({
           <>
             <span onDoubleClick={() => setEditing(true)}
               style={{ fontSize: 10, color: node.isArray ? '#ffb347' : node.isLeaf ? '#3ddc84' : kc, fontFamily: 'monospace', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
-              title="Doppio click per rinominare">
-              {nsVal ? `${nsVal}:` : ''}{node.xmlName || <em style={{ color: '#8593b5' }}>senza nome</em>}
+              title="Double click to rename">
+              {nsVal ? `${nsVal}:` : ''}{node.xmlName || <em style={{ color: '#8593b5' }}>unnamed</em>}
             </span>
             {node.isArray && <span style={{ fontSize: 9, color: '#ffb347', flexShrink: 0, marginRight: 2, fontFamily: 'monospace' }}>[ ]</span>}
             {node.optional && !node.isArray && <span style={{ fontSize: 7, color: '#8593b5', flexShrink: 0 }}>opt</span>}
@@ -339,7 +339,7 @@ function XmlTreeNodeRow({
               return (
                 <span key={`${s.handle}:${s.field}`}
                   onClick={(e) => { e.stopPropagation(); onRemoveSource(node.id, si) }}
-                  title={`${s.handle} → ${s.field} (click per rimuovere)`}
+                  title={`${s.handle} → ${s.field} (click to remove)`}
                   style={{ fontSize: 9, color: sc, fontFamily: 'monospace', padding: '1px 4px', borderRadius: 3,
                     background: `color-mix(in srgb, ${sc} 15%, #0f1117)`, border: `0.5px solid ${sc}40`,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -473,7 +473,7 @@ function XmlTreeNodeRow({
           </div>
         )}
 
-        {isDragOver && <span style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }}>← rilascia</span>}
+        {isDragOver && <span style={{ fontSize: 9, color: ACCENT, flexShrink: 0 }}>← drop</span>}
       </div>
 
       {/* Figli */}
@@ -613,12 +613,20 @@ function FlowCard({ mapping, idx, input, treeNodes, onUpdate, onAutoMap }: {
 
 // ─── XmlSerializerLayout ──────────────────────────────────────────
 function XmlSerializerLayout({ nodeId }: { nodeId: string }) {
-  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <XmlSerializerLayoutBody nodeId={nodeId} /> : null
+}
+
+function XmlSerializerLayoutBody({ nodeId }: { nodeId: string }) {
+  const node           = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const edges          = useFlowStore((s) => s.edges)
   const updateNodeConfig = useFlowStore((s) => s.updateNodeConfig)
   const updateNodeProp   = useFlowStore((s) => s.updateNodeProp)
 
-  if (!node) return null
 
   const serConfig  = (node.data.config as any)?.xmlSerializer ?? { inputs: {}, mappings: {} }
   const inputs: Record<string, SerInput>         = serConfig.inputs ?? {}

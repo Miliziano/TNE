@@ -65,7 +65,7 @@ export class FileReporter implements Reporter {
       const dir = this.logPath.substring(0, this.logPath.lastIndexOf('/'))
       if (dir) this.fs.mkdirSync(dir, { recursive: true })
     } catch {
-      console.warn('[FileReporter] fs non disponibile — logging su file disabilitato')
+      console.warn('[FileReporter] fs not available — file logging disabled')
     }
   }
 
@@ -124,15 +124,15 @@ export class FileReporter implements Reporter {
       console.log(`[MONITOR] Run ${summary.runId} completed in ${summary.totalDurationMs}ms`)
       console.log(`[MONITOR] Peak heap: ${Math.round(summary.peakHeapMb)}MB`)
       if (summary.loitering.length > 0) {
-        console.warn(`[MONITOR] ⚠ Loitering objects rilevati:`)
+        console.warn(`[MONITOR] ⚠ Loitering objects detected:`)
         summary.loitering.forEach(l =>
           console.warn(`  ${l.label}: ${l.sizeAtStart} → ${l.sizeCurrent} (+${l.growthRate}/s)`)
         )
       }
       const leaked = summary.connections.filter(c => c.action === 'open')
       if (leaked.length > 0) {
-        console.warn(`[MONITOR] ⚠ ${leaked.length} connessioni non chiuse:`)
-        leaked.forEach(c => console.warn(`  ${c.resource} (${c.type}) aperta alle ${new Date(c.timestamp).toISOString()}`))
+        console.warn(`[MONITOR] ⚠ ${leaked.length} connections not closed:`)
+        leaked.forEach(c => console.warn(`  ${c.resource} (${c.type}) opened at ${new Date(c.timestamp).toISOString()}`))
       }
     }
   }

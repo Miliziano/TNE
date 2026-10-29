@@ -72,7 +72,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
     <div style={{ background: index % 2 === 0 ? '#1a2030' : '#1e2535', border: `1px solid ${color}30`, borderLeft: `3px solid ${color}`, borderRadius: 6, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 28px', gap: 6, alignItems: 'end' }}>
         <div>
-          <div style={labelStyle}>Funzione</div>
+          <div style={labelStyle}>Function</div>
           <CustomSelect style={{ ...inputStyle, color }} value={agg.fn}
             onChange={(e) => onChange(agg.id, 'fn', e.target.value)}>
             {AGG_FUNCTIONS.map((f) => (
@@ -116,7 +116,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
       )}
       {agg.fn === 'string_agg' && (
         <div>
-          <div style={labelStyle}>Separatore <span style={{ color: '#2a3349', fontWeight: 400 }}>(LISTAGG)</span></div>
+          <div style={labelStyle}>Separator <span style={{ color: '#2a3349', fontWeight: 400 }}>(LISTAGG)</span></div>
           <input type="text" style={{ ...inputStyle, color: '#f97316' }}
             value={(agg as any).separator ?? ', '}
             onChange={(e) => onChange(agg.id, 'separator' as any, e.target.value)}
@@ -134,7 +134,16 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
 }
 
 export function AggregatePanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <AggregatePanelBody nodeId={nodeId} /> : null
+}
+
+function AggregatePanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const pool       = useFlowStore((s) => s.pool)
 
@@ -147,7 +156,6 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
     }
   })
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -318,7 +326,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
       {/* Funzioni */}
       <SectionTitle label="Aggregation functions" color="#ffb347" />
       <div style={{ fontSize: 10, color: '#8593b5', marginBottom: 2 }}>
-        Ogni funzione produce un campo in output. Dai un alias significativo a ciascuna.
+        Each function produces an output field. Give each one a meaningful alias.
       </div>
       {aggFunctions.map((agg, idx) => (
         <AggRow key={agg.id} agg={agg} index={idx} total={aggFunctions.length}
@@ -328,14 +336,14 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
         style={{ background: '#1a2030', border: '1px dashed #2a3349', borderRadius: 6, padding: '7px', fontSize: 11, color: '#4a9eff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1e2535' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#1a2030' }}>
-        <i className="ti ti-plus" style={{ fontSize: 12 }} /> Aggiungi funzione
+        <i className="ti ti-plus" style={{ fontSize: 12 }} /> Add function
       </button>
 
       {/* HAVING */}
       <SectionTitle label="Post-aggregation filter (HAVING)" color="#a78bfa" />
       <div style={{ padding: '6px 10px', background: '#0f1117', borderRadius: 4, border: '0.5px solid #a78bfa20', fontSize: 10, color: '#8593b5', marginBottom: 4 }}>
         <strong style={{ color: '#a78bfa' }}>HAVING</strong> filters the <strong style={{ color: '#c8d4f0' }}>groups</strong> after aggregation.
-        Usa i nomi alias: <code style={{ color: '#a78bfa' }}>count &gt; 10</code>
+        Use the alias names: <code style={{ color: '#a78bfa' }}>count &gt; 10</code>
       </div>
       <Field label="HAVING condition">
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 54, fontFamily: 'monospace' }}
@@ -392,7 +400,7 @@ export function AggregatePanel({ nodeId }: { nodeId: string }) {
           </div>
           <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
             <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
-            Schema propagato automaticamente ai nodi a valle.
+            Schema propagated automatically to downstream nodes.
           </div>
         </>
       )}

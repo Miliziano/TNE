@@ -27,8 +27,8 @@ function bad(src: string, nome: string, riga?: number) {
   ok(nome, () => {
     try { parseScript(src) }
     catch (e) {
-      if (!(e instanceof ScriptParseError)) throw new Error('errore di tipo sbagliato')
-      if (riga !== undefined && e.line !== riga) throw new Error(`riga ${e.line} invece di ${riga}`)
+      if (!(e instanceof ScriptParseError)) throw new Error('errore di tipo sbagliato', { cause: e })
+      if (riga !== undefined && e.line !== riga) throw new Error(`riga ${e.line} invece di ${riga}`, { cause: e })
       return
     }
     throw new Error('doveva fallire e non è successo')

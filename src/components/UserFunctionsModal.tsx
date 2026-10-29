@@ -59,8 +59,8 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
   }
   const esportaLib = async () => {
     if (isTauri()) {
-      const path = await saveFileDialog({ title: 'Esporta libreria funzioni',
-        filters: [{ name: 'Libreria FPEL', extensions: ['ffpel'] }], defaultPath: 'libreria.ffpel' })
+      const path = await saveFileDialog({ title: 'Export function library',
+        filters: [{ name: 'FPEL library', extensions: ['ffpel'] }], defaultPath: 'library.ffpel' })
       if (!path) return
       try { await writeFile(path, text) }
       catch (e) { alert(`Save failed: ${e instanceof Error ? e.message : String(e)}`) }
@@ -68,13 +68,13 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
     }
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a')
-    a.href = url; a.download = 'libreria.ffpel'; document.body.appendChild(a); a.click()
+    a.href = url; a.download = 'library.ffpel'; document.body.appendChild(a); a.click()
     document.body.removeChild(a); URL.revokeObjectURL(url)
   }
   const importaLib = async () => {
     if (isTauri()) {
-      const res = await openFileDialog({ title: 'Importa libreria funzioni',
-        filters: [{ name: 'Libreria FPEL', extensions: ['ffpel'] }] })
+      const res = await openFileDialog({ title: 'Import function library',
+        filters: [{ name: 'FPEL library', extensions: ['ffpel'] }] })
       const path = Array.isArray(res) ? res[0] : res
       if (!path) return
       try { mergeDefs(await readFile(path)) }

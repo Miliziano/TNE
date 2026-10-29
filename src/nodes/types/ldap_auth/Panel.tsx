@@ -94,7 +94,7 @@ export function LdapAuthPanel({ nodeId }: { nodeId: string }) {
         </CustomSelect>
       </Field>
 
-      <Field label="Base DN" hint={baseDnDefault ? `default risorsa: ${baseDnDefault}` : 'where to search for users'}>
+      <Field label="Base DN" hint={baseDnDefault ? `resource default: ${baseDnDefault}` : 'where to search for users'}>
         <input style={inputStyle} value={p('baseDN', baseDnDefault)} onChange={u('baseDN')} placeholder={baseDnDefault || 'ou=people,dc=example,dc=org'} />
       </Field>
 

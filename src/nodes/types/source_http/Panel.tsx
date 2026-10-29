@@ -147,7 +147,16 @@ const RESPONSE_TYPE_FIXED: Record<string, Array<{ id: string; name: string; type
 }
 
 export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
-  const node         = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <SourceHttpPanelBody nodeId={nodeId} /> : null
+}
+
+function SourceHttpPanelBody({ nodeId }: { nodeId: string }) {
+  const node         = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp   = useFlowStore((s) => s.updateNodeProp)
   const pool         = useFlowStore((s) => s.pool)
   const updateConfig = useFlowStore((s) => s.updateNodeConfig)
@@ -158,7 +167,6 @@ export function SourceHttpPanel({ nodeId }: { nodeId: string }) {
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [showBody,   setShowBody]   = useState(false)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (

@@ -61,10 +61,10 @@ export function LogPanel({ nodeId }: { nodeId: string }) {
 
       {/* Info */}
       <div style={{ padding: '8px 12px', background: `color-mix(in srgb, ${ACCENT} 8%, #0f1117)`, borderRadius: 6, border: `0.5px solid ${ACCENT}30`, fontSize: 10, color: '#9a9aaa', lineHeight: 1.5 }}>
-        <span style={{ color: ACCENT, fontWeight: 600 }}>📋 Log</span> — nodo trasparente.
-        Le righe passano invariate — questo nodo le osserva e le logga senza modificarle.
+        <span style={{ color: ACCENT, fontWeight: 600 }}>📋 Log</span> — transparent node.
+        Rows pass through unchanged — this node observes and logs them without modifying them.
         <div style={{ marginTop: 4, fontSize: 9, color: '#8593b5' }}>
-          Rimuovilo dalla pipeline prima del deploy in produzione.
+          Remove it from the pipeline before deploying to production.
         </div>
       </div>
 

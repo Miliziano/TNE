@@ -43,7 +43,7 @@ const AGG_FUNCTIONS = [
   { value: 'sum',   label: 'SUM — sum'         },
   { value: 'count', label: 'COUNT — count'    },
   { value: 'avg',   label: 'AVG — average'          },
-  { value: 'max',   label: 'MAX — massimo'        },
+  { value: 'max',   label: 'MAX — maximum'        },
   { value: 'min',   label: 'MIN — minimo'         },
   { value: 'first', label: 'FIRST — first value' },
   { value: 'last',  label: 'LAST — last value' },
@@ -64,7 +64,7 @@ function PivotColumnEditor({ columns, onChange }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {columns.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 24px', gap: 6, padding: '3px 6px' }}>
-          {['Valore nel campo pivot', 'Nome colonna output', ''].map((h) => (
+          {['Value in pivot field', 'Output column name', ''].map((h) => (
             <div key={h} style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
           ))}
         </div>
@@ -89,18 +89,26 @@ function PivotColumnEditor({ columns, onChange }: {
         style={{ padding: '5px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #1a2030)`, color: ACCENT, border: `0.5px dashed ${ACCENT}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ACCENT }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}60` }}>
-        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Aggiungi valore pivot
+        <i className="ti ti-plus" style={{ fontSize: 10 }} /> Add pivot value
       </button>
     </div>
   )
 }
 
 export function PivotPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <PivotPanelBody nodeId={nodeId} /> : null
+}
+
+function PivotPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const pool       = useFlowStore((s) => s.pool)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -189,7 +197,10 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
   ])
 
   // ── Field selector helper ─────────────────────────────────────
-  const FieldSelect = ({ propKey, placeholder }: { propKey: string; placeholder: string }) =>
+  // Funzione di render, non un componente: un componente dichiarato qui
+  // dentro cambia identità a ogni render e il campo perderebbe il fuoco
+  // a ogni tasto (react-hooks/static-components).
+  const fieldSelect = (propKey: string, placeholder: string) =>
     activeFields.length > 0 ? (
       <CustomSelect style={inputStyle} value={p(propKey)} onChange={u(propKey)}>
         <option value="">— select —</option>
@@ -232,7 +243,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
             label:    '◈ Da Materialize',
             desc:     'The incoming row is a trigger. Data is read from the selected Materialize.',
             disabled: materializeVars.length === 0,
-            hint:     materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
+            hint:     materializeVars.length === 0 ? 'No Materialize published in this lane' : undefined,
           },
         ].map((s) => (
           <button key={s.value}
@@ -272,7 +283,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           {matName && matFields.length === 0 && (
             <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', gap: 5 }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
-              Il Materialize "{matName}" non ha ancora ricevuto campi.
+              Il Materialize "{matName}" has not received any fields yet.
             </div>
           )}
 
@@ -285,10 +296,10 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           {/* Esempio visivo */}
           <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
             <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Example</div>
-            <div>{'{ anno:2023, mese:"gen", importo:100 }'}</div>
-            <div>{'{ anno:2023, mese:"feb", importo:150 }'}</div>
+            <div>{'{ year:2023, month:"jan", amount:100 }'}</div>
+            <div>{'{ year:2023, month:"feb", amount:150 }'}</div>
             <div style={{ color: ACCENT, margin: '4px 0' }}>↓ PIVOT on month · SUM(amount)</div>
-            <div style={{ color: '#3ddc84' }}>{'{ anno:2023, gen:100, feb:150 }'}</div>
+            <div style={{ color: '#3ddc84' }}>{'{ year:2023, jan:100, feb:150 }'}</div>
           </div>
 
           <SectionTitle label="Pivot type" />
@@ -318,7 +329,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           <Field label="Identity field (GROUP BY)" hint="Fields that remain as fixed columns — comma-separated">
             {activeFields.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <input style={inputStyle} value={p('identityField')} onChange={u('identityField')} placeholder="anno, regione" />
+                <input style={inputStyle} value={p('identityField')} onChange={u('identityField')} placeholder="year, region" />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                   {activeFields.map((f) => {
                     const selected = p('identityField').split(',').map((s: string) => s.trim()).includes(f.name)
@@ -337,16 +348,16 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
                 </div>
               </div>
             ) : (
-              <input style={inputStyle} value={p('identityField')} onChange={u('identityField')} placeholder="anno, regione" />
+              <input style={inputStyle} value={p('identityField')} onChange={u('identityField')} placeholder="year, region" />
             )}
           </Field>
 
           <Row>
             <Field label="Pivot field" hint="The distinct values become columns">
-              <FieldSelect propKey="pivotField" placeholder="month" />
+              {fieldSelect('pivotField', 'month')}
             </Field>
             <Field label="Value field" hint="The data that goes into the cell">
-              <FieldSelect propKey="valueField" placeholder="importo" />
+              {fieldSelect('valueField', 'amount')}
             </Field>
           </Row>
 
@@ -367,7 +378,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
               <SectionTitle label="Output columns" />
               {pivotColumns.length === 0 && (
                 <div style={{ padding: '8px 10px', fontSize: 10, color: '#8593b5', fontStyle: 'italic', background: '#1a2030', borderRadius: 4, border: '0.5px solid #2a3349' }}>
-                  Aggiungi i valori distinti del campo pivot da usare come colonne.
+                  Add the distinct values of the pivot field to use as columns.
                 </div>
               )}
               <PivotColumnEditor columns={pivotColumns} onChange={savePivotColumns} />
@@ -408,19 +419,19 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
         <>
           <div style={{ padding: '8px 12px', background: '#0f1117', borderRadius: 6, border: `0.5px solid ${ACCENT}20`, fontSize: 9, fontFamily: 'monospace', color: '#8593b5', lineHeight: 1.8 }}>
             <div style={{ color: '#4a9eff', marginBottom: 4, fontFamily: 'sans-serif', fontSize: 10, fontWeight: 600 }}>Example</div>
-            <div>{'{ prodotto:"A", nord:100, sud:80, ovest:60 }'}</div>
+            <div>{'{ product:"A", north:100, south:80, west:60 }'}</div>
             <div style={{ color: ACCENT, margin: '4px 0' }}>↓ UNPIVOT columns north, south, west</div>
-            <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"nord", valore:100 }'}</div>
-            <div style={{ color: '#3ddc84' }}>{'{ prodotto:"A", regione:"sud",  valore:80  }'}</div>
+            <div style={{ color: '#3ddc84' }}>{'{ product:"A", region:"north", value:100 }'}</div>
+            <div style={{ color: '#3ddc84' }}>{'{ product:"A", region:"south", value:80  }'}</div>
           </div>
 
           <SectionTitle label="Output fields" />
           <Row>
             <Field label="Key field name" hint="Will contain the name of the original column">
-              <input style={{ ...inputStyle, color: '#4a9eff' }} value={p('unpivotKeyField', 'chiave')} onChange={u('unpivotKeyField')} placeholder="chiave" />
+              <input style={{ ...inputStyle, color: '#4a9eff' }} value={p('unpivotKeyField', 'chiave')} onChange={u('unpivotKeyField')} placeholder="key" />
             </Field>
             <Field label="Value field name" hint="Will contain the value of the original column">
-              <input style={{ ...inputStyle, color: '#3ddc84' }} value={p('unpivotValueField', 'valore')} onChange={u('unpivotValueField')} placeholder="valore" />
+              <input style={{ ...inputStyle, color: '#3ddc84' }} value={p('unpivotValueField', 'valore')} onChange={u('unpivotValueField')} placeholder="value" />
             </Field>
           </Row>
 
@@ -428,23 +439,23 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
           {activeFields.length === 0 ? (
             <div style={{ padding: '16px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
               <i className="ti ti-plug-connected-x" style={{ fontSize: 20, display: 'block', marginBottom: 6 }} />
-              {dataSource === 'materialize' ? `Il Materialize "${matName || '—'}" non ha ancora ricevuto campi.` : 'Collega un nodo in ingresso.'}
+              {dataSource === 'materialize' ? `The Materialize "${matName || '—'}" has not received any fields yet.` : 'Connect an input node.'}
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
                 <button onClick={() => updateProp(nodeId, 'unpivotColumns', JSON.stringify(activeFields.map((f) => f.name)))}
                   style={{ flex: 1, padding: '4px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #1a2030)`, color: ACCENT, border: `0.5px solid ${ACCENT}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <i className="ti ti-checks" style={{ fontSize: 10 }} /> Seleziona tutti
+                  <i className="ti ti-checks" style={{ fontSize: 10 }} /> Select all
                 </button>
                 <button onClick={() => updateProp(nodeId, 'unpivotColumns', '[]')}
                   style={{ flex: 1, padding: '4px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: '#1a2030', color: '#8593b5', border: '0.5px solid #2a3349', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <i className="ti ti-square" style={{ fontSize: 10 }} /> Deseleziona tutti
+                  <i className="ti ti-square" style={{ fontSize: 10 }} /> Deselect all
                 </button>
               </div>
               <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 70px 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-                  {['✓', 'Campo', 'Tipo', 'Ruolo'].map((h) => (
+                  {['✓', 'Field', 'Type', 'Role'].map((h) => (
                     <div key={h} style={{ fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
                   ))}
                 </div>
@@ -460,7 +471,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
                       <code style={{ fontFamily: 'monospace', fontSize: 11, color: isSelected ? ACCENT : '#c8d4f0' }}>{f.name}</code>
                       <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                       <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, textAlign: 'center', background: isSelected ? `color-mix(in srgb, ${ACCENT} 12%, #0f1117)` : '#0d3d20', color: isSelected ? ACCENT : '#3ddc84', border: `0.5px solid ${isSelected ? ACCENT : '#1d6d40'}30` }}>
-                        {isSelected ? '→ righe' : 'fissa'}
+                        {isSelected ? '→ rows' : 'fixed'}
                       </span>
                     </div>
                   )
@@ -480,7 +491,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
               <CustomSelect style={inputStyle} value={p('unpivotNullMode', 'exclude')} onChange={u('unpivotNullMode')}>
                 <option value="exclude">Exclude rows with null</option>
                 <option value="include">Include rows with null</option>
-                <option value="zero">Sostituisci null con 0</option>
+                <option value="zero">Replace null with 0</option>
               </CustomSelect>
             </Field>
             <Field label="Output rows order">
@@ -496,14 +507,16 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
 
       {/* Schema output */}
       {(() => {
-        try {
-          const schema = JSON.parse(p('outputSchema', '[]'))
-          if (!Array.isArray(schema) || schema.length === 0) return null
+        // Il parse sta fuori dal JSX: un try attorno al JSX non cattura gli
+        // errori di render (react-hooks/error-boundaries).
+        let schema: any[] = []
+        try { const parsed = JSON.parse(p('outputSchema', '[]')); if (Array.isArray(parsed)) schema = parsed } catch { /* schema illeggibile */ }
+          if (schema.length === 0) return null
           if (schema[0]?.name === '__pivot_dynamic__') {
             return (
               <div style={{ padding: '8px 12px', background: '#1a1000', borderRadius: 6, border: '0.5px solid #ffb34740', fontSize: 10, color: '#ffb347' }}>
                 <i className="ti ti-info-circle" style={{ fontSize: 10, marginRight: 6 }} />
-                Schema output determinato a runtime — non propagabile a design time.
+                Output schema determined at runtime — not propagated at design time.
               </div>
             )
           }
@@ -512,7 +525,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
               <SectionTitle label="Schema output" color="#22d3ee" />
               <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 80px', gap: 8, padding: '4px 10px', background: '#1a2030', borderBottom: '0.5px solid #2a3349' }}>
-                  {['Campo', 'Tipo', 'Origine'].map((h) => (
+                  {['Field', 'Type', 'Origin'].map((h) => (
                     <div key={h} style={{ fontSize: 9, color: '#22d3ee', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
                   ))}
                 </div>
@@ -520,7 +533,7 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
                   const isPivotCol  = mode === 'pivot'   && pivotColumns.some((c) => (c.alias || c.value) === f.name)
                   const isKeyOrVal  = mode === 'unpivot' && (f.id === 'upv_key' || f.id === 'upv_value')
                   const color       = isPivotCol ? ACCENT : isKeyOrVal ? '#4a9eff' : '#9a9aaa'
-                  const badge       = isPivotCol ? 'pivot' : isKeyOrVal ? (f.id === 'upv_key' ? 'chiave' : 'valore') : 'fisso'
+                  const badge       = isPivotCol ? 'pivot' : isKeyOrVal ? (f.id === 'upv_key' ? 'key' : 'value') : 'fixed'
                   const badgeColor  = isPivotCol ? ACCENT : isKeyOrVal ? '#4a9eff' : '#8593b5'
                   return (
                     <div key={f.id ?? f.name}
@@ -536,11 +549,10 @@ export function PivotPanel({ nodeId }: { nodeId: string }) {
               </div>
               <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic', display: 'flex', gap: 5 }}>
                 <i className="ti ti-check" style={{ fontSize: 9, color: '#22d3ee' }} />
-                Schema propagato automaticamente ai nodi a valle.
+                Schema propagated automatically to downstream nodes.
               </div>
             </>
           )
-        } catch { return null }
       })()}
 
     </div>

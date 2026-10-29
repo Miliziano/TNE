@@ -145,7 +145,7 @@ function ProcessTable({ processes }: { processes: NonNullable<MemorySnapshot['pr
   }
   const ROLE_LABEL: Record<string, string> = {
     Main: 'Tauri (Rust)', WebKitWeb: 'WebKit — Render', WebKitNetwork: 'WebKit — Network',
-    WebKitGpu: 'WebKit — GPU', Other: 'Altro',
+    WebKitGpu: 'WebKit — GPU', Other: 'Other',
   }
   const sorted = [...processes].sort((a, b) => b.rss - a.rss)
 
@@ -321,7 +321,7 @@ function NodeTable({ timings }: { timings: NodeTiming[] }) {
                 </td>
                 <td style={{ padding: '4px 8px' }}>
                   {interrupted
-                    ? <span style={{ color: SLATE, fontSize: 9 }}>■ interrotto</span>
+                    ? <span style={{ color: SLATE, fontSize: 9 }}>■ interrupted</span>
                     : hasError
                     ? <span style={{ color: RED, fontSize: 9 }}>✗ error</span>
                     : isRunning
@@ -514,7 +514,7 @@ function LoiteringList({ objects }: { objects: LoiteringObject[] }) {
               <div style={{ fontSize: 10, color: severity }}>{obj.label}</div>
               <div style={{ fontSize: 9, color: '#8593b5', marginTop: 2 }}>
                 {obj.type} · {obj.sizeAtStart} → {obj.sizeCurrent} entries
-                (+{growth} · {obj.growthRate > 0 ? `${obj.growthRate}/s` : 'stabile'})
+                (+{growth} · {obj.growthRate > 0 ? `${obj.growthRate}/s` : 'stable'})
               </div>
             </div>
           </div>

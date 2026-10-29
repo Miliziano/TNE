@@ -105,7 +105,7 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
               <button key={mode} onClick={() => setViewMode(mode)}
                 style={{ padding: '2px 8px', fontSize: 9, borderRadius: 4, cursor: 'pointer', background: viewMode === mode ? `color-mix(in srgb, ${ACCENT} 15%, #1a2030)` : '#1a2030', color: viewMode === mode ? ACCENT : '#8593b5', border: viewMode === mode ? `1px solid ${ACCENT}50` : '1px solid #2a3349' }}>
                 <i className={`ti ${mode === 'list' ? 'ti-list' : 'ti-table'}`} style={{ fontSize: 9, marginRight: 3 }} />
-                {mode === 'list' ? 'Lista' : 'Tabella'}
+                {mode === 'list' ? 'List' : 'Table'}
               </button>
             ))}
           </div>
@@ -115,13 +115,13 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
       {fields.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#8593b5', fontSize: 11, background: '#1a2030', borderRadius: 6, border: '1px dashed #2a3349' }}>
           <i className="ti ti-plug-connected-x" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} />
-          Collega un nodo in ingresso per vedere i campi disponibili.
+          Connect an input node to see the available fields.
         </div>
       ) : viewMode === 'table' ? (
         // ── Vista tabellare ──────────────────────────────────────
         <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 100px', gap: 0, background: '#1a2030', borderBottom: '0.5px solid #3a4a6a' }}>
-            {['Campo', 'Tipo', 'Fisico', 'Inserisci'].map((h) => (
+            {['Field', 'Type', 'Physical', 'Insert'].map((h) => (
               <div key={h} style={{ padding: '5px 10px', fontSize: 9, color: ACCENT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '0.5px solid #2a3349' }}>
                 {h}
               </div>
@@ -142,7 +142,7 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
               <div style={{ padding: '5px 10px', display: 'flex', justifyContent: 'center' }}>
                 <button onClick={() => insertField(f.name)}
                   style={{ padding: '2px 8px', fontSize: 9, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}30`, fontFamily: 'monospace' }}
-                  title={`Inserisci {${f.name}} nel template`}>
+                  title={`Insert {${f.name}} into the template`}>
                   + {'{' + f.name + '}'}
                 </button>
               </div>
@@ -158,10 +158,10 @@ export function LogMappingPanel({ nodeId }: { nodeId: string }) {
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: ACCENT, flexShrink: 0 }} />
               <code style={{ fontFamily: 'monospace', fontSize: 11, color: ACCENT, flex: 1 }}>{f.name}</code>
               <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 6, background: '#0f1117', color: '#8593b5', flexShrink: 0 }}>{f.type}</span>
-              <span style={{ fontSize: 9, color: '#2a3349', flexShrink: 0, fontFamily: 'monospace' }}>→ invariato</span>
+              <span style={{ fontSize: 9, color: '#2a3349', flexShrink: 0, fontFamily: 'monospace' }}>→ unchanged</span>
               <button onClick={() => insertField(f.name)}
                 style={{ padding: '1px 7px', fontSize: 9, borderRadius: 6, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 10%, #0f1117)`, color: ACCENT, border: `0.5px solid ${ACCENT}30`, fontFamily: 'monospace', flexShrink: 0 }}
-                title={`Inserisci {${f.name}} nel template`}>
+                title={`Insert {${f.name}} into the template`}>
                 {'{' + f.name + '}'}
               </button>
             </div>

@@ -11,14 +11,14 @@ interface Props {
 
 // Valori mock per anteprima — uno per tipo
 const MOCK_VALUES: Record<string, string> = {
-  string:  'esempio',
+  string:  'example',
   date:    '1985-03-22',
   integer: '42',
   decimal: '1234.567',
   number:  '99.9',
   boolean: 'true',
   object:  '{"id":1}',
-  any:     'valore',
+  any:     'value',
 }
 
 // Applica una funzione mock al valore per la preview
@@ -83,7 +83,7 @@ function applyMockStep(value: string, fnId: string, params: Record<string, strin
 
 export function PreviewBar({ steps, cast, inputType }: Props) {
   // Calcola il valore mock iniziale
-  const mockInput = MOCK_VALUES[inputType] ?? 'valore'
+  const mockInput = MOCK_VALUES[inputType] ?? 'value'
 
   // Applica cast
   let current = mockInput
@@ -115,7 +115,7 @@ export function PreviewBar({ steps, cast, inputType }: Props) {
           </div>
         </div>
       ))}
-      <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 'auto' }}>anteprima mock</span>
+      <span style={{ fontSize: 9, color: '#2a3349', marginLeft: 'auto' }}>mock preview</span>
     </div>
   )
 }

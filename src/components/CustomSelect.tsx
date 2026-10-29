@@ -98,7 +98,7 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
   const options = useMemo(() => parseChildren(children), [children])
 
   const selected     = options.find((o) => o.value === value)
-  const displayLabel = selected?.label ?? placeholder ?? '— seleziona —'
+  const displayLabel = selected?.label ?? placeholder ?? '— select —'
 
   // Filtra per search
   const filtered = useMemo(() => search
@@ -241,7 +241,7 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
                 ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cerca..."
+                placeholder="Search..."
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   width:       '100%',
@@ -261,7 +261,7 @@ export function CustomSelect({ value, onChange, children, disabled, style, place
           <div style={{ overflowY: 'auto', flex: 1 }}>
             {filtered.length === 0 && (
               <div style={{ padding: '10px 12px', fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>
-                Nessun risultato
+                No results
               </div>
             )}
 

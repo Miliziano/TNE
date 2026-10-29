@@ -97,7 +97,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
       <div onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: '92vw', maxHeight: '84vh', display: 'flex', flexDirection: 'column', background: '#1e2535', border: '1px solid #2a3349', borderRadius: 8, overflow: 'hidden' }}>
 
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #2a3349', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Compila artifact</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#c8d4f0' }}>Compile artifact</div>
           <button onClick={onClose} title="Close" style={{ background: 'transparent', border: 'none', color: '#9a9aaa', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 
@@ -114,7 +114,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
           {/* Identita' dello studio (provenienza) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Compilato da — etichetta di questo studio</div>
+            <div style={labelStyle}>Compiled by — label of this studio</div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input
                 value={studioLabel}
@@ -126,17 +126,17 @@ export function CompileModal({ open, onClose, onGenerate }: {
               <button
                 onClick={salvaEtichetta}
                 style={{ background: 'transparent', color: labelSaved ? '#4ade80' : '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >{labelSaved ? '✓ salvata' : 'Salva'}</button>
+              >{labelSaved ? '✓ saved' : 'Save'}</button>
             </div>
             <div style={{ fontSize: 10, color: '#5a6a8a' }}>
-              Identifica questa <b>installazione</b> nel monitor (id <code style={{ color: '#8aa' }}>{studioId ? studioId.slice(0, 8) + '…' : '—'}</code>).
-              Vale per tutti i progetti di questo computer. Non è autenticazione: è un'etichetta di provenienza.
+              Identifies this <b>installation</b> in the monitor (id <code style={{ color: '#8aa' }}>{studioId ? studioId.slice(0, 8) + '…' : '—'}</code>).
+              It applies to all the projects of this computer. It is not authentication: it is a provenance label.
             </div>
           </div>
 
           {/* Identita' di FIRMA (autenticita') */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <div style={labelStyle}>Identità di firma — chiave di questo sviluppatore</div>
+            <div style={labelStyle}>Signing identity — key of this developer</div>
             <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>
               keyId: <span style={{ color: '#8aa4d0' }}>{signingKeyId || '—'}</span>
             </div>
@@ -145,9 +145,9 @@ export function CompileModal({ open, onClose, onGenerate }: {
               <button
                 onClick={copiaTrust}
                 style={{ background: 'transparent', color: trustCopied ? '#4ade80' : '#9aa4c0', border: '1px solid #3a4a6a', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >{trustCopied ? '✓ copiata' : 'Copia voce trust store'}</button>
+              >{trustCopied ? '✓ copied' : 'Copy trust store entry'}</button>
               <div style={{ fontSize: 10, color: '#5a6a8a' }}>
-                Da incollare nell'array <code style={{ color: '#8aa' }}>keys</code> del <code style={{ color: '#8aa' }}>trust-store.json</code> della runtime per autorizzare questo studio. La chiave <b>privata</b> resta su questo computer.
+                Paste it into the <code style={{ color: '#8aa' }}>keys</code> array of the runtime's <code style={{ color: '#8aa' }}>trust-store.json</code> to authorize this studio. The <b>private</b> key stays on this computer.
               </div>
             </div>
           </div>
@@ -155,8 +155,8 @@ export function CompileModal({ open, onClose, onGenerate }: {
           {/* Endpoint monitor */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={labelStyle}>Monitor — where to push logs (optional)</div>
-            <input value={monitorUrl} onChange={(e) => setMonitorUrl(e.target.value)} placeholder="https://host:porta/ingest  oppure  ${MONITOR_URL}" style={inputStyle} />
-            <div style={{ fontSize: 10, color: '#5a6a8a' }}>URL letterale, oppure <code style={{ color: '#8aa' }}>{'${MONITOR_URL}'}</code> resolved on the target machine (like secrets).</div>
+            <input value={monitorUrl} onChange={(e) => setMonitorUrl(e.target.value)} placeholder="https://host:port/ingest  or  ${MONITOR_URL}" style={inputStyle} />
+            <div style={{ fontSize: 10, color: '#5a6a8a' }}>A literal URL, or <code style={{ color: '#8aa' }}>{'${MONITOR_URL}'}</code> resolved on the target machine (like secrets).</div>
           </div>
 
           {/* Platform */}
@@ -172,14 +172,14 @@ export function CompileModal({ open, onClose, onGenerate }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={labelStyle}>Detail of the sent log</div>
             <CustomSelect value={logLevel} onChange={(e) => setLogLevel(e.target.value)} style={selectStyle}>
-              <option value="essenziale">Essential — ciclo di vita, errori, statistiche</option>
+              <option value="essenziale">Essential — lifecycle, errors, statistics</option>
               <option value="normale">Normal — + progress and node messages</option>
-              <option value="diagnostico">Diagnostico — tutto, incluse righe e memoria</option>
+              <option value="diagnostico">Diagnostic — everything, rows and memory included</option>
             </CustomSelect>
             <div style={{ fontSize: 10, color: '#5a6a8a' }}>
-              Filter what the runner prints and sends to the monitor. <b>Essential</b> e <b>Normal</b> non
-              trasmettono il <b>contenuto delle righe</b> (dati) né i campioni di memoria: usali in produzione.
-              Il log completo resta comunque sulla macchina che esegue, in <code style={{ color: '#8aa' }}>~/.flowpilot/runs</code>.
+              Filter what the runner prints and sends to the monitor. <b>Essential</b> and <b>Normal</b> do not
+              send the <b>content of the rows</b> (data) nor the memory samples: use them in production.
+              The full log stays anyway on the machine that runs, in <code style={{ color: '#8aa' }}>~/.flowpilot/runs</code>.
             </div>
           </div>
 
@@ -187,18 +187,18 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
           {/* Manifesto in anteprima */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={labelStyle}>Manifesto dell'artifact</div>
+            <div style={labelStyle}>Artifact manifest</div>
             <div style={{ fontSize: 11, color: '#c8d4f0', fontFamily: "'JetBrains Mono', monospace", background: '#141c2c', border: '1px solid #2a3349', borderRadius: 6, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div>frozen profile: <span style={{ color: '#8aa4d0' }}>{frozenProfile}</span></div>
-              <div>compilato da: <span style={{ color: '#8aa4d0' }}>{studioLabel || '—'}</span></div>
-              <div>firmato con: <span style={{ color: '#8aa4d0' }}>{signingKeyId ? signingKeyId.slice(0, 22) + '…' : '—'}</span></div>
+              <div>compiled by: <span style={{ color: '#8aa4d0' }}>{studioLabel || '—'}</span></div>
+              <div>signed with: <span style={{ color: '#8aa4d0' }}>{signingKeyId ? signingKeyId.slice(0, 22) + '…' : '—'}</span></div>
               <div>platform: <span style={{ color: '#8aa4d0' }}>{platform}</span></div>
-              <div>dettaglio log: <span style={{ color: '#8aa4d0' }}>{logLevel}</span></div>
-              <div>monitor: <span style={{ color: '#8aa4d0' }}>{monitorUrl.trim() || '— nessuno —'}</span></div>
+              <div>log detail: <span style={{ color: '#8aa4d0' }}>{({ essenziale: 'essential', normale: 'normal', diagnostico: 'diagnostic' } as Record<string, string>)[logLevel] ?? logLevel}</span></div>
+              <div>monitor: <span style={{ color: '#8aa4d0' }}>{monitorUrl.trim() || '— none —'}</span></div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>
                 <span>required secrets:</span>
                 {requiredSecrets.length === 0
-                  ? <span style={{ color: '#5a6a8a' }}>nessuno</span>
+                  ? <span style={{ color: '#5a6a8a' }}>none</span>
                   : requiredSecrets.map((s) => <span key={s} style={{ color: '#c8a060' }}>🔒 {s}</span>)}
               </div>
             </div>

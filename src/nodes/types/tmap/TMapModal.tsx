@@ -1063,7 +1063,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
       const path = Array.isArray(res) ? res[0] : res
       if (!path) return
       try { importSchemaFields(parseSchema(await readFile(path))) }
-      catch (e) { alert(`Schema non valido: ${e instanceof Error ? e.message : String(e)}`) }
+      catch (e) { alert(`Invalid schema: ${e instanceof Error ? e.message : String(e)}`) }
       return
     }
     // Fallback browser/dev
@@ -1076,7 +1076,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
       const reader = new FileReader()
       reader.onload = () => {
         try { importSchemaFields(parseSchema(String(reader.result))) }
-        catch (e) { alert(`Schema non valido: ${e instanceof Error ? e.message : String(e)}`) }
+        catch (e) { alert(`Invalid schema: ${e instanceof Error ? e.message : String(e)}`) }
       }
       reader.readAsText(file)
     }
@@ -1180,7 +1180,7 @@ function ImportSchemaButton({ nodeId, outputId, outputFields, color, onImport }:
           }
         }}>
         <i className="ti ti-arrow-bar-to-left" style={{ fontSize: 9 }} />
-        importa
+        import
         <i className="ti ti-chevron-down" style={{ fontSize: 8 }} />
       </button>
 
@@ -1665,7 +1665,7 @@ function CenterZone({ nodeId, width, height, onDropTransform, onAddInputToTransf
                       onMouseEnter={() => setHoveredHandle(handleKey)} onMouseLeave={() => setHoveredHandle(null)}
                       onClick={(e) => { e.stopPropagation(); onRemoveInputFromTransform(tr.id, i) }}
                       style={{ width: 8, height: 8, borderRadius: '50%', background: isHov ? '#ff5f57' : inpColor, border: `2px solid ${isHov ? '#ff5f57' : '#0f1117'}`, flexShrink: 0, cursor: isHov ? 'pointer' : 'default', transition: 'all .1s' }}
-                      title={isHov ? `Rimuovi ${inp.fieldName}` : `${inp.inputId}.${inp.fieldName}`} />
+                      title={isHov ? `Remove ${inp.fieldName}` : `${inp.inputId}.${inp.fieldName}`} />
                   )
                 })}
               </div>
@@ -1809,23 +1809,6 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
   }, [!!transformDragging])
 
-  // Drag join — qualsiasi flusso → qualsiasi flusso (no vincoli su isMain)
-  useEffect(() => {
-    if (!draggingJoin) return
-    const onMove = (e: MouseEvent) => { const cr = containerRef.current?.getBoundingClientRect(); if (!cr) return; setDraggingJoin((d) => d ? { ...d, x: e.clientX - cr.left, y: e.clientY - cr.top } : null) }
-    const onUp = (e: MouseEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY)
-      const handleEl = el?.closest('[data-join-handle]') as HTMLElement | null
-      if (handleEl && draggingJoin && handleEl.dataset.joinInputId !== draggingJoin.inputId) {
-        const tgtInputId = handleEl.dataset.joinInputId!
-        const tgtField   = handleEl.dataset.joinField!
-        if (tmap) addJoinPair(draggingJoin.inputId, draggingJoin.fieldName, draggingJoin.color, tgtInputId, tgtField)
-      }
-      setDraggingJoin(null)
-    }
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [!!draggingJoin, draggingJoin?.fromKey, tmap])
 
   // Aggiunge una coppia join — il flusso destinatario riceve la coppia
   // Nessun vincolo su isMain: lookup2 → lookup3 è valido
@@ -1886,6 +1869,24 @@ function TMapLayout({ nodeId }: { nodeId: string }) {
     const existing: JoinPair[] = (realDstInp as any).joinPairs ?? []
     updateTMapInput(nodeId, realDstInputId, { joinPairs: [...existing, newPair] } as any)
   }, [tmap, nodeId, updateTMapInput])
+
+  // Drag join — qualsiasi flusso → qualsiasi flusso (no vincoli su isMain)
+  useEffect(() => {
+    if (!draggingJoin) return
+    const onMove = (e: MouseEvent) => { const cr = containerRef.current?.getBoundingClientRect(); if (!cr) return; setDraggingJoin((d) => d ? { ...d, x: e.clientX - cr.left, y: e.clientY - cr.top } : null) }
+    const onUp = (e: MouseEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY)
+      const handleEl = el?.closest('[data-join-handle]') as HTMLElement | null
+      if (handleEl && draggingJoin && handleEl.dataset.joinInputId !== draggingJoin.inputId) {
+        const tgtInputId = handleEl.dataset.joinInputId!
+        const tgtField   = handleEl.dataset.joinField!
+        if (tmap) addJoinPair(draggingJoin.inputId, draggingJoin.fieldName, draggingJoin.color, tgtInputId, tgtField)
+      }
+      setDraggingJoin(null)
+    }
+    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [!!draggingJoin, draggingJoin?.fromKey, tmap])
 
   useEffect(() => {
     const validInputKeys  = new Set(tmap?.inputs.flatMap((inp) => inp.fields.map((f) => `${inp.id}__${f.name}`)) ?? [])
@@ -2157,7 +2158,7 @@ export function TMapModal({ nodeId, onClose }: { nodeId: string; onClose: () => 
             style={{ padding: '6px 20px', fontSize: 12, borderRadius: 4, cursor: 'pointer', background: '#2a1a4a', color: '#a78bfa', border: '1px solid #4a2a8a', fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#3a2a5a' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#2a1a4a' }}>
-            Fatto
+            Done
           </button>
         </div>
         {!isMaximized && (

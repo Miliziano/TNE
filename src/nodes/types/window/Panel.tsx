@@ -54,7 +54,7 @@ interface FnDef {
 const WINDOW_FUNCTIONS: FnDef[] = [
   { value: 'row_number',     label: 'ROW_NUMBER',      category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Progressive row number within the partition — unique for each row' },
   { value: 'rank',           label: 'RANK',             category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank with gaps on ties (1,1,3...) — Olympic style' },
-  { value: 'dense_rank',     label: 'DENSE_RANK',       category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank senza salti (1,1,2...) — preferibile per top-N' },
+  { value: 'dense_rank',     label: 'DENSE_RANK',       category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Rank without gaps (1,1,2...) — preferable for top-N' },
   { value: 'percent_rank',   label: 'PERCENT_RANK',     category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentage rank 0.0→1.0 — relative position in the group' },
   { value: 'cume_dist',      label: 'CUME_DIST',        category: 'ranking',    hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Cumulative distribution — fraction of rows ≤ current value' },
   { value: 'ntile',          label: 'NTILE',             category: 'ranking',    hasField: false, hasOffset: false, hasN: true,  hasExpr: false, outputType: 'integer', desc: 'Suddivide in N bucket — es. quartili (N=4), decili (N=10)' },
@@ -66,7 +66,7 @@ const WINDOW_FUNCTIONS: FnDef[] = [
   { value: 'nth_value',      label: 'NTH_VALUE',         category: 'navigation', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'N-th value in the partition — generalization of FIRST/LAST' },
   { value: 'cumsum',         label: 'CUMSUM',            category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Growing cumulative sum — YTD sales, running total' },
   { value: 'cumcount',       label: 'CUMCOUNT',          category: 'cumulative', hasField: false, hasOffset: false, hasN: false, hasExpr: false, outputType: 'integer', desc: 'Cumulative count — number of events up to this row' },
-  { value: 'cumprod',        label: 'CUMPROD',           category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Prodotto cumulativo — rendimento composto, crescita moltiplicativa' },
+  { value: 'cumprod',        label: 'CUMPROD',           category: 'cumulative', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Cumulative product — compound return, multiplicative growth' },
   { value: 'moving_avg',     label: 'MOVING AVG',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving average over N rows — time-series smoothing, SMA' },
   { value: 'moving_sum',     label: 'MOVING SUM',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'decimal', desc: 'Moving sum over N rows — sliding total' },
   { value: 'moving_min',     label: 'MOVING MIN',        category: 'analytical', hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'any',     desc: 'Moving minimum over N rows — technical support in price analysis' },
@@ -75,7 +75,7 @@ const WINDOW_FUNCTIONS: FnDef[] = [
   { value: 'ratio_to_report',label: 'RATIO TO REPORT',   category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Percentage of the partition total — market share' },
   { value: 'delta',          label: 'DELTA',             category: 'analytical', hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Difference from the previous row — absolute daily change' },
   { value: 'change_detect',  label: 'CHANGE DETECT',     category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'boolean', desc: 'true when the value changes from the previous row — light CDC' },
-  { value: 'sessionize',     label: 'SESSIONIZE',        category: 'etl',        hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'string',  desc: 'Assegna ID sessione quando il gap temporale supera N secondi' },
+  { value: 'sessionize',     label: 'SESSIONIZE',        category: 'etl',        hasField: true,  hasOffset: false, hasN: true,  hasExpr: false, outputType: 'string',  desc: 'Assigns a session ID when the time gap exceeds N seconds' },
   { value: 'streak',         label: 'STREAK',            category: 'etl',        hasField: false, hasOffset: false, hasN: false, hasExpr: true,  outputType: 'integer', desc: 'Counts consecutive rows that satisfy a condition' },
   { value: 'interpolate',    label: 'INTERPOLATE',       category: 'etl',        hasField: true,  hasOffset: false, hasN: false, hasExpr: false, outputType: 'decimal', desc: 'Fills nulls by linearly interpolating between the previous and next value' },
 ]
@@ -100,11 +100,19 @@ interface WindowDef {
 }
 
 export function WindowPanel({ nodeId }: { nodeId: string }) {
-  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))
+  // Guscio: il corpo chiama i suoi hook dopo aver letto il nodo, e con
+  // un `return null` in mezzo il loro numero cambierebbe quando il nodo
+  // viene eliminato (rules-of-hooks). Qui si decide se c'è, là si
+  // chiamano sempre tutti.
+  const exists = useFlowStore((s) => s.nodes.some((n) => n.id === nodeId))
+  return exists ? <WindowPanelBody nodeId={nodeId} /> : null
+}
+
+function WindowPanelBody({ nodeId }: { nodeId: string }) {
+  const node       = useFlowStore((s) => s.nodes.find((n) => n.id === nodeId))!
   const updateProp = useFlowStore((s) => s.updateNodeProp)
   const pool       = useFlowStore((s) => s.pool)
 
-  if (!node) return null
 
   const p = (key: string, def = '') => node.data.props[key] ?? def
   const u = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -193,7 +201,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
             label:    '◈ Da Materialize',
             desc:     'The incoming row is only an activation trigger. Data is read from the selected Materialize.',
             disabled: materializeVars.length === 0,
-            hint:     materializeVars.length === 0 ? 'Nessun Materialize pubblicato in questa lane' : undefined,
+            hint:     materializeVars.length === 0 ? 'No Materialize published in this lane' : undefined,
           },
         ].map((s) => (
           <button key={s.value}
@@ -232,7 +240,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
           {matName && materializeFields.length === 0 && (
             <div style={{ padding: '6px 10px', fontSize: 9, color: '#ffb347', background: '#1a1000', borderRadius: 4, border: '0.5px solid #3a2a0a', display: 'flex', gap: 5 }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 10 }} />
-              Il Materialize "{matName}" non ha ancora ricevuto campi. Collegalo a un nodo sorgente.
+              Il Materialize "{matName}" has not received any fields yet. Collegalo a un nodo sorgente.
             </div>
           )}
           {matName && materializeFields.length > 0 && (
@@ -278,7 +286,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
             )}
           </div>
         ) : (
-          <input style={inputStyle} value={p('partitionBy')} onChange={u('partitionBy')} placeholder="categoria, regione" />
+          <input style={inputStyle} value={p('partitionBy')} onChange={u('partitionBy')} placeholder="category, region" />
         )}
       </Field>
 
@@ -295,7 +303,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
             <input style={inputStyle} value={orderBy} onChange={u('orderBy')} placeholder="date, id" />
           )}
         </Field>
-        <Field label="Direzione">
+        <Field label="Direction">
           <CustomSelect style={inputStyle} value={orderDir} onChange={u('orderDir')}>
             <option value="asc">ASC ↑</option>
             <option value="desc">DESC ↓</option>
@@ -305,7 +313,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
 
       {/* Funzioni */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <SectionTitle label={`Funzioni window — ${windows.length}`} />
+        <SectionTitle label={`Window functions — ${windows.length}`} />
         <button onClick={addWindow}
           style={{ marginLeft: 'auto', padding: '3px 12px', fontSize: 10, borderRadius: 4, cursor: 'pointer', background: `color-mix(in srgb, ${ACCENT} 15%, #161b27)`, color: ACCENT, border: `1px solid ${ACCENT}60`, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <i className="ti ti-plus" style={{ fontSize: 11 }} /> Funzione
@@ -326,7 +334,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
         {windows.length === 0 ? (
           <div style={{ padding: '28px', textAlign: 'center', color: '#2a3349', fontSize: 11, border: `0.5px dashed ${ACCENT}30`, borderRadius: 8, background: '#0f1117' }}>
             <i className="ti ti-chart-bar" style={{ fontSize: 28, display: 'block', marginBottom: 8, color: `${ACCENT}20` }} />
-            Aggiungi una funzione window per calcolare metriche sulla partizione
+            Add a window function to compute metrics over the partition
           </div>
         ) : windows.map((w) => {
           const fnDef   = WINDOW_FUNCTIONS.find((f) => f.value === w.fn)
@@ -353,7 +361,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
               <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   <div>
-                    <div style={labelStyle}>Funzione</div>
+                    <div style={labelStyle}>Function</div>
                     <CustomSelect style={inputStyle} value={w.fn}
                       onChange={(e) => updateWindow(w.id, { fn: e.target.value })}>
                       {Object.entries(CATEGORY_META).map(([catKey, cat]) => (
@@ -414,10 +422,10 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
                   <div>
                     <div style={labelStyle}>
                       {w.fn === 'ntile'      ? 'N bucket (es. 4 = quartili)'  :
-                       w.fn === 'topn_flag'  ? 'N (top N righe = true)'       :
-                       w.fn === 'sessionize' ? 'Gap massimo in secondi'       :
-                       w.fn === 'nth_value'  ? 'N-esimo valore'               :
-                       'Dimensione finestra (righe)'}
+                       w.fn === 'topn_flag'  ? 'N (top N rows = true)'       :
+                       w.fn === 'sessionize' ? 'Maximum gap in seconds'       :
+                       w.fn === 'nth_value'  ? 'Nth value'               :
+                       'Window size (rows)'}
                     </div>
                     <input type="number" style={inputStyle} value={w.n ?? 3} min="1"
                       onChange={(e) => updateWindow(w.id, { n: parseInt(e.target.value) })} />
@@ -464,7 +472,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
           <SectionTitle label="Schema output" color="#22d3ee" />
           <div style={{ border: '0.5px solid #2a3349', borderRadius: 6, overflow: 'hidden' }}>
             {[
-              ...activeFields.map((f) => ({ name: f.name, type: f.type, badge: 'originale', badgeColor: '#8593b5' })),
+              ...activeFields.map((f) => ({ name: f.name, type: f.type, badge: 'original', badgeColor: '#8593b5' })),
               ...windows.map((w) => {
                 const fnDef   = WINDOW_FUNCTIONS.find((f) => f.value === w.fn)
                 const catMeta = fnDef ? CATEGORY_META[fnDef.category] : CATEGORY_META.ranking
@@ -472,7 +480,7 @@ export function WindowPanel({ nodeId }: { nodeId: string }) {
               }),
             ].map((f, i, arr) => (
               <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 100px', gap: 8, padding: '5px 10px', background: i % 2 === 0 ? '#1a2030' : '#1e2535', borderBottom: i < arr.length - 1 ? '0.5px solid #2a3349' : 'none', alignItems: 'center' }}>
-                <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.badge === 'originale' ? '#9a9aaa' : f.badgeColor }}>{f.name}</code>
+                <code style={{ fontFamily: 'monospace', fontSize: 11, color: f.badge === 'original' ? '#9a9aaa' : f.badgeColor }}>{f.name}</code>
                 <span style={{ fontSize: 9, color: '#8593b5' }}>{f.type}</span>
                 <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 8, background: `color-mix(in srgb, ${f.badgeColor} 12%, #0f1117)`, color: f.badgeColor, border: `0.5px solid ${f.badgeColor}30`, textAlign: 'center' }}>
                   {f.badge}

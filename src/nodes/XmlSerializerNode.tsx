@@ -73,7 +73,7 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Handle servizio */}
       <Handle id="input_new" type="target" position={Position.Left}
         style={{ top: '75%', background: '#2a3349', border: '2px dashed #8593b5', width: 12, height: 12, left: -20, transform: 'none', borderRadius: '50%', opacity: 0.6 }}
-        title="Trascina qui per aggiungere un nuovo flusso" />
+        title="Drop here to add a new flow" />
 
       {/* Header */}
       <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: `1px solid #4a1a00`, background: selected ? `color-mix(in srgb, ${ACCENT} 12%, #1e2535)` : '#1e2535', borderRadius: '6px 6px 0 0', flexShrink: 0 }}>
@@ -85,7 +85,7 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Body */}
       <div style={{ padding: '6px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {declaredInputs.length === 0 ? (
-          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>Collega un flusso</div>
+          <div style={{ fontSize: 9, color: '#8593b5', fontStyle: 'italic' }}>Connect a flow</div>
         ) : (
           declaredInputs.map((inp, idx) => {
             const color = inp.color ?? FLOW_COLORS[idx % FLOW_COLORS.length]
@@ -105,7 +105,7 @@ export const XmlSerializerNode = memo(({ id, data, selected }: NodeProps) => {
       {/* Handle uscite */}
       <Handle id="output" type="source" position={Position.Right}
         style={{ top: '35%', background: ACCENT, border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
-        title="output — documento XML" />
+        title="output — XML document" />
       <Handle id="reject" type="source" position={Position.Right}
         style={{ top: '65%', background: '#ff5f57', border: '2px solid #0f1117', width: 10, height: 10, right: -5, transform: 'none' }}
         title="reject" />

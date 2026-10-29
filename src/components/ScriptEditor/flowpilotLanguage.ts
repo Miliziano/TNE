@@ -137,15 +137,15 @@ export function registerFlowpilotLanguage(monaco: any): void {
       const suggestions = [
         ...contesto.campi.map((nome) => ({
           label: nome, kind: K.Field, insertText: nome, range,
-          detail: 'campo in ingresso', sortText: '0' + nome,
+          detail: 'incoming field', sortText: '0' + nome,
         })),
         ...contesto.variabili.map((nome) => ({
           label: `var("${nome}")`, kind: K.Variable, insertText: `var("${nome}")`, range,
-          detail: 'variabile di lane (sola lettura)', sortText: '1' + nome,
+          detail: 'lane variable (read-only)', sortText: '1' + nome,
         })),
         ...ISTRUZIONI.map((nome) => ({
           label: nome, kind: K.Keyword, insertText: nome, range,
-          detail: 'istruzione', sortText: '2' + nome,
+          detail: 'statement', sortText: '2' + nome,
         })),
         ...FUNCTIONS.map((f) => ({
           label: f.name, kind: K.Function, range,
@@ -160,7 +160,7 @@ export function registerFlowpilotLanguage(monaco: any): void {
           label: u.name, kind: K.Function, range,
           insertText: `${u.name}(${u.params.map((p, i) => '${' + (i + 1) + ':' + p + '}').join(', ')})`,
           insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-          detail: `${u.name}(${u.params.join(', ')})`, documentation: 'Funzione utente', sortText: '25' + u.name,
+          detail: `${u.name}(${u.params.join(', ')})`, documentation: 'User function', sortText: '25' + u.name,
         })),
       ]
       return { suggestions }
