@@ -146,18 +146,27 @@ fn evento_da_emettere(ev: &serde_json::Value, livello: &str) -> bool {
     }
 }
 
-/// Uscita per artifact rifiutato (firma o trust store): nulla e' stato eseguito.
+/// Uscita per artifact rifiutato all'ammissione (firma, trust store, motore,
+/// profilo o policy della runtime): nulla e' stato eseguito.
+/// Codici d'uscita (contratto, docs/ARCHITETTURA-coordinatore.md §4.2):
+/// 0 completato · 1 run fallito · 2 uso errato / file illeggibile · 3 rifiutato.
 const EXIT_REJECTED: i32 = 3;
 
 const USAGE: &str = "\
 uso:
-  flowpilot_runner <artifact.ffart>                 esegue un artifact FIRMATO
+  flowpilot_runner [opzioni] <artifact.ffart>       esegue un artifact FIRMATO
+  flowpilot_runner --admit-only [opzioni] <artifact.ffart>
+                                                    verifica e applica la policy senza eseguire;
+                                                    stampa un riepilogo JSON (uscita 0 o 3)
   flowpilot_runner trust list                       elenca le chiavi autorizzate
   flowpilot_runner trust show <keyId>               mostra una voce
   flowpilot_runner trust add <voce.json|-> [--owner NOME]
   flowpilot_runner trust add --public-key <B64> --owner NOME
                                                     autorizza una chiave pubblica
   flowpilot_runner trust revoke <keyId>             revoca una chiave
+opzioni dell'esecuzione:
+  --profile <file>   profilo della runtime (default: $FLOWPILOT_RUNTIME_PROFILE,
+                     poi ~/.flowpilot/runtime.json se esiste)
 opzioni di trust:  --store <percorso>  (default: ~/.flowpilot/trust-store.json)
 La voce da autorizzare si copia dallo studio (Signing / Compile -> voce trust store).";
 
@@ -380,6 +389,8 @@ fn trust_cmd(args: &[String]) -> i32 {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut admit_only = false;
+    let mut profile_path: Option<std::path::PathBuf> = None;
     let path = match args.first().map(|s| s.as_str()) {
         Some("trust") => std::process::exit(trust_cmd(&args[1..])),
         Some("-h") | Some("--help") => {
@@ -390,7 +401,45 @@ fn main() {
             println!("flowpilot_runner {}", env!("CARGO_PKG_VERSION"));
             std::process::exit(0);
         }
-        Some(p) => p.to_string(),
+        Some(_) => {
+            // Opzioni dell'esecuzione (P378): in qualunque ordine rispetto al file.
+            let mut path: Option<String> = None;
+            let mut i = 0;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--admit-only" => admit_only = true,
+                    "--profile" => {
+                        i += 1;
+                        match args.get(i) {
+                            Some(p) => profile_path = Some(std::path::PathBuf::from(p)),
+                            None => {
+                                eprintln!("--profile richiede un percorso\n{USAGE}");
+                                std::process::exit(2);
+                            }
+                        }
+                    }
+                    a if a.starts_with("--") => {
+                        eprintln!("opzione sconosciuta: {a}\n{USAGE}");
+                        std::process::exit(2);
+                    }
+                    a => {
+                        if path.is_some() {
+                            eprintln!("un solo artifact per volta\n{USAGE}");
+                            std::process::exit(2);
+                        }
+                        path = Some(a.to_string());
+                    }
+                }
+                i += 1;
+            }
+            match path {
+                Some(p) => p,
+                None => {
+                    eprintln!("{USAGE}");
+                    std::process::exit(2);
+                }
+            }
+        }
         None => {
             eprintln!("{USAGE}");
             std::process::exit(2);
@@ -432,24 +481,54 @@ fn main() {
             if !trust_path.exists() {
                 eprintln!("  per autorizzare una chiave: flowpilot_runner trust add <voce.json> --owner <nome>");
             }
+            if admit_only {
+                println!("{}", serde_json::json!({ "admitted": false, "reason": e }));
+            }
             std::process::exit(EXIT_REJECTED);
         }
     };
     for w in trust.warnings() {
         eprintln!("avviso trust store: {w}");
     }
-    match app_lib::signing::verify::verify_artifact(&root, env!("CARGO_PKG_VERSION"), &trust) {
-        Ok(v) => {
-            let owner = if v.owner.is_empty() { "?" } else { &v.owner };
-            eprintln!("firma OK: artifact firmato da {} ({})", owner, v.key_id);
-        }
-        Err(reason) => {
-            eprintln!("FIRMA RIFIUTATA: {}", reason);
-            if reason.starts_with("chiave non autorizzata") {
-                eprintln!("  se la chiave e' legittima: flowpilot_runner trust add <voce.json> --owner <nome>");
+    // Profilo della runtime (P378): policy dei nodi decisa da QUESTA macchina.
+    // Un profilo presente ma sbagliato non si ignora: rifiuto (fail-closed).
+    let profile = match app_lib::runtime::profile::RuntimeProfile::resolve(profile_path.as_deref()) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("RIFIUTATO: {e}");
+            if admit_only {
+                println!("{}", serde_json::json!({ "admitted": false, "reason": e }));
             }
             std::process::exit(EXIT_REJECTED);
         }
+    };
+    for w in &profile.warnings {
+        eprintln!("avviso profilo della runtime: {w}");
+    }
+    // Ammissione UNICA: firma + compatibilita' + policy (runtime::admission).
+    let admitted = match app_lib::runtime::admission::admit(&root, env!("CARGO_PKG_VERSION"), &trust, &profile) {
+        Ok(a) => {
+            let owner = if a.owner.is_empty() { "?" } else { &a.owner };
+            eprintln!("firma OK: artifact firmato da {} ({})", owner, a.key_id);
+            if let Some(src) = &profile.source {
+                eprintln!("policy OK: profilo {}", src.display());
+            }
+            a
+        }
+        Err(reason) => {
+            eprintln!("RIFIUTATO: {}", reason);
+            if reason.starts_with("chiave non autorizzata") {
+                eprintln!("  se la chiave e' legittima: flowpilot_runner trust add <voce.json> --owner <nome>");
+            }
+            if admit_only {
+                println!("{}", serde_json::json!({ "admitted": false, "reason": reason }));
+            }
+            std::process::exit(EXIT_REJECTED);
+        }
+    };
+    if admit_only {
+        println!("{}", admitted.to_json());
+        std::process::exit(0);
     }
     // Da qui la busta e' VERIFICATA: manifesto e piano esistono e sono coperti
     // dalla firma (Modo A: i metadati operativi vivono SOLO nel manifesto). Niente

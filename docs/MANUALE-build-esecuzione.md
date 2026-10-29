@@ -252,9 +252,46 @@ Cosa vedrai (stderr):
 ```
 firma OK: artifact firmato da mark-laptop (ed25519:9f3c…)
 ```
-e gli eventi NDJSON su stdout (più il monitor, se raggiungibile). Se la firma non
-tornasse, il runner stampa `FIRMA RIFIUTATA: …` ed esce con codice **3**, senza
-eseguire nulla.
+e gli eventi NDJSON su stdout (più il monitor, se raggiungibile). Se l'artifact non
+viene ammesso (firma, trust store, motore incompatibile, profilo o policy della
+runtime) il runner stampa `RIFIUTATO: …` (o `FIRMA RIFIUTATA: …` se il problema è il
+trust store) ed esce con codice **3**, senza eseguire nulla.
+
+Codici d'uscita: **0** completato · **1** run fallito · **2** uso errato o file
+illeggibile · **3** rifiutato all'ammissione.
+
+### 7.4 Profilo della runtime: quali nodi può eseguire questa macchina (dal P378)
+La firma dice **chi** ha autorizzato un artifact, non **cosa** fa: un artifact firmato
+con un nodo *Shell* esegue quel comando. Il profilo della runtime decide quali tipi di
+nodo questa macchina accetta, qualunque sia la firma.
+
+File `~/.flowpilot/runtime.json` (oppure `--profile <file>`, oppure la variabile
+`FLOWPILOT_RUNTIME_PROFILE`):
+```json
+{
+  "formatVersion": 1,
+  "description": "server di produzione",
+  "policy": {
+    "deniedNodeTypes": ["shell_exec", "ssh_exec"]
+  }
+}
+```
+- `deniedNodeTypes`: tipi vietati. `allowedNodeTypes` (facoltativo): se presente, sono
+  ammessi **solo** questi. Un tipo vietato vince sempre.
+- Senza file nessuna restrizione (comportamento di prima). Con il file, il runner è
+  rigoroso come per il trust store: JSON non valido, chiave sconosciuta, tipo di nodo
+  scritto male, `formatVersion` diversa da 1 o file scrivibile da chiunque → rifiuto
+  (codice 3). Proteggilo con `chmod 600`.
+- Il rifiuto dice quale nodo e dove: `RIFIUTATO: policy della runtime: tipi di nodo non
+  ammessi su questa macchina — shell_exec (Pulizia archivio) [~/.flowpilot/runtime.json]`.
+
+Controllare un artifact **senza eseguirlo** (per esempio prima di installarlo):
+```bash
+./flowpilot_runner --admit-only esempio.ffart
+# {"admitted":true,"keyId":"ed25519:…","owner":"mark-laptop","planHash":"sha256:…",
+#  "planName":"Ordini","nodeTypes":["sink_db","source_file","tmap"]}
+```
+Uscita 0 se verrebbe eseguito, 3 (con `{"admitted":false,"reason":…}`) se no.
 
 ---
 

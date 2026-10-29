@@ -216,6 +216,23 @@ pub const NOT_IMPLEMENTED: &[&str] = &[
     // `data_quality` ha un arm dedicato (:632) → è implementato.
 ];
 
+/// Tutti i tipi di nodo che `run_node` sa eseguire (P378). Serve alla policy
+/// della runtime: un nome scritto male in `deniedNodeTypes` non deve vietare
+/// "niente" in silenzio. Un test in `runtime::profile` confronta questo
+/// elenco con i rami del `match` di `run_node`: se si aggiunge un nodo lì,
+/// il test chiede di aggiungerlo anche qui.
+pub const NODE_TYPES: &[&str] = &[
+    "source_file", "source_db", "source_ftp", "dir_watcher", "source_mqtt",
+    "webhook_receiver", "watchdog", "webhook_responder", "source_activemq",
+    "sink_activemq", "source_kafka", "sink_kafka", "mail_sink", "shell_exec",
+    "ssh_exec", "ldap_source", "github_source", "ldap_auth", "source_http",
+    "http_request", "sink_file", "sink_ftp", "sink_mqtt", "sink_http", "sink_db",
+    "bridge_out", "bridge_in", "tmap", "log", "join", "transform",
+    "transform_fields", "aggregate", "report_generator", "explode", "materialize",
+    "json_serializer", "json_parser", "filter", "xml_serializer", "xml_parser",
+    "pivot", "data_quality", "window", "union", "script", "error_handler", "stop",
+];
+
 /// true se il motore non ha ancora un'implementazione per questo tipo.
 pub fn is_stub(node_type: &str) -> bool {
     NOT_IMPLEMENTED.contains(&node_type)

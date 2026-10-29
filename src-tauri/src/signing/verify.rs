@@ -1,7 +1,8 @@
 // ─── src-tauri/src/signing/verify.rs ──────────────────────────────
 // Verifica FAIL-CLOSED dell'artifact prima dell'esecuzione. (§9)
-// Ogni fallimento (incluso "non firmato") è un Err(motivo); il chiamante
-// (runner) decide che farne secondo la modalità off/warn/enforce.
+// Ogni fallimento (incluso "non firmato") è un Err(motivo) e il run non parte
+// (P333: nessuna modalità off/warn). La policy della runtime si applica dopo,
+// in `runtime::admission` (P378), che è l'unico ingresso usato dal runner.
 
 use super::canonical::plan_hash;
 use super::sign::verify_manifest;
@@ -63,16 +64,59 @@ pub fn verify_artifact(
         ));
     }
 
-    // 7) policy dei nodi pericolosi: non applicata in v1 (capitolo sandbox).
+    // 7) policy dei nodi pericolosi: in `runtime::admission::admit` (P378).
     let owner = trust.owner(key_id).unwrap_or_default();
     Ok(Verified { key_id: key_id.to_string(), owner })
 }
 
-/// v1: accetta solo "*" (qualsiasi motore). Il matching di versioni reali
-/// arriverà quando definiremo lo schema di versione del motore; fino ad allora
-/// un range diverso da "*" è considerato incompatibile (fail-closed).
-fn engine_compatible(range: &str, _version: &str) -> bool {
-    range == "*"
+/// `engineVersionRange` del manifesto contro la versione del motore (P378).
+///
+/// Grammatica (contratto, docs/ARCHITETTURA-coordinatore.md §4.1):
+///   `*`                       qualunque motore
+///   `>=0.2.0`                 un confronto: `>=` `>` `<=` `<` `=` (o nessun
+///                             operatore = versione esatta)
+///   `>=0.2.0 <0.3.0`          più confronti, TUTTI veri (separati da spazi o virgole)
+/// Versioni `MAGGIORE.MINORE.PATCH`; un suffisso `-qualcosa` del motore si ignora.
+/// Qualunque cosa non si capisca → incompatibile (fail-closed): un artifact che
+/// chiede un motore che non sappiamo riconoscere non deve girare per sbaglio.
+pub fn engine_compatible(range: &str, version: &str) -> bool {
+    let range = range.trim();
+    if range == "*" {
+        return true;
+    }
+    let Some(v) = parse_version(version) else { return false };
+    let mut any = false;
+    for part in range.split(|c: char| c.is_whitespace() || c == ',').filter(|p| !p.is_empty()) {
+        any = true;
+        let (op, rest) = ["<=", ">=", "<", ">", "="]
+            .iter()
+            .find_map(|op| part.strip_prefix(op).map(|r| (*op, r)))
+            .unwrap_or(("=", part));
+        let Some(want) = parse_version(rest) else { return false };
+        let ok = match op {
+            ">=" => v >= want,
+            ">" => v > want,
+            "<=" => v <= want,
+            "<" => v < want,
+            _ => v == want,
+        };
+        if !ok {
+            return false;
+        }
+    }
+    any
+}
+
+fn parse_version(s: &str) -> Option<(u64, u64, u64)> {
+    let core = s.trim().split(['-', '+']).next()?;
+    let mut it = core.split('.');
+    let a = it.next()?.parse().ok()?;
+    let b = it.next()?.parse().ok()?;
+    let c = it.next()?.parse().ok()?;
+    if it.next().is_some() {
+        return None;
+    }
+    Some((a, b, c))
 }
 
 #[cfg(test)]
@@ -154,5 +198,24 @@ mod tests {
         let plan = json!({ "run_id": "x", "lanes": [], "bridges": [] });
         let root = json!({ "formatVersion": 1, "plan": plan });
         assert!(verify_artifact(&root, "0.1.0", &trust_with(&kp(5), "active")).is_err());
+    }
+
+    #[test]
+    fn engine_version_range() {
+        assert!(engine_compatible("*", "0.1.0"));
+        assert!(engine_compatible(" * ", "anything"));
+        assert!(engine_compatible(">=0.1.0", "0.1.0"));
+        assert!(engine_compatible(">=0.1.0 <0.2.0", "0.1.9"));
+        assert!(engine_compatible(">=0.1.0, <0.2.0", "0.1.9"));
+        assert!(!engine_compatible(">=0.1.0 <0.2.0", "0.2.0"));
+        assert!(engine_compatible("0.1.0", "0.1.0-beta"));
+        assert!(engine_compatible("=1.2.3", "1.2.3"));
+        assert!(!engine_compatible(">0.1.0", "0.1.0"));
+        assert!(engine_compatible("<=0.1.0", "0.1.0"));
+        // fail-closed: sintassi sconosciuta, vuoto, versione illeggibile
+        assert!(!engine_compatible("", "0.1.0"));
+        assert!(!engine_compatible("^0.1", "0.1.0"));
+        assert!(!engine_compatible(">=0.1", "0.1.0"));
+        assert!(!engine_compatible(">=0.1.0", "dev"));
     }
 }

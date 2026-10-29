@@ -165,7 +165,7 @@
 
   <section>
     <h2>What FlowPilot protects</h2>
-    <p class="sec-lede">Eight capabilities, all implemented today. Each is grounded in standard, audited cryptography and libraries. Nothing is home-grown.</p>
+    <p class="sec-lede">Nine capabilities, all implemented today. Each is grounded in standard, audited cryptography and libraries. Nothing is home-grown.</p>
 
     <div class="pillar">
       <div class="n">Integrity<br>&amp; authenticity</div>
@@ -204,6 +204,16 @@
         <h3>Every run is accountable, every key revocable</h3>
         <p>Each execution records which developer signed the artifact and the exact plan it ran. Authorising a new developer is a one-time entry in the runtime's trust store; removing a compromised or departed developer is a single change that takes effect on the next run. Multiple developers can sign independently, with no shared keys.</p>
         <div class="chips"><span class="chip">per-signer audit</span><span class="chip">instant revocation</span><span class="chip">multi-developer allowlist</span></div>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <div class="n">Runtime<br>policy</div>
+      <div>
+        <h3>Each machine decides what it will run</h3>
+        <p>A signature proves who authorised a pipeline, not what it does. Each runtime therefore has its own profile listing the node types it refuses, or the only ones it accepts. A production server can forbid shell and SSH commands outright, and an artifact that uses them is rejected before it starts, with the offending node named.</p>
+        <p class="sub">The profile is checked as strictly as the trust store: an unknown setting, a misspelt node type or a file writable by anyone stops the run instead of being ignored. An artifact can be checked against a machine's rules without running it.</p>
+        <div class="chips"><span class="chip">deny / allow node types</span><span class="chip">fail-closed profile</span><span class="chip">admit-only check</span></div>
       </div>
     </div>
 
@@ -256,6 +266,7 @@
       <li><div><b>Authorised signer.</b> <span>The signing key is present and active in the runtime's trust store.</span></div></li>
       <li><div><b>Valid signature.</b> <span>Verified with the trusted public key, never with a key carried inside the artifact.</span></div></li>
       <li><div><b>Untampered plan.</b> <span>The plan's hash is recomputed and matched against the signed value.</span></div></li>
+      <li><div><b>Runtime policy.</b> <span>Every node type in the pipeline is allowed on this machine. The machine's own profile can forbid types such as shell or SSH commands, whoever signed the artifact.</span></div></li>
       <li><div><b>Admit &amp; execute.</b> <span>Only now does processing begin, with the verified signer recorded.</span></div></li>
     </ol>
     <p class="fail">Verification <b>cannot be switched off</b>. There is no setting that skips or softens it, so a forgotten default or a development setting copied to production cannot disable it. Any failure, including a missing or unreadable trust store or one with unsafe file permissions, stops the run before it starts.</p>
@@ -291,6 +302,7 @@
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Secrets resolved on target, never in artifacts</div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Secret values masked in logs and monitor events<small>literal values; data rows untouched</small></div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Per-signer attribution &amp; instant revocation</div></li>
+          <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Per-machine policy on node types<small>for example, no shell or SSH commands in production</small></div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Monitor closed by default<small>local bind, separate ingest and read tokens, rate limits</small></div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Encrypted connectors and injection-safe SQL identifiers</div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Hardened, offline-capable studio (strict CSP, least privilege)</div></li>
@@ -303,7 +315,7 @@
         <ul>
           <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Native TLS for the monitoring service<small>today it is deployed behind a TLS reverse proxy</small></div></li>
           <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Per-person identity and read audit in the monitor, with signature re-verification</div></li>
-          <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Sandboxed runtime execution and a policy to disable shell and SSH nodes per runtime</div></li>
+          <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Sandboxed runtime execution and resource limits per runtime</div></li>
           <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Hardware-backed keys (HSM / OS secure enclave) option</div></li>
           <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Supply-chain integrity: signed binaries &amp; dependency auditing in CI</div></li>
           <li><svg class="dot" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg><div>Optional encryption of artifacts for confidentiality</div></li>
@@ -314,7 +326,7 @@
 
   <section>
     <div class="note">
-      <b>What the model is, and isn't.</b> FlowPilot guarantees that a runtime executes only pipelines produced by an authorised developer and untouched since signing, and that private keys are protected on disk and in memory. Signing proves <em>who</em> authorised a pipeline, not that what it does is safe: a signed pipeline with a shell node runs that command. It also does not, on its own, defend a developer's machine that is already compromised at the operating-system level; the defence there is hardware-backed keys and endpoint security, which we integrate with rather than replace. We state this plainly because a serious security review will.
+      <b>What the model is, and isn't.</b> FlowPilot guarantees that a runtime executes only pipelines produced by an authorised developer and untouched since signing, and that private keys are protected on disk and in memory. Signing proves <em>who</em> authorised a pipeline, not that what it does is safe; the runtime policy limits which kinds of node a machine accepts, but within those kinds a signed pipeline does what its author designed. It also does not, on its own, defend a developer's machine that is already compromised at the operating-system level; the defence there is hardware-backed keys and endpoint security, which we integrate with rather than replace. We state this plainly because a serious security review will.
     </div>
   </section>
 

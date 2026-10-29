@@ -115,8 +115,13 @@ si è rotto un contratto, e si corregge il codice, non il vettore.
 `{ formatVersion: 2, manifest, sig, plan }`. Il manifesto è firmato e unica fonte dei
 campi operativi: `planName`, `planVersion`, `planHash`, `studio`, `studioVersion`,
 `profile`, `platform`, `logLevel`, `monitor`, `requiredSecrets`, `engineVersionRange`,
-`createdAt`. Previsti (D7, D8): `variables` (dichiarazione delle variabili
-configurabili), `engineVersionRange` reale.
+`createdAt`. Previsti (D7): `variables` (dichiarazione delle variabili configurabili).
+
+`engineVersionRange` (dal P378 il runner lo applica davvero): `*` oppure confronti
+`>=` `>` `<=` `<` `=` su versioni `MAGGIORE.MINORE.PATCH`, separati da spazi o virgole,
+tutti veri (`>=0.2.0 <0.3.0`). Sintassi non riconosciuta = incompatibile. Lo studio
+scrive ancora `*`; scriverà la versione minima quando un artifact userà una capacità
+nuova del motore (per esempio le variabili configurabili).
 
 ### 4.2 Interfaccia della runtime — esiste, da estendere
 
@@ -125,10 +130,13 @@ configurabili), `engineVersionRange` reale.
   · **3** rifiutato all'ammissione (firma, trust store, compatibilità).
 - Ambiente: `FLOWPILOT_RUN_ID` (id del run, assegnato da chi lancia), `MONITOR_URL`,
   `MONITOR_TOKEN`, `FLOWPILOT_RUNS_DIR`.
-- Da aggiungere, tutte facoltative: `--config <file>` (valori di configurazione, D7),
-  `--profile <file>` (profilo della runtime, §4.5), `--admit-only` (verifica e policy
-  senza eseguire: serve all'agente per ammettere una volta), uscita degli eventi su file
-  o stdout (l'agente li inoltra).
+- **Fatto nel P378:** `--profile <file>` (profilo della runtime, §4.5) e
+  `--admit-only` (verifica e policy senza eseguire; stampa su stdout
+  `{"admitted":true,"keyId","owner","planHash","planName","nodeTypes"}` oppure
+  `{"admitted":false,"reason"}`; uscita 0 o 3). Le opzioni stanno in qualunque
+  ordine rispetto al file; un'opzione sconosciuta è un errore d'uso (uscita 2).
+- Da aggiungere, facoltative: `--config <file>` (valori di configurazione, D7), uscita
+  degli eventi su file o stdout separata dal log (l'agente li inoltra).
 
 ### 4.3 Eventi — esiste, da estendere
 
@@ -143,12 +151,19 @@ Si riusa il formato dell'export dei profili (P152): `{ "profile": "prod", "value
 { "VAR": valore } }`. La runtime rifiuta valori per variabili non dichiarate o di tipo
 incompatibile (errore all'ammissione, uscita 3).
 
-### 4.5 Profilo della runtime — da fare
+### 4.5 Profilo della runtime — formato 1 fatto (P378)
 
-Un file per macchina: percorso del trust store, **policy** (tipi di nodo vietati, per
-esempio `shell_exec`/`ssh_exec`), limiti (memoria, durata), monitor/inoltro eventi. Le
-variabili d'ambiente di oggi continuano a valere e hanno la precedenza. In C il
-coordinatore può distribuire un profilo, ma la policy locale vince sempre (D5).
+`{ "formatVersion": 1, "description", "policy": { "deniedNodeTypes", "allowedNodeTypes" } }`
+in `~/.flowpilot/runtime.json`, oppure `--profile`, oppure `FLOWPILOT_RUNTIME_PROFILE`.
+Codice: `src-tauri/src/runtime/profile.rs`. Regole: file di default assente = nessuna
+restrizione; percorso indicato e assente = errore; chiave sconosciuta, `formatVersion`
+diversa, tipo di nodo inesistente o permessi pericolosi = rifiuto. I tipi validi sono
+`engine::executor::NODE_TYPES`, tenuto allineato al `match` di `run_node` da un test.
+
+Prossime versioni del formato (si alza `formatVersion`, così un runner vecchio rifiuta
+un profilo che non sa applicare invece di ignorarne le restrizioni): limiti (memoria,
+durata), percorso del trust store, inoltro eventi. In C il coordinatore può distribuire
+un profilo, ma la policy locale vince sempre (D5).
 
 ### 4.6 Stato desiderato dell'agente — da fare
 
@@ -166,6 +181,9 @@ Ogni fase è utile da sola e non richiede le successive.
 1. **Contratti e ammissione.** Vettori per §4.1–4.3; `engineVersionRange` reale; una sola
    funzione di ammissione (firma + compatibilità + **policy dei nodi pericolosi**);
    `--admit-only`; profilo della runtime. Utile subito in modo A.
+   *P378: ammissione unica (`runtime::admission::admit`), policy, profilo,
+   `--admit-only`, `engineVersionRange` reale nel runner. Restano i vettori dei
+   contratti e lo studio che scrive un range vero quando serve.*
 2. **Configurazione separata (D7).** Lo studio dichiara le variabili configurabili e le
    lascia come riferimento nel piano; il motore le risolve; `--config`. Lo stesso artifact
    gira in test e in produzione cambiando solo il file.

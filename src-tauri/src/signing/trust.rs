@@ -265,17 +265,25 @@ impl TrustStore {
     }
 }
 
-#[cfg(unix)]
 fn check_permissions(path: &Path) -> Result<Vec<String>, String> {
+    check_file_permissions(path, "trust store")
+}
+
+/// Controllo dei permessi di un file di configurazione DI SICUREZZA della
+/// runtime (trust store, profilo della runtime): chi può scriverlo decide cosa
+/// la macchina esegue. Scrivibile da chiunque (o in una cartella scrivibile da
+/// chiunque senza sticky bit) → rifiutato; scrivibile dal gruppo → avviso.
+#[cfg(unix)]
+pub(crate) fn check_file_permissions(path: &Path, label: &str) -> Result<Vec<String>, String> {
     use std::os::unix::fs::PermissionsExt;
     let mut warnings = Vec::new();
     let mode = std::fs::metadata(path)
-        .map_err(|e| format!("trust store ({}): {e}", path.display()))?
+        .map_err(|e| format!("{label} ({}): {e}", path.display()))?
         .permissions()
         .mode();
     if mode & 0o002 != 0 {
         return Err(format!(
-            "trust store scrivibile da CHIUNQUE ({}, permessi {:o}): rifiutato. Correggi con: chmod 600 {}",
+            "{label} scrivibile da CHIUNQUE ({}, permessi {:o}): rifiutato. Correggi con: chmod 600 {}",
             path.display(),
             mode & 0o777,
             path.display()
@@ -283,7 +291,7 @@ fn check_permissions(path: &Path) -> Result<Vec<String>, String> {
     }
     if mode & 0o020 != 0 {
         warnings.push(format!(
-            "trust store scrivibile dal gruppo ({}, permessi {:o}): consigliato chmod 600",
+            "{label} scrivibile dal gruppo ({}, permessi {:o}): consigliato chmod 600",
             path.display(),
             mode & 0o777
         ));
@@ -295,7 +303,7 @@ fn check_permissions(path: &Path) -> Result<Vec<String>, String> {
             // sostituire il file → equivale a un trust store scrivibile.
             if dmode & 0o002 != 0 && dmode & 0o1000 == 0 {
                 return Err(format!(
-                    "la cartella del trust store è scrivibile da CHIUNQUE ({}, permessi {:o}): rifiutato",
+                    "la cartella del {label} è scrivibile da CHIUNQUE ({}, permessi {:o}): rifiutato",
                     dir.display(),
                     dmode & 0o7777
                 ));
@@ -306,7 +314,7 @@ fn check_permissions(path: &Path) -> Result<Vec<String>, String> {
 }
 
 #[cfg(not(unix))]
-fn check_permissions(_path: &Path) -> Result<Vec<String>, String> {
+pub(crate) fn check_file_permissions(_path: &Path, _label: &str) -> Result<Vec<String>, String> {
     // Windows: le ACL non si riducono a bit rwx; la protezione è responsabilità
     // dell'amministratore (cartella del profilo dell'utente di servizio).
     Ok(Vec::new())

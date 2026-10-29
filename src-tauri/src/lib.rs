@@ -29,6 +29,7 @@ pub(crate) mod odbc; // P344: Oracle / Informix / ODBC generico (lettura)
 mod sqlsafe;      // P338: SQL dinamico sotto sqlx 0.9 (identificatori validati, AssertSqlSafe motivato)
 mod secrets;      // provider segreti: risolve i ${SEGRETO} nei config risorsa (env-var; env-var + keychain)
 pub mod signing;  // catena di fiducia degli artifact (firma): forma canonica + planHash (HANDOFF-firma-artifact.md)
+pub mod runtime;  // P378: profilo della runtime + ammissione unica (docs/ARCHITETTURA-coordinatore.md)
 
 #[cfg(feature = "desktop")]
 #[tauri::command]

@@ -13,6 +13,14 @@ La catena è **implementata e in albero**: firma P314–P327, hardening dello st
 P328–P331. Alcune scelte sono cambiate rispetto al design originale qui sotto:
 **dove differiscono, vale questo blocco.**
 
+> **P378 (29 ottobre):** il passo 7 della verifica (policy dei nodi) ora esiste. L'ingresso
+> unico è `runtime::admission::admit` = `verify_artifact` + policy del profilo della
+> runtime (`~/.flowpilot/runtime.json`, `--profile`, `FLOWPILOT_RUNTIME_PROFILE`);
+> `engineVersionRange` è un vincolo reale; `flowpilot_runner --admit-only`. Dettaglio in
+> `docs/ARCHITETTURA-coordinatore.md` §4.2/§4.5. Il punto 3 del modello di minaccia ("la
+> firma prova chi, non cosa") ha ora la sua difesa complementare a livello di tipo di nodo;
+> il sandbox del processo resta da fare.
+
 ### Mappa patch (firma)
 - **P314** forma canonica del piano + planHash — TS `src/ir/canonicalPlan.ts` ⟷ Rust
   `src-tauri/src/signing/canonical.rs`, vettore condiviso `vectors/canonical_plan_v1.json`.

@@ -2358,3 +2358,30 @@ Nessun codice: decisioni e contratti per la prossima grande fase, in
 - Brochure di sicurezza corretta: la verifica non ha modalità off/warn (P333) e il passo
   "policy" non è ancora applicato; la copia in `docs/brochures/` ora è un HTML
   autoportante (tolta la cartella `_files` del salvataggio dal browser).
+
+## AGGIORNAMENTO — Ammissione unica, profilo della runtime, policy dei nodi (stato al P378, 29 ottobre)
+
+Fase 1 di `docs/ARCHITETTURA-coordinatore.md`. Solo Rust (runner e libreria), lo studio
+non cambia. Requisiti dell'utente da tenere sempre presenti: prestazioni, sicurezza,
+elasticità.
+- **`src-tauri/src/runtime/`** (nuovo): `profile.rs` (profilo della runtime, formato 1) e
+  `admission.rs` (`admit` = firma + compatibilità + policy, l'unico ingresso; lo useranno
+  anche agente e coordinatore). Nessun effetto collaterale, costo una tantum per artifact.
+- **Policy**: `deniedNodeTypes` / `allowedNodeTypes` (il divieto vince). Il rifiuto dice
+  tipo, etichetta del nodo e file del profilo. Fail-closed su tutto ciò che non capisce:
+  chiave sconosciuta, `formatVersion` ≠ 1, tipo di nodo inesistente, permessi pericolosi
+  (stesso controllo del trust store, ora `trust::check_file_permissions(path, label)`).
+- **`engine::executor::NODE_TYPES`**: elenco dei tipi eseguibili, tenuto allineato al
+  `match` di `run_node` da un test (aggiungendo un nodo il test lo ricorda).
+- **`engineVersionRange` reale** (`verify::engine_compatible`): `*` o confronti
+  `>=`/`>`/`<=`/`<`/`=` su `X.Y.Z`; il resto è incompatibile. Lo studio scrive ancora `*`.
+- **Runner**: `--admit-only` (riepilogo JSON su stdout, uscita 0/3) e `--profile <file>`,
+  in qualunque ordine; opzione sconosciuta = uscita 2. Codici d'uscita documentati.
+- Collaudo nel sandbox (harness usa-e-getta, copia in `scratchpad/examples-p378/`):
+  artifact firmato con un nodo shell → ammesso senza profilo; rifiutato con profilo che
+  vieta `shell_exec` (anche nel run vero); refuso nel tipo, profilo assente indicato,
+  profilo 666, motore `>=9.0.0` → tutti uscita 3; il run senza profilo procede come prima.
+  `verifica_rust`: 0 errori, warning invariati (32/58/61), test lib 92 (+8), monitor 4.
+- Manuale `docs/MANUALE-build-esecuzione.md` §7.4 (profilo, `--admit-only`, codici).
+- Brochure di sicurezza (artifact e copia in `docs/brochures/`): policy della runtime
+  ora fra le garanzie di oggi e fra i passi di verifica.
