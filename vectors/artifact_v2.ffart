@@ -1,0 +1,70 @@
+{
+  "formatVersion": 2,
+  "manifest": {
+    "planName": "vettore-artifact",
+    "planVersion": {
+      "id": "v1",
+      "label": "1.0"
+    },
+    "studio": {
+      "id": "studio-vettore",
+      "label": "vettore"
+    },
+    "studioVersion": "0.1.0",
+    "profile": "prod",
+    "platform": "linux-x64",
+    "logLevel": "normale",
+    "monitor": null,
+    "requiredSecrets": [],
+    "engineVersionRange": "*",
+    "createdAt": "2026-10-29T00:00:00Z",
+    "planHash": "sha256:92fcab3a11f2912d0759a88a97afad9e6c2c2978b48b5362fb22fef438a335b0",
+    "hashAlg": "sha256",
+    "sigAlg": "ed25519",
+    "keyId": "ed25519:b600306cfa76723fdec395e53a9b3d9fdb78b1e2d7a23c32fcbcd2dc6d0c4092"
+  },
+  "sig": "We3cTzIoXmVaGILn4izc68PU5U/i55qAa9LmM9Py3XqI5YyMcYFTAL4WXaUh957e/ZaR/c5BJlZyPWyjw5DIAw==",
+  "publicKey": "GX9rI+FshTLGq8g4+s1ep4m+DHaykgM0A5v6iz02jWE=",
+  "plan": {
+    "run_id": "export-vettore-artifact",
+    "bridges": [],
+    "lanes": [
+      {
+        "lane_id": "lane_1",
+        "label": "Ordini è à",
+        "edges": [
+          {
+            "edge_id": "e1",
+            "source_node": "n1",
+            "source_handle": "output",
+            "target_node": "n2",
+            "target_handle": "input"
+          }
+        ],
+        "variables": {
+          "SOGLIA": 10
+        },
+        "nodes": [
+          {
+            "node_id": "n1",
+            "node_type": "source_file",
+            "label": "Ordini",
+            "config": {},
+            "spec": {
+              "path": "/data/ordini.csv"
+            }
+          },
+          {
+            "node_id": "n2",
+            "node_type": "sink_file",
+            "label": "Uscita",
+            "config": {},
+            "spec": {
+              "path": "/data/out.csv"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

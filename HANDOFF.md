@@ -2385,3 +2385,22 @@ elasticità.
 - Manuale `docs/MANUALE-build-esecuzione.md` §7.4 (profilo, `--admit-only`, codici).
 - Brochure di sicurezza (artifact e copia in `docs/brochures/`): policy della runtime
   ora fra le garanzie di oggi e fra i passi di verifica.
+
+## AGGIORNAMENTO — Vettori dei contratti, test del runner in CI (stato al P379, 29 ottobre)
+
+Chiude la fase 1 di `docs/ARCHITETTURA-coordinatore.md`. L'utente ha precisato: **l'orchestratore
+(agente, coordinatore) non si fa ora**; si lavora sulla runtime.
+- `vectors/artifact_v2.ffart` + `artifact_v2_trust_store.json`: artifact firmato (seme fisso),
+  mai da rigenerare. Test `runtime::admission::vettore_artifact_v2`: ammesso; piano toccato
+  → planHash; manifesto toccato → firma.
+- `vectors/engine_events_v1.ndjson`: un esempio per ognuna delle 19 varianti di
+  `EngineEvent`. Test `engine::events::contract_tests`: rilegge e riserializza identico;
+  `variant_name` è un match senza `_`, quindi una variante nuova non compila finché non
+  ha il suo esempio. Campi nuovi negli eventi: solo facoltativi.
+- `src-tauri/tests/runner_contract.rs` (`cargo test --no-default-features --test
+  runner_contract`): codici d'uscita 0/1/2/3, JSON di `--admit-only`, opzioni in qualunque
+  ordine, intestazione del log (`flowpilot-log-header`, `logFormat: 1`) ed eventi
+  `{timestamp, event:{type,payload}}`. Usa una HOME temporanea.
+- CI (`runner.yml`): test della libreria + contratto del runner prima della build (solo
+  Linux finché non si provano su Windows).
+- `vectors/README.md`: elenco dei vettori e regola (si corregge il codice, non il vettore).

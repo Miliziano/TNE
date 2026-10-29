@@ -1,0 +1,19 @@
+{"type":"RunStarted","payload":{"run_id":"export-1-1700000000000","lane_count":2,"started_at":1700000000000}}
+{"type":"RunCompleted","payload":{"run_id":"export-1-1700000000000","stats":{"run_id":"export-1-1700000000000","node_stats":{"n1":{"rows_in":0,"rows_out":10,"rows_rejected":0,"elapsed_ms":12,"error":null}},"total_ms":40,"lanes_ok":2,"lanes_failed":0},"elapsed_ms":40}}
+{"type":"RunFailed","payload":{"run_id":"export-1-1700000000000","error":"Node n2 failed: boom","elapsed_ms":41}}
+{"type":"NodeStarted","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n1","label":"Ordini"}}
+{"type":"NodeProgress","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n1","rows_in":100,"rows_out":98,"rows_rejected":2,"throughput_rps":1500.5}}
+{"type":"NodeCompleted","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n1","stats":{"rows_in":100,"rows_out":98,"rows_rejected":2,"elapsed_ms":66,"error":null}}}
+{"type":"NodeLog","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n3","node_label":"Log","level":"info","row_num":7,"message":"cliente 42","target":"panel"}}
+{"type":"NodeOutputStats","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n4","counts":{"out_a":60,"reject":2}}}
+{"type":"NodeFailed","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n2","error":"boom"}}
+{"type":"NodeInterrupted","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n5","reason":"lane interrupted by the error handler"}}
+{"type":"LaneSessionStarted","payload":{"run_id":"export-1-1700000000000","lane_id":"l2","node_id":"w1","session":3,"group_size":5}}
+{"type":"EdgeFlow","payload":{"run_id":"export-1-1700000000000","edge_id":"e1","delta":50}}
+{"type":"RowSample","payload":{"run_id":"export-1-1700000000000","node_id":"n1","edge_id":"e1","rows":[{"id":1,"nome":"à"}]}}
+{"type":"BridgeStarted","payload":{"run_id":"export-1-1700000000000","bridge_id":"b1","from_lane":"l1","to_lane":"l2"}}
+{"type":"BridgeCompleted","payload":{"run_id":"export-1-1700000000000","bridge_id":"b1","rows_transfer":98}}
+{"type":"MemorySample","payload":{"run_id":"export-1-1700000000000","rss":52428800,"timestamp":1700000000500}}
+{"type":"ConnectionOpened","payload":{"run_id":"export-1-1700000000000","node_id":"n1","resource_id":"r1","conn_type":"db_postgresql"}}
+{"type":"ConnectionClosed","payload":{"run_id":"export-1-1700000000000","node_id":"n1","resource_id":"r1","query_count":3,"elapsed_ms":80}}
+{"type":"ConnectionError","payload":{"run_id":"export-1-1700000000000","node_id":"n1","resource_id":"r1","error":"connection refused"}}

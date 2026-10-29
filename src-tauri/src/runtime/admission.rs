@@ -158,4 +158,26 @@ mod tests {
         assert!(admit(&artifact(&k, ">=0.2.0"), "0.1.0", &trust(&k), &p).is_err());
         assert!(admit(&artifact(&k, ">=0.1.0 <0.2.0"), "0.1.5", &trust(&k), &p).is_ok());
     }
+
+    /// Contratto dell'artifact (P379): `vectors/artifact_v2.ffart`, firmato una
+    /// volta e mai più rigenerato. Ogni versione futura del runner deve
+    /// ammetterlo così com'è; se il test fallisce si corregge il codice.
+    #[test]
+    fn vettore_artifact_v2() {
+        let art: Value = serde_json::from_str(include_str!("../../../vectors/artifact_v2.ffart")).unwrap();
+        let trust = TrustStore::parse(include_str!("../../../vectors/artifact_v2_trust_store.json")).unwrap();
+        let a = admit(&art, "0.1.0", &trust, &RuntimeProfile::default()).expect("il vettore deve essere ammesso");
+        assert_eq!(a.owner, "vettore");
+        assert_eq!(a.plan_name.as_deref(), Some("vettore-artifact"));
+        assert_eq!(a.node_types.iter().cloned().collect::<Vec<_>>(), vec!["sink_file", "source_file"]);
+
+        // piano toccato → planHash non combacia
+        let mut t = art.clone();
+        t["plan"]["lanes"][0]["variables"]["SOGLIA"] = json!(11);
+        assert!(admit(&t, "0.1.0", &trust, &RuntimeProfile::default()).unwrap_err().contains("planHash"));
+        // manifesto toccato → firma non valida
+        let mut t = art.clone();
+        t["manifest"]["logLevel"] = json!("diagnostico");
+        assert!(admit(&t, "0.1.0", &trust, &RuntimeProfile::default()).unwrap_err().contains("firma"));
+    }
 }

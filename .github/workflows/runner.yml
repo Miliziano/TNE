@@ -44,6 +44,14 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # P379: i contratti (formato dell'artifact, eventi, interfaccia del runner) e i
+      # test della libreria devono passare prima di pubblicare un binario. Solo su
+      # Linux finché i test non sono stati provati anche su Windows.
+      - name: Test dei contratti e della libreria (Linux)
+        if: runner.os == 'Linux'
+        working-directory: src-tauri
+        run: cargo test --no-default-features --lib --test runner_contract
+
       - name: Build runner (headless, size-optimized)
         working-directory: src-tauri
         run: cargo build --bin flowpilot_runner --no-default-features --profile release-lean

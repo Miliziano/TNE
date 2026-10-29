@@ -215,3 +215,59 @@ impl EngineEvent {
             .as_millis() as u64
     }
 }
+
+// ─── Contratto degli eventi (P379) ────────────────────────────────
+// `vectors/engine_events_v1.ndjson` contiene un esempio per ogni variante,
+// com'è serializzata oggi. Monitor, studio e (domani) agente e coordinatore
+// leggono questi JSON: cambiarli rompe chi li consuma.
+// - Rinominare o togliere un campo, o aggiungerne uno OBBLIGATORIO, fa fallire
+//   la lettura del vettore: i campi nuovi vanno aggiunti come facoltativi
+//   (`Option` + `#[serde(default, skip_serializing_if = "Option::is_none")]`).
+// - Una variante nuova non compila finché non la si aggiunge a `variant_name`
+//   (match senza `_`) e il test chiede di metterne un esempio nel vettore.
+// Se il test fallisce: si corregge il codice, non il vettore.
+#[cfg(test)]
+mod contract_tests {
+    use super::EngineEvent;
+    use std::collections::BTreeSet;
+
+    fn variant_name(e: &EngineEvent) -> &'static str {
+        match e {
+            EngineEvent::RunStarted { .. } => "RunStarted",
+            EngineEvent::RunCompleted { .. } => "RunCompleted",
+            EngineEvent::RunFailed { .. } => "RunFailed",
+            EngineEvent::NodeStarted { .. } => "NodeStarted",
+            EngineEvent::NodeProgress { .. } => "NodeProgress",
+            EngineEvent::NodeCompleted { .. } => "NodeCompleted",
+            EngineEvent::NodeLog { .. } => "NodeLog",
+            EngineEvent::NodeOutputStats { .. } => "NodeOutputStats",
+            EngineEvent::NodeFailed { .. } => "NodeFailed",
+            EngineEvent::NodeInterrupted { .. } => "NodeInterrupted",
+            EngineEvent::LaneSessionStarted { .. } => "LaneSessionStarted",
+            EngineEvent::EdgeFlow { .. } => "EdgeFlow",
+            EngineEvent::RowSample { .. } => "RowSample",
+            EngineEvent::BridgeStarted { .. } => "BridgeStarted",
+            EngineEvent::BridgeCompleted { .. } => "BridgeCompleted",
+            EngineEvent::MemorySample { .. } => "MemorySample",
+            EngineEvent::ConnectionOpened { .. } => "ConnectionOpened",
+            EngineEvent::ConnectionClosed { .. } => "ConnectionClosed",
+            EngineEvent::ConnectionError { .. } => "ConnectionError",
+        }
+    }
+    const ALL: usize = 19;
+
+    #[test]
+    fn eventi_stabili_rispetto_al_vettore() {
+        let raw = include_str!("../../../vectors/engine_events_v1.ndjson");
+        let mut seen = BTreeSet::new();
+        for (i, line) in raw.lines().filter(|l| !l.trim().is_empty()).enumerate() {
+            let expected: serde_json::Value = serde_json::from_str(line).unwrap();
+            let ev: EngineEvent = serde_json::from_str(line)
+                .unwrap_or_else(|e| panic!("riga {}: il vettore non si legge più ({e}) — contratto rotto", i + 1));
+            let again = serde_json::to_value(&ev).unwrap();
+            assert_eq!(again, expected, "riga {}: la serializzazione è cambiata", i + 1);
+            seen.insert(variant_name(&ev));
+        }
+        assert_eq!(seen.len(), ALL, "manca nel vettore un esempio per qualche variante: {seen:?}");
+    }
+}

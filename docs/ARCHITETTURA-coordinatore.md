@@ -106,9 +106,11 @@ reale (oggi lo studio scrive sempre `"*"`).
 
 ## 4. Contratti
 
-Ogni contratto ha una **versione** e dei **vettori di prova** nel repo (come
-`vectors/canonical_plan_v1.json`): un test che fallisce dopo una modifica vuol dire che
-si è rotto un contratto, e si corregge il codice, non il vettore.
+Ogni contratto ha una **versione** e dei **vettori di prova** nel repo (elenco in
+`vectors/README.md`): un test che fallisce dopo una modifica vuol dire che si è rotto un
+contratto, e si corregge il codice, non il vettore. Dal P379: artifact firmato
+(`artifact_v2.ffart`), eventi (`engine_events_v1.ndjson`), interfaccia del runner
+(`src-tauri/tests/runner_contract.rs`); la CI li esegue prima di costruire il binario.
 
 ### 4.1 Artifact (`.ffart`) — esiste
 
@@ -182,8 +184,9 @@ Ogni fase è utile da sola e non richiede le successive.
    funzione di ammissione (firma + compatibilità + **policy dei nodi pericolosi**);
    `--admit-only`; profilo della runtime. Utile subito in modo A.
    *P378: ammissione unica (`runtime::admission::admit`), policy, profilo,
-   `--admit-only`, `engineVersionRange` reale nel runner. Restano i vettori dei
-   contratti e lo studio che scrive un range vero quando serve.*
+   `--admit-only`, `engineVersionRange` reale nel runner. P379: vettori dei contratti
+   (`vectors/README.md`) e test dell'interfaccia del runner, eseguiti anche in CI.
+   **Fase 1 chiusa.** Lo studio scriverà un range vero quando servirà (fase 2).*
 2. **Configurazione separata (D7).** Lo studio dichiara le variabili configurabili e le
    lascia come riferimento nel piano; il motore le risolve; `--config`. Lo stesso artifact
    gira in test e in produzione cambiando solo il file.
