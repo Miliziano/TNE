@@ -2341,3 +2341,20 @@ flowStore (propagazione), connectionResolver, schemaPropagation e lowering. Test
 aggiunti redaction dei segreti, monitor chiuso per default, connettori cifrati / SQL
 sicuro, toolchain fissata; "Guaranteed today" e roadmap allineati (TLS nativo del monitor,
 audit di lettura, sandbox/policy shell-ssh, firma dei binari e audit in CI restano da fare).
+
+## AGGIORNAMENTO — Architettura di esecuzione: runtime, agente, coordinatore (stato al P377, 29 ottobre)
+
+Nessun codice: decisioni e contratti per la prossima grande fase, in
+**`docs/ARCHITETTURA-coordinatore.md`** (riferimento fisso per le patch future).
+- Tre componenti (runtime = `flowpilot_runner` di oggi, agente, coordinatore) e tre modi
+  d'uso a scelta del cliente: solo runtime a mano, agente locale autonomo, gestito da un
+  coordinatore centrale (anche misto). Si passa da un modo all'altro senza reinstallare.
+- Decisioni chiave: stato desiderato dichiarativo; l'agente chiede, il coordinatore non
+  spinge; schedulazione valutata sull'agente; fiducia nel codice locale (il coordinatore
+  restringe, mai allarga); un processo runtime per run; configurazione separata
+  dall'artifact (oggi il profilo è congelato nel piano); nei formati si aggiunge e basta.
+- Prossima fase (1): vettori dei contratti, `engineVersionRange` reale, ammissione unica
+  con **policy dei nodi pericolosi**, `--admit-only`, profilo della runtime.
+- Brochure di sicurezza corretta: la verifica non ha modalità off/warn (P333) e il passo
+  "policy" non è ancora applicato; la copia in `docs/brochures/` ora è un HTML
+  autoportante (tolta la cartella `_files` del salvataggio dal browser).
