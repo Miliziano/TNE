@@ -94,25 +94,25 @@ console.log('\n--- errori: arità (al parse) ---')
 console.log('\n--- errori: ombreggiamento di una predefinita ---')
 {
   const { errors } = build(['funzione upper(x) { ritorna x }'])
-  ok(errors.some((e) => /predefinita/.test(e.message)), 'ridefinire "upper" è rifiutato')
+  ok(errors.some((e) => /built-in function/.test(e.message)), 'ridefinire "upper" è rifiutato')
 }
 
 console.log('\n--- errori: ricorsione ---')
 {
   const { errors } = build(['funzione a(x) { ritorna b(x) }', 'funzione b(x) { ritorna a(x) }'])
-  ok(errors.some((e) => /ricorsione/.test(e.message)), 'la ricorsione indiretta a→b→a è rifiutata')
+  ok(errors.some((e) => /recursion not allowed/.test(e.message)), 'la ricorsione indiretta a→b→a è rifiutata')
 }
 
 console.log('\n--- errori: campo libero nel corpo ---')
 {
   const { errors } = build(['funzione somma(x) { ritorna x + y }'])
-  ok(errors.some((e) => /non sono suoi parametri|solo i parametri/.test(e.message)), '"y" (non parametro) nel corpo è rifiutato')
+  ok(errors.some((e) => /not its parameters|only the parameters/.test(e.message)), '"y" (non parametro) nel corpo è rifiutato')
 }
 
 console.log('\n--- errori: definizione malformata ---')
 {
   const { errors } = build(['funzione rotta(a b) ritorna a'])
-  ok(errors.some((e) => /non valida/.test(e.message)), 'una definizione senza graffe/forma giusta è rifiutata')
+  ok(errors.some((e) => /invalid definition/.test(e.message)), 'una definizione senza graffe/forma giusta è rifiutata')
 }
 
 console.log('\n--- una funzione valida non produce errori ---')

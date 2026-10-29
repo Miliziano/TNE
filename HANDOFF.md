@@ -2282,3 +2282,17 @@ Audit di configurazione, JSON Serializer.
   Fine dell'audit di configurazione. Restano: le ~560 stringhe italiane (es. pannello
   ssh_exec/shell), i 4 test delle funzioni utente FPEL che falliscono, brochure sicurezza,
   ESLint, codegen TS del filter; facoltativo: mergeParent del JSON Parser nella modale.
+
+## AGGIORNAMENTO — Test delle funzioni utente FPEL e `npm run test:ir` (stato al P375, 29 ottobre)
+
+- I 4 FAIL di `src/ir/userFunctions.test.ts` (segnalati al P35x) non erano buchi della
+  validazione: ridefinire `upper`, ricorsione indiretta, nome non parametro nel corpo e
+  definizione malformata SONO rifiutati. I test cercavano i messaggi in italiano, tradotti in
+  inglese nel frattempo. Allineate le regex: 15/15.
+- Nuovo `npm run test:ir` (`scripts/test-ir.ts`): lancia tutti i `src/ir/*.test.ts` (ognuno
+  esce con 1 se fallisce) e riassume. Stato: 5 file, tutti verdi.
+- Codegen TS del filter: NON toccato, e tolto dalla lista. Il codegen TS è irraggiungibile
+  (CodegenPanel non montato, `generateCode` dello store mai chiamato) e resta congelato (D3):
+  decisione dell'utente (29 ottobre). I codegen futuri partiranno dal piano del motore (D1).
+  Restano: ~560 stringhe italiane (es. pannello ssh_exec/shell), brochure sicurezza, ESLint;
+  facoltativo: mergeParent del JSON Parser nella modale.
