@@ -9,8 +9,13 @@
 //     "policy": {
 //       "deniedNodeTypes":  ["shell_exec", "ssh_exec"],
 //       "allowedNodeTypes": ["source_db", "tmap", "sink_db"]   // facoltativo
-//     }
+//     },
+//     "secrets": { "onlyDeclared": true }    // P380, facoltativo
 //   }
+//
+// `secrets.onlyDeclared`: i `${NOME}` delle risorse si risolvono solo per i
+// segreti elencati nel manifesto firmato (`requiredSecrets`), non per qualunque
+// variabile d'ambiente della macchina. Consigliato in produzione.
 //
 // Dove si trova: `--profile <file>` > `FLOWPILOT_RUNTIME_PROFILE` >
 // `~/.flowpilot/runtime.json`. Se il percorso è stato INDICATO e il file manca
@@ -57,6 +62,8 @@ impl Policy {
 #[derive(Debug, Default, Clone)]
 pub struct RuntimeProfile {
     pub policy: Policy,
+    /// Solo i segreti dichiarati nel manifesto (`secrets.onlyDeclared`).
+    pub secrets_only_declared: bool,
     pub description: Option<String>,
     /// File da cui è stato letto; `None` = profilo vuoto (file di default assente).
     pub source: Option<PathBuf>,
@@ -107,7 +114,7 @@ impl RuntimeProfile {
         let v: Value = serde_json::from_str(raw).map_err(|e| format!("JSON non valido: {e}"))?;
         let obj = v.as_object().ok_or("deve essere un oggetto JSON")?;
         for k in obj.keys() {
-            if !matches!(k.as_str(), "formatVersion" | "description" | "policy") {
+            if !matches!(k.as_str(), "formatVersion" | "description" | "policy" | "secrets") {
                 return Err(format!("chiave sconosciuta \"{k}\": il profilo è per un runner più recente o contiene un refuso"));
             }
         }
@@ -125,7 +132,23 @@ impl RuntimeProfile {
             None | Some(Value::Null) => Policy::default(),
             Some(p) => parse_policy(p)?,
         };
-        Ok(Self { policy, description, source: None, warnings: Vec::new() })
+        let secrets_only_declared = match obj.get("secrets") {
+            None | Some(Value::Null) => false,
+            Some(Value::Object(o)) => {
+                for k in o.keys() {
+                    if k != "onlyDeclared" {
+                        return Err(format!("chiave sconosciuta \"secrets.{k}\""));
+                    }
+                }
+                match o.get("onlyDeclared") {
+                    None | Some(Value::Null) => false,
+                    Some(Value::Bool(b)) => *b,
+                    Some(_) => return Err("\"secrets.onlyDeclared\" deve essere true o false".into()),
+                }
+            }
+            Some(_) => return Err("\"secrets\" deve essere un oggetto".into()),
+        };
+        Ok(Self { policy, secrets_only_declared, description, source: None, warnings: Vec::new() })
     }
 }
 
@@ -181,6 +204,9 @@ mod tests {
         assert!(!p.policy.permits("shell_exec"));
         assert!(p.policy.permits("tmap"));
         assert_eq!(p.description.as_deref(), Some("prod"));
+        assert!(!p.secrets_only_declared);
+        let p = RuntimeProfile::parse(r#"{"formatVersion":1,"secrets":{"onlyDeclared":true}}"#).unwrap();
+        assert!(p.secrets_only_declared);
 
         let p = RuntimeProfile::parse(
             r#"{"formatVersion":1,"policy":{"allowedNodeTypes":["source_db","sink_db"],"deniedNodeTypes":["sink_db"]}}"#,
@@ -202,6 +228,8 @@ mod tests {
             (r#"{"formatVersion":1,"policy":{"deniedNodeTypes":"shell_exec"}}"#, "non è un elenco"),
             (r#"{"formatVersion":1,"policy":{"deniedNodeTypes":[""]}}"#, "voce vuota"),
             (r#"[1]"#, "non è un oggetto"),
+            (r#"{"formatVersion":1,"secrets":{"only":true}}"#, "chiave di secrets sconosciuta"),
+            (r#"{"formatVersion":1,"secrets":{"onlyDeclared":"si"}}"#, "non booleano"),
         ] {
             assert!(RuntimeProfile::parse(raw).is_err(), "doveva fallire: {why}");
         }

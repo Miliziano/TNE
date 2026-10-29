@@ -1,0 +1,23 @@
+{
+  "poolVariables": [
+    { "id": "v1", "name": "DB_HOST", "type": "string", "value": "db.test.internal", "scope": "pool",
+      "configurable": { "pattern": " [a-z0-9.-]+\\.internal " } },
+    { "id": "v2", "name": "THRESHOLD", "type": "number", "value": "10", "scope": "pool",
+      "configurable": { "min": 0, "max": 1000, "pattern": "ignored for numbers" } },
+    { "id": "v3", "name": "LEVEL", "type": "string", "value": "base", "scope": "pool",
+      "configurable": { "allowed": ["base", " full ", ""] } },
+    { "id": "v4", "name": "ENABLED", "type": "boolean", "value": "true", "scope": "pool", "configurable": {} },
+    { "id": "v5", "name": "OPTIONS", "type": "object", "value": "{\"a\":1}", "scope": "pool", "configurable": {} },
+    { "id": "v6", "name": "FROZEN", "type": "string", "value": "x", "scope": "pool" },
+    { "id": "v7", "name": "DB_PASSWORD", "type": "secret", "value": "", "scope": "pool", "configurable": {} },
+    { "id": "v8", "name": "orders", "type": "materialize", "value": "n9", "scope": "pool", "configurable": {} }
+  ],
+  "activeProfile": { "THRESHOLD": "25" },
+  "manifestVariables": {
+    "DB_HOST":   { "type": "string",  "default": "db.test.internal", "pattern": "[a-z0-9.-]+\\.internal" },
+    "THRESHOLD": { "type": "number",  "default": "25", "min": 0, "max": 1000 },
+    "LEVEL":     { "type": "string",  "default": "base", "allowed": ["base", "full"] },
+    "ENABLED":   { "type": "boolean", "default": "true" },
+    "OPTIONS":   { "type": "json",    "default": "{\"a\":1}" }
+  }
+}

@@ -109,6 +109,11 @@ fn artifact_seal(
     plan: serde_json::Value,
     meta: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    // P381: le variabili configurabili si controllano con lo STESSO codice del
+    // runner prima di firmare: un pattern che il runner non compila o un default
+    // fuori dai vincoli darebbero un artifact firmato ma mai ammissibile.
+    crate::runtime::config::declared_variables(&meta)
+        .map_err(|e| format!("variabili configurabili: {e}"))?;
     crate::signing::seal::seal(&plan, &meta)
 }
 

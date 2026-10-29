@@ -9,6 +9,8 @@ corregge il codice, non il vettore**. Un vettore nuovo si aggiunge con un nome n
 |---|---|---|
 | `canonical_plan_v1.json` | forma canonica del piano e `planHash` (TS ⟷ Rust) | `src/ir/canonicalPlan.test.ts`, `signing/canonical.rs` |
 | `artifact_v2.ffart` + `artifact_v2_trust_store.json` | artifact firmato `formatVersion: 2`: ogni runner futuro deve ammetterlo così com'è | `runtime/admission.rs` (`vettore_artifact_v2`), `tests/runner_contract.rs` |
+| `artifact_v2_config.ffart` | artifact con variabili configurabili dichiarate (`engineVersionRange: ">=0.2.0"`) | `runtime/admission.rs` (`vettore_artifact_config`), `tests/runner_contract.rs` (`configurazione`) |
+| `manifest_variables_v1.json` | dichiarazione delle variabili configurabili scritta dallo studio e accettata dal runner (TS ⟷ Rust) | `src/ir/runtimeVariables.test.ts`, `runtime/config.rs` (`vettore_condiviso_con_lo_studio`) |
 | `engine_events_v1.ndjson` | un esempio per ogni evento del motore, com'è serializzato | `engine/events.rs` (`contract_tests`) |
 
 L'interfaccia del runner (codici d'uscita, `--admit-only`, intestazione del log) è fissata

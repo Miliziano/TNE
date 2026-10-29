@@ -110,6 +110,9 @@ fn run_fallito_e_intestazione_del_log() {
     assert_eq!(header["logFormat"], 1);
     assert_eq!(header["artifact"]["planName"], "vettore-artifact");
     assert!(header["runner"]["version"].is_string());
+    // P380: impronta della configurazione sempre presente (qui: nessuna variabile)
+    assert!(header["configuration"]["hash"].as_str().unwrap().starts_with("sha256:"));
+    assert_eq!(header["configuration"]["overridden"], serde_json::json!([]));
     // ogni riga successiva: { timestamp, event: { type, payload } }
     let mut types = Vec::new();
     for l in lines.filter(|l| !l.trim().is_empty()) {
@@ -119,4 +122,71 @@ fn run_fallito_e_intestazione_del_log() {
     }
     assert_eq!(types.first().map(String::as_str), Some("RunStarted"), "{types:?}");
     assert_eq!(types.last().map(String::as_str), Some("RunFailed"), "{types:?}");
+}
+
+fn config_artifact() -> String {
+    vectors().join("artifact_v2_config.ffart").display().to_string()
+}
+
+fn write_config(home: &Path, name: &str, body: &str, mode: u32) -> String {
+    let p = home.join(name);
+    std::fs::write(&p, body).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(mode)).unwrap();
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
+    p.display().to_string()
+}
+
+/// P380 — configurazione separata dall'artifact (docs/ARCHITETTURA-coordinatore.md D7).
+#[test]
+fn configurazione() {
+    let h = home("config", None);
+
+    // senza file: valori di default, nulla cambiato
+    let out = run(&h, &["--admit-only", &config_artifact()]);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["configuration"]["overridden"], serde_json::json!([]));
+    let default_hash = v["configuration"]["hash"].as_str().unwrap().to_string();
+
+    // file valido: due valori cambiati, impronta diversa
+    let ok = write_config(&h, "prod.json", r#"{"profile":"prod","values":{"DB_HOST":"db.prod.interno","SOGLIA":"50"}}"#, 0o600);
+    let out = run(&h, &["--admit-only", "--config", &ok, &config_artifact()]);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["configuration"]["overridden"], serde_json::json!(["DB_HOST", "SOGLIA"]));
+    assert_eq!(v["configuration"]["profile"], "prod");
+    assert_ne!(v["configuration"]["hash"].as_str().unwrap(), default_hash);
+
+    // valore fuori dai vincoli firmati → rifiutato (3)
+    for (name, body) in [
+        ("host.json", r#"{"values":{"DB_HOST":"evil.example.com"}}"#),
+        ("soglia.json", r#"{"values":{"SOGLIA":"5000"}}"#),
+        ("livello.json", r#"{"values":{"LIVELLO":"massimo"}}"#),
+        ("ignota.json", r#"{"values":{"DB_PASSWORD":"x"}}"#),
+    ] {
+        let p = write_config(&h, name, body, 0o600);
+        let out = run(&h, &["--admit-only", "--config", &p, &config_artifact()]);
+        assert_eq!(out.status.code(), Some(3), "{name}");
+        let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(v["admitted"], false, "{name}");
+    }
+
+    // artifact senza variabili dichiarate: nessun valore ammesso
+    let p = write_config(&h, "vecchio.json", r#"{"values":{"SOGLIA":"1"}}"#, 0o600);
+    assert_eq!(run(&h, &["--admit-only", "--config", &p, &artifact()]).status.code(), Some(3));
+
+    // file indicato ma assente, o scrivibile da chiunque → rifiutato
+    let missing = h.join("nope.json").display().to_string();
+    assert_eq!(run(&h, &["--admit-only", "--config", &missing, &config_artifact()]).status.code(), Some(3));
+    #[cfg(unix)]
+    {
+        let open = write_config(&h, "aperto.json", r#"{"values":{}}"#, 0o666);
+        assert_eq!(run(&h, &["--admit-only", "--config", &open, &config_artifact()]).status.code(), Some(3));
+    }
+    assert_eq!(run(&h, &["--config"]).status.code(), Some(2));
 }

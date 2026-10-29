@@ -293,6 +293,40 @@ Controllare un artifact **senza eseguirlo** (per esempio prima di installarlo):
 ```
 Uscita 0 se verrebbe eseguito, 3 (con `{"admitted":false,"reason":…}`) se no.
 
+Segreti solo dichiarati (consigliato in produzione): aggiungi al profilo
+`"secrets": { "onlyDeclared": true }`. I `${NOME}` delle risorse si risolvono allora solo
+per i segreti che l'artifact dichiara (quelli mostrati dalla scheda Compile), non per
+qualunque variabile d'ambiente della macchina.
+
+### 7.5 Configurazione separata dall'artifact (dal P380)
+Nello studio (dal P381): **Environments** → accanto a una variabile condivisa, il bottone
+⚙ la rende *configurabile al run*. Sotto compaiono tipo (testo, numero, true/false, JSON),
+valori ammessi, minimo/massimo (numeri) o formato (espressione regolare sull'intero valore,
+per i testi). Il valore del profilo attivo diventa il default; vincoli e default entrano
+nel manifesto firmato, e la scheda **Compile** elenca le variabili configurabili. Se il
+default non rispetta i vincoli, l'artifact non viene generato. Un artifact con variabili
+configurabili richiede un runner 0.2.0 o successivo (i precedenti lo rifiutano).
+Una variabile di lane con lo stesso nome di una configurabile è un errore di compilazione.
+
+Lo stesso artifact firmato può girare in test e in produzione cambiando solo un file di
+valori, per le variabili che lo sviluppatore ha reso **configurabili** (con i loro vincoli:
+valori ammessi, intervallo, formato). Il file ha il formato dell'export dei profili:
+```json
+{ "profile": "prod", "values": { "DB_HOST": "db.prod.interno", "SOGLIA": "50" } }
+```
+```bash
+chmod 600 prod.json
+./flowpilot_runner --config prod.json ordini.ffart       # oppure FLOWPILOT_CONFIG=prod.json
+./flowpilot_runner --admit-only --config prod.json ordini.ffart   # solo controllo
+```
+- Senza `--config` valgono i valori scelti alla compilazione.
+- Rifiuto (codice 3) se: una variabile non è configurabile in quell'artifact, un valore è
+  fuori dai vincoli, contiene caratteri di controllo o un riferimento `${…}`, il file è
+  scrivibile da chiunque o non è JSON valido.
+- Il log registra il file, il profilo, i nomi cambiati e un'impronta dei valori
+  (`configuration` nell'intestazione), mai i valori stessi.
+- I segreti non vanno nella configurazione: restano variabili d'ambiente o keychain.
+
 ---
 
 ## 8. SEGRETI — configurazione ed esempi

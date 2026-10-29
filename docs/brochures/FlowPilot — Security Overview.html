@@ -173,7 +173,8 @@
         <h3>Signed artifacts, verified execution</h3>
         <p>Compiling a pipeline produces a signed artifact. Before running, the runtime verifies the signature against a list of authorised keys, recomputes the plan's hash, and refuses anything unsigned, unauthorised, or altered. The runtime executes only pipelines it can prove are genuine and unmodified.</p>
         <p class="sub">The signature covers the whole manifest: plan, monitor endpoint, log level, secret names and provenance. Tampering with any of them in transit breaks verification.</p>
-        <div class="chips"><span class="chip">Ed25519</span><span class="chip">SHA-256 canonical plan hash</span><span class="chip">fail-closed</span></div>
+        <p class="sub">The same signed artifact can run in test and production with different values, but only for the variables its developer marked as configurable, and only within the types, ranges, allowed values and formats signed into the manifest. Values are treated as data, never as code, and every run records a fingerprint of the configuration it used.</p>
+        <div class="chips"><span class="chip">Ed25519</span><span class="chip">SHA-256 canonical plan hash</span><span class="chip">fail-closed</span><span class="chip">signed configuration limits</span></div>
       </div>
     </div>
 
@@ -301,6 +302,7 @@
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Private key encrypted at rest &amp; wiped from memory</div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Secrets resolved on target, never in artifacts</div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Secret values masked in logs and monitor events<small>literal values; data rows untouched</small></div></li>
+          <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Run-time configuration only within signed limits<small>optionally, secrets limited to those the artifact declares</small></div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Per-signer attribution &amp; instant revocation</div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Per-machine policy on node types<small>for example, no shell or SSH commands in production</small></div></li>
           <li><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6l3.5 3.5L11 2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><div>Monitor closed by default<small>local bind, separate ingest and read tokens, rate limits</small></div></li>

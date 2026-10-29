@@ -117,7 +117,7 @@ contratto, e si corregge il codice, non il vettore. Dal P379: artifact firmato
 `{ formatVersion: 2, manifest, sig, plan }`. Il manifesto è firmato e unica fonte dei
 campi operativi: `planName`, `planVersion`, `planHash`, `studio`, `studioVersion`,
 `profile`, `platform`, `logLevel`, `monitor`, `requiredSecrets`, `engineVersionRange`,
-`createdAt`. Previsti (D7): `variables` (dichiarazione delle variabili configurabili).
+`createdAt`, e dal P380 `variables` (dichiarazione delle variabili configurabili, §4.4).
 
 `engineVersionRange` (dal P378 il runner lo applica davvero): `*` oppure confronti
 `>=` `>` `<=` `<` `=` su versioni `MAGGIORE.MINORE.PATCH`, separati da spazi o virgole,
@@ -137,8 +137,11 @@ nuova del motore (per esempio le variabili configurabili).
   `{"admitted":true,"keyId","owner","planHash","planName","nodeTypes"}` oppure
   `{"admitted":false,"reason"}`; uscita 0 o 3). Le opzioni stanno in qualunque
   ordine rispetto al file; un'opzione sconosciuta è un errore d'uso (uscita 2).
-- Da aggiungere, facoltative: `--config <file>` (valori di configurazione, D7), uscita
-  degli eventi su file o stdout separata dal log (l'agente li inoltra).
+- **Fatto nel P380:** `--config <file>` (o `FLOWPILOT_CONFIG`): valori delle variabili
+  configurabili (§4.4). Il riepilogo di `--admit-only` e l'intestazione del log hanno
+  `configuration: { source, profile, hash, overridden }`.
+- Da aggiungere, facoltativa: uscita degli eventi su file o stdout separata dal log
+  (l'agente li inoltra).
 
 ### 4.3 Eventi — esiste, da estendere
 
@@ -147,11 +150,35 @@ NDJSON con `run_id`, tipi `RunStarted/Completed/Failed`, `Node*`, `Lane*`, `Brid
 facoltativi: `agent_id`, `runtime_id`, `deployment_id`, `trigger`
 (`manual` | `schedule` | `event` | `remote`). Chi non li conosce li ignora.
 
-### 4.4 Configurazione — formato già esistente
+### 4.4 Configurazione — fatta (P380 runtime, P381 studio)
 
-Si riusa il formato dell'export dei profili (P152): `{ "profile": "prod", "values":
-{ "VAR": valore } }`. La runtime rifiuta valori per variabili non dichiarate o di tipo
-incompatibile (errore all'ammissione, uscita 3).
+**Dichiarazione** nel manifesto firmato:
+`"variables": { "NOME": { "type": "string|number|boolean|json", "default": "testo",
+"allowed": [..], "min": n, "max": n, "pattern": "regex" } }` — i vincoli sono facoltativi;
+`min`/`max` solo per `number`, `pattern` solo per `string` (ancorato: vale il valore intero).
+Un vincolo sconosciuto o un default fuori dai vincoli rendono l'artifact non ammissibile.
+
+**File di configurazione** (formato dell'export dei profili, P152):
+`{ "profile": "prod", "values": { "NOME": "valore" } }` (testi; numeri e booleani JSON
+accettati). Codice: `src-tauri/src/runtime/config.rs`.
+
+**Regole di sicurezza** (concordate il 29 ottobre):
+1. Solo variabili dichiarate nell'artifact firmato; per default nessuna è configurabile.
+2. Tipo e vincoli stanno nel manifesto firmato; un valore fuori vincolo → rifiuto (3).
+3. I valori sono dati: vanno nelle variabili di lane (`var()`, percorsi "da variabile")
+   e al posto di `${NOME}` nei campi delle risorse; mai nel testo di espressioni o query.
+   Sempre rifiutati: caratteri di controllo e riferimenti `${…}` dentro un valore (che
+   verrebbero poi risolti come segreti).
+4. Il file è controllato come il trust store (permessi, JSON rigoroso).
+5. Impronta dei valori (`sha256` del JSON ordinato) e nomi cambiati nel log; mai i valori.
+6. Facoltativo: configurazione firmata pretesa dal profilo (non ancora fatto).
+
+**Rappresentazione:** come fa lo studio, i valori stanno nel piano come testo: un valore
+da file si comporta come lo stesso valore congelato alla compilazione.
+
+**Compatibilità:** un artifact con `variables` dichiara `engineVersionRange: ">=0.2.0"`
+(il runner è passato a 0.2.0 nel P380). I runner precedenti lo rifiutano invece di
+eseguirlo con i `${NOME}` non risolti: quelli prima del P378 accettano solo `*`.
 
 ### 4.5 Profilo della runtime — formato 1 fatto (P378)
 
@@ -161,6 +188,12 @@ Codice: `src-tauri/src/runtime/profile.rs`. Regole: file di default assente = ne
 restrizione; percorso indicato e assente = errore; chiave sconosciuta, `formatVersion`
 diversa, tipo di nodo inesistente o permessi pericolosi = rifiuto. I tipi validi sono
 `engine::executor::NODE_TYPES`, tenuto allineato al `match` di `run_node` da un test.
+
+Dal P380 anche `"secrets": { "onlyDeclared": true }`: i `${NOME}` delle risorse si
+risolvono solo per i segreti elencati in `requiredSecrets` del manifesto firmato, non per
+qualunque variabile d'ambiente della macchina. Facoltativo per non cambiare gli artifact
+esistenti; consigliato in produzione. (Un runner più vecchio rifiuta un profilo con questa
+chiave, come deve.)
 
 Prossime versioni del formato (si alza `formatVersion`, così un runner vecchio rifiuta
 un profilo che non sa applicare invece di ignorarne le restrizioni): limiti (memoria,
@@ -190,6 +223,11 @@ Ogni fase è utile da sola e non richiede le successive.
 2. **Configurazione separata (D7).** Lo studio dichiara le variabili configurabili e le
    lascia come riferimento nel piano; il motore le risolve; `--config`. Lo stesso artifact
    gira in test e in produzione cambiando solo il file.
+   *P380: lato runtime fatto (dichiarazione, `--config`, vincoli, impronta, segreti solo
+   dichiarati). P381: lato studio (variabili configurabili e vincoli in Environments,
+   `manifest.variables`, `${NOME}` lasciati nelle risorse dell'artifact, validazione col
+   codice del runner alla firma). **Fase 2 chiusa.** Resta facoltativa la configurazione
+   firmata (regola 6).*
 3. **Agente autonomo (modo B).** Cartella di stato, schedulazioni cron e manuali, lancio
    della runtime, storico locale, inoltro eventi al monitor. Sostituisce il cron esterno.
 4. **Coordinatore (modo C).** Registrazione degli agenti, catalogo, configurazioni per

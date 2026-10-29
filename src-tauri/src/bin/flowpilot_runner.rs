@@ -167,6 +167,8 @@ uso:
 opzioni dell'esecuzione:
   --profile <file>   profilo della runtime (default: $FLOWPILOT_RUNTIME_PROFILE,
                      poi ~/.flowpilot/runtime.json se esiste)
+  --config <file>    valori delle variabili configurabili dell'artifact
+                     (default: $FLOWPILOT_CONFIG; senza: i valori di default)
 opzioni di trust:  --store <percorso>  (default: ~/.flowpilot/trust-store.json)
 La voce da autorizzare si copia dallo studio (Signing / Compile -> voce trust store).";
 
@@ -391,6 +393,7 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut admit_only = false;
     let mut profile_path: Option<std::path::PathBuf> = None;
+    let mut config_path: Option<std::path::PathBuf> = None;
     let path = match args.first().map(|s| s.as_str()) {
         Some("trust") => std::process::exit(trust_cmd(&args[1..])),
         Some("-h") | Some("--help") => {
@@ -414,6 +417,16 @@ fn main() {
                             Some(p) => profile_path = Some(std::path::PathBuf::from(p)),
                             None => {
                                 eprintln!("--profile richiede un percorso\n{USAGE}");
+                                std::process::exit(2);
+                            }
+                        }
+                    }
+                    "--config" => {
+                        i += 1;
+                        match args.get(i) {
+                            Some(p) => config_path = Some(std::path::PathBuf::from(p)),
+                            None => {
+                                eprintln!("--config richiede un percorso\n{USAGE}");
                                 std::process::exit(2);
                             }
                         }
@@ -505,13 +518,35 @@ fn main() {
     for w in &profile.warnings {
         eprintln!("avviso profilo della runtime: {w}");
     }
-    // Ammissione UNICA: firma + compatibilita' + policy (runtime::admission).
-    let admitted = match app_lib::runtime::admission::admit(&root, env!("CARGO_PKG_VERSION"), &trust, &profile) {
+    // Configurazione (P380): valori per le variabili DICHIARATE nell'artifact.
+    // Un file indicato ma sbagliato non si ignora: rifiuto (fail-closed).
+    let run_config = match app_lib::runtime::config::RunConfig::resolve(config_path.as_deref()) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("RIFIUTATO: {e}");
+            if admit_only {
+                println!("{}", serde_json::json!({ "admitted": false, "reason": e }));
+            }
+            std::process::exit(EXIT_REJECTED);
+        }
+    };
+    for w in run_config.iter().flat_map(|c| c.warnings.iter()) {
+        eprintln!("avviso configurazione: {w}");
+    }
+    // Ammissione UNICA: firma + compatibilita' + policy + configurazione (runtime::admission).
+    let admitted = match app_lib::runtime::admission::admit(&root, env!("CARGO_PKG_VERSION"), &trust, &profile, run_config.as_ref()) {
         Ok(a) => {
             let owner = if a.owner.is_empty() { "?" } else { &a.owner };
             eprintln!("firma OK: artifact firmato da {} ({})", owner, a.key_id);
             if let Some(src) = &profile.source {
                 eprintln!("policy OK: profilo {}", src.display());
+            }
+            if profile.secrets_only_declared {
+                let names = app_lib::runtime::restrict_secrets_to_declared(root.get("manifest").unwrap_or(&serde_json::Value::Null));
+                eprintln!("segreti: solo quelli dichiarati ({})", if names.is_empty() { "nessuno".to_string() } else { names.join(", ") });
+            }
+            if let Some(src) = &a.config.source {
+                eprintln!("configurazione OK: {} ({} valori da file)", src.display(), a.config.overridden.len());
             }
             a
         }
@@ -593,6 +628,9 @@ fn main() {
             "createdAt":       man.get("createdAt"),
             "requiredSecrets": man.get("requiredSecrets"),
         },
+        // P380: con quali valori gira il codice firmato (impronta, nomi cambiati;
+        // mai i valori stessi).
+        "configuration": admitted.config.summary(),
     })
     .to_string();
 
@@ -620,6 +658,8 @@ fn main() {
     if let Some(obj) = plan.as_object_mut() {
         obj.insert("run_id".to_string(), serde_json::Value::from(run_id.clone()));
     }
+    // Valori delle variabili configurabili (P380): sul piano GIA' verificato, in memoria.
+    app_lib::runtime::config::apply(&mut plan, &admitted.config);
     eprintln!("run: {} (artifact: {})", run_id, artifact_id);
 
     let plan_json = plan.to_string();

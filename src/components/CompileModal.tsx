@@ -11,6 +11,7 @@
  * Il "Genera" costruisce il piano col profilo attivo congelato (buildRustPlan) e
  * salva il `.ffart`. La logica di export sta in Toolbar (onGenerate).
  */
+import { isConfigurable } from '../ir/runtimeVariables'
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../store/flowStore'
@@ -90,6 +91,7 @@ export function CompileModal({ open, onClose, onGenerate }: {
 
   const profileNames = Object.keys(environments.profiles)
   const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
+  const runtimeVariables = (pool.variables ?? []).filter(isConfigurable).map((v) => v.name)
   const frozenProfile = environments.active || '(default)'
 
   return (
@@ -201,7 +203,16 @@ export function CompileModal({ open, onClose, onGenerate }: {
                   ? <span style={{ color: '#5a6a8a' }}>none</span>
                   : requiredSecrets.map((s) => <span key={s} style={{ color: '#c8a060' }}>🔒 {s}</span>)}
               </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'baseline' }}>
+                <span>configurable at run time:</span>
+                {runtimeVariables.length === 0
+                  ? <span style={{ color: '#5a6a8a' }}>none (all values frozen)</span>
+                  : runtimeVariables.map((s) => <span key={s} style={{ color: '#7ec8a0' }}>⚙ {s}</span>)}
+              </div>
             </div>
+            {runtimeVariables.length > 0 && (
+              <div style={{ fontSize: 10, color: '#7ec8a0' }}>These values can be changed on the target machine with a configuration file (runner --config), only within the constraints signed into the artifact. Requires runner 0.2.0 or later.</div>
+            )}
             {requiredSecrets.length > 0 && (
               <div style={{ fontSize: 10, color: '#c8a060' }}>Secret values are NOT in the artifact: they must be provided on the target machine (keychain or environment variables).</div>
             )}

@@ -7,11 +7,14 @@
 //   1-6  firma, compatibilità del motore, chiave autorizzata, integrità del
 //        piano — signing::verify (HANDOFF-firma-artifact.md §9)
 //   7    policy della runtime sui tipi di nodo (profile.rs)
+//   8    configurazione: valori solo per variabili dichiarate nel manifesto
+//        firmato, nei loro vincoli (config.rs, P380)
 //
 // Nessun effetto collaterale: nessun file scritto, nessuna rete, nessun
 // segreto risolto. Costo: una verifica Ed25519 + un hash del piano, una volta
 // per artifact — mai per riga (§8: ammissione ≠ esecuzione).
 
+use super::config::{self, Resolved, RunConfig};
 use super::profile::RuntimeProfile;
 use crate::signing::trust::TrustStore;
 use crate::signing::verify::verify_artifact;
@@ -26,6 +29,8 @@ pub struct Admitted {
     pub plan_hash: String,
     pub plan_name: Option<String>,
     pub node_types: BTreeSet<String>,
+    /// Valori delle variabili configurabili per questo run (default + configurazione).
+    pub config: Resolved,
 }
 
 impl Admitted {
@@ -38,6 +43,7 @@ impl Admitted {
             "planHash":  self.plan_hash,
             "planName":  self.plan_name,
             "nodeTypes": self.node_types,
+            "configuration": self.config.summary(),
         })
     }
 }
@@ -47,6 +53,7 @@ pub fn admit(
     engine_version: &str,
     trust: &TrustStore,
     profile: &RuntimeProfile,
+    run_config: Option<&RunConfig>,
 ) -> Result<Admitted, String> {
     let verified = verify_artifact(root, engine_version, trust)?;
     let manifest = root.get("manifest").cloned().unwrap_or(Value::Null);
@@ -87,7 +94,11 @@ pub fn admit(
         ));
     }
 
+    let declared = config::declared_variables(&manifest)?;
+    let resolved = config::resolve(&declared, run_config)?;
+
     Ok(Admitted {
+        config: resolved,
         key_id: verified.key_id,
         owner: verified.owner,
         plan_hash: manifest.get("planHash").and_then(|v| v.as_str()).unwrap_or("").to_string(),
@@ -133,7 +144,7 @@ mod tests {
     #[test]
     fn ammesso_senza_policy() {
         let k = kp();
-        let a = admit(&artifact(&k, "*"), "0.1.0", &trust(&k), &RuntimeProfile::default()).unwrap();
+        let a = admit(&artifact(&k, "*"), "0.1.0", &trust(&k), &RuntimeProfile::default(), None).unwrap();
         assert_eq!(a.owner, "marco");
         assert_eq!(a.plan_name.as_deref(), Some("demo"));
         assert!(a.node_types.contains("shell_exec"));
@@ -144,19 +155,19 @@ mod tests {
     fn policy_rifiuta_e_dice_dove() {
         let k = kp();
         let profile = RuntimeProfile::parse(r#"{"formatVersion":1,"policy":{"deniedNodeTypes":["shell_exec"]}}"#).unwrap();
-        let err = admit(&artifact(&k, "*"), "0.1.0", &trust(&k), &profile).unwrap_err();
+        let err = admit(&artifact(&k, "*"), "0.1.0", &trust(&k), &profile, None).unwrap_err();
         assert!(err.contains("shell_exec (Pulizia)"), "{err}");
 
         let only = RuntimeProfile::parse(r#"{"formatVersion":1,"policy":{"allowedNodeTypes":["source_file"]}}"#).unwrap();
-        assert!(admit(&artifact(&k, "*"), "0.1.0", &trust(&k), &only).is_err());
+        assert!(admit(&artifact(&k, "*"), "0.1.0", &trust(&k), &only, None).is_err());
     }
 
     #[test]
     fn motore_incompatibile() {
         let k = kp();
         let p = RuntimeProfile::default();
-        assert!(admit(&artifact(&k, ">=0.2.0"), "0.1.0", &trust(&k), &p).is_err());
-        assert!(admit(&artifact(&k, ">=0.1.0 <0.2.0"), "0.1.5", &trust(&k), &p).is_ok());
+        assert!(admit(&artifact(&k, ">=0.2.0"), "0.1.0", &trust(&k), &p, None).is_err());
+        assert!(admit(&artifact(&k, ">=0.1.0 <0.2.0"), "0.1.5", &trust(&k), &p, None).is_ok());
     }
 
     /// Contratto dell'artifact (P379): `vectors/artifact_v2.ffart`, firmato una
@@ -166,7 +177,7 @@ mod tests {
     fn vettore_artifact_v2() {
         let art: Value = serde_json::from_str(include_str!("../../../vectors/artifact_v2.ffart")).unwrap();
         let trust = TrustStore::parse(include_str!("../../../vectors/artifact_v2_trust_store.json")).unwrap();
-        let a = admit(&art, "0.1.0", &trust, &RuntimeProfile::default()).expect("il vettore deve essere ammesso");
+        let a = admit(&art, "0.1.0", &trust, &RuntimeProfile::default(), None).expect("il vettore deve essere ammesso");
         assert_eq!(a.owner, "vettore");
         assert_eq!(a.plan_name.as_deref(), Some("vettore-artifact"));
         assert_eq!(a.node_types.iter().cloned().collect::<Vec<_>>(), vec!["sink_file", "source_file"]);
@@ -174,10 +185,30 @@ mod tests {
         // piano toccato → planHash non combacia
         let mut t = art.clone();
         t["plan"]["lanes"][0]["variables"]["SOGLIA"] = json!(11);
-        assert!(admit(&t, "0.1.0", &trust, &RuntimeProfile::default()).unwrap_err().contains("planHash"));
+        assert!(admit(&t, "0.1.0", &trust, &RuntimeProfile::default(), None).unwrap_err().contains("planHash"));
         // manifesto toccato → firma non valida
         let mut t = art.clone();
         t["manifest"]["logLevel"] = json!("diagnostico");
-        assert!(admit(&t, "0.1.0", &trust, &RuntimeProfile::default()).unwrap_err().contains("firma"));
+        assert!(admit(&t, "0.1.0", &trust, &RuntimeProfile::default(), None).unwrap_err().contains("firma"));
+    }
+
+    /// P380: artifact con variabili configurabili (`vectors/artifact_v2_config.ffart`).
+    #[test]
+    fn vettore_artifact_config() {
+        let art: Value = serde_json::from_str(include_str!("../../../vectors/artifact_v2_config.ffart")).unwrap();
+        let trust = TrustStore::parse(include_str!("../../../vectors/artifact_v2_trust_store.json")).unwrap();
+        let p = RuntimeProfile::default();
+        // chiede un motore >= 0.2.0
+        assert!(admit(&art, "0.1.0", &trust, &p, None).unwrap_err().contains("motore incompatibile"));
+        let a = admit(&art, "0.2.0", &trust, &p, None).unwrap();
+        assert_eq!(a.config.values["DB_HOST"], "db.test.interno");
+        let c = RunConfig::parse(r#"{"values":{"DB_HOST":"db.prod.interno"}}"#).unwrap();
+        let a = admit(&art, "0.2.0", &trust, &p, Some(&c)).unwrap();
+        let mut plan = art["plan"].clone();
+        config::apply(&mut plan, &a.config);
+        assert_eq!(plan["lanes"][0]["nodes"][0]["spec"]["resource"]["host"], "db.prod.interno");
+        assert_eq!(plan["lanes"][0]["nodes"][0]["spec"]["resource"]["password"], "${DB_PASSWORD}");
+        let bad = RunConfig::parse(r#"{"values":{"DB_HOST":"evil.example.com"}}"#).unwrap();
+        assert!(admit(&art, "0.2.0", &trust, &p, Some(&bad)).is_err());
     }
 }

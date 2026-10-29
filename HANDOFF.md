@@ -2404,3 +2404,51 @@ Chiude la fase 1 di `docs/ARCHITETTURA-coordinatore.md`. L'utente ha precisato: 
 - CI (`runner.yml`): test della libreria + contratto del runner prima della build (solo
   Linux finché non si provano su Windows).
 - `vectors/README.md`: elenco dei vettori e regola (si corregge il codice, non il vettore).
+
+## AGGIORNAMENTO — Configurazione separata dall'artifact, lato runtime (stato al P380, 29 ottobre)
+
+Fase 2 di `docs/ARCHITETTURA-coordinatore.md` (§4.4), parte runtime. Lo studio non cambia
+ancora (P381): oggi nessun artifact dichiara variabili, quindi il comportamento è identico.
+- **`runtime/config.rs`**: `manifest.variables` (tipo + default + `allowed`/`min`/`max`/
+  `pattern`), file `--config` / `FLOWPILOT_CONFIG` nel formato dell'export dei profili,
+  `resolve` (default + file, validato) e `apply` (variabili di lane + `${NOME}` nelle
+  risorse, sul piano già verificato, in memoria). Valori come TESTO, come li scrive lo studio.
+- **Sicurezza**: solo variabili dichiarate; vincoli firmati; rifiutati caratteri di
+  controllo e `${…}` nei valori (sarebbero stati risolti come segreti → esfiltrazione di
+  variabili d'ambiente); file controllato come il trust store; impronta `sha256` dei
+  valori e nomi cambiati nel log, mai i valori.
+- **Trovato e chiuso (opzione)**: `resolve_secret_refs` risolve QUALUNQUE `${NOME}` dalle
+  variabili d'ambiente. Profilo: `"secrets": {"onlyDeclared": true}` → solo i nomi di
+  `requiredSecrets` del manifesto (`secrets::restrict_to`, impostato una volta per processo).
+  Facoltativo per compatibilità, consigliato in produzione.
+- **Versione del motore 0.1.0 → 0.2.0** (`Cargo.toml`): gli artifact con variabili
+  dichiarano `>=0.2.0`, così i runner precedenti li rifiutano invece di eseguirli male.
+- `admit(…, run_config)` ora prende la configurazione; `Admitted.config`; `--admit-only` e
+  intestazione del log con `configuration: {source, profile, hash, overridden}`.
+- Vettore `vectors/artifact_v2_config.ffart`; test: config (6), admission (+1), runner
+  contract `configurazione`. `verifica_rust`: 0 errori, warning invariati, lib 100,
+  contratto 5.
+- ⚠ Disco del sandbox: `target/debug` era arrivato a 26 GB (spazio esaurito); cancellato e
+  ricompilato.
+- Manuale §7.4 (segreti solo dichiarati) e §7.5 (configurazione).
+
+## AGGIORNAMENTO — Variabili configurabili al run, lato studio (stato al P381, 29 ottobre)
+
+Chiude la fase 2 di `docs/ARCHITETTURA-coordinatore.md` (configurazione separata).
+- `Variable.configurable?: VariableConstraints` (`allowed`, `min`/`max`, `pattern`): presente
+  = configurabile; assente = congelata come prima (default sicuro, progetti salvati invariati).
+- **Environments**: bottone ⚙ sulle variabili condivise (non segreti, non dataset) e riga dei
+  vincoli con tipo; avviso se il valore attuale non li rispetta.
+- `src/ir/runtimeVariables.ts`: fonte unica (`manifestVariables`, `configurableNames`,
+  `ENGINE_RANGE_WITH_VARIABLES = ">=0.2.0"`).
+- `buildRustPlan(…, { forArtifact: true })` (solo l'export): le configurabili restano
+  `${NOME}` nelle risorse; il Run dello studio le risolve come prima. Errore se una
+  variabile di lane ha il nome di una configurabile (la nasconderebbe).
+- Export: `manifest.variables` + `engineVersionRange: ">=0.2.0"` solo se ci sono variabili;
+  altrimenti l'artifact è identico a prima.
+- `artifact_seal` valida `meta.variables` con `runtime::config::declared_variables` prima
+  di firmare (stesso codice del runner: niente divergenze fra regex JS e Rust).
+- Compile: riga "configurable at run time".
+- Vettore condiviso `vectors/manifest_variables_v1.json` (test TS + Rust). `test:ir` 7 file;
+  `verifica_rust`: lib 101, contratto 5; ESLint 0 errori.
+- Brochure (artifact + `docs/brochures/`): configurazione solo entro limiti firmati.

@@ -22,6 +22,15 @@ const SERVICE: &str = "flowpilot";
 /// Ritorna None se il segreto non è disponibile da nessuna fonte. Gli errori del
 /// keychain (assente/non sbloccato) degradano a None: la risoluzione non crasha.
 pub fn resolve_secret(name: &str) -> Option<String> {
+    // P380: con la policy "solo segreti dichiarati" si risolvono soltanto i nomi
+    // elencati nel manifesto firmato (`requiredSecrets`). Senza, un riferimento
+    // `${QUALSIASI}` in una risorsa leggerebbe qualunque variabile d'ambiente
+    // della macchina (es. credenziali cloud) e la manderebbe dove dice la risorsa.
+    if let Some(allowed) = ALLOWED.get() {
+        if !allowed.contains(name) {
+            return None;
+        }
+    }
     if let Ok(v) = std::env::var(name) {
         if !v.is_empty() {
             remember_secret(&v);
@@ -36,6 +45,15 @@ pub fn resolve_secret(name: &str) -> Option<String> {
         remember_secret(v);
     }
     kc
+}
+
+static ALLOWED: OnceLock<std::collections::HashSet<String>> = OnceLock::new();
+
+/// Limita la risoluzione dei segreti ai nomi indicati (runner, P380). Si
+/// imposta una volta per processo (un processo per run, D6); le chiamate
+/// successive non la allargano. Ritorna false se era già impostata.
+pub fn restrict_to(names: impl IntoIterator<Item = String>) -> bool {
+    ALLOWED.set(names.into_iter().collect()).is_ok()
 }
 
 /// Imposta un segreto nel keychain del SO (provisioning sulla macchina).

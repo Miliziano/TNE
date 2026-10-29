@@ -1,0 +1,71 @@
+{
+  "formatVersion": 2,
+  "manifest": {
+    "planName": "vettore-config",
+    "logLevel": "normale",
+    "monitor": null,
+    "requiredSecrets": [
+      "DB_PASSWORD"
+    ],
+    "engineVersionRange": ">=0.2.0",
+    "createdAt": "2026-10-29T00:00:00Z",
+    "variables": {
+      "SOGLIA": {
+        "type": "number",
+        "default": "10",
+        "min": 0,
+        "max": 1000
+      },
+      "LIVELLO": {
+        "type": "string",
+        "default": "base",
+        "allowed": [
+          "base",
+          "pieno"
+        ]
+      },
+      "DB_HOST": {
+        "type": "string",
+        "default": "db.test.interno",
+        "pattern": "[a-z0-9.-]+\\.interno"
+      }
+    },
+    "planHash": "sha256:a982b42060771a9f947b6fd30a3a356955a4bc8b9400f9ec8ad2677af81e8120",
+    "hashAlg": "sha256",
+    "sigAlg": "ed25519",
+    "keyId": "ed25519:b600306cfa76723fdec395e53a9b3d9fdb78b1e2d7a23c32fcbcd2dc6d0c4092"
+  },
+  "sig": "xFbQGXGN+07iS+0+5+DqZ4/fdndieAULv5sMrhLY0mSARJOTTf7d4HsstRuV20Tyuu8GrEJj6Qd5L04HQe8yDg==",
+  "publicKey": "GX9rI+FshTLGq8g4+s1ep4m+DHaykgM0A5v6iz02jWE=",
+  "plan": {
+    "run_id": "export-vettore-config",
+    "bridges": [],
+    "lanes": [
+      {
+        "lane_id": "lane_1",
+        "label": "Ordini",
+        "edges": [],
+        "variables": {
+          "SOGLIA": "10",
+          "LIVELLO": "base"
+        },
+        "nodes": [
+          {
+            "node_id": "n1",
+            "node_type": "source_db",
+            "label": "Clienti",
+            "config": {},
+            "spec": {
+              "resource": {
+                "host": "${DB_HOST}",
+                "port": "5432",
+                "password": "${DB_PASSWORD}"
+              },
+              "resourceId": "res_1"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

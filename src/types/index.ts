@@ -300,6 +300,22 @@ export interface Variable {
   type: VariableType
   value: string
   scope: VariableScope
+  /** P381 — variabile di POOL configurabile al run (fuori dall'artifact, col
+   *  file `--config` del runner). Assente = NON configurabile (default sicuro:
+   *  il valore resta congelato nell'artifact come prima). I vincoli finiscono
+   *  nel manifesto FIRMATO e il runner li impone. */
+  configurable?: VariableConstraints
+}
+
+/** Vincoli di una variabile configurabile (contratto: docs/ARCHITETTURA-coordinatore.md §4.4). */
+export interface VariableConstraints {
+  /** Valori ammessi (elenco chiuso). */
+  allowed?: string[]
+  /** Solo tipo number. */
+  min?: number
+  max?: number
+  /** Solo tipo string: espressione regolare che deve coprire il valore INTERO. */
+  pattern?: string
 }
 
 // ─── Stato connessione risorsa ────────────────────────────────────

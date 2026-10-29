@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { configurableNames, manifestVariables, ENGINE_RANGE_WITH_VARIABLES } from '../ir/runtimeVariables'
 import { useFlowStore, resyncNodeCounter, normalizeLoadedNodes } from '../store/flowStore'
 import { invoke } from '@tauri-apps/api/core'
 import {
@@ -461,6 +462,7 @@ function buildRustPlan(
   edgesOriginali: Edge[],
   pool:  ReturnType<typeof useFlowStore.getState>['pool'],
   runId: string,
+  opts:  { forArtifact?: boolean } = {},
 ): object {
   // I nodi disabilitati escono di scena prima di ogni altra cosa: vale sia per
   // il Run sia per l'export dell'artifact, che passano entrambi di qui.
@@ -532,9 +534,25 @@ function buildRustPlan(
   // all'ambiente), contro le variabili di POOL col profilo attivo applicato.
   // Un riferimento IGNOTO (es. un futuro ${SEGRETO}) viene lasciato INTATTO:
   // i segreti si risolveranno nel motore Rust, non qui (mai in chiaro nello studio).
+  // P381: nell'ARTIFACT le variabili configurabili al run restano `${NOME}`
+  // nelle risorse: le sostituisce il runner col valore del file `--config` (o
+  // col default dichiarato nel manifesto). Nel Run dello studio si risolvono qui.
+  const configurabili = opts.forArtifact ? configurableNames(pool.variables ?? []) : new Set<string>()
   const poolResolved: Record<string, string> = {}
   for (const pv of pool.variables ?? []) {
-    if (pv.type !== 'materialize' && pv.type !== 'secret') poolResolved[pv.name] = activeProfile[pv.name] ?? pv.value
+    if (pv.type !== 'materialize' && pv.type !== 'secret' && !configurabili.has(pv.name)) {
+      poolResolved[pv.name] = activeProfile[pv.name] ?? pv.value
+    }
+  }
+  // Una variabile di lane con lo stesso nome di una configurabile la nasconderebbe
+  // (a parità di nome vince la lane) e il valore da file non arriverebbe: errore.
+  const tuttiConfigurabili = configurableNames(pool.variables ?? [])
+  for (const lane of pool.lanes) {
+    for (const v of lane.variables ?? []) {
+      if (tuttiConfigurabili.has(v.name)) {
+        throw new Error(`Lane "${lane.label}": the lane variable "${v.name}" hides the shared variable configurable at run time. Rename one of the two.`)
+      }
+    }
   }
   const resolveResourceRefs = (cfg: Record<string, string> | null): Record<string, string> | null => {
     if (!cfg) return null
@@ -1387,11 +1405,17 @@ export function Toolbar() {
       : null
     let plan
     try {
-      plan = buildRustPlan(nodes, edges, pool, runId)
+      plan = buildRustPlan(nodes, edges, pool, runId, { forArtifact: true })
     } catch (e) {
       addLog('error', `Flow compilation failed: ${(e as Error).message}`)
       return
     }
+    // P381: variabili configurabili al run → dichiarate nel manifesto firmato;
+    // gli artifact che le usano chiedono un runner che le sappia applicare.
+    const activeValues: Record<string, string> =
+      (environments.active && environments.profiles[environments.active]) || {}
+    const variables = manifestVariables(pool.variables ?? [], activeValues)
+    const hasVariables = Object.keys(variables).length > 0
     const requiredSecrets = (pool.variables ?? []).filter((v) => v.type === 'secret').map((v) => v.name)
 
     // ── PROVENIENZA (fase A) ─────────────────────────────────────
@@ -1427,7 +1451,8 @@ export function Toolbar() {
     const meta = {
       planName, planVersion, studio, studioVersion, profile, platform,
       logLevel, monitor: monitorUrl || null, requiredSecrets,
-      engineVersionRange: '*', createdAt: exportedAt,
+      engineVersionRange: hasVariables ? ENGINE_RANGE_WITH_VARIABLES : '*', createdAt: exportedAt,
+      ...(hasVariables ? { variables } : {}),
     }
     let sealed: { manifest: unknown; sig: string; publicKey: string }
     try {

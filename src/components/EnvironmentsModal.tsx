@@ -15,6 +15,8 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useFlowStore } from '../store/flowStore'
 import { CustomSelect } from './CustomSelect'
+import { canBeConfigurable } from '../ir/runtimeVariables'
+import type { Variable, VariableConstraints } from '../types'
 import { openFileDialog, saveFileDialog, readFile, writeFile, isTauri, secretSet, secretHas, secretDelete } from '../lib/tauri'
 
 const inputStyle: React.CSSProperties = {
@@ -192,7 +194,8 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
               <div style={{ fontSize: 11, color: '#8593b5', fontStyle: 'italic' }}>No shared variables. Add one: it will be referenceable with <code style={{ color: '#8aa' }}>{'${name}'}</code> in every lane.</div>
             ) : (
               poolVars.map((v) => (
-                <div key={v.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Fragment key={v.id}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input value={v.name} onChange={(e) => updateVariable('pool', null, v.id, { name: e.target.value })} placeholder="name" style={{ ...inputStyle, flex: '0 0 170px' }} />
                   {v.type === 'secret' ? (
                     <div style={{ flex: 1, fontSize: 10, color: '#c8a060', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -201,8 +204,24 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
                   ) : (
                     <input value={v.value} onChange={(e) => updateVariable('pool', null, v.id, { value: e.target.value })} placeholder="default value" style={inputStyle} />
                   )}
+                  {canBeConfigurable(v) && (
+                    <button
+                      onClick={() => updateVariable('pool', null, v.id, { configurable: v.configurable ? undefined : {} })}
+                      title={v.configurable
+                        ? 'Configurable at run time: the runner can receive another value from a configuration file, within the constraints below. Click to freeze it in the artifact again.'
+                        : 'Frozen in the artifact. Click to make it configurable at run time (runner --config), with constraints signed into the artifact.'}
+                      aria-pressed={!!v.configurable}
+                      style={{ ...ghostBtnStyle, padding: '5px 8px', color: v.configurable ? '#7ec8a0' : '#5a6a8a', borderColor: v.configurable ? '#2f6a4a' : '#3a4a6a' }}>
+                      <i className="ti ti-adjustments" aria-hidden="true" />
+                    </button>
+                  )}
                   <button onClick={() => deleteVariable('pool', null, v.id)} title="Delete" style={trashStyle}><i className="ti ti-trash" aria-hidden="true" /></button>
                 </div>
+                {v.configurable && canBeConfigurable(v) && (
+                  <RuntimeConstraints v={v} defaultValue={(environments.active && environments.profiles[environments.active]?.[v.name]) ?? v.value}
+                    onChange={(patch) => updateVariable('pool', null, v.id, patch)} />
+                )}
+                </Fragment>
               ))
             )}
           </div>
@@ -334,6 +353,78 @@ export function EnvironmentsModal({ open, onClose }: { open: boolean; onClose: (
         <div style={{ padding: '10px 16px', borderTop: '1px solid #2a3349', fontSize: 10, color: '#5a6a8a' }}>
           The values live in the project (Save). Import/export to a file is optional; on opening the project always wins — reload from the file when you want.
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Vincoli di una variabile configurabile al run (P381) ───────────
+// Finiscono nel manifesto FIRMATO; il runner rifiuta un valore da file che non li
+// rispetta. Il controllo qui sotto è solo un aiuto: quello che conta lo fa il Rust
+// alla firma e all'esecuzione (src-tauri/src/runtime/config.rs).
+function constraintProblem(type: Variable['type'], c: VariableConstraints, value: string): string | null {
+  if (c.allowed?.length && !c.allowed.includes(value)) return 'the current value is not among the allowed values'
+  if (type === 'number') {
+    const n = Number(value)
+    if (value.trim() === '' || !Number.isFinite(n)) return 'the current value is not a number'
+    if (c.min !== undefined && n < c.min) return 'the current value is below the minimum'
+    if (c.max !== undefined && n > c.max) return 'the current value is above the maximum'
+  }
+  if (type === 'string' && c.pattern) {
+    try { if (!new RegExp(`^(?:${c.pattern})$`).test(value)) return 'the current value does not match the pattern' }
+    catch { return 'the pattern is not a valid regular expression' }
+  }
+  return null
+}
+
+function RuntimeConstraints({ v, defaultValue, onChange }: {
+  v: Variable
+  defaultValue: string
+  onChange: (patch: Partial<Variable>) => void
+}) {
+  const c = v.configurable ?? {}
+  const set = (patch: Partial<VariableConstraints>) => onChange({ configurable: { ...c, ...patch } })
+  const num = (raw: string): number | undefined => {
+    const t = raw.trim()
+    if (t === '') return undefined
+    const n = Number(t)
+    return Number.isFinite(n) ? n : undefined
+  }
+  const problem = constraintProblem(v.type, c, defaultValue)
+  const small: React.CSSProperties = { ...inputStyle, flex: '0 0 90px' }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, margin: '0 0 4px 176px', padding: '6px 8px', border: '1px solid #2f4a3f', borderRadius: 6, background: '#16211e' }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: '#7ec8a0' }}>run time</span>
+        <CustomSelect value={v.type} onChange={(e) => onChange({ type: e.target.value as Variable['type'], configurable: { allowed: c.allowed } })} style={{ ...selectStyle, flex: '0 0 100px' }}>
+          <option value="string">text</option>
+          <option value="number">number</option>
+          <option value="boolean">true/false</option>
+          <option value="json">JSON</option>
+        </CustomSelect>
+        <input key={`allowed-${v.id}-${(c.allowed ?? []).join('|')}`} defaultValue={(c.allowed ?? []).join(', ')}
+          onBlur={(e) => { const list = e.target.value.split(',').map((x) => x.trim()).filter((x) => x !== ''); set({ allowed: list.length ? list : undefined }) }}
+          placeholder="allowed values, comma-separated (optional)" title="If set, only these values are accepted" style={inputStyle} />
+      </div>
+      {(v.type === 'number' || v.type === 'string') && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {v.type === 'number' ? (
+            <>
+              <input key={`min-${v.id}-${c.min}`} defaultValue={c.min ?? ''} onBlur={(e) => set({ min: num(e.target.value) })} placeholder="min" style={small} />
+              <input key={`max-${v.id}-${c.max}`} defaultValue={c.max ?? ''} onBlur={(e) => set({ max: num(e.target.value) })} placeholder="max" style={small} />
+            </>
+          ) : (
+            <input key={`pattern-${v.id}-${c.pattern ?? ''}`} defaultValue={c.pattern ?? ''}
+              onBlur={(e) => set({ pattern: e.target.value.trim() || undefined })}
+              placeholder="pattern (regular expression for the whole value, optional), e.g. [a-z0-9.-]+\.internal"
+              title="Example: [a-z0-9.-]+\.internal accepts only hosts of the internal domain" style={inputStyle} />
+          )}
+        </div>
+      )}
+      <div style={{ fontSize: 10, color: problem ? '#e07070' : '#5a7a6a' }}>
+        {problem
+          ? `Constraint problem: ${problem}. The artifact cannot be generated until it is fixed.`
+          : 'Values from a configuration file are accepted only within these constraints. Control characters and ${…} references are always rejected.'}
       </div>
     </div>
   )
