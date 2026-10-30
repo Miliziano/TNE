@@ -117,7 +117,7 @@ pub async fn run(
     out.insert("generated_at".into(), Value::String(chrono::Utc::now().to_rfc3339()));
     out.insert("template".into(),     Value::String(template));
     out.insert("format".into(),       Value::String(output_fmt));
-    let _ = tx.send(Row(out)).await;
+    let _ = tx.send(Row(out.into_iter().collect())).await;
 
     // Riporta i conteggi alla UI come fanno gli altri nodi (aggregate, ecc.):
     // in questo motore è il nodo stesso a emettere il proprio NodeStats.

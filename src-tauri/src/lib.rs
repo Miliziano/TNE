@@ -1,3 +1,9 @@
+// P382: allocatore globale per TUTTI i binari (studio, runner, monitor). Il motore
+// alloca molte piccole strutture per riga; con l'allocatore di sistema malloc/free
+// pesavano il 40% del tempo. Misure in docs/STUDIO-motore-prestazioni.md.
+#[global_allocator]
+static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[cfg(feature = "desktop")]
 use tauri::Manager;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};

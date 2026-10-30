@@ -163,7 +163,7 @@ pub async fn run(
         // senza `emit` un generatore non produce niente, ed è giusto —
         // far uscire una riga vuota sarebbe inventare un dato.
         None => {
-            passata(&body, Row(HashMap::new()), &mut variables, &ctx, 0,
+            passata(&body, Row::new(), &mut variables, &ctx, 0,
                     &tx, &reject_tx,
                     &mut rows_out, &mut rows_rejected, false).await?;
         }
@@ -203,7 +203,7 @@ async fn passata(
     let mut riga   = riga_iniziale;
     // I locali vivono in una riga sintetica, azzerata a ogni passata: un
     // `let` non deve sopravvivere alla riga che l'ha calcolato.
-    let mut locali = Row(HashMap::new());
+    let mut locali = Row::new();
     let mut emesse: Vec<Row> = Vec::new();
 
     let esito = esegui(body, &mut riga, &mut locali, variables, ctx, row_num, &mut emesse);

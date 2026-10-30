@@ -542,7 +542,7 @@ pub async fn engine_preview_node(
         for (k, val) in obj {
             map.insert(k.clone(), Value::from_json(val.clone()));
         }
-        rows_in.push(Row(map));
+        rows_in.push(Row(map.into_iter().collect()));
     }
 
     // 2) variabili di lane mock, per var()

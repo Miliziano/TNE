@@ -430,7 +430,7 @@ fn process_element(
     apply_types: bool,
     failed: &mut HashMap<String, (u64, String)>,
 ) -> ProcessResult {
-    let mut out = Row(HashMap::new());
+    let mut out = Row::new();
     let mut should_reject = false;
 
     for field in &flow.fields {

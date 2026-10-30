@@ -97,6 +97,9 @@ struct SinkDbConfig {
     key_fields:           Option<Vec<String>>,
     exclude_columns:      Option<Vec<String>>,
     batch_size:           usize,
+    /// P382: una riga in buffer aspetta al più questi ms che il lotto si riempia
+    /// (0 = solo `batch_size`). Default 1000.
+    flush_ms:             u64,
     on_constraint_error:  String,
     pre_sql:              String,
     post_sql:             String,
@@ -301,6 +304,7 @@ fn config_from_spec(spec: &Spec) -> Result<SinkDbConfig, String> {
         // Default 1000 come il pannello (contratto §4) — prima il
         // fallback del motore era 500, disallineato dalla UI.
         batch_size:           spec.usize_or("batchSize", 1000).max(1),
+        flush_ms:             spec.u64_or("flushIntervalMs", 1000),
         on_constraint_error:  spec.str_or("onConstraintError", "stop"),
         pre_sql:              spec.str_or("preSql", ""),
         post_sql:             spec.str_or("postSql", ""),
@@ -477,6 +481,34 @@ pub async fn run(
     Ok(stats)
 }
 
+// ─── P382: lotti con scadenza (near real time) ──────────────────────
+// Prima un lotto si scriveva solo quando arrivava a `batch_size` righe o quando
+// il flusso finiva. In una lane di servizio (webhook, MQTT, coda…) con poco
+// traffico le righe restavano in memoria anche per ore. Ora la prima riga del
+// lotto fissa una scadenza (`flushIntervalMs`, default 1000): a scadenza si scrive
+// quello che c'è. Nei run a lotti non cambia nulla: il flusso arriva tutto di fila.
+enum Recv { Row(Row), Flush, Closed }
+
+async fn recv_or_flush(rx: &mut RowReceiver, deadline: Option<tokio::time::Instant>) -> Recv {
+    match deadline {
+        Some(d) => match tokio::time::timeout_at(d, rx.recv()).await {
+            Ok(Some(r)) => Recv::Row(r),
+            Ok(None)    => Recv::Closed,
+            Err(_)      => Recv::Flush,
+        },
+        None => match rx.recv().await {
+            Some(r) => Recv::Row(r),
+            None    => Recv::Closed,
+        },
+    }
+}
+
+impl SinkDbConfig {
+    fn flush_deadline(&self) -> Option<tokio::time::Instant> {
+        (self.flush_ms > 0).then(|| tokio::time::Instant::now() + std::time::Duration::from_millis(self.flush_ms))
+    }
+}
+
 // Corpo di scrittura: DDL + pre-SQL + batch + post-SQL sul pool condiviso.
 // Ritorna (rows_in, written, query_count). Il ? qui NON salta la chiusura
 // dell'evento: la gestisce run() dopo aver ricevuto l'outcome.
@@ -502,12 +534,20 @@ async fn write_all(
     }
     truncate_once(pool, config).await?;
 
-    while let Some(row) = rx.recv().await {
-        rows_in += 1;
-        let json_row = write_json_row(config, &row);
-        batch.push(json_row);
-
-        if batch.len() >= batch_size {
+    let mut deadline: Option<tokio::time::Instant> = None;
+    loop {
+        match recv_or_flush(&mut rx, deadline).await {
+            Recv::Row(row) => {
+                rows_in += 1;
+                batch.push(write_json_row(config, &row));
+                if deadline.is_none() { deadline = config.flush_deadline(); }
+                if batch.len() < batch_size { continue; }
+            }
+            Recv::Flush  => {}
+            Recv::Closed => break,
+        }
+        deadline = None;
+        {
             let (w, _e) = flush_batch(pool, config, &batch, &row_mode(config)).await?;
             written += w;
             query_count += 1;
@@ -603,13 +643,15 @@ async fn write_all_tx(
     'outer: loop {
         // 1. Bufferizza fino a batch_size righe (SENZA lock).
         buf.clear();
+        let mut deadline: Option<tokio::time::Instant> = None;
         while buf.len() < batch_size {
-            match rx.recv().await {
-                Some(row) => {
+            match recv_or_flush(&mut rx, deadline).await {
+                Recv::Row(row) => {
                     rows_in += 1;
                     buf.push(write_json_row(config, &row));
+                    if deadline.is_none() { deadline = config.flush_deadline(); }
                 }
-                None => break, // canale chiuso
+                Recv::Flush | Recv::Closed => break, // scadenza o canale chiuso
             }
         }
         if buf.is_empty() { break 'outer; }
@@ -714,14 +756,16 @@ async fn write_master_detail_tx(
     let mut idmap = IdentityMap::new(config);   // P351
     'outer: loop {
         buf.clear();
+        let mut deadline: Option<tokio::time::Instant> = None;
         while buf.len() < batch_size {
-            match rx.recv().await {
-                Some(row) => {
+            match recv_or_flush(&mut rx, deadline).await {
+                Recv::Row(row) => {
                     rows_in += 1;
                     let json_row = write_json_row(config, &row);
                     buf.push((row, json_row));
+                    if deadline.is_none() { deadline = config.flush_deadline(); }
                 }
-                None => break,
+                Recv::Flush | Recv::Closed => break, // scadenza o canale chiuso
             }
         }
         if buf.is_empty() { break 'outer; }
@@ -895,13 +939,15 @@ async fn write_all_tx_odbc(
 
     loop {
         buf.clear();
+        let mut deadline: Option<tokio::time::Instant> = None;
         while buf.len() < batch_size {
-            match rx.recv().await {
-                Some(row) => {
+            match recv_or_flush(&mut rx, deadline).await {
+                Recv::Row(row) => {
                     rows_in += 1;
                     buf.push(write_json_row(config, &row));
+                    if deadline.is_none() { deadline = config.flush_deadline(); }
                 }
-                None => break,
+                Recv::Flush | Recv::Closed => break, // scadenza o canale chiuso
             }
         }
         if buf.is_empty() { break; }
@@ -948,14 +994,16 @@ async fn write_master_detail_tx_odbc(
     let mut idmap = IdentityMap::new(config);   // P351
     'outer: loop {
         buf.clear();
+        let mut deadline: Option<tokio::time::Instant> = None;
         while buf.len() < batch_size {
-            match rx.recv().await {
-                Some(row) => {
+            match recv_or_flush(&mut rx, deadline).await {
+                Recv::Row(row) => {
                     rows_in += 1;
                     let json_row = write_json_row(config, &row);
                     buf.push((row, json_row));
+                    if deadline.is_none() { deadline = config.flush_deadline(); }
                 }
-                None => break,
+                Recv::Flush | Recv::Closed => break, // scadenza o canale chiuso
             }
         }
         if buf.is_empty() { break; }
@@ -1633,4 +1681,26 @@ async fn exec_pre_post(
         res.map_err(|e| format!("{} failed: {}", label, e))?;
     }
     Ok(())
+}
+#[cfg(test)]
+mod flush_tests {
+    use super::*;
+    use tokio::sync::mpsc;
+
+    /// P382: una riga sola in attesa non resta nel buffer oltre la scadenza.
+    #[tokio::test]
+    async fn la_scadenza_scrive_il_lotto_parziale() {
+        let (tx, mut rx) = mpsc::channel::<Row>(8);
+        tx.send(Row::new()).await.unwrap();
+        // prima riga: arriva subito
+        assert!(matches!(recv_or_flush(&mut rx, None).await, Recv::Row(_)));
+        // nessun'altra riga: alla scadenza si scrive quello che c'è
+        let t = tokio::time::Instant::now();
+        let d = Some(t + std::time::Duration::from_millis(30));
+        assert!(matches!(recv_or_flush(&mut rx, d).await, Recv::Flush));
+        assert!(t.elapsed() >= std::time::Duration::from_millis(30));
+        // canale chiuso: Closed, anche con scadenza
+        drop(tx);
+        assert!(matches!(recv_or_flush(&mut rx, d).await, Recv::Closed));
+    }
 }

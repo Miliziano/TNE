@@ -260,6 +260,7 @@ export const NODE_DEFS: Record<string, NodeDef> = {
       { key: 'mode',      label: 'Mode',         type: 'select', default: 'insert', options: ['insert','upsert','update','truncate_insert','merge'] },
       { key: 'keyFields', label: 'Key fields',     type: 'text',   default: 'id' },
       { key: 'batchSize', label: 'Batch size',       type: 'number', default: '1000' },
+      { key: 'flushIntervalMs', label: 'Flush interval (ms)', type: 'number', default: '1000' },
     ],
   },
   sink_kafka: {

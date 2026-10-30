@@ -382,16 +382,22 @@ fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
 // ─── Funzioni built-in ────────────────────────────────────────────
 
 fn eval_function(name: &str, args: Vec<Value>) -> Value {
-    let name_lower = name.to_lowercase();
+    // P382: lo studio emette i nomi già in minuscolo; si alloca una copia solo se
+    // serve davvero (prima: una stringa nuova per ogni chiamata, per ogni riga).
+    let name_lower: std::borrow::Cow<str> = if name.bytes().any(|b| b.is_ascii_uppercase()) || !name.is_ascii() {
+        std::borrow::Cow::Owned(name.to_lowercase())
+    } else {
+        std::borrow::Cow::Borrowed(name)
+    };
      // Funzioni aggiuntive (date, encoding, hash, …)
     if let Some(v) = super::expr_functions::eval_extra(&name_lower, &args) {
         return v;
     }
-    match name_lower.as_str() {
+    match &*name_lower {
         // ── Stringa ──────────────────────────────────────────────
         "trim" | "ltrim" | "rtrim" => {
             let s = to_string(args.first().unwrap_or(&Value::Null));
-            Value::String(match name_lower.as_str() {
+            Value::String(match &*name_lower {
                 "ltrim" => s.trim_start().to_string(),
                 "rtrim" => s.trim_end().to_string(),
                 _       => s.trim().to_string(),

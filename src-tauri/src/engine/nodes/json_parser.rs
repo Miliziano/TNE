@@ -224,7 +224,7 @@ fn process_element(
     flow:    &JsonParserFlow,
     failed:  &mut HashMap<String, (u64, String)>,
 ) -> ProcessResult {
-    let mut out = Row(HashMap::new());
+    let mut out = Row::new();
     let mut should_reject = false;
 
     for field in &flow.fields {
@@ -262,7 +262,7 @@ fn process_element(
 // ─── Costruisce i campi del padre (master-detail) ──────────────────
 
 fn build_parent_data(input_row: &Row, source_field: &str, flow: &JsonParserFlow) -> Row {
-    let mut parent = Row(HashMap::new());
+    let mut parent = Row::new();
     if flow.parent_fields.is_empty() {
         for (k, v) in &input_row.0 {
             if k != source_field { parent.0.insert(k.clone(), v.clone()); }

@@ -154,7 +154,7 @@ pub fn build_error_row(
     m.insert("_error_node_id".to_string(),   Value::String(node_id.to_string()));
     m.insert("_error_node_type".to_string(), Value::String(node_type.to_string()));
     m.insert("_error_at".to_string(),        Value::String(EngineEvent::timestamp_ms().to_string()));
-    Row(m)
+    Row(m.into_iter().collect())
 }
 
 /// Riga di CHIUSURA DELIBERATA originata dal nodo `stop` (fetta 2b). Va
@@ -175,7 +175,7 @@ pub fn build_stop_row(node_id: &str, message: &str, lane_id: &str) -> Row {
     m.insert("_error_node_id".to_string(),   Value::String(node_id.to_string()));
     m.insert("_error_node_type".to_string(), Value::String("stop".to_string()));
     m.insert("_error_at".to_string(),        Value::String(EngineEvent::timestamp_ms().to_string()));
-    Row(m)
+    Row(m.into_iter().collect())
 }
 
 #[cfg(test)]

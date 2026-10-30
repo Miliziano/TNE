@@ -71,6 +71,12 @@ ldap3 = "0.12"   # client LDAP async (native-tls, coerente con lettre/suppaftp);
 futures = "0.3"
 sysinfo = "0.39"
 regex = "1"
+# P382 — prestazioni del motore (docs/STUDIO-motore-prestazioni.md):
+#   ahash: hash veloce e con chiave casuale (resistente a HashDoS) per le righe;
+#   mimalloc: allocatore globale; il motore alloca molto per riga, e con l'allocatore
+#   di sistema il 40% del tempo andava in malloc/free (misurato: da 86k a 180k righe/s).
+ahash = "0.8"
+mimalloc = { version = "0.1", default-features = false }
 quick-xml = "0.42"
 # P344: ODBC per Oracle, Informix e sorgenti ODBC generiche. Collegato DINAMICAMENTE
 # al gestore ODBC (LGPL): su Linux/macOS serve unixODBC installato (build: unixodbc-dev /
@@ -119,12 +125,13 @@ default = ["desktop"]
 desktop = ["dep:tauri", "dep:tauri-plugin-log", "dep:tauri-plugin-dialog"]
 monitor = ["dep:tiny_http"]
 
-# Profilo per il RUNNER headless: ottimizzato per DIMENSIONE (non tocca il
-# profilo release dello studio). Build:
+# Profilo per il RUNNER headless (non tocca il profilo release dello studio).
+# Nato per la DIMENSIONE; dal P382 per la VELOCITA' (opt-level 3), tenendo LTO,
+# una sola unità di codegen e i simboli tolti, che riducono comunque il binario. Build:
 #   cargo build --bin flowpilot_runner --no-default-features --profile release-lean
 [profile.release-lean]
 inherits      = "release"
-opt-level     = "z"      # ottimizza per dimensione
+opt-level     = 3        # P382: velocità (con "z" il runner era il 25% più lento; misurato)
 lto           = true     # link-time optimization
 codegen-units = 1        # meno unità = binario più piccolo/ottimizzato
 panic         = "abort"  # niente unwinding (più piccolo; togliere se un dep lo richiede)

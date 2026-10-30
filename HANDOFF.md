@@ -2452,3 +2452,25 @@ Chiude la fase 2 di `docs/ARCHITETTURA-coordinatore.md` (configurazione separata
 - Vettore condiviso `vectors/manifest_variables_v1.json` (test TS + Rust). `test:ir` 7 file;
   `verifica_rust`: lib 101, contratto 5; ESLint 0 errori.
 - Brochure (artifact + `docs/brochures/`): configurazione solo entro limiti firmati.
+
+## AGGIORNAMENTO — Prestazioni del motore e near real time: misure e prime correzioni (stato al P382, 31 ottobre)
+
+Studio completo con misure e roadmap in **`docs/STUDIO-motore-prestazioni.md`**.
+- Banco: 1M righe CSV → Transform (3 espressioni FPEL) → Filter → File Output, 2 vCPU.
+  **86.000 → 200.000 righe/s**, output identico (md5), memoria di picco 26 → 38 MB.
+- **mimalloc** come allocatore globale (`#[global_allocator]` in `lib.rs`, tutti i binari):
+  il 40% del tempo era malloc/free. **ahash** per `Row` (`types::RowMap`); 9 punti adattati
+  (`Row(HashMap::new())` → `Row::new()`, mappe costruite a parte → `.into_iter().collect()`).
+- Profilo `release-lean` del runner: `opt-level 3` (con `"z"` era il 25% più lento).
+- FPEL: niente `to_lowercase` per chiamata (Cow).
+- Runner: bus letto ogni 10 ms (prima 100), monitor a lotti ogni 250 ms: run minimo
+  106 → 17 ms. Ammissione 3 ms.
+- **Difetto near real time corretto**: `sink_db` teneva le righe in buffer finché non ne
+  arrivavano `batchSize` → in una lane di servizio poteva tenerle per giorni. Nuovo
+  `flushIntervalMs` (default 1000, 0 = come prima): `recv_or_flush` con scadenza fissata
+  dalla prima riga del lotto, in tutti i percorsi a lotti. Campo *Flush interval* nel
+  pannello, `nodeDefs`. Test `flush_tests`.
+- Prossimi passi consigliati (studio §5): B espressioni compilate → A righe con schema →
+  metriche di latenza e scadenza negli altri sink → garanzie di consegna → parallelismo.
+- `verifica_rust`: 0 errori, warning invariati, lib 102, contratto 5. ⚠ In `src-tauri/examples/`
+  c'era un `bench_engine.rs` non tracciato di una sessione precedente: spostato nello scratchpad.

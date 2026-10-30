@@ -148,12 +148,13 @@ impl Value {
 // "Newtype" in Rust = struct con un solo campo — crea un tipo
 // distinto con zero overhead a runtime.
 
+pub type RowMap = HashMap<String, Value, ahash::RandomState>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Row(pub HashMap<String, Value>);
+pub struct Row(pub RowMap);
 
 impl Row {
     pub fn new() -> Self {
-        Row(HashMap::new())
+        Row(RowMap::default())
     }
 
     pub fn get(&self, key: &str) -> Option<&Value> {

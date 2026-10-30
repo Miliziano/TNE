@@ -416,6 +416,12 @@ function SinkDbPanelBody({ nodeId }: { nodeId: string }) {
       <Field label="Batch size">
         <input type="number" style={iStyle} value={p('batchSize', '1000')} onChange={u('batchSize')} min="1" />
       </Field>
+      {/* P382: scadenza del lotto (near real time). Il motore scrive il lotto quando
+          ha batchSize righe OPPURE quando la prima riga in attesa ha aspettato
+          questi ms: in una lane di servizio le righe non restano più in memoria. */}
+      <Field label="Flush interval (ms)" hint="Rows waiting in a partial batch are written after this time. 0 = only when the batch is full or the flow ends.">
+        <input type="number" style={iStyle} value={p('flushIntervalMs', '1000')} onChange={u('flushIntervalMs')} min="0" />
+      </Field>
 
       {/* ── Gestione errori ── */}
       <SectionTitle label="Error handling" color={color} />

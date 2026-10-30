@@ -712,6 +712,11 @@ fn main() {
 
         let bus = global_bus();
         let mut cursor: u64 = 0;
+        // P382: si guarda il bus ogni 10 ms (prima 100: un run breve aspettava fino
+        // a 100 ms in più solo per accorgersi di essere finito), ma al monitor si
+        // spedisce a lotti al più ogni 250 ms, per non moltiplicare le richieste.
+        let mut pending = String::new();
+        let mut last_push = std::time::Instant::now();
         loop {
             // Sezione critica breve: prendo il batch e rilascio subito il lock.
             let batch = {
@@ -780,14 +785,19 @@ fn main() {
                 }
             }
 
-            // Push al monitor (best-effort): include anche il batch finale.
-            push_ndjson(http.as_ref(), monitor_url.as_deref(), monitor_token.as_deref(), &ndjson).await;
+            // Push al monitor (best-effort): a lotti, e sempre il lotto finale.
+            pending.push_str(&ndjson);
+            if exit_code.is_some() || last_push.elapsed() >= Duration::from_millis(250) {
+                push_ndjson(http.as_ref(), monitor_url.as_deref(), monitor_token.as_deref(), &pending).await;
+                pending.clear();
+                last_push = std::time::Instant::now();
+            }
 
             if let Some(c) = exit_code {
                 return c;
             }
 
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     });
 
