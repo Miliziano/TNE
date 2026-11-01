@@ -165,8 +165,12 @@ pub enum LiteralValue {
 // ogni input TMap (main, lookup_1, ecc.) o una sola per il Filter.
 
 pub struct EvalContext<'a> {
-    // input_name → Row  (es. "main" → riga principale)
-    pub inputs:    HashMap<&'a str, &'a Row>,
+    // input_name → Row  (es. "main" → riga principale).
+    // P383: elenco in linea invece di una HashMap: gli ingressi sono pochi (1-5)
+    // e il contesto si crea A OGNI RIGA. Una HashMap voleva un'allocazione e un
+    // hash per riga e per lettura; qui niente allocazioni fino a 4 ingressi.
+    // A parità di nome vale l'ULTIMO inserito, come con HashMap::insert.
+    inputs:        smallvec::SmallVec<[(&'a str, &'a Row); 4]>,
     // Variabili di lane
     pub variables: &'a HashMap<String, Value>,
     /// Chiave dell'input PRINCIPALE, quando esiste (TMap). Serve a risolvere in
@@ -176,13 +180,13 @@ pub struct EvalContext<'a> {
 
 impl<'a> EvalContext<'a> {
     pub fn single(row: &'a Row, variables: &'a HashMap<String, Value>) -> Self {
-        let mut inputs = HashMap::new();
-        inputs.insert("row", row);
+        let mut inputs = smallvec::SmallVec::new();
+        inputs.push(("row", row));
         EvalContext { inputs, variables, main_input: None }
     }
 
     pub fn multi(inputs: HashMap<&'a str, &'a Row>, variables: &'a HashMap<String, Value>) -> Self {
-        EvalContext { inputs, variables, main_input: None }
+        EvalContext { inputs: inputs.into_iter().collect(), variables, main_input: None }
     }
 
     /// Come `multi`, ma dichiara quale input è il principale: un campo scritto
@@ -192,7 +196,47 @@ impl<'a> EvalContext<'a> {
         variables:  &'a HashMap<String, Value>,
         main_input: &'a str,
     ) -> Self {
-        EvalContext { inputs, variables, main_input: Some(main_input) }
+        EvalContext { inputs: inputs.into_iter().collect(), variables, main_input: Some(main_input) }
+    }
+
+    /// P383: senza passare da una HashMap (niente allocazioni per riga).
+    /// A parità di nome vale l'ultima coppia, come con `HashMap::insert`.
+    pub fn from_pairs(
+        pairs:      impl IntoIterator<Item = (&'a str, &'a Row)>,
+        variables:  &'a HashMap<String, Value>,
+        main_input: Option<&'a str>,
+    ) -> Self {
+        EvalContext { inputs: pairs.into_iter().collect(), variables, main_input }
+    }
+
+    /// Riga di un ingresso per nome (l'ultima inserita con quel nome).
+    pub fn input(&self, name: &str) -> Option<&'a Row> {
+        self.inputs.iter().rev().find(|(k, _)| *k == name).map(|(_, r)| *r)
+    }
+
+    /// `ingresso.campo`
+    pub fn field(&self, input: &str, field: &str) -> Option<&'a Value> {
+        self.input(input).and_then(|row| row.get(field))
+    }
+
+    /// Campo scritto SENZA ingresso. Ordine definito (unica fonte, P383):
+    /// trasformazioni, poi la riga del Filter/Transform (`row`), poi l'ingresso
+    /// principale, poi gli altri in ordine alfabetico del nome.
+    pub fn direct_field(&self, field: &str) -> Option<&'a Value> {
+        if let Some(v) = self.field("__transforms__", field) { return Some(v); }
+        if let Some(v) = self.field("row", field) { return Some(v); }
+        if let Some(main) = self.main_input {
+            if let Some(v) = self.field(main, field) { return Some(v); }
+        }
+        // ⚠️ Mai l'ordine di inserimento o di una HashMap: con due sorgenti che
+        // hanno un campo omonimo il vincitore deve essere sempre lo stesso.
+        let mut chiavi: smallvec::SmallVec<[&str; 8]> = self.inputs.iter()
+            .map(|(k, _)| *k)
+            .filter(|k| *k != "__transforms__" && *k != "row" && Some(*k) != self.main_input)
+            .collect();
+        chiavi.sort_unstable();
+        chiavi.dedup();
+        chiavi.into_iter().find_map(|k| self.field(k, field))
     }
 }
 
@@ -203,52 +247,15 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
         ExprNode::Literal { value } => literal_to_value(value),
 
         ExprNode::FieldRef { input, field } => {
-            ctx.inputs.get(input.as_str())
-                .and_then(|row| row.get(field))
-                .cloned()
-                .unwrap_or(Value::Null)
+            ctx.field(input, field).cloned().unwrap_or(Value::Null)
         }
 
+        // Ordine di ricerca: `EvalContext::direct_field` (unica fonte). Nel TMap
+        // lo studio pretende comunque il riferimento per esteso
+        // (`Anagrafica.nome`); questo ripiego vale per gli altri nodi e per i
+        // piani costruiti a mano.
         ExprNode::DirectFieldRef { field } => {
-            // Cerca prima nelle transform (priorità massima),
-            // poi nella riga "row" (Filter), poi in tutti gli altri input
-            if let Some(row) = ctx.inputs.get("__transforms__") {
-                if let Some(v) = row.get(field) {
-                    return v.clone();
-                }
-            }
-            // Poi cerca in "row" (contesto Filter)
-            if let Some(row) = ctx.inputs.get("row") {
-                if let Some(v) = row.get(field) {
-                    return v.clone();
-                }
-            }
-            // Infine gli altri input, in ORDINE DEFINITO.
-            // ⚠️ Prima si iterava direttamente `ctx.inputs`, che è una HashMap:
-            // in Rust l'ordine di iterazione è randomizzato, quindi con due
-            // sorgenti che hanno un campo omonimo il vincitore poteva cambiare
-            // DA UN'ESECUZIONE ALL'ALTRA — stesso piano, stessi dati, risultato
-            // diverso. Ora: prima l'input PRINCIPALE (la scelta che l'utente si
-            // aspetta), poi gli altri in ordine alfabetico di chiave.
-            // NB: nel TMap lo studio pretende comunque il riferimento per esteso
-            // (`Anagrafica.nome`); questo ripiego vale per gli altri nodi e per
-            // i piani costruiti a mano.
-            if let Some(main) = ctx.main_input {
-                if let Some(row) = ctx.inputs.get(main) {
-                    if let Some(v) = row.get(field) {
-                        return v.clone();
-                    }
-                }
-            }
-            let mut chiavi: Vec<&str> = ctx.inputs.keys()
-                .copied()
-                .filter(|k| *k != "__transforms__" && *k != "row" && Some(*k) != ctx.main_input)
-                .collect();
-            chiavi.sort_unstable();
-            chiavi.into_iter()
-                .find_map(|k| ctx.inputs.get(k).and_then(|row| row.get(field)))
-                .cloned()
-                .unwrap_or(Value::Null)
+            ctx.direct_field(field).cloned().unwrap_or(Value::Null)
         }
 
         ExprNode::BinaryOp { op, left, right } => {
@@ -330,6 +337,13 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
 // ─── Operatori binari ─────────────────────────────────────────────
 
 fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
+    eval_binary_ref(op, &l, &r)
+}
+
+/// P383: stessa semantica di `eval_binary`, ma sugli operandi in prestito: i
+/// confronti e l'aritmetica non hanno bisogno di copiare i valori (un campo di
+/// testo letto dalla riga non si clona più per confrontarlo).
+pub(crate) fn eval_binary_ref(op: &BinaryOperator, l: &Value, r: &Value) -> Value {
     match op {
         // Add: se ALMENO UNO è stringa → concatena (come JS: "Ordine " + 42).
         // Altrimenti aritmetica (Int/Float/Decimal esatto). Se l'aritmetica
@@ -337,7 +351,7 @@ fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
         // Un valore numerico NON diventa mai una stringa per sbaglio.
         BinaryOperator::Add => {
             if matches!(l, Value::String(_)) || matches!(r, Value::String(_)) {
-                Value::String(format!("{}{}", l_str(&l), l_str(&r)))
+                Value::String(format!("{}{}", l_str(l), l_str(r)))
             } else {
                 numeric_op(l, r, |a,b| a+b, |a,b| a+b, |a,b| a+b).unwrap_or(Value::Null)
             }
@@ -345,7 +359,7 @@ fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
         BinaryOperator::Sub => numeric_op(l, r, |a,b| a-b, |a,b| a-b, |a,b| a-b).unwrap_or(Value::Null),
         BinaryOperator::Mul => numeric_op(l, r, |a,b| a*b, |a,b| a*b, |a,b| a*b).unwrap_or(Value::Null),
         BinaryOperator::Div => {
-            match (&l, &r) {
+            match (l, r) {
                 (_, Value::Int(0))                    => Value::Null,
                 (_, Value::Float(f)) if *f == 0.0     => Value::Null,
                 (_, Value::Decimal(d)) if d.is_zero() => Value::Null,
@@ -359,29 +373,29 @@ fn eval_binary(op: &BinaryOperator, l: Value, r: Value) -> Value {
         // ... il resto invariato
     
         // Confronto
-        BinaryOperator::Eq  => Value::Bool(values_equal(&l, &r)),
-        BinaryOperator::Ne  => Value::Bool(!values_equal(&l, &r)),
-        BinaryOperator::Lt  => ordering_op(&l, &r, |o| o.is_lt()),
-        BinaryOperator::Lte => ordering_op(&l, &r, |o| o.is_le()),
-        BinaryOperator::Gt  => ordering_op(&l, &r, |o| o.is_gt()),
-        BinaryOperator::Gte => ordering_op(&l, &r, |o| o.is_ge()),
+        BinaryOperator::Eq  => Value::Bool(values_equal(l, r)),
+        BinaryOperator::Ne  => Value::Bool(!values_equal(l, r)),
+        BinaryOperator::Lt  => ordering_op(l, r, |o| o.is_lt()),
+        BinaryOperator::Lte => ordering_op(l, r, |o| o.is_le()),
+        BinaryOperator::Gt  => ordering_op(l, r, |o| o.is_gt()),
+        BinaryOperator::Gte => ordering_op(l, r, |o| o.is_ge()),
 
         // Logici (short-circuit già fatto a livello di BinaryOp eval)
-        BinaryOperator::And => Value::Bool(is_truthy(&l) && is_truthy(&r)),
-        BinaryOperator::Or  => Value::Bool(is_truthy(&l) || is_truthy(&r)),
+        BinaryOperator::And => Value::Bool(is_truthy(l) && is_truthy(r)),
+        BinaryOperator::Or  => Value::Bool(is_truthy(l) || is_truthy(r)),
 
         // Stringa
-        BinaryOperator::Concat => Value::String(format!("{}{}", to_string(&l), to_string(&r))),
+        BinaryOperator::Concat => Value::String(format!("{}{}", to_string(l), to_string(r))),
 
         BinaryOperator::Coalesce => {
-            if !matches!(l, Value::Null) { l } else { r }
+            if !matches!(l, Value::Null) { l.clone() } else { r.clone() }
         }
     }
 }
 
 // ─── Funzioni built-in ────────────────────────────────────────────
 
-fn eval_function(name: &str, args: Vec<Value>) -> Value {
+pub(crate) fn eval_function(name: &str, args: Vec<Value>) -> Value {
     // P382: lo studio emette i nomi già in minuscolo; si alloca una copia solo se
     // serve davvero (prima: una stringa nuova per ogni chiamata, per ogni riga).
     let name_lower: std::borrow::Cow<str> = if name.bytes().any(|b| b.is_ascii_uppercase()) || !name.is_ascii() {
@@ -569,7 +583,7 @@ fn eval_function(name: &str, args: Vec<Value>) -> Value {
 
 // ─── Cast esplicito ───────────────────────────────────────────────
 
-fn cast_value(v: Value, target: &str) -> Value {
+pub(crate) fn cast_value(v: Value, target: &str) -> Value {
     match target {
         "string"  | "text"    => Value::String(to_string(&v)),
         "integer" | "int"     => to_int(&v).map(Value::Int).unwrap_or(Value::Null),
@@ -596,7 +610,7 @@ fn cast_value(v: Value, target: &str) -> Value {
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
-fn literal_to_value(lit: &LiteralValue) -> Value {
+pub(crate) fn literal_to_value(lit: &LiteralValue) -> Value {
     match lit {
         LiteralValue::Null      => Value::Null,
         LiteralValue::Bool(b)   => Value::Bool(*b),
@@ -619,7 +633,7 @@ pub fn is_truthy(v: &Value) -> bool {
     }
 }
 
-fn to_string(v: &Value) -> String {
+pub(crate) fn to_string(v: &Value) -> String {
     v.as_str_repr()
 }
 
@@ -739,14 +753,14 @@ fn ordering_op(l: &Value, r: &Value, ok: impl Fn(std::cmp::Ordering) -> bool) ->
 }
 
 fn numeric_op(
-    l: Value, r: Value,
+    l: &Value, r: &Value,
     int_op:   impl Fn(i64, i64) -> i64,
     float_op: impl Fn(f64, f64) -> f64,
     dec_op:   impl Fn(rust_decimal::Decimal, rust_decimal::Decimal) -> rust_decimal::Decimal,
 ) -> Option<Value> {
     use rust_decimal::Decimal;
     use rust_decimal::prelude::ToPrimitive;
-    match (&l, &r) {
+    match (l, r) {
         (Value::Int(a),   Value::Int(b))   => Some(Value::Int(int_op(*a, *b))),
         (Value::Float(a), Value::Float(b)) => Some(Value::Float(float_op(*a, *b))),
         (Value::Int(a),   Value::Float(b)) => Some(Value::Float(float_op(*a as f64, *b))),

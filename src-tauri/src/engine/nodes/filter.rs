@@ -95,6 +95,9 @@ struct FilterCondition {
     /// code): il motore valuta solo questo.
     #[serde(default)]
     expr: Option<ExprNode>,
+    /// P383: `expr` compilata una volta all'avvio del nodo (non nel piano).
+    #[serde(skip)]
+    compiled: Option<crate::engine::compiled::Compiled>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -145,8 +148,11 @@ pub async fn run(
 
     // Le `conditions` sono materiale elaborato dal builder → spec.config.
     // Quelle in modalità code portano l'IR FPEL già compilato (`expr`).
-    let plan: FilterPlan = serde_json::from_value(spec.config().clone())
+    let mut plan: FilterPlan = serde_json::from_value(spec.config().clone())
         .map_err(|e| format!("filter {}: invalid config: {}", ctx.node_id.0, e))?;
+    for c in plan.conditions.iter_mut() {
+        c.compiled = c.expr.as_ref().map(crate::engine::compiled::Compiled::new);
+    }
 
     let regexes = prepare(&plan).map_err(|e| format!("filter {}: {}", ctx.node_id.0, e))?;
 
@@ -374,9 +380,10 @@ fn evaluate_condition(
         }
         "template" => eval_template(row, &cond.template_id, &cond.template_params,
                                     o.case_sensitive, rx.get(&(ci, TEMPLATE_SLOT))),
-        "code" => match &cond.expr {
-            Some(e) => Ok(is_truthy(&eval(e, &EvalContext::single(row, o.variables)))),
-            None    => Ok(false),   // impossibile: prepare() lo rifiuta
+        "code" => match (&cond.compiled, &cond.expr) {
+            (Some(c), _) => Ok(c.is_true(&EvalContext::single(row, o.variables))),
+            (None, Some(e)) => Ok(is_truthy(&eval(e, &EvalContext::single(row, o.variables)))),
+            (None, None) => Ok(false),   // impossibile: prepare() lo rifiuta
         },
         _ => Ok(false),
     }

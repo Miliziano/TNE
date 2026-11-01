@@ -77,6 +77,7 @@ regex = "1"
 #   di sistema il 40% del tempo andava in malloc/free (misurato: da 86k a 180k righe/s).
 ahash = "0.8"
 mimalloc = { version = "0.1", default-features = false }
+smallvec = "1"   # P383: ingressi del valutatore senza allocazioni per riga
 quick-xml = "0.42"
 # P344: ODBC per Oracle, Informix e sorgenti ODBC generiche. Collegato DINAMICAMENTE
 # al gestore ODBC (LGPL): su Linux/macOS serve unixODBC installato (build: unixodbc-dev /

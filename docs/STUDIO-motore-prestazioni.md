@@ -31,6 +31,14 @@ byte prima e dopo le modifiche (stesso md5).
 | + hash veloce (ahash) per le righe | 196.000 | 5,1 s | 37 MB |
 | **P382 (release)** | **200.000** | **5,0 s** | **38 MB** |
 | P382 con il profilo del runner di prima (`opt-level "z"`) | 150.000 | 6,7 s | 35 MB |
+| **P383** (espressioni compilate, contesto senza HashMap, Transform senza copia della riga) | **230.000** | **4,3 s** | **37 MB** |
+
+**TMap (P383).** Secondo banco: 500.000 ordini × 9.000 clienti (join), una trasformazione,
+due uscite con filtro, espressioni con `upper`, `concat`, `CASE`, `var()`. Da **120.000 a
+200.000 righe/s** (+65%). Il guadagno viene soprattutto dalle copie tolte: ogni riga di
+lookup veniva clonata due volte (sotto id e sotto etichetta) per ogni riga main che la
+usava, e la riga main e quella delle trasformazioni una volta per combinazione. Output
+identico byte per byte anche con join *left*, *first*, uno-a-molti e uscita degli scarti.
 
 | Avvio e chiusura del runner | prima | P382 |
 |---|---:|---:|
@@ -123,13 +131,18 @@ nessuna rifà lavoro esistente.
 | | Cosa | Guadagno atteso | Costo | Rischio |
 |---|---|---|---|---|
 | **A** | **Righe con schema**: `Row` = schema condiviso (`Arc`) + vettore di valori; i nomi si risolvono in posizioni una volta per nodo. L'API `get`/`set` per nome resta, così i nodi si migrano uno alla volta. | 2-3× sul throughput; meno memoria; colonne nell'ordine del mapping | alto (tocca tutti i nodi, ma a passi) | medio: serve un banco di non regressione per nodo |
-| **B** | **Espressioni compilate una volta** all'avvio del nodo: funzione risolta, posizione del campo risolta, costanti piegate; niente `HashMap` per riga nel valutatore. | 1,5-2× sui nodi con espressioni (Transform, TMap, Filter, Script) | medio | basso: stessi test dell'IR, stesso risultato |
+| **B** ✅ P383 | **Espressioni compilate una volta** all'avvio del nodo: costanti calcolate, `var()` e nomi risolti, valori letti in prestito; niente `HashMap` per riga nel valutatore. Fatto per Transform, Filter, TMap; lo Script usa ancora l'interprete (gode del contesto nuovo). | misurato: +24% sul banco Transform/Filter, +65% sul TMap (con le copie tolte) | medio | basso: test di equivalenza con l'interprete |
 | **C** | **Parallelismo per partizione** dei nodi senza stato (Transform, Filter, TMap, Script): N copie su N core, ordine preservato se richiesto. | lineare coi core (su un server da 16 core, fino a 10× su quei nodi) | medio | medio: ordine e lookup condivisi |
 | **D** | **Canali a lotti adattivi**: si passano blocchi di righe invece di righe singole, con invio immediato quando il flusso rallenta (non peggiora la latenza). | 10-20% | basso-medio | basso |
 | **E** | **Garanzie di consegna** per MQTT/ActiveMQ: conferma dopo la scrittura; con sink idempotenti (upsert) l'effetto è "una volta sola". | affidabilità, non velocità | medio | medio |
 | **F** | **Metriche di latenza** per nodo negli eventi (campi facoltativi, contratto rispettato). | osservabilità near real time | basso | basso |
 | **G** | **Stato del run invece di stato globale** (bus, reporter, registri): prerequisito del runner caldo e dell'agente. | avvio dei run in microsecondi dentro un processo acceso | medio | medio |
 | **H** | **Operatori colonnari** (Apache Arrow) per aggregate, join, sort, window su grandi volumi. | 5-20× su quei nodi | alto | alto: da valutare dopo A |
+
+**Nota dopo il P383.** La valutazione delle espressioni pesava circa il 22% del banco: la
+compilazione da sola non poteva dare di più. Il resto del tempo sta nel modello della riga
+(nomi copiati e cercati per hash), nella lettura e nella scrittura CSV. Per questo A resta
+il passo che conta di più.
 
 **Ordine consigliato:** B (rapido, rischio basso) → A (il salto vero) → F e la scadenza
 negli altri sink (near real time) → E (garanzie) → C (scala sui core) → G → H.

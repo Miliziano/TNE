@@ -27,6 +27,7 @@ pub mod executor;
 pub mod bridge;
 pub mod nodes;
 pub mod expr;
+pub mod compiled;     // P383: espressioni FPEL compilate una volta per nodo
 pub mod monitor;
 pub mod reporter;
 pub mod errors;

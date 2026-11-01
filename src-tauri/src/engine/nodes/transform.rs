@@ -10,8 +10,8 @@
 use std::time::Instant;
 use crate::engine::types::*;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
-use crate::engine::expr::{ExprNode, EvalContext, eval};
-use std::collections::HashMap;
+use crate::engine::expr::{ExprNode, EvalContext};
+use crate::engine::compiled::Compiled;
 
 pub async fn run(
     ctx: NodeContext,
@@ -37,6 +37,11 @@ pub async fn run(
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
+    // P383: espressioni compilate una volta, non reinterpretate a ogni riga.
+    let compiled: Vec<(String, Compiled)> = fields.iter()
+        .map(|f| (f.name.clone(), Compiled::new(&f.expr)))
+        .collect();
+
     let variables = ctx.variables.clone();
     let start    = Instant::now();
     let mut rows_in  = 0u64;
@@ -45,15 +50,14 @@ pub async fn run(
     while let Some(row) = rx.recv().await {
         rows_in += 1;
 
-        // Costruisci il contesto con la riga corrente
-        let mut inputs: HashMap<&str, &Row> = HashMap::new();
-        inputs.insert("row", &row);
-        let eval_ctx = EvalContext::multi(inputs, &variables);
-
-        // Valuta tutte le espressioni
-        let computed: Vec<(&str, Value)> = fields.iter()
-            .map(|f| (f.name.as_str(), eval(&f.expr, &eval_ctx)))
-            .collect();
+        // Valuta tutte le espressioni sulla riga così com'è arrivata (tutti i
+        // campi calcolati vedono la riga ORIGINALE, come prima).
+        let computed: Vec<(&str, Value)> = {
+            let eval_ctx = EvalContext::single(&row, &variables);
+            compiled.iter()
+                .map(|(name, c)| (name.as_str(), c.eval(&eval_ctx)))
+                .collect()
+        };
 
         let out_row = match mode.as_str() {
             "select" => {
@@ -65,16 +69,18 @@ pub async fn run(
                 out
             }
             "replace" => {
-                // Tutti i campi originali, poi sovrascrive con i calcolati
-                let mut out = row.clone();
+                // Tutti i campi originali, poi sovrascrive con i calcolati.
+                // P383: la riga è nostra (ricevuta per valore): si modifica,
+                // senza copiarla tutta.
+                let mut out = row;
                 for (name, val) in computed {
                     out.set(name.to_string(), val);
                 }
                 out
             }
             _ => {
-                // "add" — originali + nuovi campi calcolati
-                let mut out = row.clone();
+                // "add" — originali + nuovi campi calcolati (senza copia, P383)
+                let mut out = row;
                 for (name, val) in computed {
                     if !out.has(name) {
                         out.set(name.to_string(), val);

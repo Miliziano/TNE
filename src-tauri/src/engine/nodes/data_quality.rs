@@ -180,12 +180,15 @@ pub async fn run(
 
         for r in &rules {
             let value = row.get(&r.field).cloned().unwrap_or(Value::Null);
-            let ectx  = EvalContext::single(&row, &variables);
-
-            if check(r, &value, &row, &ectx, &datasets) { continue }
-
-            // La regola è fallita: tenta la riparazione.
-            let repaired = repair(r, &row, prev_row.as_ref(), &ectx, &datasets);
+            // Il contesto vive solo per il controllo e la riparazione: poi la riga
+            // si può modificare (P383: EvalContext ha un Drop, il prestito dura
+            // fino alla fine del blocco).
+            let repaired = {
+                let ectx = EvalContext::single(&row, &variables);
+                if check(r, &value, &row, &ectx, &datasets) { continue }
+                // La regola è fallita: tenta la riparazione.
+                repair(r, &row, prev_row.as_ref(), &ectx, &datasets)
+            };
 
             match repaired {
                 Some(new_val) => {

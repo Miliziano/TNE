@@ -46,6 +46,31 @@ use serde::Deserialize;
 use crate::engine::types::*;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
+use crate::engine::compiled::Compiled;
+
+/// P383: valuta la versione compilata se c'è (sempre, dopo `compile_plan`),
+/// altrimenti l'albero con l'interprete. Stesso risultato.
+fn ev(c: &Option<Compiled>, e: &ExprNode, ctx: &EvalContext) -> Value {
+    match c {
+        Some(c) => c.eval(ctx),
+        None => eval(e, ctx),
+    }
+}
+
+/// P383: compila una volta tutte le espressioni del piano.
+fn compile_plan(plan: &mut TMapPlan) {
+    for tr in plan.transforms.iter_mut() { tr.c = Some(Compiled::new(&tr.expr)); }
+    for out in plan.outputs.iter_mut() {
+        out.filter_c = out.filter_expr.as_ref().map(Compiled::new);
+        for f in out.fields.iter_mut() { f.c = Some(Compiled::new(&f.expr)); }
+    }
+    for lkp in plan.lookups.iter_mut() {
+        for p in lkp.join_pairs.iter_mut() {
+            p.src_c = Some(Compiled::new(&p.src_key_expr));
+            p.dst_c = p.dst_key_expr.as_ref().map(Compiled::new);
+        }
+    }
+}
 
 // ─── Strutture del Plan ───────────────────────────────────────────
 
@@ -79,6 +104,9 @@ pub struct TMapJoinPairPlan {
     pub src_key_expr: ExprNode,
     pub dst_field:    String,
     pub dst_key_expr: Option<ExprNode>,
+    /// P383: espressioni compilate all'avvio del nodo (non nel piano).
+    #[serde(skip)] src_c: Option<Compiled>,
+    #[serde(skip)] dst_c: Option<Compiled>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,6 +115,7 @@ pub struct TMapOutputPlan {
     pub label:       String,
     pub filter_expr: Option<ExprNode>,
     pub fields:      Vec<TMapOutputFieldPlan>,
+    #[serde(skip)] filter_c: Option<Compiled>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,6 +124,7 @@ pub struct TMapOutputFieldPlan {
     #[serde(rename = "type")]
     pub r#type:  String,
     pub expr:    ExprNode,
+    #[serde(skip)] c: Option<Compiled>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,9 +133,14 @@ pub struct TMapTransformPlan {
     pub output_name: String,
     pub output_type: String,
     pub expr:        ExprNode,
+    #[serde(skip)] c: Option<Compiled>,
 }
 
 // ─── Lookup materializzato ────────────────────────────────────────
+
+/// P383: una combinazione main × lookup = coppie (nome dell'ingresso, riga),
+/// in prestito. A parità di nome vale l'ultima (come l'insert in una HashMap).
+type Combo<'a> = smallvec::SmallVec<[(&'a str, &'a Row); 4]>;
 
 struct MaterializedLookup {
     plan:  TMapLookupPlan,
@@ -126,8 +161,9 @@ pub async fn run(
     // → spec.config. V. node-spec §22.
     let spec = crate::engine::spec::Spec::from_ctx(&ctx.spec)
         .map_err(|e| format!("tmap {}: {}", ctx.node_id.0, e))?;
-    let plan: TMapPlan = serde_json::from_value(spec.config().clone())
+    let mut plan: TMapPlan = serde_json::from_value(spec.config().clone())
         .map_err(|e| format!("tmap {}: invalid config: {}", ctx.node_id.0, e))?;
+    compile_plan(&mut plan);
     spec.log_unconsumed("tmap", &ctx.node_id.0);
 
     let start     = Instant::now();
@@ -174,12 +210,15 @@ pub async fn run(
         // Ogni combinazione mappa input_id E label → riga lookup.
         // Un lookup uno-a-molti (Inner/Left) moltiplica le
         // combinazioni; First ne prende una sola.
-        let mut combos: Vec<HashMap<String, Row>> = vec![HashMap::new()];
+        // P383: le combinazioni tengono RIFERIMENTI alle righe (main e lookup
+        // materializzati), non copie: prima ogni riga di lookup si clonava due
+        // volte (sotto id e label) per ogni riga main che la usava.
+        let mut combos: Vec<Combo> = vec![Combo::new()];
 
         for lkp in &materialized {
             if lkp.plan.join_pairs.is_empty() { continue; }
 
-            let mut next: Vec<HashMap<String, Row>> = Vec::new();
+            let mut next: Vec<Combo> = Vec::new();
 
             for combo in &combos {
                 let src_key = compute_src_key(lkp, &main_row, plan.main_input_id.as_str(), combo, &variables);
@@ -190,17 +229,17 @@ pub async fn run(
                             JoinType::First => {
                                 // Solo la prima corrispondenza (uno-a-uno esplicito)
                                 let mut c = combo.clone();
-                                let r = rows.first().unwrap().clone();
-                                c.insert(lkp.plan.input_id.clone(), r.clone());
-                                c.insert(lkp.plan.label.clone(),    r);
+                                let r = rows.first().unwrap();
+                                c.push((lkp.plan.input_id.as_str(), r));
+                                c.push((lkp.plan.label.as_str(),    r));
                                 next.push(c);
                             }
                             JoinType::Inner | JoinType::Left => {
                                 // TUTTE le corrispondenze: una combinazione per riga
                                 for r in rows {
                                     let mut c = combo.clone();
-                                    c.insert(lkp.plan.input_id.clone(), r.clone());
-                                    c.insert(lkp.plan.label.clone(),    r.clone());
+                                    c.push((lkp.plan.input_id.as_str(), r));
+                                    c.push((lkp.plan.label.as_str(),    r));
                                     next.push(c);
                                 }
                             }
@@ -229,13 +268,13 @@ pub async fn run(
             if let Some((i, output)) = plan.outputs.iter().enumerate()
                 .find(|(_, o)| o.output_id == "output_rejected")
             {
-                let mut inputs: HashMap<String, Row> = HashMap::new();
-                inputs.insert(plan.main_input_id.clone(), main_row.clone());
+                let inputs: Combo = std::iter::once((plan.main_input_id.as_str(), &main_row)).collect();
                 let transform_row = compute_transforms(
                     &plan.transforms, &inputs, &mut lane_vars, plan.main_input_id.as_str());
-                inputs.insert("__transforms__".to_string(), transform_row.clone());
+                let full: Combo = inputs.iter().copied()
+                    .chain(std::iter::once(("__transforms__", &transform_row))).collect();
                 if let Some(tx) = output_txs.get(i) {
-                    let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars, &mut failed);
+                    let out_row = build_output_row(output, &full, &transform_row, &lane_vars, &mut failed);
                     let _ = tx.send(out_row).await;
                     rows_out += 1;
                     *per_out.entry("output_rejected".to_string()).or_insert(0) += 1;
@@ -246,15 +285,14 @@ pub async fn run(
 
         // ── Per ogni combinazione: transforms + routing multi-match ─
         for combo in combos {
-            let mut inputs: HashMap<String, Row> = HashMap::new();
-            inputs.insert(plan.main_input_id.clone(), main_row.clone());
-            for (key, row) in combo {
-                inputs.insert(key, row);
-            }
+            let mut inputs: Combo = Combo::new();
+            inputs.push((plan.main_input_id.as_str(), &main_row));
+            inputs.extend(combo.iter().copied());
 
             let transform_row = compute_transforms(
                 &plan.transforms, &inputs, &mut lane_vars, plan.main_input_id.as_str());
-            inputs.insert("__transforms__".to_string(), transform_row.clone());
+            let inputs: Combo = inputs.iter().copied()
+                .chain(std::iter::once(("__transforms__", &transform_row))).collect();
 
             // Routing MULTI-MATCH: ogni output valuta il proprio
             // filtro in modo indipendente; nessun filtro = tutte le
@@ -264,14 +302,15 @@ pub async fn run(
                 if output.output_id == "output_rejected" { continue; }
 
                 let passes = if let Some(filter) = &output.filter_expr {
-                    let input_refs: HashMap<&str, &Row> = inputs.iter()
-                        .map(|(k, v)| (k.as_str(), v))
-                        .collect();
                     // Il main dichiarato ⇒ un campo scritto senza sorgente si
                     // risolve prima lì, non a caso (v. expr.rs).
-                    let eval_ctx = EvalContext::multi_con_main(
-                        input_refs, &lane_vars, plan.main_input_id.as_str());
-                    is_truthy(&eval(filter, &eval_ctx))
+                    let eval_ctx = EvalContext::from_pairs(
+                        inputs.iter().copied(),
+                        &lane_vars, Some(plan.main_input_id.as_str()));
+                    match &output.filter_c {
+                        Some(c) => c.is_true(&eval_ctx),
+                        None => is_truthy(&eval(filter, &eval_ctx)),
+                    }
                 } else {
                     true
                 };
@@ -318,7 +357,7 @@ pub async fn run(
 /// contatori di lane. Restituisce la riga __transforms__.
 fn compute_transforms(
     transforms:    &[TMapTransformPlan],
-    inputs:        &HashMap<String, Row>,
+    inputs:        &[(&str, &Row)],
     lane_vars:     &mut HashMap<String, Value>,
     main_input_id: &str,
 ) -> Row {
@@ -345,13 +384,14 @@ fn compute_transforms(
             continue;
         }
 
-        // Eval normale
-        let input_refs: HashMap<&str, &Row> = inputs.iter()
-            .map(|(k, v)| (k.as_str(), v))
-            .chain(std::iter::once(("__transforms__", &transform_row as &Row)))
-            .collect();
-        let eval_ctx = EvalContext::multi_con_main(input_refs, lane_vars, main_input_id);
-        let result   = eval(&tr.expr, &eval_ctx);
+        // Eval normale (P383: contesto senza HashMap, chiuso prima di scrivere)
+        let result = {
+            let eval_ctx = EvalContext::from_pairs(
+                inputs.iter().copied()
+                    .chain(std::iter::once(("__transforms__", &transform_row as &Row))),
+                lane_vars, Some(main_input_id));
+            ev(&tr.c, &tr.expr, &eval_ctx)
+        };
         transform_row.set(tr.output_name.clone(), result);
     }
 
@@ -376,12 +416,10 @@ fn compute_lookup_key(
 
         // Contesto minimale: solo la riga lookup corrente — anche col suo id
         // e la sua label, per le espressioni che la citano per esteso.
-        let mut single: HashMap<&str, &Row> = HashMap::new();
-        single.insert("__current__", lkp_row);
-        single.insert(lookup.input_id.as_str(), lkp_row);
-        single.insert(lookup.label.as_str(), lkp_row);
-        let ctx = EvalContext::multi(single, variables);
-        let val = eval(key_expr, &ctx);
+        let ctx = EvalContext::from_pairs(
+            [("__current__", lkp_row), (lookup.input_id.as_str(), lkp_row), (lookup.label.as_str(), lkp_row)],
+            variables, None);
+        let val = if pair.dst_key_expr.is_some() { ev(&pair.dst_c, key_expr, &ctx) } else { eval(key_expr, &ctx) };
         key_parts.push(val.as_str_repr());
     }
 
@@ -395,20 +433,17 @@ fn compute_src_key(
     lkp:       &MaterializedLookup,
     main_row:  &Row,
     main_id:   &str,
-    combo:     &HashMap<String, Row>,
+    combo:     &[(&str, &Row)],
     variables: &HashMap<String, Value>,
 ) -> String {
     let mut key_parts = Vec::new();
 
     for pair in &lkp.plan.join_pairs {
-        let mut refs: HashMap<&str, &Row> = HashMap::new();
-        refs.insert("main", main_row);
-        refs.insert(main_id, main_row);
-        for (k, r) in combo {
-            refs.insert(k.as_str(), r);
-        }
-        let ctx = EvalContext::multi_con_main(refs, variables, main_id);
-        let val = eval(&pair.src_key_expr, &ctx);
+        let ctx = EvalContext::from_pairs(
+            [("main", main_row), (main_id, main_row)].into_iter()
+                .chain(combo.iter().copied()),
+            variables, Some(main_id));
+        let val = ev(&pair.src_c, &pair.src_key_expr, &ctx);
         key_parts.push(val.as_str_repr());
     }
 
@@ -418,23 +453,22 @@ fn compute_src_key(
 /// Costruisce la riga di output valutando tutte le espressioni
 fn build_output_row(
     output:        &TMapOutputPlan,
-    inputs:        &HashMap<String, Row>,
+    inputs:        &[(&str, &Row)],
     transform_row: &Row,
     variables:     &HashMap<String, Value>,
     failed:        &mut HashMap<String, (u64, String)>,
 ) -> Row {
     let mut out_row = Row::new();
 
-    // Costruisci i riferimenti per EvalContext
-    let mut input_refs: HashMap<&str, &Row> = inputs.iter()
-        .map(|(k, v)| (k.as_str(), v))
-        .collect();
-    input_refs.insert("__transforms__", transform_row);
-
-    let eval_ctx = EvalContext::multi(input_refs, variables);
+    // Riferimenti per EvalContext (P383: senza HashMap). `__transforms__` per
+    // ultimo: a parità di nome vince, come con l'insert di prima.
+    let eval_ctx = EvalContext::from_pairs(
+        inputs.iter().copied()
+            .chain(std::iter::once(("__transforms__", transform_row))),
+        variables, None);
 
     for field in &output.fields {
-        let val = eval(&field.expr, &eval_ctx);
+        let val = ev(&field.c, &field.expr, &eval_ctx);
         // P371: il tipo dichiarato (o dedotto dallo studio) si applica. Non
         // `string`: è anche il ripiego quando lo studio non deduce il tipo, e
         // trasformare in testo un numero romperebbe le scritture a valle.

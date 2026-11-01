@@ -2474,3 +2474,26 @@ Studio completo con misure e roadmap in **`docs/STUDIO-motore-prestazioni.md`**.
   metriche di latenza e scadenza negli altri sink → garanzie di consegna → parallelismo.
 - `verifica_rust`: 0 errori, warning invariati, lib 102, contratto 5. ⚠ In `src-tauri/examples/`
   c'era un `bench_engine.rs` non tracciato di una sessione precedente: spostato nello scratchpad.
+
+## AGGIORNAMENTO — Espressioni compilate, TMap senza copie (stato al P383, 31 ottobre)
+
+Voce B di `docs/STUDIO-motore-prestazioni.md`.
+- **`engine/compiled.rs`**: `Compiled::new(&ExprNode)` una volta per nodo; `eval`/`is_true`.
+  Costanti calcolate (operatori, NOT/NEG, cast fra costanti), `var("X")` risolto, nome
+  funzione già minuscolo, valori della riga in prestito (`Cow`), AND/OR che si fermano.
+  Le funzioni NON si piegano (now, uuid…). Test `equivalente_all_interprete`: corpus di
+  ~50 espressioni × 3 righe × con/senza main → stesso risultato dell'interprete.
+- **`EvalContext`**: ingressi in `SmallVec` (niente allocazione fino a 4), ricerca per
+  nome "ultimo vince" come `HashMap::insert`; `from_pairs`; `field`/`direct_field` = unica
+  fonte dell'ordine di risoluzione (anche per l'interprete). ⚠ Ha un `Drop`: il prestito
+  dura fino a fine blocco (sistemati data_quality e tmap con blocchi).
+- `expr::eval_binary_ref` (operandi in prestito); `eval_function`, `cast_value`,
+  `literal_to_value`, `to_string` ora `pub(crate)`.
+- **Transform**: compilato; la riga ricevuta si modifica invece di clonarla (add/replace).
+- **Filter**: condizioni `code` compilate (`#[serde(skip)] compiled`).
+- **TMap**: espressioni compilate (`compile_plan`); combinazioni = riferimenti
+  (`Combo = SmallVec<[(&str,&Row);4]>`), niente cloni di main/lookup/trasformazioni.
+- Misure (release, 2 vCPU): Transform+Filter 1M righe 186k → 230k righe/s; TMap 500k
+  120k → 200k. Output identico (md5) anche con join left/first/uno-a-molti e scarti,
+  confrontato con un build del P382 (worktree usa-e-getta).
+- Nuova dipendenza: `smallvec`. `verifica_rust`: 0 errori, warning invariati, lib 104.

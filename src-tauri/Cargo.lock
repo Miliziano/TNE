@@ -167,6 +167,7 @@ dependencies = [
  "serde_json",
  "sha1",
  "sha2 0.11.1",
+ "smallvec",
  "sqlx",
  "ssh2",
  "suppaftp",
