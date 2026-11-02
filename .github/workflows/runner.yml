@@ -50,7 +50,7 @@ jobs:
       - name: Test dei contratti e della libreria (Linux)
         if: runner.os == 'Linux'
         working-directory: src-tauri
-        run: cargo test --no-default-features --lib --test runner_contract
+        run: cargo test --no-default-features --lib --test runner_contract --test motore_regressione
 
       - name: Build runner (headless, size-optimized)
         working-directory: src-tauri

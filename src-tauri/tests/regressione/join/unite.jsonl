@@ -1,0 +1,340 @@
+{"c_id":"0","city":"Milano","cust_id":"0","id":"0","month":"gen","name":"Cliente 0","price":"0.00","qty":"1","segment":"B"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"0","month":"gen","name":"Doppio 0","price":"0.00","qty":"1","segment":"C"}
+{"c_id":"1","city":"Roma","cust_id":"1","id":"1","month":"feb","name":"Cliente 1","price":"1.01","qty":"2","segment":"A"}
+{"c_id":"2","city":"Torino","cust_id":"2","id":"2","month":"mar","name":"Cliente 2","price":"2.02","qty":"3","segment":"A"}
+{"c_id":"3","city":"Napoli","cust_id":"3","id":"3","month":"gen","name":"Cliente 3","price":"3.03","qty":"4","segment":"B"}
+{"c_id":"4","city":"Bari","cust_id":"4","id":"4","month":"feb","name":"Cliente 4","price":"4.04","qty":"5","segment":"A"}
+{"c_id":"5","city":"Milano","cust_id":"5","id":"5","month":"mar","name":"Cliente 5","price":"5.05","qty":"6","segment":"A"}
+{"c_id":"6","city":"Roma","cust_id":"6","id":"6","month":"gen","name":"Cliente 6","price":"6.06","qty":"7","segment":"B"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"7","month":"feb","name":"Cliente 7","price":"7.07","qty":"8","segment":"A"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"7","month":"feb","name":"Doppio 7","price":"7.07","qty":"8","segment":"C"}
+{"c_id":"8","city":"Napoli","cust_id":"8","id":"8","month":"mar","name":"Cliente 8","price":"8.08","qty":"9","segment":"A"}
+{"c_id":"9","city":"Bari","cust_id":"9","id":"9","month":"gen","name":"Cliente 9","price":"9.09","qty":"10","segment":"B"}
+{"c_id":"10","city":"Milano","cust_id":"10","id":"10","month":"feb","name":"Cliente 10","price":"10.10","qty":"11","segment":"A"}
+{"c_id":"11","city":"Roma","cust_id":"11","id":"11","month":"mar","name":"Cliente 11","price":"11.11","qty":"12","segment":"A"}
+{"c_id":"12","city":"Torino","cust_id":"12","id":"12","month":"gen","name":"Cliente 12","price":"12.12","qty":"13","segment":"B"}
+{"c_id":"13","city":"Napoli","cust_id":"13","id":"13","month":"feb","name":"Cliente 13","price":"13.13","qty":"14","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"14","month":"mar","name":"Cliente 14","price":"14.14","qty":"15","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"14","month":"mar","name":"Doppio 14","price":"14.14","qty":"15","segment":"C"}
+{"c_id":"15","city":"Milano","cust_id":"15","id":"15","month":"gen","name":"Cliente 15","price":"15.15","qty":"16","segment":"B"}
+{"c_id":"16","city":"Roma","cust_id":"16","id":"16","month":"feb","name":"Cliente 16","price":"16.16","qty":"17","segment":"A"}
+{"c_id":"17","city":"Torino","cust_id":"17","id":"17","month":"mar","name":"Cliente 17","price":"17.17","qty":"1","segment":"A"}
+{"c_id":"18","city":"Napoli","cust_id":"18","id":"18","month":"gen","name":"Cliente 18","price":"18.18","qty":"2","segment":"B"}
+{"c_id":"19","city":"Bari","cust_id":"19","id":"19","month":"feb","name":"Cliente 19","price":"19.19","qty":"3","segment":"A"}
+{"c_id":"20","city":"Milano","cust_id":"20","id":"20","month":"mar","name":"Cliente 20","price":"20.20","qty":"4","segment":"A"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"21","month":"gen","name":"Cliente 21","price":"21.21","qty":"5","segment":"B"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"21","month":"gen","name":"Doppio 21","price":"21.21","qty":"5","segment":"C"}
+{"c_id":"22","city":"Torino","cust_id":"22","id":"22","month":"feb","name":"Cliente 22","price":"22.22","qty":"6","segment":"A"}
+{"c_id":"23","city":"Napoli","cust_id":"23","id":"23","month":"mar","name":"Cliente 23","price":"23.23","qty":"7","segment":"A"}
+{"c_id":"24","city":"Bari","cust_id":"24","id":"24","month":"gen","name":"Cliente 24","price":"24.24","qty":"8","segment":"B"}
+{"c_id":"25","city":"Milano","cust_id":"25","id":"25","month":"feb","name":"Cliente 25","price":"25.25","qty":"9","segment":"A"}
+{"c_id":"26","city":"Roma","cust_id":"26","id":"26","month":"mar","name":"Cliente 26","price":"26.26","qty":"10","segment":"A"}
+{"c_id":"27","city":"Torino","cust_id":"27","id":"27","month":"gen","name":"Cliente 27","price":"27.27","qty":"11","segment":"B"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"28","month":"feb","name":"Cliente 28","price":"28.28","qty":"12","segment":"A"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"28","month":"feb","name":"Doppio 28","price":"28.28","qty":"12","segment":"C"}
+{"c_id":"29","city":"Bari","cust_id":"29","id":"29","month":"mar","name":"Cliente 29","price":"29.29","qty":"13","segment":"A"}
+{"c_id":"30","city":"Milano","cust_id":"30","id":"30","month":"gen","name":"Cliente 30","price":"30.30","qty":"14","segment":"B"}
+{"c_id":"31","city":"Roma","cust_id":"31","id":"31","month":"feb","name":"Cliente 31","price":"31.31","qty":"15","segment":"A"}
+{"c_id":"32","city":"Torino","cust_id":"32","id":"32","month":"mar","name":"Cliente 32","price":"32.32","qty":"16","segment":"A"}
+{"c_id":"33","city":"Napoli","cust_id":"33","id":"33","month":"gen","name":"Cliente 33","price":"33.33","qty":"17","segment":"B"}
+{"c_id":"34","city":"Bari","cust_id":"34","id":"34","month":"feb","name":"Cliente 34","price":"34.34","qty":"1","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"35","month":"mar","name":"Cliente 35","price":"35.35","qty":"2","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"35","month":"mar","name":"Doppio 35","price":"35.35","qty":"2","segment":"C"}
+{"c_id":"36","city":"Roma","cust_id":"36","id":"36","month":"gen","name":"Cliente 36","price":"36.36","qty":"3","segment":"B"}
+{"c_id":"37","city":"Torino","cust_id":"37","id":"37","month":"feb","name":"Cliente 37","price":"37.37","qty":"4","segment":"A"}
+{"c_id":"38","city":"Napoli","cust_id":"38","id":"38","month":"mar","name":"Cliente 38","price":"38.38","qty":"5","segment":"A"}
+{"c_id":"39","city":"Bari","cust_id":"39","id":"39","month":"gen","name":"Cliente 39","price":"39.39","qty":"6","segment":"B"}
+{"c_id":"40","city":"Milano","cust_id":"40","id":"40","month":"feb","name":"Cliente 40","price":"40.40","qty":"7","segment":"A"}
+{"c_id":"41","city":"Roma","cust_id":"41","id":"41","month":"mar","name":"Cliente 41","price":"41.41","qty":"8","segment":"A"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"42","month":"gen","name":"Cliente 42","price":"42.42","qty":"9","segment":"B"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"42","month":"gen","name":"Doppio 42","price":"42.42","qty":"9","segment":"C"}
+{"c_id":"43","city":"Napoli","cust_id":"43","id":"43","month":"feb","name":"Cliente 43","price":"43.43","qty":"10","segment":"A"}
+{"c_id":"44","city":"Bari","cust_id":"44","id":"44","month":"mar","name":"Cliente 44","price":"44.44","qty":"11","segment":"A"}
+{"c_id":"45","city":"Milano","cust_id":"45","id":"45","month":"gen","name":"Cliente 45","price":"45.45","qty":"12","segment":"B"}
+{"c_id":"46","city":"Roma","cust_id":"46","id":"46","month":"feb","name":"Cliente 46","price":"46.46","qty":"13","segment":"A"}
+{"c_id":"47","city":"Torino","cust_id":"47","id":"47","month":"mar","name":"Cliente 47","price":"47.47","qty":"14","segment":"A"}
+{"c_id":"48","city":"Napoli","cust_id":"48","id":"48","month":"gen","name":"Cliente 48","price":"48.48","qty":"15","segment":"B"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"49","month":"feb","name":"Cliente 49","price":"49.49","qty":"16","segment":"A"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"49","month":"feb","name":"Doppio 49","price":"49.49","qty":"16","segment":"C"}
+{"city":"Milano","cust_id":"50","id":"50","month":"mar","price":"0.50","qty":"17"}
+{"city":"Roma","cust_id":"51","id":"51","month":"gen","price":"1.51","qty":"1"}
+{"city":"Torino","cust_id":"52","id":"52","month":"feb","price":"2.52","qty":"2"}
+{"city":"Napoli","cust_id":"53","id":"53","month":"mar","price":"3.53","qty":"3"}
+{"city":"Bari","cust_id":"54","id":"54","month":"gen","price":"4.54","qty":"4"}
+{"city":"Milano","cust_id":"55","id":"55","month":"feb","price":"5.55","qty":"5"}
+{"city":"Roma","cust_id":"56","id":"56","month":"mar","price":"6.56","qty":"6"}
+{"city":"Torino","cust_id":"57","id":"57","month":"gen","price":"7.57","qty":"7"}
+{"city":"Napoli","cust_id":"58","id":"58","month":"feb","price":"8.58","qty":"8"}
+{"city":"Bari","cust_id":"59","id":"59","month":"mar","price":"9.59","qty":"9"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"60","month":"gen","name":"Cliente 0","price":"10.60","qty":"10","segment":"B"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"60","month":"gen","name":"Doppio 0","price":"10.60","qty":"10","segment":"C"}
+{"c_id":"1","city":"Roma","cust_id":"1","id":"61","month":"feb","name":"Cliente 1","price":"11.61","qty":"11","segment":"A"}
+{"c_id":"2","city":"Torino","cust_id":"2","id":"62","month":"mar","name":"Cliente 2","price":"12.62","qty":"12","segment":"A"}
+{"c_id":"3","city":"Napoli","cust_id":"3","id":"63","month":"gen","name":"Cliente 3","price":"13.63","qty":"13","segment":"B"}
+{"c_id":"4","city":"Bari","cust_id":"4","id":"64","month":"feb","name":"Cliente 4","price":"14.64","qty":"14","segment":"A"}
+{"c_id":"5","city":"Milano","cust_id":"5","id":"65","month":"mar","name":"Cliente 5","price":"15.65","qty":"15","segment":"A"}
+{"c_id":"6","city":"Roma","cust_id":"6","id":"66","month":"gen","name":"Cliente 6","price":"16.66","qty":"16","segment":"B"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"67","month":"feb","name":"Cliente 7","price":"17.67","qty":"17","segment":"A"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"67","month":"feb","name":"Doppio 7","price":"17.67","qty":"17","segment":"C"}
+{"c_id":"8","city":"Napoli","cust_id":"8","id":"68","month":"mar","name":"Cliente 8","price":"18.68","qty":"1","segment":"A"}
+{"c_id":"9","city":"Bari","cust_id":"9","id":"69","month":"gen","name":"Cliente 9","price":"19.69","qty":"2","segment":"B"}
+{"c_id":"10","city":"Milano","cust_id":"10","id":"70","month":"feb","name":"Cliente 10","price":"20.70","qty":"3","segment":"A"}
+{"c_id":"11","city":"Roma","cust_id":"11","id":"71","month":"mar","name":"Cliente 11","price":"21.71","qty":"4","segment":"A"}
+{"c_id":"12","city":"Torino","cust_id":"12","id":"72","month":"gen","name":"Cliente 12","price":"22.72","qty":"5","segment":"B"}
+{"c_id":"13","city":"Napoli","cust_id":"13","id":"73","month":"feb","name":"Cliente 13","price":"23.73","qty":"6","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"74","month":"mar","name":"Cliente 14","price":"24.74","qty":"7","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"74","month":"mar","name":"Doppio 14","price":"24.74","qty":"7","segment":"C"}
+{"c_id":"15","city":"Milano","cust_id":"15","id":"75","month":"gen","name":"Cliente 15","price":"25.75","qty":"8","segment":"B"}
+{"c_id":"16","city":"Roma","cust_id":"16","id":"76","month":"feb","name":"Cliente 16","price":"26.76","qty":"9","segment":"A"}
+{"c_id":"17","city":"Torino","cust_id":"17","id":"77","month":"mar","name":"Cliente 17","price":"27.77","qty":"10","segment":"A"}
+{"c_id":"18","city":"Napoli","cust_id":"18","id":"78","month":"gen","name":"Cliente 18","price":"28.78","qty":"11","segment":"B"}
+{"c_id":"19","city":"Bari","cust_id":"19","id":"79","month":"feb","name":"Cliente 19","price":"29.79","qty":"12","segment":"A"}
+{"c_id":"20","city":"Milano","cust_id":"20","id":"80","month":"mar","name":"Cliente 20","price":"30.80","qty":"13","segment":"A"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"81","month":"gen","name":"Cliente 21","price":"31.81","qty":"14","segment":"B"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"81","month":"gen","name":"Doppio 21","price":"31.81","qty":"14","segment":"C"}
+{"c_id":"22","city":"Torino","cust_id":"22","id":"82","month":"feb","name":"Cliente 22","price":"32.82","qty":"15","segment":"A"}
+{"c_id":"23","city":"Napoli","cust_id":"23","id":"83","month":"mar","name":"Cliente 23","price":"33.83","qty":"16","segment":"A"}
+{"c_id":"24","city":"Bari","cust_id":"24","id":"84","month":"gen","name":"Cliente 24","price":"34.84","qty":"17","segment":"B"}
+{"c_id":"25","city":"Milano","cust_id":"25","id":"85","month":"feb","name":"Cliente 25","price":"35.85","qty":"1","segment":"A"}
+{"c_id":"26","city":"Roma","cust_id":"26","id":"86","month":"mar","name":"Cliente 26","price":"36.86","qty":"2","segment":"A"}
+{"c_id":"27","city":"Torino","cust_id":"27","id":"87","month":"gen","name":"Cliente 27","price":"37.87","qty":"3","segment":"B"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"88","month":"feb","name":"Cliente 28","price":"38.88","qty":"4","segment":"A"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"88","month":"feb","name":"Doppio 28","price":"38.88","qty":"4","segment":"C"}
+{"c_id":"29","city":"Bari","cust_id":"29","id":"89","month":"mar","name":"Cliente 29","price":"39.89","qty":"5","segment":"A"}
+{"c_id":"30","city":"Milano","cust_id":"30","id":"90","month":"gen","name":"Cliente 30","price":"40.90","qty":"6","segment":"B"}
+{"c_id":"31","city":"Roma","cust_id":"31","id":"91","month":"feb","name":"Cliente 31","price":"41.91","qty":"7","segment":"A"}
+{"c_id":"32","city":"Torino","cust_id":"32","id":"92","month":"mar","name":"Cliente 32","price":"42.92","qty":"8","segment":"A"}
+{"c_id":"33","city":"Napoli","cust_id":"33","id":"93","month":"gen","name":"Cliente 33","price":"43.93","qty":"9","segment":"B"}
+{"c_id":"34","city":"Bari","cust_id":"34","id":"94","month":"feb","name":"Cliente 34","price":"44.94","qty":"10","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"95","month":"mar","name":"Cliente 35","price":"45.95","qty":"11","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"95","month":"mar","name":"Doppio 35","price":"45.95","qty":"11","segment":"C"}
+{"c_id":"36","city":"Roma","cust_id":"36","id":"96","month":"gen","name":"Cliente 36","price":"46.96","qty":"12","segment":"B"}
+{"c_id":"37","city":"Torino","cust_id":"37","id":"97","month":"feb","name":"Cliente 37","price":"47.97","qty":"13","segment":"A"}
+{"c_id":"38","city":"Napoli","cust_id":"38","id":"98","month":"mar","name":"Cliente 38","price":"48.98","qty":"14","segment":"A"}
+{"c_id":"39","city":"Bari","cust_id":"39","id":"99","month":"gen","name":"Cliente 39","price":"49.99","qty":"15","segment":"B"}
+{"c_id":"40","city":"Milano","cust_id":"40","id":"100","month":"feb","name":"Cliente 40","price":"0.00","qty":"16","segment":"A"}
+{"c_id":"41","city":"Roma","cust_id":"41","id":"101","month":"mar","name":"Cliente 41","price":"1.01","qty":"17","segment":"A"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"102","month":"gen","name":"Cliente 42","price":"2.02","qty":"1","segment":"B"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"102","month":"gen","name":"Doppio 42","price":"2.02","qty":"1","segment":"C"}
+{"c_id":"43","city":"Napoli","cust_id":"43","id":"103","month":"feb","name":"Cliente 43","price":"3.03","qty":"2","segment":"A"}
+{"c_id":"44","city":"Bari","cust_id":"44","id":"104","month":"mar","name":"Cliente 44","price":"4.04","qty":"3","segment":"A"}
+{"c_id":"45","city":"Milano","cust_id":"45","id":"105","month":"gen","name":"Cliente 45","price":"5.05","qty":"4","segment":"B"}
+{"c_id":"46","city":"Roma","cust_id":"46","id":"106","month":"feb","name":"Cliente 46","price":"6.06","qty":"5","segment":"A"}
+{"c_id":"47","city":"Torino","cust_id":"47","id":"107","month":"mar","name":"Cliente 47","price":"7.07","qty":"6","segment":"A"}
+{"c_id":"48","city":"Napoli","cust_id":"48","id":"108","month":"gen","name":"Cliente 48","price":"8.08","qty":"7","segment":"B"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"109","month":"feb","name":"Cliente 49","price":"9.09","qty":"8","segment":"A"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"109","month":"feb","name":"Doppio 49","price":"9.09","qty":"8","segment":"C"}
+{"city":"Milano","cust_id":"50","id":"110","month":"mar","price":"10.10","qty":"9"}
+{"city":"Roma","cust_id":"51","id":"111","month":"gen","price":"11.11","qty":"10"}
+{"city":"Torino","cust_id":"52","id":"112","month":"feb","price":"12.12","qty":"11"}
+{"city":"Napoli","cust_id":"53","id":"113","month":"mar","price":"13.13","qty":"12"}
+{"city":"Bari","cust_id":"54","id":"114","month":"gen","price":"14.14","qty":"13"}
+{"city":"Milano","cust_id":"55","id":"115","month":"feb","price":"15.15","qty":"14"}
+{"city":"Roma","cust_id":"56","id":"116","month":"mar","price":"16.16","qty":"15"}
+{"city":"Torino","cust_id":"57","id":"117","month":"gen","price":"17.17","qty":"16"}
+{"city":"Napoli","cust_id":"58","id":"118","month":"feb","price":"18.18","qty":"17"}
+{"city":"Bari","cust_id":"59","id":"119","month":"mar","price":"19.19","qty":"1"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"120","month":"gen","name":"Cliente 0","price":"20.20","qty":"2","segment":"B"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"120","month":"gen","name":"Doppio 0","price":"20.20","qty":"2","segment":"C"}
+{"c_id":"1","city":"Roma","cust_id":"1","id":"121","month":"feb","name":"Cliente 1","price":"21.21","qty":"3","segment":"A"}
+{"c_id":"2","city":"Torino","cust_id":"2","id":"122","month":"mar","name":"Cliente 2","price":"22.22","qty":"4","segment":"A"}
+{"c_id":"3","city":"Napoli","cust_id":"3","id":"123","month":"gen","name":"Cliente 3","price":"23.23","qty":"5","segment":"B"}
+{"c_id":"4","city":"Bari","cust_id":"4","id":"124","month":"feb","name":"Cliente 4","price":"24.24","qty":"6","segment":"A"}
+{"c_id":"5","city":"Milano","cust_id":"5","id":"125","month":"mar","name":"Cliente 5","price":"25.25","qty":"7","segment":"A"}
+{"c_id":"6","city":"Roma","cust_id":"6","id":"126","month":"gen","name":"Cliente 6","price":"26.26","qty":"8","segment":"B"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"127","month":"feb","name":"Cliente 7","price":"27.27","qty":"9","segment":"A"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"127","month":"feb","name":"Doppio 7","price":"27.27","qty":"9","segment":"C"}
+{"c_id":"8","city":"Napoli","cust_id":"8","id":"128","month":"mar","name":"Cliente 8","price":"28.28","qty":"10","segment":"A"}
+{"c_id":"9","city":"Bari","cust_id":"9","id":"129","month":"gen","name":"Cliente 9","price":"29.29","qty":"11","segment":"B"}
+{"c_id":"10","city":"Milano","cust_id":"10","id":"130","month":"feb","name":"Cliente 10","price":"30.30","qty":"12","segment":"A"}
+{"c_id":"11","city":"Roma","cust_id":"11","id":"131","month":"mar","name":"Cliente 11","price":"31.31","qty":"13","segment":"A"}
+{"c_id":"12","city":"Torino","cust_id":"12","id":"132","month":"gen","name":"Cliente 12","price":"32.32","qty":"14","segment":"B"}
+{"c_id":"13","city":"Napoli","cust_id":"13","id":"133","month":"feb","name":"Cliente 13","price":"33.33","qty":"15","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"134","month":"mar","name":"Cliente 14","price":"34.34","qty":"16","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"134","month":"mar","name":"Doppio 14","price":"34.34","qty":"16","segment":"C"}
+{"c_id":"15","city":"Milano","cust_id":"15","id":"135","month":"gen","name":"Cliente 15","price":"35.35","qty":"17","segment":"B"}
+{"c_id":"16","city":"Roma","cust_id":"16","id":"136","month":"feb","name":"Cliente 16","price":"36.36","qty":"1","segment":"A"}
+{"c_id":"17","city":"Torino","cust_id":"17","id":"137","month":"mar","name":"Cliente 17","price":"37.37","qty":"2","segment":"A"}
+{"c_id":"18","city":"Napoli","cust_id":"18","id":"138","month":"gen","name":"Cliente 18","price":"38.38","qty":"3","segment":"B"}
+{"c_id":"19","city":"Bari","cust_id":"19","id":"139","month":"feb","name":"Cliente 19","price":"39.39","qty":"4","segment":"A"}
+{"c_id":"20","city":"Milano","cust_id":"20","id":"140","month":"mar","name":"Cliente 20","price":"40.40","qty":"5","segment":"A"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"141","month":"gen","name":"Cliente 21","price":"41.41","qty":"6","segment":"B"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"141","month":"gen","name":"Doppio 21","price":"41.41","qty":"6","segment":"C"}
+{"c_id":"22","city":"Torino","cust_id":"22","id":"142","month":"feb","name":"Cliente 22","price":"42.42","qty":"7","segment":"A"}
+{"c_id":"23","city":"Napoli","cust_id":"23","id":"143","month":"mar","name":"Cliente 23","price":"43.43","qty":"8","segment":"A"}
+{"c_id":"24","city":"Bari","cust_id":"24","id":"144","month":"gen","name":"Cliente 24","price":"44.44","qty":"9","segment":"B"}
+{"c_id":"25","city":"Milano","cust_id":"25","id":"145","month":"feb","name":"Cliente 25","price":"45.45","qty":"10","segment":"A"}
+{"c_id":"26","city":"Roma","cust_id":"26","id":"146","month":"mar","name":"Cliente 26","price":"46.46","qty":"11","segment":"A"}
+{"c_id":"27","city":"Torino","cust_id":"27","id":"147","month":"gen","name":"Cliente 27","price":"47.47","qty":"12","segment":"B"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"148","month":"feb","name":"Cliente 28","price":"48.48","qty":"13","segment":"A"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"148","month":"feb","name":"Doppio 28","price":"48.48","qty":"13","segment":"C"}
+{"c_id":"29","city":"Bari","cust_id":"29","id":"149","month":"mar","name":"Cliente 29","price":"49.49","qty":"14","segment":"A"}
+{"c_id":"30","city":"Milano","cust_id":"30","id":"150","month":"gen","name":"Cliente 30","price":"0.50","qty":"15","segment":"B"}
+{"c_id":"31","city":"Roma","cust_id":"31","id":"151","month":"feb","name":"Cliente 31","price":"1.51","qty":"16","segment":"A"}
+{"c_id":"32","city":"Torino","cust_id":"32","id":"152","month":"mar","name":"Cliente 32","price":"2.52","qty":"17","segment":"A"}
+{"c_id":"33","city":"Napoli","cust_id":"33","id":"153","month":"gen","name":"Cliente 33","price":"3.53","qty":"1","segment":"B"}
+{"c_id":"34","city":"Bari","cust_id":"34","id":"154","month":"feb","name":"Cliente 34","price":"4.54","qty":"2","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"155","month":"mar","name":"Cliente 35","price":"5.55","qty":"3","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"155","month":"mar","name":"Doppio 35","price":"5.55","qty":"3","segment":"C"}
+{"c_id":"36","city":"Roma","cust_id":"36","id":"156","month":"gen","name":"Cliente 36","price":"6.56","qty":"4","segment":"B"}
+{"c_id":"37","city":"Torino","cust_id":"37","id":"157","month":"feb","name":"Cliente 37","price":"7.57","qty":"5","segment":"A"}
+{"c_id":"38","city":"Napoli","cust_id":"38","id":"158","month":"mar","name":"Cliente 38","price":"8.58","qty":"6","segment":"A"}
+{"c_id":"39","city":"Bari","cust_id":"39","id":"159","month":"gen","name":"Cliente 39","price":"9.59","qty":"7","segment":"B"}
+{"c_id":"40","city":"Milano","cust_id":"40","id":"160","month":"feb","name":"Cliente 40","price":"10.60","qty":"8","segment":"A"}
+{"c_id":"41","city":"Roma","cust_id":"41","id":"161","month":"mar","name":"Cliente 41","price":"11.61","qty":"9","segment":"A"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"162","month":"gen","name":"Cliente 42","price":"12.62","qty":"10","segment":"B"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"162","month":"gen","name":"Doppio 42","price":"12.62","qty":"10","segment":"C"}
+{"c_id":"43","city":"Napoli","cust_id":"43","id":"163","month":"feb","name":"Cliente 43","price":"13.63","qty":"11","segment":"A"}
+{"c_id":"44","city":"Bari","cust_id":"44","id":"164","month":"mar","name":"Cliente 44","price":"14.64","qty":"12","segment":"A"}
+{"c_id":"45","city":"Milano","cust_id":"45","id":"165","month":"gen","name":"Cliente 45","price":"15.65","qty":"13","segment":"B"}
+{"c_id":"46","city":"Roma","cust_id":"46","id":"166","month":"feb","name":"Cliente 46","price":"16.66","qty":"14","segment":"A"}
+{"c_id":"47","city":"Torino","cust_id":"47","id":"167","month":"mar","name":"Cliente 47","price":"17.67","qty":"15","segment":"A"}
+{"c_id":"48","city":"Napoli","cust_id":"48","id":"168","month":"gen","name":"Cliente 48","price":"18.68","qty":"16","segment":"B"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"169","month":"feb","name":"Cliente 49","price":"19.69","qty":"17","segment":"A"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"169","month":"feb","name":"Doppio 49","price":"19.69","qty":"17","segment":"C"}
+{"city":"Milano","cust_id":"50","id":"170","month":"mar","price":"20.70","qty":"1"}
+{"city":"Roma","cust_id":"51","id":"171","month":"gen","price":"21.71","qty":"2"}
+{"city":"Torino","cust_id":"52","id":"172","month":"feb","price":"22.72","qty":"3"}
+{"city":"Napoli","cust_id":"53","id":"173","month":"mar","price":"23.73","qty":"4"}
+{"city":"Bari","cust_id":"54","id":"174","month":"gen","price":"24.74","qty":"5"}
+{"city":"Milano","cust_id":"55","id":"175","month":"feb","price":"25.75","qty":"6"}
+{"city":"Roma","cust_id":"56","id":"176","month":"mar","price":"26.76","qty":"7"}
+{"city":"Torino","cust_id":"57","id":"177","month":"gen","price":"27.77","qty":"8"}
+{"city":"Napoli","cust_id":"58","id":"178","month":"feb","price":"28.78","qty":"9"}
+{"city":"Bari","cust_id":"59","id":"179","month":"mar","price":"29.79","qty":"10"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"180","month":"gen","name":"Cliente 0","price":"30.80","qty":"11","segment":"B"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"180","month":"gen","name":"Doppio 0","price":"30.80","qty":"11","segment":"C"}
+{"c_id":"1","city":"Roma","cust_id":"1","id":"181","month":"feb","name":"Cliente 1","price":"31.81","qty":"12","segment":"A"}
+{"c_id":"2","city":"Torino","cust_id":"2","id":"182","month":"mar","name":"Cliente 2","price":"32.82","qty":"13","segment":"A"}
+{"c_id":"3","city":"Napoli","cust_id":"3","id":"183","month":"gen","name":"Cliente 3","price":"33.83","qty":"14","segment":"B"}
+{"c_id":"4","city":"Bari","cust_id":"4","id":"184","month":"feb","name":"Cliente 4","price":"34.84","qty":"15","segment":"A"}
+{"c_id":"5","city":"Milano","cust_id":"5","id":"185","month":"mar","name":"Cliente 5","price":"35.85","qty":"16","segment":"A"}
+{"c_id":"6","city":"Roma","cust_id":"6","id":"186","month":"gen","name":"Cliente 6","price":"36.86","qty":"17","segment":"B"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"187","month":"feb","name":"Cliente 7","price":"37.87","qty":"1","segment":"A"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"187","month":"feb","name":"Doppio 7","price":"37.87","qty":"1","segment":"C"}
+{"c_id":"8","city":"Napoli","cust_id":"8","id":"188","month":"mar","name":"Cliente 8","price":"38.88","qty":"2","segment":"A"}
+{"c_id":"9","city":"Bari","cust_id":"9","id":"189","month":"gen","name":"Cliente 9","price":"39.89","qty":"3","segment":"B"}
+{"c_id":"10","city":"Milano","cust_id":"10","id":"190","month":"feb","name":"Cliente 10","price":"40.90","qty":"4","segment":"A"}
+{"c_id":"11","city":"Roma","cust_id":"11","id":"191","month":"mar","name":"Cliente 11","price":"41.91","qty":"5","segment":"A"}
+{"c_id":"12","city":"Torino","cust_id":"12","id":"192","month":"gen","name":"Cliente 12","price":"42.92","qty":"6","segment":"B"}
+{"c_id":"13","city":"Napoli","cust_id":"13","id":"193","month":"feb","name":"Cliente 13","price":"43.93","qty":"7","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"194","month":"mar","name":"Cliente 14","price":"44.94","qty":"8","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"194","month":"mar","name":"Doppio 14","price":"44.94","qty":"8","segment":"C"}
+{"c_id":"15","city":"Milano","cust_id":"15","id":"195","month":"gen","name":"Cliente 15","price":"45.95","qty":"9","segment":"B"}
+{"c_id":"16","city":"Roma","cust_id":"16","id":"196","month":"feb","name":"Cliente 16","price":"46.96","qty":"10","segment":"A"}
+{"c_id":"17","city":"Torino","cust_id":"17","id":"197","month":"mar","name":"Cliente 17","price":"47.97","qty":"11","segment":"A"}
+{"c_id":"18","city":"Napoli","cust_id":"18","id":"198","month":"gen","name":"Cliente 18","price":"48.98","qty":"12","segment":"B"}
+{"c_id":"19","city":"Bari","cust_id":"19","id":"199","month":"feb","name":"Cliente 19","price":"49.99","qty":"13","segment":"A"}
+{"c_id":"20","city":"Milano","cust_id":"20","id":"200","month":"mar","name":"Cliente 20","price":"0.00","qty":"14","segment":"A"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"201","month":"gen","name":"Cliente 21","price":"1.01","qty":"15","segment":"B"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"201","month":"gen","name":"Doppio 21","price":"1.01","qty":"15","segment":"C"}
+{"c_id":"22","city":"Torino","cust_id":"22","id":"202","month":"feb","name":"Cliente 22","price":"2.02","qty":"16","segment":"A"}
+{"c_id":"23","city":"Napoli","cust_id":"23","id":"203","month":"mar","name":"Cliente 23","price":"3.03","qty":"17","segment":"A"}
+{"c_id":"24","city":"Bari","cust_id":"24","id":"204","month":"gen","name":"Cliente 24","price":"4.04","qty":"1","segment":"B"}
+{"c_id":"25","city":"Milano","cust_id":"25","id":"205","month":"feb","name":"Cliente 25","price":"5.05","qty":"2","segment":"A"}
+{"c_id":"26","city":"Roma","cust_id":"26","id":"206","month":"mar","name":"Cliente 26","price":"6.06","qty":"3","segment":"A"}
+{"c_id":"27","city":"Torino","cust_id":"27","id":"207","month":"gen","name":"Cliente 27","price":"7.07","qty":"4","segment":"B"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"208","month":"feb","name":"Cliente 28","price":"8.08","qty":"5","segment":"A"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"208","month":"feb","name":"Doppio 28","price":"8.08","qty":"5","segment":"C"}
+{"c_id":"29","city":"Bari","cust_id":"29","id":"209","month":"mar","name":"Cliente 29","price":"9.09","qty":"6","segment":"A"}
+{"c_id":"30","city":"Milano","cust_id":"30","id":"210","month":"gen","name":"Cliente 30","price":"10.10","qty":"7","segment":"B"}
+{"c_id":"31","city":"Roma","cust_id":"31","id":"211","month":"feb","name":"Cliente 31","price":"11.11","qty":"8","segment":"A"}
+{"c_id":"32","city":"Torino","cust_id":"32","id":"212","month":"mar","name":"Cliente 32","price":"12.12","qty":"9","segment":"A"}
+{"c_id":"33","city":"Napoli","cust_id":"33","id":"213","month":"gen","name":"Cliente 33","price":"13.13","qty":"10","segment":"B"}
+{"c_id":"34","city":"Bari","cust_id":"34","id":"214","month":"feb","name":"Cliente 34","price":"14.14","qty":"11","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"215","month":"mar","name":"Cliente 35","price":"15.15","qty":"12","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"215","month":"mar","name":"Doppio 35","price":"15.15","qty":"12","segment":"C"}
+{"c_id":"36","city":"Roma","cust_id":"36","id":"216","month":"gen","name":"Cliente 36","price":"16.16","qty":"13","segment":"B"}
+{"c_id":"37","city":"Torino","cust_id":"37","id":"217","month":"feb","name":"Cliente 37","price":"17.17","qty":"14","segment":"A"}
+{"c_id":"38","city":"Napoli","cust_id":"38","id":"218","month":"mar","name":"Cliente 38","price":"18.18","qty":"15","segment":"A"}
+{"c_id":"39","city":"Bari","cust_id":"39","id":"219","month":"gen","name":"Cliente 39","price":"19.19","qty":"16","segment":"B"}
+{"c_id":"40","city":"Milano","cust_id":"40","id":"220","month":"feb","name":"Cliente 40","price":"20.20","qty":"17","segment":"A"}
+{"c_id":"41","city":"Roma","cust_id":"41","id":"221","month":"mar","name":"Cliente 41","price":"21.21","qty":"1","segment":"A"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"222","month":"gen","name":"Cliente 42","price":"22.22","qty":"2","segment":"B"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"222","month":"gen","name":"Doppio 42","price":"22.22","qty":"2","segment":"C"}
+{"c_id":"43","city":"Napoli","cust_id":"43","id":"223","month":"feb","name":"Cliente 43","price":"23.23","qty":"3","segment":"A"}
+{"c_id":"44","city":"Bari","cust_id":"44","id":"224","month":"mar","name":"Cliente 44","price":"24.24","qty":"4","segment":"A"}
+{"c_id":"45","city":"Milano","cust_id":"45","id":"225","month":"gen","name":"Cliente 45","price":"25.25","qty":"5","segment":"B"}
+{"c_id":"46","city":"Roma","cust_id":"46","id":"226","month":"feb","name":"Cliente 46","price":"26.26","qty":"6","segment":"A"}
+{"c_id":"47","city":"Torino","cust_id":"47","id":"227","month":"mar","name":"Cliente 47","price":"27.27","qty":"7","segment":"A"}
+{"c_id":"48","city":"Napoli","cust_id":"48","id":"228","month":"gen","name":"Cliente 48","price":"28.28","qty":"8","segment":"B"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"229","month":"feb","name":"Cliente 49","price":"29.29","qty":"9","segment":"A"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"229","month":"feb","name":"Doppio 49","price":"29.29","qty":"9","segment":"C"}
+{"city":"Milano","cust_id":"50","id":"230","month":"mar","price":"30.30","qty":"10"}
+{"city":"Roma","cust_id":"51","id":"231","month":"gen","price":"31.31","qty":"11"}
+{"city":"Torino","cust_id":"52","id":"232","month":"feb","price":"32.32","qty":"12"}
+{"city":"Napoli","cust_id":"53","id":"233","month":"mar","price":"33.33","qty":"13"}
+{"city":"Bari","cust_id":"54","id":"234","month":"gen","price":"34.34","qty":"14"}
+{"city":"Milano","cust_id":"55","id":"235","month":"feb","price":"35.35","qty":"15"}
+{"city":"Roma","cust_id":"56","id":"236","month":"mar","price":"36.36","qty":"16"}
+{"city":"Torino","cust_id":"57","id":"237","month":"gen","price":"37.37","qty":"17"}
+{"city":"Napoli","cust_id":"58","id":"238","month":"feb","price":"38.38","qty":"1"}
+{"city":"Bari","cust_id":"59","id":"239","month":"mar","price":"39.39","qty":"2"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"240","month":"gen","name":"Cliente 0","price":"40.40","qty":"3","segment":"B"}
+{"c_id":"0","city":"Milano","cust_id":"0","id":"240","month":"gen","name":"Doppio 0","price":"40.40","qty":"3","segment":"C"}
+{"c_id":"1","city":"Roma","cust_id":"1","id":"241","month":"feb","name":"Cliente 1","price":"41.41","qty":"4","segment":"A"}
+{"c_id":"2","city":"Torino","cust_id":"2","id":"242","month":"mar","name":"Cliente 2","price":"42.42","qty":"5","segment":"A"}
+{"c_id":"3","city":"Napoli","cust_id":"3","id":"243","month":"gen","name":"Cliente 3","price":"43.43","qty":"6","segment":"B"}
+{"c_id":"4","city":"Bari","cust_id":"4","id":"244","month":"feb","name":"Cliente 4","price":"44.44","qty":"7","segment":"A"}
+{"c_id":"5","city":"Milano","cust_id":"5","id":"245","month":"mar","name":"Cliente 5","price":"45.45","qty":"8","segment":"A"}
+{"c_id":"6","city":"Roma","cust_id":"6","id":"246","month":"gen","name":"Cliente 6","price":"46.46","qty":"9","segment":"B"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"247","month":"feb","name":"Cliente 7","price":"47.47","qty":"10","segment":"A"}
+{"c_id":"7","city":"Torino","cust_id":"7","id":"247","month":"feb","name":"Doppio 7","price":"47.47","qty":"10","segment":"C"}
+{"c_id":"8","city":"Napoli","cust_id":"8","id":"248","month":"mar","name":"Cliente 8","price":"48.48","qty":"11","segment":"A"}
+{"c_id":"9","city":"Bari","cust_id":"9","id":"249","month":"gen","name":"Cliente 9","price":"49.49","qty":"12","segment":"B"}
+{"c_id":"10","city":"Milano","cust_id":"10","id":"250","month":"feb","name":"Cliente 10","price":"0.50","qty":"13","segment":"A"}
+{"c_id":"11","city":"Roma","cust_id":"11","id":"251","month":"mar","name":"Cliente 11","price":"1.51","qty":"14","segment":"A"}
+{"c_id":"12","city":"Torino","cust_id":"12","id":"252","month":"gen","name":"Cliente 12","price":"2.52","qty":"15","segment":"B"}
+{"c_id":"13","city":"Napoli","cust_id":"13","id":"253","month":"feb","name":"Cliente 13","price":"3.53","qty":"16","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"254","month":"mar","name":"Cliente 14","price":"4.54","qty":"17","segment":"A"}
+{"c_id":"14","city":"Bari","cust_id":"14","id":"254","month":"mar","name":"Doppio 14","price":"4.54","qty":"17","segment":"C"}
+{"c_id":"15","city":"Milano","cust_id":"15","id":"255","month":"gen","name":"Cliente 15","price":"5.55","qty":"1","segment":"B"}
+{"c_id":"16","city":"Roma","cust_id":"16","id":"256","month":"feb","name":"Cliente 16","price":"6.56","qty":"2","segment":"A"}
+{"c_id":"17","city":"Torino","cust_id":"17","id":"257","month":"mar","name":"Cliente 17","price":"7.57","qty":"3","segment":"A"}
+{"c_id":"18","city":"Napoli","cust_id":"18","id":"258","month":"gen","name":"Cliente 18","price":"8.58","qty":"4","segment":"B"}
+{"c_id":"19","city":"Bari","cust_id":"19","id":"259","month":"feb","name":"Cliente 19","price":"9.59","qty":"5","segment":"A"}
+{"c_id":"20","city":"Milano","cust_id":"20","id":"260","month":"mar","name":"Cliente 20","price":"10.60","qty":"6","segment":"A"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"261","month":"gen","name":"Cliente 21","price":"11.61","qty":"7","segment":"B"}
+{"c_id":"21","city":"Roma","cust_id":"21","id":"261","month":"gen","name":"Doppio 21","price":"11.61","qty":"7","segment":"C"}
+{"c_id":"22","city":"Torino","cust_id":"22","id":"262","month":"feb","name":"Cliente 22","price":"12.62","qty":"8","segment":"A"}
+{"c_id":"23","city":"Napoli","cust_id":"23","id":"263","month":"mar","name":"Cliente 23","price":"13.63","qty":"9","segment":"A"}
+{"c_id":"24","city":"Bari","cust_id":"24","id":"264","month":"gen","name":"Cliente 24","price":"14.64","qty":"10","segment":"B"}
+{"c_id":"25","city":"Milano","cust_id":"25","id":"265","month":"feb","name":"Cliente 25","price":"15.65","qty":"11","segment":"A"}
+{"c_id":"26","city":"Roma","cust_id":"26","id":"266","month":"mar","name":"Cliente 26","price":"16.66","qty":"12","segment":"A"}
+{"c_id":"27","city":"Torino","cust_id":"27","id":"267","month":"gen","name":"Cliente 27","price":"17.67","qty":"13","segment":"B"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"268","month":"feb","name":"Cliente 28","price":"18.68","qty":"14","segment":"A"}
+{"c_id":"28","city":"Napoli","cust_id":"28","id":"268","month":"feb","name":"Doppio 28","price":"18.68","qty":"14","segment":"C"}
+{"c_id":"29","city":"Bari","cust_id":"29","id":"269","month":"mar","name":"Cliente 29","price":"19.69","qty":"15","segment":"A"}
+{"c_id":"30","city":"Milano","cust_id":"30","id":"270","month":"gen","name":"Cliente 30","price":"20.70","qty":"16","segment":"B"}
+{"c_id":"31","city":"Roma","cust_id":"31","id":"271","month":"feb","name":"Cliente 31","price":"21.71","qty":"17","segment":"A"}
+{"c_id":"32","city":"Torino","cust_id":"32","id":"272","month":"mar","name":"Cliente 32","price":"22.72","qty":"1","segment":"A"}
+{"c_id":"33","city":"Napoli","cust_id":"33","id":"273","month":"gen","name":"Cliente 33","price":"23.73","qty":"2","segment":"B"}
+{"c_id":"34","city":"Bari","cust_id":"34","id":"274","month":"feb","name":"Cliente 34","price":"24.74","qty":"3","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"275","month":"mar","name":"Cliente 35","price":"25.75","qty":"4","segment":"A"}
+{"c_id":"35","city":"Milano","cust_id":"35","id":"275","month":"mar","name":"Doppio 35","price":"25.75","qty":"4","segment":"C"}
+{"c_id":"36","city":"Roma","cust_id":"36","id":"276","month":"gen","name":"Cliente 36","price":"26.76","qty":"5","segment":"B"}
+{"c_id":"37","city":"Torino","cust_id":"37","id":"277","month":"feb","name":"Cliente 37","price":"27.77","qty":"6","segment":"A"}
+{"c_id":"38","city":"Napoli","cust_id":"38","id":"278","month":"mar","name":"Cliente 38","price":"28.78","qty":"7","segment":"A"}
+{"c_id":"39","city":"Bari","cust_id":"39","id":"279","month":"gen","name":"Cliente 39","price":"29.79","qty":"8","segment":"B"}
+{"c_id":"40","city":"Milano","cust_id":"40","id":"280","month":"feb","name":"Cliente 40","price":"30.80","qty":"9","segment":"A"}
+{"c_id":"41","city":"Roma","cust_id":"41","id":"281","month":"mar","name":"Cliente 41","price":"31.81","qty":"10","segment":"A"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"282","month":"gen","name":"Cliente 42","price":"32.82","qty":"11","segment":"B"}
+{"c_id":"42","city":"Torino","cust_id":"42","id":"282","month":"gen","name":"Doppio 42","price":"32.82","qty":"11","segment":"C"}
+{"c_id":"43","city":"Napoli","cust_id":"43","id":"283","month":"feb","name":"Cliente 43","price":"33.83","qty":"12","segment":"A"}
+{"c_id":"44","city":"Bari","cust_id":"44","id":"284","month":"mar","name":"Cliente 44","price":"34.84","qty":"13","segment":"A"}
+{"c_id":"45","city":"Milano","cust_id":"45","id":"285","month":"gen","name":"Cliente 45","price":"35.85","qty":"14","segment":"B"}
+{"c_id":"46","city":"Roma","cust_id":"46","id":"286","month":"feb","name":"Cliente 46","price":"36.86","qty":"15","segment":"A"}
+{"c_id":"47","city":"Torino","cust_id":"47","id":"287","month":"mar","name":"Cliente 47","price":"37.87","qty":"16","segment":"A"}
+{"c_id":"48","city":"Napoli","cust_id":"48","id":"288","month":"gen","name":"Cliente 48","price":"38.88","qty":"17","segment":"B"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"289","month":"feb","name":"Cliente 49","price":"39.89","qty":"1","segment":"A"}
+{"c_id":"49","city":"Bari","cust_id":"49","id":"289","month":"feb","name":"Doppio 49","price":"39.89","qty":"1","segment":"C"}
+{"city":"Milano","cust_id":"50","id":"290","month":"mar","price":"40.90","qty":"2"}
+{"city":"Roma","cust_id":"51","id":"291","month":"gen","price":"41.91","qty":"3"}
+{"city":"Torino","cust_id":"52","id":"292","month":"feb","price":"42.92","qty":"4"}
+{"city":"Napoli","cust_id":"53","id":"293","month":"mar","price":"43.93","qty":"5"}
+{"city":"Bari","cust_id":"54","id":"294","month":"gen","price":"44.94","qty":"6"}
+{"city":"Milano","cust_id":"55","id":"295","month":"feb","price":"45.95","qty":"7"}
+{"city":"Roma","cust_id":"56","id":"296","month":"mar","price":"46.96","qty":"8"}
+{"city":"Torino","cust_id":"57","id":"297","month":"gen","price":"47.97","qty":"9"}
+{"city":"Napoli","cust_id":"58","id":"298","month":"feb","price":"48.98","qty":"10"}
+{"city":"Bari","cust_id":"59","id":"299","month":"mar","price":"49.99","qty":"11"}

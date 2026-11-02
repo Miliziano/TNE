@@ -2497,3 +2497,18 @@ Voce B di `docs/STUDIO-motore-prestazioni.md`.
   120k → 200k. Output identico (md5) anche con join left/first/uno-a-molti e scarti,
   confrontato con un build del P382 (worktree usa-e-getta).
 - Nuova dipendenza: `smallvec`. `verifica_rust`: 0 errori, warning invariati, lib 104.
+
+## AGGIORNAMENTO — Banco di non regressione del motore (stato al P384, 2 novembre)
+
+Prerequisito delle righe con schema (voce A dello studio). Indicazioni dell'utente:
+**la compatibilità con i progetti esistenti non conta** (prototipo della v1), e **niente
+rigidità alla Talend** (job che falliscono a runtime per schemi che non coincidono nella
+posizione dei campi). Regole del nuovo modello: `docs/STUDIO-motore-prestazioni.md` §6.
+- `src-tauri/tests/motore_regressione.rs`: 11 piani reali su dati deterministici, output
+  confrontati byte per byte con `src-tauri/tests/regressione/<scenario>/`. Rigenerare gli
+  attesi (cambiamento voluto): `FLOWPILOT_AGGIORNA_ATTESI=1 cargo test --no-default-features
+  --test motore_regressione`, poi guardare il diff. L'esito del run (completed) si controlla
+  anche rigenerando.
+- Aggiunto alla CI (`runner.yml`) e a `verifica_rust`.
+- Comportamenti di oggi resi visibili (studio §6): colonne CSV duplicate perse in silenzio,
+  righe corte senza campi, colonne in ordine alfabetico.

@@ -1,0 +1,225 @@
+{"class":"L","id":10,"name":"CLIENTE 10","tag":"Milano-A","total":111.1}
+{"class":"L","id":11,"name":"CLIENTE 11","tag":"Roma-A","total":133.32}
+{"class":"L","id":12,"name":"CLIENTE 12","tag":"Torino-B","total":157.56}
+{"class":"L","id":13,"name":"CLIENTE 13","tag":"Napoli-A","total":183.82000000000005}
+{"class":"L","id":14,"name":"CLIENTE 14","tag":"Bari-A","total":212.10000000000005}
+{"class":"L","id":14,"name":"DOPPIO 14","tag":"Bari-C","total":212.10000000000005}
+{"class":"L","id":15,"name":"CLIENTE 15","tag":"Milano-B","total":242.4}
+{"class":"L","id":16,"name":"CLIENTE 16","tag":"Roma-A","total":274.72}
+{"class":"L","id":21,"name":"CLIENTE 21","tag":"Roma-B","total":106.05000000000003}
+{"class":"L","id":21,"name":"DOPPIO 21","tag":"Roma-C","total":106.05000000000003}
+{"class":"L","id":22,"name":"CLIENTE 22","tag":"Torino-A","total":133.32}
+{"class":"L","id":23,"name":"CLIENTE 23","tag":"Napoli-A","total":162.61}
+{"class":"L","id":24,"name":"CLIENTE 24","tag":"Bari-B","total":193.92}
+{"class":"L","id":25,"name":"CLIENTE 25","tag":"Milano-A","total":227.25}
+{"class":"L","id":26,"name":"CLIENTE 26","tag":"Roma-A","total":262.6}
+{"class":"L","id":27,"name":"CLIENTE 27","tag":"Torino-B","total":299.96999999999997}
+{"class":"L","id":28,"name":"CLIENTE 28","tag":"Napoli-A","total":339.36}
+{"class":"L","id":28,"name":"DOPPIO 28","tag":"Napoli-C","total":339.36}
+{"class":"L","id":29,"name":"CLIENTE 29","tag":"Bari-A","total":380.77}
+{"class":"L","id":30,"name":"CLIENTE 30","tag":"Milano-B","total":424.2}
+{"class":"L","id":31,"name":"CLIENTE 31","tag":"Roma-A","total":469.65}
+{"class":"XL","id":32,"name":"CLIENTE 32","tag":"Torino-A","total":517.12}
+{"class":"XL","id":33,"name":"CLIENTE 33","tag":"Napoli-B","total":566.61}
+{"class":"L","id":36,"name":"CLIENTE 36","tag":"Roma-B","total":109.08}
+{"class":"L","id":37,"name":"CLIENTE 37","tag":"Torino-A","total":149.48}
+{"class":"L","id":38,"name":"CLIENTE 38","tag":"Napoli-A","total":191.9}
+{"class":"L","id":39,"name":"CLIENTE 39","tag":"Bari-B","total":236.34}
+{"class":"L","id":40,"name":"CLIENTE 40","tag":"Milano-A","total":282.8}
+{"class":"L","id":41,"name":"CLIENTE 41","tag":"Roma-A","total":331.28}
+{"class":"L","id":42,"name":"CLIENTE 42","tag":"Torino-B","total":381.78}
+{"class":"L","id":42,"name":"DOPPIO 42","tag":"Torino-C","total":381.78}
+{"class":"L","id":43,"name":"CLIENTE 43","tag":"Napoli-A","total":434.3}
+{"class":"L","id":44,"name":"CLIENTE 44","tag":"Bari-A","total":488.84}
+{"class":"XL","id":45,"name":"CLIENTE 45","tag":"Milano-B","total":545.4000000000001}
+{"class":"XL","id":46,"name":"CLIENTE 46","tag":"Roma-A","total":603.98}
+{"class":"XL","id":47,"name":"CLIENTE 47","tag":"Torino-A","total":664.5799999999999}
+{"class":"XL","id":48,"name":"CLIENTE 48","tag":"Napoli-B","total":727.1999999999999}
+{"class":"XL","id":49,"name":"CLIENTE 49","tag":"Bari-A","total":791.84}
+{"class":"XL","id":49,"name":"DOPPIO 49","tag":"Bari-C","total":791.84}
+{"class":"L","id":60,"name":"CLIENTE 0","tag":"Milano-B","total":106.0}
+{"class":"L","id":60,"name":"DOPPIO 0","tag":"Milano-C","total":106.0}
+{"class":"L","id":61,"name":"CLIENTE 1","tag":"Roma-A","total":127.71}
+{"class":"L","id":62,"name":"CLIENTE 2","tag":"Torino-A","total":151.44}
+{"class":"L","id":63,"name":"CLIENTE 3","tag":"Napoli-B","total":177.19}
+{"class":"L","id":64,"name":"CLIENTE 4","tag":"Bari-A","total":204.96}
+{"class":"L","id":65,"name":"CLIENTE 5","tag":"Milano-A","total":234.75}
+{"class":"L","id":66,"name":"CLIENTE 6","tag":"Roma-B","total":266.56}
+{"class":"L","id":67,"name":"CLIENTE 7","tag":"Torino-A","total":300.39000000000004}
+{"class":"L","id":67,"name":"DOPPIO 7","tag":"Torino-C","total":300.39000000000004}
+{"class":"L","id":72,"name":"CLIENTE 12","tag":"Torino-B","total":113.6}
+{"class":"L","id":73,"name":"CLIENTE 13","tag":"Napoli-A","total":142.38}
+{"class":"L","id":74,"name":"CLIENTE 14","tag":"Bari-A","total":173.17999999999998}
+{"class":"L","id":74,"name":"DOPPIO 14","tag":"Bari-C","total":173.17999999999998}
+{"class":"L","id":75,"name":"CLIENTE 15","tag":"Milano-B","total":206.0}
+{"class":"L","id":76,"name":"CLIENTE 16","tag":"Roma-A","total":240.84}
+{"class":"L","id":77,"name":"CLIENTE 17","tag":"Torino-A","total":277.7}
+{"class":"L","id":78,"name":"CLIENTE 18","tag":"Napoli-B","total":316.58000000000004}
+{"class":"L","id":79,"name":"CLIENTE 19","tag":"Bari-A","total":357.48}
+{"class":"L","id":80,"name":"CLIENTE 20","tag":"Milano-A","total":400.4}
+{"class":"L","id":81,"name":"CLIENTE 21","tag":"Roma-B","total":445.34}
+{"class":"L","id":81,"name":"DOPPIO 21","tag":"Roma-C","total":445.34}
+{"class":"L","id":82,"name":"CLIENTE 22","tag":"Torino-A","total":492.3}
+{"class":"XL","id":83,"name":"CLIENTE 23","tag":"Napoli-A","total":541.28}
+{"class":"XL","id":84,"name":"CLIENTE 24","tag":"Bari-B","total":592.2800000000001}
+{"class":"L","id":87,"name":"CLIENTE 27","tag":"Torino-B","total":113.60999999999999}
+{"class":"L","id":88,"name":"CLIENTE 28","tag":"Napoli-A","total":155.52}
+{"class":"L","id":88,"name":"DOPPIO 28","tag":"Napoli-C","total":155.52}
+{"class":"L","id":89,"name":"CLIENTE 29","tag":"Bari-A","total":199.45}
+{"class":"L","id":90,"name":"CLIENTE 30","tag":"Milano-B","total":245.39999999999995}
+{"class":"L","id":91,"name":"CLIENTE 31","tag":"Roma-A","total":293.37}
+{"class":"L","id":92,"name":"CLIENTE 32","tag":"Torino-A","total":343.36}
+{"class":"L","id":93,"name":"CLIENTE 33","tag":"Napoli-B","total":395.37}
+{"class":"L","id":94,"name":"CLIENTE 34","tag":"Bari-A","total":449.4}
+{"class":"XL","id":95,"name":"CLIENTE 35","tag":"Milano-A","total":505.4500000000001}
+{"class":"XL","id":95,"name":"DOPPIO 35","tag":"Milano-C","total":505.4500000000001}
+{"class":"XL","id":96,"name":"CLIENTE 36","tag":"Roma-B","total":563.52}
+{"class":"XL","id":97,"name":"CLIENTE 37","tag":"Torino-A","total":623.61}
+{"class":"XL","id":98,"name":"CLIENTE 38","tag":"Napoli-A","total":685.7199999999999}
+{"class":"XL","id":99,"name":"CLIENTE 39","tag":"Bari-B","total":749.85}
+{"class":"L","id":111,"name":"","tag":"Roma-","total":111.1}
+{"class":"L","id":112,"name":"","tag":"Torino-","total":133.32}
+{"class":"L","id":113,"name":"","tag":"Napoli-","total":157.56}
+{"class":"L","id":114,"name":"","tag":"Bari-","total":183.82}
+{"class":"L","id":115,"name":"","tag":"Milano-","total":212.1}
+{"class":"L","id":116,"name":"","tag":"Roma-","total":242.4}
+{"class":"L","id":117,"name":"","tag":"Torino-","total":274.72}
+{"class":"L","id":118,"name":"","tag":"Napoli-","total":309.06}
+{"class":"L","id":123,"name":"CLIENTE 3","tag":"Napoli-B","total":116.15}
+{"class":"L","id":124,"name":"CLIENTE 4","tag":"Bari-A","total":145.44}
+{"class":"L","id":125,"name":"CLIENTE 5","tag":"Milano-A","total":176.75}
+{"class":"L","id":126,"name":"CLIENTE 6","tag":"Roma-B","total":210.08}
+{"class":"L","id":127,"name":"CLIENTE 7","tag":"Torino-A","total":245.43}
+{"class":"L","id":127,"name":"DOPPIO 7","tag":"Torino-C","total":245.43}
+{"class":"L","id":128,"name":"CLIENTE 8","tag":"Napoli-A","total":282.8}
+{"class":"L","id":129,"name":"CLIENTE 9","tag":"Bari-B","total":322.19}
+{"class":"L","id":130,"name":"CLIENTE 10","tag":"Milano-A","total":363.6}
+{"class":"L","id":131,"name":"CLIENTE 11","tag":"Roma-A","total":407.03}
+{"class":"L","id":132,"name":"CLIENTE 12","tag":"Torino-B","total":452.48}
+{"class":"L","id":133,"name":"CLIENTE 13","tag":"Napoli-A","total":499.95}
+{"class":"XL","id":134,"name":"CLIENTE 14","tag":"Bari-A","total":549.44}
+{"class":"XL","id":134,"name":"DOPPIO 14","tag":"Bari-C","total":549.44}
+{"class":"XL","id":135,"name":"CLIENTE 15","tag":"Milano-B","total":600.95}
+{"class":"L","id":138,"name":"CLIENTE 18","tag":"Napoli-B","total":115.14000000000001}
+{"class":"L","id":139,"name":"CLIENTE 19","tag":"Bari-A","total":157.56}
+{"class":"L","id":140,"name":"CLIENTE 20","tag":"Milano-A","total":202.0}
+{"class":"L","id":141,"name":"CLIENTE 21","tag":"Roma-B","total":248.45999999999995}
+{"class":"L","id":141,"name":"DOPPIO 21","tag":"Roma-C","total":248.45999999999995}
+{"class":"L","id":142,"name":"CLIENTE 22","tag":"Torino-A","total":296.94}
+{"class":"L","id":143,"name":"CLIENTE 23","tag":"Napoli-A","total":347.44}
+{"class":"L","id":144,"name":"CLIENTE 24","tag":"Bari-B","total":399.96}
+{"class":"L","id":145,"name":"CLIENTE 25","tag":"Milano-A","total":454.5}
+{"class":"XL","id":146,"name":"CLIENTE 26","tag":"Roma-A","total":511.06}
+{"class":"XL","id":147,"name":"CLIENTE 27","tag":"Torino-B","total":569.64}
+{"class":"XL","id":148,"name":"CLIENTE 28","tag":"Napoli-A","total":630.24}
+{"class":"XL","id":148,"name":"DOPPIO 28","tag":"Napoli-C","total":630.24}
+{"class":"XL","id":149,"name":"CLIENTE 29","tag":"Bari-A","total":692.86}
+{"class":"L","id":161,"name":"CLIENTE 41","tag":"Roma-A","total":104.49}
+{"class":"L","id":162,"name":"CLIENTE 42","tag":"Torino-B","total":126.19999999999997}
+{"class":"L","id":162,"name":"DOPPIO 42","tag":"Torino-C","total":126.19999999999997}
+{"class":"L","id":163,"name":"CLIENTE 43","tag":"Napoli-A","total":149.93}
+{"class":"L","id":164,"name":"CLIENTE 44","tag":"Bari-A","total":175.68}
+{"class":"L","id":165,"name":"CLIENTE 45","tag":"Milano-B","total":203.45}
+{"class":"L","id":166,"name":"CLIENTE 46","tag":"Roma-A","total":233.24}
+{"class":"L","id":167,"name":"CLIENTE 47","tag":"Torino-A","total":265.05}
+{"class":"L","id":168,"name":"CLIENTE 48","tag":"Napoli-B","total":298.88}
+{"class":"L","id":169,"name":"CLIENTE 49","tag":"Bari-A","total":334.73}
+{"class":"L","id":169,"name":"DOPPIO 49","tag":"Bari-C","total":334.73}
+{"class":"L","id":174,"name":"","tag":"Bari-","total":123.69999999999997}
+{"class":"L","id":175,"name":"","tag":"Milano-","total":154.5}
+{"class":"L","id":176,"name":"","tag":"Roma-","total":187.32000000000005}
+{"class":"L","id":177,"name":"","tag":"Torino-","total":222.16}
+{"class":"L","id":178,"name":"","tag":"Napoli-","total":259.02}
+{"class":"L","id":179,"name":"","tag":"Bari-","total":297.9}
+{"class":"L","id":180,"name":"CLIENTE 0","tag":"Milano-B","total":338.8}
+{"class":"L","id":180,"name":"DOPPIO 0","tag":"Milano-C","total":338.8}
+{"class":"L","id":181,"name":"CLIENTE 1","tag":"Roma-A","total":381.72}
+{"class":"L","id":182,"name":"CLIENTE 2","tag":"Torino-A","total":426.66}
+{"class":"L","id":183,"name":"CLIENTE 3","tag":"Napoli-B","total":473.62}
+{"class":"XL","id":184,"name":"CLIENTE 4","tag":"Bari-A","total":522.6}
+{"class":"XL","id":185,"name":"CLIENTE 5","tag":"Milano-A","total":573.6}
+{"class":"XL","id":186,"name":"CLIENTE 6","tag":"Roma-B","total":626.62}
+{"class":"L","id":189,"name":"CLIENTE 9","tag":"Bari-B","total":119.67}
+{"class":"L","id":190,"name":"CLIENTE 10","tag":"Milano-A","total":163.6}
+{"class":"L","id":191,"name":"CLIENTE 11","tag":"Roma-A","total":209.55}
+{"class":"L","id":192,"name":"CLIENTE 12","tag":"Torino-B","total":257.52}
+{"class":"L","id":193,"name":"CLIENTE 13","tag":"Napoli-A","total":307.51}
+{"class":"L","id":194,"name":"CLIENTE 14","tag":"Bari-A","total":359.52}
+{"class":"L","id":194,"name":"DOPPIO 14","tag":"Bari-C","total":359.52}
+{"class":"L","id":195,"name":"CLIENTE 15","tag":"Milano-B","total":413.55}
+{"class":"L","id":196,"name":"CLIENTE 16","tag":"Roma-A","total":469.6}
+{"class":"XL","id":197,"name":"CLIENTE 17","tag":"Torino-A","total":527.67}
+{"class":"XL","id":198,"name":"CLIENTE 18","tag":"Napoli-B","total":587.76}
+{"class":"XL","id":199,"name":"CLIENTE 19","tag":"Bari-A","total":649.87}
+{"class":"L","id":212,"name":"CLIENTE 32","tag":"Torino-A","total":109.08}
+{"class":"L","id":213,"name":"CLIENTE 33","tag":"Napoli-B","total":131.3}
+{"class":"L","id":214,"name":"CLIENTE 34","tag":"Bari-A","total":155.54000000000002}
+{"class":"L","id":215,"name":"CLIENTE 35","tag":"Milano-A","total":181.8}
+{"class":"L","id":215,"name":"DOPPIO 35","tag":"Milano-C","total":181.8}
+{"class":"L","id":216,"name":"CLIENTE 36","tag":"Roma-B","total":210.08}
+{"class":"L","id":217,"name":"CLIENTE 37","tag":"Torino-A","total":240.38000000000005}
+{"class":"L","id":218,"name":"CLIENTE 38","tag":"Napoli-A","total":272.7}
+{"class":"L","id":219,"name":"CLIENTE 39","tag":"Bari-B","total":307.04}
+{"class":"L","id":220,"name":"CLIENTE 40","tag":"Milano-A","total":343.4}
+{"class":"L","id":225,"name":"CLIENTE 45","tag":"Milano-B","total":126.25}
+{"class":"L","id":226,"name":"CLIENTE 46","tag":"Roma-A","total":157.56}
+{"class":"L","id":227,"name":"CLIENTE 47","tag":"Torino-A","total":190.89}
+{"class":"L","id":228,"name":"CLIENTE 48","tag":"Napoli-B","total":226.24}
+{"class":"L","id":229,"name":"CLIENTE 49","tag":"Bari-A","total":263.61}
+{"class":"L","id":229,"name":"DOPPIO 49","tag":"Bari-C","total":263.61}
+{"class":"L","id":230,"name":"","tag":"Milano-","total":303.0}
+{"class":"L","id":231,"name":"","tag":"Roma-","total":344.40999999999997}
+{"class":"L","id":232,"name":"","tag":"Torino-","total":387.84}
+{"class":"L","id":233,"name":"","tag":"Napoli-","total":433.29}
+{"class":"L","id":234,"name":"","tag":"Bari-","total":480.7600000000001}
+{"class":"XL","id":235,"name":"","tag":"Milano-","total":530.25}
+{"class":"XL","id":236,"name":"","tag":"Roma-","total":581.76}
+{"class":"XL","id":237,"name":"","tag":"Torino-","total":635.29}
+{"class":"L","id":240,"name":"CLIENTE 0","tag":"Milano-B","total":121.19999999999997}
+{"class":"L","id":240,"name":"DOPPIO 0","tag":"Milano-C","total":121.19999999999997}
+{"class":"L","id":241,"name":"CLIENTE 1","tag":"Roma-A","total":165.64}
+{"class":"L","id":242,"name":"CLIENTE 2","tag":"Torino-A","total":212.10000000000005}
+{"class":"L","id":243,"name":"CLIENTE 3","tag":"Napoli-B","total":260.58}
+{"class":"L","id":244,"name":"CLIENTE 4","tag":"Bari-A","total":311.08}
+{"class":"L","id":245,"name":"CLIENTE 5","tag":"Milano-A","total":363.6}
+{"class":"L","id":246,"name":"CLIENTE 6","tag":"Roma-B","total":418.14}
+{"class":"L","id":247,"name":"CLIENTE 7","tag":"Torino-A","total":474.7}
+{"class":"L","id":247,"name":"DOPPIO 7","tag":"Torino-C","total":474.7}
+{"class":"XL","id":248,"name":"CLIENTE 8","tag":"Napoli-A","total":533.28}
+{"class":"XL","id":249,"name":"CLIENTE 9","tag":"Bari-B","total":593.88}
+{"class":"L","id":262,"name":"CLIENTE 22","tag":"Torino-A","total":100.96}
+{"class":"L","id":263,"name":"CLIENTE 23","tag":"Napoli-A","total":122.67}
+{"class":"L","id":264,"name":"CLIENTE 24","tag":"Bari-B","total":146.4}
+{"class":"L","id":265,"name":"CLIENTE 25","tag":"Milano-A","total":172.15}
+{"class":"L","id":266,"name":"CLIENTE 26","tag":"Roma-A","total":199.92}
+{"class":"L","id":267,"name":"CLIENTE 27","tag":"Torino-B","total":229.71000000000004}
+{"class":"L","id":268,"name":"CLIENTE 28","tag":"Napoli-A","total":261.52}
+{"class":"L","id":268,"name":"DOPPIO 28","tag":"Napoli-C","total":261.52}
+{"class":"L","id":269,"name":"CLIENTE 29","tag":"Bari-A","total":295.35}
+{"class":"L","id":270,"name":"CLIENTE 30","tag":"Milano-B","total":331.2}
+{"class":"L","id":271,"name":"CLIENTE 31","tag":"Roma-A","total":369.07}
+{"class":"L","id":275,"name":"CLIENTE 35","tag":"Milano-A","total":103.0}
+{"class":"L","id":275,"name":"DOPPIO 35","tag":"Milano-C","total":103.0}
+{"class":"L","id":276,"name":"CLIENTE 36","tag":"Roma-B","total":133.8}
+{"class":"L","id":277,"name":"CLIENTE 37","tag":"Torino-A","total":166.62}
+{"class":"L","id":278,"name":"CLIENTE 38","tag":"Napoli-A","total":201.46}
+{"class":"L","id":279,"name":"CLIENTE 39","tag":"Bari-B","total":238.32}
+{"class":"L","id":280,"name":"CLIENTE 40","tag":"Milano-A","total":277.2}
+{"class":"L","id":281,"name":"CLIENTE 41","tag":"Roma-A","total":318.09999999999997}
+{"class":"L","id":282,"name":"CLIENTE 42","tag":"Torino-B","total":361.02}
+{"class":"L","id":282,"name":"DOPPIO 42","tag":"Torino-C","total":361.02}
+{"class":"L","id":283,"name":"CLIENTE 43","tag":"Napoli-A","total":405.96}
+{"class":"L","id":284,"name":"CLIENTE 44","tag":"Bari-A","total":452.9200000000001}
+{"class":"XL","id":285,"name":"CLIENTE 45","tag":"Milano-B","total":501.9}
+{"class":"XL","id":286,"name":"CLIENTE 46","tag":"Roma-A","total":552.9}
+{"class":"XL","id":287,"name":"CLIENTE 47","tag":"Torino-A","total":605.92}
+{"class":"XL","id":288,"name":"CLIENTE 48","tag":"Napoli-B","total":660.96}
+{"class":"L","id":291,"name":"","tag":"Roma-","total":125.72999999999998}
+{"class":"L","id":292,"name":"","tag":"Torino-","total":171.68}
+{"class":"L","id":293,"name":"","tag":"Napoli-","total":219.65}
+{"class":"L","id":294,"name":"","tag":"Bari-","total":269.64}
+{"class":"L","id":295,"name":"","tag":"Milano-","total":321.65000000000003}
+{"class":"L","id":296,"name":"","tag":"Roma-","total":375.68}
+{"class":"L","id":297,"name":"","tag":"Torino-","total":431.73}
+{"class":"L","id":298,"name":"","tag":"Napoli-","total":489.7999999999999}
+{"class":"XL","id":299,"name":"","tag":"Bari-","total":549.89}

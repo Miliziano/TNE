@@ -156,6 +156,54 @@ regressione (stesso output, byte per byte), e si misura prima e dopo.
 
 ---
 
+## 6. Regole per le righe con schema (voce A), decise il 2 novembre
+
+Requisito dell'utente: **nessuna rigidità alla Talend**, dove un job può fallire a runtime
+perché gli schemi di ingresso e di uscita di un componente non coincidono nella posizione
+dei campi. E la compatibilità con i progetti esistenti non è un vincolo (prototipo v1).
+
+1. **Le posizioni non escono mai da un nodo.** Ogni confine resta per nome: elenco delle
+   colonne SQL, intestazione CSV, chiavi JSON, mapping, espressioni. Nessuna istruzione
+   verso un sistema esterno usa la posizione di un campo (oggi già così: `INSERT INTO t
+   (col_a, col_b)` coi valori presi per nome).
+2. **Lo schema non è un contratto dichiarato, è una descrizione dei dati.** Lo crea chi
+   produce le righe (una sorgente dalla sua intestazione, un nodo dai campi che scrive) e
+   viaggia attaccato alla riga. Nessun nodo pretende uno schema "giusto": se le righe
+   cambiano forma, il nodo si adatta.
+3. **Il controllo d'identità sta in un solo posto, la riga.** Un nodo usa le posizioni
+   calcolate solo se la riga ha lo stesso schema per cui le ha calcolate (confronto di
+   puntatori); altrimenti le ricalcola o legge per nome. Impossibile leggere "il campo
+   sbagliato".
+4. **Campo assente = null, campo in più = passa.** Come oggi. Mai un errore di run perché
+   una riga ha un campo in più o in meno.
+5. **Forme molto variabili** (JSON con chiavi diverse a ogni riga): oltre un tetto di
+   schemi diversi la riga torna a comportarsi come oggi; più lenta, mai sbagliata.
+6. **Ogni passo si dimostra col banco di non regressione** (sotto). Un cambiamento voluto
+   dell'output si registra rigenerando gli attesi e guardando il diff.
+
+### Banco di non regressione (P384)
+
+`src-tauri/tests/motore_regressione.rs` + `src-tauri/tests/regressione/` (file attesi):
+dati deterministici, piani reali, confronto byte per byte. Scenari: Transform+Filter con
+scarti, TMap inner/left/first con uno-a-molti e scarti, Aggregate, Pivot dinamico, JSON
+Parser con campi del padre, Script (campi dentro `if`, `emit`, `reject`, `let`), Union di
+schemi diversi, CSV irregolare, Join. Gira in 0,3 s; in CI prima della build del runner.
+
+### Comportamenti di oggi da decidere col nuovo modello
+
+Il banco li ha resi visibili (sono registrati negli attesi così come sono oggi):
+- **CSV con due colonne dallo stesso nome**: la seconda sovrascrive la prima in silenzio
+  (`name,name` → resta solo l'ultimo valore).
+- **Righe CSV più corte**: i campi mancanti non ci sono proprio (non null); **più lunghe**:
+  nascono `col_5`, `col_6`…
+- **Colonne in uscita in ordine alfabetico** quando non c'è un mapping.
+
+Proposta per la voce A: nomi duplicati resi univoci (`name`, `name_2`) con avviso; campi
+mancanti come null (forma costante); ordine naturale delle colonne. Si decidono quando si
+arriva lì, e il diff degli attesi mostrerà esattamente cosa cambia.
+
+---
+
 ## Appendice — banco di prova
 
 Esempio usa-e-getta (`src-tauri/examples/bench_motore.rs`, non nel repo), da lanciare con
