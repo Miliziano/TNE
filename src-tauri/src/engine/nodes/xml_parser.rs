@@ -442,14 +442,14 @@ fn process_element(
         let missing = raw.is_none() || matches!(&raw, Some(s) if s.is_empty());
         if missing {
             match field.on_missing.as_str() {
-                "null"    => { out.0.insert(field.name.clone(), Value::Null); }
+                "null"    => { out.insert(field.name.clone(), Value::Null); }
                 "default" => {
                     let v = default_value(field, apply_types);
-                    out.0.insert(field.name.clone(), v);
+                    out.insert(field.name.clone(), v);
                 }
                 "skip"    => return ProcessResult::Skip,
-                "error"   => { should_reject = true; out.0.insert(field.name.clone(), Value::Null); }
-                _         => { out.0.insert(field.name.clone(), Value::Null); }
+                "error"   => { should_reject = true; out.insert(field.name.clone(), Value::Null); }
+                _         => { out.insert(field.name.clone(), Value::Null); }
             }
             continue;
         }
@@ -466,7 +466,7 @@ fn process_element(
         } else {
             apply_transform(val, &field.transform)
         };
-        out.0.insert(field.name.clone(), v);
+        out.insert(field.name.clone(), v);
     }
 
     if should_reject { ProcessResult::Reject(out) } else { ProcessResult::Row(out) }
@@ -506,11 +506,11 @@ pub async fn run(
     while let Some(row) = rx.recv().await {
         rows_in += 1;
 
-        let xml_string = match row.0.get(&cfg.source_field) {
+        let xml_string = match row.get(&cfg.source_field) {
             None | Some(Value::Null) => {
                 if cfg.has_reject {
                     let mut rej = row.clone();
-                    rej.0.insert("_reject_reason".into(), Value::String("source_field_missing".into()));
+                    rej.insert("_reject_reason".into(), Value::String("source_field_missing".into()));
                     send_to(&mut outputs, "reject", rej).await;
                 } else {
                     unreadable += 1;
@@ -527,7 +527,7 @@ pub async fn run(
             Err(_) => {
                 if cfg.has_reject {
                     let mut rej = row.clone();
-                    rej.0.insert("_reject_reason".into(), Value::String("invalid_xml".into()));
+                    rej.insert("_reject_reason".into(), Value::String("invalid_xml".into()));
                     send_to(&mut outputs, "reject", rej).await;
                 } else {
                     unreadable += 1;
@@ -557,9 +557,9 @@ pub async fn run(
                     ProcessResult::Skip => {}
                     ProcessResult::Reject(mut out) => {
                         if cfg.has_reject {
-                            out.0.insert("_reject_reason".into(),
+                            out.insert("_reject_reason".into(),
                                          Value::String("missing_required_field".into()));
-                            out.0.insert("_source_flow".into(),
+                            out.insert("_source_flow".into(),
                                          Value::String(flow.label.clone()));
                             send_to(&mut outputs, "reject", out).await;
                         }

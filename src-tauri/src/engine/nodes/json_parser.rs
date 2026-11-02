@@ -106,7 +106,7 @@ pub async fn run(
             Err(reason) => {
                 if cfg.has_reject {
                     let mut rej = row.clone();
-                    rej.0.insert("_reject_reason".into(), Value::String(reason));
+                    rej.insert("_reject_reason".into(), Value::String(reason));
                     send_to(&mut outputs, "reject", rej).await;
                 } else {
                     unreadable += 1;
@@ -142,8 +142,8 @@ pub async fn run(
                         if flow.merge_parent {
                             let parent = build_parent_data(&row, &cfg.source_field, flow);
                             // I campi del flusso hanno precedenza sui campi del padre.
-                            for (k, v) in parent.0 {
-                                out.0.entry(k).or_insert(v);
+                            for (k, v) in parent {
+                                out.set_if_absent(k, v);
                             }
                         }
                         send_to(&mut outputs, &flow.id, out).await;
@@ -152,9 +152,9 @@ pub async fn run(
                     ProcessResult::Skip => {}
                     ProcessResult::Reject(mut out) => {
                         if cfg.has_reject {
-                            out.0.insert("_reject_reason".into(),
+                            out.insert("_reject_reason".into(),
                                          Value::String("missing_required_field".into()));
-                            out.0.insert("_source_flow".into(),
+                            out.insert("_source_flow".into(),
                                          Value::String(flow.label.clone()));
                             send_to(&mut outputs, "reject", out).await;
                         }
@@ -193,7 +193,7 @@ pub async fn run(
 // Stringa → JSON.parse; oggetto già strutturato → to_json; altro → err.
 
 fn parse_source(row: &Row, source_field: &str) -> Result<JVal, String> {
-    match row.0.get(source_field) {
+    match row.get(source_field) {
         None | Some(Value::Null) => Err("source_field_missing".into()),
         Some(Value::String(s)) => {
             serde_json::from_str::<JVal>(s).map_err(|_| "invalid_json".into())
@@ -233,14 +233,14 @@ fn process_element(
         let is_missing = matches!(raw, None | Some(JVal::Null));
         if is_missing {
             match field.on_missing.as_str() {
-                "null"    => { out.0.insert(field.name.clone(), Value::Null); }
+                "null"    => { out.insert(field.name.clone(), Value::Null); }
                 "default" => {
                     let v = default_value(field);
-                    out.0.insert(field.name.clone(), v);
+                    out.insert(field.name.clone(), v);
                 }
                 "skip"    => return ProcessResult::Skip,
-                "error"   => { should_reject = true; out.0.insert(field.name.clone(), Value::Null); }
-                _         => { out.0.insert(field.name.clone(), Value::Null); }
+                "error"   => { should_reject = true; out.insert(field.name.clone(), Value::Null); }
+                _         => { out.insert(field.name.clone(), Value::Null); }
             }
             continue;
         }
@@ -253,7 +253,7 @@ fn process_element(
                 kept
             }
         };
-        out.0.insert(field.name.clone(), v);
+        out.insert(field.name.clone(), v);
     }
 
     if should_reject { ProcessResult::Reject(out) } else { ProcessResult::Row(out) }
@@ -264,13 +264,13 @@ fn process_element(
 fn build_parent_data(input_row: &Row, source_field: &str, flow: &JsonParserFlow) -> Row {
     let mut parent = Row::new();
     if flow.parent_fields.is_empty() {
-        for (k, v) in &input_row.0 {
-            if k != source_field { parent.0.insert(k.clone(), v.clone()); }
+        for (k, v) in input_row.iter() {
+            if k != source_field { parent.insert(k.clone(), v.clone()); }
         }
     } else {
         for fname in &flow.parent_fields {
-            if let Some(v) = input_row.0.get(fname) {
-                parent.0.insert(fname.clone(), v.clone());
+            if let Some(v) = input_row.get(fname) {
+                parent.insert(fname.clone(), v.clone());
             }
         }
     }

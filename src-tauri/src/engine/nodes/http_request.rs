@@ -50,9 +50,9 @@ pub async fn run(
         match execute_with_pagination(&spec, &client, &row, &ctx).await {
             Ok(resp_rows) => {
                 for mut rr in resp_rows {
-                    if passthrough && !row.0.is_empty() {
-                        for (k, v) in row.0.iter() {
-                            rr.0.entry(k.clone()).or_insert_with(|| v.clone());
+                    if passthrough && !row.is_empty() {
+                        for (k, v) in row.iter() {
+                            rr.set_if_absent(k.clone(), v.clone());
                         }
                     }
                     rows_out += 1;
@@ -70,7 +70,7 @@ pub async fn run(
                 er.set("headers".into(),      Value::Object(serde_json::Value::Object(serde_json::Map::new())));
                 er.set("_error".into(),       Value::String(e));
                 if passthrough {
-                    for (k, v) in row.0.iter() { er.0.entry(k.clone()).or_insert_with(|| v.clone()); }
+                    for (k, v) in row.iter() { er.set_if_absent(k.clone(), v.clone()); }
                 }
                 rows_out += 1;
                 if tx.send(er).await.is_err() { break; }

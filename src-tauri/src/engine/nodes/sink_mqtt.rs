@@ -61,7 +61,7 @@ pub async fn run(
         let payload = match serialization.as_str() {
             "text" => {
                 // valore del primo campo (ordine chiavi), fallback al JSON.
-                let mut keys: Vec<&String> = row.0.keys().collect();
+                let mut keys: Vec<&String> = row.keys().collect();
                 keys.sort();
                 keys.first()
                     .and_then(|k| row.get(*k))

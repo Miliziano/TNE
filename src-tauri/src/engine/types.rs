@@ -143,83 +143,11 @@ impl Value {
 
 // ─── Row — una singola riga dati ─────────────────────────────────
 //
-// Newtype attorno a HashMap per poter aggiungere metodi
-// senza inquinare l'API di HashMap.
-// "Newtype" in Rust = struct con un solo campo — crea un tipo
-// distinto con zero overhead a runtime.
+// P385: la riga ha uno SCHEMA CONDIVISO (nomi una volta sola per tutte le
+// righe della stessa forma) e i valori. Interfaccia per nome invariata.
+// Definizione e regole in engine/row.rs.
 
-pub type RowMap = HashMap<String, Value, ahash::RandomState>;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Row(pub RowMap);
-
-impl Row {
-    pub fn new() -> Self {
-        Row(RowMap::default())
-    }
-
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        self.0.get(key)
-    }
-
-    pub fn set(&mut self, key: String, value: Value) {
-        self.0.insert(key, value);
-    }
-
-    pub fn from_json_object(obj: serde_json::Map<String, serde_json::Value>) -> Self {
-        let map = obj.into_iter()
-            .map(|(k, v)| (k, Value::from_json(v)))
-            .collect();
-        Row(map)
-    }
-
-    pub fn to_json_object(&self) -> serde_json::Value {
-        let map: serde_json::Map<String, serde_json::Value> = self.0.iter()
-            .map(|(k, v)| (k.clone(), v.to_json()))
-            .collect();
-        serde_json::Value::Object(map)
-    }
-    /// Come to_json_object, per la scrittura su database (Decimal esatti,
-    /// vedi `Value::to_write_json`).
-    pub fn to_write_json_object(&self) -> serde_json::Value {
-        let map: serde_json::Map<String, serde_json::Value> = self.0.iter()
-            .map(|(k, v)| (k.clone(), v.to_write_json()))
-            .collect();
-        serde_json::Value::Object(map)
-    }
-    /// Come to_json_object ma con le chiavi ordinate: output stabile
-    /// per log, serializer e file (HashMap ha ordine non deterministico).
-    pub fn to_json_object_sorted(&self) -> serde_json::Value {
-        let mut keys: Vec<&String> = self.0.keys().collect();
-        keys.sort();
-        let map: serde_json::Map<String, serde_json::Value> = keys.into_iter()
-            .map(|k| (k.clone(), self.0.get(k).unwrap().to_json()))
-            .collect();
-        serde_json::Value::Object(map)
-    }
-    
-    /// Proietta solo le colonne richieste (column pruning a runtime).
-    /// Restituisce una nuova Row con solo i campi specificati.
-    pub fn project(&self, columns: &[String]) -> Self {
-        let map = columns.iter()
-            .filter_map(|col| self.0.get(col).map(|v| (col.clone(), v.clone())))
-            .collect();
-        Row(map)
-    }
-     /// Itera su tutte le coppie (campo, valore)
-    pub fn fields(&self) -> impl Iterator<Item = (&String, &Value)> {
-        self.0.iter()
-    }
-
-    /// True se il campo esiste
-    pub fn has(&self, key: &str) -> bool {
-        self.0.contains_key(key)
-    }
-
-    /// Rimuove un campo, restituendo il valore se presente
-    pub fn remove(&mut self, key: &str) -> Option<Value> {
-        self.0.remove(key)
-    }
-}
+pub use super::row::{Row, Schema};
 
 // ─── Identificatori con newtype ───────────────────────────────────
 //

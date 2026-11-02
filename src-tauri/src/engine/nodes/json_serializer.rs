@@ -511,7 +511,7 @@ fn get_rows(
             .collect()
     } else {
         let mut keys: Vec<String> = rows.first()
-            .map(|r| r.0.keys().filter(|k| !k.starts_with("__")).cloned().collect())
+            .map(|r| r.keys().filter(|k| !k.starts_with("__")).cloned().collect())
             .unwrap_or_default();
         keys.sort();
         keys
@@ -605,7 +605,7 @@ fn apply_nullable(val: JVal, nullable: &str) -> Option<JVal> {
 
 fn row_to_json(row: &Row) -> JVal {
     let mut obj = serde_json::Map::new();
-    let mut keys: Vec<&String> = row.0.keys().collect();
+    let mut keys: Vec<&String> = row.keys().collect();
     keys.sort();
     for k in keys {
         if let Some(v) = row.get(k) { obj.insert(k.clone(), v.to_json()); }

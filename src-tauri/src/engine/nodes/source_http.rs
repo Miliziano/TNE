@@ -222,7 +222,7 @@ async fn oauth2_refresh(spec: &Spec) -> Result<String, String> {
 // Ritorna (Option<bytes>, Option<content_type>).
 fn build_body(spec: &Spec, row: &Row, method: &str) -> Result<(Option<Vec<u8>>, Option<String>), String> {
     if !matches!(method, "POST" | "PUT" | "PATCH") { return Ok((None, None)); }
-    let has_input = !row.0.is_empty();
+    let has_input = !row.is_empty();
     let mode = spec.str_or("inputBodyMode", if has_input { "json" } else { "none" });
     match mode.as_str() {
         "none" => {
@@ -260,7 +260,7 @@ fn build_body(spec: &Spec, row: &Row, method: &str) -> Result<(Option<Vec<u8>>, 
 
 fn row_to_json_obj(row: &Row) -> J {
     let mut m = serde_json::Map::new();
-    for (k, v) in row.0.iter() { m.insert(k.clone(), v.to_json()); }
+    for (k, v) in row.iter() { m.insert(k.clone(), v.to_json()); }
     J::Object(m)
 }
 
@@ -617,7 +617,7 @@ pub(crate) async fn execute_with_pagination(
             "cursor" => {
                 let cpath = spec.str_or("cursorPath", "$.meta.next_cursor");
                 cursor = page_rows.first().map(|r| {
-                    let src = match r.0.get("body_parsed") {
+                    let src = match r.get("body_parsed") {
                         Some(Value::Object(bp)) => bp.clone(),
                         _                       => row_to_json_obj(r),
                     };
@@ -626,7 +626,7 @@ pub(crate) async fn execute_with_pagination(
                 has_more = !cursor.is_empty();
             }
             "link" => {
-                let next = page_rows.first().and_then(|r| match r.0.get("headers") {
+                let next = page_rows.first().and_then(|r| match r.get("headers") {
                     Some(Value::Object(J::Object(h))) => h.get("link").and_then(|v| v.as_str()).and_then(parse_link_next),
                     _ => None,
                 });
@@ -699,9 +699,9 @@ pub async fn run(
         match execute_with_pagination(&spec, &client, row, &ctx).await {
             Ok(resp_rows) => {
                 for mut rr in resp_rows {
-                    if passthrough && !row.0.is_empty() {
-                        for (k, v) in row.0.iter() {
-                            rr.0.entry(k.clone()).or_insert_with(|| v.clone());
+                    if passthrough && !row.is_empty() {
+                        for (k, v) in row.iter() {
+                            rr.set_if_absent(k.clone(), v.clone());
                         }
                     }
                     rows_out += 1;
@@ -723,7 +723,7 @@ pub async fn run(
                 er.set("headers".into(),      Value::Object(J::Object(serde_json::Map::new())));
                 er.set("_error".into(),       Value::String(e));
                 if passthrough {
-                    for (k, v) in row.0.iter() { er.0.entry(k.clone()).or_insert_with(|| v.clone()); }
+                    for (k, v) in row.iter() { er.set_if_absent(k.clone(), v.clone()); }
                 }
                 rows_out += 1;
                 if tx.send(er).await.is_err() { break; }

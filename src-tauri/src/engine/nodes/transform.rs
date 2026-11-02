@@ -64,7 +64,7 @@ pub async fn run(
                 // Solo i campi calcolati
                 let mut out = Row::new();
                 for (name, val) in computed {
-                    out.set(name.to_string(), val);
+                    out.set_str(name, val);
                 }
                 out
             }
@@ -74,7 +74,7 @@ pub async fn run(
                 // senza copiarla tutta.
                 let mut out = row;
                 for (name, val) in computed {
-                    out.set(name.to_string(), val);
+                    out.set_str(name, val);
                 }
                 out
             }
@@ -83,7 +83,7 @@ pub async fn run(
                 let mut out = row;
                 for (name, val) in computed {
                     if !out.has(name) {
-                        out.set(name.to_string(), val);
+                        out.set_str(name, val);
                     }
                 }
                 out

@@ -329,7 +329,7 @@ impl Target {
         // le colonne fissate dalla prima riga.
         let own: Vec<String>;
         let keys: &[String] = if cfg.mapping.is_empty() && matches!(cfg.format.as_str(), "json" | "jsonl" | "xml") {
-            let mut k: Vec<String> = row.0.keys().cloned().collect();
+            let mut k: Vec<String> = row.keys().cloned().collect();
             k.sort();
             own = k;
             &own
@@ -550,7 +550,7 @@ pub async fn run(
 
         let out_row = if cfg.raw { row.clone() } else { cfg.mapping.apply(row.clone()) };
         if cols.is_empty() && !cfg.raw {
-            cols = out_row.0.keys().cloned().collect();
+            cols = out_row.keys().cloned().collect();
             cols.sort();
         }
         open.get_mut(&key).unwrap().write_row(&out_row, &cols, &cfg).map_err(nerr)?;
@@ -675,7 +675,7 @@ pub(crate) fn write_str<W: Write>(w: &mut W, s: &str, bytes: &mut u64) -> Result
 
 pub(crate) fn row_to_json(row: &Row) -> serde_json::Value {
     let mut obj = serde_json::Map::new();
-    let mut keys: Vec<&String> = row.0.keys().collect();
+    let mut keys: Vec<&String> = row.keys().collect();
     keys.sort();
     for k in keys {
         if let Some(v) = row.get(k) {

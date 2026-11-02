@@ -229,7 +229,7 @@ async fn passata(
             *rows_rejected += 1;
             if let Some(rtx) = reject_tx {
                 let mut scartata = riga;
-                scartata.0.insert("_reject_reason".to_string(), Value::String(motivo));
+                scartata.insert("_reject_reason".to_string(), Value::String(motivo));
                 if rtx.send(scartata).await.is_err() { return Ok(false); }
             }
             // Senza porta reject collegata la riga si perde: stessa scelta
@@ -267,12 +267,12 @@ fn esegui(
         match stmt {
             ScriptStmt::Let { name, expr } => {
                 let v = valuta(expr, riga, locali, variables);
-                locali.0.insert(name.clone(), v);
+                locali.insert(name.clone(), v);
             }
 
             ScriptStmt::Assign { field, expr } => {
                 let v = valuta(expr, riga, locali, variables);
-                riga.0.insert(field.clone(), v);
+                riga.insert(field.clone(), v);
             }
 
             ScriptStmt::SetVar { name, expr } => {
@@ -314,7 +314,7 @@ fn esegui(
                     if let Some(nome) = var_name {
                         // Contatore da 1: chi scrive `repeat 3 as i` si
                         // aspetta 1,2,3 e non 0,1,2.
-                        locali.0.insert(nome.clone(), Value::Int(i as i64 + 1));
+                        locali.insert(nome.clone(), Value::Int(i as i64 + 1));
                     }
                     match esegui(body, riga, locali, variables, ctx, row_num, emesse) {
                         Flow::Continua => {}
@@ -339,7 +339,7 @@ fn esegui(
                         "for: {} elements, the maximum is {}", elementi.len(), MAX_GIRI));
                 }
                 for el in elementi {
-                    locali.0.insert(var_name.clone(), Value::from_json(el));
+                    locali.insert(var_name.clone(), Value::from_json(el));
                     match esegui(body, riga, locali, variables, ctx, row_num, emesse) {
                         Flow::Continua => {}
                         altro          => return altro,

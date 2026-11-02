@@ -392,7 +392,7 @@ fn compute_transforms(
                 lane_vars, Some(main_input_id));
             ev(&tr.c, &tr.expr, &eval_ctx)
         };
-        transform_row.set(tr.output_name.clone(), result);
+        transform_row.set_str(&tr.output_name, result);
     }
 
     transform_row
@@ -482,7 +482,7 @@ fn build_output_row(
                 kept
             }
         };
-        out_row.set(field.name.clone(), val);
+        out_row.set_str(&field.name, val);
     }
 
     out_row

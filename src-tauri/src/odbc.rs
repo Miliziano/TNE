@@ -747,7 +747,7 @@ pub async fn query_json(
                 }
                 let mut obj = serde_json::Map::new();
                 for c in cols {
-                    let v = row.0.get(&c.name).cloned().unwrap_or(Value::Null);
+                    let v = row.get(&c.name).cloned().unwrap_or(Value::Null);
                     obj.insert(c.name.clone(), serde_json::to_value(v).unwrap_or(serde_json::Value::Null));
                 }
                 out.push(serde_json::Value::Object(obj));
@@ -1431,7 +1431,7 @@ pub async fn primary_key(conn_str: String, dialect: String, schema: Option<Strin
                 let idx = |n: &str| cols.iter().find(|c| c.name.eq_ignore_ascii_case(n)).map(|c| c.name.clone());
                 let (col, seq, pk) = (idx("COLUMN_NAME"), idx("KEY_SEQ"), idx("PK_NAME"));
                 for r in rows {
-                    let get = |k: &Option<String>| k.as_ref().and_then(|k| r.0.get(k)).map(|v| v.as_str_repr()).unwrap_or_default();
+                    let get = |k: &Option<String>| k.as_ref().and_then(|k| r.get(k)).map(|v| v.as_str_repr()).unwrap_or_default();
                     found.push((get(&seq).parse().unwrap_or(0), get(&col), get(&pk)));
                 }
                 true

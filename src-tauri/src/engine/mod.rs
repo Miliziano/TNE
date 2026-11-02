@@ -21,6 +21,7 @@
 // ─── src-tauri/src/engine/mod.rs (versione Fase 4) ─────────────────
 
 pub mod types;
+pub mod row;       // P385: riga con schema condiviso
 pub mod events;
 pub mod bus;
 pub mod executor;
@@ -543,7 +544,7 @@ pub async fn engine_preview_node(
         for (k, val) in obj {
             map.insert(k.clone(), Value::from_json(val.clone()));
         }
-        rows_in.push(Row(map.into_iter().collect()));
+        rows_in.push(map.into_iter().collect::<Row>());
     }
 
     // 2) variabili di lane mock, per var()

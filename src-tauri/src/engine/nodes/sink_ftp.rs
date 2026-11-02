@@ -59,7 +59,7 @@ struct SerOpts {
 
 /// Ordine delle colonne: dalla prima riga, alfabetico (come sink_file).
 fn columns(rows: &[Row]) -> Vec<String> {
-    let mut c: Vec<String> = rows.first().map(|r| r.0.keys().cloned().collect()).unwrap_or_default();
+    let mut c: Vec<String> = rows.first().map(|r| r.keys().cloned().collect()).unwrap_or_default();
     c.sort();
     c
 }
@@ -95,7 +95,7 @@ fn serialize_text(rows: &[Row], o: &SerOpts) -> Result<String, String> {
             write_str(&mut buf, &format!("<records>{}", end), &mut bytes)?;
             for row in rows {
                 let mut xml = String::from("  <record>");
-                let mut keys: Vec<&String> = row.0.keys().collect();
+                let mut keys: Vec<&String> = row.keys().collect();
                 keys.sort();
                 for k in keys {
                     let v = row.get(k).map(|v| v.as_str_repr()).unwrap_or_default();

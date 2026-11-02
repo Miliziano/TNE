@@ -225,10 +225,10 @@ fn resolve_binds(
     };
     let mut out = Vec::with_capacity(compiled.binds.len());
     for name in &compiled.binds {
-        match row.0.get(name) {
+        match row.get(name) {
             Some(v) => out.push(v.clone()),
             None => {
-                let mut avail: Vec<&str> = row.0.keys().map(|k| k.as_str()).collect();
+                let mut avail: Vec<&str> = row.keys().map(|k| k.as_str()).collect();
                 avail.sort_unstable();
                 return Err(format!(
                     "source_db {}: the query uses the parameter `${{{}}}` but the input row does not have that field. Fields received: {}",

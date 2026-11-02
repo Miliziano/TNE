@@ -117,7 +117,7 @@ pub async fn run(
     out.insert("generated_at".into(), Value::String(chrono::Utc::now().to_rfc3339()));
     out.insert("template".into(),     Value::String(template));
     out.insert("format".into(),       Value::String(output_fmt));
-    let _ = tx.send(Row(out.into_iter().collect())).await;
+    let _ = tx.send(out.into_iter().collect::<Row>()).await;
 
     // Riporta i conteggi alla UI come fanno gli altri nodi (aggregate, ecc.):
     // in questo motore è il nodo stesso a emettere il proprio NodeStats.
@@ -141,7 +141,7 @@ fn effective_cols(rows: &[Row], columns: &[ColumnConfig], dq_field: &str) -> Vec
         return columns.to_vec();
     }
     let Some(first) = rows.first() else { return Vec::new() };
-    let mut keys: Vec<&String> = first.0.keys().filter(|k| k.as_str() != dq_field).collect();
+    let mut keys: Vec<&String> = first.keys().filter(|k| k.as_str() != dq_field).collect();
     keys.sort();   // deterministico
     keys.into_iter().map(|k| ColumnConfig {
         field: k.clone(),
@@ -215,7 +215,7 @@ fn fmt_date(s: &str, locale: &str) -> String {
 
 fn calc_total(rows: &[Row], field: &str, total: &str, locale: &str) -> String {
     let nums: Vec<f64> = rows.iter()
-        .filter_map(|r| r.0.get(field).and_then(|v| v.as_f64_lossy()))
+        .filter_map(|r| r.get(field).and_then(|v| v.as_f64_lossy()))
         .collect();
     match total {
         "sum"   if !nums.is_empty() => fmt_num(nums.iter().sum(), locale, false, false),
@@ -264,7 +264,7 @@ fn icon_char(name: &str) -> &'static str {
 }
 
 fn eval_rule(row: &Row, field: &str, rule: &CellRule) -> bool {
-    let raw = row.0.get(field);
+    let raw = row.get(field);
     let empty = matches!(raw, None | Some(Value::Null)) || matches!(raw, Some(v) if v.as_str_repr().is_empty());
     let s = raw.map(|v| v.as_str_repr().to_lowercase()).unwrap_or_default();
     let rv = rule.value.to_lowercase();
@@ -329,7 +329,7 @@ struct DQResult {
     #[serde(default)] issues: Vec<DQIssue>,
 }
 fn dq_of(row: &Row, dq_field: &str) -> Option<DQResult> {
-    match row.0.get(dq_field) {
+    match row.get(dq_field) {
         Some(v) if !matches!(v, Value::Null) => serde_json::from_value::<DQResult>(v.to_json()).ok(),
         _ => None,
     }
@@ -364,11 +364,11 @@ fn build_summary(rows: &[Row], kpi_fields: &[String], header_col: &str, accent_c
     let fields: Vec<String> = if !kpi_fields.is_empty() {
         kpi_fields.to_vec()
     } else {
-        let mut ks: Vec<String> = rows[0].0.keys().filter(|k| k.as_str() != dq_field).cloned().collect();
+        let mut ks: Vec<String> = rows[0].keys().filter(|k| k.as_str() != dq_field).cloned().collect();
         ks.sort(); ks.truncate(4); ks
     };
     let cards: String = fields.iter().map(|field| {
-        let present: Vec<&Value> = rows.iter().filter_map(|r| r.0.get(field)).filter(|v| !matches!(v, Value::Null)).collect();
+        let present: Vec<&Value> = rows.iter().filter_map(|r| r.get(field)).filter(|v| !matches!(v, Value::Null)).collect();
         let nums: Vec<f64> = present.iter().filter_map(|v| v.as_f64_lossy()).collect();
         let is_num = !nums.is_empty() && nums.len() == present.len();
         let (display, sub) = if is_num {
@@ -443,7 +443,7 @@ fn build_table(rows: &[Row], columns: &[ColumnConfig], header_col: &str, accent_
             if cs.bg.is_empty() { extra.push_str(&dq_css); }   // il DQ non sovrascrive una regola
             let ic = if cs.icon.is_empty() { String::new() } else { format!("{} ", cs.icon) };
             let td = format!("padding:9px 14px;text-align:{};border-bottom:1px solid {};font-size:13px;{}", align, theme.row_border, extra);
-            format!("<td style=\"{}\">{}{}{}</td>", td, ic, esc(&format_cell(row.0.get(&c.field), &c.col_type, locale)), dq_badge)
+            format!("<td style=\"{}\">{}{}{}</td>", td, ic, esc(&format_cell(row.get(&c.field), &c.col_type, locale)), dq_badge)
         }).collect();
 
         let dts = if has_dq {
@@ -479,10 +479,10 @@ fn build_table(rows: &[Row], columns: &[ColumnConfig], header_col: &str, accent_
 
 // ─── Grafici SVG (Fetta 3) ─────────────────────────────────────────
 fn chart_num(row: &Row, field: &str) -> f64 {
-    row.0.get(field).and_then(|v| v.as_f64_lossy()).unwrap_or(0.0)
+    row.get(field).and_then(|v| v.as_f64_lossy()).unwrap_or(0.0)
 }
 fn chart_lbl(row: &Row, field: &str) -> String {
-    row.0.get(field).map(|v| v.as_str_repr()).unwrap_or_default()
+    row.get(field).map(|v| v.as_str_repr()).unwrap_or_default()
 }
 fn trunc_lbl(s: &str, max: usize) -> String {
     if s.chars().count() > max {
@@ -677,7 +677,7 @@ fn build_excel(rows: &[Row], columns: &[ColumnConfig], dq_field: &str) -> Result
         let rr = (r + 1) as u32;
         for (c, col) in cols.iter().enumerate() {
             let cc = c as u16;
-            match row.0.get(&col.field) {
+            match row.get(&col.field) {
                 None | Some(Value::Null) => { ws.write_string(rr, cc, "").map_err(|e| e.to_string())?; }
                 Some(v) => {
                     if matches!(col.col_type.as_str(), "number" | "currency") {

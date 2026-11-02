@@ -2512,3 +2512,28 @@ posizione dei campi). Regole del nuovo modello: `docs/STUDIO-motore-prestazioni.
 - Aggiunto alla CI (`runner.yml`) e a `verifica_rust`.
 - Comportamenti di oggi resi visibili (studio §6): colonne CSV duplicate perse in silenzio,
   righe corte senza campi, colonne in ordine alfabetico.
+
+## AGGIORNAMENTO — Righe con schema condiviso, primo passo (stato al P385, 2 novembre)
+
+Voce A dello studio (`docs/STUDIO-motore-prestazioni.md` §5-6), primo passo: la riga
+nuova dietro la stessa interfaccia, senza toccare il comportamento.
+- `src-tauri/src/engine/row.rs` (nuovo): `Schema` (nomi condivisi, indice oltre 12 campi,
+  cache delle transizioni aggiungi/togli con tetto 256) e `Row { schema: Arc<Schema>,
+  values: Vec<Value> }`. Interfaccia per nome come una mappa (`get`, `get_mut`, `set`,
+  `insert`, `remove`, `retain`, `iter`, `keys`, `values`, `len`, `set_if_absent`,
+  `FromIterator`, `IntoIterator`), più `set_str`/`insert_str` senza allocazioni e
+  `Row::from_parts` per le sorgenti. Serde come una mappa, nell'ordine dei campi.
+- `engine/types.rs`: `Row` ora è riesportata da `row.rs`; via `RowMap` e il campo `.0`.
+  Adattati gli usi diretti (`row.0.get` → `row.get`, `entry().or_insert` →
+  `set_if_absent`, `Row(map)` → `collect::<Row>()`) in errors, mod, http_request,
+  json_parser, json_serializer, report_generator, script, sink_file, sink_ftp,
+  sink_mqtt, source_db, source_http, xml_parser, xml_serializer, odbc.
+- Nodi caldi su `set_str`: sorgente CSV (lettura e mapping), Transform, TMap.
+- Ordine dei campi = ordine di inserimento (prima casuale). Banco di non regressione
+  identico **senza rigenerare gli attesi**; lib 108 test (4 nuovi in `row.rs`).
+- Misure (release, stessa sessione): Transform+Filter 1M righe ~230k → ~310k righe/s;
+  TMap 500k ~185k → ~235k; memoria invariata.
+- Prossimi passi: posizioni calcolate una volta per schema nei nodi caldi (controllo di
+  puntatore), sorgenti con `from_parts`, Script su espressioni compilate; poi i
+  comportamenti da decidere (§6: CSV con colonne duplicate, righe corte, ordine naturale
+  delle colonne).

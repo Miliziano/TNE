@@ -504,7 +504,7 @@ fn serialize_row(
         build_xml_legacy(row, legacy, 1, pretty)
     } else {
         // Auto: tutti i campi (nullable=omit)
-        let mut keys: Vec<&String> = row.0.keys()
+        let mut keys: Vec<&String> = row.keys()
             .filter(|k| !k.starts_with("__")).collect();
         keys.sort();
         let auto: Vec<XmlLegacyNode> = keys.into_iter().map(|k| XmlLegacyNode {
@@ -598,7 +598,7 @@ fn get_rows(
             .filter(|s| !s.is_empty()).collect()
     } else {
         let mut keys: Vec<String> = rows.first()
-            .map(|r| r.0.keys().filter(|k| !k.starts_with("__")).cloned().collect())
+            .map(|r| r.keys().filter(|k| !k.starts_with("__")).cloned().collect())
             .unwrap_or_default();
         keys.sort();
         keys

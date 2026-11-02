@@ -332,7 +332,7 @@ fn project(raw: &Row, fields: &[FieldType]) -> Row {
                 }
             }
         };
-        out.set(f.name.clone(), v);
+        out.set_str(&f.name, v);
     }
     out
 }
@@ -358,8 +358,10 @@ fn read_csv(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> R
         first = false;
         let mut row = Row::new();
         for (i, v) in fields.into_iter().enumerate() {
-            let k = headers.get(i).cloned().unwrap_or_else(|| format!("col_{}", i));
-            row.set(k, Value::String(v));
+            match headers.get(i) {
+                Some(k) => row.set_str(k, Value::String(v)),
+                None => row.set(format!("col_{}", i), Value::String(v)),
+            }
         }
         if !emit(project(&row, &c.fields)) { return Ok(()) }
         *budget -= 1;
