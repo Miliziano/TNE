@@ -2532,8 +2532,37 @@ nuova dietro la stessa interfaccia, senza toccare il comportamento.
 - Ordine dei campi = ordine di inserimento (prima casuale). Banco di non regressione
   identico **senza rigenerare gli attesi**; lib 108 test (4 nuovi in `row.rs`).
 - Misure (release, stessa sessione): Transform+Filter 1M righe ~230k → ~310k righe/s;
-  TMap 500k ~185k → ~235k; memoria invariata.
+  TMap 500k ~185k → ~235k (+27%: nel P385 era scritto +20% per un errore di calcolo,
+  corretto nel P386); memoria invariata.
 - Prossimi passi: posizioni calcolate una volta per schema nei nodi caldi (controllo di
   puntatore), sorgenti con `from_parts`, Script su espressioni compilate; poi i
   comportamenti da decidere (§6: CSV con colonne duplicate, righe corte, ordine naturale
   delle colonne).
+
+## AGGIORNAMENTO — Posizioni per schema e lotti dalla sorgente (stato al P386, 2 novembre)
+
+Secondo passo della voce A, più la prima metà della voce D. Studio §6 "Secondo passo".
+- `engine/row.rs`: `Slots` (lettura di un elenco fisso di campi) e `Writer` (scrittura con
+  la semantica di una sequenza di `set`/`set_if_absent`), con le posizioni calcolate una
+  volta per schema e il controllo d'identità (puntatore, `Arc` tenuto) a ogni riga. Se la
+  forma cambia si ricalcolano: mai il campo sbagliato.
+- Usati da: Transform (select/replace/add), `source_file` (`Projector` per il mapping,
+  intestazione CSV), `FieldMapping::apply` (mapping dei sink).
+- `sink_file`: niente `row.clone()` se non c'è da rimandare la riga a valle; CSV composto
+  in una stringa riusata con `push_csv` e `Value::str_repr` (prestito, nessuna copia); in
+  UTF-8 niente `encode_chunk`.
+- `source_file`: `parse_fields` senza virgolette = taglio diretto; righe dal thread di
+  lettura al nodo a lotti di 256 (`Result<Vec<Row>,String>`, capacità 4), inoltrate con
+  `reserve_many` (un risveglio per lotto). Le righe lette prima di un errore escono prima
+  dell'errore, come prima.
+- `Value::str_repr()` → `Cow<str>`, stesso testo di `as_str_repr` senza copiare i testi.
+- Banco di non regressione: nuovo scenario `mapping` (mapping di sorgente con colonna
+  fisica, tipi, trasformazioni e colonna assente; Transform replace/select con nomi
+  ripetuti; mapping del sink con esclusi, campo assente, valori tra virgolette; CSV
+  irregolare mappato). **Attesi generati col codice del P385**, poi passati identici col
+  P386. Tutti gli altri attesi invariati.
+- Misure (confronto alternato, mediane): Transform+Filter +26%, con mapping +36%, TMap
+  +22% sul P385. Diagnosi dei risvegli fra thread (`futex`) nello studio.
+- Prossimi passi: voce D per tutti i nodi (lotti che partono subito quando chi produce sta
+  per aspettare), avanzamento ogni 250 ms invece che ogni 500 righe, campionatore della
+  memoria leggero nel runner.

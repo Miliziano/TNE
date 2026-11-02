@@ -39,6 +39,7 @@ use std::fs::File;
 use std::time::Instant;
 use base64::Engine as _;
 use crate::engine::types::*;
+use crate::engine::row::Slots;
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext};
 use crate::engine::field_mapping::FieldMapping;
@@ -234,6 +235,8 @@ struct Target {
     first_json:  bool,
     replaced:    usize,   // caratteri non rappresentabili nella codifica
     started:     Instant,
+    utf8:        bool,    // P386: testo scritto così com'è, senza ricodificarlo
+    line:        String,  // P386: riga CSV riusata, invece di una stringa per campo
 }
 
 /// Esito di un file, per la riga di stato e il webhook.
@@ -283,7 +286,9 @@ impl Target {
         };
 
         let mut t = Target { path, out, fresh, rows: 0, bytes: 0, header_done: false,
-                             first_json: true, replaced: 0, started: Instant::now() };
+                             first_json: true, replaced: 0, started: Instant::now(),
+                             utf8: matches!(normalize(&cfg.encoding).as_str(), "" | "utf-8" | "utf8"),
+                             line: String::new() };
         let text_out = !(cfg.raw && cfg.raw_b64) && !matches!(t.out, Out::Excel { .. });
         if text_out && fresh {
             let b = bom(&cfg.encoding);
@@ -304,12 +309,13 @@ impl Target {
     }
 
     fn put(&mut self, s: &str, cfg: &Cfg) -> Result<(), String> {
+        if self.utf8 { return self.put_bytes(s.as_bytes()) }
         let (b, rep) = encode_chunk(s, &cfg.encoding)?;
         self.replaced += rep;
         self.put_bytes(&b)
     }
 
-    fn write_row(&mut self, row: &Row, cols: &[String], cfg: &Cfg) -> Result<(), String> {
+    fn write_row(&mut self, row: &Row, cols: &[String], slots: &mut Slots, cfg: &Cfg) -> Result<(), String> {
         if cfg.raw {
             let val = row.get(&cfg.raw_field).map(|v| v.as_str_repr()).unwrap_or_default();
             if cfg.raw_b64 {
@@ -369,11 +375,20 @@ impl Target {
                         self.put(cfg.ending, cfg)?;
                     }
                 }
-                let line = keys.iter()
-                    .map(|c| escape_csv(&row.get(c).map(|v| v.as_str_repr()).unwrap_or_default(), cfg.delimiter, cfg.quote))
-                    .collect::<Vec<_>>().join(&d);
-                self.put(&line, cfg)?;
-                self.put(cfg.ending, cfg)?;
+                // P386: valori per posizione (calcolata una volta per forma di
+                // riga), scritti in una sola stringa riusata, senza copie.
+                let mut line = std::mem::take(&mut self.line);
+                line.clear();
+                for i in 0..keys.len() {
+                    if i > 0 { line.push(cfg.delimiter) }
+                    if let Some(v) = slots.get(row, i) {
+                        push_csv(&mut line, &v.str_repr(), cfg.delimiter, cfg.quote);
+                    }
+                }
+                line.push_str(cfg.ending);
+                let r = self.put(&line, cfg);
+                self.line = line;
+                r?;
             }
         }
         self.rows += 1;
@@ -514,6 +529,7 @@ pub async fn run(
     }
 
     let mut cols: Vec<String> = cfg.mapping.columns();
+    let mut slots = Slots::new(cols.clone());
     let mut rows_in = 0u64;
     let mut replay_buf: Vec<Row> = Vec::new();
     let replay = cfg.replay && tx.is_some();
@@ -548,13 +564,16 @@ pub async fn run(
             order.push(key.clone());
         }
 
-        let out_row = if cfg.raw { row.clone() } else { cfg.mapping.apply(row.clone()) };
+        // P386: la riga si copia solo se serve rimandarla a valle.
+        let (out_row, kept) = if replay { (row.clone(), Some(row)) } else { (row, None) };
+        let out_row = if cfg.raw { out_row } else { cfg.mapping.apply(out_row) };
         if cols.is_empty() && !cfg.raw {
             cols = out_row.keys().cloned().collect();
             cols.sort();
         }
-        open.get_mut(&key).unwrap().write_row(&out_row, &cols, &cfg).map_err(nerr)?;
-        if replay { replay_buf.push(row); }
+        if slots.names().len() != cols.len() { slots = Slots::new(cols.clone()) }
+        open.get_mut(&key).unwrap().write_row(&out_row, &cols, &mut slots, &cfg).map_err(nerr)?;
+        if let Some(row) = kept { replay_buf.push(row); }
 
         if rows_in % PROGRESS_EVERY_ROWS == 0 || last_progress.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS {
             let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
@@ -683,6 +702,16 @@ pub(crate) fn row_to_json(row: &Row) -> serde_json::Value {
         }
     }
     serde_json::Value::Object(obj)
+}
+
+/// Come `escape_csv`, ma in coda a `out` (niente stringa nuova se il campo non
+/// va tra virgolette, cioè quasi sempre).
+pub(crate) fn push_csv(out: &mut String, s: &str, delimiter: char, quote: char) {
+    if s.contains(delimiter) || s.contains(quote) || s.contains('\n') || s.contains('\r') {
+        out.push_str(&escape_csv(s, delimiter, quote));
+    } else {
+        out.push_str(s);
+    }
 }
 
 pub(crate) fn escape_csv(s: &str, delimiter: char, quote: char) -> String {

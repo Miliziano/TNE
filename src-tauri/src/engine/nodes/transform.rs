@@ -42,6 +42,9 @@ pub async fn run(
         .map(|f| (f.name.clone(), Compiled::new(&f.expr)))
         .collect();
 
+    let mut writer = crate::engine::row::Writer::new(
+        compiled.iter().map(|(n, _)| n.clone()).collect());
+
     let variables = ctx.variables.clone();
     let start    = Instant::now();
     let mut rows_in  = 0u64;
@@ -52,40 +55,30 @@ pub async fn run(
 
         // Valuta tutte le espressioni sulla riga così com'è arrivata (tutti i
         // campi calcolati vedono la riga ORIGINALE, come prima).
-        let computed: Vec<(&str, Value)> = {
+        let computed: Vec<Value> = {
             let eval_ctx = EvalContext::single(&row, &variables);
-            compiled.iter()
-                .map(|(name, c)| (name.as_str(), c.eval(&eval_ctx)))
-                .collect()
+            compiled.iter().map(|(_, c)| c.eval(&eval_ctx)).collect()
         };
 
+        // P386: lo schema d'uscita si calcola una volta per forma d'ingresso
+        // (`Writer`), con la stessa semantica di prima:
+        //   select  → solo i campi calcolati (a parità di nome vince l'ultimo)
+        //   replace → originali, sovrascritti dai calcolati
+        //   add     → originali + calcolati che non c'erano già
         let out_row = match mode.as_str() {
             "select" => {
-                // Solo i campi calcolati
                 let mut out = Row::new();
-                for (name, val) in computed {
-                    out.set_str(name, val);
-                }
+                writer.write(&mut out, computed, false);
                 out
             }
             "replace" => {
-                // Tutti i campi originali, poi sovrascrive con i calcolati.
-                // P383: la riga è nostra (ricevuta per valore): si modifica,
-                // senza copiarla tutta.
                 let mut out = row;
-                for (name, val) in computed {
-                    out.set_str(name, val);
-                }
+                writer.write(&mut out, computed, false);
                 out
             }
             _ => {
-                // "add" — originali + nuovi campi calcolati (senza copia, P383)
                 let mut out = row;
-                for (name, val) in computed {
-                    if !out.has(name) {
-                        out.set_str(name, val);
-                    }
-                }
+                writer.write(&mut out, computed, true);
                 out
             }
         };

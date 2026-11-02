@@ -48,6 +48,7 @@ use std::fs::File;
 use std::time::Instant;
 use base64::Engine as _;
 use crate::engine::types::*;
+use crate::engine::row::{Slots, Writer};
 use crate::engine::spec::Spec;
 use crate::engine::executor::{RowSender, NodeContext, RowReceiver};
 use crate::engine::text_encoding::{decode_text, decode_byte, is_single_byte, normalize};
@@ -258,6 +259,12 @@ impl LineSource {
 /// Campi di un record. `false` = record incompleto (virgolette aperte a
 /// fine riga): il chiamante aggiunge la riga successiva e riprova.
 fn parse_fields(text: &str, d: char, q: char, esc: Option<char>) -> (Vec<String>, bool) {
+    // P386: senza virgolette nel testo il risultato è il semplice taglio sul
+    // delimitatore, con gli spazi ai bordi tolti (identico al ciclo sotto, che
+    // fuori dalle virgolette fa solo questo), senza copiare la riga in caratteri.
+    if !text.contains(q) {
+        return (text.split(d).map(|f| f.trim().to_string()).collect(), true);
+    }
     let mut out = Vec::new();
     let mut cur = String::new();
     let (mut in_q, mut quoted) = (false, false);
@@ -314,27 +321,45 @@ fn next_record(src: &mut LineSource, c: &SourceFileConfig) -> Option<Result<Vec<
 // transform_text, effective_type e coerce: engine/field_mapping.rs (P360).
 
 /// Riga del file (colonna → valore) → riga d'uscita secondo il mapping.
-fn project(raw: &Row, fields: &[FieldType]) -> Row {
-    if fields.is_empty() { return raw.clone() }
-    let mut out = Row::new();
-    for f in fields {
-        let v = match raw.get(f.column()) {
-            None | Some(Value::Null) => Value::Null,
-            Some(v) => {
-                let ty = effective_type(&f.ty, &f.transform);
-                let is_text = matches!(v, Value::String(_));
-                match transform_text(&v.as_str_repr(), &f.transform) {
-                    None => Value::Null,
-                    // Un valore già tipizzato (Excel) resta tale se non c'è
-                    // niente da cambiare; il testo si converte al tipo.
-                    Some(s) if is_text || !f.transform.is_empty() || !ty.is_empty() => coerce(&s, ty),
-                    Some(_) => v.clone(),
-                }
-            }
-        };
-        out.set_str(&f.name, v);
+/// P386: colonne lette e campi scritti per posizione, calcolata una volta per
+/// forma di riga (engine/row.rs); la riga senza mapping passa senza copia.
+struct Projector { slots: Slots, writer: Writer }
+
+impl Projector {
+    fn new(fields: &[FieldType]) -> Self {
+        Projector {
+            slots: Slots::new(fields.iter().map(|f| f.column().to_string()).collect()),
+            writer: Writer::new(fields.iter().map(|f| f.name.clone()).collect()),
+        }
     }
-    out
+
+    fn apply(&mut self, raw: Row, fields: &[FieldType]) -> Row {
+        if fields.is_empty() { return raw }
+        let mut values = Vec::with_capacity(fields.len());
+        for (i, f) in fields.iter().enumerate() {
+            values.push(project_value(self.slots.get(&raw, i), f));
+        }
+        let mut out = Row::new();
+        self.writer.write(&mut out, values, false);
+        out
+    }
+}
+
+fn project_value(raw: Option<&Value>, f: &FieldType) -> Value {
+    match raw {
+        None | Some(Value::Null) => Value::Null,
+        Some(v) => {
+            let ty = effective_type(&f.ty, &f.transform);
+            let is_text = matches!(v, Value::String(_));
+            match transform_text(&v.as_str_repr(), &f.transform) {
+                None => Value::Null,
+                // Un valore già tipizzato (Excel) resta tale se non c'è
+                // niente da cambiare; il testo si converte al tipo.
+                Some(s) if is_text || !f.transform.is_empty() || !ty.is_empty() => coerce(&s, ty),
+                Some(_) => v.clone(),
+            }
+        }
+    }
 }
 
 // ─── Lettori ───────────────────────────────────────────────────────
@@ -346,24 +371,32 @@ fn read_csv(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> R
     let mut src = LineSource::open(path, &c.encoding)?;
     for _ in 0..c.skip_rows { if src.next_line().is_none() { return Ok(()) } }
     let mut headers: Vec<String> = Vec::new();
+    let mut header_writer = Writer::new(Vec::new());
+    let mut pj = Projector::new(&c.fields);
     let mut first = true;
     while *budget > 0 {
         let fields = match next_record(&mut src, c) { None => break, Some(r) => r? };
         if first && c.has_header {
             headers = fields.iter().enumerate()
                 .map(|(i, h)| if h.is_empty() { format!("col_{}", i) } else { h.clone() }).collect();
+            header_writer = Writer::new(headers.clone());
             first = false;
             continue;
         }
         first = false;
         let mut row = Row::new();
-        for (i, v) in fields.into_iter().enumerate() {
-            match headers.get(i) {
-                Some(k) => row.set_str(k, Value::String(v)),
-                None => row.set(format!("col_{}", i), Value::String(v)),
+        if !headers.is_empty() && fields.len() == headers.len() {
+            // il caso comune: schema dall'intestazione, calcolato una volta
+            header_writer.write(&mut row, fields.into_iter().map(Value::String).collect(), false);
+        } else {
+            for (i, v) in fields.into_iter().enumerate() {
+                match headers.get(i) {
+                    Some(k) => row.set_str(k, Value::String(v)),
+                    None => row.set(format!("col_{}", i), Value::String(v)),
+                }
             }
         }
-        if !emit(project(&row, &c.fields)) { return Ok(()) }
+        if !emit(pj.apply(row, &c.fields)) { return Ok(()) }
         *budget -= 1;
     }
     Ok(())
@@ -491,8 +524,9 @@ fn read_one(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> R
             // Celle col tipo naturale; la conversione al tipo dichiarato la
             // fa il mapping (project), come per il CSV.
             let none = std::collections::HashMap::new();
+            let mut pj = Projector::new(&c.fields);
             for row in read_excel(path, &c.sheet_name, c.start_row, c.has_header, &none)? {
-                if *budget == 0 || !emit(project(&row, &c.fields)) { break }
+                if *budget == 0 || !emit(pj.apply(row, &c.fields)) { break }
                 *budget -= 1;
             }
             Ok(())
@@ -568,34 +602,61 @@ pub async fn run(
 
     // Lettura in un thread bloccante (std::io), righe verso il task async
     // su un canale: lo streaming resta anche per file grandi.
-    let (row_tx, mut row_rx) = tokio::sync::mpsc::channel::<Result<Row, String>>(1000);
+    // P386: le righe passano a LOTTI fra il thread di lettura e il task. Una
+    // alla volta, ogni riga costava un risveglio del thread (una chiamata di
+    // sistema): con due core era il costo maggiore del nodo. Un file si legge
+    // tutto subito, quindi il lotto non aggiunge attese; la capacità in righe
+    // resta quella di prima (4 × 256 ≈ 1000).
+    const LOTTO: usize = 256;
+    let (row_tx, mut row_rx) = tokio::sync::mpsc::channel::<Result<Vec<Row>, String>>(4);
     // I formati a schema fisso non si mappano: i campi sono quelli del formato.
     let mut c = config;
     if !TABULAR.contains(&c.format.as_str()) { c.fields.clear(); }
     let multi = paths.len() > 1;
     let reader = tokio::task::spawn_blocking(move || {
         let mut budget = if c.limit == 0 { u64::MAX } else { c.limit };
+        let mut lotto: Vec<Row> = Vec::with_capacity(LOTTO);
         for p in &paths {
-            let mut emit = |r: Row| row_tx.blocking_send(Ok(r)).is_ok();
-            if let Err(e) = read_one(p, &c, &mut budget, &mut emit) {
+            let esito = {
+                let mut emit = |r: Row| {
+                    lotto.push(r);
+                    lotto.len() < LOTTO
+                        || row_tx.blocking_send(Ok(std::mem::replace(&mut lotto, Vec::with_capacity(LOTTO)))).is_ok()
+                };
+                read_one(p, &c, &mut budget, &mut emit)
+            };
+            if let Err(e) = esito {
+                // le righe lette prima dell'errore escono prima dell'errore, come prima
+                if !lotto.is_empty() { let _ = row_tx.blocking_send(Ok(std::mem::take(&mut lotto))); }
                 let msg = if multi { format!("{}: {}", p, e) } else { e };
                 let _ = row_tx.blocking_send(Err(msg));
                 return;
             }
-            if budget == 0 { break }
+            if budget == 0 || row_tx.is_closed() { break }
         }
+        if !lotto.is_empty() { let _ = row_tx.blocking_send(Ok(lotto)); }
     });
 
     let mut rows_out: u64 = 0;
     let start = Instant::now();
     let mut last_progress = Instant::now();
-    while let Some(result) = row_rx.recv().await {
+    'lettura: while let Some(result) = row_rx.recv().await {
         match result {
             Err(e) => { drop(row_rx); let _ = reader.await; return fail(e) }
-            Ok(row) => {
-                if tx.send(row).await.is_err() { break }
-                rows_out += 1;
-                if rows_out % PROGRESS_EVERY_ROWS == 0
+            Ok(rows) => {
+                // Il lotto va a valle prenotando i posti tutti insieme: chi
+                // scrive si risveglia una volta per lotto, non una per riga,
+                // quando il nodo a valle è più lento (canale pieno).
+                let prima = rows_out;
+                let mut rows = rows.into_iter();
+                loop {
+                    let n = rows.len().min(tx.max_capacity());
+                    if n == 0 { break }
+                    let Ok(posti) = tx.reserve_many(n).await else { break 'lettura };
+                    for (posto, row) in posti.zip(rows.by_ref()) { posto.send(row) }
+                    rows_out += n as u64;
+                }
+                if rows_out / PROGRESS_EVERY_ROWS != prima / PROGRESS_EVERY_ROWS
                     || last_progress.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS {
                     let rps = rows_out as f64 / start.elapsed().as_secs_f64().max(0.001);
                     ctx.emit_progress(rows_out, rows_out, 0, rps);

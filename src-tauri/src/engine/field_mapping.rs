@@ -13,6 +13,7 @@
 
 use std::collections::HashMap;
 use crate::engine::types::{Row, Value};
+use crate::engine::row::{Slots, Writer};
 
 /// Applica una trasformazione al testo. None = il valore diventa null.
 pub fn transform_text(s: &str, t: &str) -> Option<String> {
@@ -149,6 +150,9 @@ pub struct FieldMapping {
     pub fields: Vec<MapField>,
     /// campo d'uscita → (valori non convertibili, tipo voluto)
     failed: HashMap<String, (u64, String)>,
+    /// P386: campi letti e scritti per posizione, calcolata una volta per
+    /// forma di riga (engine/row.rs). Costruiti al primo uso.
+    access: Option<(Slots, Writer)>,
 }
 
 impl FieldMapping {
@@ -159,6 +163,7 @@ impl FieldMapping {
         Ok(FieldMapping {
             fields: all.into_iter().filter(|f| f.include && !f.key().is_empty()).collect(),
             failed: HashMap::new(),
+            access: None,
         })
     }
 
@@ -170,14 +175,23 @@ impl FieldMapping {
     /// Riga → riga d'uscita (senza mapping: invariata).
     pub fn apply(&mut self, row: Row) -> Row {
         if self.fields.is_empty() { return row }
-        let mut out = Row::new();
+        let (mut slots, mut writer) = match self.access.take() {
+            Some(a) if a.0.names().len() == self.fields.len() => a,
+            _ => (
+                Slots::new(self.fields.iter().map(|f| f.key().to_string()).collect()),
+                Writer::new(self.fields.iter().map(|f| f.out().to_string()).collect()),
+            ),
+        };
+        let mut values = Vec::with_capacity(self.fields.len());
         for i in 0..self.fields.len() {
-            let v = match row.get(self.fields[i].key()) {
+            values.push(match slots.get(&row, i) {
                 None | Some(Value::Null) => Value::Null,
                 Some(v) => self.map_value(v, i),
-            };
-            out.set(self.fields[i].out().to_string(), v);
+            });
         }
+        let mut out = Row::new();
+        writer.write(&mut out, values, false);
+        self.access = Some((slots, writer));
         out
     }
 

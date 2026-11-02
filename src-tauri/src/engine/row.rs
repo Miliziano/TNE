@@ -292,6 +292,105 @@ impl Row {
     }
 }
 
+// ─── Accesso per posizione, sicuro (regola 3) ──────────────────────
+//
+// Un nodo che legge o scrive sempre gli stessi campi non li cerca per nome a
+// ogni riga: calcola le posizioni UNA volta per schema. Il controllo d'identità
+// sta qui, non nei nodi: a ogni accesso si confronta lo schema della riga con
+// quello per cui le posizioni sono state calcolate (un confronto di puntatori;
+// l'`Arc` tenuto qui impedisce che un altro schema prenda lo stesso indirizzo).
+// Se la riga ha un'altra forma, le posizioni si ricalcolano: mai il campo
+// sbagliato, mai un errore per la forma.
+
+/// Lettura di un elenco fisso di campi.
+pub struct Slots {
+    names: Vec<String>,
+    schema: Option<Arc<Schema>>,
+    pos: Vec<Option<usize>>,
+}
+
+impl Slots {
+    pub fn new(names: Vec<String>) -> Self {
+        Slots { names, schema: None, pos: Vec::new() }
+    }
+
+    pub fn names(&self) -> &[String] {
+        &self.names
+    }
+
+    /// Valore dell'`i`-esimo campo dell'elenco nella riga (`None` = assente).
+    pub fn get<'r>(&mut self, row: &'r Row, i: usize) -> Option<&'r Value> {
+        let same = matches!(&self.schema, Some(s) if Arc::ptr_eq(s, &row.schema));
+        if !same {
+            self.pos = self.names.iter().map(|n| row.schema.position(n)).collect();
+            self.schema = Some(row.schema.clone());
+        }
+        self.pos[i].map(|p| &row.values[p])
+    }
+}
+
+/// Scrittura di un elenco fisso di campi, con la stessa semantica di una
+/// sequenza di `set` (o di `set_if_absent` con `keep_existing`), ma con lo
+/// schema d'uscita calcolato una volta per schema d'ingresso.
+pub struct Writer {
+    names: Vec<String>,
+    /// (schema d'ingresso, schema d'uscita, per ogni nome: posizione esistente o `None` = in coda)
+    plan: Option<(Arc<Schema>, Arc<Schema>, Vec<Option<usize>>)>,
+}
+
+impl Writer {
+    pub fn new(names: Vec<String>) -> Self {
+        Writer { names, plan: None }
+    }
+
+    pub fn names(&self) -> &[String] {
+        &self.names
+    }
+
+    /// Scrive `values` (uno per nome, nell'ordine) nella riga. Un campo che c'è
+    /// già si sovrascrive, o si lascia com'è con `keep_existing`; uno che manca
+    /// si aggiunge in coda.
+    pub fn write(&mut self, row: &mut Row, values: Vec<Value>, keep_existing: bool) {
+        if values.len() != self.names.len() {
+            // uso sbagliato: si ripiega sulla via per nome, sempre corretta
+            for (n, v) in self.names.iter().zip(values) {
+                if !(keep_existing && row.has(n)) {
+                    row.insert_str(n, v);
+                }
+            }
+            return;
+        }
+        let same = matches!(&self.plan, Some((from, _, _)) if Arc::ptr_eq(from, &row.schema));
+        if !same {
+            let mut cur = row.schema.clone();
+            let mut ops = Vec::with_capacity(self.names.len());
+            for n in &self.names {
+                match cur.position(n) {
+                    Some(p) => ops.push(Some(p)),
+                    None => {
+                        cur = cur.with_added(n);
+                        ops.push(None);
+                    }
+                }
+            }
+            self.plan = Some((row.schema.clone(), cur, ops));
+        }
+        let (_, to, ops) = self.plan.as_ref().expect("piano appena calcolato");
+        row.values.reserve(to.len() - row.values.len());
+        for (op, v) in ops.iter().zip(values) {
+            match op {
+                Some(p) => {
+                    if !keep_existing {
+                        row.values[*p] = v;
+                    }
+                }
+                None => row.values.push(v),
+            }
+        }
+        row.schema = to.clone();
+    }
+}
+
 impl FromIterator<(String, Value)> for Row {
     fn from_iter<I: IntoIterator<Item = (String, Value)>>(iter: I) -> Self {
         let mut row = Row::new();
@@ -435,5 +534,41 @@ mod tests {
         let b: Row = serde_json::from_str(&s).unwrap();
         assert_eq!(b.keys().cloned().collect::<Vec<_>>(), vec!["z", "a"]);
         assert_eq!(b.get("a"), Some(&Value::Int(2)));
+    }
+
+    #[test]
+    fn slots_seguono_la_forma_della_riga() {
+        let mut sl = Slots::new(vec!["b".into(), "z".into()]);
+        let a = r(&[("a", 1), ("b", 2)]);
+        let b = r(&[("b", 20), ("a", 10)]);
+        assert_eq!(sl.get(&a, 0), Some(&Value::Int(2)));
+        assert_eq!(sl.get(&a, 1), None);
+        // altra forma: posizioni ricalcolate, mai il campo sbagliato
+        assert_eq!(sl.get(&b, 0), Some(&Value::Int(20)));
+        assert_eq!(sl.get(&a, 0), Some(&Value::Int(2)));
+    }
+
+    #[test]
+    fn writer_come_una_sequenza_di_set() {
+        let names: Vec<String> = ["b", "x", "x", "y"].iter().map(|s| s.to_string()).collect();
+        let vals = || vec![Value::Int(100), Value::Int(1), Value::Int(2), Value::Int(3)];
+        for keep in [false, true] {
+            let mut w = Writer::new(names.clone());
+            for base in [r(&[("a", 1), ("b", 2)]), r(&[("b", 2), ("a", 1)]), r(&[("a", 1), ("b", 2)]), Row::new()] {
+                let mut atteso = base.clone();
+                for (n, v) in names.iter().zip(vals()) {
+                    if !(keep && atteso.has(n)) { atteso.insert_str(n, v); }
+                }
+                let mut fatto = base.clone();
+                w.write(&mut fatto, vals(), keep);
+                assert_eq!(format!("{fatto:?}"), format!("{atteso:?}"), "keep={keep}");
+                assert!(Arc::ptr_eq(fatto.schema(), atteso.schema()), "stesso schema derivato");
+            }
+            // numero di valori sbagliato: ripiego per nome, niente panico
+            let mut x = Row::new();
+            w.write(&mut x, vec![Value::Int(7)], keep);
+            assert_eq!(x.get("b"), Some(&Value::Int(7)));
+            assert_eq!(x.len(), 1);
+        }
     }
 }

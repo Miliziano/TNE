@@ -362,6 +362,66 @@ async fn regressione_del_motore() {
         diff.extend(confronta("join", &o, &["unite.jsonl"], &esito, "completed"));
     }
 
+    // 10. Mapping (P386): campi della sorgente rinominati, tipizzati e
+    //     trasformati; Transform in modo replace e select; mapping del sink
+    //     (nomi, tipi, inclusi/esclusi, campo assente), anche su righe di forma
+    //     diversa (CSV irregolare) e con valori da mettere tra virgolette.
+    {
+        let o = base.join("mapping"); std::fs::create_dir_all(&o).unwrap();
+        let src_map = |id: &str, path: &Path, fields: Value| json!({"node_id": id, "node_type":"source_file", "label": id,
+            "config":{}, "spec":{"props":{"path": path.display().to_string(), "format":"csv", "hasHeader":"true"},
+            "config":{"fields": fields}}});
+        let sink_map = |id: &str, path: &Path, cols: Value| {
+            let fmt = if path.extension().and_then(|e| e.to_str()) == Some("jsonl") { "jsonl" } else { "csv" };
+            json!({"node_id": id, "node_type":"sink_file", "label": id, "config":{},
+                   "spec":{"props":{"path": path.display().to_string(), "format": fmt, "fileColumns": cols.to_string()}}})
+        };
+        let tr = |id: &str, mode: &str, fields: Value| json!({"node_id": id, "node_type":"transform", "label": id,
+            "config":{}, "spec":{"props":{}, "config":{"mode": mode, "fields": fields}}});
+        let p = piano("reg-mapping", vec![
+            src_map("o", &d.join("orders.csv"), json!([
+                {"name":"codice","physical":"id","type":"integer"},
+                {"name":"citta","physical":"city","type":"string","transform":"uppercase"},
+                {"name":"prezzo","physical":"price","type":"decimal"},
+                {"name":"assente","physical":"non_esiste","type":"string"},
+                {"name":"qty","type":"integer"}])),
+            tr("rep", "replace", json!([
+                {"name":"citta","expr": call("concat", vec![f("citta"), lit(json!(", \"centro\""))])},
+                {"name":"totale","expr": bin("MUL", f("qty"), f("prezzo"))},
+                {"name":"totale","expr": bin("ADD", f("qty"), lit(json!(1)))}])),
+            tr("sel", "select", json!([
+                {"name":"k","expr": f("codice")},
+                {"name":"t","expr": f("totale")},
+                {"name":"k","expr": call("concat", vec![lit(json!("K")), f("codice")])}])),
+            sink_map("m", &o.join("mappate.csv"), json!([
+                {"sourceField":"codice","outputName":"Codice","type":"string"},
+                {"sourceField":"citta","outputName":"Città"},
+                {"sourceField":"totale","outputName":"Escluso","include":false},
+                {"sourceField":"prezzo","outputName":"Prezzo","type":"integer"},
+                {"sourceField":"manca","outputName":"Manca"},
+                {"sourceField":"totale","outputName":"Totale","type":"decimal"}])),
+            uscita("s", &o.join("selezione.jsonl")),
+            sorgente("i", &d.join("irregolare.csv")),
+            sink_map("im", &o.join("irregolare_mappata.csv"), json!([
+                {"sourceField":"note","outputName":"Nota"},
+                {"sourceField":"col_5","outputName":"Quinta"},
+                {"sourceField":"name","outputName":"Nome"},
+                {"sourceField":"id","outputName":"Id","type":"integer"}])),
+            src_map("is", &d.join("irregolare.csv"), json!([
+                {"name":"nome","physical":"name","type":"string","transform":"nullify_empty"},
+                {"name":"n","physical":"id","type":"integer"},
+                {"name":"extra","physical":"col_6","type":"string"}])),
+            uscita("isj", &o.join("irregolare_sorgente.jsonl")),
+        ], vec![
+            arco("e1","o","output","rep","input"), arco("e2","rep","output","m","input"),
+            arco("e3","rep","output","sel","input"), arco("e4","sel","output","s","input"),
+            arco("e5","i","output","im","input"), arco("e6","is","output","isj","input"),
+        ], json!({}));
+        let esito = esegui(p).await;
+        diff.extend(confronta("mapping", &o,
+            &["mappate.csv", "selezione.jsonl", "irregolare_mappata.csv", "irregolare_sorgente.jsonl"], &esito, "completed"));
+    }
+
     let _ = std::fs::remove_dir_all(&base);
     // Anche rigenerando, un run che non finisce come previsto è un errore: non
     // si registra come "atteso" l'output di un run fallito.

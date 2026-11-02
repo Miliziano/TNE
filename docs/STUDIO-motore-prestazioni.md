@@ -20,6 +20,12 @@ byte prima e dopo le modifiche (stesso md5).
 
 **Profilo:** `valgrind --tool=callgrind` su 100.000 righe, per sapere dove va il tempo.
 
+**Dal P386, confronto alternato.** Su questa macchina due misure della stessa versione a
+distanza di minuti differiscono anche del 20%. Per questo le versioni si confrontano con
+due binari compilati nella stessa sessione ed eseguiti a turno (A, B, A, B…, cinque giri
+per banco), guardando la mediana. Tre banchi: Transform+Filter senza mapping, lo stesso
+con il mapping di sorgente e di uscita (il caso reale dello studio), TMap.
+
 ---
 
 ## 2. Risultati
@@ -33,6 +39,7 @@ byte prima e dopo le modifiche (stesso md5).
 | P382 con il profilo del runner di prima (`opt-level "z"`) | 150.000 | 6,7 s | 35 MB |
 | **P383** (espressioni compilate, contesto senza HashMap, Transform senza copia della riga) | **230.000** | **4,3 s** | **37 MB** |
 | **P385** (righe con schema condiviso: nomi una volta sola, valori in un vettore) | **310.000** | **3,2 s** | **33 MB** |
+| **P386** (posizioni per schema, sorgente e uscita CSV senza copie, lotti fra lettura e nodo) | **380.000** | **2,6 s** | **33 MB** |
 
 **TMap (P383).** Secondo banco: 500.000 ordini × 9.000 clienti (join), una trasformazione,
 due uscite con filtro, espressioni con `upper`, `concat`, `CASE`, `var()`. Da **120.000 a
@@ -40,8 +47,9 @@ due uscite con filtro, espressioni con `upper`, `concat`, `CASE`, `var()`. Da **
 lookup veniva clonata due volte (sotto id e sotto etichetta) per ogni riga main che la
 usava, e la riga main e quella delle trasformazioni una volta per combinazione. Output
 identico byte per byte anche con join *left*, *first*, uno-a-molti e uscita degli scarti.
-Col P385 (righe con schema) il TMap passa a **235.000 righe/s** (+20% sul P384, misurato
-nella stessa sessione: 185.000).
+Col P385 (righe con schema) il TMap passa a circa **235.000 righe/s** (+27% sul P384,
+misurato nella stessa sessione: 185.000). Col P386, nel confronto alternato, **+22% sul
+P385**.
 
 | Avvio e chiusura del runner | prima | P382 |
 |---|---:|---:|
@@ -133,10 +141,10 @@ nessuna rifà lavoro esistente.
 
 | | Cosa | Guadagno atteso | Costo | Rischio |
 |---|---|---|---|---|
-| **A** ◐ P385 | **Righe con schema**: `Row` = schema condiviso (`Arc`) + vettore di valori; i nomi si risolvono in posizioni una volta per nodo. L'API `get`/`set` per nome resta, così i nodi si migrano uno alla volta. | 2-3× sul throughput; meno memoria; colonne nell'ordine del mapping | alto (tocca tutti i nodi, ma a passi) | medio: serve un banco di non regressione per nodo |
+| **A** ◐ P385-P386 | **Righe con schema**: `Row` = schema condiviso (`Arc`) + vettore di valori; i nomi si risolvono in posizioni una volta per nodo. L'API `get`/`set` per nome resta, così i nodi si migrano uno alla volta. | 2-3× sul throughput; meno memoria; colonne nell'ordine del mapping | alto (tocca tutti i nodi, ma a passi) | medio: serve un banco di non regressione per nodo |
 | **B** ✅ P383 | **Espressioni compilate una volta** all'avvio del nodo: costanti calcolate, `var()` e nomi risolti, valori letti in prestito; niente `HashMap` per riga nel valutatore. Fatto per Transform, Filter, TMap; lo Script usa ancora l'interprete (gode del contesto nuovo). | misurato: +24% sul banco Transform/Filter, +65% sul TMap (con le copie tolte) | medio | basso: test di equivalenza con l'interprete |
 | **C** | **Parallelismo per partizione** dei nodi senza stato (Transform, Filter, TMap, Script): N copie su N core, ordine preservato se richiesto. | lineare coi core (su un server da 16 core, fino a 10× su quei nodi) | medio | medio: ordine e lookup condivisi |
-| **D** | **Canali a lotti adattivi**: si passano blocchi di righe invece di righe singole, con invio immediato quando il flusso rallenta (non peggiora la latenza). | 10-20% | basso-medio | basso |
+| **D** ◐ P386 (solo sorgente file) | **Canali a lotti adattivi**: si passano blocchi di righe invece di righe singole, con invio immediato quando il flusso rallenta (non peggiora la latenza). | 10-20% | basso-medio | basso |
 | **E** | **Garanzie di consegna** per MQTT/ActiveMQ: conferma dopo la scrittura; con sink idempotenti (upsert) l'effetto è "una volta sola". | affidabilità, non velocità | medio | medio |
 | **F** | **Metriche di latenza** per nodo negli eventi (campi facoltativi, contratto rispettato). | osservabilità near real time | basso | basso |
 | **G** | **Stato del run invece di stato globale** (bus, reporter, registri): prerequisito del runner caldo e dell'agente. | avvio dei run in microsecondi dentro un processo acceso | medio | medio |
@@ -211,12 +219,65 @@ già o la forma è già stata vista: è la via usata da sorgente CSV, Transform 
 - Le posizioni restano dentro `row.rs` (regola 1); nessun nodo le vede ancora.
 
 Misure (stessa macchina, stessa sessione, release): Transform+Filter da ~230.000 a
-**~310.000 righe/s** (+35%), TMap da ~185.000 a **~235.000** (+20%), memoria invariata.
+**~310.000 righe/s** (+35%), TMap da ~185.000 a **~235.000** (+27%), memoria invariata.
 
 **Passi successivi della voce A**, uno per nodo, ognuno col banco: i nodi caldi calcolano
 le posizioni una volta per schema (controllo di puntatore, regola 3) e leggono per
 posizione; le sorgenti costruiscono lo schema dall'intestazione una volta sola e creano le
 righe con `Row::from_parts`; lo Script passa alle espressioni compilate.
+
+### Secondo passo (P386): posizioni calcolate una volta per forma di riga
+
+Mediane del confronto alternato col P385 (righe/s, 2 vCPU):
+
+| banco | P385 | P386 | |
+|---|---:|---:|---:|
+| Transform + Filter, 1M righe | 302.000 | 381.000 | +26% |
+| stesso, con mapping di sorgente e uscita | 261.000 | 356.000 | +36% |
+| TMap 500k × 9k | 223.000 | 273.000 | +22% |
+
+Cosa è cambiato:
+- **`Slots` e `Writer`** (`engine/row.rs`): un nodo che legge o scrive sempre gli stessi
+  campi calcola le posizioni una volta per schema. A ogni riga si confronta lo schema con
+  quello per cui le posizioni valgono (un puntatore); se la riga ha un'altra forma si
+  ricalcolano. È la regola 3: il controllo sta nella riga, non nei nodi. `Writer` ha la
+  stessa semantica di una sequenza di `set` (anche coi nomi ripetuti) e produce lo stesso
+  schema derivato, condiviso.
+- **Usati da**: Transform (tutti e tre i modi), mapping della sorgente file, intestazione
+  CSV, mapping del File Output (`FieldMapping::apply`, comune ai sink che lo usano).
+- **File Output CSV**: la riga non si copia più (si copiava sempre, anche quando non
+  serviva rimandarla a valle); ogni riga si compone in una stringa riusata, coi valori
+  presi in prestito (`Value::str_repr`); in UTF-8 il testo va al file senza ricodifica.
+- **Sorgente CSV**: una riga senza virgolette si taglia sul delimitatore senza copiarla
+  carattere per carattere (stesso risultato del ciclo completo, che resta per le altre).
+- **Lotti fra il thread di lettura e il nodo, con posti prenotati insieme.** Questa è la
+  scoperta più utile del passo: vedi sotto.
+
+**Il costo che non si vedeva: i risvegli.** Le prime versioni del P386 eseguivano il 17% di
+istruzioni in meno sul TMap ma erano più *lente* del 18-29% in tempo reale; su un solo
+core erano più veloci. Le chiamate di sistema lo hanno spiegato: `futex` da 107.000 a
+136.000 per run. Ogni riga che attraversa un canale fra due thread può costare un
+risveglio del thread che aspetta; rendendo più veloce la sorgente, il canale verso il
+TMap restava sempre pieno e ogni riga letta dal TMap risvegliava la sorgente per una sola
+riga. Rimedio locale: la sorgente manda lotti di 256 righe e li inoltra prenotando i posti
+del canale tutti insieme (`reserve_many`): chi scrive si risveglia una volta per lotto.
+
+È la misura diretta della voce **D** (canali a lotti): sul TMap il coordinamento fra i
+thread pesa più del lavoro sulle righe. Il prossimo guadagno grosso viene da lì, per tutti
+i nodi, con una regola che non aggiunga latenza ai flussi lenti (un lotto parte subito
+quando chi lo produce sta per mettersi in attesa).
+
+**Trovati misurando, da sistemare dopo:**
+- **Avanzamento troppo fitto.** Ogni nodo emette un `NodeProgress` ogni 500 righe: 2.800
+  eventi in un run di 2,5 s sul TMap, 6.900 sul banco da un milione. Ogni evento passa dal
+  bus (con lock), dal registro dei run su file e dal monitor. Basta un evento ogni 250 ms
+  per nodo.
+- **Campionatore della memoria pensato per lo studio desktop.** Ogni 150 ms legge
+  `/proc/<pid>/status` di *tutti* i processi della macchina per trovare i processi WebKit.
+  Nel runner non servono: basta il processo stesso. Su un server con centinaia di
+  processi sono migliaia di letture al secondo.
+- **Il bus degli eventi si scorre tutto a ogni lettura** (`drain_since` filtra fino a
+  10.000 eventi a ogni polling).
 
 ### Comportamenti di oggi da decidere col nuovo modello
 

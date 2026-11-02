@@ -63,6 +63,15 @@ pub enum Value {
 impl Value {
     /// Converte in stringa per output e confronti — equivalente di
     /// String(value) in JS, ma esplicito e senza coercioni nascoste.
+    /// Come `as_str_repr`, ma senza copiare i testi (P386: per chi scrive
+    /// subito il valore, come il sink CSV). Stesso risultato carattere per carattere.
+    pub fn str_repr(&self) -> std::borrow::Cow<'_, str> {
+        match self {
+            Value::String(s) | Value::Date(s) | Value::DateTime(s) => std::borrow::Cow::Borrowed(s),
+            other => std::borrow::Cow::Owned(other.as_str_repr()),
+        }
+    }
+
     pub fn as_str_repr(&self) -> String {
         match self {
             Value::Null          => String::new(),
