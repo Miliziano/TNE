@@ -2566,3 +2566,28 @@ Secondo passo della voce A, più la prima metà della voce D. Studio §6 "Second
 - Prossimi passi: voce D per tutti i nodi (lotti che partono subito quando chi produce sta
   per aspettare), avanzamento ogni 250 ms invece che ogni 500 righe, campionatore della
   memoria leggero nel runner.
+
+## AGGIORNAMENTO — Righe a lotti fra i nodi (stato al P387, 2 novembre)
+
+Voce D dello studio (`docs/STUDIO-motore-prestazioni.md` §6, "Terzo passo").
+- `engine/lotti.rs` (nuovo): `spedisci(tx, rows)` (posti prenotati insieme con
+  `reserve_many`, a pezzi grandi al più quanto il canale), `Lotto` (righe con l'indice
+  d'uscita, spedite a tratti consecutivi per uscita, nell'ordine di produzione),
+  `Consegna` (righe consegnate per uscita, canale chiuso). Regola: il lotto parte appena
+  l'ingresso del nodo è vuoto o a `LOTTO_MAX` = 64 righe. Test: ordine fra uscite che
+  confluiscono, uscita non collegata, canale chiuso, lotto più grande del canale, e
+  **latenza**: Transform e Filter con l'ingresso aperto fanno uscire ogni riga subito.
+- Usato da Transform, Filter (anche il rilascio del modo ordinato), TMap (ciclo che
+  spedisce prima di aspettare l'ingresso; conteggi per uscita da `Consegna`), fan-out
+  dell'esecutore (`recv_many` + `spedisci`), sorgente file.
+- `NodeContext::emit_progress`: al più ogni `PROGRESS_MIN_MS` = 250 ms per nodo (campo
+  `progress_last`, condiviso fra i cloni del contesto).
+- `memory_monitor`: senza la feature `desktop` (runner) campiona solo il processo stesso;
+  nello studio la tabella pid → ppid si legge una volta per campione.
+- `sink_file`: mappa dei file aperti con `ahash`.
+- Misure (confronto alternato col P386): TMap +10-18%, gli altri alla pari o poco sopra;
+  `futex` sul TMap da 12.400 a 5.400; istruzioni −37% dal P385. Banco di non
+  regressione identico.
+- Non fatto: sorgente database (ODBC e sqlx mandano ancora riga per riga; nel sandbox non
+  c'è un database per misurarlo). Prossimo: espressioni compilate con le posizioni
+  (`Slots` dentro `EvalContext`), Script compilato, scrittura CSV.

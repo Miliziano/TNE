@@ -45,6 +45,8 @@ pub async fn run(
     let mut writer = crate::engine::row::Writer::new(
         compiled.iter().map(|(n, _)| n.clone()).collect());
 
+    let mut lotto = crate::engine::lotti::Lotto::new();
+
     let variables = ctx.variables.clone();
     let start    = Instant::now();
     let mut rows_in  = 0u64;
@@ -83,13 +85,22 @@ pub async fn run(
             }
         };
 
-        if tx.send(out_row).await.is_err() { break; }
-        rows_out += 1;
+        // P387: a lotti, spedito appena l'ingresso è vuoto (engine/lotti.rs)
+        lotto.push(0, out_row);
+        if lotto.da_spedire(rx.is_empty()) {
+            let esito = lotto.spedisci(|_| Some(&tx)).await;
+            rows_out += esito.totale();
+            if esito.chiuse { break; }
+        }
 
         if rows_in % 1000 == 0 {
             let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
             ctx.emit_progress(rows_in, rows_out, 0, rps);
         }
+    }
+
+    if !lotto.is_empty() {
+        rows_out += lotto.spedisci(|_| Some(&tx)).await.totale();
     }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;

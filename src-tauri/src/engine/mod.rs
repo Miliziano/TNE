@@ -22,6 +22,7 @@
 
 pub mod types;
 pub mod row;       // P385: riga con schema condiviso
+pub mod lotti;     // P387: righe in uscita a lotti, senza attese per i flussi lenti
 pub mod events;
 pub mod bus;
 pub mod executor;
@@ -578,6 +579,7 @@ pub async fn engine_preview_node(
         cancel:         tokio_util::sync::CancellationToken::new(),
         err_collector:  None,
         lane_done:      crate::engine::completion::LaneCompletion::empty(),
+        progress_last:  Default::default(),
     };
 
     // 5) due canali; il nodo è eseguito dal MOTORE VERO

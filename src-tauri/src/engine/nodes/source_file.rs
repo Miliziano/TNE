@@ -648,14 +648,9 @@ pub async fn run(
                 // scrive si risveglia una volta per lotto, non una per riga,
                 // quando il nodo a valle è più lento (canale pieno).
                 let prima = rows_out;
-                let mut rows = rows.into_iter();
-                loop {
-                    let n = rows.len().min(tx.max_capacity());
-                    if n == 0 { break }
-                    let Ok(posti) = tx.reserve_many(n).await else { break 'lettura };
-                    for (posto, row) in posti.zip(rows.by_ref()) { posto.send(row) }
-                    rows_out += n as u64;
-                }
+                let n = rows.len() as u64;
+                if crate::engine::lotti::spedisci(&tx, rows).await.is_err() { break 'lettura }
+                rows_out += n;
                 if rows_out / PROGRESS_EVERY_ROWS != prima / PROGRESS_EVERY_ROWS
                     || last_progress.elapsed().as_millis() as u64 >= PROGRESS_EVERY_MS {
                     let rps = rows_out as f64 / start.elapsed().as_secs_f64().max(0.001);

@@ -203,7 +203,15 @@ pub async fn run(
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
 
-    while let Some(main_row) = main_rx.recv().await {
+    // P387: righe in uscita a lotti, spedite prima di mettersi in attesa
+    // dell'ingresso (engine/lotti.rs): nessuna attesa in più per i flussi lenti.
+    let mut lotto = crate::engine::lotti::Lotto::new();
+
+    loop {
+        if lotto.da_spedire(main_rx.is_empty()) {
+            spedisci_uscite(&mut lotto, &output_txs, &plan.outputs, &mut rows_out, &mut per_out).await;
+        }
+        let Some(main_row) = main_rx.recv().await else { break };
         rows_in += 1;
 
         // ── Espansione combinatoria dei lookup ────────────────────
@@ -273,11 +281,9 @@ pub async fn run(
                     &plan.transforms, &inputs, &mut lane_vars, plan.main_input_id.as_str());
                 let full: Combo = inputs.iter().copied()
                     .chain(std::iter::once(("__transforms__", &transform_row))).collect();
-                if let Some(tx) = output_txs.get(i) {
+                if output_txs.get(i).is_some() {
                     let out_row = build_output_row(output, &full, &transform_row, &lane_vars, &mut failed);
-                    let _ = tx.send(out_row).await;
-                    rows_out += 1;
-                    *per_out.entry("output_rejected".to_string()).or_insert(0) += 1;
+                    lotto.push(i, out_row);
                 }
             }
             continue;
@@ -316,11 +322,9 @@ pub async fn run(
                 };
 
                 if passes {
-                    if let Some(tx) = output_txs.get(i) {
+                    if output_txs.get(i).is_some() {
                         let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars, &mut failed);
-                        if tx.send(out_row).await.is_err() { continue; }
-                        rows_out += 1;
-                        *per_out.entry(output.output_id.clone()).or_insert(0) += 1;
+                        lotto.push(i, out_row);
                     }
                 }
             }
@@ -331,6 +335,8 @@ pub async fn run(
             ctx.emit_progress(rows_in, rows_out, rows_rejected, rps);
         }
     }
+
+    spedisci_uscite(&mut lotto, &output_txs, &plan.outputs, &mut rows_out, &mut per_out).await;
 
     let mut keys: Vec<&String> = failed.keys().collect();
     keys.sort();
@@ -352,6 +358,24 @@ pub async fn run(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
+
+/// Spedisce il lotto e conta le righe consegnate, in tutto e per uscita.
+async fn spedisci_uscite(
+    lotto:      &mut crate::engine::lotti::Lotto,
+    output_txs: &[RowSender],
+    outputs:    &[TMapOutputPlan],
+    rows_out:   &mut u64,
+    per_out:    &mut HashMap<String, u64>,
+) {
+    if lotto.is_empty() { return }
+    let esito = lotto.spedisci(|i| output_txs.get(i)).await;
+    for (i, n) in esito.per_uscita.iter().enumerate() {
+        if *n > 0 {
+            *rows_out += n;
+            *per_out.entry(outputs[i].output_id.clone()).or_insert(0) += n;
+        }
+    }
+}
 
 /// Calcola le transform nell'ordine dichiarato, aggiornando i
 /// contatori di lane. Restituisce la riga __transforms__.

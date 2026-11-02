@@ -66,6 +66,17 @@ pub struct NodeContext {
     /// pipeline a valle abbia finito (Filter, modalità "ordered with
     /// wait"). Vuoto nell'anteprima di un nodo isolato.
     pub lane_done:      std::sync::Arc<super::completion::LaneCompletion>,
+    /// Istante dell'ultimo avanzamento emesso (ms, 0 = mai): v. `emit_progress`.
+    pub progress_last:  std::sync::Arc<std::sync::atomic::AtomicU64>,
+}
+
+/// Cadenza minima degli eventi di avanzamento di un nodo (P387).
+pub const PROGRESS_MIN_MS: u64 = 250;
+
+/// Millisecondi da un istante fisso del processo (orologio monotono).
+fn progress_clock_ms() -> u64 {
+    static T0: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    T0.get_or_init(std::time::Instant::now).elapsed().as_millis() as u64
 }
 
 impl NodeContext {
@@ -91,7 +102,15 @@ impl NodeContext {
             .unwrap_or(5);
         Some((count, delay))
     }
+    /// P387: al più un avanzamento ogni `PROGRESS_MIN_MS` per nodo, qualunque
+    /// sia la cadenza con cui il nodo lo chiama (prima: ogni 500 righe, cioè
+    /// migliaia di eventi al secondo fra bus, registro dei run e monitor). I
+    /// numeri finali sono nel `NodeCompleted`.
     pub fn emit_progress(&self, rows_in: u64, rows_out: u64, rows_rejected: u64, rps: f64) {
+        let now = progress_clock_ms();
+        let last = self.progress_last.load(std::sync::atomic::Ordering::Relaxed);
+        if last != 0 && now < last + PROGRESS_MIN_MS { return }
+        self.progress_last.store(now.max(1), std::sync::atomic::Ordering::Relaxed);
         push_event(EngineEvent::NodeProgress {
             run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
             node_id: self.node_id.clone(), rows_in, rows_out, rows_rejected,
@@ -379,14 +398,18 @@ pub async fn execute_lane(
             // Un destinatario chiuso viene ignorato: gli altri
             // continuano a ricevere.
             let (fan_tx, mut fan_rx) = mpsc::channel::<Row>(CHANNEL_BUFFER);
+            // P387: a lotti (le righe già arrivate, fino a LOTTO_MAX: nessuna
+            // attesa in più), ognuno spedito con i posti prenotati insieme.
             tokio::spawn(async move {
-                while let Some(row) = fan_rx.recv().await {
+                let mut lotto: Vec<Row> = Vec::with_capacity(super::lotti::LOTTO_MAX);
+                while fan_rx.recv_many(&mut lotto, super::lotti::LOTTO_MAX).await > 0 {
+                    let rows = std::mem::take(&mut lotto);
                     let n = senders.len();
                     for tx in senders.iter().take(n - 1) {
-                        let _ = tx.send(row.clone()).await;
+                        let _ = super::lotti::spedisci(tx, rows.clone()).await;
                     }
                     if let Some(last) = senders.last() {
-                        let _ = last.send(row).await;
+                        let _ = super::lotti::spedisci(last, rows).await;
                     }
                 }
             });
@@ -484,6 +507,7 @@ pub async fn execute_lane(
             cancel:         cancel.clone(),
             err_collector:  collector_for_node.clone(),
             lane_done:      lane_done.clone(),
+            progress_last:  Default::default(),
         };
 
         let mut inputs = input_rx.remove(&node_id_str).unwrap_or_default();

@@ -202,29 +202,32 @@ mod linux {
     ///
     /// Ritorna (lista processi, pss_disponibile).
     pub fn collect_process_tree(root_pid: u32) -> (Vec<ProcessMemoryInfo>, bool) {
-        // Step 1: mappa pid → ppid per tutti i processi visibili
-        let mut all_pids: Vec<u32> = Vec::new();
-        if let Ok(dir) = std::fs::read_dir("/proc") {
-            for entry in dir.flatten() {
-                if let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() {
-                    all_pids.push(pid);
+        // Step 1: mappa pid → ppid per tutti i processi visibili, letta UNA
+        // volta per campione (P387: prima si rileggeva a ogni livello della
+        // visita). Solo nello studio desktop, dove servono i processi WebKit:
+        // il runner campiona soltanto se stesso, invece di leggere ogni 150 ms
+        // lo stato di tutti i processi della macchina.
+        let mut all: Vec<(u32, u32)> = Vec::new();
+        if cfg!(feature = "desktop") {
+            if let Ok(dir) = std::fs::read_dir("/proc") {
+                for entry in dir.flatten() {
+                    if let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() {
+                        if let Some(ppid) = read_ppid(pid) { all.push((pid, ppid)) }
+                    }
                 }
             }
         }
 
-        // Step 2: BFS dai discendenti del root
+        // Step 2: visita in ampiezza dei discendenti del root, in memoria
         let mut descendants: Vec<u32> = vec![root_pid];
         let mut frontier: Vec<u32> = vec![root_pid];
 
         while !frontier.is_empty() {
             let mut next_frontier = Vec::new();
-            for &pid in &all_pids {
-                if descendants.contains(&pid) { continue }
-                if let Some(ppid) = read_ppid(pid) {
-                    if frontier.contains(&ppid) {
-                        descendants.push(pid);
-                        next_frontier.push(pid);
-                    }
+            for &(pid, ppid) in &all {
+                if frontier.contains(&ppid) && !descendants.contains(&pid) {
+                    descendants.push(pid);
+                    next_frontier.push(pid);
                 }
             }
             frontier = next_frontier;

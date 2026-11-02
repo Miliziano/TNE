@@ -514,7 +514,8 @@ pub async fn run(
     let mut last_progress = Instant::now();
 
     // File aperti (per chiave di partizione) e, in ordine, quelli chiusi.
-    let mut open: HashMap<String, Target> = HashMap::new();
+    // P387: hash veloce (ahash): la chiave si cerca a ogni riga.
+    let mut open: HashMap<String, Target, ahash::RandomState> = HashMap::default();
     let mut order: Vec<String> = Vec::new();
     let mut done: Vec<Written> = Vec::new();
     let mut size_part = 1u64;

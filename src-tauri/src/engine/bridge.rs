@@ -313,6 +313,7 @@ mod tests {
             cancel: tokio_util::sync::CancellationToken::new(),
             err_collector: None,
             lane_done: crate::engine::completion::LaneCompletion::empty(),
+            progress_last: Default::default(),
         }
     }
     fn plan() -> Vec<BridgePlan> {

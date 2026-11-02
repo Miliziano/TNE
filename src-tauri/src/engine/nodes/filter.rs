@@ -183,6 +183,12 @@ pub async fn run(
     // Buffer dei rami #2..#N (indice = posizione della condizione).
     let mut held: Vec<Vec<Row>> = vec![Vec::new(); plan.conditions.len()];
 
+    // Uscite del lotto: indice della condizione, poi `reject`.
+    let reject_i = plan.conditions.len();
+    let ids: Vec<String> = plan.conditions.iter().map(|c| c.id.clone()).collect();
+    let uscita = |i: usize| -> &str { ids.get(i).map(|s| s.as_str()).unwrap_or("reject") };
+    let mut lotto = crate::engine::lotti::Lotto::new();
+
     while let Some(row) = rx.recv().await {
         rows_in += 1;
 
@@ -209,22 +215,31 @@ pub async fn run(
                 *per_cond.entry(cond.id.clone()).or_insert(0) += 1;
                 if ordered && ci > 0 {
                     if outputs.contains_key(&cond.id) { held[ci].push(row); }
-                } else if let Some(tx) = outputs.get(&cond.id) {
-                    if tx.send(row).await.is_ok() { rows_out += 1; }
+                } else if outputs.contains_key(&cond.id) {
+                    lotto.push(ci, row);
                 }
             }
             None => {
                 rows_rejected += 1;
-                if let Some(tx) = outputs.get("reject") {
-                    let _ = tx.send(row).await;
-                }
+                if outputs.contains_key("reject") { lotto.push(reject_i, row); }
             }
+        }
+        // P387: a lotti, spediti appena l'ingresso è vuoto (engine/lotti.rs),
+        // nell'ordine di produzione anche fra uscite diverse.
+        if lotto.da_spedire(rx.is_empty()) {
+            let esito = lotto.spedisci(|i| outputs.get(uscita(i))).await;
+            rows_out += esito.totale() - esito.a(reject_i);
         }
 
         if rows_in % PROGRESS_EVERY == 0 {
             let rps = rows_in as f64 / start.elapsed().as_secs_f64().max(0.001);
             ctx.emit_progress(rows_in, rows_out, rows_rejected, rps);
         }
+    }
+
+    if !lotto.is_empty() {
+        let esito = lotto.spedisci(|i| outputs.get(uscita(i))).await;
+        rows_out += esito.totale() - esito.a(reject_i);
     }
 
     // ── Modo ordinato: rilascio dei rami trattenuti, uno alla volta ──
@@ -259,9 +274,8 @@ pub async fn run(
             if let Some(tx) = outputs.get(&cond.id) {
                 eprintln!("[filter {}] ordered: releasing branch '{}' ({} rows)",
                           ctx.node_id.0, cond.label, rows.len());
-                for row in rows {
-                    if tx.send(row).await.is_ok() { rows_out += 1; }
-                }
+                let n = rows.len() as u64;
+                if crate::engine::lotti::spedisci(tx, rows).await.is_ok() { rows_out += n; }
             }
             drop(outputs.remove(&cond.id));
         }

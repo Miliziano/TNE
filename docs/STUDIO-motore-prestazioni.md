@@ -40,6 +40,7 @@ con il mapping di sorgente e di uscita (il caso reale dello studio), TMap.
 | **P383** (espressioni compilate, contesto senza HashMap, Transform senza copia della riga) | **230.000** | **4,3 s** | **37 MB** |
 | **P385** (righe con schema condiviso: nomi una volta sola, valori in un vettore) | **310.000** | **3,2 s** | **33 MB** |
 | **P386** (posizioni per schema, sorgente e uscita CSV senza copie, lotti fra lettura e nodo) | **380.000** | **2,6 s** | **33 MB** |
+| **P387** (righe a lotti fra tutti i nodi caldi, avanzamento ogni 250 ms): su questo banco alla pari col P386 nel confronto alternato; il guadagno è sul TMap | ~365.000 | 2,7 s | 33 MB |
 
 **TMap (P383).** Secondo banco: 500.000 ordini × 9.000 clienti (join), una trasformazione,
 due uscite con filtro, espressioni con `upper`, `concat`, `CASE`, `var()`. Da **120.000 a
@@ -144,7 +145,7 @@ nessuna rifà lavoro esistente.
 | **A** ◐ P385-P386 | **Righe con schema**: `Row` = schema condiviso (`Arc`) + vettore di valori; i nomi si risolvono in posizioni una volta per nodo. L'API `get`/`set` per nome resta, così i nodi si migrano uno alla volta. | 2-3× sul throughput; meno memoria; colonne nell'ordine del mapping | alto (tocca tutti i nodi, ma a passi) | medio: serve un banco di non regressione per nodo |
 | **B** ✅ P383 | **Espressioni compilate una volta** all'avvio del nodo: costanti calcolate, `var()` e nomi risolti, valori letti in prestito; niente `HashMap` per riga nel valutatore. Fatto per Transform, Filter, TMap; lo Script usa ancora l'interprete (gode del contesto nuovo). | misurato: +24% sul banco Transform/Filter, +65% sul TMap (con le copie tolte) | medio | basso: test di equivalenza con l'interprete |
 | **C** | **Parallelismo per partizione** dei nodi senza stato (Transform, Filter, TMap, Script): N copie su N core, ordine preservato se richiesto. | lineare coi core (su un server da 16 core, fino a 10× su quei nodi) | medio | medio: ordine e lookup condivisi |
-| **D** ◐ P386 (solo sorgente file) | **Canali a lotti adattivi**: si passano blocchi di righe invece di righe singole, con invio immediato quando il flusso rallenta (non peggiora la latenza). | 10-20% | basso-medio | basso |
+| **D** ✅ P386-P387 (sorgente file, Transform, Filter, TMap, fan-out) | **Canali a lotti adattivi**: si passano blocchi di righe invece di righe singole, con invio immediato quando il flusso rallenta (non peggiora la latenza). | 10-20% | basso-medio | basso |
 | **E** | **Garanzie di consegna** per MQTT/ActiveMQ: conferma dopo la scrittura; con sink idempotenti (upsert) l'effetto è "una volta sola". | affidabilità, non velocità | medio | medio |
 | **F** | **Metriche di latenza** per nodo negli eventi (campi facoltativi, contratto rispettato). | osservabilità near real time | basso | basso |
 | **G** | **Stato del run invece di stato globale** (bus, reporter, registri): prerequisito del runner caldo e dell'agente. | avvio dei run in microsecondi dentro un processo acceso | medio | medio |
@@ -267,7 +268,7 @@ thread pesa più del lavoro sulle righe. Il prossimo guadagno grosso viene da l�
 i nodi, con una regola che non aggiunga latenza ai flussi lenti (un lotto parte subito
 quando chi lo produce sta per mettersi in attesa).
 
-**Trovati misurando, da sistemare dopo:**
+**Trovati misurando** (i primi due sistemati nel P387):
 - **Avanzamento troppo fitto.** Ogni nodo emette un `NodeProgress` ogni 500 righe: 2.800
   eventi in un run di 2,5 s sul TMap, 6.900 sul banco da un milione. Ogni evento passa dal
   bus (con lock), dal registro dei run su file e dal monitor. Basta un evento ogni 250 ms
@@ -278,6 +279,39 @@ quando chi lo produce sta per mettersi in attesa).
   processi sono migliaia di letture al secondo.
 - **Il bus degli eventi si scorre tutto a ogni lettura** (`drain_since` filtra fino a
   10.000 eventi a ogni polling).
+
+### Terzo passo (P387): righe a lotti fra i nodi, senza attese per i flussi lenti
+
+`engine/lotti.rs`. Un nodo accumula le righe in uscita **mentre ha altre righe in
+ingresso già pronte**; il lotto parte appena l'ingresso è vuoto (il nodo sta per mettersi
+in attesa) o a 64 righe. Con un flusso lento ogni riga parte subito, come prima (c'è un
+test che lo verifica con l'ingresso aperto, una riga alla volta); con un flusso veloce le
+righe viaggiano a gruppi e i posti del canale si prenotano insieme. L'ordine è quello di
+produzione anche fra uscite diverse (il lotto si spedisce a tratti consecutivi per
+uscita), quindi due uscite che confluiscono nello stesso ingresso vedono lo stesso ordine
+di prima. Usato da Transform, Filter (anche il rilascio dei rami trattenuti del modo
+ordinato), TMap e dal fan-out dell'esecutore (un'uscita verso più nodi); la sorgente file
+usa la stessa spedizione.
+
+Altro nel P387:
+- **Avanzamento al più ogni 250 ms per nodo** (`NodeContext::emit_progress`), qualunque
+  sia la cadenza con cui il nodo lo chiama. Prima erano migliaia di eventi al secondo.
+- **Campionatore della memoria leggero nel runner**: il runner (senza la feature
+  `desktop`) campiona solo se stesso; lo studio legge la tabella dei processi una volta
+  per campione invece che una volta per livello della visita.
+- **File Output**: la mappa dei file aperti (cercata a ogni riga) con `ahash`.
+
+Misure (confronto alternato col P386, due serie da cinque giri, mediane): TMap **+10-18%**;
+Transform+Filter da 0 a +8%, con mapping alla pari (dentro il rumore della macchina, ±10%).
+Le chiamate `futex` sul TMap: 107.000 (P385) → 12.400 (P386) → 5.400 (P387). Istruzioni
+eseguite sul banco da 100.000 righe: 3,03 miliardi (P385) → 1,91 (P387), −37%.
+
+**Dove va il tempo adesso** (profilo del P387, banco Transform+Filter): la scrittura CSV
+(~10%, soprattutto la ricerca dei caratteri da mettere tra virgolette), allocazioni
+(~12%), funzioni FPEL (`eval_function`, ~4%: `upper`, `concat`, `to_float` creano
+stringhe), conversione dei numeri in testo (~5%), lettura per nome dentro le espressioni
+(`direct_field` + `position`, ~4%: le espressioni compilate non usano ancora le
+posizioni). Il coordinamento fra i thread non compare più fra le prime voci.
 
 ### Comportamenti di oggi da decidere col nuovo modello
 
