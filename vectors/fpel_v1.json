@@ -1,0 +1,2045 @@
+{
+  "formatVersion": 1,
+  "descrizione": "Contratto FPEL studio↔motore (P389): espressione, albero prodotto dallo studio, riga, risultato atteso. Lo studio verifica l'albero (src/ir/fpelVector.test.ts), il motore il risultato (src-tauri/tests/fpel_vettori.rs).",
+  "casi": [
+    {
+      "expr": "x in (1, 2, 3)",
+      "row": {
+        "x": 2
+      },
+      "expect": true,
+      "ir": {
+        "kind": "BinaryOp",
+        "op": "OR",
+        "left": {
+          "kind": "BinaryOp",
+          "op": "OR",
+          "left": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": 1
+            }
+          },
+          "right": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": 2
+            }
+          }
+        },
+        "right": {
+          "kind": "BinaryOp",
+          "op": "EQ",
+          "left": {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          "right": {
+            "kind": "Literal",
+            "value": 3
+          }
+        }
+      }
+    },
+    {
+      "expr": "x in (1, 2, 3)",
+      "row": {
+        "x": 5
+      },
+      "expect": false,
+      "ir": {
+        "kind": "BinaryOp",
+        "op": "OR",
+        "left": {
+          "kind": "BinaryOp",
+          "op": "OR",
+          "left": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": 1
+            }
+          },
+          "right": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": 2
+            }
+          }
+        },
+        "right": {
+          "kind": "BinaryOp",
+          "op": "EQ",
+          "left": {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          "right": {
+            "kind": "Literal",
+            "value": 3
+          }
+        }
+      }
+    },
+    {
+      "expr": "x not in (\"a\", \"b\")",
+      "row": {
+        "x": "c"
+      },
+      "expect": true,
+      "ir": {
+        "kind": "UnaryOp",
+        "op": "NOT",
+        "expr": {
+          "kind": "BinaryOp",
+          "op": "OR",
+          "left": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": "a"
+            }
+          },
+          "right": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": "b"
+            }
+          }
+        }
+      }
+    },
+    {
+      "expr": "\"b\" in tags",
+      "row": {
+        "tags": [
+          "a",
+          "b"
+        ]
+      },
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "contains",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "tags"
+          },
+          {
+            "kind": "Literal",
+            "value": "b"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "3 in [1, 2]",
+      "row": {},
+      "expect": false,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "contains",
+        "args": [
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": 1
+              },
+              {
+                "kind": "Literal",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "kind": "Literal",
+            "value": 3
+          }
+        ]
+      }
+    },
+    {
+      "expr": "x between 1 and 10",
+      "row": {
+        "x": 10
+      },
+      "expect": true,
+      "ir": {
+        "kind": "BinaryOp",
+        "op": "AND",
+        "left": {
+          "kind": "BinaryOp",
+          "op": "GTE",
+          "left": {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          "right": {
+            "kind": "Literal",
+            "value": 1
+          }
+        },
+        "right": {
+          "kind": "BinaryOp",
+          "op": "LTE",
+          "left": {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          "right": {
+            "kind": "Literal",
+            "value": 10
+          }
+        }
+      }
+    },
+    {
+      "expr": "x between 1 and 10",
+      "row": {
+        "x": 11
+      },
+      "expect": false,
+      "ir": {
+        "kind": "BinaryOp",
+        "op": "AND",
+        "left": {
+          "kind": "BinaryOp",
+          "op": "GTE",
+          "left": {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          "right": {
+            "kind": "Literal",
+            "value": 1
+          }
+        },
+        "right": {
+          "kind": "BinaryOp",
+          "op": "LTE",
+          "left": {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          "right": {
+            "kind": "Literal",
+            "value": 10
+          }
+        }
+      }
+    },
+    {
+      "expr": "nome like \"Ma%\"",
+      "row": {
+        "nome": "Mario"
+      },
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "like",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "nome"
+          },
+          {
+            "kind": "Literal",
+            "value": "Ma%"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "nome like \"M_rio\"",
+      "row": {
+        "nome": "Mario"
+      },
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "like",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "nome"
+          },
+          {
+            "kind": "Literal",
+            "value": "M_rio"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "nome like \"ma%\"",
+      "row": {
+        "nome": "Mario"
+      },
+      "expect": false,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "like",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "nome"
+          },
+          {
+            "kind": "Literal",
+            "value": "ma%"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "sconto like \"10\\\\%\"",
+      "row": {
+        "sconto": "10%"
+      },
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "like",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "sconto"
+          },
+          {
+            "kind": "Literal",
+            "value": "10\\%"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "sconto like \"10\\\\%\"",
+      "row": {
+        "sconto": "105"
+      },
+      "expect": false,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "like",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "sconto"
+          },
+          {
+            "kind": "Literal",
+            "value": "10\\%"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "nome not like \"A%\"",
+      "row": {
+        "nome": "Mario"
+      },
+      "expect": true,
+      "ir": {
+        "kind": "UnaryOp",
+        "op": "NOT",
+        "expr": {
+          "kind": "FunctionCall",
+          "name": "like",
+          "args": [
+            {
+              "kind": "DirectFieldRef",
+              "field": "nome"
+            },
+            {
+              "kind": "Literal",
+              "value": "A%"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "expr": "a ?? \"vuoto\"",
+      "row": {
+        "a": null
+      },
+      "expect": "vuoto",
+      "ir": {
+        "kind": "Coalesce",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "a"
+          },
+          {
+            "kind": "Literal",
+            "value": "vuoto"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "a ?? b ?? 0",
+      "row": {
+        "a": null,
+        "b": null
+      },
+      "expect": 0,
+      "ir": {
+        "kind": "Coalesce",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "a"
+          },
+          {
+            "kind": "DirectFieldRef",
+            "field": "b"
+          },
+          {
+            "kind": "Literal",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "expr": "try(to_int(s), 0)",
+      "row": {
+        "s": "abc"
+      },
+      "expect": 0,
+      "ir": {
+        "kind": "Coalesce",
+        "args": [
+          {
+            "kind": "FunctionCall",
+            "name": "to_int",
+            "args": [
+              {
+                "kind": "DirectFieldRef",
+                "field": "s"
+              }
+            ]
+          },
+          {
+            "kind": "Literal",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "expr": "try(to_int(s), 0)",
+      "row": {
+        "s": "42"
+      },
+      "expect": 42,
+      "ir": {
+        "kind": "Coalesce",
+        "args": [
+          {
+            "kind": "FunctionCall",
+            "name": "to_int",
+            "args": [
+              {
+                "kind": "DirectFieldRef",
+                "field": "s"
+              }
+            ]
+          },
+          {
+            "kind": "Literal",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "expr": "f\"Ordine {id} di {cliente}\"",
+      "row": {
+        "id": 7,
+        "cliente": "Rossi"
+      },
+      "expect": "Ordine 7 di Rossi",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "concat",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "Ordine "
+          },
+          {
+            "kind": "DirectFieldRef",
+            "field": "id"
+          },
+          {
+            "kind": "Literal",
+            "value": " di "
+          },
+          {
+            "kind": "DirectFieldRef",
+            "field": "cliente"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "f\"[{x}]\"",
+      "row": {
+        "x": null
+      },
+      "expect": "[]",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "concat",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "["
+          },
+          {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          {
+            "kind": "Literal",
+            "value": "]"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "f\"{{{x}}}\"",
+      "row": {
+        "x": 1
+      },
+      "expect": "{1}",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "concat",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "{"
+          },
+          {
+            "kind": "DirectFieldRef",
+            "field": "x"
+          },
+          {
+            "kind": "Literal",
+            "value": "}"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "filter(righe, r -> r.qty > 0)",
+      "row": {
+        "righe": [
+          {
+            "qty": 1
+          },
+          {
+            "qty": 0
+          },
+          {
+            "qty": 3
+          }
+        ]
+      },
+      "expect": [
+        {
+          "qty": 1
+        },
+        {
+          "qty": 3
+        }
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "filter",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "righe"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "r"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "GT",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "get",
+                  "args": [
+                    {
+                      "kind": "FunctionCall",
+                      "name": "lambda_arg",
+                      "args": [
+                        {
+                          "kind": "Literal",
+                          "value": "r"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Literal",
+                      "value": "qty"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "Literal",
+                  "value": 0
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "map(xs, x -> x * 2)",
+      "row": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expect": [
+        2,
+        4,
+        6
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "MUL",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "Literal",
+                  "value": 2
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "map(righe, r -> upper(r.nome))",
+      "row": {
+        "righe": [
+          {
+            "nome": "a"
+          },
+          {
+            "nome": "b"
+          }
+        ]
+      },
+      "expect": [
+        "A",
+        "B"
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "righe"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "r"
+              },
+              {
+                "kind": "FunctionCall",
+                "name": "upper",
+                "args": [
+                  {
+                    "kind": "FunctionCall",
+                    "name": "get",
+                    "args": [
+                      {
+                        "kind": "FunctionCall",
+                        "name": "lambda_arg",
+                        "args": [
+                          {
+                            "kind": "Literal",
+                            "value": "r"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "Literal",
+                        "value": "nome"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "sum(righe, r -> r.qty * r.prezzo)",
+      "row": {
+        "righe": [
+          {
+            "qty": 2,
+            "prezzo": 3
+          },
+          {
+            "qty": 1,
+            "prezzo": 4
+          }
+        ]
+      },
+      "expect": 10,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "sum",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "righe"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "r"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "MUL",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "get",
+                  "args": [
+                    {
+                      "kind": "FunctionCall",
+                      "name": "lambda_arg",
+                      "args": [
+                        {
+                          "kind": "Literal",
+                          "value": "r"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Literal",
+                      "value": "qty"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "FunctionCall",
+                  "name": "get",
+                  "args": [
+                    {
+                      "kind": "FunctionCall",
+                      "name": "lambda_arg",
+                      "args": [
+                        {
+                          "kind": "Literal",
+                          "value": "r"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Literal",
+                      "value": "prezzo"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "count(xs, x -> x > 1)",
+      "row": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expect": 2,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "count",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "GT",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "Literal",
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "any(xs, x -> x > soglia)",
+      "row": {
+        "xs": [
+          1,
+          2
+        ],
+        "soglia": 1
+      },
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "any",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "GT",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "DirectFieldRef",
+                  "field": "soglia"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "any(xs, x -> x > soglia)",
+      "row": {
+        "xs": [
+          1,
+          2
+        ],
+        "soglia": 5
+      },
+      "expect": false,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "any",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "GT",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "DirectFieldRef",
+                  "field": "soglia"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "all([], x -> x > 0)",
+      "row": {},
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "all",
+        "args": [
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": []
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "GT",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "Literal",
+                  "value": 0
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "any(a, x -> any(b, y -> y == x))",
+      "row": {
+        "a": [
+          1,
+          2
+        ],
+        "b": [
+          3,
+          2
+        ]
+      },
+      "expect": true,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "any",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "a"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "FunctionCall",
+                "name": "any",
+                "args": [
+                  {
+                    "kind": "DirectFieldRef",
+                    "field": "b"
+                  },
+                  {
+                    "kind": "FunctionCall",
+                    "name": "lambda",
+                    "args": [
+                      {
+                        "kind": "Literal",
+                        "value": "y"
+                      },
+                      {
+                        "kind": "BinaryOp",
+                        "op": "EQ",
+                        "left": {
+                          "kind": "FunctionCall",
+                          "name": "lambda_arg",
+                          "args": [
+                            {
+                              "kind": "Literal",
+                              "value": "y"
+                            }
+                          ]
+                        },
+                        "right": {
+                          "kind": "FunctionCall",
+                          "name": "lambda_arg",
+                          "args": [
+                            {
+                              "kind": "Literal",
+                              "value": "x"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "any(a, x -> any(b, y -> y == x))",
+      "row": {
+        "a": [
+          1
+        ],
+        "b": [
+          3
+        ]
+      },
+      "expect": false,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "any",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "a"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "FunctionCall",
+                "name": "any",
+                "args": [
+                  {
+                    "kind": "DirectFieldRef",
+                    "field": "b"
+                  },
+                  {
+                    "kind": "FunctionCall",
+                    "name": "lambda",
+                    "args": [
+                      {
+                        "kind": "Literal",
+                        "value": "y"
+                      },
+                      {
+                        "kind": "BinaryOp",
+                        "op": "EQ",
+                        "left": {
+                          "kind": "FunctionCall",
+                          "name": "lambda_arg",
+                          "args": [
+                            {
+                              "kind": "Literal",
+                              "value": "y"
+                            }
+                          ]
+                        },
+                        "right": {
+                          "kind": "FunctionCall",
+                          "name": "lambda_arg",
+                          "args": [
+                            {
+                              "kind": "Literal",
+                              "value": "x"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "filter(xs, x -> x != null)",
+      "row": {
+        "xs": [
+          1,
+          null,
+          2
+        ]
+      },
+      "expect": [
+        1,
+        2
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "filter",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "NE",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "Literal",
+                  "value": null
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "map(xs, x -> x * 2)",
+      "row": {
+        "xs": "non è un elenco"
+      },
+      "expect": null,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "lambda",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "x"
+              },
+              {
+                "kind": "BinaryOp",
+                "op": "MUL",
+                "left": {
+                  "kind": "FunctionCall",
+                  "name": "lambda_arg",
+                  "args": [
+                    {
+                      "kind": "Literal",
+                      "value": "x"
+                    }
+                  ]
+                },
+                "right": {
+                  "kind": "Literal",
+                  "value": 2
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "sum(xs)",
+      "row": {
+        "xs": [
+          1,
+          "2",
+          null,
+          "x"
+        ]
+      },
+      "expect": 3,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "sum",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "count(xs)",
+      "row": {
+        "xs": [
+          1,
+          null,
+          2
+        ]
+      },
+      "expect": 2,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "count",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "join(xs, \"-\")",
+      "row": {
+        "xs": [
+          "a",
+          null,
+          "b"
+        ]
+      },
+      "expect": "a-b",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "join",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          },
+          {
+            "kind": "Literal",
+            "value": "-"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "first(xs)",
+      "row": {
+        "xs": [
+          7,
+          8
+        ]
+      },
+      "expect": 7,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "first",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "last(xs)",
+      "row": {
+        "xs": [
+          7,
+          8
+        ]
+      },
+      "expect": 8,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "last",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "first(xs)",
+      "row": {
+        "xs": []
+      },
+      "expect": null,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "first",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "min(xs)",
+      "row": {
+        "xs": [
+          5,
+          2,
+          null,
+          9
+        ]
+      },
+      "expect": 2,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "min",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "max(xs)",
+      "row": {
+        "xs": [
+          5,
+          2,
+          null,
+          9
+        ]
+      },
+      "expect": 9,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "max",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "min(3, 1, 2)",
+      "row": {},
+      "expect": 1,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "min",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": 3
+          },
+          {
+            "kind": "Literal",
+            "value": 1
+          },
+          {
+            "kind": "Literal",
+            "value": 2
+          }
+        ]
+      }
+    },
+    {
+      "expr": "length(xs)",
+      "row": {
+        "xs": [
+          1,
+          2,
+          3
+        ]
+      },
+      "expect": 3,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "length",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "xs"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "length(\"città\")",
+      "row": {},
+      "expect": 5,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "length",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "città"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "pad_left(\"è\", 3, \"*\")",
+      "row": {},
+      "expect": "**è",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "pad_left",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "è"
+          },
+          {
+            "kind": "Literal",
+            "value": 3
+          },
+          {
+            "kind": "Literal",
+            "value": "*"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "pad_right(\"è\", 2)",
+      "row": {},
+      "expect": "è ",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "pad_right",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "è"
+          },
+          {
+            "kind": "Literal",
+            "value": 2
+          }
+        ]
+      }
+    },
+    {
+      "expr": "split(\"a-b-c\", \"-\")",
+      "row": {},
+      "expect": [
+        "a",
+        "b",
+        "c"
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "split",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "a-b-c"
+          },
+          {
+            "kind": "Literal",
+            "value": "-"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "split(\"a-b-c\", \"-\", -1)",
+      "row": {},
+      "expect": "c",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "split",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "a-b-c"
+          },
+          {
+            "kind": "Literal",
+            "value": "-"
+          },
+          {
+            "kind": "UnaryOp",
+            "op": "NEG",
+            "expr": {
+              "kind": "Literal",
+              "value": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "expr": "split(\"a-b-c\", \"-\", 5)",
+      "row": {},
+      "expect": null,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "split",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "a-b-c"
+          },
+          {
+            "kind": "Literal",
+            "value": "-"
+          },
+          {
+            "kind": "Literal",
+            "value": 5
+          }
+        ]
+      }
+    },
+    {
+      "expr": "split(\"ab\", \"\")",
+      "row": {},
+      "expect": [
+        "a",
+        "b"
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "split",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "ab"
+          },
+          {
+            "kind": "Literal",
+            "value": ""
+          }
+        ]
+      }
+    },
+    {
+      "expr": "index_of(\"città di roma\", \"roma\")",
+      "row": {},
+      "expect": 9,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "index_of",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "città di roma"
+          },
+          {
+            "kind": "Literal",
+            "value": "roma"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "index_of(\"abcabc\", \"b\", 2)",
+      "row": {},
+      "expect": 4,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "index_of",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "abcabc"
+          },
+          {
+            "kind": "Literal",
+            "value": "b"
+          },
+          {
+            "kind": "Literal",
+            "value": 2
+          }
+        ]
+      }
+    },
+    {
+      "expr": "index_of(\"abc\", \"z\")",
+      "row": {},
+      "expect": -1,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "index_of",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "abc"
+          },
+          {
+            "kind": "Literal",
+            "value": "z"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "[1, \"a\", null]",
+      "row": {},
+      "expect": [
+        1,
+        "a",
+        null
+      ],
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "list",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": 1
+          },
+          {
+            "kind": "Literal",
+            "value": "a"
+          },
+          {
+            "kind": "Literal",
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "expr": "add_hours(\"2026-03-29 01:30:00\", 2)",
+      "row": {},
+      "expect": "2026-03-29 03:30:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "add_hours",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-03-29 01:30:00"
+          },
+          {
+            "kind": "Literal",
+            "value": 2
+          }
+        ]
+      }
+    },
+    {
+      "expr": "add_minutes(\"2026-01-01\", -30)",
+      "row": {},
+      "expect": "2025-12-31 23:30:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "add_minutes",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-01"
+          },
+          {
+            "kind": "UnaryOp",
+            "op": "NEG",
+            "expr": {
+              "kind": "Literal",
+              "value": 30
+            }
+          }
+        ]
+      }
+    },
+    {
+      "expr": "add_seconds(\"2026-01-01 00:00:00\", 90)",
+      "row": {},
+      "expect": "2026-01-01 00:01:30",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "add_seconds",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-01 00:00:00"
+          },
+          {
+            "kind": "Literal",
+            "value": 90
+          }
+        ]
+      }
+    },
+    {
+      "expr": "diff_minutes(\"2026-01-01 10:00:00\", \"2026-01-01 11:45:30\")",
+      "row": {},
+      "expect": 105,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "diff_minutes",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-01 10:00:00"
+          },
+          {
+            "kind": "Literal",
+            "value": "2026-01-01 11:45:30"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "diff_hours(\"2026-01-02\", \"2026-01-01\")",
+      "row": {},
+      "expect": -24,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "diff_hours",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-02"
+          },
+          {
+            "kind": "Literal",
+            "value": "2026-01-01"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "diff_seconds(\"2026-01-01 00:00:00\", \"2026-01-01 00:00:59\")",
+      "row": {},
+      "expect": 59,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "diff_seconds",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-01 00:00:00"
+          },
+          {
+            "kind": "Literal",
+            "value": "2026-01-01 00:00:59"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "to_timezone(\"2026-07-01T10:00:00Z\", \"Europe/Rome\")",
+      "row": {},
+      "expect": "2026-07-01T12:00:00+02:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "to_timezone",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-07-01T10:00:00Z"
+          },
+          {
+            "kind": "Literal",
+            "value": "Europe/Rome"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "to_timezone(\"2026-01-15 10:00:00\", \"America/New_York\")",
+      "row": {},
+      "expect": "2026-01-15T05:00:00-05:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "to_timezone",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-15 10:00:00"
+          },
+          {
+            "kind": "Literal",
+            "value": "America/New_York"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "to_utc(\"2026-01-15 10:00:00\", \"Europe/Rome\")",
+      "row": {},
+      "expect": "2026-01-15T09:00:00+00:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "to_utc",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-01-15 10:00:00"
+          },
+          {
+            "kind": "Literal",
+            "value": "Europe/Rome"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "to_utc(\"2026-10-25 02:30:00\", \"Europe/Rome\")",
+      "row": {},
+      "expect": "2026-10-25T00:30:00+00:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "to_utc",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-10-25 02:30:00"
+          },
+          {
+            "kind": "Literal",
+            "value": "Europe/Rome"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "to_utc(\"2026-07-01T12:00:00+02:00\")",
+      "row": {},
+      "expect": "2026-07-01T10:00:00+00:00",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "to_utc",
+        "args": [
+          {
+            "kind": "Literal",
+            "value": "2026-07-01T12:00:00+02:00"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "to_timezone(d, \"Marte/Base\")",
+      "row": {
+        "d": "2026-01-01"
+      },
+      "expect": null,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "to_timezone",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "d"
+          },
+          {
+            "kind": "Literal",
+            "value": "Marte/Base"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "\"Ordine \" + 42",
+      "row": {},
+      "expect": "Ordine 42",
+      "ir": {
+        "kind": "BinaryOp",
+        "op": "ADD",
+        "left": {
+          "kind": "Literal",
+          "value": "Ordine "
+        },
+        "right": {
+          "kind": "Literal",
+          "value": 42
+        }
+      }
+    },
+    {
+      "expr": "upper(nome) == \"MARIO\" && x in (1, 2)",
+      "row": {
+        "nome": "mario",
+        "x": 1
+      },
+      "expect": true,
+      "ir": {
+        "kind": "BinaryOp",
+        "op": "AND",
+        "left": {
+          "kind": "BinaryOp",
+          "op": "EQ",
+          "left": {
+            "kind": "FunctionCall",
+            "name": "upper",
+            "args": [
+              {
+                "kind": "DirectFieldRef",
+                "field": "nome"
+              }
+            ]
+          },
+          "right": {
+            "kind": "Literal",
+            "value": "MARIO"
+          }
+        },
+        "right": {
+          "kind": "BinaryOp",
+          "op": "OR",
+          "left": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": 1
+            }
+          },
+          "right": {
+            "kind": "BinaryOp",
+            "op": "EQ",
+            "left": {
+              "kind": "DirectFieldRef",
+              "field": "x"
+            },
+            "right": {
+              "kind": "Literal",
+              "value": 2
+            }
+          }
+        }
+      }
+    }
+  ]
+}

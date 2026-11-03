@@ -13,7 +13,7 @@
  * descrizione ("unisci" trova `concat_ws`). Le fonti sono quelle condivise:
  *   - `TRANSFORM_CATALOG` (via `getPresetsForType`) per le trasformazioni pronte,
  *     con i parametri già risolti coi valori predefiniti;
- *   - `FUNCTIONS` (le 84 funzioni FPEL) per tutto il resto.
+ *   - `FUNCTIONS` (tutte le funzioni FPEL) per tutto il resto.
  * Aggiungendo una voce a una delle due, compare qui e ovunque questo selettore
  * sia usato.
  *
@@ -51,6 +51,19 @@ const COSTRUTTI: VoceApplicabile[] = [
     desc: 'Multiple cascading conditions',            categoria: 'constructs', codice: 'case when $sel > 0 then "positive" else "other" end' },
   { id: 'c:var',      nome: 'lane variable', ritorna: '—',       uso: 'var("name")',
     desc: 'Reads a shared variable',        categoria: 'constructs', codice: 'var("variable_name")' },
+  // P389
+  { id: 'c:in',       nome: 'in (…)',             ritorna: 'boolean', uso: 'value in ("A", "B")  ·  value not in (…)',
+    desc: 'True if the value is one of those listed', categoria: 'constructs', codice: '$sel in ("A", "B")' },
+  { id: 'c:between',  nome: 'between … and …',    ritorna: 'boolean', uso: 'value between 1 and 10',
+    desc: 'True if the value is within the bounds (included)', categoria: 'constructs', codice: '$sel between 1 and 10' },
+  { id: 'c:like',     nome: 'like',               ritorna: 'boolean', uso: 'value like "A%"',
+    desc: 'SQL pattern: % any sequence, _ one character', categoria: 'constructs', codice: '$sel like "A%"' },
+  { id: 'c:coalesce', nome: '?? (fallback)',      ritorna: '—',       uso: 'value ?? fallback',
+    desc: 'The value, or the fallback if it is null (also when a conversion fails)', categoria: 'constructs', codice: '$sel ?? ""' },
+  { id: 'c:fstring',  nome: 'f"… {field} …"',     ritorna: 'string',  uso: 'f"Order {id} of {customer}"',
+    desc: 'Text with placeholders: each {expression} is replaced by its value', categoria: 'constructs', codice: 'f"{$sel}"' },
+  { id: 'c:list',     nome: '[a, b, c]',          ritorna: 'object',  uso: '[1, 2, 3]',
+    desc: 'A list of values (see the list functions)', categoria: 'constructs', codice: '[$sel]' },
 ]
 
 /** Le fonti condivise, unite in un elenco solo. */
@@ -85,7 +98,7 @@ export function vociApplicabili(tipo?: string): VoceApplicabile[] {
       // che una virgola sospesa: il parser dice «richiede almeno N argomenti»,
       // mentre `nome($sel, )` darebbe l'oscuro «espressione attesa».
       // La forma d'uso completa è nella colonna accanto, sotto gli occhi.
-      codice: `${f.name}($sel)`,
+      codice: f.insert ?? `${f.name}($sel)`,
     })
   }
 
@@ -110,7 +123,7 @@ export function FunctionPicker({ tipo, soloTrasformazioni, onScegli, onChiudi }:
   tipo?:    string
   /** Solo le trasformazioni del catalogo: serve dove la scelta viene SALVATA
    *  nel modello (funzione di campo, ultimo passo), che sa rappresentare solo
-   *  quelle. Altrove si offrono anche le 84 funzioni del linguaggio. */
+   *  quelle. Altrove si offrono anche le funzioni del linguaggio. */
   soloTrasformazioni?: boolean
   /** Riceve la voce intera: chi inserisce testo usa `codice`, chi salva una
    *  scelta nel modello usa `id` (`t:<idTemplate>`). */

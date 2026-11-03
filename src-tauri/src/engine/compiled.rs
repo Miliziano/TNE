@@ -21,8 +21,8 @@
 use crate::engine::row::Hint;
 use std::borrow::Cow;
 use crate::engine::expr::{
-    cast_value, eval_binary_ref, eval_function, is_truthy, literal_to_value, to_string,
-    BinaryOperator, EvalContext, ExprNode, UnaryOperator,
+    as_lambda, as_lambda_arg, cast_value, eval_binary_ref, eval_function, eval_hof, is_hof, is_truthy,
+    literal_to_value, to_string, BinaryOperator, EvalContext, ExprNode, UnaryOperator, LAMBDA_INPUT,
 };
 use crate::engine::types::Value;
 
@@ -46,6 +46,8 @@ enum C {
     VarDyn(Box<C>),
     VarNone,
     Call { name: Box<str>, args: Vec<C> },
+    // P389: any/all/filter/map/sum/count con una funzione `x -> corpo`
+    Hof { name: Box<str>, list: Box<C>, param: String, body: Box<C> },
     Case { branches: Vec<(C, C)>, default: Option<Box<C>> },
     Cast { e: Box<C>, target: String },
     FieldAccess { e: Box<C>, field: String },
@@ -119,6 +121,22 @@ fn compile(e: &ExprNode) -> C {
                     },
                 };
             }
+            // P389: parametro di `x -> …` (letto come un campo, col suggerimento di
+            // posizione), la funzione da sola (nessun valore), le funzioni che la
+            // ricevono.
+            if let Some(p) = as_lambda_arg(name, args) {
+                return C::Field { input: LAMBDA_INPUT.to_string(), field: p.to_string(), hint: Hint::default() };
+            }
+            if name == "lambda" { return C::Const(Value::Null); }
+            if is_hof(name) {
+                if let Some((param, corpo)) = args.get(1).and_then(as_lambda) {
+                    let list = args.first().map(compile).unwrap_or(C::Const(Value::Null));
+                    return C::Hof {
+                        name: name.to_lowercase().into_boxed_str(),
+                        list: Box::new(list), param: param.to_string(), body: Box::new(compile(corpo)),
+                    };
+                }
+            }
             // Le funzioni NON si piegano a costante: alcune dipendono dal momento
             // (now, uuid…). Si risolve solo il nome, una volta.
             C::Call { name: name.to_lowercase().into_boxed_str(), args: args.iter().map(compile).collect() }
@@ -165,6 +183,10 @@ fn ev<'a, 'c: 'a>(c: &'a C, ctx: &EvalContext<'c>) -> Cow<'a, Value> {
         C::Call { name, args } => {
             let vals: Vec<Value> = args.iter().map(|a| ev(a, ctx).into_owned()).collect();
             Cow::Owned(eval_function(name, vals))
+        }
+        C::Hof { name, list, param, body } => {
+            let lista = ev(list, ctx);
+            Cow::Owned(eval_hof(name, &lista, param, ctx, |c| ev(body, c).into_owned()))
         }
         C::Case { branches, default } => {
             for (cond, val) in branches {

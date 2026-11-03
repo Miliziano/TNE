@@ -72,6 +72,12 @@ if prezzo_finale > 1000 {
 - **Stringhe**: `"..."` o `'...'`, con escape `\"`, `\'`, `\\`, `\n`, `\t`.
 - **Booleani**: `true`, `false`.
 - **Nullo**: `null`.
+- **Testo con segnaposto** (P389): `f"Ordine {id} di {cliente}"` (anche
+  `f'…'`). Ogni `{espressione}` è sostituita dal suo valore (un null diventa
+  testo vuoto); `{{` e `}}` sono le graffe stesse. Dentro le graffe vale tutto
+  FPEL: `f"Totale: {round(qta * prezzo, 2)} €"`. Il risultato è sempre testo.
+- **Elenchi** (P389): `[1, 2, 3]`, `["IT", "FR"]`, `[]`. Si usano con
+  `in` e con le funzioni sugli elenchi (§3.7, §5).
 
 ### 3.2 Riferimenti a campo
 Un **identificatore nudo è un campo della riga**: `prezzo`, `nome`, `città`
@@ -98,9 +104,9 @@ Dalla precedenza più bassa alla più alta:
 
 | Liv. | Operatori | Note |
 |---|---|---|
-| 1 | `\|\|` `or` | OR logico |
+| 1 | `\|\|` `or` `??` | OR logico; `a ?? b` = `a`, o `b` se `a` è null (P389) |
 | 2 | `&&` `and` | AND logico |
-| 3 | `==` `!=` | uguaglianza |
+| 3 | `==` `!=` `in` `between` `like` | uguaglianza e appartenenza (P389: `in`, `between`, `like`, anche con `not` davanti) |
 | 4 | `<` `<=` `>` `>=` | confronto |
 | 5 | `+` `-` | somma/sottrazione — **`+` concatena** se un operando è stringa |
 | 6 | `*` `/` `%` | prodotto, divisione, modulo |
@@ -125,6 +131,20 @@ come di consueto. Le parole `and`/`or` sono equivalenti a `&&`/`||`.
 - **Cast** — `cast(x as tipo)`. Tipi: `integer`/`int`, `float`/`double`,
   `decimal`, `string`/`text`, `boolean`/`bool`, `date`, `datetime`.
 - **Test di null** — `x is null`, `x is not null`.
+- **Appartenenza** (P389) — `stato in ("A", "B", "C")` è vero se il valore è
+  uno di quelli elencati (stesso confronto di `==`); `x not in (…)` il
+  contrario. Con un elenco calcolato si scrive senza parentesi:
+  `"urgente" in tags`, `x in [1, 2]`. NB `x in (lista)` fra parentesi è un
+  elenco di UN valore, come in SQL.
+- **Intervallo** (P389) — `x between 1 and 10` = `x >= 1 && x <= 10`
+  (estremi inclusi); `x not between …` il contrario.
+- **Modello di testo** (P389) — `nome like "Ma%"`: `%` = qualunque sequenza,
+  `_` = un carattere, `\%` e `\_` i caratteri stessi; distingue maiuscole e
+  minuscole (per ignorarle: `lower(nome) like "ma%"`). Un null non corrisponde.
+- **Ripiego** (P389) — `valore ?? ripiego`, anche a catena (`a ?? b ?? 0`).
+  In FPEL un calcolo o una conversione che non riesce dà **null**, mai un
+  errore: perciò `to_int(codice) ?? 0` (o `try(to_int(codice), 0)`) è il
+  modo di dire «se non è un numero, 0».
 
 ### 3.6 Chiamate di funzione
 `nome(arg1, arg2, …)`. Il nome è **case-insensitive** e molti hanno **alias**
@@ -133,6 +153,31 @@ argomenti nell'intervallo previsto; altrimenti errore nel pannello, con
 posizione. Il catalogo completo è al §5.
 
 ---
+
+### 3.7 Funzioni sugli elementi di un elenco (P389)
+`filter`, `map`, `any`, `all`, `sum`, `count` ricevono come secondo argomento
+una **funzione** scritta `nome -> espressione`, applicata a ogni elemento:
+
+```
+filter(righe, r -> r.qty > 0)          // gli elementi con qty > 0
+map(righe, r -> upper(r.nome))         // un elenco di nomi in maiuscolo
+sum(righe, r -> r.qty * r.prezzo)      // il totale delle righe
+any(tags, t -> t like "urg%")          // almeno un tag che comincia per urg
+all(voti, v -> v >= 6)                 // tutti sufficienti (vero se vuoto)
+count(righe, r -> r.qty == 0)          // quante righe a zero
+```
+
+- `r.qty` legge il campo `qty` dell'elemento (gli elementi che arrivano da
+  JSON sono oggetti); `r.a.b` scende di livello.
+- Dentro la funzione i nomi liberi restano i **campi della riga**:
+  `any(righe, r -> r.qty > soglia_minima)`.
+- Le funzioni si possono annidare: `any(a, x -> any(b, y -> y == x))`; il
+  parametro esterno resta visibile in quella interna.
+- Un valore che non è un elenco dà null. Senza funzione, `sum(elenco)` somma i
+  numeri, `count(elenco)` conta gli elementi non null, `any`/`all` guardano se
+  gli elementi sono veri.
+- La funzione esiste solo come argomento di queste sei: scritta altrove è un
+  errore del pannello.
 
 ## 4. Il linguaggio di istruzioni (nodo Script)
 
@@ -203,7 +248,7 @@ Dettagli che contano:
 
 ## 5. Catalogo delle funzioni preconfezionate
 
-**84 funzioni**, raggruppate per categoria. La colonna *Funzione* riporta la
+**106 funzioni** (P389), raggruppate per categoria. La colonna *Funzione* riporta la
 firma leggibile (gli argomenti fra `[…]` sono opzionali); *Ritorno* è il tipo
 prodotto (`polimorfo` = dipende dagli argomenti, v. §8); *Alias* sono nomi
 alternativi accettati in scrittura e normalizzati al nome canonico.
@@ -213,7 +258,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 > (`expr_functions.rs`). Il motore tollera argomenti mancanti trattandoli come
 > `null`: per questo la validazione dell'arità avviene nello studio.
 
-### Stringhe (25)
+### Stringhe (29)
 
 | Funzione | Ritorno | Alias | Descrizione |
 |---|---|---|---|
@@ -222,19 +267,22 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `rtrim(s)` | string | `trimright` | Rimuove spazi finali |
 | `upper(s)` | string | `touppercase` | Maiuscolo |
 | `lower(s)` | string | `tolowercase` | Minuscolo |
-| `length(s)` | integer | `len` | Lunghezza |
+| `length(s)` | integer | `len` | Numero di caratteri (P389: caratteri, non byte — `length("città")` = 5); di un elenco, il numero di elementi |
 | `substring(s, inizio [, lunghezza])` | string | `substr` | Sottostringa (indice da 0) |
 | `replace(s, cerca, sostituisci)` | string | — | Sostituisce tutte le occorrenze |
 | `concat(a, b, …)` | string | — | Concatena |
 | `concat_ws(sep, a, b, …)` | string | — | Concatena con separatore |
 | `left(s, n)` | string | — | Primi n caratteri |
 | `right(s, n)` | string | — | Ultimi n caratteri |
-| `contains(s, sub)` | boolean | — | Vero se contiene |
+| `contains(s, sub)` | boolean | — | Vero se contiene; `contains(elenco, x)` = l'elenco contiene x (anche `x in elenco`) |
 | `starts_with(s, p)` | boolean | `startswith` | Vero se inizia con |
 | `ends_with(s, p)` | boolean | `endswith` | Vero se finisce con |
 | `pad_left(s, n [, car])` | string | `lpad`, `padleft` | Riempie a sinistra fino a n |
 | `pad_right(s, n [, car])` | string | `rpad`, `padright` | Riempie a destra fino a n |
 | `regex_match(s, pattern)` | boolean | `matches` | Vero se il pattern combacia in un punto qualsiasi (sintassi Rust; `(?i)` davanti ignora le maiuscole). Pattern non valido → null |
+| `like(s, modello)` | boolean | — | Modello SQL (`%`, `_`); anche `s like "A%"` (P389) |
+| `split(s, sep [, posizione])` | polimorfo | — | Divide in un elenco; con la posizione (da 0, negativa dalla fine) restituisce quella parte (P389) |
+| `index_of(s, cercato [, da])` | integer | `indexof` | Posizione in caratteri (da 0), -1 se assente (P389) |
 | `capitalize(s)` | string | — | Prima lettera maiuscola |
 | `title_case(s)` | string | `titlecase` | Ogni Parola Maiuscola |
 | `remove_accents(s)` | string | `removeaccents` | Rimuove gli accenti |
@@ -254,8 +302,8 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `floor(x)` | number | — | Arrotonda per difetto |
 | `sqrt(x)` | number | — | Radice quadrata |
 | `power(base, esp)` | number | `pow` | Elevamento a potenza |
-| `min(a, b)` | polimorfo | — | Il minore |
-| `max(a, b)` | polimorfo | — | Il maggiore |
+| `min(a, b, …)` · `min(elenco)` | polimorfo | — | Il minore (i null si saltano); di un elenco, l'elemento minore (P389) |
+| `max(a, b, …)` · `max(elenco)` | polimorfo | — | Il maggiore (i null si saltano); di un elenco, l'elemento maggiore (P389) |
 | `sign(x)` | number | — | -1, 0 o 1 secondo il segno |
 | `negate(x)` | number | — | Cambia segno |
 | `clamp(x, min, max)` | polimorfo | — | Limita x nell'intervallo |
@@ -263,7 +311,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `log(x)` | number | `ln` | Logaritmo naturale |
 | `log10(x)` | number | — | Logaritmo base 10 |
 
-### Date e ora (24)
+### Date e ora (32)
 
 | Funzione | Ritorno | Alias | Descrizione |
 |---|---|---|---|
@@ -283,6 +331,10 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `add_months(d, n)` | date | `addmonths` | Aggiunge n mesi |
 | `add_years(d, n)` | date | `addyears` | Aggiunge n anni |
 | `diff_days(a, b)` | integer | `diffdays` | Giorni da a a b |
+| `add_hours(d, n)` · `add_minutes` · `add_seconds` | datetime | — | Aggiunge ore, minuti, secondi; il risultato ha l'ora (P389) |
+| `diff_hours(a, b)` · `diff_minutes` · `diff_seconds` | integer | — | Ore, minuti, secondi interi da a a b (P389) |
+| `to_timezone(d, "Europe/Rome")` | datetime | — | Lo stesso istante nel fuso indicato, con lo scarto (`2026-07-01T12:00:00+02:00`). Una data-ora senza fuso si intende UTC (P389) |
+| `to_utc(d [, "Europe/Rome"])` | datetime | — | Lo stesso istante in UTC; il fuso dice come leggere una data-ora che non lo porta (default UTC). Nel cambio d'ora d'autunno l'ora ripetuta si legge come la prima (P389) |
 | `start_of_month(d)` | date | `startofmonth` | Primo giorno del mese |
 | `end_of_month(d)` | date | `endofmonth` | Ultimo giorno del mese |
 | `start_of_year(d)` | date | `startofyear` | Primo giorno dell'anno |
@@ -313,7 +365,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 
 | Funzione | Ritorno | Alias | Descrizione |
 |---|---|---|---|
-| `coalesce(a, b, …)` | polimorfo | `ifnull`, `nvl`, `coalesceempty` | Il primo valore non nullo |
+| `coalesce(a, b, …)` | polimorfo | `ifnull`, `nvl`, `coalesceempty`, `try` | Il primo valore non nullo; anche `a ?? b`. Siccome un calcolo che non riesce dà null, `try(to_int(x), 0)` ripiega su 0 |
 | `nullif(a, b)` | polimorfo | — | null se a == b, altrimenti a |
 | `iif(cond, se_vero, se_falso)` | polimorfo | `if` | Condizionale (equivale a cond ? a : b) |
 
@@ -326,6 +378,21 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `keys(oggetto)` | object | — | Elenco delle chiavi |
 | `values(oggetto)` | object | — | Elenco dei valori |
 | `merge(a, b)` | object | — | Unisce due oggetti (b prevale) |
+
+### Elenchi (10) — P389
+
+| Funzione | Ritorno | Alias | Descrizione |
+|---|---|---|---|
+| `list(a, b, …)` · `[a, b, …]` | object | — | Un elenco di valori |
+| `any(elenco [, x -> condizione])` | boolean | — | Almeno un elemento soddisfa la condizione |
+| `all(elenco [, x -> condizione])` | boolean | — | Tutti la soddisfano (vero per un elenco vuoto) |
+| `filter(elenco, x -> condizione)` | object | — | Gli elementi che la soddisfano |
+| `map(elenco, x -> espressione)` | object | — | Ogni elemento trasformato |
+| `sum(elenco [, x -> numero])` | number | — | Somma dei valori numerici (null e non numerici si saltano) |
+| `count(elenco [, x -> condizione])` | integer | — | Quanti la soddisfano; senza funzione, gli elementi non null |
+| `join(elenco, sep)` | string | — | Unisce in un testo (gli elementi null si saltano) |
+| `first(elenco)` | any | — | Il primo elemento (null se vuoto) |
+| `last(elenco)` | any | — | L'ultimo elemento (null se vuoto) |
 
 ### Variabili di lane (1)
 
@@ -485,9 +552,20 @@ Due punti utili:
   lato motore `engine/nodes/script.rs`, `engine/expr.rs`,
   `engine/expr_functions.rs`. Disegni in `src-tauri/docs/`
   (`design-nodo-script.md`, `design-linguaggio-espressioni.md`).
+- **Contratto studio↔motore** (P389): `vectors/fpel_v1.json` elenca
+  espressioni, l'albero che lo studio ne ricava e il risultato atteso su una
+  riga. `src/ir/fpelVector.test.ts` controlla l'albero, `src-tauri/tests/
+  fpel_vettori.rs` il risultato (interprete ed espressione compilata). Chi
+  aggiunge un costrutto aggiunge qui i suoi casi.
+- **Niente varianti nuove dell'albero per le novità del P389.** `in`,
+  `between`, `??` e i segnaposto diventano nodi esistenti (`==`/`||`,
+  `>=`/`&&`, `Coalesce`, `concat`); `[…]` è `list(…)`; `x -> corpo` è
+  `FunctionCall("lambda", [x, corpo])` e il parametro `FunctionCall
+  ("lambda_arg", [x])`. Così ogni parte dello studio che visita le espressioni
+  (campi usati, TMap, funzioni utente) continua a funzionare senza modifiche.
 
 ---
 
 *Manuale del linguaggio FPEL — nucleo di espressioni, istruzioni del nodo
-Script, 84 funzioni preconfezionate e i template inline e completi. Allineato al
+Script, 106 funzioni preconfezionate e i template inline e completi. Allineato al
 codice del repo; le firme delle funzioni sono generate dal catalogo reale.*

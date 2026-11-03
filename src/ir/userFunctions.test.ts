@@ -121,5 +121,20 @@ console.log('\n--- una funzione valida non produce errori ---')
   ok(errors.length === 0 && functions.length === 1, 'iva parsa pulita, 0 errori')
 }
 
+console.log('\n--- P389: funzioni x -> … nel corpo, senza catture ---')
+{
+  const HA = ['funzione ha(xs, v) { ritorna any(xs, x -> x == v) }']
+  // L'argomento usa il parametro x del CHIAMANTE: non deve diventare la x del corpo.
+  const e: any = expand('any(aa, x -> ha(bs, x))', HA)
+  const interna = e.args[1].args[1]                       // ha(...) espansa = any(bs, x' -> x' == x)
+  const nomeCorpo = interna.args[1].args[0].value         // parametro rinominato del corpo
+  const confronto = interna.args[1].args[1]               // x' == x
+  ok(nomeCorpo !== 'x', 'il parametro del corpo prende un nome proprio')
+  ok(confronto.left.args[0].value === nomeCorpo && confronto.right.args[0].value === 'x',
+     'a sinistra il parametro del corpo, a destra quello del chiamante')
+  const e2: any = expand('any(aa, x -> ha(bs, x))', HA)
+  ok(JSON.stringify(e) === JSON.stringify(e2), 'nome deterministico (stesso albero a ogni compilazione)')
+}
+
 console.log(`\n=== ${pass} passati, ${fail} falliti ===`)
 if (fail > 0) process.exit(1)

@@ -16,7 +16,7 @@
 
 import type { FieldType } from '../types/fieldTypes'
 
-export type FnCategory = 'string' | 'number' | 'date' | 'conversion' | 'logic' | 'variable' | 'structure'
+export type FnCategory = 'string' | 'number' | 'date' | 'conversion' | 'logic' | 'variable' | 'structure' | 'list'
 
 export interface FnSignature {
   /** nome canonico (quello che finisce nell'IR) */
@@ -33,6 +33,9 @@ export interface FnSignature {
   /** firma leggibile per l'help */
   usage:    string
   desc:     string
+  /** P389: testo inserito dal selettore di funzioni, se diverso da `nome(valore)`
+   *  (le funzioni che vogliono una funzione `x -> …` come secondo argomento). */
+  insert?:  string
 }
 
 export const FUNCTIONS: FnSignature[] = [
@@ -42,19 +45,23 @@ export const FUNCTIONS: FnSignature[] = [
   { name: 'rtrim',       aliases: ['trimright'], category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'rtrim(s)', desc: 'Removes trailing spaces' },
   { name: 'upper',       aliases: ['touppercase'], category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'upper(s)', desc: 'Uppercase' },
   { name: 'lower',       aliases: ['tolowercase'], category: 'string', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'lower(s)', desc: 'Lowercase' },
-  { name: 'length',      aliases: ['len'], category: 'string', returns: 'integer', minArgs: 1, maxArgs: 1, usage: 'length(s)', desc: 'Length' },
+  { name: 'length',      aliases: ['len'], category: 'string', returns: 'integer', minArgs: 1, maxArgs: 1, usage: 'length(s)', desc: 'Number of characters; of a list, number of elements' },
   { name: 'substring',   aliases: ['substr'], category: 'string', returns: 'string', minArgs: 2, maxArgs: 3, usage: 'substring(s, start [, length])', desc: 'Substring (0-based index)' },
   { name: 'replace',     category: 'string', returns: 'string', minArgs: 3, maxArgs: 3, usage: 'replace(s, search, replacement)', desc: 'Replaces all occurrences' },
   { name: 'concat',      category: 'string', returns: 'string', minArgs: 1, maxArgs: null, usage: 'concat(a, b, …)', desc: 'Concatenates' },
   { name: 'concat_ws',   category: 'string', returns: 'string', minArgs: 2, maxArgs: null, usage: 'concat_ws(sep, a, b, …)', desc: 'Concatenates with a separator' },
   { name: 'left',        category: 'string', returns: 'string', minArgs: 2, maxArgs: 2, usage: 'left(s, n)',  desc: 'First n characters' },
   { name: 'right',       category: 'string', returns: 'string', minArgs: 2, maxArgs: 2, usage: 'right(s, n)', desc: 'Last n characters' },
-  { name: 'contains',    category: 'string', returns: 'boolean', minArgs: 2, maxArgs: 2, usage: 'contains(s, sub)',   desc: 'True if it contains' },
+  { name: 'contains',    category: 'string', returns: 'boolean', minArgs: 2, maxArgs: 2, usage: 'contains(s, sub)',   desc: 'True if the text contains sub; contains(list, x) = the list contains x (also: x in list)' },
   { name: 'starts_with', aliases: ['startswith'], category: 'string', returns: 'boolean', minArgs: 2, maxArgs: 2, usage: 'starts_with(s, p)',  desc: 'True if it starts with' },
   { name: 'ends_with',   aliases: ['endswith'],   category: 'string', returns: 'boolean', minArgs: 2, maxArgs: 2, usage: 'ends_with(s, p)',    desc: 'True if it ends with' },
   { name: 'pad_left',    aliases: ['lpad', 'padleft'], category: 'string', returns: 'string', minArgs: 2, maxArgs: 3, usage: 'pad_left(s, n [, char])',  desc: 'Pads on the left up to n' },
   { name: 'pad_right',   aliases: ['rpad', 'padright'], category: 'string', returns: 'string', minArgs: 2, maxArgs: 3, usage: 'pad_right(s, n [, char])', desc: 'Pads on the right up to n' },
   { name: 'regex_match', aliases: ['matches'], category: 'string', returns: 'boolean', minArgs: 2, maxArgs: 2, usage: 'regex_match(s, pattern)', desc: 'True if the pattern matches' },
+  // P389
+  { name: 'like',        category: 'string', returns: 'boolean', minArgs: 2, maxArgs: 2, usage: 'like(s, "A%")  ·  s like "A%"', desc: 'SQL pattern: % any sequence, _ one character (\\% \\_ for the characters themselves). Case-sensitive' },
+  { name: 'split',       category: 'string', returns: 'polimorfo', minArgs: 2, maxArgs: 3, usage: 'split(s, sep [, position])', desc: 'Splits into a list; with a position (from 0, negative from the end) returns that part' },
+  { name: 'index_of',    aliases: ['indexof'], category: 'string', returns: 'integer', minArgs: 2, maxArgs: 3, usage: 'index_of(s, sub [, from])', desc: 'Position of sub in characters (from 0); -1 if absent' },
 
   // ── Numeri ────────────────────────────────────────────────────────
   { name: 'abs',   category: 'number', returns: 'number', minArgs: 1, maxArgs: 1, usage: 'abs(x)',   desc: 'Absolute value' },
@@ -63,8 +70,8 @@ export const FUNCTIONS: FnSignature[] = [
   { name: 'floor', category: 'number', returns: 'number', minArgs: 1, maxArgs: 1, usage: 'floor(x)', desc: 'Rounds down' },
   { name: 'sqrt',  category: 'number', returns: 'number', minArgs: 1, maxArgs: 1, usage: 'sqrt(x)',  desc: 'Square root' },
   { name: 'power', aliases: ['pow'], category: 'number', returns: 'number', minArgs: 2, maxArgs: 2, usage: 'power(base, exp)', desc: 'Exponentiation' },
-  { name: 'min',   category: 'number', returns: 'polimorfo', minArgs: 2, maxArgs: 2, usage: 'min(a, b)', desc: 'The smaller' },
-  { name: 'max',   category: 'number', returns: 'polimorfo', minArgs: 2, maxArgs: 2, usage: 'max(a, b)', desc: 'The larger' },
+  { name: 'min',   category: 'number', returns: 'polimorfo', minArgs: 1, maxArgs: null, usage: 'min(a, b, …)  ·  min(list)', desc: 'The smaller value (null values are skipped); of a list, the smaller element' },
+  { name: 'max',   category: 'number', returns: 'polimorfo', minArgs: 1, maxArgs: null, usage: 'max(a, b, …)  ·  max(list)', desc: 'The larger value (null values are skipped); of a list, the larger element' },
 
   // ── Conversioni ───────────────────────────────────────────────────
   { name: 'to_string', aliases: ['str', 'tostring'],   category: 'conversion', returns: 'string', minArgs: 1, maxArgs: 1, usage: 'to_string(x)', desc: 'Converts to string' },
@@ -85,7 +92,7 @@ export const FUNCTIONS: FnSignature[] = [
 
   // ── Logica / null ─────────────────────────────────────────────────
   // NB: `coalesce` ha un nodo IR dedicato, ma resta nel catalogo per l'help.
-  { name: 'coalesce', aliases: ['ifnull', 'nvl', 'coalesceempty'], category: 'logic', returns: 'polimorfo', minArgs: 2, maxArgs: null, usage: 'coalesce(a, b, …)', desc: 'The first non-null value' },
+  { name: 'coalesce', aliases: ['ifnull', 'nvl', 'coalesceempty', 'try'], category: 'logic', returns: 'polimorfo', minArgs: 2, maxArgs: null, usage: 'coalesce(a, b, …)  ·  a ?? b  ·  try(a, b)', desc: 'The first non-null value. A conversion or calculation that fails gives null, so try(to_int(x), 0) falls back to 0' },
   { name: 'nullif',   category: 'logic', returns: 'polimorfo', minArgs: 2, maxArgs: 2, usage: 'nullif(a, b)', desc: 'null if a == b, otherwise a' },
   { name: 'iif',      aliases: ['if'], category: 'logic', returns: 'polimorfo', minArgs: 3, maxArgs: 3, usage: 'iif(cond, if_true, if_false)', desc: 'Conditional (equivalent to cond ? a : b)' },
 
@@ -102,6 +109,15 @@ export const FUNCTIONS: FnSignature[] = [
   { name: 'add_months', aliases: ['addmonths'], category: 'date', returns: 'date', minArgs: 2, maxArgs: 2, usage: 'add_months(d, n)', desc: 'Adds n months' },
   { name: 'add_years',  aliases: ['addyears'],  category: 'date', returns: 'date', minArgs: 2, maxArgs: 2, usage: 'add_years(d, n)',  desc: 'Adds n years' },
   { name: 'diff_days',  aliases: ['diffdays'],  category: 'date', returns: 'integer', minArgs: 2, maxArgs: 2, usage: 'diff_days(a, b)',  desc: 'Days from a to b' },
+  // P389: ore, minuti, secondi e fusi orari
+  { name: 'add_hours',    category: 'date', returns: 'datetime', minArgs: 2, maxArgs: 2, usage: 'add_hours(d, n)',   desc: 'Adds n hours (date and time)' },
+  { name: 'add_minutes',  category: 'date', returns: 'datetime', minArgs: 2, maxArgs: 2, usage: 'add_minutes(d, n)', desc: 'Adds n minutes (date and time)' },
+  { name: 'add_seconds',  category: 'date', returns: 'datetime', minArgs: 2, maxArgs: 2, usage: 'add_seconds(d, n)', desc: 'Adds n seconds (date and time)' },
+  { name: 'diff_hours',   category: 'date', returns: 'integer', minArgs: 2, maxArgs: 2, usage: 'diff_hours(a, b)',   desc: 'Whole hours from a to b' },
+  { name: 'diff_minutes', category: 'date', returns: 'integer', minArgs: 2, maxArgs: 2, usage: 'diff_minutes(a, b)', desc: 'Whole minutes from a to b' },
+  { name: 'diff_seconds', category: 'date', returns: 'integer', minArgs: 2, maxArgs: 2, usage: 'diff_seconds(a, b)', desc: 'Seconds from a to b' },
+  { name: 'to_timezone',  category: 'date', returns: 'datetime', minArgs: 2, maxArgs: 2, usage: 'to_timezone(d, "Europe/Rome")', desc: 'The same instant in another time zone (a date-time without zone is taken as UTC)' },
+  { name: 'to_utc',       category: 'date', returns: 'datetime', minArgs: 1, maxArgs: 2, usage: 'to_utc(d [, "Europe/Rome"])', desc: 'The same instant in UTC; the zone says how to read a date-time without zone (default UTC)' },
 
   // ── Date: confini di periodo ──────────────────────────────────────
   { name: 'start_of_month', aliases: ['startofmonth'], category: 'date', returns: 'date', minArgs: 1, maxArgs: 1, usage: 'start_of_month(d)', desc: 'First day of the month' },
@@ -153,6 +169,19 @@ export const FUNCTIONS: FnSignature[] = [
   { name: 'keys',     category: 'structure', returns: 'object', minArgs: 1, maxArgs: 1, usage: 'keys(object)',   desc: 'List of keys' },
   { name: 'values',   category: 'structure', returns: 'object', minArgs: 1, maxArgs: 1, usage: 'values(object)', desc: 'List of values' },
   { name: 'merge',    category: 'structure', returns: 'object', minArgs: 2, maxArgs: 2, usage: 'merge(a, b)',     desc: 'Merges two objects (b wins)' },
+
+  // ── Elenchi (P389) ────────────────────────────────────────────────
+  // `[a, b, c]` scrive un elenco; `x -> …` è una funzione per gli elementi.
+  { name: 'list',   category: 'list', returns: 'object',  minArgs: 0, maxArgs: null, usage: 'list(a, b, …)  ·  [a, b, …]', desc: 'A list of values' },
+  { name: 'any',    category: 'list', returns: 'boolean', minArgs: 1, maxArgs: 2, usage: 'any(list [, x -> condition])', desc: 'True if at least one element satisfies the condition (or is true)', insert: 'any($sel, x -> x > 0)' },
+  { name: 'all',    category: 'list', returns: 'boolean', minArgs: 1, maxArgs: 2, usage: 'all(list [, x -> condition])', desc: 'True if every element satisfies the condition (or is true); true for an empty list', insert: 'all($sel, x -> x > 0)' },
+  { name: 'filter', category: 'list', returns: 'object',  minArgs: 2, maxArgs: 2, usage: 'filter(list, x -> condition)', desc: 'The elements that satisfy the condition', insert: 'filter($sel, x -> x > 0)' },
+  { name: 'map',    category: 'list', returns: 'object',  minArgs: 2, maxArgs: 2, usage: 'map(list, x -> expression)', desc: 'Each element transformed', insert: 'map($sel, x -> x)' },
+  { name: 'sum',    category: 'list', returns: 'number',  minArgs: 1, maxArgs: 2, usage: 'sum(list [, x -> number])', desc: 'Sum of the numeric values (non-numeric and null are skipped)', insert: 'sum($sel, x -> x)' },
+  { name: 'count',  category: 'list', returns: 'integer', minArgs: 1, maxArgs: 2, usage: 'count(list [, x -> condition])', desc: 'Elements that satisfy the condition; without it, the non-null elements', insert: 'count($sel, x -> x > 0)' },
+  { name: 'join',   category: 'list', returns: 'string',  minArgs: 2, maxArgs: 2, usage: 'join(list, sep)', desc: 'Joins the elements into a text (null elements are skipped)' },
+  { name: 'first',  category: 'list', returns: 'any',     minArgs: 1, maxArgs: 1, usage: 'first(list)', desc: 'The first element (null if the list is empty)' },
+  { name: 'last',   category: 'list', returns: 'any',     minArgs: 1, maxArgs: 1, usage: 'last(list)',  desc: 'The last element (null if the list is empty)' },
 ]
 
 /** alias → nome canonico */

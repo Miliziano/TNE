@@ -160,6 +160,114 @@ pub enum LiteralValue {
     String(String),
 }
 
+// ─── Funzioni con argomento funzione (P389) ──────────────────────
+//
+// `filter(righe, r -> r.qty > 0)`: lo studio compila `r -> …` in
+// `FunctionCall { name: "lambda", args: [Literal(nome), corpo] }` e ogni uso
+// del parametro in `FunctionCall { name: "lambda_arg", args: [Literal(nome)] }`.
+// Nessuna variante nuova dell'albero: tutto ciò che nello studio visita le
+// espressioni (campi usati, qualificazione nel TMap, funzioni utente) continua
+// a funzionare. Il valore del parametro vive in una riga sintetica sotto
+// `LAMBDA_INPUT`, come i `let` dello Script vivono sotto `__local`.
+
+/// Ingresso sintetico che porta i parametri delle funzioni `x -> …`.
+pub const LAMBDA_INPUT: &str = "__lambda";
+
+/// Funzioni che accettano una funzione `x -> …` come secondo argomento.
+pub fn is_hof(name: &str) -> bool {
+    matches!(name, "any" | "all" | "filter" | "map" | "sum" | "count")
+}
+
+/// La funzione `x -> corpo` passata come argomento, se `arg` lo è.
+pub(crate) fn as_lambda(arg: &ExprNode) -> Option<(&str, &ExprNode)> {
+    match arg {
+        ExprNode::FunctionCall { name, args } if name == "lambda" && args.len() == 2 => match &args[0] {
+            ExprNode::Literal { value: LiteralValue::String(p) } => Some((p.as_str(), &args[1])),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Nome del parametro letto da `lambda_arg("x")`, se `name/args` lo sono.
+pub(crate) fn as_lambda_arg<'e>(name: &str, args: &'e [ExprNode]) -> Option<&'e str> {
+    if name != "lambda_arg" { return None }
+    match args.first() {
+        Some(ExprNode::Literal { value: LiteralValue::String(p) }) => Some(p.as_str()),
+        _ => None,
+    }
+}
+
+/// Valuta una funzione con argomento funzione su un elenco. `corpo` valuta la
+/// funzione `x -> …` nel contesto dato (interprete o espressione compilata:
+/// stessa semantica, una sola implementazione). Un valore che non è un elenco
+/// dà null, come le altre funzioni con un argomento del tipo sbagliato.
+pub(crate) fn eval_hof(
+    name:  &str,
+    list:  &Value,
+    param: &str,
+    ctx:   &EvalContext,
+    mut corpo: impl FnMut(&EvalContext) -> Value,
+) -> Value {
+    let elementi = match list {
+        Value::Object(serde_json::Value::Array(a)) => a,
+        Value::Null => return Value::Null,
+        _ => return Value::Null,
+    };
+    // I parametri delle funzioni esterne restano visibili in quelle interne.
+    let mut scope: Row = ctx.input(LAMBDA_INPUT).cloned().unwrap_or_default();
+    let mut valuta = |el: &serde_json::Value| -> Value {
+        scope.set_str(param, Value::from_json(el.clone()));
+        let interno = ctx.con_lambda(&scope);
+        corpo(&interno)
+    };
+    match name {
+        "any"   => Value::Bool(elementi.iter().any(|e| is_truthy(&valuta(e)))),
+        "all"   => Value::Bool(elementi.iter().all(|e| is_truthy(&valuta(e)))),
+        "count" => Value::Int(elementi.iter().filter(|e| is_truthy(&valuta(e))).count() as i64),
+        "filter" => Value::Object(serde_json::Value::Array(
+            elementi.iter().filter(|e| is_truthy(&valuta(e))).cloned().collect())),
+        "map" => Value::Object(serde_json::Value::Array(
+            elementi.iter().map(|e| valuta(e).to_json()).collect())),
+        "sum" => {
+            let valori: Vec<Value> = elementi.iter().map(&mut valuta).collect();
+            somma(valori.iter())
+        }
+        _ => Value::Null,
+    }
+}
+
+/// Somma dei valori numerici (o testi numerici) di un elenco; i null e i
+/// valori non numerici si saltano. Interi restano interi, decimali esatti.
+pub(crate) fn somma<'v>(valori: impl Iterator<Item = &'v Value>) -> Value {
+    let mut acc = Value::Int(0);
+    for v in valori {
+        let n = match v {
+            Value::Int(_) | Value::Float(_) | Value::Decimal(_) => v.clone(),
+            // testo numerico: intero se lo è ("2" → 2), altrimenti decimale esatto
+            Value::String(t) => match t.trim().parse::<i64>() {
+                Ok(i) => Value::Int(i),
+                Err(_) => match as_decimal(v) { Some(d) => Value::Decimal(d), None => continue },
+            },
+            _ => continue,
+        };
+        acc = numeric_op(&acc, &n, |a, b| a + b, |a, b| a + b, |a, b| a + b).unwrap_or(acc);
+    }
+    acc
+}
+
+/// Elementi di un elenco come valori (vuoto se non è un elenco).
+pub(crate) fn elementi(v: &Value) -> Vec<Value> {
+    match v {
+        Value::Object(serde_json::Value::Array(a)) => a.iter().map(|e| Value::from_json(e.clone())).collect(),
+        _ => Vec::new(),
+    }
+}
+
+pub(crate) fn is_list(v: &Value) -> bool {
+    matches!(v, Value::Object(serde_json::Value::Array(_)))
+}
+
 // ─── Contesto di valutazione ──────────────────────────────────────
 // Contiene tutte le Row disponibili per la valutazione — una per
 // ogni input TMap (main, lookup_1, ecc.) o una sola per il Filter.
@@ -209,6 +317,15 @@ impl<'a> EvalContext<'a> {
         EvalContext { inputs: pairs.into_iter().collect(), variables, main_input }
     }
 
+    /// P389: lo stesso contesto con in più la riga dei parametri delle funzioni
+    /// `x -> …` (v. `eval_hof`).
+    pub fn con_lambda<'b>(&'b self, scope: &'b Row) -> EvalContext<'b> where 'a: 'b {
+        let mut inputs: smallvec::SmallVec<[(&'b str, &'b Row); 4]> =
+            self.inputs.iter().map(|(k, r)| (*k, *r)).collect();
+        inputs.push((LAMBDA_INPUT, scope));
+        EvalContext { inputs, variables: self.variables, main_input: self.main_input }
+    }
+
     /// Riga di un ingresso per nome (l'ultima inserita con quel nome).
     pub fn input(&self, name: &str) -> Option<&'a Row> {
         self.inputs.iter().rev().find(|(k, _)| *k == name).map(|(_, r)| *r)
@@ -248,7 +365,7 @@ impl<'a> EvalContext<'a> {
         // hanno un campo omonimo il vincitore deve essere sempre lo stesso.
         let mut chiavi: smallvec::SmallVec<[&str; 8]> = self.inputs.iter()
             .map(|(k, _)| *k)
-            .filter(|k| *k != "__transforms__" && *k != "row" && Some(*k) != self.main_input)
+            .filter(|k| *k != "__transforms__" && *k != "row" && *k != LAMBDA_INPUT && Some(*k) != self.main_input)
             .collect();
         chiavi.sort_unstable();
         chiavi.dedup();
@@ -293,6 +410,18 @@ pub fn eval(expr: &ExprNode, ctx: &EvalContext) -> Value {
         }
 
         ExprNode::FunctionCall { name, args } => {
+            // P389: parametro di una funzione `x -> …`, la funzione stessa (che da
+            // sola non ha valore) e le funzioni che la ricevono come argomento.
+            if let Some(p) = as_lambda_arg(name, args) {
+                return ctx.field(LAMBDA_INPUT, p).cloned().unwrap_or(Value::Null);
+            }
+            if name == "lambda" { return Value::Null; }
+            if is_hof(name) {
+                if let Some((param, corpo)) = args.get(1).and_then(as_lambda) {
+                    let lista = args.first().map(|a| eval(a, ctx)).unwrap_or(Value::Null);
+                    return eval_hof(name, &lista, param, ctx, |c| eval(corpo, c));
+                }
+            }
             if name.eq_ignore_ascii_case("var") {
                 let var_name = match args.first() {
                     Some(a) => to_string(&eval(a, ctx)),
@@ -435,9 +564,13 @@ pub(crate) fn eval_function(name: &str, args: Vec<Value>) -> Value {
         }
         "upper"       => Value::String(to_string(args.first().unwrap_or(&Value::Null)).to_uppercase()),
         "lower"       => Value::String(to_string(args.first().unwrap_or(&Value::Null)).to_lowercase()),
-        "length" | "len" => {
-            Value::Int(to_string(args.first().unwrap_or(&Value::Null)).len() as i64)
-        }
+        "length" | "len" => match args.first().unwrap_or(&Value::Null) {
+            // P389: un elenco → quanti elementi; un oggetto → quante chiavi; un
+            // testo → quanti CARATTERI (prima i byte: "città" valeva 6).
+            Value::Object(serde_json::Value::Array(a))  => Value::Int(a.len() as i64),
+            Value::Object(serde_json::Value::Object(o)) => Value::Int(o.len() as i64),
+            v => Value::Int(to_string(v).chars().count() as i64),
+        },
         "substring" | "substr" => {
             let s     = to_string(args.first().unwrap_or(&Value::Null));
             let start = to_int(args.get(1).unwrap_or(&Value::Null)).unwrap_or(0).max(0) as usize;
@@ -478,6 +611,12 @@ pub(crate) fn eval_function(name: &str, args: Vec<Value>) -> Value {
             let start = chars.len().saturating_sub(n);
             Value::String(chars[start..].iter().collect())
         }
+        "contains" if args.first().is_some_and(is_list) => {
+            // P389: contains(elenco, valore) → l'elenco contiene il valore
+            // (stesso confronto di `==`). Anche `valore in elenco`.
+            let cercato = args.get(1).unwrap_or(&Value::Null);
+            Value::Bool(elementi(&args[0]).iter().any(|e| values_equal(e, cercato)))
+        }
         "contains" => {
             let s      = to_string(args.first().unwrap_or(&Value::Null));
             let needle = to_string(args.get(1).unwrap_or(&Value::Null));
@@ -498,8 +637,9 @@ pub(crate) fn eval_function(name: &str, args: Vec<Value>) -> Value {
             let len = to_int(args.get(1).unwrap_or(&Value::Null)).unwrap_or(0).max(0) as usize;
             let pad = to_string(args.get(2).unwrap_or(&Value::String(" ".to_string())));
             let pad_char = pad.chars().next().unwrap_or(' ');
-            if s.len() >= len { return Value::String(s); }
-            let padding: String = std::iter::repeat(pad_char).take(len - s.len()).collect();
+            let n = s.chars().count();   // P389: caratteri, non byte
+            if n >= len { return Value::String(s); }
+            let padding: String = std::iter::repeat(pad_char).take(len - n).collect();
             Value::String(format!("{}{}", padding, s))
         }
         "pad_right" | "rpad" => {
@@ -507,8 +647,9 @@ pub(crate) fn eval_function(name: &str, args: Vec<Value>) -> Value {
             let len = to_int(args.get(1).unwrap_or(&Value::Null)).unwrap_or(0).max(0) as usize;
             let pad = to_string(args.get(2).unwrap_or(&Value::String(" ".to_string())));
             let pad_char = pad.chars().next().unwrap_or(' ');
-            if s.len() >= len { return Value::String(s); }
-            let padding: String = std::iter::repeat(pad_char).take(len - s.len()).collect();
+            let n = s.chars().count();   // P389: caratteri, non byte
+            if n >= len { return Value::String(s); }
+            let padding: String = std::iter::repeat(pad_char).take(len - n).collect();
             Value::String(format!("{}{}", s, padding))
         }
         "regex_match" => {
@@ -546,6 +687,13 @@ pub(crate) fn eval_function(name: &str, args: Vec<Value>) -> Value {
             let base = to_float(args.first().unwrap_or(&Value::Null)).unwrap_or(0.0);
             let exp  = to_float(args.get(1).unwrap_or(&Value::Null)).unwrap_or(0.0);
             Value::Float(base.powf(exp))
+        }
+        "min" | "max" if args.len() == 1 && is_list(&args[0]) => {
+            // P389: min(elenco) / max(elenco) → sugli elementi
+            let el = elementi(&args[0]);
+            let it = el.into_iter().filter(|v| !matches!(v, Value::Null));
+            let ord = |a: &Value, b: &Value| compare_values(a, b).unwrap_or(std::cmp::Ordering::Equal);
+            if &*name_lower == "min" { it.min_by(ord) } else { it.max_by(ord) }.unwrap_or(Value::Null)
         }
         "min" => {
             args.into_iter().filter(|v| !matches!(v, Value::Null))

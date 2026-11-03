@@ -172,32 +172,70 @@ function findCycle(fns: UserFunction[]): string[] | null {
  * `_origin` col nome della funzione (l'origine più interna vince).
  */
 export function expandUserFunctions(ast: ExprNode, fns: Map<string, UserFunction>): ExprNode {
-  const go = (node: ExprNode): ExprNode => {
+  const go = (node: ExprNode, depth = 0): ExprNode => {
+    const g = (n: ExprNode) => go(n, depth)
     switch (node.kind) {
       case 'FunctionCall': {
-        const args = node.args.map(go)
+        const args = node.args.map(g)
         const fn = fns.get(node.name)
         if (!fn) return { ...node, args }
         const map: Record<string, ExprNode> = {}
         fn.params.forEach((p, i) => { map[p] = args[i] })
-        const inlined  = substitute(clone(fn.body), map)
-        const expanded = go(inlined)              // espande le chiamate annidate nel corpo
+        // P389: i parametri delle funzioni `x -> …` del corpo prendono un nome
+        // proprio PRIMA della sostituzione, così un argomento che usa il
+        // parametro di una funzione `x -> …` del chiamante non viene catturato
+        // da una omonima del corpo. Nome deterministico (stesso piano → stesso
+        // albero → stessa impronta dell'artifact).
+        const corpo    = rinominaParametri(clone(fn.body), `#${fn.name}${depth + 1}`, {})
+        const inlined  = substitute(corpo, map)
+        const expanded = go(inlined, depth + 1)   // espande le chiamate annidate nel corpo
         return tagAll(expanded, fn.name)
       }
-      case 'Coalesce':  return { ...node, args: node.args.map(go) }
-      case 'BinaryOp':  return { ...node, left: go(node.left), right: go(node.right) }
-      case 'UnaryOp':   return { ...node, expr: go(node.expr) }
-      case 'IsNull': case 'IsNotNull': return { ...node, expr: go(node.expr) }
-      case 'Cast':      return { ...node, expr: go(node.expr) }
+      case 'Coalesce':  return { ...node, args: node.args.map(g) }
+      case 'BinaryOp':  return { ...node, left: g(node.left), right: g(node.right) }
+      case 'UnaryOp':   return { ...node, expr: g(node.expr) }
+      case 'IsNull': case 'IsNotNull': return { ...node, expr: g(node.expr) }
+      case 'Cast':      return { ...node, expr: g(node.expr) }
       case 'CaseWhen':  return {
         ...node,
-        branches: node.branches.map((b) => ({ condition: go(b.condition), value: go(b.value) })),
-        default:  node.default ? go(node.default) : null,
+        branches: node.branches.map((b) => ({ condition: g(b.condition), value: g(b.value) })),
+        default:  node.default ? g(node.default) : null,
       }
       default:          return node   // Literal, FieldRef, DirectFieldRef
     }
   }
   return go(ast)
+}
+
+/** P389: dà ai parametri delle funzioni `x -> …` di un corpo il nome `x<suffisso>`
+ *  (`lambda` e `lambda_arg` sono costruiti dal parser, v. exprParser.ts). */
+function rinominaParametri(node: ExprNode, suffisso: string, env: Record<string, string>): ExprNode {
+  const r = (n: ExprNode) => rinominaParametri(n, suffisso, env)
+  switch (node.kind) {
+    case 'FunctionCall': {
+      const nome0 = node.args[0]
+      if (node.name === 'lambda' && node.args.length === 2 && nome0.kind === 'Literal' && typeof nome0.value === 'string') {
+        const nuovo = nome0.value + suffisso
+        return { ...node, args: [{ kind: 'Literal', value: nuovo },
+          rinominaParametri(node.args[1], suffisso, { ...env, [nome0.value]: nuovo })] }
+      }
+      if (node.name === 'lambda_arg' && nome0?.kind === 'Literal' && typeof nome0.value === 'string' && nome0.value in env) {
+        return { ...node, args: [{ kind: 'Literal', value: env[nome0.value] }] }
+      }
+      return { ...node, args: node.args.map(r) }
+    }
+    case 'BinaryOp':  return { ...node, left: r(node.left), right: r(node.right) }
+    case 'UnaryOp':   return { ...node, expr: r(node.expr) }
+    case 'IsNull': case 'IsNotNull': return { ...node, expr: r(node.expr) }
+    case 'Cast':      return { ...node, expr: r(node.expr) }
+    case 'Coalesce':  return { ...node, args: node.args.map(r) }
+    case 'CaseWhen':  return {
+      ...node,
+      branches: node.branches.map((b) => ({ condition: r(b.condition), value: r(b.value) })),
+      default:  node.default ? r(node.default) : null,
+    }
+    default:          return node
+  }
 }
 
 /** Sostituisce, in un corpo clonato, i DirectFieldRef dei parametri con gli argomenti. */

@@ -435,12 +435,171 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             None => Value::Null,
         },
 
+        // ── P389: elenchi ────────────────────────────────────────
+        // `[a, b, c]` nello studio diventa list(a, b, c).
+        "list" => Value::Object(serde_json::Value::Array(args.iter().map(|v| v.to_json()).collect())),
+        "join" => match a0 {
+            Some(l) if super::expr::is_list(l) => Value::String(
+                super::expr::elementi(l).iter()
+                    .filter(|v| !matches!(v, Value::Null))
+                    .map(|v| v.as_str_repr())
+                    .collect::<Vec<_>>()
+                    .join(&s(a1))),
+            _ => Value::Null,
+        },
+        "first" => super::expr::elementi(a0.unwrap_or(&Value::Null)).into_iter().next().unwrap_or(Value::Null),
+        "last"  => super::expr::elementi(a0.unwrap_or(&Value::Null)).into_iter().last().unwrap_or(Value::Null),
+        // Senza funzione `x -> …`: somma degli elementi numerici, numero di
+        // elementi non null, almeno uno / tutti veri.
+        "sum" => match a0 {
+            Some(l) if super::expr::is_list(l) => super::expr::somma(super::expr::elementi(l).iter()),
+            _ => Value::Null,
+        },
+        "count" => match a0 {
+            Some(l) if super::expr::is_list(l) => Value::Int(
+                super::expr::elementi(l).iter().filter(|v| !matches!(v, Value::Null)).count() as i64),
+            _ => Value::Null,
+        },
+        "any" => match a0 {
+            Some(l) if super::expr::is_list(l) => Value::Bool(super::expr::elementi(l).iter().any(super::expr::is_truthy)),
+            _ => Value::Null,
+        },
+        "all" => match a0 {
+            Some(l) if super::expr::is_list(l) => Value::Bool(super::expr::elementi(l).iter().all(super::expr::is_truthy)),
+            _ => Value::Null,
+        },
+
+        // ── P389: testo ──────────────────────────────────────────
+        "split" => {
+            // split(testo, separatore [, posizione]) → elenco, o la parte alla
+            // posizione (da 0; negativa = dalla fine). Separatore vuoto =
+            // un elemento per carattere.
+            let testo = s(a0);
+            let sep = s(a1);
+            let parti: Vec<String> = if sep.is_empty() {
+                testo.chars().map(|c| c.to_string()).collect()
+            } else {
+                testo.split(sep.as_str()).map(str::to_string).collect()
+            };
+            match a2 {
+                None => Value::Object(serde_json::Value::Array(parti.into_iter().map(serde_json::Value::String).collect())),
+                Some(pos) => match i(Some(pos)) {
+                    Some(k) => {
+                        let idx = if k < 0 { parti.len() as i64 + k } else { k };
+                        if idx >= 0 && (idx as usize) < parti.len() { Value::String(parti[idx as usize].clone()) } else { Value::Null }
+                    }
+                    None => Value::Null,
+                },
+            }
+        }
+        "index_of" => {
+            // index_of(testo, cercato [, da]) → posizione in caratteri (da 0), -1 se assente
+            let testo = s(a0);
+            let cercato = s(a1);
+            let da = i(a2).unwrap_or(0).max(0) as usize;
+            let inizio_byte = testo.char_indices().nth(da).map(|(b, _)| b).unwrap_or(testo.len());
+            match testo[inizio_byte..].find(&cercato) {
+                Some(b) => Value::Int((da + testo[inizio_byte..inizio_byte + b].chars().count()) as i64),
+                None => Value::Int(-1),
+            }
+        }
+        "like" => {
+            // like(testo, modello): % = qualunque sequenza, _ = un carattere,
+            // \% e \_ = i caratteri stessi. Distingue maiuscole e minuscole.
+            match a0 {
+                None | Some(Value::Null) => Value::Bool(false),
+                Some(v) => match cached_regex(&like_regex(&s(a1))) {
+                    Some(re) => Value::Bool(re.is_match(&s(Some(v)))),
+                    None => Value::Null,
+                },
+            }
+        }
+
+        // ── P389: date e ore ─────────────────────────────────────
+        "add_hours"   => add_secs(a0, a1, 3600),
+        "add_minutes" => add_secs(a0, a1, 60),
+        "add_seconds" => add_secs(a0, a1, 1),
+        "diff_hours"   => diff_secs(a0, a1, 3600),
+        "diff_minutes" => diff_secs(a0, a1, 60),
+        "diff_seconds" => diff_secs(a0, a1, 1),
+        "to_timezone" => match (instante(a0, None), fuso(a1)) {
+            (Some(t), Some(z)) => Value::DateTime(t.with_timezone(&z).to_rfc3339()),
+            _ => Value::Null,
+        },
+        "to_utc" => {
+            // to_utc(data_ora [, fuso_della_data_senza_fuso]) → la stessa ora in UTC
+            let z = match a1 { None | Some(Value::Null) => Some(chrono_tz::UTC), Some(_) => fuso(a1) };
+            match z.and_then(|z| instante(a0, Some(z))) {
+                Some(t) => Value::DateTime(t.with_timezone(&chrono::Utc).to_rfc3339()),
+                None => Value::Null,
+            }
+        }
+
         _ => return None,   // non è una funzione di questo modulo
     };
     Some(out)
 }
 
 // ─── Implementazioni di supporto ───────────────────────────────────
+
+/// Modello di `like` → espressione regolare ancorata.
+fn like_regex(modello: &str) -> String {
+    let mut out = String::from("(?s)^");
+    let mut chars = modello.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if matches!(chars.peek(), Some('%') | Some('_') | Some('\\')) => {
+                out.push_str(&regex::escape(&chars.next().unwrap().to_string()));
+            }
+            '%' => out.push_str(".*"),
+            '_' => out.push('.'),
+            c => out.push_str(&regex::escape(&c.to_string())),
+        }
+    }
+    out.push('$');
+    out
+}
+
+/// add_hours / add_minutes / add_seconds → data e ora (senza fuso).
+fn add_secs(a0: Option<&Value>, a1: Option<&Value>, unita: i64) -> Value {
+    match (date_arg(a0), i(a1)) {
+        (Some(d), Some(n)) => match n.checked_mul(unita).and_then(|s| d.checked_add_signed(Duration::seconds(s))) {
+            Some(x) => Value::DateTime(x.to_string()),
+            None => Value::Null,
+        },
+        _ => Value::Null,
+    }
+}
+
+/// diff_hours / diff_minutes / diff_seconds(a, b) = b − a, troncato all'unità.
+fn diff_secs(a0: Option<&Value>, a1: Option<&Value>, unita: i64) -> Value {
+    match (date_arg(a0), date_arg(a1)) {
+        (Some(a), Some(b)) => Value::Int((b - a).num_seconds() / unita),
+        _ => Value::Null,
+    }
+}
+
+/// Fuso orario per nome IANA ("Europe/Rome", "UTC").
+fn fuso(v: Option<&Value>) -> Option<chrono_tz::Tz> {
+    s(v).trim().parse::<chrono_tz::Tz>().ok()
+}
+
+/// Un istante preciso: una data e ora CON fuso (RFC 3339) vale per sé; una
+/// senza fuso si intende nel fuso `senza_fuso` (UTC se non dato).
+fn instante(v: Option<&Value>, senza_fuso: Option<chrono_tz::Tz>) -> Option<chrono::DateTime<chrono::Utc>> {
+    use chrono::TimeZone;
+    let testo = match v {
+        Some(Value::Date(x)) | Some(Value::DateTime(x)) | Some(Value::String(x)) => x.trim().to_string(),
+        _ => return None,
+    };
+    if let Ok(d) = chrono::DateTime::parse_from_rfc3339(&testo) {
+        return Some(d.with_timezone(&chrono::Utc));
+    }
+    let naive = parse_datetime(&testo)?;
+    let z = senza_fuso.unwrap_or(chrono_tz::UTC);
+    // Nel cambio d'ora un'ora locale può esistere due volte: si prende la prima.
+    z.from_local_datetime(&naive).earliest().map(|d| d.with_timezone(&chrono::Utc))
+}
 
 fn add_months_impl(d: NaiveDateTime, n: i64) -> Option<NaiveDateTime> {
     let total = d.year() as i64 * 12 + (d.month() as i64 - 1) + n;

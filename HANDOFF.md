@@ -2612,3 +2612,38 @@ Studio §6 "Quarto passo".
   +9%, TMap alla pari in tempo con −10% di istruzioni. Banco di non regressione identico;
   lib 115 test.
 - Nuovo banco usa-e-getta `bench_script` (scratchpad, non nel repo).
+
+## AGGIORNAMENTO — FPEL più completo: operatori, segnaposto, elenchi, ore e fusi (stato al P389, 3 novembre)
+
+Primo blocco dei miglioramenti FPEL decisi il 3 novembre (poi: tabelle di decodifica,
+"spiega questo valore", esempi-come-test nelle funzioni utente, regole `atteso`,
+provenienza dei campi, FPEL→SQL; quindi le attività per la prima versione da far uscire).
+- **Operatori** (parser, `exprParser.ts`): `x [not] in (a, b)` → catena di `==`/`||`;
+  `x in elenco` → `contains(elenco, x)`; `x [not] between a and b` → `>=`/`&&`/`<=`;
+  `x [not] like "A%"` → `like(x, …)`; `a ?? b` → `Coalesce` (piatto a catena). `in`,
+  `between`, `like` restano nomi di campo validi fuori dalla posizione di operatore.
+- **Testo con segnaposto** `f"Ordine {id} di {cliente}"` → `concat(…)` (sempre testo);
+  `{{`/`}}` = graffe; dentro le graffe tutto FPEL, anche `\"` del testo esterno.
+- **Elenchi** `[a, b]` → `list(a, b)`. **Funzioni `x -> corpo`** solo come secondo
+  argomento di any/all/filter/map/sum/count: `lambda(x, corpo)` e `lambda_arg(x)`, campi
+  dell'elemento con `get` (`r.qty`). NESSUNA variante nuova dell'albero: tutti i
+  visitatori dello studio continuano a funzionare. Funzioni utente: i parametri `x -> …`
+  del corpo sono rinominati in modo deterministico prima dell'inlining (niente catture).
+- **Motore** (`expr.rs`, `expr_functions.rs`, `compiled.rs`): `LAMBDA_INPUT` = "__lambda",
+  `EvalContext::con_lambda`, `eval_hof` (unica implementazione per interprete e
+  compilato, parametri esterni visibili negli annidati), `C::Hof`; funzioni list, join,
+  first, last, sum, count, any, all, split, index_of, like, add/diff_hours/minutes/
+  seconds, to_timezone, to_utc (crate nuovo `chrono-tz`); `contains`/`length`/`min`/`max`
+  sugli elenchi; `try` = alias di coalesce (in FPEL un calcolo che fallisce dà null).
+- **Correzione**: `length`, `pad_left`, `pad_right` contavano i BYTE (`length("città")`
+  = 6): ora i caratteri.
+- **Contratto studio↔motore**: `vectors/fpel_v1.json` (67 casi: espressione, albero,
+  riga, atteso); `src/ir/fpelVector.test.ts` (albero) e `src-tauri/tests/fpel_vettori.rs`
+  (interprete E compilato). Rigenerare gli alberi: `FLOWPILOT_AGGIORNA_VETTORI=1 npx tsx
+  src/ir/fpelVector.test.ts`. Aggiunto alla CI e a `verifica_rust`.
+- Catalogo 85 → 106 funzioni (categoria nuova `list`, campo `insert` per il selettore);
+  selettore con i costrutti nuovi; grammatica Monaco (`f"…"`, `->`, `??`, between, like);
+  manuale `docs/FlowPilot-Manuale-FPEL.md` aggiornato (§3.1, 3.4, 3.5, 3.7 nuova, §5, §9).
+  Il .docx del manuale non è rigenerato.
+- Test: parser 104, tipi 70, funzioni utente 18, contratto 67+67; lib 115; regressione
+  identica.

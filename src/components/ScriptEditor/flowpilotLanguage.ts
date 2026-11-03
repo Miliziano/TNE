@@ -27,7 +27,7 @@ const ISTRUZIONI = [
 ]
 
 /** Operatori-parola di FPEL, evidenziati come le istruzioni ma distinti. */
-const OPERATORI_PAROLA = ['and', 'or', 'not', 'is', 'null', 'true', 'false']
+const OPERATORI_PAROLA = ['and', 'or', 'not', 'is', 'null', 'true', 'false', 'between', 'like']
 
 /**
  * Contesto corrente per il completamento. È mutabile e aggiornato
@@ -79,6 +79,11 @@ export function registerFlowpilotLanguage(monaco: any): void {
       root: [
         [/\/\/.*$/, 'comment'],
 
+        // P389: testo con segnaposto f"… {campo} …" (prima dei nomi: la f fa
+        // parte del testo, non è un campo)
+        [/[fF]"([^"\\]|\\.)*"/, 'string'],
+        [/[fF]'([^'\\]|\\.)*'/, 'string'],
+
         // Nome seguito da `(` → chiamata di funzione. Si distingue quella
         // conosciuta da quella che non esiste: un nome sbagliato resta
         // grigio invece di sembrare valido. NB è solo un indizio visivo —
@@ -114,7 +119,7 @@ export function registerFlowpilotLanguage(monaco: any): void {
         [/\d+/,      'number'],
 
         [/[{}()[\]]/, 'delimiter'],
-        [/[=!<>]=?|[+\-*/%]|&&|\|\|/, 'delimiter'],
+        [/->|\?\?|[=!<>]=?|[+\-*/%]|&&|\|\|/, 'delimiter'],
       ],
     },
   })

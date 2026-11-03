@@ -117,7 +117,11 @@ function inferFunction(name: string, args: ExprNode[], ctx: InferCtx): FieldType
       return unifyAll(args.map((a) => inferExprType(a, ctx)))
     case 'min':
     case 'max':
-      return unify(t(0), t(1))
+      // min(elenco): il tipo degli elementi non è noto a design-time
+      return args.length === 1 ? 'any' : unifyAll(args.map((a) => inferExprType(a, ctx)))
+    case 'split':
+      // con la posizione → una parte (testo); senza → un elenco
+      return args.length === 3 ? 'string' : 'object'
     case 'clamp':
       return t(0)
     default:

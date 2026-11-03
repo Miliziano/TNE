@@ -52,20 +52,22 @@ export class ExprParseError extends Error {
 // ─── Tokenizer ──────────────────────────────────────────────────────
 
 type TokKind =
-  | 'num' | 'str' | 'ident' | 'op' | 'lparen' | 'rparen' | 'comma' | 'dot' | 'eof'
+  | 'num' | 'str' | 'fstr' | 'ident' | 'op' | 'lparen' | 'rparen' | 'lbrack' | 'rbrack'
+  | 'comma' | 'dot' | 'eof'
 
 interface Token {
   kind: TokKind
   text: string
   pos:  number
   /** per 'num' */ num?: number
-  /** per 'str' */ str?: string
+  /** per 'str' e 'fstr' (contenuto senza virgolette) */ str?: string
+  /** per 'fstr': posizione del primo carattere del contenuto */ contentPos?: number
   /** per 'ident': era racchiuso in backtick → mai una parola chiave */
   quoted?: boolean
 }
 
 /** Operatori multi-carattere, ordinati per lunghezza decrescente. */
-const OPERATORS = ['==', '!=', '>=', '<=', '&&', '||', '+', '-', '*', '/', '%', '>', '<', '!', '?', ':']
+const OPERATORS = ['??', '->', '==', '!=', '>=', '<=', '&&', '||', '+', '-', '*', '/', '%', '>', '<', '!', '?', ':']
 
 function tokenize(src: string): Token[] {
   const toks: Token[] = []
@@ -94,6 +96,23 @@ function tokenize(src: string): Token[] {
       i++
       if (!name) throw new ExprParseError('empty identifier: ``', start, src)
       toks.push({ kind: 'ident', text: name, pos: start, quoted: true })
+      continue
+    }
+
+    // P389: testo con segnaposto f"Ordine {id} di {cliente}" (anche f'…').
+    // Il contenuto si analizza nel parser; qui si cerca solo la fine.
+    if ((c === 'f' || c === 'F') && (src[i + 1] === '"' || src[i + 1] === "'")) {
+      const quote = src[i + 1]
+      const start = i
+      i += 2
+      let out = ''
+      while (i < src.length && src[i] !== quote) {
+        if (src[i] === '\\' && i + 1 < src.length) { out += src[i] + src[i + 1]; i += 2 }
+        else { out += src[i]; i++ }
+      }
+      if (i >= src.length) throw new ExprParseError('unterminated string', start, src)
+      i++
+      toks.push({ kind: 'fstr', text: src.slice(start, i), pos: start, str: out, contentPos: start + 2 })
       continue
     }
 
@@ -139,6 +158,8 @@ function tokenize(src: string): Token[] {
 
     if (c === '(') { toks.push({ kind: 'lparen', text: '(', pos: i }); i++; continue }
     if (c === ')') { toks.push({ kind: 'rparen', text: ')', pos: i }); i++; continue }
+    if (c === '[') { toks.push({ kind: 'lbrack', text: '[', pos: i }); i++; continue }
+    if (c === ']') { toks.push({ kind: 'rbrack', text: ']', pos: i }); i++; continue }
     if (c === ',') { toks.push({ kind: 'comma',  text: ',', pos: i }); i++; continue }
     if (c === '.') { toks.push({ kind: 'dot',    text: '.', pos: i }); i++; continue }
 
@@ -155,6 +176,7 @@ function tokenize(src: string): Token[] {
 // ─── Precedenza (dalla più bassa alla più alta) ─────────────────────
 
 const PREC: Record<string, number> = {
+  '??': 1,
   '||': 1, 'or': 1,
   '&&': 2, 'and': 2,
   '==': 3, '!=': 3,
@@ -175,6 +197,26 @@ const CAST_TYPES: Record<string, string> = {
   string: 'string', text: 'string',
   boolean: 'boolean', bool: 'boolean',
   date: 'date', datetime: 'datetime',
+}
+
+/** P389: funzioni che ricevono una funzione `x -> …` come secondo argomento
+ *  (allineato a `is_hof` in expr.rs). Per filter e map è obbligatoria. */
+const LAMBDA_FNS = new Set(['any', 'all', 'filter', 'map', 'sum', 'count'])
+const LAMBDA_REQUIRED = new Set(['filter', 'map'])
+
+/** P389: precedenza di `in`, `between`, `like` (come `==`). */
+const PREC_CONFRONTO = 3
+
+/** Costruttori dei nodi che lo studio genera per le funzioni `x -> …`. */
+function lambdaNode(param: string, body: ExprNode): ExprNode {
+  return { kind: 'FunctionCall', name: 'lambda', args: [{ kind: 'Literal', value: param }, body] }
+}
+function lambdaArg(param: string): ExprNode {
+  return { kind: 'FunctionCall', name: 'lambda_arg', args: [{ kind: 'Literal', value: param }] }
+}
+/** true se il nodo è una funzione `x -> …` */
+export function isLambda(n: ExprNode): boolean {
+  return n.kind === 'FunctionCall' && n.name === 'lambda'
 }
 
 const KEYWORDS = new Set([
@@ -217,6 +259,10 @@ class Parser {
   private i = 0
   private src: string
   private opts: ParseOptions
+  /** P389: parametri delle funzioni `x -> …` visibili qui (dall'esterno all'interno) */
+  lambdaScope: string[] = []
+  /** P389: in questa posizione è ammessa una funzione `x -> …` */
+  private lambdaOk = false
 
   constructor(src: string, opts: ParseOptions) {
     this.src = src
@@ -225,6 +271,7 @@ class Parser {
   }
 
   private peek(): Token { return this.toks[this.i] }
+  private peekAt(k: number): Token { return this.toks[Math.min(this.i + k, this.toks.length - 1)] }
   private next(): Token { return this.toks[this.i++] }
   private at(kind: TokKind, text?: string): boolean {
     const t = this.peek()
@@ -271,6 +318,22 @@ class Parser {
         continue
       }
 
+      // P389: `x [not] in (…)`, `x [not] between a and b`, `x [not] like "A%"`
+      const negato = this.atKeyword('not') && this.peekAt(1).kind === 'ident'
+        && ['in', 'between', 'like'].includes(this.peekAt(1).text.toLowerCase())
+      const parola = negato ? this.peekAt(1).text.toLowerCase()
+        : (this.peek().kind === 'ident' ? this.peek().text.toLowerCase() : '')
+      if (parola === 'in' || parola === 'between' || parola === 'like') {
+        if (PREC_CONFRONTO < minPrec) break
+        if (negato) this.next()
+        this.next()
+        const e = parola === 'in' ? this.parseIn(left)
+          : parola === 'between' ? this.parseBetween(left)
+          : { kind: 'FunctionCall', name: 'like', args: [left, this.parseExpr(PREC_CONFRONTO + 1)] } as ExprNode
+        left = negato ? { kind: 'UnaryOp', op: 'NOT', expr: e } : e
+        continue
+      }
+
       const t = this.peek()
       const opText = t.kind === 'op' ? t.text : (t.kind === 'ident' ? t.text.toLowerCase() : '')
       const prec = PREC[opText]
@@ -280,6 +343,11 @@ class Parser {
 
       this.next()
       const right = this.parseExpr(prec + 1)  // left-assoc
+      // P389: `a ?? b` = coalesce(a, b) (catene piatte: a ?? b ?? c)
+      if (opText === '??') {
+        left = { kind: 'Coalesce', args: [...(left.kind === 'Coalesce' ? left.args : [left]), right] }
+        continue
+      }
       const irOp = OP_TO_IR[opText]
       if (!irOp) this.err(`unsupported operator: "${opText}"`)
       left = { kind: 'BinaryOp', op: irOp, left, right }
@@ -299,6 +367,18 @@ class Parser {
     const t = this.peek()
 
     if (t.kind === 'num') { this.next(); return { kind: 'Literal', value: t.num! } }
+    if (t.kind === 'fstr') { this.next(); return this.parseFString(t) }
+    if (t.kind === 'lbrack') {
+      // P389: elenco [a, b, c] → list(a, b, c)
+      this.next()
+      const items: ExprNode[] = []
+      if (!this.at('rbrack')) {
+        items.push(this.parseItem())
+        while (this.at('comma')) { this.next(); items.push(this.parseItem()) }
+      }
+      this.expect('rbrack', 'expected "]" at the end of the list')
+      return { kind: 'FunctionCall', name: 'list', args: items }
+    }
     if (t.kind === 'str') { this.next(); return this.maybeQualifiedField(t.str!, t.pos) }
 
     if (t.kind === 'lparen') {
@@ -322,6 +402,35 @@ class Parser {
 
       const lower = t.text.toLowerCase()
 
+      // P389: funzione `x -> corpo`, ammessa solo come argomento di
+      // any/all/filter/map/sum/count.
+      if (this.peekAt(1).kind === 'op' && this.peekAt(1).text === '->') {
+        if (!this.lambdaOk) {
+          this.err('a function "x -> …" can only be the second argument of any, all, filter, map, sum or count')
+        }
+        if (KEYWORDS.has(lower)) this.err(`"${t.text}" is a keyword and cannot be a parameter name`)
+        this.next(); this.next()
+        this.lambdaScope.push(t.text)
+        this.lambdaOk = false
+        try {
+          return lambdaNode(t.text, this.parseExpr(0))
+        } finally {
+          this.lambdaScope.pop()
+        }
+      }
+
+      // P389: parametro di una funzione `x -> …` (anche x.campo.sotto)
+      if (this.lambdaScope.includes(t.text)) {
+        this.next()
+        let n: ExprNode = lambdaArg(t.text)
+        while (this.at('dot')) {
+          this.next()
+          const f = this.expect('ident', 'expected a field name after "."')
+          n = { kind: 'FunctionCall', name: 'get', args: [n, { kind: 'Literal', value: f.text }] }
+        }
+        return n
+      }
+
       if (lower === 'true')  { this.next(); return { kind: 'Literal', value: true } }
       if (lower === 'false') { this.next(); return { kind: 'Literal', value: false } }
       if (lower === 'null')  { this.next(); return { kind: 'Literal', value: null } }
@@ -334,11 +443,28 @@ class Parser {
       if (this.at('lparen')) {
         this.next()
         const args: ExprNode[] = []
+        const conLambda = LAMBDA_FNS.has(canonicalName(lower) ?? '') && !this.opts.userFunctions?.has(lower)
         if (!this.at('rparen')) {
-          args.push(this.parseExpr(0))
-          while (this.at('comma')) { this.next(); args.push(this.parseExpr(0)) }
+          args.push(this.parseItem())
+          while (this.at('comma')) {
+            this.next()
+            args.push(this.parseItem(conLambda && args.length === 1))
+          }
         }
         this.expect('rparen', `expected ")" at the end of ${t.text}(...)`)
+        if (conLambda) {
+          const canon = canonicalName(lower)!
+          if (LAMBDA_REQUIRED.has(canon) && !(args[1] && isLambda(args[1]))) {
+            throw new ExprParseError(
+              `${canon} needs a function as second argument — e.g. ${canon}(list, x -> ${canon === 'map' ? 'x * 2' : 'x > 0'})`,
+              t.pos, this.src)
+          }
+          if (args[1] && !isLambda(args[1])) {
+            throw new ExprParseError(
+              `the second argument of ${canon} must be a function "x -> …" — e.g. ${canon}(list, x -> x > 0)`,
+              t.pos, this.src)
+          }
+        }
 
         // Validazione a design-time: nome esistente e arità corretta.
         // Il motore tollera argomenti mancanti (li tratta come null), quindi
@@ -398,6 +524,103 @@ class Parser {
     }
     // Nessuna mappa (nodo a input singolo): il qualificatore non ha senso.
     throw new ExprParseError(`qualified reference "${label}.${field}" not allowed here`, pos, this.src)
+  }
+
+  /** Un elemento di una lista di argomenti; `lambda` = ammessa `x -> …`. */
+  private parseItem(lambda = false): ExprNode {
+    const prima = this.lambdaOk
+    this.lambdaOk = lambda
+    try { return this.parseExpr(0) } finally { this.lambdaOk = prima }
+  }
+
+  /** P389: `x in (a, b, c)` → x == a || x == b || …; `x in elenco` → contains(elenco, x) */
+  private parseIn(left: ExprNode): ExprNode {
+    if (this.at('lparen')) {
+      this.next()
+      const vals: ExprNode[] = []
+      if (!this.at('rparen')) {
+        vals.push(this.parseItem())
+        while (this.at('comma')) { this.next(); vals.push(this.parseItem()) }
+      }
+      this.expect('rparen', 'expected ")" at the end of the "in" list')
+      if (vals.length === 0) return { kind: 'Literal', value: false }
+      return vals
+        .map((v): ExprNode => ({ kind: 'BinaryOp', op: 'EQ', left, right: v }))
+        .reduce((a, b) => ({ kind: 'BinaryOp', op: 'OR', left: a, right: b }))
+    }
+    const elenco = this.parseExpr(PREC_CONFRONTO + 1)
+    return { kind: 'FunctionCall', name: 'contains', args: [elenco, left] }
+  }
+
+  /** P389: `x between a and b` → x >= a && x <= b */
+  private parseBetween(left: ExprNode): ExprNode {
+    const lo = this.parseExpr(PREC_CONFRONTO + 1)
+    if (!this.atKeyword('and')) this.err('expected "and" in "between … and …"')
+    this.next()
+    const hi = this.parseExpr(PREC_CONFRONTO + 1)
+    return {
+      kind: 'BinaryOp', op: 'AND',
+      left:  { kind: 'BinaryOp', op: 'GTE', left, right: lo },
+      right: { kind: 'BinaryOp', op: 'LTE', left, right: hi },
+    }
+  }
+
+  /** P389: f"Ordine {id} di {cliente}" → concat("Ordine ", id, " di ", cliente).
+   *  `{{` e `}}` sono le graffe stesse; dentro le graffe c'è un'espressione. */
+  private parseFString(t: Token): ExprNode {
+    const raw = t.str ?? ''
+    const base = t.contentPos ?? t.pos
+    const delim = t.text[1] ?? '"'
+    const parti: ExprNode[] = []
+    let testo = ''
+    const chiudiTesto = () => { if (testo) { parti.push({ kind: 'Literal', value: testo }); testo = '' } }
+    let i = 0
+    while (i < raw.length) {
+      const c = raw[i]
+      if (c === '\\' && i + 1 < raw.length) {
+        const e = raw[i + 1]
+        testo += e === 'n' ? '\n' : e === 't' ? '\t' : e
+        i += 2; continue
+      }
+      if (c === '{' && raw[i + 1] === '{') { testo += '{'; i += 2; continue }
+      if (c === '}' && raw[i + 1] === '}') { testo += '}'; i += 2; continue }
+      if (c === '}') throw new ExprParseError('unmatched "}" in f-string (write "}}" for a brace)', base + i, this.src)
+      if (c === '{') {
+        // fine del segnaposto: la graffa che chiude, saltando stringhe e graffe annidate
+        // Le virgolette del testo esterno, scritte \" dentro il segnaposto,
+        // sono virgolette dell'espressione: f"{replace(x, \"}\", \"\")}".
+        let j = i + 1, prof = 0, quote = ''
+        for (; j < raw.length; j++) {
+          let d = raw[j]
+          if (d === '\\' && raw[j + 1] === delim) { d = delim; j++ }
+          else if (quote && d === '\\') { j++; continue }
+          if (quote) { if (d === quote) quote = ''; continue }
+          if (d === '"' || d === "'") { quote = d; continue }
+          if (d === '{') prof++
+          else if (d === '}') { if (prof === 0) break; prof-- }
+        }
+        if (j >= raw.length) throw new ExprParseError('unterminated "{" in f-string', base + i, this.src)
+        const dentro = raw.slice(i + 1, j).split('\\' + delim).join(delim)
+        if (!dentro.trim()) throw new ExprParseError('empty "{}" in f-string', base + i, this.src)
+        chiudiTesto()
+        try {
+          const sub = new Parser(dentro, this.opts)
+          sub.lambdaScope = [...this.lambdaScope]
+          const e = sub.parseExpr(0)
+          sub.expect('eof', 'incomplete expression')
+          parti.push(e)
+        } catch (err) {
+          if (err instanceof ExprParseError) throw new ExprParseError(err.message, base + i + 1 + err.pos, this.src)
+          throw err
+        }
+        i = j + 1; continue
+      }
+      testo += c; i++
+    }
+    chiudiTesto()
+    if (parti.length === 0) return { kind: 'Literal', value: '' }
+    if (parti.length === 1 && parti[0].kind === 'Literal') return parti[0]
+    return { kind: 'FunctionCall', name: 'concat', args: parti }
   }
 
   /** case when c1 then v1 [when c2 then v2 …] [else d] end */
