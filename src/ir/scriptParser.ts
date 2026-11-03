@@ -31,6 +31,8 @@ export type ScriptStmt =
   | { kind: 'If';     cond:  ExprNode; then: ScriptStmt[]; else: ScriptStmt[] }
   | { kind: 'Skip' }
   | { kind: 'Reject'; reason: ExprNode | null }
+  // P392: regola sui dati — `expect <cond> else reject|warn|error [messaggio]`
+  | { kind: 'Expect'; cond: ExprNode; action: 'reject' | 'warn' | 'error'; message: ExprNode | null; label: string }
   | { kind: 'Log';    expr: ExprNode; level: 'info' }
   | { kind: 'Error';  expr: ExprNode }
   | { kind: 'Emit' }
@@ -180,6 +182,9 @@ const RE_FOR    = /^for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(.+?)\s*\{$/
 const RE_ELSEIF = /^else\s+if\s+(.+?)\s*\{$/
 const RE_ELSE   = /^else\s*\{$/
 const RE_CHIUSA = /^\}$/
+// P392: la condizione si prende fino all'ULTIMO "else <azione>" (una condizione
+// può contenere un `case … else … end`).
+const RE_EXPECT = /^expect\s+(.+)\s+else\s+(reject|warn|error)(?:\s+(.+))?$/
 
 /** Parola riservata usata come nome di campo o locale → errore chiaro. */
 const RISERVATE = new Set(['let', 'if', 'else', 'skip', 'reject', 'log', 'error',
@@ -294,6 +299,28 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
     // ── skip ────────────────────────────────────────────────────
     if (text === 'skip') { out.push({ kind: 'Skip' }); continue }
 
+    // ── expect <condizione> else reject|warn|error [messaggio] ──
+    // P392: una regola sui dati, contata per regola nel riepilogo del run.
+    const mExp = text.match(RE_EXPECT)
+    if (mExp) {
+      const msgSrc = mExp[3]?.trim()
+      const lit = msgSrc?.match(/^(["'])(.*)\1$/)
+      out.push({
+        kind: 'Expect',
+        cond: espr(mExp[1], n, locali),
+        action: mExp[2] as 'reject' | 'warn' | 'error',
+        message: msgSrc ? espr(msgSrc, n, locali) : null,
+        // nome della regola nei conteggi: il messaggio scritto, se è un testo
+        // fisso, altrimenti la condizione com'è scritta
+        label: lit ? lit[2] : mExp[1].trim(),
+      })
+      continue
+    }
+    // (`expect = …` resta l'assegnazione di un campo che si chiama expect)
+    if (/^expect\s+(?!=)/.test(text)) {
+      throw new ScriptParseError('expected form: expect <condition> else reject|warn|error ["message"]', n)
+    }
+
     // ── reject [motivo] ─────────────────────────────────────────
     if (text === 'reject') { out.push({ kind: 'Reject', reason: null }); continue }
     if (/^reject\s+/.test(text)) {
@@ -350,7 +377,7 @@ function blocco(righe: Riga[], cur: Cursore, locali: Set<string>, annidato: bool
 
     throw new ScriptParseError(
       `unrecognized instruction. Expected: an assignment "field = ...", "let", "if", ` +
-      `"repeat", "for", "emit", "skip", "reject", "log", "error"`, n)
+      `"repeat", "for", "emit", "skip", "reject", "expect", "log", "error"`, n)
   }
 
   if (annidato) {
@@ -450,6 +477,8 @@ export function istruzioniUsate(stmts: ScriptStmt[]): Set<ScriptStmt['kind']> {
   const visita = (lista: ScriptStmt[]) => {
     for (const s of lista) {
       viste.add(s.kind)
+      // P392: `expect … else reject` scarta righe come `reject`
+      if (s.kind === 'Expect' && s.action === 'reject') viste.add('Reject')
       if (s.kind === 'If') { visita(s.then); visita(s.else) }
       else if (s.kind === 'Repeat' || s.kind === 'For') visita(s.body)
     }
@@ -499,6 +528,7 @@ export function variabiliDiLaneUsate(stmts: ScriptStmt[]): { lette: Set<string>;
         case 'Assign': daExpr(s.expr); break
         case 'SetVar': scritte.add(s.name); daExpr(s.expr); break
         case 'Reject': if (s.reason) daExpr(s.reason); break
+        case 'Expect': daExpr(s.cond); if (s.message) daExpr(s.message); break
         case 'Log':    daExpr(s.expr); break
         case 'Error':  daExpr(s.expr); break
         case 'Repeat': daExpr(s.count); daStmt(s.body); break

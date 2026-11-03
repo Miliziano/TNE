@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { configurableNames, manifestVariables, ENGINE_RANGE_WITH_VARIABLES } from '../ir/runtimeVariables'
 import { useFlowStore, resyncNodeCounter, normalizeLoadedNodes } from '../store/flowStore'
+import type { RuleStat } from '../store/flowStore'
 import { invoke } from '@tauri-apps/api/core'
 import {
   isTauri,
@@ -27,6 +28,7 @@ import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
 import { validateDecodeTables } from '../ir/decodeTables'
+import { esempiFalliti } from '../lib/fpelEngine'
 import { compileSerializerTree } from '../ir/serializerTree'
 import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
 import { sourceFileSpecFields } from '../nodes/types/source_file/spec'
@@ -312,6 +314,20 @@ function startPolling() {
           case 'NodeOutputStats':
             store.setNodeStats(p.node_id, { perOutput: p.counts })
             break
+          case 'NodeRuleStats': {
+            // Regole `expect` dello Script (P392): una riga di log per regola,
+            // e i conteggi sul nodo (badge). Arriva anche se il nodo fallisce.
+            const rules = (p.rules ?? []) as RuleStat[]
+            store.setNodeStats(p.node_id, { rules })
+            for (const r of rules) {
+              const esito = r.violations === 0
+                ? 'always met'
+                : `${r.violations} row${r.violations === 1 ? '' : 's'} ${r.action === 'reject' ? 'rejected' : r.action === 'warn' ? 'flagged' : 'failed'}`
+              store.addLog(r.violations === 0 ? 'info' : r.action === 'error' ? 'error' : 'warn',
+                `rule "${r.rule}" (${r.action}): ${esito}`, p.node_id, p.lane_id)
+            }
+            break
+          }
         }
       }
     } catch (err) {
@@ -1416,6 +1432,12 @@ export function Toolbar() {
     const planName = currentPath
       ? currentPath.split(/[\\/]/).pop()!.replace(/\.ffplan$/i, '')
       : null
+    // P391: gli esempi delle funzioni utente devono tornare prima di compilare.
+    const esempi = await esempiFalliti(pool.userFunctions ?? [])
+    if (esempi.falliti.length) {
+      addLog('error', `User function examples that are not true — fix them before compiling:\n${esempi.falliti.map((f) => `  • ${f}`).join('\n')}`)
+      return
+    }
     let plan
     try {
       plan = buildRustPlan(nodes, edges, pool, runId, { forArtifact: true })
@@ -1515,6 +1537,13 @@ export function Toolbar() {
     // Costruisce il Plan JSON per Rust. Un errore di compilazione
     // (espressione invalida, template sconosciuto…) blocca il run:
     // meglio non partire che produrre dati sbagliati.
+    // P391: gli esempi delle funzioni utente devono tornare prima di partire.
+    const esempi = await esempiFalliti(pool.userFunctions ?? [])
+    if (esempi.falliti.length) {
+      addLog('error', `User function examples that are not true — fix them before running:\n${esempi.falliti.map((f) => `  • ${f}`).join('\n')}`)
+      setRunning(false)
+      return
+    }
     let plan
     try {
       plan = buildRustPlan(nodes, edges, pool, runId)

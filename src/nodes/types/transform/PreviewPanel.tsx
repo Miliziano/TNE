@@ -16,6 +16,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { useFlowStore } from '../../../store/flowStore'
 import { compileTransformFields, type TransformFieldSpec } from '../../../transforms/templateCompiler'
 import { parseUserFunctions } from '../../../ir/userFunctions'
+import type { ExprNode } from '../../../ir/exprParser'
+import { ExplainValue } from '../../../components/ExplainValue'
 
 const ACCENT = '#ffb347'
 
@@ -52,6 +54,9 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
   const [output,  setOutput]  = useState<Array<Record<string, unknown>> | null>(null)
   const [errore,  setErrore]  = useState<string | null>(null)
   const [inCorso, setInCorso] = useState(false)
+  // P391: ciò che è servito al run dell'anteprima, per "spiega questo valore"
+  const [eseguito, setEseguito] = useState<{ exprs: Map<string, ExprNode>; righe: Array<Record<string, unknown>> } | null>(null)
+  const [spiega, setSpiega] = useState<{ campo: string; expr: ExprNode; inputs: Record<string, unknown> } | null>(null)
 
   // Semina una riga vuota con i campi sorgente del transform.
   function semeVuoto() {
@@ -62,7 +67,7 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
   }
 
   async function esegui() {
-    setErrore(null); setOutput(null)
+    setErrore(null); setOutput(null); setSpiega(null); setEseguito(null)
 
     // 1) righe di prova
     let rows: unknown
@@ -100,6 +105,10 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
       })
       const parsed = JSON.parse(res)
       setOutput(Array.isArray(parsed) ? parsed : [])
+      setEseguito({
+        exprs: new Map(compiled.map((c) => [c.name, c.expr as ExprNode])),
+        righe: rows as Array<Record<string, unknown>>,
+      })
     } catch (e) {
       setErrore(e instanceof Error ? e.message : String(e))
     } finally {
@@ -180,7 +189,12 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
             <div style={{ fontSize: 10, fontWeight: 600, color: ACCENT, textTransform: 'uppercase',
                           letterSpacing: '.08em', padding: '4px 0',
                           borderBottom: `0.5px solid ${ACCENT}30`, marginBottom: 6 }}>
-              Uscita — {output.length} riga/e
+              Output — {output.length} {output.length === 1 ? 'row' : 'rows'}
+              {eseguito && eseguito.exprs.size > 0 && (
+                <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: '#8593b5', marginLeft: 8 }}>
+                  · click a computed value to see how it was calculated
+                </span>
+              )}
             </div>
             <div style={{ ...box, overflowX: 'auto', padding: 0 }}>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
@@ -194,17 +208,33 @@ export function TransformPreviewPanel({ nodeId }: { nodeId: string }) {
                 <tbody>
                   {output.map((r, i) => (
                     <tr key={i} style={{ borderBottom: '0.5px solid #1e2535' }}>
-                      {cols.map((c) => (
-                        <td key={c}
-                            style={{ ...td, color: r[c] === null || r[c] === undefined ? '#8593b5' : '#c8d4f0' }}>
-                          {fmt(r[c])}
-                        </td>
-                      ))}
+                      {cols.map((c) => {
+                        // P391: un campo calcolato si può spiegare (riga i ↔ riga di prova i)
+                        const expr = eseguito?.exprs.get(c)
+                        const ingresso = eseguito?.righe[i]
+                        const spiegabile = !!expr && !!ingresso
+                        return (
+                          <td key={c}
+                              title={spiegabile ? 'How was this value calculated?' : undefined}
+                              onClick={spiegabile ? () => setSpiega({ campo: c, expr: expr!, inputs: { row: ingresso } }) : undefined}
+                              style={{ ...td, color: r[c] === null || r[c] === undefined ? '#8593b5' : '#c8d4f0',
+                                       cursor: spiegabile ? 'pointer' : 'default',
+                                       textDecoration: spiegabile ? `underline dotted ${ACCENT}80` : 'none' }}>
+                            {fmt(r[c])}
+                          </td>
+                        )
+                      })}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {spiega && (
+              <div style={{ marginTop: 10 }}>
+                <ExplainValue titolo={`How "${spiega.campo}" was calculated`} expr={spiega.expr}
+                  inputs={spiega.inputs} onClose={() => setSpiega(null)} />
+              </div>
+            )}
           </div>
         )
       )}

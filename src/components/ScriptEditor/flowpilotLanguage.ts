@@ -23,7 +23,7 @@ export const FLOWPILOT_LANG_ID = 'flowpilot'
 /** Le istruzioni del linguaggio (v. design-nodo-script.md §3.1). */
 const ISTRUZIONI = [
   'let', 'if', 'else', 'repeat', 'for', 'in', 'as',
-  'emit', 'skip', 'reject', 'log', 'error',
+  'emit', 'skip', 'reject', 'log', 'error', 'expect', 'warn',
 ]
 
 /** Operatori-parola di FPEL, evidenziati come le istruzioni ma distinti. */

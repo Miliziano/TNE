@@ -150,6 +150,13 @@ impl NodeContext {
             node_id: self.node_id.clone(), error: crate::secrets::redact(&error),
         });
     }
+    /// P392: esito delle regole `expect` di uno Script.
+    pub fn emit_rule_stats(&self, rules: Vec<super::events::RuleStat>) {
+        push_event(EngineEvent::NodeRuleStats {
+            run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),
+            node_id: self.node_id.clone(), rules,
+        });
+    }
     pub fn emit_output_stats(&self, counts: std::collections::HashMap<String, u64>) {
         push_event(EngineEvent::NodeOutputStats {
             run_id: self.run_id.clone(), lane_id: self.lane_id.clone(),

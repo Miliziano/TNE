@@ -5,7 +5,7 @@
 // dall'espressione (verificato da `src/ir/fpelVector.test.ts`), una riga e il
 // risultato atteso. Qui l'albero si valuta in DUE modi — l'interprete
 // (`expr::eval`) e l'espressione compilata (`Compiled`) — e tutti e due devono
-// dare il risultato atteso. Così un'espressione scritta nello studio fa nel
+// dare il risultato atteso; dal P391 anche la spiegazione pezzo per pezzo. Così un'espressione scritta nello studio fa nel
 // motore ciò che il manuale promette, qualunque nodo la esegua.
 //
 //   cargo test --no-default-features --test fpel_vettori
@@ -41,6 +41,11 @@ fn contratto_fpel_studio_motore() {
         }
         if &compilato != atteso {
             errori.push(format!("{expr}: compilato {compilato}, atteso {atteso}"));
+        }
+        // P391: "spiega questo valore" deve arrivare allo stesso risultato.
+        let spiegato = app_lib::engine::spiega::spiega(&ir, &ctx);
+        if &spiegato["v"] != atteso {
+            errori.push(format!("{expr}: spiegazione {}, atteso {atteso}", spiegato["v"]));
         }
     }
     assert!(errori.is_empty(), "{} casi su {} non tornano:\n{}", errori.len(), casi.len(), errori.join("\n"));

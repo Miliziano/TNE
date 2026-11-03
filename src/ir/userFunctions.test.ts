@@ -6,10 +6,10 @@ const ok  = (cond: boolean, desc: string) => { if (cond) { pass++; console.log(`
 
 // Helpers ------------------------------------------------------------
 function build(defs: string[]) {
-  const { functions, errors } = parseUserFunctions(defs)
+  const { functions, errors, examples } = parseUserFunctions(defs)
   const map = new Map(functions.map((f) => [f.name, f]))
   const arity = new Map(functions.map((f) => [f.name, f.params.length]))
-  return { functions, errors, map, arity }
+  return { functions, errors, examples, map, arity }
 }
 function expand(call: string, defs: string[]): ExprNode {
   const { map, arity } = build(defs)
@@ -134,6 +134,18 @@ console.log('\n--- P389: funzioni x -> … nel corpo, senza catture ---')
      'a sinistra il parametro del corpo, a destra quello del chiamante')
   const e2: any = expand('any(aa, x -> ha(bs, x))', HA)
   ok(JSON.stringify(e) === JSON.stringify(e2), 'nome deterministico (stesso albero a ogni compilazione)')
+}
+
+console.log('\n--- P391: esempi ---')
+{
+  const r = build([...IVA, 'example iva(100, 22) == 22', 'esempio iva(50, 10) == 5'])
+  ok(r.errors.length === 0 && r.functions.length === 1, 'le righe d\'esempio non disturbano le funzioni')
+  ok(r.examples.length === 2 && r.examples[0].ast.kind === 'BinaryOp', 'due esempi, compilati')
+  ok(JSON.stringify(r.examples[0].ast).indexOf('"iva"') < 0, 'nell\'esempio la funzione è già espansa')
+  const conCampo = build([...IVA, 'example iva(prezzo, 22) == 22'])
+  ok(conCampo.errors.some((e) => /uses fields \(prezzo\)/.test(e.message)), 'un esempio con un campo è rifiutato')
+  const rotto = build([...IVA, 'example iva(100) == 22'])
+  ok(rotto.errors.some((e) => /example "iva\(100\) == 22"/.test(e.message)), 'un esempio con arità sbagliata è rifiutato')
 }
 
 console.log(`\n=== ${pass} passati, ${fail} falliti ===`)

@@ -984,6 +984,7 @@ function gravita(e){
   const t=(e&&e.type)||'', p=(e&&e.payload)||{};
   if(t==='RunFailed'||t==='NodeFailed') return 'err';
   if(t==='NodeInterrupted') return 'warn';
+  if(t==='NodeRuleStats' && Array.isArray(p.rules) && p.rules.some(r=>r&&r.violations>0)) return 'warn';
   if(t==='NodeLog'){
     if(p.level==='error') return 'err';
     if(p.level==='warn')  return 'warn';
@@ -1060,9 +1061,17 @@ function riepilogo(events){
                  stato: falliti.has(id)?'err':'warn' });
   }
 
+  // Regole `expect` dei nodi Script (P392): una voce per regola, con il nodo.
+  const regole=[];
+  for(const e of events){
+    if(e.type!=='NodeRuleStats' || !e.payload || !Array.isArray(e.payload.rules)) continue;
+    const nodo=etich.get(e.payload.node_id)||e.payload.node_id||'?';
+    for(const x of e.payload.rules) if(x) regole.push({ nodo, regola:x.rule, azione:x.action, viol:x.violations });
+  }
+
   const durata=(fine&&fine.payload&&fine.payload.elapsed_ms)||st.total_ms||
                ((inizio&&fine&&fine.ts)?(fine.ts-inizio):null);
-  return { esito, durata, picco, rrej, righe,
+  return { esito, durata, picco, rrej, righe, regole,
            nodi: righe.length,
            nAvviati: avviati.size, nInterrotti: interrotti.size, nFalliti: falliti.size,
            daEventi: !(ns && Object.keys(ns).length),
@@ -1103,6 +1112,15 @@ function renderRiepilogo(r){
       +'</span>').join('')+'</div>';
     if(r.daEventi) h+='<div class="muted" style="font-size:10px;margin:-4px 0 8px">'
       +'numbers reconstructed from node events (the final run summary did not contain them)</div>';
+  }
+  // REGOLE (P392): ogni `expect` dei nodi Script con le righe che l'hanno violata.
+  if(r.regole && r.regole.length){
+    const verbo={reject:'rejected',warn:'flagged',error:'failed'};
+    h+='<div class="nodi">'+r.regole.map(x=>
+      '<span class="nodo'+(x.viol>0?(x.azione==='error'?' err':' warn'):'')+'">'
+      +esc(x.nodo)+' &middot; '+esc(x.regola)
+      +' <b>'+(x.viol>0?(num(x.viol)+' '+esc(verbo[x.azione]||x.azione)):'always met')+'</b>'
+      +' <i>'+esc(x.azione)+'</i></span>').join('')+'</div>';
   }
   return h;
 }
@@ -1208,6 +1226,11 @@ function corpoEvento(e){
     if(d.total_private!=null) parti.push('privata '+mb(d.total_private));
     if(Array.isArray(d.processes)&&d.processes.length>1) parti.push(d.processes.length+' processi');
     return parti.join(' &middot; ');
+  }
+  if(e.type==='NodeRuleStats' && Array.isArray(pl.rules)){
+    return esc(pl.node_id||'')+': '+pl.rules.map(x=>x
+      ? esc(x.rule)+' ('+esc(x.action)+') <b>'+num(x.violations)+'</b>'
+      : '').join(' &middot; ');
   }
   return esc(JSON.stringify(pl));
 }

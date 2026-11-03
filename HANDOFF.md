@@ -2670,3 +2670,39 @@ provenienza dei campi, FPEL→SQL; quindi le attività per la prima versione da 
   vettore accetta `tables` per caso). Manuale FPEL §3.8 nuova, catalogo 107 funzioni.
 - Interfaccia: "Componenti" (titolo della palette) e "N lane · N nodi" (barra) ancora in
   italiano → in inglese, con singolare/plurale.
+
+## AGGIORNAMENTO — "Spiega questo valore" ed esempi nelle funzioni utente (stato al P391, 3 novembre)
+
+- Motore: `engine/spiega.rs` → `spiega(expr, ctx)` = calcolo pezzo per pezzo con la stessa
+  forma dell'albero (`{v, c:[…]}`; `null` = non valutato: rami di case dopo quello scelto,
+  argomenti di coalesce dopo il primo non nullo, corpo delle funzioni `x -> …`, tabella di
+  decode). Comando Tauri `fpel_explain(exprJson, inputsJson, variablesJson, mainInput)`
+  (registrato in lib.rs). Il contratto FPEL verifica che anche la spiegazione dia il
+  risultato atteso.
+- Studio: `src/ir/exprText.ts` (albero → testo canonico, figli nell'ordine di spiega.rs;
+  test: andata e ritorno su tutto il contratto + precedenze), `src/lib/fpelEngine.ts`
+  (`spiegaValore`, `verificaEsempi`, `esempiFalliti`), `components/ExplainValue.tsx`
+  (`CalcoloSpiegato`, riquadro). Anteprima del Transform: clic su un valore calcolato.
+- Funzioni utente: righe `example <espressione>` / `esempio …` (devono essere vere, solo
+  valori scritti) → `parseUserFunctions(...).examples`; verificate dal motore nella
+  finestra (✓/✗), a ogni Run e a ogni Compila (un esempio falso blocca, motivo nel log).
+  Import/export `.ffpel` porta anche gli esempi.
+- Interfaccia: "Uscita — n riga/e" dell'anteprima ora in inglese.
+- Non fatto: la spiegazione nel TMap e nel Filter (non hanno ancora un'anteprima).
+## AGGIORNAMENTO — Regole `expect` con contatori (stato al P392, 3 novembre)
+
+- Nodo Script: istruzione `expect <cond> else reject|warn|error [messaggio]`. Violazione =
+  condizione non vera (null compreso). reject → porta reject col messaggio; warn → la riga
+  prosegue, si logga solo la prima violazione; error → il nodo fallisce. Nome della regola =
+  messaggio se è un testo fisso, altrimenti il testo della condizione. `expect`/`warn` non
+  sono parole riservate.
+- IR: `{kind:'Expect', cond, action, message, label}` (`scriptParser.ts`); motore:
+  `ScriptStmt::Expect`, registro `Regole` in `nodes/script.rs`, contatori per regola.
+- Evento nuovo (additivo) `NodeRuleStats { run_id, lane_id, node_id, rules:[{rule, action,
+  violations}] }`, emesso a fine nodo anche se fallisce (`emit_rule_stats`); riga aggiunta in
+  `vectors/engine_events_v1.ndjson`, `ALL` = 20.
+- Studio: badge sul nodo (`✓ n rules` / `⚑ k/n rules`), una riga di log per regola;
+  `NodeRunStats.rules`. Monitor: le regole nel riepilogo del run e l'evento in una riga.
+  Template Script "Data rules (expect)"; parola evidenziata in Monaco.
+- Test: `tests/script_expect.rs` (reject/warn/error, conteggi, evento anche su fallimento),
+  8 casi in `scriptParser.test.ts`. Manuale FPEL §4.2.

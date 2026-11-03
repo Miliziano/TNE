@@ -364,6 +364,7 @@ pub fn run() {
         engine::engine_test_bus,
         engine::engine_run,
         engine::engine_preview_node,
+        engine::fpel_explain,
         engine::stop_run,
         mail_send,
         mqtt_subscribe,

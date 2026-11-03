@@ -198,6 +198,30 @@ decode("paesi", codice_paese, "sconosciuto")
   espressioni e non dipende da file esterni. Nel motore la ricerca è in tempo
   costante.
 
+### 3.9 Esempi nelle funzioni utente e "spiega questo valore" (P391)
+**Esempi.** Nella finestra delle funzioni utente, accanto alle definizioni, si
+scrivono righe d'esempio che devono essere **vere**:
+
+```
+funzione iva(imponibile, aliquota) { ritorna imponibile * aliquota / 100 }
+example iva(100, 22) == 22
+example iva(0, 22) == 0
+```
+
+Il motore li verifica mentre si scrive (✓/✗ sotto l'editor, con il valore
+ottenuto quando è un confronto `==`), a ogni **Run** e a ogni **Compila**: un
+esempio falso blocca il Run e la compilazione, con il motivo nel log. Un
+esempio usa solo valori scritti (non campi). Le righe d'esempio viaggiano con
+la libreria `.ffpel` esportata e importata.
+
+**Spiega questo valore.** Nell'anteprima del Transform, un valore calcolato
+(sottolineato) si clicca: compare il calcolo pezzo per pezzo, fatto dal motore
+su quella riga di prova — per ogni pezzo dell'espressione il suo valore; i rami
+che l'espressione non ha avuto bisogno di calcolare (un `case` dopo il ramo
+scelto, un `??` dopo il primo valore non nullo) sono segnati «not evaluated».
+Il testo mostrato è la forma canonica dell'espressione (gli `in`, `between` e
+`??` appaiono come gli operatori equivalenti), cioè ciò che il motore esegue.
+
 ## 4. Il linguaggio di istruzioni (nodo Script)
 
 ### 4.1 Modello di esecuzione
@@ -226,6 +250,7 @@ corpo, `if` annidati inclusi). Due modalità (prop *Sorgente delle righe*):
 | Scarta | `reject [<motivo>]` | Manda la riga alla porta **reject** con un motivo |
 | Log | `log <espr>` | Riga di log (livello info) |
 | Errore | `error <espr>` | Fa **fallire** la riga/nodo con un messaggio |
+| Regola | `expect <cond> else reject\|warn\|error [<messaggio>]` | Dichiara cosa devono rispettare i dati; il monitor conta le violazioni (P392) |
 
 Dettagli che contano:
 
@@ -249,6 +274,26 @@ Dettagli che contano:
   scritture **persistono fra le righe** (utile per accumulatori), ma non escono
   dal nodo. Lo studio avvisa se leggi una `var("x")` che non è né dichiarata
   nella lane né mai scritta.
+- **`expect` (P392)** è una **regola sui dati** con un nome e un contatore.
+  `expect quantity > 0 else reject "quantity must be positive"`: se la
+  condizione **non** è vera (anche quando è `null`) la riga viola la regola.
+  L'azione decide cosa succede alla riga:
+  - **`reject`** — la riga va alla porta *reject* con il messaggio come motivo
+    (come `reject`, serve la porta abilitata) e il blocco si ferma lì;
+  - **`warn`** — la riga **prosegue**; la prima violazione finisce nel log
+    come avviso (le altre si contano soltanto, per non inondare il log);
+  - **`error`** — il nodo **fallisce** alla prima violazione.
+
+  Il nome della regola è il messaggio, se è un testo fisso, altrimenti il testo
+  della condizione (`expect id is not null else error` si chiama
+  `id is not null`; il messaggio di default è `expectation not met: <nome>`).
+  A fine nodo, **anche se è fallito**, il motore emette l'evento
+  `NodeRuleStats` con ogni regola e le righe che l'hanno violata: lo studio lo
+  mostra sul nodo (`✓ 3 rules` oppure `⚑ 1/3 rules`) e nel log, una riga per
+  regola; il monitor lo riporta nel riepilogo del run. Una regola dentro un `if`
+  si conta solo sulle righe che ci arrivano; una riga già scartata da una regola
+  precedente non si controlla più. `expect` e `warn` **non** sono parole
+  riservate: si possono usare come nomi di campo.
 
 ### 4.3 Regole di scrittura
 - **Commenti** con `//` fino a fine riga.
@@ -425,7 +470,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 
 ## 6. Template pronti
 
-### 6.1 Template del nodo Script (20)
+### 6.1 Template del nodo Script (21)
 Nell'editor dello Script, il menu **⚡ template** inserisce esempi pronti,
 raggruppati per tema. Usano **solo** funzioni che esistono nel motore (un
 template che non gira insegnerebbe una sintassi sbagliata).
@@ -438,6 +483,7 @@ template che non gira insegnerebbe una sintassi sbagliata).
 - **Filtrare (skip)** — Le righe che non interessano non escono da nessuna porta
 - **Scartare con motivo (reject)** — Manda la riga sulla porta reject spiegando perche
 - **Fallire (error)** — Ferma il nodo e manda l'errore all'error handler della lane
+- **Regole sui dati (expect)** — Dichiara cosa devono rispettare i dati; il monitor conta le violazioni di ogni regola
 
 **Piu righe**
 

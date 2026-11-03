@@ -6,6 +6,7 @@
 {"type":"NodeCompleted","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n1","stats":{"rows_in":100,"rows_out":98,"rows_rejected":2,"elapsed_ms":66,"error":null}}}
 {"type":"NodeLog","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n3","node_label":"Log","level":"info","row_num":7,"message":"cliente 42","target":"panel"}}
 {"type":"NodeOutputStats","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n4","counts":{"out_a":60,"reject":2}}}
+{"type":"NodeRuleStats","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n4","rules":[{"rule":"quantity must be positive","action":"reject","violations":2},{"rule":"price > 0","action":"warn","violations":0}]}}
 {"type":"NodeFailed","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n2","error":"boom"}}
 {"type":"NodeInterrupted","payload":{"run_id":"export-1-1700000000000","lane_id":"l1","node_id":"n5","reason":"lane interrupted by the error handler"}}
 {"type":"LaneSessionStarted","payload":{"run_id":"export-1-1700000000000","lane_id":"l2","node_id":"w1","session":3,"group_size":5}}

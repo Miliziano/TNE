@@ -94,6 +94,17 @@ pub enum EngineEvent {
         target:     String,   // "panel" | "window" | "both_window"
     },
     
+    /// P392: regole `expect` di un nodo Script con quante righe le hanno
+    /// violate in questo run (anche 0: la regola ha tenuto). Emesso a fine
+    /// nodo, prima di NodeCompleted. Evento AGGIUNTO: chi non lo conosce lo
+    /// ignora (contratto additivo, D8).
+    NodeRuleStats {
+        run_id:  RunId,
+        lane_id: LaneId,
+        node_id: NodeId,
+        rules:   Vec<RuleStat>,
+    },
+
     /// Conteggi per handle di uscita — nodi multi-output (filter,
     /// tmap, ...). Emesso a fine nodo, prima di NodeCompleted.
     NodeOutputStats {
@@ -226,6 +237,16 @@ impl EngineEvent {
 // - Una variante nuova non compila finché non la si aggiunge a `variant_name`
 //   (match senza `_`) e il test chiede di metterne un esempio nel vettore.
 // Se il test fallisce: si corregge il codice, non il vettore.
+/// P392: una regola `expect` e le righe che l'hanno violata.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RuleStat {
+    /// la regola come l'ha scritta l'utente (il messaggio, o la condizione)
+    pub rule:       String,
+    /// cosa succede alla riga che la viola: "reject" | "warn" | "error"
+    pub action:     String,
+    pub violations: u64,
+}
+
 #[cfg(test)]
 mod contract_tests {
     use super::EngineEvent;
@@ -241,6 +262,7 @@ mod contract_tests {
             EngineEvent::NodeCompleted { .. } => "NodeCompleted",
             EngineEvent::NodeLog { .. } => "NodeLog",
             EngineEvent::NodeOutputStats { .. } => "NodeOutputStats",
+            EngineEvent::NodeRuleStats { .. } => "NodeRuleStats",
             EngineEvent::NodeFailed { .. } => "NodeFailed",
             EngineEvent::NodeInterrupted { .. } => "NodeInterrupted",
             EngineEvent::LaneSessionStarted { .. } => "LaneSessionStarted",
@@ -254,7 +276,7 @@ mod contract_tests {
             EngineEvent::ConnectionError { .. } => "ConnectionError",
         }
     }
-    const ALL: usize = 19;
+    const ALL: usize = 20;
 
     #[test]
     fn eventi_stabili_rispetto_al_vettore() {

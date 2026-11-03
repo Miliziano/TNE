@@ -46,6 +46,17 @@ enum ScriptStmt {
     },
     Skip,
     Reject { #[serde(default)] reason: Option<ExprNode> },
+    /// P392: `expect <condizione> else reject|warn|error [messaggio]` — una
+    /// regola sui dati: se la condizione non è vera la riga si scarta (reject),
+    /// prosegue (warn) o fa fallire il nodo (error); in ogni caso la violazione
+    /// si CONTA per regola e il conteggio va al monitor (NodeRuleStats).
+    Expect {
+        cond:    ExprNode,
+        action:  String,
+        #[serde(default)] message: Option<ExprNode>,
+        /// nome della regola nei conteggi (il messaggio scritto, o la condizione)
+        label:   String,
+    },
     Log    { expr: ExprNode },
     Error  { expr: ExprNode },
     /// Manda a valle una COPIA della riga com'è ora. Non interrompe: le
@@ -75,6 +86,8 @@ enum Istr {
     If     { cond: Compiled, then: Vec<Istr>, altrimenti: Vec<Istr> },
     Skip,
     Reject { reason: Option<Compiled> },
+    /// `regola` = indice nel registro delle regole del nodo (conteggi)
+    Expect { cond: Compiled, action: Azione, message: Option<Compiled>, regola: usize },
     Log    { c: Compiled },
     Error  { c: Compiled },
     Emit,
@@ -82,26 +95,59 @@ enum Istr {
     For    { var_name: String, list: Compiled, body: Vec<Istr> },
 }
 
-fn compila(stmts: &[ScriptStmt]) -> Vec<Istr> {
-    stmts.iter().map(|s| match s {
+/// P392: cosa fa una regola `expect` violata.
+#[derive(Clone, Copy, PartialEq)]
+enum Azione { Scarta, Avvisa, Fallisci }
+
+/// Le regole `expect` di un nodo, nell'ordine in cui compaiono, con i conteggi.
+#[derive(Default)]
+struct Regole {
+    voci: Vec<(String, Azione, u64)>,
+}
+
+impl Regole {
+    fn esito(&self) -> Vec<crate::engine::events::RuleStat> {
+        self.voci.iter().map(|(r, a, n)| crate::engine::events::RuleStat {
+            rule: r.clone(),
+            action: match a { Azione::Scarta => "reject", Azione::Avvisa => "warn", Azione::Fallisci => "error" }.to_string(),
+            violations: *n,
+        }).collect()
+    }
+}
+
+fn compila(stmts: &[ScriptStmt], regole: &mut Regole) -> Result<Vec<Istr>, String> {
+    stmts.iter().map(|s| Ok(match s {
         ScriptStmt::Let { name, expr }    => Istr::Let { name: name.clone(), c: Compiled::new(expr) },
         ScriptStmt::Assign { field, expr } => Istr::Assign { field: field.clone(), c: Compiled::new(expr) },
         ScriptStmt::SetVar { name, expr } => Istr::SetVar { name: name.clone(), c: Compiled::new(expr) },
         ScriptStmt::If { cond, then, altrimenti } => Istr::If {
-            cond: Compiled::new(cond), then: compila(then), altrimenti: compila(altrimenti),
+            cond: Compiled::new(cond), then: compila(then, regole)?, altrimenti: compila(altrimenti, regole)?,
         },
+        ScriptStmt::Expect { cond, action, message, label } => {
+            let azione = match action.as_str() {
+                "reject" => Azione::Scarta,
+                "warn"   => Azione::Avvisa,
+                "error"  => Azione::Fallisci,
+                altro => return Err(format!("expect: unknown action \"{}\" (reject, warn or error)", altro)),
+            };
+            regole.voci.push((label.clone(), azione, 0));
+            Istr::Expect {
+                cond: Compiled::new(cond), action: azione,
+                message: message.as_ref().map(Compiled::new), regola: regole.voci.len() - 1,
+            }
+        }
         ScriptStmt::Skip => Istr::Skip,
         ScriptStmt::Reject { reason } => Istr::Reject { reason: reason.as_ref().map(Compiled::new) },
         ScriptStmt::Log { expr }   => Istr::Log { c: Compiled::new(expr) },
         ScriptStmt::Error { expr } => Istr::Error { c: Compiled::new(expr) },
         ScriptStmt::Emit => Istr::Emit,
         ScriptStmt::Repeat { count, var_name, body } => Istr::Repeat {
-            count: Compiled::new(count), var_name: var_name.clone(), body: compila(body),
+            count: Compiled::new(count), var_name: var_name.clone(), body: compila(body, regole)?,
         },
         ScriptStmt::For { var_name, list, body } => Istr::For {
-            var_name: var_name.clone(), list: Compiled::new(list), body: compila(body),
+            var_name: var_name.clone(), list: Compiled::new(list), body: compila(body, regole)?,
         },
-    }).collect()
+    })).collect()
 }
 
 /// Tetto ai giri di ciclo per riga in ingresso. Serve a trasformare un
@@ -146,7 +192,9 @@ pub async fn run(
         // ancora da scrivere.
         None => Vec::new(),
     };
-    let body: Vec<Istr> = compila(&body);
+    let mut regole = Regole::default();
+    let body: Vec<Istr> = compila(&body, &mut regole)
+        .map_err(|e| format!("script {}: {}", ctx.node_id.0, e))?;
 
     // La porta reject va presa PRIMA dell'uscita principale (modello di
     // filter e dei parser, P31/P32): `take_primary_output` lascia cadere
@@ -187,28 +235,35 @@ pub async fn run(
         rx
     };
 
-    match rx {
-        // ── Caso normale: una passata per ogni riga in ingresso ──
-        Some(mut rx) => {
-            while let Some(row) = rx.recv().await {
-                rows_in += 1;
-                let prosegui = passata(&body, row, &mut variables, &ctx, rows_in,
-                                       &tx, &reject_tx,
-                                       &mut rows_out, &mut rows_rejected, true).await?;
-                if !prosegui { break; }
+    // P392: i conteggi delle regole `expect` escono anche se il nodo fallisce
+    // (un `expect … else error` fa fallire proprio per una regola).
+    let esito: Result<(), String> = async {
+        match rx {
+            // ── Caso normale: una passata per ogni riga in ingresso ──
+            Some(mut rx) => {
+                while let Some(row) = rx.recv().await {
+                    rows_in += 1;
+                    let prosegui = passata(&body, row, &mut variables, &ctx, rows_in,
+                                           &tx, &reject_tx,
+                                           &mut rows_out, &mut rows_rejected, true, &mut regole).await?;
+                    if !prosegui { break; }
+                }
+            }
+
+            // ── Generatore: una passata sola, senza riga d'ingresso ──
+            // La riga di lavoro parte VUOTA e NON esce da sola a fine corpo:
+            // senza `emit` un generatore non produce niente, ed è giusto —
+            // far uscire una riga vuota sarebbe inventare un dato.
+            None => {
+                passata(&body, Row::new(), &mut variables, &ctx, 0,
+                        &tx, &reject_tx,
+                        &mut rows_out, &mut rows_rejected, false, &mut regole).await?;
             }
         }
-
-        // ── Generatore: una passata sola, senza riga d'ingresso ──
-        // La riga di lavoro parte VUOTA e NON esce da sola a fine corpo:
-        // senza `emit` un generatore non produce niente, ed è giusto —
-        // far uscire una riga vuota sarebbe inventare un dato.
-        None => {
-            passata(&body, Row::new(), &mut variables, &ctx, 0,
-                    &tx, &reject_tx,
-                    &mut rows_out, &mut rows_rejected, false).await?;
-        }
-    }
+        Ok(())
+    }.await;
+    if !regole.voci.is_empty() { ctx.emit_rule_stats(regole.esito()); }
+    esito?;
 
     let stats = NodeStats {
         rows_in,
@@ -240,6 +295,7 @@ async fn passata(
     rows_out:         &mut u64,
     rows_rejected:    &mut u64,
     uscita_implicita: bool,
+    regole:           &mut Regole,
 ) -> Result<bool, String> {
     let mut riga   = riga_iniziale;
     // I locali vivono in una riga sintetica, azzerata a ogni passata: un
@@ -247,7 +303,7 @@ async fn passata(
     let mut locali = Row::new();
     let mut emesse: Vec<Row> = Vec::new();
 
-    let esito = esegui(body, &mut riga, &mut locali, variables, ctx, row_num, &mut emesse);
+    let esito = esegui(body, &mut riga, &mut locali, variables, ctx, row_num, &mut emesse, regole);
 
     // Le righe di `emit` escono in ogni caso: sono state prodotte PRIMA
     // che il corpo decidesse come finire. Così `repeat 3 { emit }` seguito
@@ -290,6 +346,7 @@ async fn passata(
 /// Non è ricorsivo sui dati, solo sui blocchi annidati: il linguaggio
 /// non ha cicli né chiamate, quindi la profondità è quella che l'utente
 /// ha scritto e non può crescere a runtime.
+#[allow(clippy::too_many_arguments)]
 fn esegui(
     stmts:     &[Istr],
     riga:      &mut Row,
@@ -303,6 +360,8 @@ fn esegui(
     // impacchettare il future: raccogliere tiene la funzione sincrona e
     // la ricorsione banale. Il tetto MAX_GIRI limita quanto può crescere.
     emesse:    &mut Vec<Row>,
+    // P392: registro delle regole `expect` del nodo, coi conteggi
+    regole:    &mut Regole,
 ) -> Flow {
     for stmt in stmts {
         match stmt {
@@ -331,7 +390,7 @@ fn esegui(
                 // condizione in un filter. Duplicare la regola qui
                 // significherebbe farle divergere alla prima modifica.
                 let rami = if is_truthy(&v) { then } else { altrimenti };
-                match esegui(rami, riga, locali, variables, ctx, row_num, emesse) {
+                match esegui(rami, riga, locali, variables, ctx, row_num, emesse, regole) {
                     // Un blocco che non decide niente lascia proseguire
                     // il blocco esterno; gli altri esiti risalgono.
                     Flow::Continua => {}
@@ -357,7 +416,7 @@ fn esegui(
                         // aspetta 1,2,3 e non 0,1,2.
                         locali.insert(nome.clone(), Value::Int(i as i64 + 1));
                     }
-                    match esegui(body, riga, locali, variables, ctx, row_num, emesse) {
+                    match esegui(body, riga, locali, variables, ctx, row_num, emesse, regole) {
                         Flow::Continua => {}
                         altro          => return altro,
                     }
@@ -381,7 +440,7 @@ fn esegui(
                 }
                 for el in elementi {
                     locali.insert(var_name.clone(), Value::from_json(el));
-                    match esegui(body, riga, locali, variables, ctx, row_num, emesse) {
+                    match esegui(body, riga, locali, variables, ctx, row_num, emesse, regole) {
                         Flow::Continua => {}
                         altro          => return altro,
                     }
@@ -389,6 +448,30 @@ fn esegui(
             }
 
             Istr::Skip => return Flow::Salta,
+
+            Istr::Expect { cond, action, message, regola } => {
+                if !is_truthy(&valuta(cond, riga, locali, variables)) {
+                    regole.voci[*regola].2 += 1;
+                    // Il messaggio si calcola solo quando serve: per `warn` dopo
+                    // la prima violazione si conta e basta.
+                    if matches!(action, Azione::Avvisa) && regole.voci[*regola].2 > 1 { continue }
+                    let testo = match message {
+                        Some(m) => valuta(m, riga, locali, variables).as_str_repr(),
+                        None    => format!("expectation not met: {}", regole.voci[*regola].0),
+                    };
+                    let voce = &regole.voci[*regola];
+                    match action {
+                        Azione::Scarta   => return Flow::Scarta(testo),
+                        Azione::Fallisci => return Flow::Fallisci(testo),
+                        // La riga prosegue; il log dice solo la PRIMA violazione di
+                        // ogni regola (le altre sono nel conteggio, non una riga di
+                        // log per riga di dati).
+                        Azione::Avvisa => ctx.emit_log(&ctx.label, "warn", row_num,
+                            format!("rule \"{}\" not met (first time at row {}): {} — every violation is counted in the run summary",
+                                    voce.0, row_num, testo), "panel"),
+                    }
+                }
+            }
 
             Istr::Reject { reason } => {
                 let motivo = match reason {

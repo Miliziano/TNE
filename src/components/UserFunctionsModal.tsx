@@ -15,6 +15,7 @@ import { parseUserFunctions } from '../ir/userFunctions'
 import { ScriptEditor } from './ScriptEditor'
 import { FunctionPicker } from './FunctionPicker'
 import { isTauri, openFileDialog, saveFileDialog, readFile, writeFile } from '../lib/tauri'
+import { verificaEsempi, descriviEsito, type EsitoEsempio } from '../lib/fpelEngine'
 
 const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
@@ -36,10 +37,22 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
 
   useEffect(() => { if (open) setText((defs ?? []).join('\n')) }, [open, defs])
 
-  if (!open) return null
-
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  const { functions, errors } = parseUserFunctions(lines)
+  const { functions, errors, examples } = parseUserFunctions(lines)
+
+  // P391: gli esempi li verifica il MOTORE, poco dopo che si smette di scrivere.
+  const [esiti, setEsiti] = useState<EsitoEsempio[] | null>(null)
+  const chiaveEsempi = errors.length ? '' : examples.map((e) => JSON.stringify(e.ast)).join('|') + '#' + JSON.stringify(functions)
+  useEffect(() => {
+    setEsiti(null)
+    if (!open || !chiaveEsempi || !examples.length || !isTauri()) return
+    let vivo = true
+    const t = setTimeout(() => { verificaEsempi(examples).then((r) => { if (vivo) setEsiti(r) }) }, 400)
+    return () => { vivo = false; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, chiaveEsempi])
+
+  if (!open) return null
 
   const salva = () => { setUserFunctions(lines); onClose() }
 
@@ -48,7 +61,12 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
     const esistenti = new Set(parseUserFunctions(lines).functions.map((fn) => fn.name))
     const aggiunte: string[] = []
     for (const riga of content.split('\n').map((l) => l.trim()).filter(Boolean)) {
-      const m = /funzione\s+([A-Za-z_][A-Za-z0-9_]*)/i.exec(riga)
+      // P391: le righe d'esempio della libreria vengono con le funzioni
+      if (/^(example|esempio)\s/i.test(riga)) {
+        if (!lines.includes(riga) && !aggiunte.includes(riga)) aggiunte.push(riga)
+        continue
+      }
+      const m = /(?:funzione|function)\s+([A-Za-z_][A-Za-z0-9_]*)/i.exec(riga)
       if (!m) continue
       const nome = m[1].toLowerCase()
       if (esistenti.has(nome)) continue   // duplicato: salta
@@ -113,6 +131,9 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
             <code style={{ color: ACCENT }}>function name(par1, par2) {'{'} return expression {'}'}</code>.
             They are <b>expanded at compile-time</b> in expressions. The body is a single expression and can use
             only its parameters (and the built-in functions); no recursion, no redefining the built-ins.
+            {' '}Add <b>examples</b> that must be true:{' '}
+            <code style={{ color: ACCENT }}>example iva(100, 22) == 22</code> — the engine checks them here,
+            at every Run and at every Compile.
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -167,6 +188,24 @@ export function UserFunctionsModal({ open, onClose }: { open: boolean; onClose: 
           ) : (
             <div style={{ fontSize: 11, color: '#3ddc84' }}>
               {functions.length === 0 ? 'No functions defined.' : `${functions.length} valid function(s): ${functions.map((f) => `${f.name}(${f.params.join(', ')})`).join(' · ')}`}
+            </div>
+          )}
+
+          {/* P391: esempi verificati dal motore */}
+          {errors.length === 0 && examples.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: '#8a94a8', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                Examples
+              </div>
+              {!isTauri() && (
+                <div style={{ fontSize: 11, color: '#8593b5' }}>The engine checks the examples in the desktop app.</div>
+              )}
+              {isTauri() && !esiti && <div style={{ fontSize: 11, color: '#8593b5' }}>checking…</div>}
+              {esiti?.map((e, i) => (
+                <div key={i} style={{ fontSize: 11, fontFamily: 'monospace', color: e.ok ? '#3ddc84' : '#ff9a94' }}>
+                  {e.ok ? '✓ ' + e.text : '✗ ' + descriviEsito(e)}
+                </div>
+              ))}
             </div>
           )}
         </div>

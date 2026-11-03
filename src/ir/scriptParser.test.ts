@@ -234,5 +234,35 @@ ok('nome dinamico non contato', () => {
   eq(r.lette.size, 0, 'var(dinamico) si salta')
 })
 
+// ── P392: expect ───────────────────────────────────────────────
+ok('expect else reject con messaggio fisso', () => {
+  const [st] = parseScript('expect qty > 0 else reject "quantity must be positive"') as any
+  eq(st.kind, 'Expect', 'kind'); eq(st.action, 'reject', 'azione')
+  eq(st.label, 'quantity must be positive', 'nome della regola = messaggio')
+  eq(st.cond.op, 'GT', 'condizione')
+})
+ok('expect else warn senza messaggio: nome = condizione', () => {
+  const [st] = parseScript('expect price between 1 and 100 else warn') as any
+  eq(st.action, 'warn', 'azione'); eq(st.message, null, 'messaggio'); eq(st.label, 'price between 1 and 100', 'nome')
+})
+ok('expect con messaggio calcolato', () => {
+  const [st] = parseScript('expect qty > 0 else error f"bad qty {qty}"') as any
+  eq(st.action, 'error', 'azione'); eq(st.message.name, 'concat', 'messaggio calcolato'); eq(st.label, 'qty > 0', 'nome')
+})
+ok('expect con case … else … end nella condizione', () => {
+  const [st] = parseScript('expect case when a then 1 else 0 end == 1 else reject') as any
+  eq(st.cond.op, 'EQ', 'la condizione arriva fino all\'ultimo else')
+})
+ok('expect dentro un if', () => {
+  const [st] = parseScript('if tipo == "B" {\n  expect sconto <= 10 else warn\n}') as any
+  eq(st.then[0].kind, 'Expect', 'annidato')
+})
+ok('un campo chiamato expect si assegna ancora', () => {
+  const [st] = parseScript('expect = 1') as any
+  eq(st.kind, 'Assign', 'assegnazione')
+})
+bad('expect qty > 0', 'expect senza else')
+bad('expect qty > 0 else ignora', 'azione sconosciuta')
+
 console.log(`\n=== ${pass} passati, ${fail} falliti ===`)
 process.exit(fail > 0 ? 1 : 0)

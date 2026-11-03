@@ -23,6 +23,7 @@
 pub mod types;
 pub mod row;       // P385: riga con schema condiviso
 pub mod lotti;     // P387: righe in uscita a lotti, senza attese per i flussi lenti
+pub mod spiega;    // P391: "spiega questo valore" — un'espressione calcolata pezzo per pezzo
 pub mod events;
 pub mod bus;
 pub mod executor;
@@ -512,6 +513,44 @@ pub async fn stop_run(run_id: String) -> Result<(), String> {
         Some(t) => { t.cancel(); Ok(()) }
         None    => Err(format!("run '{}' not found (already finished?)", run_id)),
     }
+}
+
+// ─── FPEL: spiega un valore / valuta un esempio (P391) ──────────
+// Calcola un'espressione (albero già compilato dallo studio) su righe date e
+// restituisce il calcolo pezzo per pezzo (v. engine/spiega.rs). Usato dallo
+// studio per "spiega questo valore" nell'anteprima e per gli esempi delle
+// funzioni utente. Nessuna I/O: solo il valutatore.
+//   inputs_json: { "row": {…} } per i nodi a un ingresso, oppure un oggetto
+//                per ingresso ({ "input_main": {…}, "input_2": {…} }) per il TMap
+#[cfg_attr(feature = "desktop", tauri::command)]
+pub async fn fpel_explain(
+    expr_json:      String,
+    inputs_json:    String,
+    variables_json: Option<String>,
+    main_input:     Option<String>,
+) -> Result<String, String> {
+    use crate::engine::types::{Row, Value};
+    let expr: crate::engine::expr::ExprNode = serde_json::from_str(&expr_json)
+        .map_err(|e| format!("invalid expression tree: {}", e))?;
+    let inputs: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&inputs_json)
+        .map_err(|e| format!("invalid input rows: {}", e))?;
+    let mut righe: Vec<(String, Row)> = Vec::new();
+    for (nome, riga) in inputs {
+        let obj = riga.as_object().cloned()
+            .ok_or_else(|| format!("the row of \"{}\" is not a JSON object", nome))?;
+        righe.push((nome, Row::from_json_object(obj)));
+    }
+    let variables: HashMap<String, Value> = match variables_json {
+        Some(s) if !s.trim().is_empty() => {
+            let obj: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&s)
+                .map_err(|e| format!("invalid variables: {}", e))?;
+            obj.into_iter().map(|(k, v)| (k, Value::from_json(v))).collect()
+        }
+        _ => HashMap::new(),
+    };
+    let ctx = crate::engine::expr::EvalContext::from_pairs(
+        righe.iter().map(|(n, r)| (n.as_str(), r)), &variables, main_input.as_deref());
+    Ok(spiega::spiega(&expr, &ctx).to_string())
 }
 
 // ── Anteprima di un nodo in ISOLAMENTO (P237) ─────────────────────

@@ -134,7 +134,11 @@ export interface NodeRunStats {
   throughputRps?: number
   elapsedMs?:    number
   perOutput?:    Record<string, number>   // handle → righe (nodi multi-uscita)
+  rules?:        RuleStat[]               // regole `expect` dello Script (P392)
 }
+
+/** Una regola `expect` del nodo Script e quante righe l'hanno violata. */
+export interface RuleStat { rule: string; action: 'reject' | 'warn' | 'error'; violations: number }
 
 
 

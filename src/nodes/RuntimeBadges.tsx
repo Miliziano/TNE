@@ -96,6 +96,15 @@ export function CounterBadge({ stats }: { stats: NodeRunStats }) {
           {fmtRps(stats.throughputRps)}/s
         </span>
       )}
+      {stats.rules && stats.rules.length > 0 && (() => {
+        // regole `expect` (P392): quante sono state violate almeno una volta
+        const violate = stats.rules.filter((r) => r.violations > 0).length
+        return (
+          <span style={{ color: violate ? '#ffb347' : '#3ddc84' }}>
+            {violate ? `⚑ ${violate}/${stats.rules.length} rules` : `✓ ${stats.rules.length} rules`}
+          </span>
+        )
+      })()}
       {stats.elapsedMs != null && stats.elapsedMs > 0 && (
         <span style={{ opacity: 0.75 }}>{fmtElapsed(stats.elapsedMs)}</span>
       )}

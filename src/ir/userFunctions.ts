@@ -42,7 +42,16 @@ const DEF_RE = /^\s*(?:function|funzione)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)
 export interface ParsedFunctions {
   functions: UserFunction[]
   errors:    Array<{ name?: string; message: string }>
+  /** P391: esempi `example iva(100, 22) == 22` — espressioni che devono essere
+   *  VERE. Le verifica il motore (lib/fpelEngine.ts) quando si salvano le
+   *  funzioni, a ogni Run e a ogni compilazione dell'artifact. */
+  examples:  UserFunctionExample[]
 }
+
+export interface UserFunctionExample { text: string; ast: ExprNode }
+
+/** Riga d'esempio: `example <espressione>` (o `esempio …`). */
+const EXAMPLE_RE = /^\s*(?:example|esempio)\s+(.+?)\s*$/i
 
 /**
  * Legge un insieme di definizioni (una per stringa). Due passate: prima le
@@ -55,8 +64,11 @@ export function parseUserFunctions(defs: string[]): ParsedFunctions {
   // Passata 1: intestazioni
   type Head = { name: string; params: string[]; bodyText: string }
   const heads: Head[] = []
+  const exampleTexts: string[] = []
   for (const raw of defs) {
     if (!raw.trim()) continue
+    const ex = EXAMPLE_RE.exec(raw)
+    if (ex) { exampleTexts.push(ex[1]); continue }
     const m = DEF_RE.exec(raw)
     if (!m) {
       errors.push({ message: `invalid definition: "${raw.trim().slice(0, 40)}…" — expected the form "function name(par) { return expression }"` })
@@ -105,7 +117,26 @@ export function parseUserFunctions(defs: string[]): ParsedFunctions {
   const cyc = findCycle(functions)
   if (cyc) errors.push({ message: `recursion not allowed: ${cyc.join(' → ')}` })
 
-  return { functions, errors }
+  // P391: esempi, con tutte le funzioni in scope (solo se l'insieme è sano:
+  // con una ricorsione l'espansione non finirebbe).
+  const examples: UserFunctionExample[] = []
+  if (!cyc) {
+    for (const text of exampleTexts) {
+      let ast: ExprNode
+      try { ast = compileFpel(text, { userFunctions: functions }) } catch (e) {
+        errors.push({ message: `example "${text}": ${e instanceof ExprParseError ? e.message : String(e)}` })
+        continue
+      }
+      const free = freeReferences(ast, new Set())
+      if (free.length) {
+        errors.push({ message: `example "${text}" uses fields (${free.join(', ')}): an example works on written values, e.g. example iva(100, 22) == 22` })
+        continue
+      }
+      examples.push({ text, ast })
+    }
+  }
+
+  return { functions, errors, examples }
 }
 
 /** Nomi (nudi o qualificati) usati nel corpo che NON sono parametri. */

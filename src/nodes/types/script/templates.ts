@@ -105,6 +105,21 @@ export const SCRIPT_TEMPLATES: ScriptTemplate[] = [
       '}',
     ),
   },
+  {
+    id: 'base_expect', category: 'Base',
+    label: 'Data rules (expect)',
+    description: 'Declares what the data must respect; the monitor counts the violations of each rule',
+    code: T(
+      '// expect <condition> else reject | warn | error ["message"]',
+      '//   reject: the row goes to the reject port (needs the port active)',
+      '//   warn:   the row continues; the first violation is logged',
+      '//   error:  the node fails at the first violation',
+      '// At the end of the run every rule reports how many rows broke it.',
+      'expect quantity > 0 else reject "quantity must be positive"',
+      'expect email like "%@%" else warn "email without @"',
+      'expect order_id is not null else error',
+    ),
+  },
 
   // == Piu righe ================================================
   {
