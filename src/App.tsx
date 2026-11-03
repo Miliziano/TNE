@@ -80,7 +80,7 @@ function Palette() {
         letterSpacing: '.08em',
         borderBottom: '0.5px solid var(--color-border-tertiary)',
       }}>
-        Componenti
+        Components
       </div>
 
       {PALETTE_SECTIONS.map((section) => (

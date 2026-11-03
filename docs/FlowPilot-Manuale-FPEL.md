@@ -179,6 +179,25 @@ count(righe, r -> r.qty == 0)          // quante righe a zero
 - La funzione esiste solo come argomento di queste sei: scritta altrove è un
   errore del pannello.
 
+### 3.8 Tabelle di decodifica (P390)
+Elenchi **codice → descrizione** del progetto (bottone **Tables** della barra):
+si incollano due colonne da un foglio di calcolo o si scrivono a mano. In
+un'espressione:
+
+```
+decode("paesi", codice_paese)              // "IT" → "Italia", codice assente → null
+decode("paesi", codice_paese, "sconosciuto")
+```
+
+- Il nome della tabella è scritto fra virgolette (non calcolato) e non
+  distingue maiuscole e minuscole; una tabella inesistente è un errore del
+  pannello, che elenca quelle del progetto.
+- Le chiavi si confrontano come testo (`1` e `"1"` sono la stessa chiave); i
+  valori sono testo (`to_float(decode("aliquote", cat))` per un numero).
+- Le tabelle si risolvono quando si compila: l'artifact le porta dentro le
+  espressioni e non dipende da file esterni. Nel motore la ricerca è in tempo
+  costante.
+
 ## 4. Il linguaggio di istruzioni (nodo Script)
 
 ### 4.1 Modello di esecuzione
@@ -248,7 +267,7 @@ Dettagli che contano:
 
 ## 5. Catalogo delle funzioni preconfezionate
 
-**106 funzioni** (P389), raggruppate per categoria. La colonna *Funzione* riporta la
+**107 funzioni** (P390), raggruppate per categoria. La colonna *Funzione* riporta la
 firma leggibile (gli argomenti fra `[…]` sono opzionali); *Ritorno* è il tipo
 prodotto (`polimorfo` = dipende dagli argomenti, v. §8); *Alias* sono nomi
 alternativi accettati in scrittura e normalizzati al nome canonico.
@@ -369,7 +388,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `nullif(a, b)` | polimorfo | — | null se a == b, altrimenti a |
 | `iif(cond, se_vero, se_falso)` | polimorfo | `if` | Condizionale (equivale a cond ? a : b) |
 
-### Strutture (oggetti/array JSON) (5)
+### Strutture (oggetti/array JSON) (6)
 
 | Funzione | Ritorno | Alias | Descrizione |
 |---|---|---|---|
@@ -378,6 +397,7 @@ alternativi accettati in scrittura e normalizzati al nome canonico.
 | `keys(oggetto)` | object | — | Elenco delle chiavi |
 | `values(oggetto)` | object | — | Elenco dei valori |
 | `merge(a, b)` | object | — | Unisce due oggetti (b prevale) |
+| `decode("tabella", codice [, ripiego])` | string | — | Cerca il codice in una tabella di decodifica del progetto (§3.8) (P390) |
 
 ### Elenchi (10) — P389
 
@@ -567,5 +587,5 @@ Due punti utili:
 ---
 
 *Manuale del linguaggio FPEL — nucleo di espressioni, istruzioni del nodo
-Script, 106 funzioni preconfezionate e i template inline e completi. Allineato al
+Script, 107 funzioni preconfezionate e i template inline e completi. Allineato al
 codice del repo; le firme delle funzioni sono generate dal catalogo reale.*

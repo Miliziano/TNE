@@ -17,6 +17,7 @@
  * Ogni nodo inlinato conserva l'ORIGINE (`_origin`) per distinguere, in
  * validazione, un errore SULLA CHIAMATA da uno DENTRO la funzione.
  */
+import { expandDecodeTables, activeDecodeTables, type DecodeTable } from './decodeTables'
 import { parseExpression, ExprParseError, type ExprNode } from './exprParser'
 import { canonicalName } from './functions'
 
@@ -280,14 +281,17 @@ export function activeUserFunctions(): UserFunction[] { return ACTIVE }
  */
 export function compileFpel(
   src: string,
-  opts: { labelToInputId?: Map<string, string>; userFunctions?: UserFunction[] } = {},
+  opts: { labelToInputId?: Map<string, string>; userFunctions?: UserFunction[]; decodeTables?: DecodeTable[] } = {},
 ): ExprNode {
   const fns   = opts.userFunctions ?? activeUserFunctions()
   const arity = fns.length ? new Map(fns.map((f) => [f.name, f.params.length])) : undefined
-  const ast   = parseExpression(src, { labelToInputId: opts.labelToInputId, userFunctions: arity })
-  if (!fns.length) return ast
-  const map = new Map(fns.map((f) => [f.name, f]))
-  return stripOrigin(expandUserFunctions(ast, map))
+  let ast     = parseExpression(src, { labelToInputId: opts.labelToInputId, userFunctions: arity })
+  if (fns.length) {
+    const map = new Map(fns.map((f) => [f.name, f]))
+    ast = stripOrigin(expandUserFunctions(ast, map))
+  }
+  // P390: tabelle di decodifica, DOPO le funzioni utente (un corpo può usarle)
+  return expandDecodeTables(ast, opts.decodeTables ?? activeDecodeTables(), src)
 }
 
 /** Rimuove `_origin` da tutto l'albero: l'origine serve solo alla diagnostica

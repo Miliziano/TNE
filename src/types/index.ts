@@ -372,6 +372,9 @@ export interface Pool {
   /** Definizioni FPEL di funzioni utente (testo grezzo, una per elemento).
       Espanse a compile-time; persistono nel progetto. */
   userFunctions?: string[]
+  /** P390: tabelle di decodifica (codice → descrizione), usate con
+      `decode("nome", codice)`; risolte a compile-time dentro le espressioni. */
+  decodeTables?: Array<{ name: string; entries: Array<[string, string]> }>
 }
 
 // ─── Log e risultati di esecuzione ───────────────────────────────

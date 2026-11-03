@@ -169,6 +169,8 @@ export const FUNCTIONS: FnSignature[] = [
   { name: 'keys',     category: 'structure', returns: 'object', minArgs: 1, maxArgs: 1, usage: 'keys(object)',   desc: 'List of keys' },
   { name: 'values',   category: 'structure', returns: 'object', minArgs: 1, maxArgs: 1, usage: 'values(object)', desc: 'List of values' },
   { name: 'merge',    category: 'structure', returns: 'object', minArgs: 2, maxArgs: 2, usage: 'merge(a, b)',     desc: 'Merges two objects (b wins)' },
+  // P390: tabella di decodifica del progetto (risolta a compile-time, v. decodeTables.ts)
+  { name: 'decode',   category: 'structure', returns: 'polimorfo', minArgs: 2, maxArgs: 3, usage: 'decode("table", code [, fallback])', desc: 'Looks the code up in a decode table of the project (toolbar → Tables); missing code → the fallback, or null', insert: 'decode("table_name", $sel, null)' },
 
   // ── Elenchi (P389) ────────────────────────────────────────────────
   // `[a, b, c]` scrive un elenco; `x -> …` è una funzione per gli elementi.

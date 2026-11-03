@@ -2040,6 +2040,425 @@
           }
         }
       }
+    },
+    {
+      "expr": "decode(\"paesi\", p)",
+      "tables": [
+        {
+          "name": "paesi",
+          "entries": [
+            [
+              "IT",
+              "Italia"
+            ],
+            [
+              "FR",
+              "Francia"
+            ],
+            [
+              "1",
+              "uno"
+            ]
+          ]
+        }
+      ],
+      "row": {
+        "p": "FR"
+      },
+      "expect": "Francia",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "decode_map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "p"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "IT"
+              },
+              {
+                "kind": "Literal",
+                "value": "Italia"
+              },
+              {
+                "kind": "Literal",
+                "value": "FR"
+              },
+              {
+                "kind": "Literal",
+                "value": "Francia"
+              },
+              {
+                "kind": "Literal",
+                "value": "1"
+              },
+              {
+                "kind": "Literal",
+                "value": "uno"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "decode(\"PAESI\", p, \"?\")",
+      "tables": [
+        {
+          "name": "paesi",
+          "entries": [
+            [
+              "IT",
+              "Italia"
+            ],
+            [
+              "FR",
+              "Francia"
+            ],
+            [
+              "1",
+              "uno"
+            ]
+          ]
+        }
+      ],
+      "row": {
+        "p": "XX"
+      },
+      "expect": "?",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "decode_map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "p"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "IT"
+              },
+              {
+                "kind": "Literal",
+                "value": "Italia"
+              },
+              {
+                "kind": "Literal",
+                "value": "FR"
+              },
+              {
+                "kind": "Literal",
+                "value": "Francia"
+              },
+              {
+                "kind": "Literal",
+                "value": "1"
+              },
+              {
+                "kind": "Literal",
+                "value": "uno"
+              }
+            ]
+          },
+          {
+            "kind": "Literal",
+            "value": "?"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "decode(\"paesi\", p)",
+      "tables": [
+        {
+          "name": "paesi",
+          "entries": [
+            [
+              "IT",
+              "Italia"
+            ],
+            [
+              "FR",
+              "Francia"
+            ],
+            [
+              "1",
+              "uno"
+            ]
+          ]
+        }
+      ],
+      "row": {
+        "p": "XX"
+      },
+      "expect": null,
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "decode_map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "p"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "IT"
+              },
+              {
+                "kind": "Literal",
+                "value": "Italia"
+              },
+              {
+                "kind": "Literal",
+                "value": "FR"
+              },
+              {
+                "kind": "Literal",
+                "value": "Francia"
+              },
+              {
+                "kind": "Literal",
+                "value": "1"
+              },
+              {
+                "kind": "Literal",
+                "value": "uno"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "decode(\"paesi\", p, \"?\")",
+      "tables": [
+        {
+          "name": "paesi",
+          "entries": [
+            [
+              "IT",
+              "Italia"
+            ],
+            [
+              "FR",
+              "Francia"
+            ],
+            [
+              "1",
+              "uno"
+            ]
+          ]
+        }
+      ],
+      "row": {
+        "p": null
+      },
+      "expect": "?",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "decode_map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "p"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "IT"
+              },
+              {
+                "kind": "Literal",
+                "value": "Italia"
+              },
+              {
+                "kind": "Literal",
+                "value": "FR"
+              },
+              {
+                "kind": "Literal",
+                "value": "Francia"
+              },
+              {
+                "kind": "Literal",
+                "value": "1"
+              },
+              {
+                "kind": "Literal",
+                "value": "uno"
+              }
+            ]
+          },
+          {
+            "kind": "Literal",
+            "value": "?"
+          }
+        ]
+      }
+    },
+    {
+      "expr": "decode(\"paesi\", n)",
+      "tables": [
+        {
+          "name": "paesi",
+          "entries": [
+            [
+              "IT",
+              "Italia"
+            ],
+            [
+              "FR",
+              "Francia"
+            ],
+            [
+              "1",
+              "uno"
+            ]
+          ]
+        }
+      ],
+      "row": {
+        "n": 1
+      },
+      "expect": "uno",
+      "ir": {
+        "kind": "FunctionCall",
+        "name": "decode_map",
+        "args": [
+          {
+            "kind": "DirectFieldRef",
+            "field": "n"
+          },
+          {
+            "kind": "FunctionCall",
+            "name": "list",
+            "args": [
+              {
+                "kind": "Literal",
+                "value": "IT"
+              },
+              {
+                "kind": "Literal",
+                "value": "Italia"
+              },
+              {
+                "kind": "Literal",
+                "value": "FR"
+              },
+              {
+                "kind": "Literal",
+                "value": "Francia"
+              },
+              {
+                "kind": "Literal",
+                "value": "1"
+              },
+              {
+                "kind": "Literal",
+                "value": "uno"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "expr": "upper(decode(\"paesi\", p)) ?? \"-\"",
+      "tables": [
+        {
+          "name": "paesi",
+          "entries": [
+            [
+              "IT",
+              "Italia"
+            ],
+            [
+              "FR",
+              "Francia"
+            ],
+            [
+              "1",
+              "uno"
+            ]
+          ]
+        }
+      ],
+      "row": {
+        "p": "IT"
+      },
+      "expect": "ITALIA",
+      "ir": {
+        "kind": "Coalesce",
+        "args": [
+          {
+            "kind": "FunctionCall",
+            "name": "upper",
+            "args": [
+              {
+                "kind": "FunctionCall",
+                "name": "decode_map",
+                "args": [
+                  {
+                    "kind": "DirectFieldRef",
+                    "field": "p"
+                  },
+                  {
+                    "kind": "FunctionCall",
+                    "name": "list",
+                    "args": [
+                      {
+                        "kind": "Literal",
+                        "value": "IT"
+                      },
+                      {
+                        "kind": "Literal",
+                        "value": "Italia"
+                      },
+                      {
+                        "kind": "Literal",
+                        "value": "FR"
+                      },
+                      {
+                        "kind": "Literal",
+                        "value": "Francia"
+                      },
+                      {
+                        "kind": "Literal",
+                        "value": "1"
+                      },
+                      {
+                        "kind": "Literal",
+                        "value": "uno"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "Literal",
+            "value": "-"
+          }
+        ]
+      }
     }
   ]
 }

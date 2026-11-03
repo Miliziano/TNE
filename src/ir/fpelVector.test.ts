@@ -15,9 +15,11 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseExpression } from './exprParser'
+import { compileFpel } from './userFunctions'
+import type { DecodeTable } from './decodeTables'
 
-interface Caso { expr: string; ir?: unknown; row: Record<string, unknown>; expect: unknown }
+/** `tables` (facoltativo): tabelle di decodifica del progetto per quel caso (P390). */
+interface Caso { expr: string; tables?: DecodeTable[]; ir?: unknown; row: Record<string, unknown>; expect: unknown }
 
 const file = join(process.cwd(), 'vectors', 'fpel_v1.json')
 const vettore = JSON.parse(readFileSync(file, 'utf8')) as { formatVersion: number; casi: Caso[] }
@@ -26,7 +28,7 @@ let pass = 0, fail = 0
 
 for (const c of vettore.casi) {
   let ir: unknown
-  try { ir = parseExpression(c.expr) } catch (e) {
+  try { ir = compileFpel(c.expr, { userFunctions: [], decodeTables: c.tables ?? [] }) } catch (e) {
     fail++; console.log(`  FAIL ${c.expr} → errore: ${(e as Error).message}`); continue
   }
   if (aggiorna) { c.ir = ir; pass++; continue }

@@ -19,16 +19,18 @@ import type { Pool } from '../types'
 import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
 import { EnvironmentsModal } from './EnvironmentsModal'
 import { UserFunctionsModal } from './UserFunctionsModal'
+import { DecodeTablesModal } from './DecodeTablesModal'
 import { HelpModal } from './HelpModal'
 import { CompileModal } from './CompileModal'
 import { SigningKeyModal } from './SigningKeyModal'
 import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
+import { validateDecodeTables } from '../ir/decodeTables'
 import { compileSerializerTree } from '../ir/serializerTree'
 import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
 import { sourceFileSpecFields } from '../nodes/types/source_file/spec'
- import { parseExpression, ExprParseError } from '../ir/exprParser'
+ import { ExprParseError } from '../ir/exprParser'
 import { parseScript, ScriptParseError } from '../ir/scriptParser'
 
 
@@ -476,6 +478,16 @@ function buildRustPlan(
     const d = fnErrors.map((e) => `  • ${e.name ? e.name + ': ' : ''}${e.message}`).join('\n')
     throw new Error(`User functions — ${fnErrors.length} error(s):\n${d}`)
   }
+  // P390: tabelle di decodifica del progetto, risolte dentro le espressioni.
+  const decodeTables = pool.decodeTables ?? []
+  const tabProblemi = validateDecodeTables(decodeTables)
+  if (tabProblemi.length > 0) {
+    const d = tabProblemi.map((e) => `  • ${e.table ? e.table + ': ' : ''}${e.message}`).join('\n')
+    throw new Error(`Decode tables — ${tabProblemi.length} error(s):\n${d}`)
+  }
+  // P390: Data Quality, Aggregate e Window compilavano col parser nudo, senza
+  // funzioni utente: ora passano tutti dallo stesso compilatore.
+  const fpel = (src: string) => compileFpel(src, { userFunctions: userFns, decodeTables })
 
  // ── Bridge tra lane — accoppiati per channelName condiviso.
   // I bridge NON hanno un edge nel canvas: collegano lane diverse e
@@ -795,7 +807,7 @@ function buildRustPlan(
             if (!src) throw new Error(`${where}: the custom join condition is empty`)
             let expr
             try {
-              expr = compileFpel(src, { labelToInputId: new Map([['left', 'left'], ['right', 'right']]), userFunctions: userFns })
+              expr = compileFpel(src, { labelToInputId: new Map([['left', 'left'], ['right', 'right']]), userFunctions: userFns, decodeTables })
             } catch (e) {
               const detail = e instanceof ExprParseError ? e.pretty() : String(e)
               throw new Error(`${where}: the custom condition is not a valid FPEL expression\n${detail}`, { cause: e })
@@ -821,7 +833,7 @@ function buildRustPlan(
             const where = `Filter "${node.data.label}", condition "${c.label}"`
             if (!src) throw new Error(`${where}: the FPEL expression is empty`)
             try {
-              return { ...c, expr: compileFpel(src, { userFunctions: userFns }) }
+              return { ...c, expr: fpel(src) }
             } catch (e) {
               const detail = e instanceof ExprParseError ? e.pretty() : String(e)
               throw new Error(`${where}: not a valid FPEL expression (the old JavaScript code mode is no longer supported)\n${detail}`, { cause: e })
@@ -1071,7 +1083,7 @@ function buildRustPlan(
                   `Data Quality "${node.data.label}", rule "${r.label || r.id}": ` +
                   `${what} requires an expression.`)
               }
-              try { return parseExpression(src) }
+              try { return fpel(src) }
               catch (e) {
                 const detail = e instanceof ExprParseError ? e.pretty() : String(e)
                 throw new Error(
@@ -1160,7 +1172,7 @@ function buildRustPlan(
           // `having` e i `filter` sono FPEL: lo studio li compila in IR
           // (ExprNode). Il motore non compila FPEL — esegue l'IR.
           const compile = (src: string, what: string) => {
-            try { return parseExpression(src) }
+            try { return fpel(src) }
             catch (e) {
               const detail = e instanceof ExprParseError ? e.pretty() : String(e)
               throw new Error(`Aggregate "${node.data.label}", ${what}:\n${detail}`, { cause: e })
@@ -1239,7 +1251,7 @@ function buildRustPlan(
                   `the streak function needs a condition (e.g. amount > 0)`)
               }
               try {
-                out.expr = parseExpression(d.expr)
+                out.expr = fpel(d.expr)
               } catch (e) {
                 const detail = e instanceof ExprParseError ? e.pretty() : String(e)
                 throw new Error(
@@ -1357,6 +1369,7 @@ export function Toolbar() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [envOpen, setEnvOpen] = useState(false)
   const [funcOpen, setFuncOpen] = useState(false)
+  const [tabOpen, setTabOpen]   = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [compileOpen, setCompileOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
@@ -1795,6 +1808,10 @@ export function Toolbar() {
         <i className="ti ti-math-function" style={{ fontSize: 13 }} aria-hidden="true" />
         Functions
       </TbBtn>
+      <TbBtn onClick={() => setTabOpen(true)} title="Decode tables (code → description) for decode(&quot;table&quot;, code)">
+        <i className="ti ti-table" style={{ fontSize: 13 }} aria-hidden="true" />
+        Tables
+      </TbBtn>
       <TbBtn onClick={() => setCompileOpen(true)} title="Compile / generate artifact for the runner">
         <i className="ti ti-package" style={{ fontSize: 13 }} aria-hidden="true" />
         Compile
@@ -1849,7 +1866,7 @@ export function Toolbar() {
       {/* Info */}
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-          {pool.lanes.length} lane · {nodeCount} nodi
+          {pool.lanes.length} {pool.lanes.length === 1 ? 'lane' : 'lanes'} · {nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}
         </span>
         <TbDivider />
         <span style={{
@@ -1880,6 +1897,7 @@ export function Toolbar() {
 
       <EnvironmentsModal open={envOpen} onClose={() => setEnvOpen(false)} />
       <UserFunctionsModal open={funcOpen} onClose={() => setFuncOpen(false)} />
+      <DecodeTablesModal open={tabOpen} onClose={() => setTabOpen(false)} />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <CompileModal open={compileOpen} onClose={() => setCompileOpen(false)} onGenerate={esportaArtifact} />

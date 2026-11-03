@@ -2647,3 +2647,26 @@ provenienza dei campi, FPEL→SQL; quindi le attività per la prima versione da 
   Il .docx del manuale non è rigenerato.
 - Test: parser 104, tipi 70, funzioni utente 18, contratto 67+67; lib 115; regressione
   identica.
+
+## AGGIORNAMENTO — Tabelle di decodifica in FPEL (stato al P390, 3 novembre)
+
+- `pool.decodeTables` (`{ name, entries: [chiave, valore][] }`), modale **Tables** nella
+  barra (`DecodeTablesModal.tsx`: elenco a sinistra, testo incollato a destra — TAB, `;`
+  o prima `,`), azione `setDecodeTables`, registro attivo sincronizzato dallo store come
+  le funzioni utente.
+- `src/ir/decodeTables.ts`: controlli (nomi, duplicati), `parseEntries`/`formatEntries`,
+  `expandDecodeTables`: `decode("t", x [, d])` → `decode_map(x, list(k1, v1, …) [, d])`.
+  Chiamato da `compileFpel` DOPO le funzioni utente (un corpo può usare `decode`).
+  Nome di tabella non letterale o inesistente → errore con l'elenco delle tabelle.
+- Motore: `decode_map` nell'interprete (ricerca lineare) e `C::Decode` nell'espressione
+  compilata (mappa ahash costruita una volta). Chiavi confrontate come testo.
+- `buildRustPlan`: tabelle del pool validate (errore blocca la compilazione) e passate a
+  `compileFpel`. **Corretto anche**: Data Quality, `having`/filtri di Aggregate e la
+  condizione "streak" di Window usavano il parser nudo — senza funzioni utente; ora
+  passano dallo stesso compilatore (`fpel(...)`).
+- La firma strutturale della validazione ora include funzioni utente e tabelle: prima
+  cambiare una funzione utente non rivalidava i nodi finché non si toccava il grafo.
+- Test: `decodeTables.test.ts` (13), contratto FPEL 73 casi (6 nuovi con tabelle, il
+  vettore accetta `tables` per caso). Manuale FPEL §3.8 nuova, catalogo 107 funzioni.
+- Interfaccia: "Componenti" (titolo della palette) e "N lane · N nodi" (barra) ancora in
+  italiano → in inglese, con singolare/plurale.

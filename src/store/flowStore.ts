@@ -4,6 +4,7 @@ import { ftpFixedSchema } from '../nodes/types/source_ftp/schema'
 import { MATERIALIZE_SIGNAL_SCHEMA_JSON } from '../nodes/types/materialize/schema'
 import { scheduleCanvasValidation, runCompilation, runCodegen } from '../ir/pipeline'
 import { setActiveUserFunctions } from '../ir/userFunctions'
+import { setActiveDecodeTables } from '../ir/decodeTables'
 import type { ValidationIssue } from '../ir/types'
 import { propagateHandle, getNodeHandles } from '../utils/schemaRegistry'
 import { ERROR_HANDLER_SCHEMA } from '../types'
@@ -109,6 +110,10 @@ function structuralSignature(
       })),
     })),
     variables: pool.variables,
+    // P390: funzioni utente e tabelle cambiano il significato delle espressioni
+    // (una tabella tolta rende sbagliato un decode): si rivalida anche per loro.
+    userFunctions: pool.userFunctions ?? [],
+    decodeTables:  pool.decodeTables ?? [],
   }
   return JSON.stringify({ n, e, p })
 }
@@ -480,6 +485,7 @@ interface FlowState {
   // Variabili
   addVariable:    (scope: 'pool' | 'lane', laneId: string | null, variable: Omit<Variable, 'id' | 'scope'>) => void
   setUserFunctions: (defs: string[]) => void
+  setDecodeTables: (tables: NonNullable<Pool['decodeTables']>) => void
   deleteVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string) => void
   updateVariable: (scope: 'pool' | 'lane', laneId: string | null, variableId: string, patch: Partial<Variable>) => void
   /** Promuove una variabile di lane a variabile CONDIVISA (pool).
@@ -1876,6 +1882,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   // ── Variabili ──
   setUserFunctions: (defs) => set((s) => ({ pool: { ...s.pool, userFunctions: defs } })),
+  setDecodeTables: (tables) => set((s) => ({ pool: { ...s.pool, decodeTables: tables } })),
 
   addVariable: (scope, laneId, variable) => {
     const full: Variable = { ...variable, id: varUid(), scope }
@@ -2057,6 +2064,16 @@ useFlowStore.subscribe((state) => {
   setActiveUserFunctions(fns ?? [])
 })
 setActiveUserFunctions(useFlowStore.getState().pool.userFunctions ?? [])
+
+// P390: lo stesso per le tabelle di decodifica.
+let _prevTablesRef: Pool['decodeTables']
+useFlowStore.subscribe((state) => {
+  const t = state.pool.decodeTables
+  if (t === _prevTablesRef) return
+  _prevTablesRef = t
+  setActiveDecodeTables(t ?? [])
+})
+setActiveDecodeTables(useFlowStore.getState().pool.decodeTables ?? [])
 
 // Validazione iniziale: lo stato di partenza (o un progetto caricato
 // prima che la subscription fosse attiva) viene validato subito.

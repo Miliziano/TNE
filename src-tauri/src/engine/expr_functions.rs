@@ -469,6 +469,26 @@ pub fn eval_extra(name: &str, args: &[Value]) -> Option<Value> {
             _ => Value::Null,
         },
 
+        // ── P390: tabella di decodifica ──────────────────────────
+        // decode_map(chiave, list(k1, v1, k2, v2, …) [, ripiego]): lo studio vi
+        // traduce decode("tabella", chiave, …). Chiavi confrontate come testo;
+        // chiave assente o null → ripiego (o null). L'espressione compilata usa
+        // una mappa (compiled.rs); questo è l'interprete.
+        "decode_map" => {
+            let ripiego = a2.cloned().unwrap_or(Value::Null);
+            match (a0, a1) {
+                (Some(Value::Null) | None, _) => ripiego,
+                (Some(k), Some(Value::Object(serde_json::Value::Array(coppie)))) => {
+                    let chiave = k.as_str_repr();
+                    coppie.chunks(2)
+                        .find(|c| c.len() == 2 && Value::from_json(c[0].clone()).as_str_repr() == chiave)
+                        .map(|c| Value::from_json(c[1].clone()))
+                        .unwrap_or(ripiego)
+                }
+                _ => Value::Null,
+            }
+        }
+
         // ── P389: testo ──────────────────────────────────────────
         "split" => {
             // split(testo, separatore [, posizione]) → elenco, o la parte alla

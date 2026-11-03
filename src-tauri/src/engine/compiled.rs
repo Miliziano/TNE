@@ -48,6 +48,8 @@ enum C {
     Call { name: Box<str>, args: Vec<C> },
     // P389: any/all/filter/map/sum/count con una funzione `x -> corpo`
     Hof { name: Box<str>, list: Box<C>, param: String, body: Box<C> },
+    // P390: decode con tabella costante → mappa (ricerca in tempo costante)
+    Decode { key: Box<C>, table: std::collections::HashMap<String, Value, ahash::RandomState>, default: Option<Box<C>> },
     Case { branches: Vec<(C, C)>, default: Option<Box<C>> },
     Cast { e: Box<C>, target: String },
     FieldAccess { e: Box<C>, field: String },
@@ -128,6 +130,15 @@ fn compile(e: &ExprNode) -> C {
                 return C::Field { input: LAMBDA_INPUT.to_string(), field: p.to_string(), hint: Hint::default() };
             }
             if name == "lambda" { return C::Const(Value::Null); }
+            if name == "decode_map" {
+                if let Some(table) = args.get(1).and_then(tabella_costante) {
+                    return C::Decode {
+                        key: Box::new(args.first().map(compile).unwrap_or(C::Const(Value::Null))),
+                        table,
+                        default: args.get(2).map(|d| Box::new(compile(d))),
+                    };
+                }
+            }
             if is_hof(name) {
                 if let Some((param, corpo)) = args.get(1).and_then(as_lambda) {
                     let list = args.first().map(compile).unwrap_or(C::Const(Value::Null));
@@ -159,6 +170,20 @@ fn compile(e: &ExprNode) -> C {
     }
 }
 
+/// La tabella di un decode, se è un `list(k1, v1, …)` di soli letterali (lo è
+/// sempre quando la scrive lo studio). A parità di chiave vale la PRIMA, come
+/// nella ricerca dell'interprete.
+fn tabella_costante(e: &ExprNode) -> Option<std::collections::HashMap<String, Value, ahash::RandomState>> {
+    let ExprNode::FunctionCall { name, args } = e else { return None };
+    if name != "list" || args.len() % 2 != 0 { return None }
+    let mut out: std::collections::HashMap<String, Value, ahash::RandomState> = Default::default();
+    for c in args.chunks(2) {
+        let (ExprNode::Literal { value: k }, ExprNode::Literal { value: v }) = (&c[0], &c[1]) else { return None };
+        out.entry(literal_to_value(k).as_str_repr()).or_insert_with(|| literal_to_value(v));
+    }
+    Some(out)
+}
+
 fn ev<'a, 'c: 'a>(c: &'a C, ctx: &EvalContext<'c>) -> Cow<'a, Value> {
     match c {
         C::Const(v) => Cow::Borrowed(v),
@@ -183,6 +208,20 @@ fn ev<'a, 'c: 'a>(c: &'a C, ctx: &EvalContext<'c>) -> Cow<'a, Value> {
         C::Call { name, args } => {
             let vals: Vec<Value> = args.iter().map(|a| ev(a, ctx).into_owned()).collect();
             Cow::Owned(eval_function(name, vals))
+        }
+        C::Decode { key, table, default } => {
+            let k = ev(key, ctx);
+            let trovato = match k.as_ref() {
+                Value::Null => None,
+                v => table.get(&v.as_str_repr()),
+            };
+            match trovato {
+                Some(v) => Cow::Borrowed(v),
+                None => match default {
+                    Some(d) => ev(d, ctx),
+                    None => Cow::Borrowed(&NULL),
+                },
+            }
         }
         C::Hof { name, list, param, body } => {
             let lista = ev(list, ctx);

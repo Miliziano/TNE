@@ -103,6 +103,11 @@ function inferBinary(op: string, left: ExprNode, right: ExprNode, ctx: InferCtx)
 }
 
 function inferFunction(name: string, args: ExprNode[], ctx: InferCtx): FieldType {
+  // P390: decode già risolto (decode_map: chiave, tabella, ripiego) o ancora no
+  // (decode: "tabella", chiave, ripiego): i valori della tabella sono testo.
+  if (name === 'decode' || name === 'decode_map') {
+    return args[2] ? unify('string', inferExprType(args[2], ctx)) : 'string'
+  }
   const fn = lookupFunction(name)
   if (!fn) return 'any' // sconosciuta: lo dice la validazione, qui non si indovina
   if (fn.returns !== 'polimorfo') return fn.returns
