@@ -206,6 +206,9 @@ pub async fn run(
     // P387: righe in uscita a lotti, spedite prima di mettersi in attesa
     // dell'ingresso (engine/lotti.rs): nessuna attesa in più per i flussi lenti.
     let mut lotto = crate::engine::lotti::Lotto::new();
+    let mut writers: Vec<crate::engine::row::Writer> = plan.outputs.iter()
+        .map(|o| crate::engine::row::Writer::new(o.fields.iter().map(|f| f.name.clone()).collect()))
+        .collect();
 
     loop {
         if lotto.da_spedire(main_rx.is_empty()) {
@@ -282,7 +285,7 @@ pub async fn run(
                 let full: Combo = inputs.iter().copied()
                     .chain(std::iter::once(("__transforms__", &transform_row))).collect();
                 if output_txs.get(i).is_some() {
-                    let out_row = build_output_row(output, &full, &transform_row, &lane_vars, &mut failed);
+                    let out_row = build_output_row(output, &full, &transform_row, &lane_vars, &mut failed, &mut writers[i]);
                     lotto.push(i, out_row);
                 }
             }
@@ -323,7 +326,7 @@ pub async fn run(
 
                 if passes {
                     if output_txs.get(i).is_some() {
-                        let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars, &mut failed);
+                        let out_row = build_output_row(output, &inputs, &transform_row, &lane_vars, &mut failed, &mut writers[i]);
                         lotto.push(i, out_row);
                     }
                 }
@@ -481,8 +484,9 @@ fn build_output_row(
     transform_row: &Row,
     variables:     &HashMap<String, Value>,
     failed:        &mut HashMap<String, (u64, String)>,
+    writer:        &mut crate::engine::row::Writer,
 ) -> Row {
-    let mut out_row = Row::new();
+    let mut values: Vec<Value> = Vec::with_capacity(output.fields.len());
 
     // Riferimenti per EvalContext (P383: senza HashMap). `__transforms__` per
     // ultimo: a parità di nome vince, come con l'insert di prima.
@@ -506,8 +510,12 @@ fn build_output_row(
                 kept
             }
         };
-        out_row.set_str(&field.name, val);
+        values.push(val);
     }
 
+    // P388: schema d'uscita calcolato una volta (engine/row.rs, `Writer`),
+    // stessa semantica della sequenza di `set` di prima.
+    let mut out_row = Row::new();
+    writer.write(&mut out_row, values, false);
     out_row
 }

@@ -2591,3 +2591,24 @@ Voce D dello studio (`docs/STUDIO-motore-prestazioni.md` §6, "Terzo passo").
 - Non fatto: sorgente database (ODBC e sqlx mandano ancora riga per riga; nel sandbox non
   c'è un database per misurarlo). Prossimo: espressioni compilate con le posizioni
   (`Slots` dentro `EvalContext`), Script compilato, scrittura CSV.
+
+## AGGIORNAMENTO — Espressioni con suggerimento di posizione, Script compilato (stato al P388, 2 novembre)
+
+Studio §6 "Quarto passo".
+- `engine/row.rs`: `Hint` (atomico, clonabile) e `Row::get_hinted`: parte dall'ultima
+  posizione trovata e la verifica col nome; se non corrisponde cerca e aggiorna. Test con
+  forme diverse, riga vuota, campo assente.
+- `engine/expr.rs`: `field_hinted`, `direct_field_hinted`; `direct_field` riscritta su
+  `direct_with` (stesso ordine di ricerca, unica fonte).
+- `engine/compiled.rs`: `C::Field`/`C::Direct` portano un `Hint`.
+- `nodes/script.rs`: `Istr` = corpo con espressioni compilate (`compila` una volta);
+  `valuta` usa `EvalContext::from_pairs` + `Compiled::eval`. Niente più `eval`
+  dell'interprete nello Script.
+- `nodes/tmap.rs`: `build_output_row` con un `Writer` per uscita.
+- `nodes/sink_file.rs`: `Value::write_repr` in una stringa riusata per i valori non
+  testuali; `push_csv` con una passata sui byte se delimitatore e virgolette sono ASCII.
+  Test `csv_veloce_uguale_a_prima` (valori limite, delimitatori anche non ASCII).
+- Misure (confronto alternato col P387): Script +14%, Transform+Filter +3-6%, con mapping
+  +9%, TMap alla pari in tempo con −10% di istruzioni. Banco di non regressione identico;
+  lib 115 test.
+- Nuovo banco usa-e-getta `bench_script` (scratchpad, non nel repo).

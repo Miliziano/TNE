@@ -18,6 +18,7 @@
 // su un corpus di espressioni e righe. Le funzioni restano quelle di
 // `expr::eval_function` (stesso catalogo, stesso codice).
 
+use crate::engine::row::Hint;
 use std::borrow::Cow;
 use crate::engine::expr::{
     cast_value, eval_binary_ref, eval_function, is_truthy, literal_to_value, to_string,
@@ -33,8 +34,9 @@ pub struct Compiled(C);
 #[derive(Debug, Clone)]
 enum C {
     Const(Value),
-    Field { input: String, field: String },
-    Direct { field: String },
+    // P388: `hint` = ultima posizione del campo nella riga (verificata a ogni uso)
+    Field { input: String, field: String, hint: Hint },
+    Direct { field: String, hint: Hint },
     Bin { op: BinaryOperator, l: Box<C>, r: Box<C> },
     And(Box<C>, Box<C>),
     Or(Box<C>, Box<C>),
@@ -81,8 +83,8 @@ fn negate(v: &Value) -> Value {
 fn compile(e: &ExprNode) -> C {
     match e {
         ExprNode::Literal { value } => C::Const(literal_to_value(value)),
-        ExprNode::FieldRef { input, field } => C::Field { input: input.clone(), field: field.clone() },
-        ExprNode::DirectFieldRef { field } => C::Direct { field: field.clone() },
+        ExprNode::FieldRef { input, field } => C::Field { input: input.clone(), field: field.clone(), hint: Hint::default() },
+        ExprNode::DirectFieldRef { field } => C::Direct { field: field.clone(), hint: Hint::default() },
         ExprNode::BinaryOp { op, left, right } => {
             let (l, r) = (compile(left), compile(right));
             if let (C::Const(a), C::Const(b)) = (&l, &r) {
@@ -142,8 +144,8 @@ fn compile(e: &ExprNode) -> C {
 fn ev<'a, 'c: 'a>(c: &'a C, ctx: &EvalContext<'c>) -> Cow<'a, Value> {
     match c {
         C::Const(v) => Cow::Borrowed(v),
-        C::Field { input, field } => Cow::Borrowed(ctx.field(input, field).unwrap_or(&NULL)),
-        C::Direct { field } => Cow::Borrowed(ctx.direct_field(field).unwrap_or(&NULL)),
+        C::Field { input, field, hint } => Cow::Borrowed(ctx.field_hinted(input, field, hint).unwrap_or(&NULL)),
+        C::Direct { field, hint } => Cow::Borrowed(ctx.direct_field_hinted(field, hint).unwrap_or(&NULL)),
         C::Bin { op, l, r } => {
             let (a, b) = (ev(l, ctx), ev(r, ctx));
             Cow::Owned(eval_binary_ref(op, &a, &b))

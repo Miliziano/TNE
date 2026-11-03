@@ -143,7 +143,7 @@ nessuna rifà lavoro esistente.
 | | Cosa | Guadagno atteso | Costo | Rischio |
 |---|---|---|---|---|
 | **A** ◐ P385-P386 | **Righe con schema**: `Row` = schema condiviso (`Arc`) + vettore di valori; i nomi si risolvono in posizioni una volta per nodo. L'API `get`/`set` per nome resta, così i nodi si migrano uno alla volta. | 2-3× sul throughput; meno memoria; colonne nell'ordine del mapping | alto (tocca tutti i nodi, ma a passi) | medio: serve un banco di non regressione per nodo |
-| **B** ✅ P383 | **Espressioni compilate una volta** all'avvio del nodo: costanti calcolate, `var()` e nomi risolti, valori letti in prestito; niente `HashMap` per riga nel valutatore. Fatto per Transform, Filter, TMap; lo Script usa ancora l'interprete (gode del contesto nuovo). | misurato: +24% sul banco Transform/Filter, +65% sul TMap (con le copie tolte) | medio | basso: test di equivalenza con l'interprete |
+| **B** ✅ P383 | **Espressioni compilate una volta** all'avvio del nodo: costanti calcolate, `var()` e nomi risolti, valori letti in prestito; niente `HashMap` per riga nel valutatore. Fatto per Transform, Filter, TMap; lo Script dal P388. | misurato: +24% sul banco Transform/Filter, +65% sul TMap (con le copie tolte) | medio | basso: test di equivalenza con l'interprete |
 | **C** | **Parallelismo per partizione** dei nodi senza stato (Transform, Filter, TMap, Script): N copie su N core, ordine preservato se richiesto. | lineare coi core (su un server da 16 core, fino a 10× su quei nodi) | medio | medio: ordine e lookup condivisi |
 | **D** ✅ P386-P387 (sorgente file, Transform, Filter, TMap, fan-out) | **Canali a lotti adattivi**: si passano blocchi di righe invece di righe singole, con invio immediato quando il flusso rallenta (non peggiora la latenza). | 10-20% | basso-medio | basso |
 | **E** | **Garanzie di consegna** per MQTT/ActiveMQ: conferma dopo la scrittura; con sink idempotenti (upsert) l'effetto è "una volta sola". | affidabilità, non velocità | medio | medio |
@@ -312,6 +312,30 @@ eseguite sul banco da 100.000 righe: 3,03 miliardi (P385) → 1,91 (P387), −37
 stringhe), conversione dei numeri in testo (~5%), lettura per nome dentro le espressioni
 (`direct_field` + `position`, ~4%: le espressioni compilate non usano ancora le
 posizioni). Il coordinamento fra i thread non compare più fra le prime voci.
+
+### Quarto passo (P388): espressioni che ricordano dove sta il campo, Script compilato
+
+- **Suggerimento di posizione** (`row::Hint`, `Row::get_hinted`): ogni lettura di campo in
+  un'espressione compilata ricorda dove l'ha trovato l'ultima volta e, alla riga dopo,
+  guarda prima lì. Non si fida mai: controlla che in quella posizione ci sia proprio quel
+  nome (in uno schema i nomi sono unici), altrimenti cerca e aggiorna. È sempre corretto,
+  con qualunque forma di riga; è atomico perché l'espressione compilata è condivisa.
+- **Script su espressioni compilate**: il corpo si compila una volta all'avvio del nodo
+  (stesse istruzioni, stessa semantica) e ogni valutazione usa il contesto senza
+  `HashMap` invece dell'interprete.
+- **TMap**: le righe d'uscita si costruiscono con `Writer` (schema calcolato una volta).
+- **Scrittura CSV**: i numeri si scrivono in una stringa riusata (`Value::write_repr`,
+  stesso testo di prima, verificato da un test anche per NaN, −0, 1e21, decimali,
+  oggetti); la ricerca dei caratteri da mettere tra virgolette è una passata sui byte
+  invece di quattro ricerche (stesso risultato, verificato anche con delimitatori non
+  ASCII).
+
+Misure (confronto alternato col P387, mediane): Script **+14%** (nuovo banco: CSV →
+Script con `let`, `if`, assegnazioni, `upper` → CSV), Transform+Filter +6%, con mapping
++9%, TMap alla pari in tempo (+2%, sette giri) ma con il **10% di istruzioni in meno**
+(11,6 → 10,4 miliardi sul banco da 500.000 righe): su due core il TMap è limitato da
+altro (i due file in uscita, il coordinamento), il lavoro risparmiato si vedrà con più core
+o con più nodi nella lane.
 
 ### Comportamenti di oggi da decidere col nuovo modello
 

@@ -16,7 +16,8 @@
 use std::collections::HashMap;
 use std::time::Instant;
 use crate::engine::types::*;
-use crate::engine::expr::{ExprNode, EvalContext, eval, is_truthy};
+use crate::engine::expr::{ExprNode, EvalContext, is_truthy};
+use crate::engine::compiled::Compiled;
 use crate::engine::executor::{RowSender, RowReceiver, NodeContext, take_primary_output, make_drain};
 
 /// Nome dell'input sintetico sotto cui vivono i locali dichiarati con
@@ -64,6 +65,45 @@ enum ScriptStmt {
     },
 }
 
+/// P388: il corpo con le espressioni COMPILATE una volta all'avvio del nodo
+/// (engine/compiled.rs), invece di reinterpretare l'albero a ogni riga. Stesse
+/// istruzioni di `ScriptStmt`, stessa semantica.
+enum Istr {
+    Let    { name: String,  c: Compiled },
+    Assign { field: String, c: Compiled },
+    SetVar { name: String,  c: Compiled },
+    If     { cond: Compiled, then: Vec<Istr>, altrimenti: Vec<Istr> },
+    Skip,
+    Reject { reason: Option<Compiled> },
+    Log    { c: Compiled },
+    Error  { c: Compiled },
+    Emit,
+    Repeat { count: Compiled, var_name: Option<String>, body: Vec<Istr> },
+    For    { var_name: String, list: Compiled, body: Vec<Istr> },
+}
+
+fn compila(stmts: &[ScriptStmt]) -> Vec<Istr> {
+    stmts.iter().map(|s| match s {
+        ScriptStmt::Let { name, expr }    => Istr::Let { name: name.clone(), c: Compiled::new(expr) },
+        ScriptStmt::Assign { field, expr } => Istr::Assign { field: field.clone(), c: Compiled::new(expr) },
+        ScriptStmt::SetVar { name, expr } => Istr::SetVar { name: name.clone(), c: Compiled::new(expr) },
+        ScriptStmt::If { cond, then, altrimenti } => Istr::If {
+            cond: Compiled::new(cond), then: compila(then), altrimenti: compila(altrimenti),
+        },
+        ScriptStmt::Skip => Istr::Skip,
+        ScriptStmt::Reject { reason } => Istr::Reject { reason: reason.as_ref().map(Compiled::new) },
+        ScriptStmt::Log { expr }   => Istr::Log { c: Compiled::new(expr) },
+        ScriptStmt::Error { expr } => Istr::Error { c: Compiled::new(expr) },
+        ScriptStmt::Emit => Istr::Emit,
+        ScriptStmt::Repeat { count, var_name, body } => Istr::Repeat {
+            count: Compiled::new(count), var_name: var_name.clone(), body: compila(body),
+        },
+        ScriptStmt::For { var_name, list, body } => Istr::For {
+            var_name: var_name.clone(), list: Compiled::new(list), body: compila(body),
+        },
+    }).collect()
+}
+
 /// Tetto ai giri di ciclo per riga in ingresso. Serve a trasformare un
 /// `repeat` con un conteggio sbagliato in un errore leggibile invece che
 /// in un processo che mangia memoria finché non muore. Il numero è alto
@@ -106,6 +146,7 @@ pub async fn run(
         // ancora da scrivere.
         None => Vec::new(),
     };
+    let body: Vec<Istr> = compila(&body);
 
     // La porta reject va presa PRIMA dell'uscita principale (modello di
     // filter e dei parser, P31/P32): `take_primary_output` lascia cadere
@@ -189,7 +230,7 @@ pub async fn run(
 /// (passthrough); da generatore, no.
 #[allow(clippy::too_many_arguments)]
 async fn passata(
-    body:             &[ScriptStmt],
+    body:             &[Istr],
     riga_iniziale:    Row,
     variables:        &mut HashMap<String, Value>,
     ctx:              &NodeContext,
@@ -250,7 +291,7 @@ async fn passata(
 /// non ha cicli né chiamate, quindi la profondità è quella che l'utente
 /// ha scritto e non può crescere a runtime.
 fn esegui(
-    stmts:     &[ScriptStmt],
+    stmts:     &[Istr],
     riga:      &mut Row,
     locali:    &mut Row,
     variables: &mut HashMap<String, Value>,
@@ -265,25 +306,25 @@ fn esegui(
 ) -> Flow {
     for stmt in stmts {
         match stmt {
-            ScriptStmt::Let { name, expr } => {
-                let v = valuta(expr, riga, locali, variables);
+            Istr::Let { name, c } => {
+                let v = valuta(c, riga, locali, variables);
                 locali.insert(name.clone(), v);
             }
 
-            ScriptStmt::Assign { field, expr } => {
-                let v = valuta(expr, riga, locali, variables);
+            Istr::Assign { field, c } => {
+                let v = valuta(c, riga, locali, variables);
                 riga.insert(field.clone(), v);
             }
 
-            ScriptStmt::SetVar { name, expr } => {
+            Istr::SetVar { name, c } => {
                 // `valuta` ri-presta `variables` in sola lettura (var("x")
                 // legge il valore corrente), poi si scrive: sequenziale, ok
                 // per il borrow checker.
-                let v = valuta(expr, riga, locali, variables);
+                let v = valuta(c, riga, locali, variables);
                 variables.insert(name.clone(), v);
             }
 
-            ScriptStmt::If { cond, then, altrimenti } => {
+            Istr::If { cond, then, altrimenti } => {
                 let v = valuta(cond, riga, locali, variables);
                 // `is_truthy` è quella di expr.rs: un `if` nello script
                 // deve voler dire ESATTAMENTE quello che vuol dire una
@@ -298,9 +339,9 @@ fn esegui(
                 }
             }
 
-            ScriptStmt::Emit => emesse.push(riga.clone()),
+            Istr::Emit => emesse.push(riga.clone()),
 
-            ScriptStmt::Repeat { count, var_name, body } => {
+            Istr::Repeat { count, var_name, body } => {
                 let quante = match valuta(count, riga, locali, variables).as_f64_lossy() {
                     Some(n) if n >= 0.0 => n as u64,
                     _ => return Flow::Fallisci(
@@ -323,7 +364,7 @@ fn esegui(
                 }
             }
 
-            ScriptStmt::For { var_name, list, body } => {
+            Istr::For { var_name, list, body } => {
                 let v = valuta(list, riga, locali, variables);
                 // Gli array non sono un tipo di FPEL: vivono dentro
                 // `Object`, che porta un serde_json::Value. Un valore che
@@ -347,9 +388,9 @@ fn esegui(
                 }
             }
 
-            ScriptStmt::Skip => return Flow::Salta,
+            Istr::Skip => return Flow::Salta,
 
-            ScriptStmt::Reject { reason } => {
+            Istr::Reject { reason } => {
                 let motivo = match reason {
                     Some(e) => valuta(e, riga, locali, variables).as_str_repr(),
                     None    => "scartata dallo script".to_string(),
@@ -357,13 +398,13 @@ fn esegui(
                 return Flow::Scarta(motivo);
             }
 
-            ScriptStmt::Log { expr } => {
-                let v = valuta(expr, riga, locali, variables);
+            Istr::Log { c } => {
+                let v = valuta(c, riga, locali, variables);
                 ctx.emit_log(&ctx.label, "info", row_num, v.as_str_repr(), "panel");
             }
 
-            ScriptStmt::Error { expr } => {
-                let v = valuta(expr, riga, locali, variables);
+            Istr::Error { c } => {
+                let v = valuta(c, riga, locali, variables);
                 return Flow::Fallisci(v.as_str_repr());
             }
         }
@@ -377,13 +418,11 @@ fn esegui(
 /// `riga` e `locali` sono prestati in scrittura dal chiamante: qui
 /// servono in lettura, e il prestito si chiude prima della modifica.
 fn valuta(
-    expr:      &ExprNode,
+    c:         &Compiled,
     riga:      &Row,
     locali:    &Row,
     variables: &HashMap<String, Value>,
 ) -> Value {
-    let mut inputs: HashMap<&str, &Row> = HashMap::new();
-    inputs.insert("row", riga);
-    inputs.insert(LOCAL_INPUT, locali);
-    eval(expr, &EvalContext::multi(inputs, variables))
+    // P388: contesto senza HashMap (niente allocazioni) ed espressione compilata.
+    c.eval(&EvalContext::from_pairs([("row", riga), (LOCAL_INPUT, locali)], variables, None))
 }

@@ -223,10 +223,26 @@ impl<'a> EvalContext<'a> {
     /// trasformazioni, poi la riga del Filter/Transform (`row`), poi l'ingresso
     /// principale, poi gli altri in ordine alfabetico del nome.
     pub fn direct_field(&self, field: &str) -> Option<&'a Value> {
-        if let Some(v) = self.field("__transforms__", field) { return Some(v); }
-        if let Some(v) = self.field("row", field) { return Some(v); }
+        self.direct_with(|r| r.get(field))
+    }
+
+    /// P388: `ingresso.campo` con il suggerimento di posizione dell'espressione
+    /// compilata (sempre verificato, v. `Row::get_hinted`).
+    pub fn field_hinted(&self, input: &str, field: &str, hint: &crate::engine::row::Hint) -> Option<&'a Value> {
+        self.input(input).and_then(|row| row.get_hinted(field, hint))
+    }
+
+    /// P388: `direct_field` con il suggerimento di posizione.
+    pub fn direct_field_hinted(&self, field: &str, hint: &crate::engine::row::Hint) -> Option<&'a Value> {
+        self.direct_with(|r| r.get_hinted(field, hint))
+    }
+
+    fn direct_with(&self, get: impl Fn(&'a Row) -> Option<&'a Value>) -> Option<&'a Value> {
+        let campo = |input: &str| self.input(input).and_then(&get);
+        if let Some(v) = campo("__transforms__") { return Some(v); }
+        if let Some(v) = campo("row") { return Some(v); }
         if let Some(main) = self.main_input {
-            if let Some(v) = self.field(main, field) { return Some(v); }
+            if let Some(v) = campo(main) { return Some(v); }
         }
         // ⚠️ Mai l'ordine di inserimento o di una HashMap: con due sorgenti che
         // hanno un campo omonimo il vincitore deve essere sempre lo stesso.
@@ -236,7 +252,7 @@ impl<'a> EvalContext<'a> {
             .collect();
         chiavi.sort_unstable();
         chiavi.dedup();
-        chiavi.into_iter().find_map(|k| self.field(k, field))
+        chiavi.into_iter().find_map(campo)
     }
 }
 

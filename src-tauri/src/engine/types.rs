@@ -72,6 +72,21 @@ impl Value {
         }
     }
 
+    /// Come `as_str_repr`, ma scritto in coda a `out` senza stringhe
+    /// intermedie (P388: sink CSV). Stesso testo carattere per carattere.
+    pub fn write_repr(&self, out: &mut String) {
+        use std::fmt::Write;
+        let _ = match self {
+            Value::Null => Ok(()),
+            Value::Bool(b) => write!(out, "{}", b),
+            Value::Int(i) => write!(out, "{}", i),
+            Value::Float(f) => write!(out, "{}", f),
+            Value::Decimal(d) => write!(out, "{}", d),
+            Value::String(s) | Value::Date(s) | Value::DateTime(s) => { out.push_str(s); Ok(()) }
+            Value::Object(v) => write!(out, "{}", v),
+        };
+    }
+
     pub fn as_str_repr(&self) -> String {
         match self {
             Value::Null          => String::new(),

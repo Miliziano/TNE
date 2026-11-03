@@ -237,6 +237,7 @@ struct Target {
     started:     Instant,
     utf8:        bool,    // P386: testo scritto così com'è, senza ricodificarlo
     line:        String,  // P386: riga CSV riusata, invece di una stringa per campo
+    campo:       String,  // P388: testo di un valore non testuale, riusato
 }
 
 /// Esito di un file, per la riga di stato e il webhook.
@@ -288,7 +289,7 @@ impl Target {
         let mut t = Target { path, out, fresh, rows: 0, bytes: 0, header_done: false,
                              first_json: true, replaced: 0, started: Instant::now(),
                              utf8: matches!(normalize(&cfg.encoding).as_str(), "" | "utf-8" | "utf8"),
-                             line: String::new() };
+                             line: String::new(), campo: String::new() };
         let text_out = !(cfg.raw && cfg.raw_b64) && !matches!(t.out, Out::Excel { .. });
         if text_out && fresh {
             let b = bom(&cfg.encoding);
@@ -381,8 +382,16 @@ impl Target {
                 line.clear();
                 for i in 0..keys.len() {
                     if i > 0 { line.push(cfg.delimiter) }
-                    if let Some(v) = slots.get(row, i) {
-                        push_csv(&mut line, &v.str_repr(), cfg.delimiter, cfg.quote);
+                    match slots.get(row, i) {
+                        None => {}
+                        Some(Value::String(s) | Value::Date(s) | Value::DateTime(s)) =>
+                            push_csv(&mut line, s, cfg.delimiter, cfg.quote),
+                        Some(v) => {
+                            // numeri e altri: scritti in una stringa riusata
+                            self.campo.clear();
+                            v.write_repr(&mut self.campo);
+                            push_csv(&mut line, &self.campo, cfg.delimiter, cfg.quote);
+                        }
                     }
                 }
                 line.push_str(cfg.ending);
@@ -708,7 +717,15 @@ pub(crate) fn row_to_json(row: &Row) -> serde_json::Value {
 /// Come `escape_csv`, ma in coda a `out` (niente stringa nuova se il campo non
 /// va tra virgolette, cioè quasi sempre).
 pub(crate) fn push_csv(out: &mut String, s: &str, delimiter: char, quote: char) {
-    if s.contains(delimiter) || s.contains(quote) || s.contains('\n') || s.contains('\r') {
+    // P388: con delimitatore e virgolette ASCII (il caso normale) basta una
+    // passata sui byte, invece di quattro ricerche.
+    let speciale = if delimiter.is_ascii() && quote.is_ascii() {
+        let (d, q) = (delimiter as u8, quote as u8);
+        s.bytes().any(|b| b == d || b == q || b == b'\n' || b == b'\r')
+    } else {
+        s.contains(delimiter) || s.contains(quote) || s.contains('\n') || s.contains('\r')
+    };
+    if speciale {
         out.push_str(&escape_csv(s, delimiter, quote));
     } else {
         out.push_str(s);
@@ -746,6 +763,30 @@ pub(crate) fn sanitize_tag(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// P388: la scrittura veloce produce lo stesso testo della via di prima.
+    #[test]
+    fn csv_veloce_uguale_a_prima() {
+        let valori = [
+            Value::Null, Value::Bool(true), Value::Int(-42), Value::Float(0.1), Value::Float(1e21),
+            Value::Float(-0.0), Value::Float(f64::NAN), Value::Decimal(rust_decimal::Decimal::new(12345, 3)),
+            Value::String("a,b".into()), Value::Date("2026-11-02".into()),
+            Value::Object(serde_json::json!({"k": [1, "x"]})),
+        ];
+        for v in &valori {
+            let mut s = String::new();
+            v.write_repr(&mut s);
+            assert_eq!(s, v.as_str_repr(), "{v:?}");
+            assert_eq!(v.str_repr(), v.as_str_repr(), "{v:?}");
+        }
+        for (d, q) in [(',', '"'), (';', '\''), ('§', '"'), ('\t', '"')] {
+            for t in ["semplice", "con,virgola", "con;punto", "dice \"ciao\"", "a'b", "riga\nnuova", "cr\r", "è§ü", "", "-1.5"] {
+                let mut fuori = String::new();
+                push_csv(&mut fuori, t, d, q);
+                assert_eq!(fuori, escape_csv(t, d, q), "{t:?} con {d:?} {q:?}");
+            }
+        }
+    }
 
     #[test]
     fn percorsi() {

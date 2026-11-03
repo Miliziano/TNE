@@ -292,6 +292,44 @@ impl Row {
     }
 }
 
+// ─── Suggerimento di posizione (P388) ─────────────────────────────
+//
+// Per chi legge sempre lo stesso campo da righe che arrivano una alla volta
+// (le espressioni compilate): l'ultima posizione trovata. Non si fida mai:
+// prima di usarla controlla che lì ci sia proprio quel nome (i nomi in uno
+// schema sono unici), altrimenti cerca e aggiorna. Sempre corretto, con
+// qualunque forma di riga e anche se lo stesso suggerimento serve righe
+// diverse. Atomico perché l'espressione compilata è condivisa (`&self`).
+
+#[derive(Default)]
+pub struct Hint(std::sync::atomic::AtomicUsize);
+
+impl Clone for Hint {
+    fn clone(&self) -> Self {
+        Hint(std::sync::atomic::AtomicUsize::new(self.0.load(std::sync::atomic::Ordering::Relaxed)))
+    }
+}
+
+impl std::fmt::Debug for Hint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Hint({})", self.0.load(std::sync::atomic::Ordering::Relaxed))
+    }
+}
+
+impl Row {
+    /// Come `get`, partendo dalla posizione suggerita (verificata).
+    pub fn get_hinted(&self, key: &str, hint: &Hint) -> Option<&Value> {
+        use std::sync::atomic::Ordering::Relaxed;
+        let h = hint.0.load(Relaxed);
+        if self.schema.names.get(h).is_some_and(|n| n == key) {
+            return Some(&self.values[h]);
+        }
+        let p = self.schema.position(key)?;
+        hint.0.store(p, Relaxed);
+        Some(&self.values[p])
+    }
+}
+
 // ─── Accesso per posizione, sicuro (regola 3) ──────────────────────
 //
 // Un nodo che legge o scrive sempre gli stessi campi non li cerca per nome a
@@ -534,6 +572,20 @@ mod tests {
         let b: Row = serde_json::from_str(&s).unwrap();
         assert_eq!(b.keys().cloned().collect::<Vec<_>>(), vec!["z", "a"]);
         assert_eq!(b.get("a"), Some(&Value::Int(2)));
+    }
+
+    #[test]
+    fn suggerimento_sempre_verificato() {
+        let h = Hint::default();
+        let a = r(&[("a", 1), ("b", 2)]);
+        let b = r(&[("b", 20), ("a", 10)]);
+        let vuota = Row::new();
+        for _ in 0..3 {
+            assert_eq!(a.get_hinted("b", &h), Some(&Value::Int(2)));
+            assert_eq!(b.get_hinted("b", &h), Some(&Value::Int(20)));
+            assert_eq!(vuota.get_hinted("b", &h), None);
+            assert_eq!(a.get_hinted("z", &h), None);
+        }
     }
 
     #[test]
