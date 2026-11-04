@@ -47,6 +47,15 @@ export const AGG_FUNCTIONS: AggFunctionDef[] = [
 export const AGG_FUNCTION_BY_VALUE: Record<string, AggFunctionDef> =
   Object.fromEntries(AGG_FUNCTIONS.map((f) => [f.value, f]))
 
+/** Nome del campo prodotto da una funzione di aggregazione: l'alias, o
+ *  `<funzione>_<campo>` (`count_all` per count(*)). È la regola del motore —
+ *  il piano la scrive (Toolbar, buildRustPlan): pannello, schema a valle e
+ *  provenienza devono usare la stessa, o a valle si vede un campo che non
+ *  arriva (P398: prima lo studio mostrava `<funzione>_result`). */
+export function aliasAggregato(a: { fn: string; field?: string; alias?: string }): string {
+  return a.alias?.trim() || `${a.fn}_${a.field || 'all'}`
+}
+
 /** Tipo di ritorno di una funzione; 'any' per le sconosciute. */
 export function aggOutputType(fn: string): FieldType {
   return AGG_FUNCTION_BY_VALUE[fn]?.outputType ?? 'any'

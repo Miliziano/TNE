@@ -35,4 +35,9 @@ Raggruppa le righe e calcola funzioni aggregate.
 ## Approfondimento
 
 _Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Aggregate**.
+**Ordinamento (P398).** "Order by" ordina il RISULTATO: si usano i campi di raggruppamento
+e i nomi delle funzioni (l'alias, o `<funzione>_<campo>`: `sum_importo`, `count_all` per
+count(*)). Più campi, ognuno con la sua direzione: `conteggio DESC, regione ASC` (a parità del
+primo decide il secondo). Un campo che non c'è nel risultato si segnala nel log e non conta.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

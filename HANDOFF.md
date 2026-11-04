@@ -2750,3 +2750,81 @@ provenienza dei campi, FPEL→SQL; quindi le attività per la prima versione da 
 - Corretto: Filter visual `>`/`<` sui Decimal (colonne NUMERIC) era sempre falso (`num_of`).
 - Test: unit in `pushdown.rs`, `tests/pushdown_db.rs` (SQLite vero: stesse righe con e senza,
   meno righe lette, ORDER BY e calcolo non spinti), in CI. Manuale FPEL §3.11, scheda source_db.
+
+## AGGIORNAMENTO — Monaco dal pacchetto locale (stato al P395, 4 novembre)
+
+- Prima `@monaco-editor/react` scaricava l'editor da cdn.jsdelivr.net (0.55.1): nell'app
+  installata la CSP `script-src 'self'` lo bloccava e offline non c'era. Ora
+  `src/components/ScriptEditor/monacoLocale.ts` fa `loader.config({ monaco })` con
+  `monaco-editor` locale (0.57) e un solo worker (`editor.worker?worker`).
+- `ScriptEditor` è un involucro lazy (`index.tsx`, tipi in `types.ts`); il componente vero è
+  `Editor.tsx`: Monaco (~4 MB) sta in un chunk caricato all'apertura del primo editor.
+- `vite.config.ts`: plugin `monacoSenzaServiziDiLinguaggio` sostituisce con un modulo vuoto i
+  servizi TypeScript/JSON/CSS/HTML di Monaco (mai usati: FPEL e SQL sono solo
+  evidenziazione) → niente ts/json/css/html worker (~9 MB in meno).
+- Verificato con la CSP di tauri.conf servita davanti alla build: editor, evidenziazione,
+  suggerimenti e icone funzionano, nessuna richiesta esterna.
+
+## AGGIORNAMENTO — Modifiche non salvate, New, conferme (stato al P396, 4 novembre)
+
+- `src/store/documento.ts`: `impronta(stato)` = ciò che va nel file senza le parti transitorie
+  (status/statusMessage/uiState dei nodi, selected/dragging/measured, animated degli archi);
+  `useDocumento().modificato` aggiornato 400 ms dopo l'ultima modifica; `segnaSalvato()`
+  (dopo la scrittura), `segnaCaricato()` (Open/New: la base si prende ad assestamento
+  avvenuto, così normalizzazione e propagazione non sporcano), `modificatoOra()`,
+  `puoiScartare(azione)` e `chiedi(testo, titolo, ok)` (plugin dialog `ask`, nel browser confirm).
+- Chiedono conferma se ci sono modifiche: Open, New (nuovo bottone, `newProject()` nello store:
+  canvas, pool e profili di partenza, nessun file), ripristino di una versione, chiusura della
+  finestra (`onCloseRequested`; nel browser `beforeunload`). Clear chiede sempre (dice quanti
+  nodi toglie) e non tocca lane, risorse e variabili.
+- Indicatori: "● unsaved changes" accanto al nome del progetto, "• " nel titolo della finestra.
+- Capability: `core:window:allow-set-title` (il titolo prima non si aggiornava) e
+  `core:window:allow-destroy` (serve a onCloseRequested per chiudere dopo la conferma).
+- "Canvas pulito." → "Canvas cleared.".
+
+## AGGIORNAMENTO — Annulla / ripeti (stato al P397, 4 novembre)
+
+- `src/store/storia.ts`: passi = stati dello store (nodes, edges, pool, environments; oggetti
+  immutabili → costo solo dei pezzi cambiati), presi 350 ms dopo l'ultima modifica (un
+  trascinamento o una digitazione = un passo), solo se cambia l'`impronta` (lo stato di
+  esecuzione e i badge non contano). Limite 100 passi. `annulla()`, `ripeti()`,
+  `azzeraStoria()` (Open e New), `installaScorciatoie()`: Ctrl/Cmd+Z, Ctrl+Shift+Z e Ctrl+Y,
+  ignorate se il fuoco è in un campo, una select o in Monaco (che hanno il loro annulla).
+- Barra: bottoni ↶ ↷ (disabilitati quando non c'è niente). L'indicatore "modificato" segue
+  l'annulla: tornare allo stato salvato lo spegne.
+
+## AGGIORNAMENTO — ORDER BY su più campi; alias dell'Aggregate (stato al P398, 4 novembre)
+
+- Motore: `engine/ordinamento.rs` → `chiavi("a DESC, b", orderDir)`, `ordina` (stabile, numeri
+  esatti con Int/Decimal, null in fondo in ASC), `campi_assenti` (avviso nel log). Usato da
+  Aggregate (ordina il risultato) e Window (dentro ogni partizione). Prima `orderBy` era UN
+  nome di campo: "count DESC, region ASC" (il suggerimento del pannello) non ordinava niente.
+- Studio: `src/ir/orderBy.ts` (stessa lettura) e `components/OrderByEditor.tsx` (una riga per
+  campo, ASC/DESC, sposta, togli, campi sconosciuti evidenziati); nei pannelli Aggregate e
+  Window (che perde il menu Direction: la vecchia prop `orderDir` vale ancora per i campi
+  scritti senza direzione).
+- Corretto: nome di default di una funzione dell'Aggregate — il motore usa
+  `<fn>_<campo>` (`count_all`), lo studio mostrava e propagava `<fn>_result`, cioè un campo che a
+  valle non arrivava. Ora `aliasAggregato()` in `src/ir/aggFunctions.ts` per tutti (pannello,
+  mapping, schemaPropagation, buildRustPlan, provenienza).
+- Test: unit in `ordinamento.rs`, `src/ir/orderBy.test.ts`. Schede aggregate/window.
+
+## AGGIORNAMENTO — Menu Project, combo del Lineage (stato al P399, 4 novembre)
+
+- Barra: New, Open, Save e Save as in un solo menu "Project" (`TbMenu` in Toolbar.tsx: si
+  chiude con clic fuori, Esc o scegliendo); scorciatoie Ctrl/⌘+N, +O, +S, +Shift+S (Ctrl+S
+  funziona anche mentre si scrive).
+- Lineage: la scelta del nodo usa `CustomSelect` (raggruppata per lane, con ricerca) al posto
+  della select nativa; senza nodo selezionato parte dal primo target.
+
+## AGGIORNAMENTO — CSV: colonne doppie, righe corte, ordine delle colonne (stato al P400, 4 novembre)
+
+Scelte dell'utente (4 nov): rinominare, null + avviso, ordine d'ingresso.
+- `source_file.rs`: `nomi_unici()` → la seconda colonna omonima diventa `nome_2` (un nome già
+  presente si salta: `note_3`), anche per l'intestazione Excel; righe corte → campi mancanti a
+  null; righe lunghe → `col_N` come prima. Avvisi raccolti dalla lettura (`read_one(...,
+  avvisi)`, anche `FileReader::read` per source_ftp) e mandati nel log del nodo a fine lettura.
+- `sink_file.rs`: senza mappatura le colonne CSV/Excel nell'ordine dei campi della prima riga
+  (prima `sort()`). JSON resta con le chiavi ordinate (serde_json senza preserve_order).
+- Attesi della regressione rigenerati (9 file): ordine delle colonne e `csv_irregolare`, dove
+  prima la colonna `name` doppia perdeva il nome (Anna) a favore del cognome (Bianchi).

@@ -367,39 +367,84 @@ fn project_value(raw: Option<&Value>, f: &FieldType) -> Value {
 /// Invia una riga; false = il nodo a valle ha chiuso.
 pub(crate) type Emit<'a> = &'a mut dyn FnMut(Row) -> bool;
 
-fn read_csv(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> Result<(), String> {
+/// P400: nomi di colonna unici. Una colonna con lo stesso nome di una
+/// precedente diventa `nome_2`, `nome_3`… (prima la seconda sovrascriveva la
+/// prima e una colonna spariva). Restituisce anche le rinomine, per l'avviso.
+pub(crate) fn nomi_unici(nomi: Vec<String>) -> (Vec<String>, Vec<String>) {
+    let mut visti: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut rinominate = Vec::new();
+    let tutti: std::collections::HashSet<String> = nomi.iter().cloned().collect();
+    let out = nomi.into_iter().map(|n| {
+        if visti.insert(n.clone()) { return n }
+        let mut k = 2;
+        let mut nuovo = format!("{}_{}", n, k);
+        while visti.contains(&nuovo) || tutti.contains(&nuovo) { k += 1; nuovo = format!("{}_{}", n, k) }
+        rinominate.push(format!("{} → {}", n, nuovo));
+        visti.insert(nuovo.clone());
+        nuovo
+    }).collect();
+    (out, rinominate)
+}
+
+fn read_csv(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit, avvisi: &mut Vec<String>) -> Result<(), String> {
     let mut src = LineSource::open(path, &c.encoding)?;
     for _ in 0..c.skip_rows { if src.next_line().is_none() { return Ok(()) } }
     let mut headers: Vec<String> = Vec::new();
     let mut header_writer = Writer::new(Vec::new());
     let mut pj = Projector::new(&c.fields);
     let mut first = true;
-    while *budget > 0 {
-        let fields = match next_record(&mut src, c) { None => break, Some(r) => r? };
-        if first && c.has_header {
-            headers = fields.iter().enumerate()
-                .map(|(i, h)| if h.is_empty() { format!("col_{}", i) } else { h.clone() }).collect();
-            header_writer = Writer::new(headers.clone());
-            first = false;
-            continue;
-        }
-        first = false;
-        let mut row = Row::new();
-        if !headers.is_empty() && fields.len() == headers.len() {
-            // il caso comune: schema dall'intestazione, calcolato una volta
-            header_writer.write(&mut row, fields.into_iter().map(Value::String).collect(), false);
-        } else {
-            for (i, v) in fields.into_iter().enumerate() {
-                match headers.get(i) {
-                    Some(k) => row.set_str(k, Value::String(v)),
-                    None => row.set(format!("col_{}", i), Value::String(v)),
+    // P400: righe con un numero di valori diverso dall'intestazione.
+    let (mut corte, mut lunghe, mut prima_diversa) = (0u64, 0u64, 0u64);
+    let mut riga_n = 0u64;
+    let esito = (|| -> Result<(), String> {
+        while *budget > 0 {
+            let fields = match next_record(&mut src, c) { None => break, Some(r) => r? };
+            if first && c.has_header {
+                let grezzi = fields.iter().enumerate()
+                    .map(|(i, h)| if h.is_empty() { format!("col_{}", i) } else { h.clone() }).collect();
+                let (unici, rinominate) = nomi_unici(grezzi);
+                if !rinominate.is_empty() {
+                    avvisi.push(format!("columns with the same name in the header, renamed: {}", rinominate.join(", ")));
                 }
+                headers = unici;
+                header_writer = Writer::new(headers.clone());
+                first = false;
+                continue;
             }
+            first = false;
+            riga_n += 1;
+            let mut row = Row::new();
+            if !headers.is_empty() && fields.len() == headers.len() {
+                // il caso comune: schema dall'intestazione, calcolato una volta
+                header_writer.write(&mut row, fields.into_iter().map(Value::String).collect(), false);
+            } else {
+                if !headers.is_empty() {
+                    if fields.len() < headers.len() { corte += 1 } else { lunghe += 1 }
+                    if prima_diversa == 0 { prima_diversa = riga_n }
+                }
+                // Tutte le colonne dell'intestazione ci sono sempre: le mancanti
+                // valgono null (prima mancavano dalla riga e lo schema cambiava
+                // da una riga all'altra). I valori in più diventano col_N.
+                let n = fields.len();
+                for (i, v) in fields.into_iter().enumerate() {
+                    match headers.get(i) {
+                        Some(k) => row.set_str(k, Value::String(v)),
+                        None => row.set(format!("col_{}", i), Value::String(v)),
+                    }
+                }
+                for k in headers.iter().skip(n) { row.set_str(k, Value::Null) }
+            }
+            if !emit(pj.apply(row, &c.fields)) { return Ok(()) }
+            *budget -= 1;
         }
-        if !emit(pj.apply(row, &c.fields)) { return Ok(()) }
-        *budget -= 1;
+        Ok(())
+    })();
+    if corte + lunghe > 0 {
+        avvisi.push(format!(
+            "{} row(s) with fewer values than the header (missing fields set to null), {} with more (extra values in col_N) — first at data row {}",
+            corte, lunghe, prima_diversa));
     }
-    Ok(())
+    esito
 }
 
 fn read_text_lines(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> Result<(), String> {
@@ -517,15 +562,15 @@ fn read_binary(path: &str, c: &SourceFileConfig, pdf: bool, budget: &mut u64, em
 }
 
 /// Legge UN file nel formato configurato (thread bloccante).
-fn read_one(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit) -> Result<(), String> {
+fn read_one(path: &str, c: &SourceFileConfig, budget: &mut u64, emit: Emit, avvisi: &mut Vec<String>) -> Result<(), String> {
     match c.format.as_str() {
-        "csv" | "tsv" => read_csv(path, c, budget, emit),
+        "csv" | "tsv" => read_csv(path, c, budget, emit, avvisi),
         "excel" | "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" => {
             // Celle col tipo naturale; la conversione al tipo dichiarato la
             // fa il mapping (project), come per il CSV.
             let none = std::collections::HashMap::new();
             let mut pj = Projector::new(&c.fields);
-            for row in read_excel(path, &c.sheet_name, c.start_row, c.has_header, &none)? {
+            for row in read_excel(path, &c.sheet_name, c.start_row, c.has_header, &none, avvisi)? {
                 if *budget == 0 || !emit(pj.apply(row, &c.fields)) { break }
                 *budget -= 1;
             }
@@ -561,9 +606,10 @@ impl FileReader {
     /// Righe al massimo (0 = nessun limite).
     pub(crate) fn limit(&self) -> u64 { self.c.limit }
 
-    /// Legge un file locale; `budget` = righe ancora ammesse.
-    pub(crate) fn read(&self, path: &str, budget: &mut u64, emit: Emit) -> Result<(), String> {
-        read_one(path, &self.c, budget, emit)
+    /// Legge un file locale; `budget` = righe ancora ammesse. `avvisi`:
+    /// ciò che il nodo deve dire nel log (colonne rinominate, righe corte).
+    pub(crate) fn read(&self, path: &str, budget: &mut u64, emit: Emit, avvisi: &mut Vec<String>) -> Result<(), String> {
+        read_one(path, &self.c, budget, emit, avvisi)
     }
 }
 
@@ -613,36 +659,41 @@ pub async fn run(
     let mut c = config;
     if !TABULAR.contains(&c.format.as_str()) { c.fields.clear(); }
     let multi = paths.len() > 1;
-    let reader = tokio::task::spawn_blocking(move || {
+    let reader = tokio::task::spawn_blocking(move || -> Vec<String> {
         let mut budget = if c.limit == 0 { u64::MAX } else { c.limit };
         let mut lotto: Vec<Row> = Vec::with_capacity(LOTTO);
+        let mut avvisi: Vec<String> = Vec::new();
         for p in &paths {
+            let mut del_file = Vec::new();
             let esito = {
                 let mut emit = |r: Row| {
                     lotto.push(r);
                     lotto.len() < LOTTO
                         || row_tx.blocking_send(Ok(std::mem::replace(&mut lotto, Vec::with_capacity(LOTTO)))).is_ok()
                 };
-                read_one(p, &c, &mut budget, &mut emit)
+                read_one(p, &c, &mut budget, &mut emit, &mut del_file)
             };
+            avvisi.extend(del_file.into_iter().map(|a| if multi { format!("{}: {}", p, a) } else { a }));
             if let Err(e) = esito {
                 // le righe lette prima dell'errore escono prima dell'errore, come prima
                 if !lotto.is_empty() { let _ = row_tx.blocking_send(Ok(std::mem::take(&mut lotto))); }
                 let msg = if multi { format!("{}: {}", p, e) } else { e };
                 let _ = row_tx.blocking_send(Err(msg));
-                return;
+                return avvisi;
             }
             if budget == 0 || row_tx.is_closed() { break }
         }
         if !lotto.is_empty() { let _ = row_tx.blocking_send(Ok(lotto)); }
+        avvisi
     });
+    let dici = |avvisi: Vec<String>| for a in avvisi { ctx.emit_log(&ctx.label, "warn", 0, a, "panel") };
 
     let mut rows_out: u64 = 0;
     let start = Instant::now();
     let mut last_progress = Instant::now();
     'lettura: while let Some(result) = row_rx.recv().await {
         match result {
-            Err(e) => { drop(row_rx); let _ = reader.await; return fail(e) }
+            Err(e) => { drop(row_rx); if let Ok(a) = reader.await { dici(a) } return fail(e) }
             Ok(rows) => {
                 // Il lotto va a valle prenotando i posti tutti insieme: chi
                 // scrive si risveglia una volta per lotto, non una per riga,
@@ -661,7 +712,7 @@ pub async fn run(
         }
     }
     drop(row_rx);
-    let _ = reader.await;
+    if let Ok(a) = reader.await { dici(a) }
 
     let elapsed_ms = start.elapsed().as_millis() as u64;
     let stats = NodeStats { rows_in: 0, rows_out, rows_rejected: 0, elapsed_ms, error: None };
@@ -723,6 +774,7 @@ fn read_excel(
     start_row: u64,
     has_header: bool,
     types: &std::collections::HashMap<String, String>,
+    avvisi: &mut Vec<String>,
 ) -> Result<Vec<Row>, String> {
     use calamine::Reader;
     let mut wb = calamine::open_workbook_auto(path)
@@ -742,10 +794,16 @@ fn read_excel(
     let mut it = range.rows().skip((start_row - 1) as usize);
     let header: Vec<String> = if has_header {
         match it.next() {
-            Some(r) => r.iter().enumerate().map(|(i, c)| {
-                let t = excel_text(c).trim().to_string();
-                if t.is_empty() { format!("col_{}", i) } else { t }
-            }).collect(),
+            Some(r) => {
+                let (unici, rinominate) = nomi_unici(r.iter().enumerate().map(|(i, c)| {
+                    let t = excel_text(c).trim().to_string();
+                    if t.is_empty() { format!("col_{}", i) } else { t }
+                }).collect());
+                if !rinominate.is_empty() {
+                    avvisi.push(format!("columns with the same name in the header, renamed: {}", rinominate.join(", ")));
+                }
+                unici
+            }
             None => return Ok(Vec::new()),
         }
     } else {
@@ -806,7 +864,7 @@ mod tests_excel {
         let ps = p.to_str().unwrap();
         let none = std::collections::HashMap::new();
 
-        let rows = read_excel(ps, "", 1, true, &none).unwrap();
+        let rows = read_excel(ps, "", 1, true, &none, &mut Vec::new()).unwrap();
         assert_eq!(rows.len(), 2, "la riga vuota va saltata");
         let r = &rows[0];
         assert_eq!(r.get("id"), Some(&Value::Int(1)));
@@ -821,18 +879,18 @@ mod tests_excel {
         let mut tipi = std::collections::HashMap::new();
         tipi.insert("importo".to_string(), "decimal".to_string());
         tipi.insert("id".to_string(), "string".to_string());
-        let rows = read_excel(ps, "Clienti", 1, true, &tipi).unwrap();
+        let rows = read_excel(ps, "Clienti", 1, true, &tipi, &mut Vec::new()).unwrap();
         assert_eq!(rows[0].get("importo"), Some(&Value::Decimal("1200.5".parse().unwrap())));
         assert_eq!(rows[0].get("id"), Some(&Value::String("1".into())));
 
         // foglio per nome, senza intestazione, da una riga successiva
-        let rows = read_excel(ps, "Altro", 2, false, &none).unwrap();
+        let rows = read_excel(ps, "Altro", 2, false, &none, &mut Vec::new()).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].get("col_0"), Some(&Value::String("dal secondo foglio".into())));
 
         // errori parlanti
-        assert!(read_excel(ps, "Manca", 1, true, &none).unwrap_err().contains("Available: Clienti, Altro"));
-        assert!(read_excel("/non/esiste.xlsx", "", 1, true, &none).is_err());
+        assert!(read_excel(ps, "Manca", 1, true, &none, &mut Vec::new()).unwrap_err().contains("Available: Clienti, Altro"));
+        assert!(read_excel("/non/esiste.xlsx", "", 1, true, &none, &mut Vec::new()).is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
@@ -852,7 +910,7 @@ mod tests_p357 {
         let mut out = Vec::new();
         let mut budget = if c.limit == 0 { u64::MAX } else { c.limit };
         let mut emit = |r: Row| { out.push(r); true };
-        read_one(path, c, &mut budget, &mut emit)?;
+        read_one(path, c, &mut budget, &mut emit, &mut Vec::new())?;
         Ok(out)
     }
     fn tmp(name: &str, bytes: &[u8]) -> String {
@@ -880,6 +938,28 @@ mod tests_p357 {
         // limite
         c.limit = 2;
         assert_eq!(read(&p, &c).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn csv_colonne_doppie_e_righe_corte() {
+        // P400: la seconda "note" diventa note_2 (prima spariva); una riga
+        // corta ha i campi mancanti a null, una lunga i valori in più in col_N.
+        let p = tmp("d.csv", b"id,note,note,note_2\n1,a,b,c\n2,x\n3,p,q,r,s\n");
+        let c = cfg("csv");
+        let mut righe = Vec::new();
+        let mut budget = u64::MAX;
+        let mut avvisi = Vec::new();
+        read_one(&p, &c, &mut budget, &mut |r| { righe.push(r); true }, &mut avvisi).unwrap();
+        let nomi: Vec<&String> = righe[0].keys().collect();
+        assert_eq!(nomi, ["id", "note", "note_3", "note_2"], "nome libero dopo note_2 già presente");
+        assert_eq!(s(&righe[0], "note_3"), Value::String("b".into()));
+        assert_eq!(s(&righe[1], "note"), Value::String("x".into()));
+        assert!(righe[1].get("note_3").is_some() && s(&righe[1], "note_3") == Value::Null, "il campo c'è, null");
+        assert_eq!(s(&righe[2], "col_4"), Value::String("s".into()));
+        assert_eq!(avvisi.len(), 2, "{:?}", avvisi);
+        assert!(avvisi[0].contains("note → note_3"));
+        assert!(avvisi[1].contains("1 row(s) with fewer") && avvisi[1].contains("1 with more") && avvisi[1].contains("data row 2"));
+        assert_eq!(nomi_unici(vec!["a".into(), "a".into(), "a".into()]).0, ["a", "a_2", "a_3"]);
     }
 
     #[test]

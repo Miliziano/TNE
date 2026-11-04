@@ -24,7 +24,7 @@
  */
 
 import type { Node as FlowNode, Edge } from '@xyflow/react'
-import { aggOutputType } from './aggFunctions'
+import { aggOutputType, aliasAggregato } from './aggFunctions'
 import type { NodeData, TMapConfig } from '../types'
 import type {
   LogicalPlan,
@@ -246,7 +246,7 @@ function inferOutputSchema(
           }
         }),
         ...aggFns.map((a, i): SchemaField => {
-          const alias = a.alias || `${a.fn}_result`
+          const alias = aliasAggregato(a)
           return {
             id:           `agg_fn_${i}_${alias}`,
             name:         alias,

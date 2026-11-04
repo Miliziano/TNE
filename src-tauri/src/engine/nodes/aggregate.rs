@@ -219,13 +219,17 @@ pub async fn run(
     }
 
     // ── Ordina e limita ────────────────────────────────────────────
-    if !cfg.order_by.is_empty() {
-        let desc = cfg.order_dir.eq_ignore_ascii_case("desc");
-        result.sort_by(|a, b| {
-            let ord = compare_values(a.get(&cfg.order_by), b.get(&cfg.order_by));
-            if desc { ord.reverse() } else { ord }
-        });
+    // P398: "count DESC, region ASC" — più campi, ognuno con la sua direzione.
+    // Prima `orderBy` era UN nome di campo: il suggerimento del pannello cercava
+    // un campo chiamato "count DESC, region ASC" e non ordinava niente.
+    let chiavi = crate::engine::ordinamento::chiavi(&cfg.order_by, &cfg.order_dir);
+    let assenti = crate::engine::ordinamento::campi_assenti(&result, &chiavi);
+    if !assenti.is_empty() {
+        ctx.emit_log(&ctx.label, "warn", 0, format!(
+            "Order by: field(s) not in the result: {} — they do not affect the order (use the group-by fields or the aliases)",
+            assenti.join(", ")), "panel");
     }
+    crate::engine::ordinamento::ordina(&mut result, &chiavi);
     if cfg.limit > 0 { result.truncate(cfg.limit) }
 
     eprintln!("[aggregate] {}: {} righe → {} gruppi", ctx.node_id.0, rows_in, result.len());
@@ -292,21 +296,5 @@ fn aggregate(values: &[&Value], func: &str, separator: &str) -> Value {
         ),
 
         _ => Value::Null,
-    }
-}
-
-// ─── Ordinamento ───────────────────────────────────────────────────
-// Numeri come numeri, il resto come testo. I null in fondo (NULLS LAST).
-
-fn compare_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Ordering {
-    use std::cmp::Ordering;
-    match (a, b) {
-        (None, None) | (Some(Value::Null), Some(Value::Null)) => Ordering::Equal,
-        (None, _) | (Some(Value::Null), _) => Ordering::Greater,
-        (_, None) | (_, Some(Value::Null)) => Ordering::Less,
-        (Some(x), Some(y)) => match (x.as_f64_lossy(), y.as_f64_lossy()) {
-            (Some(nx), Some(ny)) => nx.partial_cmp(&ny).unwrap_or(Ordering::Equal),
-            _ => x.as_str_repr().cmp(&y.as_str_repr()),
-        },
     }
 }

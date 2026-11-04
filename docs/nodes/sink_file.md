@@ -86,3 +86,7 @@ completa (restano in memoria fino ad allora).
 `${file}` e la variabile d'ambiente `FP_FILE` = il percorso; un'uscita diversa
 da 0 ferma il nodo. Il webhook riceve un POST JSON con i file e le righe; se
 non risponde, il nodo registra solo un avviso: i file sono già scritti.
+
+**Ordine delle colonne (P400).** Senza mappatura, le colonne del CSV/Excel escono
+nell'ordine in cui arrivano i campi (prima: alfabetico). Con la mappatura, nell'ordine della
+mappatura.

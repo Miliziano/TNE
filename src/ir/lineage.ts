@@ -33,6 +33,7 @@ import { parseUserFunctions, type UserFunction } from './userFunctions'
 import { buildTMapPlan } from './tmapExprConverter'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { getNodePorts, getHandleSchema } from '../utils/schemaRegistry'
+import { aliasAggregato } from './aggFunctions'
 import { jsonParserFlowFields } from '../nodes/types/json_parser/schema'
 import { BRIDGE_SIGNAL_SCHEMA } from '../nodes/types/bridge/bridgeSchema'
 import { SINK_FILE_SIGNAL_SCHEMA } from '../nodes/types/sink_file/schema'
@@ -494,7 +495,7 @@ export function creaProvenienza(
         String(props['group_by'] ?? '').split(',').map((s) => s.trim()).filter(Boolean)
           .forEach((g) => calcolati.set(g, { come: 'pass', testo: 'group key', da: [{ handle: ingresso, field: g }] }))
         for (const f of json<Array<{ fn: string; field?: string; alias?: string }>>(props['aggFunctions'], [])) {
-          const alias = f.alias || `${f.fn}_${f.field || 'all'}`
+          const alias = aliasAggregato(f)
           calcolati.set(alias, {
             come: 'agg', testo: `${f.fn}(${f.field || '*'})`,
             da: f.field ? [{ handle: ingresso, field: f.field }] : [],

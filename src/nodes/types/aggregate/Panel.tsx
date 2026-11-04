@@ -2,11 +2,12 @@
  * src/nodes/types/aggregate/Panel.tsx
  */
 import { useState, useEffect, useMemo } from 'react'
-import { AGG_FUNCTIONS } from '../../../ir/aggFunctions'
+import { AGG_FUNCTIONS, aliasAggregato } from '../../../ir/aggFunctions'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { OrderByEditor } from '../../../components/OrderByEditor'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: '#1e2535', border: '1px solid #3a4a6a',
@@ -84,7 +85,7 @@ function AggRow({ agg, index, total, fields, onChange, onDelete }: {
           <div style={labelStyle}>Alias output</div>
           <input type="text" style={{ ...inputStyle, color }} value={agg.alias}
             onChange={(e) => onChange(agg.id, 'alias', e.target.value)}
-            placeholder={`${agg.fn}_result`} />
+            placeholder={aliasAggregato({ fn: agg.fn, field: agg.field })} />
         </div>
         <button onClick={() => onDelete(agg.id)} disabled={total === 1}
           style={{ background: 'none', border: '1px solid #3d1010', borderRadius: 4, padding: '4px 6px', cursor: total === 1 ? 'not-allowed' : 'pointer', color: total === 1 ? '#2a3349' : '#ff5f57', opacity: total === 1 ? 0.4 : 1, alignSelf: 'flex-end' }}>
@@ -180,8 +181,8 @@ function AggregatePanelBody({ nodeId }: { nodeId: string }) {
     setAggFunctions(aggs)
     updateProp(nodeId, 'aggFunctions', JSON.stringify(aggs))
     const textFns = aggs.map((a) => {
-      if (a.fn === 'string_agg') return `STRING_AGG(${a.field || '*'}, '${a.separator ?? ', '}') AS ${a.alias || a.fn}`
-      return `${a.fn}(${a.field || '*'}) AS ${a.alias || a.fn}`
+      if (a.fn === 'string_agg') return `STRING_AGG(${a.field || '*'}, '${a.separator ?? ', '}') AS ${aliasAggregato(a)}`
+      return `${a.fn}(${a.field || '*'}) AS ${aliasAggregato(a)}`
     }).join(', ')
     updateProp(nodeId, 'functions', textFns)
     const schemaFields = [
@@ -191,7 +192,7 @@ function AggregatePanelBody({ nodeId }: { nodeId: string }) {
       }),
       ...aggs.map((a) => {
         const meta  = AGG_FUNCTIONS.find((f) => f.value === a.fn)
-        const alias = a.alias || `${a.fn}_result`
+        const alias = aliasAggregato(a)
         return { id: `agg_fn_${a.id}`, name: alias, type: meta?.outputType ?? 'string', physicalName: alias }
       }),
     ]
@@ -216,7 +217,7 @@ function AggregatePanelBody({ nodeId }: { nodeId: string }) {
     ...aggFunctions.map((a) => {
       const meta  = AGG_FUNCTIONS.find((f) => f.value === a.fn)
       const color = FN_COLOR[a.fn] ?? '#4a9eff'
-      return { name: a.alias || `${a.fn}_result`, type: meta?.outputType ?? 'string', role: 'agg' as const, color, fn: a.fn }
+      return { name: aliasAggregato(a), type: meta?.outputType ?? 'string', role: 'agg' as const, color, fn: a.fn }
     }),
   ]
 
@@ -354,8 +355,10 @@ function AggregatePanelBody({ nodeId }: { nodeId: string }) {
       {/* Ordinamento */}
       <SectionTitle label="Sorting and limit" color="#3ddc84" />
       <Row>
+        {/* P398: più campi con direzione; si ordina il RISULTATO (gruppi e alias) */}
         <Field label="Order by">
-          <input type="text" style={inputStyle} value={p('orderBy')} onChange={u('orderBy')} placeholder="count DESC, region ASC" />
+          <OrderByEditor value={p('orderBy')} onChange={(v) => updateProp(nodeId, 'orderBy', v)}
+            fields={outputPreview.map((f) => f.name)} defaultDir={p('orderDir', 'asc')} empty="No ordering" />
         </Field>
         <Field label="Result limit" hint="0 = no limit">
           <input type="number" style={inputStyle} value={p('limit', '0')} onChange={u('limit')} min="0" />

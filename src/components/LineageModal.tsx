@@ -13,6 +13,7 @@ import {
   type PassoIndietro, type UsoAvanti, type Derivazione, type Come,
 } from '../ir/lineage'
 import { isTauri, saveFileDialog, writeFile } from '../lib/tauri'
+import { CustomSelect } from './CustomSelect'
 
 const ACCENT = '#f0abfc'
 const overlay: React.CSSProperties = {
@@ -167,7 +168,11 @@ function Contenuto({ onClose }: { onClose: () => void }) {
     [nodes],
   )
 
-  const [nodeId, setNodeId] = useState<string>(() => elencoNodi.find((n) => n.id === selected)?.id ?? elencoNodi[0]?.id ?? '')
+  const [nodeId, setNodeId] = useState<string>(() =>
+    // il nodo selezionato; altrimenti il primo target (di solito è lì che ci si chiede "da dove viene?")
+    elencoNodi.find((n) => n.id === selected)?.id
+    ?? elencoNodi.find((n) => n.data.type.startsWith('sink_'))?.id
+    ?? elencoNodi[0]?.id ?? '')
   const [handle, setHandle] = useState<string>('')
   const [field,  setField]  = useState<string>('')
   const [cerca,  setCerca]  = useState('')
@@ -233,14 +238,14 @@ function Contenuto({ onClose }: { onClose: () => void }) {
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* scelta del nodo, della porta, del campo */}
           <div style={{ width: 270, borderRight: '1px solid #2a3349', display: 'flex', flexDirection: 'column', padding: 12, gap: 8 }}>
-            <select value={nodeId} onChange={(e) => { setNodeId(e.target.value); setHandle(''); setField('') }} style={inputStyle}>
+            <CustomSelect value={nodeId} onChange={(e) => { setNodeId(e.target.value); setHandle(''); setField('') }} style={inputStyle}>
               {perLane.map(({ lane, nodi }) => (
                 <optgroup key={lane.id} label={lane.label}>
                   {nodi.map((n) => <option key={n.id} value={n.id}>{prov.etichetta(n.id)} ({n.data.type})</option>)}
                 </optgroup>
               ))}
               {senzaLane.map((n) => <option key={n.id} value={n.id}>{prov.etichetta(n.id)} ({n.data.type})</option>)}
-            </select>
+            </CustomSelect>
             {porte.length > 1 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                 {porte.map((h) => (

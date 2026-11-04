@@ -1,12 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "FlowPilot Studio — permessi desktop MINIMI. Il frontend usa solo il plugin dialog (open/save); tutto il resto passa dai comandi custom registrati (che NON dipendono da queste capability). shell:* e fs:* sono stati RIMOSSI: nessun codice della webview li usa, e toglierli elimina la via 'XSS -> plugin shell/fs -> RCE / accesso ai file'. I nodi shell/ssh del MOTORE restano (girano in Rust nel backend, non via plugin JS).",
+  "description": "FlowPilot Studio — permessi desktop MINIMI. Il frontend usa solo il plugin dialog (open/save/ask) e, P396, il titolo e la chiusura della finestra (set-title, destroy: onCloseRequested chiude con destroy dopo la conferma); tutto il resto passa dai comandi custom registrati (che NON dipendono da queste capability). shell:* e fs:* sono stati RIMOSSI: nessun codice della webview li usa, e toglierli elimina la via 'XSS -> plugin shell/fs -> RCE / accesso ai file'. I nodi shell/ssh del MOTORE restano (girano in Rust nel backend, non via plugin JS).",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-title",
+    "core:window:allow-destroy",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",

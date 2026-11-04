@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
-import { AGG_FUNCTION_BY_VALUE } from '../../../ir/aggFunctions'
+import { AGG_FUNCTION_BY_VALUE, aliasAggregato } from '../../../ir/aggFunctions'
 
 const ACCENT = '#4a9eff'
 
@@ -67,7 +67,7 @@ function AggregateMappingPanelBody({ nodeId }: { nodeId: string }) {
     }),
     ...aggFunctions.map((a) => {
       const meta  = AGG_FUNCTIONS[a.fn]
-      const alias = a.alias || `${a.fn}_result`
+      const alias = aliasAggregato(a)
       return { name: alias, type: meta?.outputType ?? 'string', role: 'agg' as const, fn: a.fn, field: a.field, filter: a.filter }
     }),
   ], [groupByFields.join(','), aggFunctions, activeFields.map((f) => f.name).join(',')])

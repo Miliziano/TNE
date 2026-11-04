@@ -487,10 +487,11 @@ async fn read_file(
         let (row_tx, mut row_rx) = tokio::sync::mpsc::channel::<Row>(1000);
         let rd = reader.clone();
         let mut b = *budget;
-        let job = tokio::task::spawn_blocking(move || -> Result<u64, String> {
+        let job = tokio::task::spawn_blocking(move || -> Result<(u64, Vec<String>), String> {
             let mut emit = |r: Row| row_tx.blocking_send(r).is_ok();
-            let res = rd.as_ref().as_ref().expect("reader").read(&tmp_s, &mut b, &mut emit);
-            res.map(|_| b)
+            let mut avvisi = Vec::new();
+            let res = rd.as_ref().as_ref().expect("reader").read(&tmp_s, &mut b, &mut emit, &mut avvisi);
+            res.map(|_| (b, avvisi))
         });
         let mut closed = false;
         while let Some(mut row) = row_rx.recv().await {
@@ -507,7 +508,9 @@ async fn read_file(
         let res = job.await.map_err(|e| e.to_string());
         let _ = std::fs::remove_dir_all(&tmp_dir);
         if closed { return Ok(true) }
-        *budget = res??;
+        let (resto, avvisi) = res??;
+        *budget = resto;
+        for a in avvisi { ctx.emit_log(&ctx.label, "warn", 0, format!("{}: {}", name, a), "panel") }
     }
     Ok(false)
 }

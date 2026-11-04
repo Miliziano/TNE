@@ -1,4 +1,5 @@
 import { useFlowStore } from '../store/flowStore'
+import { useDocumento } from '../store/documento'
 import { LaneCanvas } from './LaneCanvas'
 import type { Lane } from '../types'
 
@@ -61,6 +62,7 @@ function PoolHeader() {
   const pool        = useFlowStore((s) => s.pool)
   const updatePool  = useFlowStore((s) => s.updatePool)
   const currentPath = useFlowStore((s) => s.currentPath)
+  const modificato  = useDocumento((s) => s.modificato)
 
   // Nome del PROGETTO (il file .ffplan aperto) — da non confondere col nome del
   // POOL, che è un'etichetta interna al progetto e si modifica lì accanto.
@@ -129,6 +131,11 @@ function PoolHeader() {
         <i className="ti ti-file-text" style={{ fontSize: 13, opacity: 0.7 }} aria-hidden="true" />
         {nomeProgetto ?? 'unsaved project'}
       </span>
+      {modificato && (
+        <span title="There are changes not saved to the file" style={{ fontSize: 11, color: 'var(--color-text-warning, #ffb347)' }}>
+          ● unsaved changes
+        </span>
+      )}
     </div>
   )
 }

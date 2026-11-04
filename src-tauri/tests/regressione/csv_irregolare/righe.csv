@@ -1,5 +1,5 @@
-col_3,id,name,note
-x,1,Bianchi,"con, virgola"
-,2,Verdi,
-y,3,Neri,"dice ""ciao"""
-,4,,
+id,name,name_2,col_3,note
+1,Anna,Bianchi,x,"con, virgola"
+2,Bruno,Verdi,,
+3,Carla,Neri,y,"dice ""ciao"""
+4,,,,

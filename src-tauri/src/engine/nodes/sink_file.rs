@@ -578,8 +578,8 @@ pub async fn run(
         let (out_row, kept) = if replay { (row.clone(), Some(row)) } else { (row, None) };
         let out_row = if cfg.raw { out_row } else { cfg.mapping.apply(out_row) };
         if cols.is_empty() && !cfg.raw {
+            // P400: nell'ordine in cui arrivano i campi (prima: alfabetico).
             cols = out_row.keys().cloned().collect();
-            cols.sort();
         }
         if slots.names().len() != cols.len() { slots = Slots::new(cols.clone()) }
         open.get_mut(&key).unwrap().write_row(&out_row, &cols, &mut slots, &cfg).map_err(nerr)?;

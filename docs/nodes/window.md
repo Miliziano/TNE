@@ -32,4 +32,9 @@ _Nessun campo di configurazione._
 ## Approfondimento
 
 _Da compilare._ Note d'uso, esempi, trabocchetti e buone pratiche per **Window**.
+**Ordinamento (P398).** Dentro ogni partizione le righe si ordinano per uno o più campi,
+ognuno con la sua direzione (`data ASC, id DESC`): è l'ordine in cui lavorano row_number, lag,
+lead, cumsum e le altre funzioni. Senza ordinamento le righe restano nell'ordine d'arrivo.
+Un campo che non c'è nelle righe si segnala nel log e non conta.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

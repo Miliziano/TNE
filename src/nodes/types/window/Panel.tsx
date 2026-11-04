@@ -6,6 +6,7 @@ import { useFlowStore } from '../../../store/flowStore'
 import { useIncomingSchema } from '../../../nodes/useIncomingSchema'
 import { useMaterializeSchema } from '../../../nodes/useMaterializeSchema'
 import { CustomSelect } from '../../../components/CustomSelect'
+import { OrderByEditor } from '../../../components/OrderByEditor'
 
 
 
@@ -290,26 +291,11 @@ function WindowPanelBody({ nodeId }: { nodeId: string }) {
         )}
       </Field>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 8 }}>
-        <Field label="Order by">
-          {activeFields.length > 0 ? (
-            <CustomSelect style={inputStyle} value={orderBy} onChange={u('orderBy')}>
-              <option value="">— select field —</option>
-              {activeFields.map((f) => (
-                <option key={f.name} value={f.name}>{f.name} ({f.type})</option>
-              ))}
-            </CustomSelect>
-          ) : (
-            <input style={inputStyle} value={orderBy} onChange={u('orderBy')} placeholder="date, id" />
-          )}
-        </Field>
-        <Field label="Direction">
-          <CustomSelect style={inputStyle} value={orderDir} onChange={u('orderDir')}>
-            <option value="asc">ASC ↑</option>
-            <option value="desc">DESC ↓</option>
-          </CustomSelect>
-        </Field>
-      </div>
+      {/* P398: più campi, ognuno con la sua direzione (prima uno solo + Direction) */}
+      <Field label="Order by (within each partition)">
+        <OrderByEditor value={orderBy} onChange={(v) => updateProp(nodeId, 'orderBy', v)}
+          fields={activeFields.map((f) => f.name)} defaultDir={orderDir} empty="No ordering: rows keep their arrival order" />
+      </Field>
 
       {/* Funzioni */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>

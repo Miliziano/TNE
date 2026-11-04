@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { configurableNames, manifestVariables, ENGINE_RANGE_WITH_VARIABLES } from '../ir/runtimeVariables'
 import { useFlowStore, resyncNodeCounter, normalizeLoadedNodes } from '../store/flowStore'
 import type { RuleStat } from '../store/flowStore'
@@ -22,6 +22,8 @@ import { EnvironmentsModal } from './EnvironmentsModal'
 import { UserFunctionsModal } from './UserFunctionsModal'
 import { DecodeTablesModal } from './DecodeTablesModal'
 import { LineageModal } from './LineageModal'
+import { useDocumento, segnaSalvato, segnaCaricato, puoiScartare, chiedi } from '../store/documento'
+import { useStoria, annulla, ripeti, azzeraStoria, installaScorciatoie } from '../store/storia'
 import { HelpModal } from './HelpModal'
 import { CompileModal } from './CompileModal'
 import { SigningKeyModal } from './SigningKeyModal'
@@ -30,6 +32,7 @@ import { compileTransformFields, type TransformFieldSpec } from '../transforms/t
 import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
 import { validateDecodeTables } from '../ir/decodeTables'
 import { filtroDaSpingere } from '../ir/pushdown'
+import { aliasAggregato } from '../ir/aggFunctions'
 import { esempiFalliti } from '../lib/fpelEngine'
 import { compileSerializerTree } from '../ir/serializerTree'
 import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
@@ -1218,7 +1221,7 @@ function buildRustPlan(
             const out: Record<string, unknown> = {
               field:     f.field ?? '',
               fn:        f.fn,
-              alias:     f.alias || `${f.fn}_${f.field || 'all'}`,
+              alias:     aliasAggregato(f),
               separator: f.separator ?? ', ',
             }
             if (f.filter?.trim()) {
@@ -1381,6 +1384,65 @@ function TbBtn({
   )
 }
 
+// ─── Menu della barra (P399) ──────────────────────────────────────
+// Un bottone che apre un elenco di comandi. Si chiude con un clic fuori, con
+// Esc o scegliendo un comando.
+interface VoceMenu {
+  label:     string
+  icon:      string
+  onClick:   () => void
+  disabled?: boolean
+  shortcut?: string
+  hint?:     string
+}
+
+function TbMenu({ label, icon, voci, title }: { label: string; icon: string; voci: VoceMenu[]; title?: string }) {
+  const [aperto, setAperto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!aperto) return
+    const fuori = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAperto(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAperto(false) }
+    document.addEventListener('mousedown', fuori)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fuori); document.removeEventListener('keydown', esc) }
+  }, [aperto])
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <TbBtn onClick={() => setAperto((v) => !v)} title={title}
+        border={aperto ? 'var(--color-text-info)' : undefined}>
+        <i className={`ti ${icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
+        {label}
+        <i className="ti ti-chevron-down" style={{ fontSize: 11, opacity: 0.7 }} aria-hidden="true" />
+      </TbBtn>
+      {aperto && (
+        <div role="menu" style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 1200, minWidth: 210,
+          background: '#161b26', border: '1px solid #2a3349', borderRadius: 6, padding: 4,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+        }}>
+          {voci.map((v) => (
+            <button key={v.label} role="menuitem" disabled={v.disabled} title={v.hint}
+              onClick={() => { setAperto(false); v.onClick() }}
+              onMouseEnter={(e) => { if (!v.disabled) e.currentTarget.style.background = '#1f2737' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 10px',
+                background: 'transparent', border: 'none', borderRadius: 4, textAlign: 'left',
+                color: v.disabled ? '#6a7690' : '#e8ecf4', fontSize: 12, fontFamily: 'inherit',
+                cursor: v.disabled ? 'not-allowed' : 'pointer', opacity: v.disabled ? 0.5 : 1,
+              }}>
+              <i className={`ti ${v.icon}`} style={{ fontSize: 14, width: 16, color: '#8a94a8' }} aria-hidden="true" />
+              <span style={{ flex: 1 }}>{v.label}</span>
+              {v.shortcut && <span style={{ fontSize: 10, color: '#6a7690', fontFamily: 'var(--font-mono)' }}>{v.shortcut}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TbDivider() {
   return <div style={{ width: 1, height: 20, background: 'var(--color-border-tertiary)' }} />
 }
@@ -1391,13 +1453,21 @@ function TbDivider() {
 // del .ffplan. Snapshot COMPLETI (non diff) → confronto side-by-side banale.
 const PLAN_HISTORY_LIMIT = 20
 
+// Tasto modificatore mostrato nelle scorciatoie: ⌘ su macOS, Ctrl altrove.
+const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
+
 export function Toolbar() {
   const {
     nodes, edges, running,
     setRunning, setNodeStatus, addLog,
-    clearCanvas, pool, addLane,
+    clearCanvas, newProject, pool, addLane,
     resetNodeStats, setNodeStats,
   } = useFlowStore()
+  const modificato = useDocumento((s) => s.modificato)
+  const puoAnnullare = useStoria((s) => s.puoAnnullare)
+  const puoRipetere  = useStoria((s) => s.puoRipetere)
+  // P397: Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y sul progetto.
+  useEffect(() => installaScorciatoie(), [])
 
   const [saving,  setSaving]  = useState(false)
   const [opening, setOpening] = useState(false)
@@ -1429,15 +1499,37 @@ export function Toolbar() {
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window')
         if (annullato) return
+        // P396: "•" davanti al nome = modifiche non salvate.
         await getCurrentWindow().setTitle(
-          nomeProgetto ? `FlowPilot Studio — ${nomeProgetto}` : 'FlowPilot Studio',
+          `${modificato ? '• ' : ''}${nomeProgetto ? `FlowPilot Studio — ${nomeProgetto}` : 'FlowPilot Studio'}`,
         )
       } catch {
         /* fuori da Tauri (o API non disponibile): l'etichetta in barra basta */
       }
     })()
     return () => { annullato = true }
-  }, [nomeProgetto])
+  }, [nomeProgetto, modificato])
+
+  // P396: chiudere la finestra con modifiche non salvate chiede conferma.
+  useEffect(() => {
+    if (!isTauri()) {
+      const avvisa = (e: BeforeUnloadEvent) => { if (useDocumento.getState().modificato) e.preventDefault() }
+      window.addEventListener('beforeunload', avvisa)
+      return () => window.removeEventListener('beforeunload', avvisa)
+    }
+    let smetti: (() => void) | undefined
+    let annullato = false
+    ;(async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        const via = await getCurrentWindow().onCloseRequested(async (evento) => {
+          if (!(await puoiScartare('close FlowPilot'))) evento.preventDefault()
+        })
+        if (annullato) via(); else smetti = via
+      } catch { /* API non disponibile */ }
+    })()
+    return () => { annullato = true; smetti?.() }
+  }, [])
 
   // Esporta l'ARTIFACT runnable: il piano compilato (stesso JSON di engine_run,
   // col profilo attivo CONGELATO e i ${SEGRETO}/${MONITOR_URL} intatti) + un
@@ -1664,11 +1756,13 @@ export function Toolbar() {
     }, null, 2)
     await writeFile(path, payload)
     useFlowStore.setState({ currentPath: path })
+    segnaSalvato()
     addLog('ok', `Project saved: ${path}${history.length ? ` (history: ${history.length})` : ''}`)
   }
 
   // Ripristina una versione dalla cronologia nel canvas (poi si salva per persistere).
-  const restoreVersion = (plan: PlanSnapshot) => {
+  const restoreVersion = async (plan: PlanSnapshot) => {
+    if (!(await puoiScartare('restore this version'))) return
     useFlowStore.setState({
       pool:  plan.pool  as Pool,
       nodes: normalizeLoadedNodes(plan.nodes as FlowNode<NodeData>[]),
@@ -1774,6 +1868,7 @@ export function Toolbar() {
       addLog('warn', 'File opening is available only in the desktop app.')
       return
     }
+    if (!(await puoiScartare('open another project'))) return
     setOpening(true)
     try {
       const path = await openPlanDialog()
@@ -1798,6 +1893,8 @@ export function Toolbar() {
         currentPath: path,
       })
       resyncNodeCounter(plan.nodes)
+      segnaCaricato()
+      azzeraStoria()
       const histN = Array.isArray(data.history) ? data.history.length : 0
       addLog('ok', `Project opened: ${path}${histN ? ` (${histN} versions in history)` : ''}`)
     } catch (e) {
@@ -1806,6 +1903,38 @@ export function Toolbar() {
       setOpening(false)
     }
   }
+
+  // ── Nuovo / Pulisci (P396) ────────────────────────────────────
+  const handleNew = async () => {
+    if (!(await puoiScartare('start a new project'))) return
+    newProject()
+    segnaCaricato()
+    azzeraStoria()
+  }
+  const handleClear = async () => {
+    const n = nodes.filter((x) => x.data.type !== 'lane_start' && x.data.type !== 'lane_end').length
+    if (n === 0 && edges.length === 0) return
+    if (!(await chiedi(`Remove all ${n} node${n === 1 ? '' : 's'} and their connections from the canvas? Lanes, resources and variables stay.`,
+      'Clear canvas', 'Clear'))) return
+    clearCanvas()
+  }
+
+  // Scorciatoie del menu Project (P399). Ctrl+S funziona anche mentre si
+  // scrive in un campo o nell'editor: salvare non tocca il testo.
+  const comandiFile = useRef({ handleNew, handleOpen, handleSave, handleSaveAs })
+  comandiFile.current = { handleNew, handleOpen, handleSave, handleSaveAs }
+  useEffect(() => {
+    const tasto = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      const k = e.key.toLowerCase()
+      const c = comandiFile.current
+      if (k === 's') { e.preventDefault(); void (e.shiftKey ? c.handleSaveAs() : c.handleSave()) }
+      else if (k === 'o' && !e.shiftKey) { e.preventDefault(); void c.handleOpen() }
+      else if (k === 'n' && !e.shiftKey) { e.preventDefault(); void c.handleNew() }
+    }
+    window.addEventListener('keydown', tasto)
+    return () => window.removeEventListener('keydown', tasto)
+  }, [])
 
   const nodeCount = nodes.filter(
     n => n.data.type !== 'lane_start' && n.data.type !== 'lane_end'
@@ -1833,18 +1962,13 @@ export function Toolbar() {
       <TbDivider />
 
       {/* File */}
-      <TbBtn onClick={handleOpen} disabled={opening} title="Open project">
-        <i className="ti ti-folder-open" style={{ fontSize: 13 }} aria-hidden="true" />
-        {opening ? 'Opening…' : 'Open'}
-      </TbBtn>
-      <TbBtn onClick={handleSave} disabled={saving} title="Save (overwrites the open file)">
-        <i className="ti ti-device-floppy" style={{ fontSize: 13 }} aria-hidden="true" />
-        {saving ? 'Saving…' : 'Save'}
-      </TbBtn>
-      <TbBtn onClick={handleSaveAs} disabled={saving} title="Save as (choose the file)">
-        <i className="ti ti-file-export" style={{ fontSize: 13 }} aria-hidden="true" />
-        Save as
-      </TbBtn>
+      {/* P399: i comandi del file di progetto in un menu solo */}
+      <TbMenu label={opening ? 'Opening…' : saving ? 'Saving…' : 'Project'} icon="ti-file" title="New, open, save" voci={[
+        { label: 'New',      icon: 'ti-file-plus',      onClick: handleNew,    shortcut: `${MOD}+N`, hint: 'Start an empty project' },
+        { label: 'Open…',    icon: 'ti-folder-open',    onClick: handleOpen,   shortcut: `${MOD}+O`, disabled: opening },
+        { label: 'Save',     icon: 'ti-device-floppy',  onClick: handleSave,   shortcut: `${MOD}+S`, disabled: saving, hint: 'Overwrites the open file' },
+        { label: 'Save as…', icon: 'ti-file-export',    onClick: handleSaveAs, shortcut: `${MOD}+Shift+S`, disabled: saving, hint: 'Choose the file' },
+      ]} />
       <TbBtn onClick={() => setHistoryOpen(true)} title="Version history">
         <i className="ti ti-history" style={{ fontSize: 13 }} aria-hidden="true" />
         History
@@ -1903,11 +2027,17 @@ export function Toolbar() {
       <TbDivider />
 
       {/* Canvas */}
+      <TbBtn onClick={annulla} disabled={!puoAnnullare} title="Undo (Ctrl+Z)">
+        <i className="ti ti-arrow-back-up" style={{ fontSize: 13 }} aria-hidden="true" />
+      </TbBtn>
+      <TbBtn onClick={ripeti} disabled={!puoRipetere} title="Redo (Ctrl+Shift+Z / Ctrl+Y)">
+        <i className="ti ti-arrow-forward-up" style={{ fontSize: 13 }} aria-hidden="true" />
+      </TbBtn>
       <TbBtn onClick={addLane} title="Add lane">
         <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
         Lane
       </TbBtn>
-      <TbBtn onClick={clearCanvas} title="Clear canvas">
+      <TbBtn onClick={handleClear} title="Remove all nodes and connections (lanes, resources and variables stay)">
         <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true" />
         Clear
       </TbBtn>

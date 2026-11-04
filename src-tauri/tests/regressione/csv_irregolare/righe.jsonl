@@ -1,4 +1,4 @@
-{"col_3":"x","id":"1","name":"Bianchi","note":"con, virgola"}
-{"id":"2","name":"Verdi"}
-{"col_3":"y","col_5":"extra1","col_6":"extra2","id":"3","name":"Neri","note":"dice \"ciao\""}
-{"col_3":"","id":"4","name":"","note":""}
+{"col_3":"x","id":"1","name":"Anna","name_2":"Bianchi","note":"con, virgola"}
+{"col_3":null,"id":"2","name":"Bruno","name_2":"Verdi","note":null}
+{"col_3":"y","col_5":"extra1","col_6":"extra2","id":"3","name":"Carla","name_2":"Neri","note":"dice \"ciao\""}
+{"col_3":"","id":"4","name":"","name_2":"","note":""}

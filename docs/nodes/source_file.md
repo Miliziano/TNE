@@ -92,4 +92,10 @@ non si converte al tipo diventa NULL (meglio un null visibile che uno zero).
 Non disponibili (tolti dal pannello nel P357): Parquet, ORC, Avro, estrazione del testo
 dai PDF.
 
+**Intestazioni e righe irregolari (P400).** Due colonne con lo stesso nome non si
+sovrascrivono più: la seconda diventa `nome_2`, la terza `nome_3` (avviso nel log). Una riga
+con meno valori dell'intestazione ha i campi mancanti a null (lo schema non cambia da riga a
+riga); i valori in più di una riga lunga vanno in `col_N`. A fine lettura un avviso dice
+quante righe erano corte o lunghe e la prima. Vale anche per l'intestazione dei fogli Excel.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

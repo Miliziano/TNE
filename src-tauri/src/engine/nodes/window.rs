@@ -205,12 +205,22 @@ pub async fn run(
     let mut rows_out = 0u64;
     let mut last_prog = Instant::now();
 
+    // P398: più campi, ognuno con la sua direzione (v. engine/ordinamento.rs).
+    let chiavi = crate::engine::ordinamento::chiavi(&cfg.order_by, &cfg.order_dir);
+    let mut avvisato = false;
+
     for key in order {
         let mut part = groups.remove(&key).unwrap();
 
-        if !cfg.order_by.is_empty() {
-            sort_rows(&mut part, &cfg.order_by, &cfg.order_dir);
+        if !avvisato && !chiavi.is_empty() {
+            avvisato = true;
+            let assenti = crate::engine::ordinamento::campi_assenti(&part, &chiavi);
+            if !assenti.is_empty() {
+                ctx.emit_log(&ctx.label, "warn", 0, format!(
+                    "Order by: field(s) not found in the rows: {} — they do not affect the order", assenti.join(", ")), "panel");
+            }
         }
+        crate::engine::ordinamento::ordina(&mut part, &chiavi);
 
         let computed = compute_windows(&part, &cfg.windows, &variables)?;
 
@@ -230,37 +240,6 @@ pub async fn run(
                             elapsed_ms: start.elapsed().as_millis() as u64, error: None };
     ctx.emit_completed(stats.clone());
     Ok(stats)
-}
-
-// ─── Ordinamento ───────────────────────────────────────────────────
-//
-// Confronta per tipo: numeri come numeri, il resto come testo.
-// (L'executor JS confrontava sempre come stringa: "10" < "9" è vero.)
-// I null vanno in fondo, come in SQL con NULLS LAST.
-
-fn sort_rows(rows: &mut [Row], field: &str, dir: &str) {
-    let desc = dir.eq_ignore_ascii_case("desc");
-    rows.sort_by(|a, b| {
-        let va = a.get(field);
-        let vb = b.get(field);
-        let ord = compare_values(va, vb);
-        if desc { ord.reverse() } else { ord }
-    });
-}
-
-fn compare_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Ordering {
-    use std::cmp::Ordering;
-    match (a, b) {
-        (None, None) | (Some(Value::Null), Some(Value::Null)) => Ordering::Equal,
-        (None, _) | (Some(Value::Null), _) => Ordering::Greater,   // null in fondo
-        (_, None) | (_, Some(Value::Null)) => Ordering::Less,
-        (Some(x), Some(y)) => {
-            match (x.as_f64_lossy(), y.as_f64_lossy()) {
-                (Some(nx), Some(ny)) => nx.partial_cmp(&ny).unwrap_or(Ordering::Equal),
-                _ => x.as_str_repr().cmp(&y.as_str_repr()),
-            }
-        }
-    }
 }
 
 // ─── Le funzioni window ────────────────────────────────────────────

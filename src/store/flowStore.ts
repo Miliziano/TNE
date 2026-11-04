@@ -509,6 +509,8 @@ interface FlowState {
   // Esecuzione
   setRunning:  (v: boolean) => void
   clearCanvas: () => void
+  /** P396: progetto nuovo — canvas, pool e profili di partenza, nessun file. */
+  newProject: () => void
 
   // Fase 8 — statistiche runtime
   setNodeStats:   (id: string, patch: Partial<NodeRunStats>) => void
@@ -2012,7 +2014,18 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   clearCanvas: () => {
     set({ nodes: DEFAULT_NODES, edges: [], selectedNodeId: null, editingNodeId: null, selectedResourceId: null, nodeStats: {} })
-    get().addLog('info', 'Canvas pulito.')
+    get().addLog('info', 'Canvas cleared.')
+  },
+
+  newProject: () => {
+    set({
+      nodes: DEFAULT_NODES, edges: [], pool: DEFAULT_POOL,
+      environments: { active: '', profiles: {}, profileRefs: {} },
+      currentPath: null, selectedNodeId: null, editingNodeId: null, selectedResourceId: null,
+      selectedLaneId: null, nodeStats: {},
+    })
+    resyncNodeCounter(DEFAULT_NODES)
+    get().addLog('info', 'New project.')
   },
 
   // ── Interno ──
