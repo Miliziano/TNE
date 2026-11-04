@@ -2706,3 +2706,24 @@ provenienza dei campi, FPEL→SQL; quindi le attività per la prima versione da 
   Template Script "Data rules (expect)"; parola evidenziata in Monaco.
 - Test: `tests/script_expect.rs` (reject/warn/error, conteggi, evento anche su fallimento),
   8 casi in `scriptParser.test.ts`. Manuale FPEL §4.2.
+
+## AGGIORNAMENTO — Provenienza dei campi (stato al P393, 3 novembre)
+
+- `src/ir/lineage.ts` (puro, sul canvas): `creaProvenienza(nodes, edges, {userFunctions})` →
+  `campi`, `campiIngresso`, `deriva` (come un nodo produce un campo: origin, pass, expr, agg,
+  parsed, serialized, generated, dynamic, assumed + campi d'ingresso da cui dipende, passi
+  intermedi, variabili di lane, condizionale, errore), `indietro`/`daIngresso` (albero fino
+  alle sorgenti), `avanti` (impatto fino ai sink, con la colonna scritta), `porteUscita`,
+  `etichettaPorta`. Per tipo: sorgenti (colonna fisica), Script (ordine delle assegnazioni,
+  let, if), Transform (drop/passthrough), TMap (`buildTMapPlan`, trasformazioni come passi,
+  etichette degli ingressi), Aggregate, Window, Union (`unionMapping`), Join (prefisso destro),
+  JSON/XML parser e serializer, Explode, Pivot (dynamic), Data Quality (`_dq`), bridge
+  attraverso il canale, uscite "signal". Tipi non dichiarati: passaggio assunto.
+- `riepilogoProvenienza` + `provenienzaCsv`: per ogni campo che arriva a un target, origini e
+  percorso (bottone Export CSV).
+- Studio: `components/LineageModal.tsx`, bottone "Lineage" nella barra. Test:
+  `src/ir/lineage.test.ts` (34 casi). Manuale FPEL §3.10.
+- Il campo `lineage` degli archi dell'IR (`LogicalEdge.lineage`) resta vuoto: la provenienza
+  si calcola sul canvas, dove stanno le configurazioni dei nodi.
+- Trovati con la provenienza negli esempi (non corretti): 08-tmap `imponibile` ha espressione
+  `importo_ivato`; 06-aggregazione alias "conteggio dei movimenti" su `sum(importo)`.

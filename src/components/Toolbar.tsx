@@ -21,6 +21,7 @@ import { VersionHistoryModal, type PlanSnapshot } from './VersionHistoryModal'
 import { EnvironmentsModal } from './EnvironmentsModal'
 import { UserFunctionsModal } from './UserFunctionsModal'
 import { DecodeTablesModal } from './DecodeTablesModal'
+import { LineageModal } from './LineageModal'
 import { HelpModal } from './HelpModal'
 import { CompileModal } from './CompileModal'
 import { SigningKeyModal } from './SigningKeyModal'
@@ -1386,6 +1387,7 @@ export function Toolbar() {
   const [envOpen, setEnvOpen] = useState(false)
   const [funcOpen, setFuncOpen] = useState(false)
   const [tabOpen, setTabOpen]   = useState(false)
+  const [linOpen, setLinOpen]   = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [compileOpen, setCompileOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
@@ -1841,6 +1843,10 @@ export function Toolbar() {
         <i className="ti ti-table" style={{ fontSize: 13 }} aria-hidden="true" />
         Tables
       </TbBtn>
+      <TbBtn onClick={() => setLinOpen(true)} title="Field lineage: where a field comes from and what it feeds">
+        <i className="ti ti-route" style={{ fontSize: 13 }} aria-hidden="true" />
+        Lineage
+      </TbBtn>
       <TbBtn onClick={() => setCompileOpen(true)} title="Compile / generate artifact for the runner">
         <i className="ti ti-package" style={{ fontSize: 13 }} aria-hidden="true" />
         Compile
@@ -1927,6 +1933,7 @@ export function Toolbar() {
       <EnvironmentsModal open={envOpen} onClose={() => setEnvOpen(false)} />
       <UserFunctionsModal open={funcOpen} onClose={() => setFuncOpen(false)} />
       <DecodeTablesModal open={tabOpen} onClose={() => setTabOpen(false)} />
+      <LineageModal open={linOpen} onClose={() => setLinOpen(false)} />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <CompileModal open={compileOpen} onClose={() => setCompileOpen(false)} onGenerate={esportaArtifact} />

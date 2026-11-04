@@ -222,6 +222,38 @@ scelto, un `??` dopo il primo valore non nullo) sono segnati «not evaluated».
 Il testo mostrato è la forma canonica dell'espressione (gli `in`, `between` e
 `??` appaiono come gli operatori equivalenti), cioè ciò che il motore esegue.
 
+### 3.10 Provenienza dei campi (P393)
+Il pulsante **Lineage** della barra apre la provenienza dei campi. Si sceglie un
+nodo (parte da quello selezionato), una sua porta e un campo:
+
+- **Where it comes from** — il percorso all'indietro fino alle sorgenti. Per
+  ogni passo: il nodo, il campo, **come** lo produce (*source*, *passed*,
+  *computed*, *aggregated*, *extracted*, *by the node*…) e l'espressione. I
+  valori intermedi compaiono come «via»: un `let` dello Script, un campo già
+  assegnato più sopra, una trasformazione del TMap. All'origine, la colonna
+  fisica (`column "QTY" of ordini.csv`).
+- **What it feeds** — in avanti, tutto ciò che il campo alimenta fino ai
+  target, con la colonna in cui finisce (`written to column "TOTALE" of
+  VENDITE`): è l'analisi d'impatto, «se cambio questa colonna, cosa tocco?».
+
+Di un sink si parte dai campi che gli **arrivano**; le porte d'ingresso e
+d'uscita si scelgono con i bottoni sopra l'elenco (`→ main` = ingresso,
+`main_out →` = uscita). Un nome nel percorso si clicca per spostarsi lì; il
+mirino seleziona il nodo sul canvas.
+
+Le espressioni si leggono dalla **stessa compilazione del Run** (FPEL, TMap,
+Transform, Script, funzioni utente): la provenienza è quella di ciò che il
+motore esegue, non una stima sui nomi. Valgono le dipendenze di **valore**: le
+condizioni che decidono se una riga passa (filtri, chiavi di join) non sono
+provenienza e non compaiono. Un'assegnazione dentro un `if` è segnata
+*assigned only in some branches* (altrimenti resta il valore di prima). Dove lo
+studio non può saperlo lo dice: le colonne del Pivot sono *runtime*; i tipi di
+nodo che non dichiarano cosa fanno dei campi li *assumono* passati.
+
+**Export CSV** scrive, per ogni campo scritto da un target, i campi sorgente da
+cui viene e il percorso (`target;port;field;origin;path`): è il documento da
+allegare a una revisione o a un controllo dei dati.
+
 ## 4. Il linguaggio di istruzioni (nodo Script)
 
 ### 4.1 Modello di esecuzione
