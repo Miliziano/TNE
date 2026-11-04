@@ -24,6 +24,7 @@ pub mod types;
 pub mod row;       // P385: riga con schema condiviso
 pub mod lotti;     // P387: righe in uscita a lotti, senza attese per i flussi lenti
 pub mod spiega;    // P391: "spiega questo valore" — un'espressione calcolata pezzo per pezzo
+pub mod pushdown;  // P394: il Filter dopo un DB Input tradotto in WHERE
 pub mod events;
 pub mod bus;
 pub mod executor;

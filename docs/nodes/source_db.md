@@ -45,4 +45,11 @@ finisce: per un limite lato server si imposta `statement_timeout` (PostgreSQL) o
 `max_statement_time` (MariaDB) sull'utente. Il campo "Fetch size" è stato tolto: il motore
 legge già in streaming.
 
+**Filter pushdown (P394).** Se il nodo alimenta solo un Filter (con la porta reject non
+collegata), le condizioni del Filter si aggiungono alla query come `WHERE` e il database
+manda solo le righe che servono; il Filter resta e controlla ogni riga, quindi il risultato
+non cambia. Si spinge solo ciò che in SQL ha lo stesso significato (manuale FPEL §3.11);
+il log del nodo dice cosa è stato spinto o perché no. Opzione "Filter pushdown": Automatic
+/ Off.
+
 Questa sezione è scritta a mano e sopravvive alle rigenerazioni.

@@ -49,6 +49,8 @@ struct SourceDbConfig {
     query_compiled:  Option<CompiledQuery>,
     /// P344 — parametri di connessione per i dialetti ODBC.
     odbc:            crate::odbc::OdbcTarget,
+    /// P394 — opzione "Filter pushdown" spenta nel pannello.
+    pushdown_off:    bool,
 }
 
 /// Query con i `${campo}` già risolti in placeholder.
@@ -167,6 +169,7 @@ fn config_from_spec(spec: &Spec) -> Result<SourceDbConfig, String> {
         query,
         query_compiled:  st.query_compiled,
         odbc,
+        pushdown_off:    spec.str_or("pushdown", "auto") == "off",
     })
 }
 
@@ -399,11 +402,34 @@ pub async fn run(
     let qt = (config.query_timeout > 0).then(|| std::time::Duration::from_secs(config.query_timeout));
     ctx.emit_connection_opened(&resource_id, &format!("db_{}", dialect));
 
-    let result = match &pool {
-        DbPool::Pg(p)     => run_pg(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog, qt).await,
-        DbPool::My(p)     => run_mysql(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog, qt).await,
-        DbPool::Sqlite(p) => run_sqlite(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, &mut last_prog, qt).await,
-        DbPool::Odbc(p)   => run_odbc(ctx.clone(), tx, p, &query, &binds, &mut rows_out, &start, config.query_timeout).await,
+    // P394 — il Filter a valle spinto nella query, se si può (v. pushdown.rs).
+    let spinta = prepara_spinta(&ctx, &spec, &config, &pool, &query, &binds).await;
+
+    macro_rules! leggi {
+        ($tx:expr, $q:expr, $b:expr) => {
+            match &pool {
+                DbPool::Pg(p)     => run_pg(ctx.clone(), $tx, p, $q, $b, &mut rows_out, &start, &mut last_prog, qt).await,
+                DbPool::My(p)     => run_mysql(ctx.clone(), $tx, p, $q, $b, &mut rows_out, &start, &mut last_prog, qt).await,
+                DbPool::Sqlite(p) => run_sqlite(ctx.clone(), $tx, p, $q, $b, &mut rows_out, &start, &mut last_prog, qt).await,
+                DbPool::Odbc(p)   => run_odbc(ctx.clone(), $tx, p, $q, $b, &mut rows_out, &start, config.query_timeout).await,
+            }
+        };
+    }
+    let result = match spinta {
+        Some((q2, b2)) => {
+            let riserva = tx.clone();
+            match leggi!(tx, &q2, &b2) {
+                // Rifiutata prima di dare righe: si legge con la query originale.
+                // Spingere il filtro è un'ottimizzazione, mai un rischio per il run.
+                Err(e) if rows_out == 0 => {
+                    ctx.emit_log(&ctx.label, "warn", 0, format!(
+                        "the database did not accept the query with the filter pushed into it ({}): reading with the original query", e), "panel");
+                    leggi!(riserva, &query, &binds)
+                }
+                altro => altro,
+            }
+        }
+        None => leggi!(tx, &query, &binds),
     };
 
     // NB: nessun pool.close() — il pool è della lane (close_all()).
@@ -419,6 +445,94 @@ pub async fn run(
         rows_rejected: 0,
         elapsed_ms:    start.elapsed().as_millis() as u64,
         error:         None,
+    })
+}
+
+// ─── P394: il Filter a valle dentro la query ──────────────────────
+
+/// Se lo studio ha passato le condizioni del Filter (`spec.config.pushdown`)
+/// e si traducono in SQL con lo stesso significato, la query con il WHERE e
+/// i valori da legare. Altrimenti None, con il motivo nel log.
+async fn prepara_spinta(
+    ctx: &NodeContext, spec: &Spec, config: &SourceDbConfig, pool: &DbPool,
+    query: &str, binds: &[Value],
+) -> Option<(String, Vec<Value>)> {
+    use crate::engine::pushdown::{self, Dialetto, PushdownCfg};
+    if config.pushdown_off { return None }
+    let raw = spec.config().get("pushdown")?;
+    if raw.is_null() { return None }
+    let cfg: PushdownCfg = serde_json::from_value(raw.clone()).ok()?;
+    let nome = if cfg.filter.is_empty() { "filter".to_string() } else { format!("\"{}\"", cfg.filter) };
+    let non_spinto = |motivo: &str| {
+        ctx.emit_log(&ctx.label, "info", 0,
+            format!("{} not pushed into the query: {} — it runs in the engine as usual", nome, motivo), "panel");
+    };
+    let Some(d) = Dialetto::da(&config.dialect) else {
+        non_spinto(&format!("not supported for {}", config.dialect));
+        return None;
+    };
+    let su_tabella = spec.str_or("query", "").is_empty();
+    if su_tabella && (spec.u64_or("limit", 0) > 0 || spec.u64_or("offset", 0) > 0) {
+        non_spinto("the node reads with a row limit/offset, and filtering first would change which rows it keeps");
+        return None;
+    }
+    if !su_tabella && pushdown::ordina(query) {
+        non_spinto("the query sorts (ORDER BY): filtering outside it would not keep the order");
+        return None;
+    }
+
+    // Le colonne e i loro tipi, chiesti al database senza eseguire la query.
+    let colonne = match descrivi(pool, query).await {
+        Ok(c) => c,
+        Err(e) => { non_spinto(&format!("the database did not describe the query ({})", e)); return None }
+    };
+    let mut cat = std::collections::HashMap::new();
+    for (n, t) in &colonne {
+        // Due colonne con lo stesso nome: quale? Nessuna delle due.
+        let c = if cat.contains_key(n) { pushdown::Cat::Other } else { pushdown::categoria(d, t) };
+        cat.insert(n.clone(), c);
+    }
+    let s = match pushdown::traduci(&cfg, d, &cat, &ctx.variables, binds.len() + 1) {
+        Ok(s) => s,
+        Err(motivo) => { non_spinto(&motivo); return None }
+    };
+
+    let sql = if su_tabella {
+        let table = spec.str_or("table", "");
+        let schema = spec.str_or("querySchema", "public");
+        let qualified = if !schema.is_empty() && schema != "public" { format!("{}.{}", schema, table) } else { table };
+        let order = spec.str_or("orderBy", "");
+        format!("SELECT * FROM {} WHERE {}{}", qualified, s.where_sql,
+            if order.is_empty() { String::new() } else { format!(" ORDER BY {}", order) })
+    } else {
+        // A capo: un commento `--` in fondo alla query non si mangia la parentesi.
+        format!("SELECT * FROM (\n{}\n) fp_pushdown WHERE {}", senza_punto_e_virgola(query), s.where_sql)
+    };
+    ctx.emit_log(&ctx.label, "info", 0, format!(
+        "{} pushed into the query: WHERE {}{} — the filter still checks every row it receives",
+        nome, s.where_sql, if s.esatto { "" } else { " (a wider condition: the rest is checked by the filter)" }), "panel");
+    let mut tutti = binds.to_vec();
+    tutti.extend(s.binds);
+    Some((sql, tutti))
+}
+
+/// La query senza il `;` finale (dentro una sottoquery sarebbe un errore).
+fn senza_punto_e_virgola(q: &str) -> &str {
+    q.trim_end().trim_end_matches(';').trim_end()
+}
+
+/// Nomi e tipi delle colonne di una query (prepare, senza eseguirla).
+async fn descrivi(pool: &DbPool, query: &str) -> Result<Vec<(String, String)>, String> {
+    use sqlx::Executor;
+    let q = || sqlx::SqlSafeStr::into_sql_str(crate::sqlsafe::autore(query));
+    macro_rules! colonne {
+        ($d:expr) => { $d.columns().iter().map(|c| (c.name().to_string(), c.type_info().name().to_string())).collect() };
+    }
+    Ok(match pool {
+        DbPool::Pg(p)     => { let d = p.describe(q()).await.map_err(|e| e.to_string())?; colonne!(d) }
+        DbPool::My(p)     => { let d = p.describe(q()).await.map_err(|e| e.to_string())?; colonne!(d) }
+        DbPool::Sqlite(p) => { let d = p.describe(q()).await.map_err(|e| e.to_string())?; colonne!(d) }
+        DbPool::Odbc(_)   => return Err("ODBC".into()),
     })
 }
 

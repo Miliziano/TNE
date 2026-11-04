@@ -2727,3 +2727,26 @@ provenienza dei campi, FPEL→SQL; quindi le attività per la prima versione da 
   si calcola sul canvas, dove stanno le configurazioni dei nodi.
 - Trovati con la provenienza negli esempi (non corretti): 08-tmap `imponibile` ha espressione
   `importo_ivato`; 06-aggregazione alias "conteggio dei movimenti" su `sum(importo)`.
+
+## AGGIORNAMENTO — Filter spinto nella query del DB Input (stato al P394, 4 novembre)
+
+- Studio: `src/ir/pushdown.ts` → `filtroDaSpingere(node, nodes, edges)`: DB Input con un solo
+  arco dati verso un Filter, Filter con un solo ingresso, porta reject non collegata, prop
+  `pushdown` ≠ 'off'. `buildRustPlan` mette le condizioni compilate in
+  `spec.config.pushdown {filter, conditions, null_behavior, case_sensitive}` del source_db
+  (helper `condizioniFiltro`, ora usato anche dal case 'filter'). Pannello Query: "Filter
+  pushdown" Automatic/Off. Test `src/ir/pushdown.test.ts`.
+- Motore: `engine/pushdown.rs` → `traduci(cfg, dialetto, colonne, variabili, primo_segnaposto)`
+  = WHERE sopra-insieme del Filter (il Filter resta e rifinisce). AND monotono (pezzo non
+  traducibile = TRUE), OR tutto o niente, NOT solo su pezzi esatti (`NOT COALESCE(…, FALSE)`),
+  `!=` → `OR IS NULL`, testo: `=`/LIKE/IN (con `!=` solo PG text), numeri legati come Decimal,
+  DATE con CAST, TIMESTAMP solo con data (`>` → `>=`), timestamptz mai. Categorie colonna da
+  `describe` (`categoria`). Visual: solo exclude, numerici solo su interi, testo solo
+  case-sensitive. `ordina()` rileva ORDER BY al livello alto.
+- `source_db.rs`: `prepara_spinta` (log "pushed into the query: WHERE …" o "not pushed: …"),
+  query avvolta `SELECT * FROM (\n…\n) fp_pushdown WHERE …` (senza `;` finale) o, su tabella
+  senza limit/offset, WHERE prima dell'ORDER BY; se il database rifiuta prima della prima
+  riga si rilegge con la query originale. Solo PostgreSQL, MySQL, SQLite.
+- Corretto: Filter visual `>`/`<` sui Decimal (colonne NUMERIC) era sempre falso (`num_of`).
+- Test: unit in `pushdown.rs`, `tests/pushdown_db.rs` (SQLite vero: stesse righe con e senza,
+  meno righe lette, ORDER BY e calcolo non spinti), in CI. Manuale FPEL §3.11, scheda source_db.

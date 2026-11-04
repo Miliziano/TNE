@@ -462,6 +462,9 @@ fn num_of(v: &Value) -> Option<f64> {
     match v {
         Value::Int(n)    => Some(*n as f64),
         Value::Float(f)  => Some(*f),
+        // P394: NUMERIC/DECIMAL di un database. Prima mancava: `prezzo > 10`
+        // in modalità visual era sempre falso sulle colonne decimali.
+        Value::Decimal(d) => { use rust_decimal::prelude::ToPrimitive; d.to_f64() }
         Value::Bool(b)   => Some(if *b { 1.0 } else { 0.0 }),
         Value::String(s) => s.trim().parse::<f64>().ok(),
         _                => None,
@@ -574,6 +577,18 @@ mod tests {
             }));
             for ci in 0..4 { assert_eq!(passes(&p, &r, ci), atteso, "cs={} cond={}", cs, ci); }
         }
+    }
+
+    #[test]
+    fn visual_numerico_sui_decimali() {
+        // P394: una colonna NUMERIC arriva come Decimal; prima `>` era sempre falso.
+        let r = row(&[("prezzo", Value::Decimal(rust_decimal::Decimal::new(1250, 2)))]);
+        let p = plan(serde_json::json!({ "conditions": [
+            { "id": "a", "mode": "visual", "clauses": [{ "field": "prezzo", "operator": ">", "value": "10" }] },
+            { "id": "b", "mode": "visual", "clauses": [{ "field": "prezzo", "operator": "<=", "value": "12.4" }] }
+        ]}));
+        assert!(passes(&p, &r, 0));
+        assert!(!passes(&p, &r, 1));
     }
 
     #[test]

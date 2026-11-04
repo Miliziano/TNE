@@ -254,6 +254,45 @@ nodo che non dichiarano cosa fanno dei campi li *assumono* passati.
 cui viene e il percorso (`target;port;field;origin;path`): è il documento da
 allegare a una revisione o a un controllo dei dati.
 
+### 3.11 Il Filter dentro la query del database (P394)
+Quando un **DB Input** manda le sue righe **solo** a un **Filter** (e la porta
+*reject* del Filter non è collegata), le condizioni del Filter finiscono anche
+nella query, come `WHERE`: il database restituisce solo le righe che servono
+invece di mandarle tutte al motore. Con tabelle grandi è la differenza fra
+leggere milioni di righe e leggerne poche.
+
+Il risultato **non cambia**: il Filter resta al suo posto e controlla ogni riga
+come prima. Il `WHERE` tiene sempre **almeno** le righe che il Filter terrebbe,
+mai una di meno; ciò che non si sa tradurre con lo stesso significato resta al
+solo Filter:
+
+- si confronta un **campo** con un **valore** (scritto, o una variabile di lane
+  `var("x")`, il cui valore si conosce prima di eseguire): `qta > 10`,
+  `stato == "A"`, `stato in ["A","B"]`, `data between "2024-01-01" and
+  "2024-03-31"`, `x is null`, `like`/`contains`/`starts_with`/`ends_with`;
+  con `&&`, `||` e `!`;
+- il tipo della **colonna** (chiesto al database prima di eseguire) deve andare
+  con il valore: numero con numero, testo con testo, data `AAAA-MM-GG` con una
+  colonna data; un calcolo (`qta * prezzo > 100`), una funzione sul campo
+  (`lower(nome) == "x"`), un tipo che il motore non conosce: non si spingono;
+- le differenze fra FPEL e SQL sono trattate: `x != 5` in FPEL tiene le righe
+  con `x` nullo (in SQL si aggiunge `OR x IS NULL`); sul testo, dove il
+  database confronta senza maiuscole (MySQL) o con gli spazi (CHAR), si spinge
+  solo ciò che tiene di più (`==`, `like`), mai `!=` o `<`; i decimali si
+  legano esatti;
+- in un `&&` la parte non traducibile si lascia al Filter e si spinge il resto;
+  in un `||` no (si spinge tutto o niente);
+- i valori viaggiano come **parametri** della query: nessun testo finisce
+  dentro l'SQL.
+
+Vale per PostgreSQL, MySQL/MariaDB e SQLite. Non si spinge quando la query ha
+un `ORDER BY` (filtrare fuori dalla query non garantirebbe più l'ordine) o
+quando il nodo legge una tabella con limite/offset (cambierebbe *quali* righe
+tiene). Il log del DB Input dice cosa ha spinto (`pushed into the query: WHERE
+…`) o perché no. Se il database rifiuta la query con il filtro prima di dare
+righe, il nodo legge con la query originale e lo dice nel log. L'opzione
+**Filter pushdown** del DB Input (Automatic / Off) lo spegne.
+
 ## 4. Il linguaggio di istruzioni (nodo Script)
 
 ### 4.1 Modello di esecuzione

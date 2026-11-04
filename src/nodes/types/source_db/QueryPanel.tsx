@@ -219,6 +219,13 @@ export function SourceDbQueryPanel({ nodeId }: { nodeId: string }) {
       <Field label="Order (ORDER BY)">
         <input type="text" style={inputStyle} value={p('orderBy')} onChange={u('orderBy')} placeholder="id ASC, created_at DESC" />
       </Field>
+      {/* P394: il Filter subito dopo tradotto in WHERE (v. src/ir/pushdown.ts) */}
+      <Field label="Filter pushdown" hint="When this node feeds only a Filter (with its reject port unused), the Filter's conditions are also added to the query as WHERE, so the database sends only the rows that are needed. The Filter still checks every row: the result is the same. The node log says what was pushed, or why not.">
+        <select style={inputStyle} value={p('pushdown', 'auto')} onChange={u('pushdown')}>
+          <option value="auto">Automatic</option>
+          <option value="off">Off</option>
+        </select>
+      </Field>
 
     </div>
   )

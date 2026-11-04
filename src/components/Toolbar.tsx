@@ -29,6 +29,7 @@ import { monitor, snapshotFromAppMemory } from '../monitoring/MonitoringBus'
 import { compileTransformFields, type TransformFieldSpec } from '../transforms/templateCompiler'
 import { parseUserFunctions, compileFpel } from '../ir/userFunctions'
 import { validateDecodeTables } from '../ir/decodeTables'
+import { filtroDaSpingere } from '../ir/pushdown'
 import { esempiFalliti } from '../lib/fpelEngine'
 import { compileSerializerTree } from '../ir/serializerTree'
 import { isCaseSensitive, effectiveExecMode, type FilterConfig } from '../nodes/types/filter/filterTypes'
@@ -506,6 +507,30 @@ function buildRustPlan(
   // funzioni utente: ora passano tutti dallo stesso compilatore.
   const fpel = (src: string) => compileFpel(src, { userFunctions: userFns, decodeTables })
 
+  // Condizioni del Filter compilate (FPEL → IR). Le usa il Filter e, P394, il
+  // DB Input che lo ha subito dopo (le traduce in WHERE: v. src/ir/pushdown.ts).
+  const condizioniFiltro = (node: FlowNode<NodeData>) => {
+    const f = (node.data.config as { filter?: Partial<FilterConfig> } | undefined)?.filter
+    const conditions = (f?.conditions ?? []).map((c) => {
+      if (c.mode !== 'code') return c
+      const src = (c.code ?? '').trim()
+      const where = `Filter "${node.data.label}", condition "${c.label}"`
+      if (!src) throw new Error(`${where}: the FPEL expression is empty`)
+      try {
+        return { ...c, expr: fpel(src) }
+      } catch (e) {
+        const detail = e instanceof ExprParseError ? e.pretty() : String(e)
+        throw new Error(`${where}: not a valid FPEL expression (the old JavaScript code mode is no longer supported)\n${detail}`, { cause: e })
+      }
+    })
+    return {
+      conditions,
+      null_behavior:  f?.nullBehavior ?? 'exclude',
+      case_sensitive: isCaseSensitive(f),
+      exec_mode:      effectiveExecMode(f),
+    }
+  }
+
  // ── Bridge tra lane — accoppiati per channelName condiviso.
   // I bridge NON hanno un edge nel canvas: collegano lane diverse e
   // l'accoppiamento è logico, per nome canale (stessa logica di
@@ -712,6 +737,15 @@ function buildRustPlan(
           if (queryHasParams(rawQuery)) {
             specConfig.queryCompiled = compileQueryParams(rawQuery)
           }
+          // P394: il Filter subito dopo, se si può, finisce nel WHERE.
+          const filtro = filtroDaSpingere(node, nodes, edges)
+          if (filtro) {
+            const { conditions, null_behavior, case_sensitive } = condizioniFiltro(filtro)
+            specConfig.pushdown = {
+              filter: filtro.data.config?.displayName || filtro.data.label,
+              conditions, null_behavior, case_sensitive,
+            }
+          }
           break
         }
 
@@ -843,23 +877,7 @@ function buildRustPlan(
           // modalità code sono FPEL: si compilano qui in IR (`expr`), come
           // il transform — un errore blocca il Run invece di diventare una
           // condizione sempre falsa nel motore.
-          const f = (node.data.config as { filter?: Partial<FilterConfig> } | undefined)?.filter
-          const conditions = (f?.conditions ?? []).map((c) => {
-            if (c.mode !== 'code') return c
-            const src = (c.code ?? '').trim()
-            const where = `Filter "${node.data.label}", condition "${c.label}"`
-            if (!src) throw new Error(`${where}: the FPEL expression is empty`)
-            try {
-              return { ...c, expr: fpel(src) }
-            } catch (e) {
-              const detail = e instanceof ExprParseError ? e.pretty() : String(e)
-              throw new Error(`${where}: not a valid FPEL expression (the old JavaScript code mode is no longer supported)\n${detail}`, { cause: e })
-            }
-          })
-          specConfig.conditions     = conditions
-          specConfig.null_behavior  = f?.nullBehavior ?? 'exclude'
-          specConfig.case_sensitive = isCaseSensitive(f)
-          specConfig.exec_mode      = effectiveExecMode(f)
+          Object.assign(specConfig, condizioniFiltro(node))
           break
         }
 
